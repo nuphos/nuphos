@@ -50,6 +50,8 @@ export type NuphosTeamDoc = {
   allowedEmailDomains?: string[]
   /** Stored value; the retired `nuphos` and absent both map to Claude Code. */
   agentRuntime?: string
+  /** Unset is `private`. */
+  bindingShareDefault?: string
   members: {
     userId: ObjectId
     role: NuphosTeamRole
@@ -95,6 +97,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     contactEmails: team.contactEmails,
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: runtimeProvider(team.agentRuntime),
+    bindingShareDefault: team.bindingShareDefault === 'team' ? 'team' : 'private',
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

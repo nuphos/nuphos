@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChatFace
 import ai.nuphos.android.model.ChannelPost
@@ -47,7 +48,7 @@ class ChannelSession(
     }
 
     class Api(private val token: String, private val teamId: String, private val channelId: String) : Transport {
-        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail)
+        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail, runtimeState = false)
         override suspend fun agents() = NuphosApi.channelAgents(token, teamId, channelId)
         override suspend fun attachment(groupId: String) = NuphosApi.channelAttachment(token, teamId, channelId, groupId)
         private val transfers = AttachmentTransfers()
@@ -72,6 +73,10 @@ class ChannelSession(
         override suspend fun pending() = questions.pending()
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
             questions.answer(sessionId, requestId, answer)
+        override suspend fun dismiss(sessionId: String, requestId: String, reason: String?) =
+            questions.dismiss(sessionId, requestId, reason)
+        override suspend fun credentials(sessionId: String) = questions.credentials(sessionId)
+        override suspend fun saveCredentials(sessionId: String, access: JsonValue) = questions.saveCredentials(sessionId, access)
     }
 
     var title by mutableStateOf(title)
@@ -129,7 +134,8 @@ class ChannelSession(
 
     val posts: List<ChannelPost> get() = stored + ChannelPost.stillSending(stored, sending)
 
-    private val open = OpenQuestions(transport)
+    /** In a Bot's chat: its open questions, answered and connected on their cards as in the Inbox. */
+    val open = OpenQuestions(transport)
     /** In a Bot's chat: the open questions of the Bot and of every agent under it. */
     val questions: List<BotQuestion> get() = open.list
 
@@ -146,6 +152,9 @@ class ChannelSession(
     /** Answers a several-question or multi-select card with what its form built. */
     fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, body, scope)
+
+    /** Dismisses a question in this chat at once, without a reason: the agent that asked is told. */
+    fun dismiss(question: BotQuestion, scope: kotlinx.coroutines.CoroutineScope) = open.dismiss(question, null, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
@@ -291,6 +300,8 @@ class ChannelSession(
         sendingAttachments = sendingAttachments.filterKeys { id -> sending.any { it.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar, it.avatarBackground) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces

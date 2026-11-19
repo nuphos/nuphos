@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
@@ -7,6 +8,13 @@ import {
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import {
+  clickOptions,
+  formQuestions,
+  ownBody,
+} from '../../components/agent/panel/decisionFormModel'
+import { DecisionOptions, PILL } from '../../components/agent/panel/DecisionOptions'
+import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
@@ -14,88 +22,126 @@ import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
+import { KeyHint } from './KeyHint'
 import { QuestionSource } from './QuestionRail'
+import { SnoozeMenu } from './SnoozeMenu'
 import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
-import type { ReactNode } from 'react'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
- * as its headline and what the agent wrote to decide it from. A choice is a row
- * of buttons, or "Other…" to answer in words; the answer wakes the agent that
- * asked, and no message is sent. Several questions at once, a secret or an
- * integration keep the card the conversation draws: a secret sends only where
+ * as its headline and what the agent wrote to decide it from. A choice, of one
+ * answer or several, is the card's own row of options, "Other…" to answer in
+ * words, Snooze and Dismiss, all the same pill; the answer wakes the agent that
+ * asked, and no message is sent. A secret or an integration keeps the card the
+ * conversation draws: a secret sends only where
  * its value was saved, and an integration is selected in the asking
- * conversation's credentials, by whoever may change them.
+ * conversation's credentials, by whoever may change them. Snooze sets it aside
+ * until a time; Dismiss closes it, with a reason for the agent if one is given.
  */
 export function DecisionCard({
   teamId,
   conversation,
+  bot,
   request,
   keys,
   onAnswer,
-  onSkip,
-  onOpenConversation,
+  onSnooze,
+  onDismiss,
+  onOpenSource,
   onOpenLink,
 }: {
   teamId: string
   conversation: AgentConversation
+  /** The Bot it works under, when a Bot's task asked: the Inbox lists it there. */
+  bot: AgentConversation | undefined
   request: AgentInputRequest
   /** Its keys are live: 1–9 choose, Esc closes "Other…". */
   keys: boolean
   onAnswer: (answer: DecisionAnswer) => void
-  onSkip: (() => void) | undefined
-  onOpenConversation: () => void
+  onSnooze: (until: Date) => void
+  onDismiss: (reason: string) => void
+  onOpenSource: (source: AgentConversation) => void
   /** Opens a link in the question's text, as the conversation does. */
   onOpenLink: (href: string, beside: boolean) => boolean
 }) {
   const { sessionId } = conversation
+  const source = bot ?? conversation
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
   const { part, typed } = botChatQuestion(request)
-  const choice = parseChoiceRequest(part.input)
-  // A plain choice is answered on the page; anything else on its own card.
-  const plain =
-    choice !== null &&
-    !choice.multiSelect &&
-    !choice.questions?.length &&
-    (choice.options.length > 0 || typed)
+  const page = pageChoice(part.input, typed)
+  const failure = useAnswerFailure(request.id)
   const [other, setOther] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const [reason, setReason] = useState('')
+
+  useDigitKeys(keys && !other && !dismissing, page?.keyOptions, onAnswer)
+  // Snooze and Dismiss, as two more of the options' buttons.
+  const asides = (
+    <>
+      <SnoozeMenu className={PILL} onSnooze={onSnooze} />
+      {!dismissing && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={PILL}
+          onClick={() => {
+            setOther(false)
+            setDismissing(true)
+          }}
+        >
+          <X aria-hidden className="size-3.5" />
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <article className="mx-auto flex w-full max-w-[640px] flex-col px-6 pb-10 pt-12">
         <QuestionSource
-          conversation={conversation}
+          conversation={source}
           askedAt={request.askedAt}
-          onOpen={onOpenConversation}
+          updatedAt={request.updatedAt}
+          onOpen={() => onOpenSource(source)}
         />
-        {plain ? (
+        {page ? (
           <>
-            <h1 className="selectable mt-3 text-[20px] font-semibold leading-7 text-main">
+            <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">
               {request.question}
-            </h1>
-            {choice.body && (
+            </DecisionTitle>
+            {page.body && (
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
                 streaming={false}
                 onLinkClick={onOpenLink}
               >
-                {choice.body}
+                {page.body}
               </MessageResponse>
             )}
-            <ChoiceRow
-              requestId={request.id}
-              options={choice.options}
-              typed={typed}
-              keys={keys}
-              other={other}
-              onOther={setOther}
-              onAnswer={onAnswer}
-            />
+            <div className="mt-2">
+              <DecisionOptions
+                key={request.id}
+                questions={page.questions}
+                disabled={false}
+                typeable={typed}
+                onSubmit={onAnswer}
+                onTyping={(open) => {
+                  setOther(open)
+                  if (open) setDismissing(false)
+                }}
+                closesWords={dismissing}
+                voiceTeamId={teamId}
+              >
+                {asides}
+              </DecisionOptions>
+            </div>
+            {failure && <AnswerFailure message={failure} />}
           </>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
@@ -120,29 +166,40 @@ export function DecisionCard({
                 {t('Only the owner of this conversation can connect this.')}
               </span>
             )}
+            <div className="flex flex-wrap items-center gap-2">{asides}</div>
+          </div>
+        )}
+        {dismissing && (
+          <div className="mt-4">
+            <AnswerField
+              text={reason}
+              onText={setReason}
+              onSend={onDismiss}
+              onClose={() => setDismissing(false)}
+              label={t('Reason (optional)')}
+              // The server takes a reason of up to 1,000 characters.
+              maxLength={1_000}
+              action={t('Dismiss')}
+              optional
+            />
           </div>
         )}
         <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
-          {other ? (
+          {other || dismissing ? (
             <>
-              <KeyHint keys={['↵']} label={t('Send')} />
+              <KeyHint keys={['↵']} label={dismissing ? t('Dismiss') : t('Send')} />
               <KeyHint keys={['esc']} label={t('Close')} />
             </>
           ) : (
             <>
               <KeyHint keys={['↑', '↓']} label={t('Navigate')} />
-              {plain && choice.options.length > 0 && (
+              {page?.keyOptions && (
                 <KeyHint
-                  keys={choice.options.slice(0, 2).map((_, index) => String(index + 1))}
+                  keys={page.keyOptions.slice(0, 2).map((_, index) => String(index + 1))}
                   label={t('Choose')}
                 />
               )}
             </>
-          )}
-          {onSkip && (
-            <button type="button" onClick={onSkip} className="ml-auto hover:text-main">
-              {t('Skip')}
-            </button>
           )}
         </footer>
       </article>
@@ -151,32 +208,34 @@ export function DecisionCard({
 }
 
 /**
- * The options as a row of buttons, the first the likely answer, and "Other…"
- * last, which opens a field to answer in words.
+ * A choice answered on the page, of one answer or several: its questions, the
+ * body the agent wrote, and the options 1–9 choose when a click answers it.
+ * Null for a secret or an integration, which keep their own card.
  */
-function ChoiceRow({
-  requestId,
-  options,
-  typed,
-  keys,
-  other,
-  onOther,
-  onAnswer,
-}: {
-  requestId: string
-  options: string[]
-  /** It may be answered in words. */
-  typed: boolean
-  keys: boolean
-  other: boolean
-  onOther: (open: boolean) => void
-  onAnswer: (answer: DecisionAnswer) => void
-}) {
-  const failure = useAnswerFailure(requestId)
-  const [draft, setDraft] = useState('')
+function pageChoice(input: unknown, typed: boolean) {
+  const choice = parseChoiceRequest(input)
 
+  if (!choice) return null
+  const questions = formQuestions(choice)
+
+  if (!typed && !questions.some((q) => q.options.length > 0)) return null
+  const clicked = clickOptions(questions)
+
+  return {
+    questions,
+    body: ownBody(choice.body, choice.questions),
+    keyOptions: clicked?.length ? clicked : undefined,
+  }
+}
+
+/** 1–9 choose an option of a question answered by a click, unless a field has the caret. */
+function useDigitKeys(
+  enabled: boolean,
+  options: string[] | undefined,
+  onAnswer: (answer: DecisionAnswer) => void,
+) {
   useEffect(() => {
-    if (!keys || other) return
+    if (!enabled || !options) return
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
 
@@ -193,59 +252,5 @@ function ChoiceRow({
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [keys, other, options, onAnswer])
-
-  return (
-    <div className="mt-5 flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {options.map((option, index) => (
-          <Button
-            key={option}
-            variant={index === 0 ? 'primary' : 'secondary'}
-            size="sm"
-            className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
-            onClick={() => onAnswer({ choices: [option] })}
-          >
-            {option}
-          </Button>
-        ))}
-        {typed && (
-          <Button
-            variant={other ? 'secondary' : 'ghost'}
-            size="sm"
-            aria-expanded={other}
-            onClick={() => onOther(!other)}
-          >
-            {options.length > 0 ? t('Other…') : t('Reply…')}
-          </Button>
-        )}
-      </div>
-      {other && (
-        <AnswerField
-          text={draft}
-          onText={setDraft}
-          onSend={(text) => onAnswer({ text })}
-          onClose={() => onOther(false)}
-        />
-      )}
-      {failure && <AnswerFailure message={failure} />}
-    </div>
-  )
-}
-
-/** A key, or keys, and what pressing it does. */
-function KeyHint({ keys, label }: { keys: string[]; label: ReactNode }) {
-  return (
-    <span className="flex items-center gap-1">
-      {keys.map((key) => (
-        <kbd
-          key={key}
-          className="min-w-4 rounded bg-surface-sunken px-1 text-center font-sans text-[10.5px] leading-4 text-secondary"
-        >
-          {key}
-        </kbd>
-      ))}
-      <span className="ml-0.5">{label}</span>
-    </span>
-  )
+  }, [enabled, options, onAnswer])
 }

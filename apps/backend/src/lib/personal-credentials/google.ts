@@ -1,6 +1,6 @@
-// Google OAuth for the Gmail and Google Drive Personal Credentials. Each team
+// Google OAuth for the Gmail, Google Drive and Google Calendar Personal Credentials. Each team
 // brings its own OAuth client (Team settings); each provider is its own grant
-// with one scope, issued by the team's client.
+// with its own scopes, issued by the team's client.
 import { config } from '@/config'
 import { decryptLinearSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
@@ -11,13 +11,25 @@ import { teamByosBindings } from '@/models'
 
 import type { ProviderTokens } from './github'
 
-export type GoogleProvider = 'gmail' | 'google-drive'
+export type GoogleProvider = 'gmail' | 'google-drive' | 'google-calendar'
 
-export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = ['gmail', 'google-drive']
+export const GOOGLE_PROVIDERS: readonly GoogleProvider[] = [
+  'gmail',
+  'google-drive',
+  'google-calendar',
+]
 
 const SCOPES: Record<GoogleProvider, string> = {
-  gmail: 'https://www.googleapis.com/auth/gmail.modify',
+  // settings.basic covers filters, which gmail.modify does not; contacts.readonly
+  // lets the agent look up who to write to.
+  gmail: [
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.settings.basic',
+    'https://www.googleapis.com/auth/contacts.readonly',
+  ].join(' '),
   'google-drive': 'https://www.googleapis.com/auth/drive',
+  // Events only: no calendar sharing, ACLs or calendar management.
+  'google-calendar': 'https://www.googleapis.com/auth/calendar.events',
 }
 
 const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -49,7 +61,7 @@ export async function teamGoogleClient(teamId: string): Promise<GoogleClient | n
  */
 export async function googleTeamFor(userId: string, teamId: string | undefined): Promise<string> {
   if (!teamId || !(await getTeamMembership(userId, teamId))) {
-    throw new AppError(403, 'forbidden', 'Connect Gmail or Google Drive from a team you belong to')
+    throw new AppError(403, 'forbidden', 'Connect a Google account from a team you belong to')
   }
   if (!config.byos.composio.apiKey && !(await teamGoogleClient(teamId))) {
     throw new AppError(

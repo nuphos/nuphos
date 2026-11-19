@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_toolbar_runtimes">Computers &amp; runtimes</string>
+    <string name="home_toolbar_switch_team">Switch team</string>
+    <string name="home_toolbar_choose_team">Choose team</string>
+    <string name="home_toolbar_create">Create</string>
+    <string name="home_toolbar_new_bot">New Bot</string>
+    <string name="home_toolbar_new_task">New Task</string>
+    <string name="home_toolbar_account">Account</string>
+    <string name="home_toolbar_close_workspace">Close workspace</string>
+</resources>

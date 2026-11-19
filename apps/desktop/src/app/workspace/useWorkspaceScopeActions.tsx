@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 
 import { isObservabilityActive } from '../../app/navItems'
+import { setSidebarMode } from '../../components/sidebar/sidebarModeStore'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { DEFAULT_KEY } from '../../lib/appRoutes'
@@ -184,7 +185,7 @@ export function useWorkspaceScopeActions(a: Args) {
   // (flows that hand off to the agent, such as cloud connector setup);
   // pass `send: false` to only prefill the composer — used by shortcuts that
   // seed context but want the user to review/edit the intent before sending
-  // (e.g. Monitoring's "Watch with Agent").
+  // (e.g. Monitoring's "Watch in a task").
   const openAgentChatWithPrompt = useCallback(
     (prompt: string, options?: { send?: boolean; background?: boolean }) => {
       chatPromptNonceRef.current += 1
@@ -192,6 +193,11 @@ export function useWorkspaceScopeActions(a: Args) {
       if (!options?.background) {
         workspaceActions.selectSession(null)
         setWorkspaceDockExpanded(false)
+        // A new task's composer is on the Tasks page: on the Bots page the prompt
+        // would wait unseen behind the New Bot screen and never send.
+        const teamId = selectScope(workspaceStore.getState())?.teamId
+
+        if (teamId) setSidebarMode(teamId, 1)
       }
       enqueueChatPrompt({
         text: prompt,
@@ -202,7 +208,13 @@ export function useWorkspaceScopeActions(a: Args) {
         nonce: chatPromptNonceRef.current,
       })
     },
-    [chatPromptNonceRef, enqueueChatPrompt, workspaceActions, setWorkspaceDockExpanded],
+    [
+      chatPromptNonceRef,
+      enqueueChatPrompt,
+      workspaceActions,
+      workspaceStore,
+      setWorkspaceDockExpanded,
+    ],
   )
 
   return {

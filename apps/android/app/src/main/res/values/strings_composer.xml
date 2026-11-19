@@ -116,6 +116,10 @@
     <string name="composer_saving">Saving…</string>
     <string name="composer_send_securely">Send securely</string>
     <string name="composer_secret_footer">The value is written to a file on the task\'s runtime and never appears in this task.</string>
+    <string name="composer_secret_details_needed">Details needed for %1$s</string>
+    <string name="composer_secret_fields_footer">The values are written to files on the task\'s runtime and entered on %1$s without passing through this task.</string>
+    <string name="composer_secret_reveal">Reveal values</string>
+    <string name="composer_secret_hide">Hide values</string>
 
     <!-- TransferCard -->
     <string name="composer_attachments_unavailable">Attachments unavailable</string>

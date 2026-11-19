@@ -69,7 +69,7 @@ test('a transcript that never catches up falls back to the generic closed senten
   assert.equal(fetches, CLOSED_TRANSCRIPT_RETRY_DELAYS_MS.length)
   assert.equal(
     notification.body,
-    'The agent stopped while it was closed — open it to see what happened.',
+    'The task stopped while it was closed — open it to see what happened.',
   )
 })
 

@@ -5,6 +5,7 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
 import { agentName, agentRunsOn, visibleAgent } from '../settings/agentPresentation'
+import { ResetsIn } from '../settings/RuntimeUsageBar'
 
 export function StatsSubscriptions({ teamId }: { teamId: string }) {
   const catalog = useRuntimeInstances(teamId)
@@ -13,8 +14,8 @@ export function StatsSubscriptions({ teamId }: { teamId: string }) {
   const instances = catalog.instances.filter(visibleAgent)
 
   if (catalog.loading) return <p className="text-sm text-tertiary">{t('Loading...')}</p>
-  if (catalog.error) return <p className="text-sm text-tertiary">{t('Could not load agents')}</p>
-  if (!instances.length) return <p className="text-sm text-tertiary">{t('No agents yet.')}</p>
+  if (catalog.error) return <p className="text-sm text-tertiary">{t('Could not load runtimes')}</p>
+  if (!instances.length) return <p className="text-sm text-tertiary">{t('No runtimes yet.')}</p>
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-4">
@@ -29,7 +30,7 @@ export function StatsSubscriptions({ teamId }: { teamId: string }) {
               {agentName(instance)}
             </div>
             <p className="mb-4 text-xs text-tertiary">
-              {agentRunsOn(instance, computer?.deviceId, quota)}
+              {agentRunsOn(instance, computer, quota)}
               {quota?.plan ? ` · ${quota.plan}` : ''}
             </p>
             {!windows.length && (
@@ -45,22 +46,22 @@ export function StatsSubscriptions({ teamId }: { teamId: string }) {
                       <span>{window.label}</span>
                       <span>{t('{percent}% left', { percent: Math.round(left) })}</span>
                     </div>
-                    <div
-                      role="progressbar"
-                      aria-label={`${agentName(instance)} · ${window.label}`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={left}
-                      className="h-2 overflow-hidden rounded-full bg-surface-sunken"
-                    >
+                    <div className="flex items-center gap-3">
                       <div
-                        className="h-full rounded-full bg-action-primary"
-                        style={{ width: `${String(left)}%` }}
-                      />
+                        role="progressbar"
+                        aria-label={`${agentName(instance)} · ${window.label}`}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={left}
+                        className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-sunken"
+                      >
+                        <div
+                          className="h-full rounded-full bg-action-primary"
+                          style={{ width: `${String(left)}%` }}
+                        />
+                      </div>
+                      <ResetsIn resetsAt={window.resetsAt} />
                     </div>
-                    <p className="mt-1 text-[11px] text-tertiary">
-                      {quotaWindowLine(window, new Date())}
-                    </p>
                   </div>
                 )
               })}

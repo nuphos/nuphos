@@ -9,6 +9,7 @@ import { listSlackChannelMappings } from '@/lib/slack/agent-bot'
 import { getSlackBindingForTeam, publicSlackInstallationView } from '@/lib/slack/installations'
 import { summarizeSlackLinkedChannels } from '@/lib/slack/linked-channels'
 import { isSlackOAuthConfigured } from '@/lib/slack/oauth'
+import { canRequestUseBinding } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { aliyunAccountsView } from '@/routes/aliyun-accounts'
 import { publicView as asanaAccountView } from '@/routes/asana-accounts'
@@ -129,7 +130,9 @@ teamConnectorsRoutes.get('/', async (c) => {
       doc?.betterStackIntegrations,
       betterStackIntegrationView,
     ),
-    uptimeKuma: uptimeKumaInstancesView(doc?.uptimeKumaInstances, userId),
+    uptimeKuma: uptimeKumaInstancesView(doc?.uptimeKumaInstances, (access) =>
+      canRequestUseBinding(c, access),
+    ),
     tailscale: connectorViews('tailscale', doc?.tailscaleClients, tailscaleClientView),
     zeabur: zeaburBindings.flatMap(zeaburProviderView),
     github: connectorViews('github', doc?.githubInstallations, githubInstallationView),

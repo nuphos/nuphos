@@ -34,7 +34,9 @@ export type PendingUserMessage = {
   chat?: QueuedChatTurn
   /** Times a turn took this message and could not run it. */
   attempts?: number
-  /** When a turn first found its computer offline; reported once that outlasts a reconnect. */
+  /** A runtime that kept refusing it: no replica tries again before this time. */
+  retryAfter?: string
+  /** When a turn first found its computer offline or failed to start; reported once that outlasts the grace. */
   offlineSince?: string
   /** The question this notice answers: open again when the notice never runs. */
   answers?: InputRequest

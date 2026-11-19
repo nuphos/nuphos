@@ -2,6 +2,7 @@ import { Queue } from 'bullmq'
 
 import { redisEnabled } from '@/lib/redis'
 
+import { enqueueReport } from './task-report-queue'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 
 import type { ResourceTurn } from './resource-webhook'
@@ -9,11 +10,35 @@ import type { ResourceTurn } from './resource-webhook'
 // A producer-only connection: importing tools must not load the worker/route graph.
 let queue: Queue | undefined
 
+export async function enqueueTaskReport(reportId: string): Promise<void> {
+  if (!redisEnabled())
+    throw new Error('Task report delivery requires Redis; the report is saved for recovery.')
+  queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
+  await enqueueReport(queue, reportId)
+}
+
 export async function closeThreadQueue(): Promise<void> {
   const closing = queue
 
   queue = undefined
   await closing?.close()
+}
+
+/** One delivery of a session's waiting answers when its agent's usage is back. */
+export async function enqueueAnswerDelivery(sessionId: string, requestId: string, at: string) {
+  if (!redisEnabled()) return
+  queue ??= new Queue(AGENT_TRIGGER_QUEUE, { connection: buildBullMQConnection() })
+  await queue.add(
+    'answer-delivery',
+    { sessionId },
+    {
+      jobId: `answer-${sessionId}-${requestId}`,
+      // A couple of minutes past the reset, so the reading has moved on.
+      delay: Math.max(0, Date.parse(at) - Date.now()) + 2 * 60_000,
+      removeOnComplete: true,
+      removeOnFail: true,
+    },
+  )
 }
 
 export async function enqueueResourceTurn(data: ResourceTurn): Promise<void> {

@@ -232,14 +232,16 @@ test('a computer with no agent still opens its own desktop, for its owner in its
   const app = { version: '0.120.0', update: { version: '0.121.0', ready: true } }
 
   await report({ desktopOpen: true, app })
+  // 0.120.0 is older than the oldest supported Desktop, which everyone who sees it is told.
   expect(await ownComputer(mac, 'owner', presence)).toEqual({
     desktopRuntimeId: own.runtimeId,
     app,
+    outdated: 'desktop',
   })
   expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
   expect(opened).toEqual(['owner'])
   // Only its own person: not a teammate it is shared with, nor anyone naming it as theirs.
-  expect(await ownComputer(mac, 'mate', presence)).toEqual({})
+  expect(await ownComputer(mac, 'mate', presence)).toEqual({ outdated: 'desktop' })
   await refused('mate')
   await refused('mate', { runtimeId: 'local_mate_mac' })
   await expect(runtimeDesktopTarget('team', 'mate', own, '0', presence)).rejects.toThrow(
@@ -255,7 +257,7 @@ test('a computer with no agent still opens its own desktop, for its owner in its
   await refused('owner', { runtimeId: 'local_owner_gone' })
   // A Box gets no address in the device list, and opens by its runtime only inside its own team.
   box = { teamId: 'team' }
-  expect(await ownComputer({ ...mac, box }, 'owner', presence)).toEqual({})
+  expect(await ownComputer({ ...mac, box }, 'owner', presence)).toEqual({ outdated: 'desktop' })
   expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
   box = { teamId: 'other' }
   await refused('owner')

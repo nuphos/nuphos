@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { appUpdateStatus, withAppUpdate } from './app-update-request.ts'
+import { appUpdateStatus, appUpdateTunnel, withAppUpdate } from './app-update-request.ts'
 
-function updater(over: { ready?: { failedBefore: boolean } | null; busy?: boolean } = {}) {
+function updater(over: { ready?: { failedBefore: boolean } | null } = {}) {
   const calls = { installed: 0, handled: [] as unknown[] }
   const handle = withAppUpdate(
     async (request) => {
@@ -13,7 +13,6 @@ function updater(over: { ready?: { failedBefore: boolean } | null; busy?: boolea
     },
     {
       ready: () => (over.ready === undefined ? { failedBefore: false } : over.ready),
-      busy: () => over.busy ?? false,
       install: () => calls.installed++,
       defer: (run) => run(),
     },
@@ -41,15 +40,15 @@ test('reports the version and an update only while one is downloading or staged'
   )
 })
 
-test('restarts into a staged update when no agent is working', async () => {
+test('restarts into a staged update', async () => {
   const { handle, calls } = updater()
 
   assert.deepEqual(await handle({ method: 'update' }), {})
   assert.equal(calls.installed, 1)
 })
 
-test('refuses while an agent is working, with nothing staged, or after a failed install', async () => {
-  for (const over of [{ busy: true }, { ready: null }, { ready: { failedBefore: true } }]) {
+test('refuses with nothing staged, or after a failed install', async () => {
+  for (const over of [{ ready: null }, { ready: { failedBefore: true } }]) {
     const { handle, calls } = updater(over)
 
     await assert.rejects(handle({ method: 'update' }))
@@ -63,4 +62,37 @@ test('passes every other request on', async () => {
   assert.deepEqual(await handle({ method: 'desktop', sessionId: 's' }), { display: 0 })
   assert.deepEqual(calls.handled, [{ method: 'desktop', sessionId: 's' }])
   assert.equal(calls.installed, 0)
+})
+
+test('the card reads and sets the same switch as Settings > Updates', async () => {
+  let enabled = true
+  let sent = 0
+  const { status, instances } = appUpdateTunnel(
+    () => ({ agents: {} }),
+    async () => 'handled',
+    {
+      version: () => '0.126.0',
+      state: () => ({ kind: 'idle' }),
+      ready: () => null,
+      install: () => {},
+      changed: () => {
+        sent++
+      },
+      autoInstall: {
+        read: () => ({ enabled }),
+        write: (value) => {
+          enabled = (value as { enabled: boolean }).enabled
+
+          return { enabled }
+        },
+      },
+    },
+  )
+
+  assert.deepEqual(status(), { agents: {}, app: { version: '0.126.0' }, autoInstall: true })
+  assert.deepEqual(await instances({ method: 'autoInstall', enabled: false }), { enabled: false })
+  assert.equal(status().autoInstall, false)
+  // Sent at once, so the card shows it.
+  assert.equal(sent, 1)
+  assert.equal(await instances({ method: 'desktop' }), 'handled')
 })

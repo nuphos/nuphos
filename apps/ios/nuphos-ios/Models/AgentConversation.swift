@@ -6,6 +6,8 @@ import os
 struct ChatFace: Codable, Equatable, Hashable, Sendable {
     struct Agent: Codable, Equatable, Hashable, Sendable {
         let avatar: String?
+        /// The tint its face sits on, e.g. `sky`; nil for none (#3504).
+        var avatarBackground: String? = nil
         let provider: String?
     }
 
@@ -77,10 +79,21 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var credentials: [CredentialRef]? = nil
         /// The secret a credential question asks for: answered with the secure input card.
         var secretName: String? = nil
+        /// A web form's details asked together in that card, and the site they are entered on.
+        var fields: [FormField]? = nil
+        var site: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
         var questions: [DecisionQuestion]? = nil
+        /// ISO time its owner snoozed it until: out of their Inbox till then, still answerable where it was asked.
+        var snoozedUntil: String? = nil
+    }
+
+    /// One input of a card that asks for a web form's details: its file name and what the person reads.
+    struct FormField: Codable, Equatable, Hashable, Sendable {
+        let name: String
+        let label: String
     }
 
     /// One question of a card that asks several, with its own choices.
@@ -137,10 +150,13 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
+    /// The tint a Bot's face sits on, e.g. `sky`; nil for none (#3504).
+    var avatarBackground: String?
     /// Absent when the chat has no post yet, or from an older backend.
     var lastMessage: LastMessage?
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
+    var botOnboarding: String?
 
     var id: String { sessionId }
 
@@ -178,7 +194,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     /// An open question waits on the viewer.
-    var isWaiting: Bool { inputRequests?.isEmpty == false }
+    var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "active"].contains(botOnboarding ?? "") || $0.category != "preference" } }
+    var isWaiting: Bool { !attentionInputRequests.isEmpty }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
@@ -211,8 +228,10 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        avatarBackground = try? c.decodeIfPresent(String.self, forKey: .avatarBackground)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
+        botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
     }
 
     init(
@@ -381,9 +400,16 @@ struct AgentConversationDetail: Decodable, Sendable {
     let readSeq: Int?
     let watching: Bool?
     let timelineEvents: [TimelineEvent]
+    /// Answered questions whose agent has not run the answer yet, with the line their row shows.
+    let waitingAnswers: [WaitingAnswer]
+    struct WaitingAnswer: Decodable, Equatable, Sendable {
+        let requestId: String
+        let note: String
+    }
     /// The runtime's guess at what the user will send next.
     let promptSuggestion: String?
     /// `channel` for a chat; nil for an agent.
+    let avatar: String?
     let kind: String?
     /// With `transcriptUpdatedAt`, what a chat's cheap probe compares to tell a new post.
     let messageCount: Int?
@@ -413,7 +439,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -441,7 +467,9 @@ struct AgentConversationDetail: Decodable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
+        waitingAnswers = (try? c.decodeIfPresent([WaitingAnswer].self, forKey: .waitingAnswers)) ?? []
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
+        avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
         faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []

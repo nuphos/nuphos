@@ -4,11 +4,13 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
-import type { ConversationInputRequests } from './pending-decision'
+import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
@@ -28,15 +30,8 @@ export type ConversationPreviewAttachment = {
   runtimeUrl: string
 }
 
-/**
- * The attachment as the runtime sees it. A legacy `forceNew` marker names a
- * session id the runtime never issued — moves used to mint one — so it means
- * "no session here". Every reader that would hand the id to a runtime must go
- * through this, or it gets a 500 on a conversation that is merely unstarted.
- *
- * No migration clears the marker: normalizing here is what makes it harmless,
- * and the next prompt overwrites the whole attachment anyway.
- */
+// Legacy forceNew attachments name sessions the runtime never issued.
+// Normalize them for every reader; the next prompt replaces the attachment.
 export function liveAttachment(
   conversation: Pick<AgentConversation, 'claudeCodePreview'> | null | undefined,
 ): ConversationPreviewAttachment | null {
@@ -62,7 +57,7 @@ export type ConversationPreviewContext = {
   promptSuggestion?: string
 }
 
-export type AgentConversation = ConversationInputRequests & {
+export type AgentConversation = ConversationTaskState & {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id
@@ -72,6 +67,13 @@ export type AgentConversation = ConversationInputRequests & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
+  avatarBackground?: string
+  botTemplate?: {
+    templateId: string
+    version: string
+    requirements: { provider: string; required: boolean; reason: string }[]
+  }
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
@@ -82,20 +84,21 @@ export type AgentConversation = ConversationInputRequests & {
   // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
+  memberArchivedAt?: Record<string, Date> // By user id: someone else archived a shared Task for them alone.
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
-  // Teammates who joined this conversation beside its owner. Speaking in a
-  // session and being invited from Share are the same fact — "this person is
-  // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Being here puts the conversation in the
-  // person's list and lets them read it; reply follows its computer (access.ts).
-  // Older rows also carry managerIds, which nothing reads now.
+  // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
+  // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
   /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
@@ -140,6 +143,8 @@ export type AgentConversation = ConversationInputRequests & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
+  /** `started` is the legacy one-time introduction, not an active setup lifecycle. */
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   metadata?: {
     locale?: string
     provider?: string
@@ -148,16 +153,11 @@ export type AgentConversation = ConversationInputRequests & {
     source?: string
     client?: AgentClientMeta
   }
-  // Memory backend that owns this conversation's recall/tools/ingest, stamped
-  // once at creation and immutable (SPI decision 4 / A3). Resolved through
-  // resolveForNewSession (global default today; team overrides arrive in
-  // Phase 3). Distinct from metadata.provider, which is the originating
-  // CHANNEL, not the memory backend.
+  // The memory backend owning its recall, tools and ingest: stamped once at creation, immutable
+  // (SPI decision 4 / A3), from resolveForNewSession. Not metadata.provider, the source channel.
   memoryProvider?: string
-  // Sticky per-conversation model fallback. Set write-once the first time a
-  // turn finishes with finishReason 'content-filter'; every later turn in this
-  // conversation then runs on toModelId instead of the primary. Permanent for
-  // the life of the conversation.
+  // Sticky model fallback, set once when a turn first ends with finishReason 'content-filter':
+  // every later turn here runs on toModelId instead of the primary, for the conversation's life.
   modelFallback?: {
     active: boolean
     reason: 'content-filter'
@@ -217,7 +217,7 @@ export type AgentCredentialAccess = {
   // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
-  personalCredentialIds?: ('github' | 'linear')[] // the owner's own, with no team binding
+  personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
 }

@@ -14,8 +14,10 @@ test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
     'create_bot',
     'list_recent_conversations',
+    'list_tasks',
     'read_conversation',
     'rename_conversation',
+    'report_task',
     'update_self',
   ])
 })
@@ -395,4 +397,30 @@ test('create_bot says so when the instructions were not saved', async () => {
   } finally {
     instructionsSaved = true
   }
+})
+
+test('update_self explicitly completes onboarding with confirmed responsibilities', async () => {
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    {
+      label: 'Finish setup',
+      instructions: 'Review releases for this project.',
+      onboardingComplete: true,
+    },
+    { toolCallId: 'finish-setup', messages: [] },
+  )
+
+  expect(result).not.toHaveProperty('error')
+  expect(selfUpdates.at(-1)).toMatchObject({
+    instructions: 'Review releases for this project.',
+    botOnboarding: 'completed',
+  })
+})
+
+test('onboarding cannot complete without saving responsibilities', async () => {
+  const result = await createSessionTools('u', 'c', 'team').update_self!.execute!(
+    { label: 'Finish setup', onboardingComplete: true },
+    { toolCallId: 'finish-setup', messages: [] },
+  )
+
+  expect(result).toHaveProperty('error')
 })

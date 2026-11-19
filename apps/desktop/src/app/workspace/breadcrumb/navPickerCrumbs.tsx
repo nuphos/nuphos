@@ -142,7 +142,7 @@ export function pushNavPickerCrumbs(ctx: BreadcrumbContext, out: BreadcrumbSegme
     }
     if (inAgentConversation) {
       out.push({
-        label: agentSessionTitle || t('Agent'),
+        label: agentSessionTitle || t('Task'),
         isResource: true,
         icon: agentSessionIcon,
       })

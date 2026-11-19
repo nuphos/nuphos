@@ -1,18 +1,18 @@
-import {
-  faRotateRight,
-  faTrash,
-  faChevronDown,
-  faChevronUp,
-  faPlus,
-  faArrowUpRightFromSquare,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  RotateCw as RotateCwIcon,
+  Trash2 as Trash2Icon,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp as ChevronUpIcon,
+  Plus as PlusIcon,
+  ExternalLink as ExternalLinkIcon,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../api'
 import { AppAlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import { BindSlackDialog } from './BindSlackDialog'
@@ -45,7 +45,7 @@ export function SlackSettingsView({
   embedded = false,
   onChanged,
 }: {
-  teamId: string | undefined
+  teamId: string
   currentUserId: string
   embedded?: boolean
   /** Invoked after a reinstall/disconnect so the parent's connector list re-syncs. */
@@ -79,17 +79,11 @@ export function SlackSettingsView({
     deleteChannel,
   } = useSlackSettings(teamId, currentUserId)
 
-  if (!teamId) {
-    return <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
-  }
-
-  const installed = !!installation || status?.installed === true
-  // A stored binding whose token Slack no longer honours: only a reinstall
-  // can repair it, so say so instead of leaving the page looking healthy.
-  const tokenRevoked = !!installation && status?.installed === false
+  const installed = Boolean(installation) || status?.installed === true
+  // Revoked Slack tokens require reinstalling the stored binding.
+  const tokenRevoked = Boolean(installation) && status?.installed === false
 
   async function disconnect() {
-    if (!teamId) return
     try {
       await api.atlasDisconnectSlack(teamId)
     } catch (err) {
@@ -140,7 +134,7 @@ export function SlackSettingsView({
             <h1 className="text-[20px] font-semibold text-main">Slack</h1>
             <p className="mt-1 text-[13px] text-tertiary">
               {t(
-                'Install Nuphos in Slack, pick channels from the bot DM, then @mention the agent in those channels.',
+                'Install Nuphos in Slack, pick channels from the bot DM, then @mention Nuphos in those channels.',
               )}
             </p>
           </div>
@@ -164,9 +158,10 @@ export function SlackSettingsView({
             disabled={loading}
             className="mt-0.5 inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2.5 text-[12.5px] font-medium text-secondary transition-colors hover:border-line-control hover:text-main disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FontAwesomeIcon
-              icon={faRotateRight}
-              className={clsx('h-3 w-3', loading && 'animate-spin')}
+            <UiIcon
+              size={16}
+              icon={RotateCwIcon}
+              className={clsx('h-4 w-4', loading && 'animate-spin')}
             />
             {t('Refresh')}
           </button>
@@ -191,7 +186,7 @@ export function SlackSettingsView({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              "Channels chosen in Slack or linked by an admin. The agent responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
+              "Channels chosen in Slack or linked by an admin. Nuphos responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
             )}
           </div>
         </div>
@@ -233,7 +228,7 @@ export function SlackSettingsView({
                   className="inline-flex h-7 items-center gap-1.5 rounded-md border border-line-control px-2 text-[11.5px] text-secondary transition-colors hover:border-line-control hover:text-main"
                   title={t('Open this channel in Slack')}
                 >
-                  <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="h-2.5 w-2.5" />
+                  <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
                   {t('Open')}
                 </button>
                 {canManage && (
@@ -244,7 +239,7 @@ export function SlackSettingsView({
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-status-danger/10 hover:text-error disabled:opacity-50"
                     title={t('Remove mapping')}
                   >
-                    <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+                    <UiIcon size={16} icon={Trash2Icon} className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -259,12 +254,13 @@ export function SlackSettingsView({
               className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-state-hover"
             >
               <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-main">
-                <FontAwesomeIcon icon={faPlus} className="h-3 w-3 text-tertiary" />
+                <UiIcon size={16} icon={PlusIcon} className="h-4 w-4 text-tertiary" />
                 {t('Link a new channel')}
               </span>
-              <FontAwesomeIcon
-                icon={linkChannelOpen ? faChevronUp : faChevronDown}
-                className="h-3 w-3 text-tertiary"
+              <UiIcon
+                size={16}
+                icon={linkChannelOpen ? ChevronUpIcon : ChevronDownIcon}
+                className="h-4 w-4 text-tertiary"
               />
             </button>
             {linkChannelOpen && (

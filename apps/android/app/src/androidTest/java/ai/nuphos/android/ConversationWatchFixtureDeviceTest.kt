@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -54,6 +54,12 @@ class ConversationWatchFixtureDeviceTest {
     @Volatile private var holdDetails: java.util.concurrent.CountDownLatch? = null
     @Volatile private var failList = false
     @Volatile private var failDetails = false
+    @Volatile private var taskSummaryFixture = false
+    @Volatile private var emptyTaskSummary = false
+    @Volatile private var extraSummaryContext = false
+    private val summaryTeam = "64b5f1c2e4b0a1d2c3e4f5a6"
+    private val summaryGroup = "64b5f1c2e4b0a1d2c3e4f5a7"
+    private val summaryFiles get() = """{"groupId":"$summaryGroup","expiresAt":"2099-01-01T00:00:00Z","files":[{"id":"file1","fileName":"release-notes.md","status":"ready"}]}"""
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
@@ -84,14 +90,32 @@ class ConversationWatchFixtureDeviceTest {
                     // The server's DELETE cascades to descendants.
                     if (watchId == "parent" && req.method == "DELETE") watching["child"] = false
                 }
+                val summaryResources = extraSummaryContext && path == "/agent/conversations/parent/resources"
+                val summaryTriggers = extraSummaryContext && path == "/agent/triggers"
+                val summaryDownloads = extraSummaryContext && path == "/agent-sessions/parent/teams/$summaryTeam/file-transfers/downloads"
+                val summaryDownload = extraSummaryContext && path == "/teams/$summaryTeam/file-transfers/$summaryGroup/download"
                 val listing = path == "/agent/conversations"
                 val detailId = Regex("/agent/conversations/(parent|child|other)").matchEntire(path)?.groupValues?.get(1)
                 // A read answers with what was true when it reached the server, however late it returns.
                 val text = when {
+                    summaryDownloads -> """{"groups":[$summaryFiles]}"""
+                    summaryDownload -> summaryFiles
+                    summaryResources -> """{"resources":[{"id":"pr1","provider":"github","title":"Improve mobile navigation","url":"https://github.com/example/project/pull/42","state":"open","number":42}]}"""
+                    summaryTriggers -> """[{"id":"trigger1","name":"Daily release check","enabled":true,"triggerType":"cron","scheduleDescription":"Every day, 09:00"}]"""
                     mutation && denied -> """{"error":"synthetic unavailable"}"""
                     mutation -> """{"ok":true,"watching":${watching[watchId!!]}}"""
                     listing && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
+                    listing && emptyTaskSummary && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[],"hasMore":false}"""
+                    listing && taskSummaryFixture && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic task","isOwner":true,
+                            "inputRequests":[{"id":"q-summary","category":"preference","question":"Review the plan?","options":["Review"],"status":"open"}]}],"hasMore":false}"""
+                    listing && extraSummaryContext -> """{"conversations":[
+                        {"sessionId":"parent","teamId":"$summaryTeam","title":"Synthetic shared parent","isOwner":true},
+                        {"sessionId":"child","teamId":"$summaryTeam","title":"Synthetic child","parentSessionId":"parent","isOwner":true}
+                    ],"hasMore":false}"""
                     listing -> """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic shared parent","watching":${watching["parent"]},"readOnly":true,"isOwner":false},{"sessionId":"child","teamId":"A","title":"Synthetic child","parentSessionId":"parent","isOwner":false,"readOnly":true,"watching":${watching["child"]}},{"sessionId":"other","teamId":"A","title":"Synthetic other","isOwner":false,"readOnly":true,"watching":${watching["other"]}}],"hasMore":false}"""
+                    detailId != null && extraSummaryContext -> """{"messages":[],"isOwner":true,"readOnly":false}"""
                     detailId != null -> """{"messages":[],"readOnly":true,"isOwner":false,"watching":${watching[detailId]}}"""
                     path == "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
                     else -> "{}"
@@ -99,7 +123,7 @@ class ConversationWatchFixtureDeviceTest {
                 if (listing && req.url.queryParameter("teamId") != "B") holdNextList?.let { holdNextList = null; check(it.await(10, java.util.concurrent.TimeUnit.SECONDS)) }
                 if (detailId != null) holdDetails?.await(10, java.util.concurrent.TimeUnit.SECONDS)
                 val failed = (listing && failList) || (detailId != null && failDetails)
-                val code = if (denied || failed) 503 else if (mutation || listing || detailId != null || path == "/teams/A/favorites") 200 else 404
+                val code = if (denied || failed) 503 else if (mutation || listing || detailId != null || summaryResources || summaryTriggers || summaryDownloads || summaryDownload || path == "/teams/A/favorites") 200 else 404
                 Response.Builder().request(req).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
                     .body((if (legacyServer) text.replace(Regex(",\"watching\":(true|false)"), "") else text).toResponseBody(Http.jsonMedia)).build()
             }.build()
@@ -133,22 +157,28 @@ class ConversationWatchFixtureDeviceTest {
         compose.runOnIdle {
             AiAccess.grant(token)
             store = AgentStore(token, compose.activity)
-            state(store, "selectedTeam").value = Team("A", "Fixture A")
-            store.acceptMemberships(listOf(Team("A", "Fixture A"), Team("B", "Fixture B")))
+            val team = if (extraSummaryContext) summaryTeam else "A"
+            state(store, "selectedTeam").value = Team(team, "Fixture A")
+            store.acceptMemberships(listOf(Team(team, "Fixture A"), Team("B", "Fixture B")))
             state(store, "phase").value = AgentStore.Phase.Loaded
             state(store, "conversations").value = listOf(
-                AgentConversation("parent", "A", "Synthetic shared parent", watching = true, isOwner = false, readOnly = true),
-                AgentConversation("child", "A", "Synthetic child", parentSessionId = "parent", watching = true, isOwner = false, readOnly = true),
-                AgentConversation("other", "A", "Synthetic other", watching = true, isOwner = false, readOnly = true))
+                AgentConversation("parent", team, "Synthetic shared parent", watching = true, isOwner = false, readOnly = true),
+                AgentConversation("child", team, "Synthetic child", parentSessionId = "parent", watching = true, isOwner = false, readOnly = true),
+                AgentConversation("other", team, "Synthetic other", watching = true, isOwner = false, readOnly = true))
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
-                NuphosTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }
                         composable("conversation/{sessionId}") { back ->
-                            val session = store.session(back.arguments!!.getString("sessionId")!!, "Synthetic shared parent")
+                            val sessionId = back.arguments!!.getString("sessionId")!!
+                            if (taskSummaryFixture) {
+                                ai.nuphos.android.ui.chat.ConversationScreen(sessionId, false, { nav.popBackStack() }, nav)
+                                return@composable
+                            }
+                            val session = store.session(sessionId, "Synthetic shared parent")
                             androidx.compose.runtime.LaunchedEffect(session) { session.load() }
                             androidx.compose.foundation.layout.Column {
                                 androidx.compose.material3.Text("Synthetic shared conversation")
@@ -161,6 +191,63 @@ class ConversationWatchFixtureDeviceTest {
         }
         waitText("Synthetic shared parent")
     }
+    @Test fun taskSummaryShowsQuestionsAndRuntimeWork() {
+        taskSummaryFixture = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
+        compose.runOnIdle {
+            val session = store.session("parent", "Synthetic shared parent")
+            state(session, "runtimeObservation").value = RuntimeObservation(requireNotNull(JsonValue.parse(
+                """{"tools":[{"id":"term","terminal":{"status":"running","command":"Check the build","output":"Build is running"}}]}""",
+            )), RuntimeObservation.now())
+        }
+        shot("task-summary-toolbar")
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
+        waitText("Review the plan?")
+        shot("task-summary-pending")
+        compose.onNodeWithText("Check the build").performClick()
+        waitText("Build is running")
+        shot("task-summary")
+        compose.onNodeWithText("Review the plan?").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).assertIsDisplayed()
+        shot("task-summary-question")
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close)).assertIsDisplayed().performClick()
+        compose.onNodeWithTag("task-summary").assertDoesNotExist()
+    }
+
+    @Test fun taskSummaryShowsTheEmptyState() {
+        taskSummaryFixture = true
+        emptyTaskSummary = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
+        waitText(compose.activity.getString(R.string.chat_summary_no_questions))
+        compose.onNodeWithText(compose.activity.getString(R.string.chat_summary_background)).assertDoesNotExist()
+        shot("task-summary-empty")
+    }
+
+    @Test fun taskSummaryShowsChangesChildrenFilesAndTriggers() {
+        taskSummaryFixture = true
+        extraSummaryContext = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        val openLabel = compose.activity.getString(R.string.chat_summary_open)
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(openLabel).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(openLabel).performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Daily release check").fetchSemanticsNodes().isNotEmpty() }
+        val summary = hasAnyAncestor(hasTestTag("task-summary"))
+        compose.onNode(hasText("Improve mobile navigation") and summary).assertExists()
+        compose.onNode(hasText("Synthetic child") and summary).assertExists()
+        compose.onAllNodes(hasText("release-notes.md") and summary).assertCountEquals(1)
+        compose.onNode(hasText("Daily release check") and summary).performScrollTo().assertIsDisplayed()
+        val subTasks = compose.activity.getString(R.string.chat_summary_children)
+        compose.onNode(hasText(subTasks) and summary).performScrollTo().assertIsDisplayed()
+        shot("task-summary-context")
+    }
+
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
     private fun shot(name: String) {

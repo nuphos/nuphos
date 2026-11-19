@@ -29,12 +29,32 @@ import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
 import { getAgentDevice } from './store'
 
+import type { createBox } from './box-instabox-create'
+import type { BoxState } from './box-instabox-state'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
 export { boxBackendUrl, boxesAvailable } from './box-instabox-client'
 export { createBox } from './box-instabox-create'
-export { boxState } from './box-instabox-state'
+export { boxPausedBy, boxState } from './box-instabox-state'
 export type { BoxState } from './box-instabox-state'
+
+/** What the device routes call on the Box provider. */
+export type BoxProvider = {
+  create: typeof createBox
+  pause: (userId: string, deviceId: string) => Promise<AgentDevice>
+  resume: (userId: string, deviceId: string) => Promise<AgentDevice>
+  /** False when the machine may still run at the provider; the computer is deleted either way. */
+  destroy: (userId: string, deviceId: string) => Promise<boolean>
+  /** A link to the Box's desktop, to watch and take over what its agents do. */
+  desktop: (userId: string, deviceId: string) => Promise<string>
+  /** Starts the host again on a running machine whose host dropped; rate-limited. */
+  heal: (userId: string, deviceId: string) => void
+  /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
+  available: () => boolean
+  state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
+  /** Why instabox paused the machine on its own (`memory_pressure`, …); undefined if a person did. */
+  pausedBy: (device: AgentDevice) => Promise<string | undefined>
+}
 
 /** How long a resume may take before the tunnel is back. */
 const WAKE_TIMEOUT_MS = 60_000
@@ -42,13 +62,14 @@ const WAKE_TIMEOUT_MS = 60_000
 type BoxDevice = AgentDevice & { box: AgentDeviceBox }
 
 function requireBox(device: AgentDevice | null, deviceId: string): BoxDevice {
-  if (!device?.box) throw new AppError(404, 'not_found', `No Box ${deviceId}`)
+  if (!device?.box) throw new AppError(404, 'not_found', `No computer from Nuphos ${deviceId}`)
 
   return device as BoxDevice
 }
 
 function requireMachine(device: BoxDevice): string {
-  if (!device.box.sandboxId) throw new AppError(409, 'box_state', 'The Box is still being created')
+  if (!device.box.sandboxId)
+    throw new AppError(409, 'box_state', 'The computer is still being created')
 
   return device.box.sandboxId
 }
@@ -74,7 +95,7 @@ export async function boxDesktopUrl(userId: string, deviceId: string): Promise<s
 
     return url
   } catch (error) {
-    throw unavailable("Could not open the Box's desktop", error)
+    throw unavailable("Could not open the computer's desktop", error)
   }
 }
 
@@ -104,7 +125,7 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 
     await sandbox.pause()
   } catch (error) {
-    throw unavailable('Could not pause the Box', error)
+    throw unavailable('Could not pause the computer', error)
   }
   await clearBoxUpdateStarted(userId, deviceId)
 
@@ -121,7 +142,7 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
 
   // Starting the host mid-update would run the old CLI while the new one installs.
   if (command === AGENT_COMMAND && boxUpdatingSince(device))
-    throw new AppError(409, 'box_updating', 'The Box is updating and starts again on its own.')
+    throw new AppError(409, 'box_updating', 'The computer is updating and starts again on its own.')
   const url = requireBackendUrl()
 
   try {
@@ -139,19 +160,38 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
     })
   } catch (error) {
     if (error instanceof AppError) throw error
-    throw unavailable('Could not resume the Box', error)
+    throw unavailable('Could not resume the computer', error)
   }
 
   return device
 }
 
+/** Runs a command on a Box that is running. A paused machine stays paused: the command fails. */
+export async function runOnBox(userId: string, deviceId: string, command: string): Promise<void> {
+  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
+  const sandboxId = requireMachine(device)
+
+  try {
+    const sandbox = await Sandbox.connect(sandboxId, {
+      ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
+      resume: false,
+    })
+
+    await sandbox.commands.run(command, { background: true })
+  } catch (error) {
+    throw unavailable('Could not run the command on the computer', error)
+  }
+}
+
 /**
- * Deletes the machine and its disks; the caller removes the device row. A row that
+ * Deletes the machine and its disks; the caller then removes the device row. A row that
  * never got its machine id (the backend went away mid-create) may still own a
- * machine: it is found by the device id in its metadata. A machine that is already
- * gone just goes; a kill that fails keeps the row, so nothing is orphaned silently.
+ * machine: it is found by the device id in its metadata. Nothing the provider says
+ * keeps a computer from being deleted: a kill that fails (an expired key, an account
+ * no longer connected, instabox down) is logged with the machine to clean up by hand.
+ * False when the machine may still be running at the provider.
  */
-export async function destroyBox(userId: string, deviceId: string): Promise<void> {
+export async function destroyBox(userId: string, deviceId: string): Promise<boolean> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
 
   await deleteDeviceJoinTokens(deviceId)
@@ -160,11 +200,20 @@ export async function destroyBox(userId: string, deviceId: string): Promise<void
 
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
-    logError('agent.box.kill_failed', error, { user_id: userId, device_id: deviceId })
-    throw unavailable('Could not delete the Box', error)
+    logError('agent.box.kill_failed', error, {
+      user_id: userId,
+      device_id: deviceId,
+      team_id: device.box.teamId,
+      sandbox_id: device.box.sandboxId ?? null,
+      instabox_account_id: device.box.accountId ?? null,
+    })
+
+    return false
   }
   // Its tunnel closed before the kill, while the machine still ran.
   noteBoxUsage(device.box.teamId)
+
+  return true
 }
 
 /**

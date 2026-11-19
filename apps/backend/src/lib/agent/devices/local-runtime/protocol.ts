@@ -2,19 +2,9 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
-export type TunnelPurpose =
-  | 'transport'
-  | 'control'
-  | 'exec'
-  | 'upload'
-  | 'file'
-  | 'attachments'
-  | 'terminal'
-  | 'cua'
-  | 'browser'
-  | 'browserView'
-  | 'vnc'
-  | 'instances'
+import type { TunnelPurpose } from './tunnel-purpose'
+
+export type { TunnelPurpose }
 
 export const LOCAL_AGENT_PROVIDERS = [
   'claude-code',
@@ -113,6 +103,9 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** An added agent's CLI being installed by the computer, or why that failed. */
+    installing: z.boolean().optional().catch(undefined),
+    installError: z.string().max(500).optional().catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
@@ -128,6 +121,8 @@ const localAgentStatusSchema = z.object({
   /** When that computer read it. Codex reports its windows as offsets from the
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
+  /** The account whose quota it spends, as a hash only that computer can make. */
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -158,6 +153,7 @@ export const localRuntimeStatusSchema = z.object({
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localUpload: z.boolean().optional(),
+  localDownload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
@@ -178,6 +174,8 @@ export const localRuntimeStatusSchema = z.object({
     })
     .optional()
     .catch(undefined),
+  /** Whether this computer installs updates by itself when idle; `method: 'autoInstall'` sets it. */
+  autoInstall: z.boolean().optional().catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(

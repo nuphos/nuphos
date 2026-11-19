@@ -2,18 +2,29 @@ package ai.nuphos.android.session
 
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 
 /** An open question a Bot's chat shows: one request and the conversation that asked it. */
-data class BotQuestion(val sessionId: String, val title: String, val request: InputRequest) {
+data class BotQuestion(
+    val sessionId: String,
+    val title: String,
+    val request: InputRequest,
+    val sourceBot: AgentConversation? = null,
+) {
+    val sourceId: String get() = sourceBot?.sessionId ?: sessionId
+    val sourceTitle: String get() = sourceBot?.displayTitle ?: title
     val id: String get() = "$sessionId:${request.id}"
 
     /** The conversation that asked, opened in the app like any Nuphos link. */
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
-    /** Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection. */
-    val typed: Boolean get() = request.category != "credential" && request.category != "integration" && request.planId == null
+    /**
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     */
+    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to
@@ -23,8 +34,28 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
         ?.takeIf { request.providers == null && it.isNotEmpty() && it.all { ref -> ref.provider == "personal" } }
         ?.map { it.id }
 
+    /**
+     * A secret request as its tool call carries it in the transcript, so the card draws the conversation's
+     * `SecretCard`; null unless the question names a secret.
+     */
+    val secretPart: ChatPart.Tool? get() {
+        val name = request.secretName ?: return null
+        // A web form's details: every field and the site, as the agent's own call carries them.
+        val fields = request.fields
+        val site = request.site
+        val form = if (fields == null || site == null) emptyList() else listOf(
+            "fields" to JsonValue.Arr(fields.map { JsonValue.obj("name" to JsonValue.Str(it.name), "label" to JsonValue.Str(it.label)) }),
+            "site" to JsonValue.Str(site),
+        )
+        return ChatPart.Tool(request.id, "request_user_decision", isDynamic = true, state = ChatPart.Tool.State.InputAvailable,
+            input = JsonValue.obj("category" to JsonValue.Str(request.category.orEmpty()),
+                "question" to JsonValue.Str(request.question), "secretName" to JsonValue.Str(name), *form.toTypedArray()))
+            .takeIf { it.secretRequest != null }
+    }
+
     /** An integration question the Inbox answers in place: by its providers, or by the member's own credentials. */
-    val connectable: Boolean get() = request.category == "integration" && (request.credentials == null || personalCredentials != null)
+    val connectable: Boolean get() = request.category == "integration" &&
+        (personalCredentials != null || (request.credentials == null && !request.providers.isNullOrEmpty()))
 
     /**
      * Desktop's `formQuestions`: the questions a multi-select or several-question card answers as a
@@ -67,10 +98,6 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
             return "\n\n---\n\n" + list.joinToString("\n\n")
         }
 
-        /** One question's answer as it reads: what was typed, else the picked options. */
-        fun answerText(picked: List<String>, typed: String): String =
-            typed.trim().ifEmpty { picked.joinToString(", ") }
-
         /** Desktop's `formAnswer`: one question's picks or typed text, or one entry per question. */
         fun formAnswer(questions: List<DecisionQuestion>, picked: List<List<String>>, typed: List<String>): JsonValue {
             fun one(index: Int): JsonValue {
@@ -101,14 +128,41 @@ object BotQuestions {
             }
             return false
         }
-        return open(rows.filter { isUnder(it.sessionId) })
+        return open(rows.filter { isUnder(it.sessionId) }, includeOnboarding = true)
     }
 
     /** The viewer's own open questions in [rows], oldest first: the Inbox's list. */
-    fun open(rows: List<AgentConversation>): List<BotQuestion> {
-        return rows.distinctBy { it.sessionId }
+    fun open(rows: List<AgentConversation>): List<BotQuestion> = open(rows, includeOnboarding = false)
+
+    private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
+        val conversations = rows.distinctBy { it.sessionId }.associateBy { it.sessionId }
+        fun sourceBot(row: AgentConversation): AgentConversation? {
+            val visited = mutableSetOf<String>()
+            var current: AgentConversation? = row
+            while (current != null && visited.add(current.sessionId)) {
+                if (current.isBot) return current
+                current = current.parentSessionId?.let(conversations::get)
+                    ?.takeIf { it.teamId == row.teamId }
+            }
+            return null
+        }
+
+        return conversations.values
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row ->
+                val requests = row.inputRequests.orEmpty().filter {
+                    includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference"
+                }
+                val bot = if (requests.isEmpty()) null else sourceBot(row)
+                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot) }
+            }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
+
+    /** Newest groups first, oldest question first within each group. */
+    fun grouped(questions: List<BotQuestion>): List<List<BotQuestion>> =
+        questions.groupBy { it.sourceId }.values.sortedWith(
+            compareByDescending<List<BotQuestion>> { it.last().request.askedAt.orEmpty() }
+                .thenByDescending { it.first().sourceId },
+        )
 }

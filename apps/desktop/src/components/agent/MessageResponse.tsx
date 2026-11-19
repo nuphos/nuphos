@@ -24,18 +24,9 @@ import type { ContextMenuItem } from '../ContextMenu'
 import type { ComponentProps, MouseEvent, ReactNode } from 'react'
 
 type StreamdownComponents = ComponentProps<typeof Streamdown>['components']
-type StreamdownAnimated = ComponentProps<typeof Streamdown>['animated']
 
 // Streamdown's defaults (GFM), then Codex directives, which need GFM's nodes.
 const messageRemarkPlugins = [...Object.values(defaultRemarkPlugins), remarkCodexDirectives]
-
-const STREAMING_TEXT_ANIMATION: StreamdownAnimated = {
-  animation: 'atlas-stream-in',
-  duration: 240,
-  easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-  sep: 'word',
-  stagger: 0,
-}
 
 function extractText(node: ReactNode): string {
   if (node == null || node === false || node === true) return ''
@@ -264,7 +255,6 @@ export const MessageResponse = memo(
         <Streamdown
           mode={streaming ? 'streaming' : 'static'}
           isAnimating={streaming}
-          animated={streaming ? STREAMING_TEXT_ANIMATION : false}
           controls={{ code: { copy: true, download: false }, table: false, mermaid: false }}
           lineNumbers={false}
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`

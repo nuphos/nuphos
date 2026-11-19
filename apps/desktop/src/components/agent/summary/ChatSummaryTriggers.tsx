@@ -11,7 +11,8 @@ import { SummarySection } from './ChatSummaryRows'
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
 
 function nextRunLabel(trigger: AgentTrigger): string {
-  if (!trigger.enabled) return t('Paused')
+  // Why Nuphos paused it, when it did.
+  if (!trigger.enabled) return trigger.executionAuthorizationError ?? t('Paused')
   if (trigger.nextRunAt)
     return t('Next: {time}', { time: new Date(trigger.nextRunAt).toLocaleString() })
   if (trigger.triggerType === 'webhook') return t('Waiting for webhook')
@@ -73,6 +74,8 @@ export function ChatSummaryTriggers({ teamId, sessionId }: { teamId: string; ses
               ? {
                   ...row,
                   enabled: updated.enabled,
+                  // A person changed it: no reason Nuphos paused it for still applies.
+                  executionAuthorizationError: undefined,
                   nextRunAt:
                     enabled && row.triggerType === 'cron'
                       ? nextOccurrencesAfter(
@@ -106,9 +109,7 @@ export function ChatSummaryTriggers({ teamId, sessionId }: { teamId: string; ses
       )}
       {!loaded && !error && <p className="text-xs text-tertiary">{t('Loading…')}</p>}
       {loaded && triggers.length === 0 && (
-        <p className="text-xs text-tertiary">
-          {t('Ask the agent to schedule recurring work in this conversation.')}
-        </p>
+        <p className="text-xs text-tertiary">{t('Ask here to schedule recurring work.')}</p>
       )}
       {triggers.map((trigger) => (
         <div key={trigger.id} className="flex items-start gap-3 py-2">

@@ -25,7 +25,12 @@ function waitForOutput(emitter: EventEmitter, expected: string): Promise<void> {
     let output = ''
     const timer = setTimeout(() => {
       emitter.off('terminal-event', onEvent)
-      reject(new Error(`Terminal output did not contain expected marker: ${expected}`))
+      // What the shell did send, so a failure on CI shows why.
+      reject(
+        new Error(
+          `Terminal output did not contain expected marker: ${expected}\nLast output: ${JSON.stringify(output.slice(-500))}`,
+        ),
+      )
     }, 10_000)
     const onEvent = (event: LocalTerminalEvent) => {
       if (event.type !== 'data') return

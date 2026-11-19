@@ -1,20 +1,21 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
-import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
-import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
 import { threadReadGrants } from './db/access'
+import { clearPendingUserMessages } from './pending-messages'
 import {
   authorizeThreadDelivery,
   createAgentThread,
+  delegationThreadId,
   listThreadRuntimes,
   sendAgentThreadMessage,
   updateThread,
@@ -31,6 +32,8 @@ const access = {
   updatedBy: 'owner',
 } as AgentCredentialAccess
 const actor = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'zh-TW' }
+// Who each settings change says made it.
+const changers: unknown[] = []
 let source: AgentConversation
 let target: AgentConversation
 let member = true
@@ -59,6 +62,7 @@ beforeEach(() => {
   events.length = 0
   moves.length = 0
   picks.length = 0
+  changers.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -120,8 +124,9 @@ useDb({
   }),
 })
 useConversationRuntimeMove({
-  moveConversationRuntime: async (conversation, runtimeId, userId) => {
+  moveConversationRuntime: async (conversation, runtimeId, userId, options) => {
     moves.push({ sessionId: conversation.sessionId, runtimeId, userId })
+    changers.push(options?.by)
 
     return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex' }
   },
@@ -136,7 +141,7 @@ useRuntimeCatalog({
       provider: 'codex',
       label: 'Other',
       status: 'active',
-      kind: 'managed',
+      kind: 'external',
       createdAt: '',
     },
     ...(userId
@@ -175,7 +180,8 @@ const picks: { sessionId: string; configId: string; value: string }[] = []
 const offered = { model: ['claude-fable-5-1', 'default'], effort: ['high', 'low'] }
 
 useSessionConfig({
-  conversationSessionConfig: async (conversation, selection) => {
+  conversationSessionConfig: async (conversation, selection, _viewer, by) => {
+    if (selection) changers.push(by)
     const options = Object.entries(offered).map(([kind, values]) => ({
       id: kind,
       name: kind,
@@ -200,7 +206,7 @@ useSessionConfig({
     }
   },
 })
-useAgentDb({
+const installAgentDb = useAgentDb({
   setConversationArchived: async (...args) => {
     archives.push(args)
 
@@ -231,6 +237,48 @@ useAgentDb({
     conversation: { ...source, sessionId },
     messages: [],
   }),
+})
+
+test('a delegation key is stable and scoped to its parent, owner and team', () => {
+  const id = delegationThreadId(actor, 'request-1')
+
+  expect(id).toMatch(/^[\da-f]{8}-[\da-f]{4}-5[\da-f]{3}-a[\da-f]{3}-[\da-f]{12}$/)
+  expect(delegationThreadId(actor, 'request-1')).toBe(id)
+  for (const changed of [{ sessionId: 'elsewhere' }, { userId: 'other' }, { teamId: 'other' }])
+    expect(delegationThreadId({ ...actor, ...changed }, 'request-1')).not.toBe(id)
+})
+
+test('retrying a delegation preserves its task and delivery id; changed prompts are refused', async () => {
+  let stored: AgentConversation | undefined
+
+  installAgentDb({
+    upsertConversationShell: async (data) => {
+      if (stored) return { isNew: false }
+      stored = { ...source, ...data }
+
+      return { isNew: true }
+    },
+    getConversationBySessionId: async (id) =>
+      id === 'source' ? source : stored?.sessionId === id ? stored : null,
+    agentConversations: () => ({
+      findOne: async ({ sessionId }: { sessionId: string }) =>
+        sessionId === actor.sessionId ? source : stored,
+      updateOne: async () => {
+        stored!.delegation!.ready = true
+
+        return { matchedCount: 1 }
+      },
+    }),
+  })
+  const first = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+  const retry = await createAgentThread(actor, 'Work', 'Task', { requestId: 'request-1' })
+
+  expect(retry.threadId).toBe(first.threadId)
+  expect(retry.messageId).toBe(first.messageId)
+  await expect(
+    createAgentThread(actor, 'Different work', 'Task', { requestId: 'request-1' }),
+  ).rejects.toThrow('different or archived work')
+  expect(stored?.firstMessage).toBe('Work')
 })
 
 describe('conversation-scoped thread tools', () => {
@@ -400,6 +448,60 @@ describe('conversation-scoped thread tools', () => {
     expect(result.model).toEqual({ model: 'default', effort: 'high' })
   })
 
+  test("with nothing picked, a thread starts on its parent's model and effort", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'high' }
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([
+      { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+      { sessionId: threadId, configId: 'effort', value: 'high' },
+    ])
+    // A parent that has run reads its settings from its session, as its model picker does.
+    picks.length = 0
+    source.claudeCodePreview = {
+      openabSessionId: 'live',
+      runtimeUrl: 'http://runtime',
+      runtimeDefaults: { model: 'claude-fable-5-1' },
+    }
+    await createAgentThread(actor, 'Work', 'Task')
+    expect(picks.map((pick) => pick.value)).toEqual(['claude-fable-5-1'])
+  })
+
+  test("a pick, or another agent, wins over the parent's model", async () => {
+    source.initialSessionConfig = { model: 'claude-fable-5-1' }
+    await createAgentThread(actor, 'Work', 'Task', { effort: 'low' })
+    await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
+
+    expect(picks.map(({ configId, value }) => [configId, value])).toEqual([['effort', 'low']])
+  })
+
+  test("a parent on Claude Code's Default passes on its effort, and leaves the model to the agent", async () => {
+    // A session on "Default (recommended)" reports `default`; the catalog lists the model it
+    // stands for instead (#3709, production 2026-11-19 05:08:46Z: parent_model_failed).
+    offered.model = ['claude-fable-5-1']
+    source.claudeCodePreview = {
+      openabSessionId: 'live',
+      runtimeUrl: 'http://runtime',
+      runtimeDefaults: { model: 'default', effort: 'high' },
+    } as never
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+      expect(picks).toEqual([{ sessionId: threadId, configId: 'effort', value: 'high' }])
+    } finally {
+      offered.model = ['claude-fable-5-1', 'default']
+    }
+  })
+
+  test("a parent's model the agent no longer offers leaves the thread on its defaults", async () => {
+    source.initialSessionConfig = { model: 'gpt-1' }
+    await createAgentThread(actor, 'Work', 'Task')
+
+    expect(picks).toEqual([])
+    expect(archives).toEqual([])
+    expect(claims).toHaveLength(1)
+  })
+
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {
     await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
 
@@ -436,6 +538,20 @@ describe('conversation-scoped thread tools', () => {
     } finally {
       delete speeds.fast
     }
+  })
+
+  test('update_thread and create_thread name the calling agent and the person it acts for', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task', {
+      model: 'claude-fable-5-1',
+    })
+
+    expect(changers).toEqual([{ actorId: 'owner', agentSessionId: 'source', via: 'create_thread' }])
+    changers.length = 0
+    await updateThread(actor, threadId, { runtimeId: 'runtime-2', effort: 'high' })
+    expect(changers).toEqual([
+      { actorId: 'owner', agentSessionId: 'source', via: 'update_thread' },
+      { actorId: 'owner', agentSessionId: 'source', via: 'update_thread' },
+    ])
   })
 
   test('refuses a model the agent does not offer, naming the choices', async () => {

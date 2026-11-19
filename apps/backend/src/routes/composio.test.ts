@@ -6,6 +6,8 @@ import { config } from '@/config'
 import * as composioClient from '@/lib/composio'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
+import { composioToolProvider } from '@/lib/personal-credentials/composio'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -152,6 +154,11 @@ fetchSpy.mockImplementation(((input: string | URL | Request, init?: RequestInit)
   }
   if (method === 'GET') return Promise.resolve(Response.json({ status: accountStatus }))
   if (method === 'DELETE') return Promise.resolve(Response.json({ success: true }))
+  if (path === '/tools/execute/GOOGLECALENDAR_GET_CURRENT_USER') {
+    return Promise.resolve(
+      Response.json({ successful: true, data: { email: 'alice@gmail.test' }, error: null }),
+    )
+  }
   if (path === '/tools/execute/GMAIL_GET_PROFILE') {
     return Promise.resolve(
       Response.json({ successful: true, data: { emailAddress: 'alice@gmail.test' }, error: null }),
@@ -282,6 +289,31 @@ describe('connecting through Composio', () => {
     expect(saved[0]).not.toHaveProperty('encryptedAccessToken')
   })
 
+  test('Google Calendar connects through its own toolkit and records the account email', async () => {
+    const { state } = (await (await start('google-calendar')).json()) as { state: string }
+
+    expect(requests[0]?.body).toMatchObject({ auth_config_id: 'ac_googlecalendar' })
+    expect(authConfigSpy).toHaveBeenLastCalledWith('googlecalendar')
+    const code =
+      (await callback('google-calendar', `state=${state}&status=success`)).searchParams.get(
+        'code',
+      ) ?? ''
+    const res = await app.request('/personal-credentials/google-calendar/complete', {
+      method: 'POST',
+      headers: as('alice'),
+      body: JSON.stringify({ state, code }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(saved).toEqual([
+      expect.objectContaining({
+        provider: 'google-calendar',
+        login: 'alice@gmail.test',
+        composioAccountId: 'ca_new',
+      }),
+    ])
+  })
+
   test('a declined or unfinished connection stages nothing', async () => {
     let { state } = (await (await start('gmail')).json()) as { state: string }
 
@@ -349,9 +381,29 @@ describe('connecting through Composio', () => {
   })
 })
 
+// The conversation's selection, as its document stores it.
+let selected: string[] = []
+
+useAgentDb({
+  getConversationBySessionId: (async () => ({
+    userId: 'owner',
+    credentialAccess: { personalCredentialIds: selected },
+  })) as never,
+})
+
 describe('agents running tools through Composio', () => {
   beforeEach(() => {
     saved.push(connection('owner', 'gmail', 'ca_owner'))
+    selected = ['gmail', 'google-drive', 'google-calendar']
+  })
+
+  test('nothing runs without the conversation’s selection', async () => {
+    selected = ['google-calendar']
+    const res = await execute(await turn('owner', true), { tool: 'GMAIL_FETCH_EMAILS' })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
+    expect(requests).toHaveLength(0)
   })
 
   test('the token handout points the agent at execute instead of handing out a token', async () => {
@@ -386,7 +438,18 @@ describe('agents running tools through Composio', () => {
     ])
   })
 
-  test('refuses other toolkits and permanent mail deletion', async () => {
+  test('runs a Google Calendar tool through the Calendar connection', async () => {
+    saved.push(connection('owner', 'google-calendar', 'ca_cal'))
+    const res = await execute(await turn('owner', true), { tool: 'GOOGLECALENDAR_EVENTS_LIST' })
+
+    expect(res.status).toBe(200)
+    expect(requests[0]).toMatchObject({
+      path: '/tools/execute/GOOGLECALENDAR_EVENTS_LIST',
+      body: { connected_account_id: 'ca_cal' },
+    })
+  })
+
+  test('refuses other toolkits, permanent mail deletion and calendar management', async () => {
     const token = await turn('owner', true)
 
     for (const tool of ['SLACK_SEND_MESSAGE', 'GMAIL_DELETE_MESSAGE', 'gmail_send_email']) {
@@ -395,6 +458,40 @@ describe('agents running tools through Composio', () => {
       expect(res.status).toBe(400)
     }
     expect(requests).toHaveLength(0)
+  })
+
+  test('Calendar runs event tools only, as a calendar.events grant would', () => {
+    for (const tool of [
+      'GOOGLECALENDAR_EVENTS_LIST',
+      'GOOGLECALENDAR_CREATE_EVENT',
+      'GOOGLECALENDAR_PATCH_EVENT',
+      'GOOGLECALENDAR_DELETE_EVENT',
+      'GOOGLECALENDAR_QUICK_ADD',
+    ]) {
+      expect(composioToolProvider(tool)).toBe('google-calendar')
+    }
+    for (const tool of [
+      'GOOGLECALENDAR_ACL_INSERT',
+      'GOOGLECALENDAR_ACL_PATCH',
+      'GOOGLECALENDAR_ACL_UPDATE',
+      'GOOGLECALENDAR_ACL_DELETE',
+      'GOOGLECALENDAR_ACL_LIST',
+      'GOOGLECALENDAR_ACL_GET',
+      'GOOGLECALENDAR_ACL_WATCH',
+      'GOOGLECALENDAR_LIST_ACL_RULES',
+      'GOOGLECALENDAR_CREATE_CALENDAR',
+      'GOOGLECALENDAR_DUPLICATE_CALENDAR',
+      'GOOGLECALENDAR_CALENDARS_UPDATE',
+      'GOOGLECALENDAR_PATCH_CALENDAR',
+      'GOOGLECALENDAR_CALENDARS_DELETE',
+      'GOOGLECALENDAR_CLEAR_CALENDAR',
+      'GOOGLECALENDAR_CALENDAR_LIST_INSERT',
+      'GOOGLECALENDAR_CALENDAR_LIST_DELETE',
+      'GOOGLECALENDAR_SETTINGS_LIST',
+      'GOOGLECALENDAR_EVENTS_WATCH',
+    ]) {
+      expect(composioToolProvider(tool)).toBeNull()
+    }
   })
 
   test('a teammate’s message, another team, or an unconnected toolkit gets nothing', async () => {

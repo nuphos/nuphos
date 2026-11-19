@@ -35,8 +35,8 @@ export function selectedAgentName(control: Pick<RuntimeControl, 'value' | 'optio
   if (!value) return t('The runtime')
   if (!local) return value.label
 
-  return t('{agent} on {computer}', {
-    agent: agentDisplayName({ provider: value.provider, label: value.label, local }),
+  return t('{runtime} on {computer}', {
+    runtime: agentDisplayName({ provider: value.provider, label: value.label, local }),
     computer: local.deviceLabel,
   })
 }
@@ -46,9 +46,30 @@ export function runtimeGone(control: RuntimeControl | undefined): control is Run
   return Boolean(control?.unavailable && control.value?.id)
 }
 
+/**
+ * The conversation should leave its agent, not wait for it: the agent is gone, or its
+ * computer is offline and this person may move the conversation.
+ */
+export function shouldSwitchAgent(control: RuntimeControl | undefined): boolean {
+  const offline = selectedAgentReachability(control) === 'offline'
+
+  return (offline && Boolean(control?.onSelect)) || runtimeGone(control)
+}
+
 /** What the banner and the send button say about a gone agent. */
 export function runtimeGoneText(control: Pick<RuntimeControl, 'value'>): string {
-  return t('{name} is no longer available.', { name: control.value?.label ?? t('The runtime') })
+  const name = control.value?.label ?? t('The runtime')
+
+  // On a person's computer, losing access looks the same as removal: the server never says
+  // which, so a computer's existence is not revealed to someone it is no longer shared with.
+  return control.value?.id?.startsWith('local_')
+    ? t(
+        '{name} is no longer available. It was removed, or its computer is no longer shared with you.',
+        {
+          name,
+        },
+      )
+    : t('{name} is no longer available.', { name })
 }
 
 /** Why the next message cannot go, or null when it can: no agent, or one that cannot take it. */

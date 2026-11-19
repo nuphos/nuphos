@@ -30,6 +30,8 @@ const botId = 'dddddddddddddddddddddddd'
 let owner = caller
 let managerIds: string[] = []
 let saved: (string | null)[] = []
+// The background each saved face was stored with; undefined leaves it as it was.
+let backgrounds: (string | undefined)[] = []
 // Who each saved face is recorded as changed by.
 let actors: string[] = []
 let stillThere = true
@@ -74,9 +76,10 @@ useAgentDb({
     return true
   },
   // As the write: a face changes only on a Bot; taking it away works on any.
-  setConversationAvatar: async (_session, avatar, actorId) => {
+  setConversationAvatar: async (_session, avatar, actorId, background) => {
     if (!stillThere || (avatar !== null && !currentAvatar)) return false
     saved.push(avatar)
+    backgrounds.push(background)
     actors.push(actorId)
 
     return true
@@ -128,6 +131,7 @@ beforeEach(() => {
   owner = caller
   managerIds = []
   saved = []
+  backgrounds = []
   actors = []
   stillThere = true
   shells = []
@@ -137,11 +141,11 @@ beforeEach(() => {
   parentSessionId = undefined
   turns.length = 0
 })
-const pick = (avatar: unknown, team = teamId) =>
+const pick = (avatar: unknown, team = teamId, background?: unknown) =>
   app.request(`/agent/conversations/s1/avatar?teamId=${team}`, {
     method: 'PATCH',
     headers: { authorization: 'Bearer test-token', 'content-type': 'application/json' },
-    body: JSON.stringify({ avatar }),
+    body: JSON.stringify(background === undefined ? { avatar } : { avatar, background }),
   })
 
 test("the owner changes a Bot's face, and taking it away makes it a Task", async () => {
@@ -171,6 +175,24 @@ test('only the owner picks; a participant may not', async () => {
 test('rejects anything that is not a catalog name', async () => {
   for (const avatar of ['../etc/passwd', 'rembrandt', '05-Rembrandt.svg', 5, ''])
     expect((await pick(avatar)).status).toBe(400)
+  expect(saved).toEqual([])
+})
+
+test('a background is saved with the face, and leaving it out keeps the one there is', async () => {
+  currentAvatar = '07-ada'
+  const response = await pick('05-rembrandt', teamId, 'sky')
+
+  expect(response.status).toBe(200)
+  expect(await response.json()).toEqual({ avatar: '05-rembrandt', background: 'sky' })
+  expect((await pick('05-rembrandt', teamId, 'none')).status).toBe(200)
+  expect((await pick('07-ada')).status).toBe(200)
+  expect(backgrounds).toEqual(['sky', 'none', undefined])
+})
+
+test('rejects a background that is not a tint name', async () => {
+  currentAvatar = '07-ada'
+  for (const background of ['teal', 'Sky', '#D6E6F7', '', null, 3])
+    expect((await pick('05-rembrandt', teamId, background)).status).toBe(400)
   expect(saved).toEqual([])
 })
 
@@ -263,6 +285,19 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
   ])
 })
 
+test('"+" on Bots may start a Bot on a picked background', async () => {
+  const response = await createBot({ avatar: '07-ada', background: 'peach' })
+
+  expect(response.status).toBe(201)
+  expect(await response.json()).toMatchObject({ avatar: '07-ada', avatarBackground: 'peach' })
+  expect(shells[0]?.bot).toMatchObject({ avatar: '07-ada', background: 'peach' })
+  // None is no background at all.
+  expect((await createBot({ background: 'none' })).status).toBe(201)
+  expect(shells[1]?.bot).not.toHaveProperty('background')
+  expect((await createBot({ background: 'teal' })).status).toBe(400)
+  expect(shells).toHaveLength(2)
+})
+
 const makeBot = () =>
   app.request(`/agent/conversations/s1/bot?teamId=${teamId}`, {
     method: 'POST',
@@ -331,4 +366,32 @@ test('"Make this a Bot" clicked twice at once starts one turn', async () => {
   expect(await (await makeBot()).json()).toEqual({ avatar: '07-ada' })
   expect(saved).toEqual([])
   expect(turns).toEqual([])
+})
+
+test('coordination starter saves durable instructions without a primary role', async () => {
+  const response = await createBot({
+    title: 'Coordinator',
+    starter: 'coordinate',
+    onboarding: true,
+  })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('list_tasks')
+  expect(shells[0]?.instructions).toContain('never grants human approval')
+  expect(shells[0]?.botOnboarding).toBe('pending')
+  expect(shells[0]).not.toHaveProperty('primary')
+  expect(turns).toHaveLength(0)
+})
+
+test('ordinary onboarding learns purpose and persists it', async () => {
+  const response = await createBot({ title: 'Research Expert', onboarding: true })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('one focused question')
+  expect(shells[0]?.instructions).toContain('update_self')
+})
+
+test('unknown starters and invalid onboarding values are rejected', async () => {
+  expect((await createBot({ starter: 'admin' })).status).toBe(400)
+  expect((await createBot({ onboarding: 'yes' })).status).toBe(400)
 })

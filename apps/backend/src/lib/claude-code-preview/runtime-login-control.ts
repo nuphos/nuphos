@@ -6,8 +6,8 @@ import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
-import { loginFrameReader } from './runtime-login-exec'
-import { runtimeLabel, runtimeProvider, runtimeShortName } from './runtime-provider'
+import { loginFrameReader } from './runtime-login-frames'
+import { runtimeLabel, runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeLoginFrame } from './runtime-login-step'
@@ -38,7 +38,7 @@ async function controlEndpoint(teamId: string, runtimeId: string, userId?: strin
   if (parseLocalRuntimeId(runtimeId) && userId)
     return resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
   const { provider } = await requireRuntimeInstance(teamId, runtimeId, userId)
-  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, provider, 'control')).find(
     (candidate) => candidate.runtimeId === runtimeId,
   )
 
@@ -83,10 +83,10 @@ function runtimeLoginError(error: unknown): AppError {
  * Drive the runtime's own device sign-in over the operator channel.
  *
  * The runtime installs the credential itself and reports only that it did, so the
- * frames carry a device code and nothing else. `loginFrameReader` is fed the same
- * NDJSON it parses on the exec path, so the framing, the size cap and the fixed error
- * string are the ones already proven there. The sign-in ends with the runtime's
- * `exited` frame, or when `signal` aborts it.
+ * frames carry a device code and nothing else. Each frame goes through
+ * `loginFrameReader` as one NDJSON line, so its framing, size cap and fixed error
+ * strings apply. The sign-in ends with the runtime's `exited` frame, or when `signal`
+ * aborts it.
  */
 export async function driveControlRuntimeLogin(
   client: Pick<TeamPreviewClient, 'runtimeLogin' | 'cancelRuntimeLogin' | 'onRuntimeLoginFrame'>,
@@ -145,7 +145,8 @@ export async function driveControlRuntimeLogin(
 
 export type ControlLoginTarget = Awaited<ReturnType<typeof controlEndpoint>>
 
-/** An agent added a moment ago is still starting: its sign-in waits for it, briefly. */
+/** An agent added a moment ago is still starting: its sign-in waits for it, briefly, and for
+ *  as long as its computer is installing its CLI. */
 export async function acquireStarting(
   teamId: string,
   endpoint: ControlLoginTarget,
@@ -155,18 +156,38 @@ export async function acquireStarting(
     endpoint: ControlLoginTarget,
   ) => Promise<Awaited<ReturnType<typeof controlRegistry.acquire>>> = controlRegistry.acquire,
   waitMs = 30_000,
+  installing: () => Promise<boolean> = () => localAgentInstalling(endpoint.runtimeId),
+  onInstalling?: () => void,
 ) {
-  const deadline =
-    Date.now() + (parseLocalRuntimeId(endpoint.runtimeId ?? '')?.instanceId ? waitMs : 0)
+  const added = parseLocalRuntimeId(endpoint.runtimeId ?? '')?.instanceId !== undefined
+  let deadline = Date.now() + (added ? waitMs : 0)
 
   for (;;) {
     try {
       return await acquire(teamId, endpoint)
     } catch (error) {
-      if (signal.aborted || Date.now() >= deadline) throw error
+      if (signal.aborted || !added) throw error
+      if (await installing().catch(() => false)) {
+        onInstalling?.()
+        deadline = Date.now() + waitMs
+      } else if (Date.now() >= deadline) throw error
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
+}
+
+/** The computer is installing the added agent's CLI right now. */
+async function localAgentInstalling(
+  runtimeId: string | undefined,
+  presence: Pick<LocalRuntimePresenceStore, 'get'> = runtimePresenceStore(),
+): Promise<boolean> {
+  const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
+
+  return (
+    !!ref &&
+    reportedLocalAgent((await presence.get(ref.userId, ref.deviceId))?.status, ref)?.cli
+      .installing === true
+  )
 }
 
 /**
@@ -182,11 +203,22 @@ export async function localAgentNotInstalled(
     ref && reportedLocalAgent((await presence.get(ref.userId, ref.deviceId))?.status, ref)
 
   if (!ref || agent?.cli.installed !== false) return undefined
+  if (agent.cli.installError)
+    return new AppError(
+      409,
+      'runtime_install_failed',
+      `Couldn't install ${runtimeLabel(ref.provider)} on this runtime's computer: ${agent.cli.installError}`,
+    )
 
+  const name = runtimeLabel(ref.provider)
+
+  // Nuphos installs every agent it adds but Antigravity, which comes only as a desktop app.
   return new AppError(
     409,
     'runtime_not_installed',
-    `${runtimeLabel(ref.provider)} is not installed on the computer running this agent. Install it there so \`${runtimeShortName(ref.provider)}\` runs in a terminal, then try again.`,
+    ref.provider === 'antigravity'
+      ? `${name} isn't installed on this runtime's computer. Install the ${name} app there from https://antigravity.google, then try again.`
+      : `${name} isn't installed on this runtime's computer. Update Nuphos there so it can install ${name}, then try again.`,
   )
 }
 
@@ -197,11 +229,21 @@ async function execControlRuntimeLogin(
   doc: RuntimeLoginDoc,
 ): Promise<void> {
   // A computer without the agent's CLI answers, yet its agent never comes up: say so.
-  const client = await acquireStarting(doc.teamId, endpoint, signal).catch(
-    async (error: unknown) => {
-      throw (await localAgentNotInstalled(endpoint.runtimeId).catch(() => undefined)) ?? error
+  let installing = false
+  const client = await acquireStarting(
+    doc.teamId,
+    endpoint,
+    signal,
+    undefined,
+    undefined,
+    undefined,
+    () => {
+      if (!installing) onFrame({ type: 'installing' })
+      installing = true
     },
-  )
+  ).catch(async (error: unknown) => {
+    throw (await localAgentNotInstalled(endpoint.runtimeId).catch(() => undefined)) ?? error
+  })
   const provider = runtimeProvider(endpoint.provider)
 
   await driveControlRuntimeLogin(

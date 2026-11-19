@@ -11,7 +11,7 @@ import type { ConnectProvider, ConnectRowStatus } from './connectCardModel'
 
 const ACTION_LABEL: Partial<Record<ConnectRowStatus, string>> = {
   error: t('Try again'),
-  available: t('Use in agent'),
+  available: t('Use in task'),
 }
 
 function ProviderLogo({ provider }: { provider: ConnectProvider }) {
@@ -55,7 +55,7 @@ function RowAction({
     )
   }
   // Only Connect is blocked: selecting what the team already bound is not a bind,
-  // so an `available` row keeps its "Use in agent" for every member.
+  // so an `available` row keeps its "Use in task" for every member.
   const use = status === 'available'
 
   if (blocked && !use) return <span className="text-[12px] text-tertiary">{blocked.label}</span>
@@ -144,7 +144,7 @@ export function ConnectHeader({
 export function AgentQuote({ text }: { text: string }) {
   return (
     <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-line-control pl-2 text-[12.5px] leading-snug text-secondary">
-      <span className="text-tertiary">{t('Agent:')} </span>
+      <span className="text-tertiary">{t('Reason given:')} </span>
       {text}
     </blockquote>
   )

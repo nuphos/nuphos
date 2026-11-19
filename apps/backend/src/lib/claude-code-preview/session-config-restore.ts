@@ -35,7 +35,6 @@ export async function sessionConfigRestoreContext(
     teamId,
     sessionId: conversation.sessionId,
     locale: conversation.metadata?.locale ?? 'en',
-    userTexts: [conversation.firstMessage],
     ...conversation.claudeCodePreviewContext,
   })
 

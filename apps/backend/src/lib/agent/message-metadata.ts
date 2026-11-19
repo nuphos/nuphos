@@ -27,7 +27,10 @@ export type MessageMetadata = {
    * `id` is the original's in the same chat, for a channel reply.
    */
   replyTo?: { id?: string; authorName: string; text: string }
-  /** A Discord author with no verified Nuphos identity: the body is fenced for the model. */
+  /** Nuphos's record of a person's answer to card `requestId`; `answeredIn` if in the Inbox. */
+  requestId?: string
+  answeredIn?: 'inbox'
+  /** A Discord or Slack author with no verified Nuphos identity: the body is fenced for the model. */
   unattested?: true
   /** The stored CLI or agent token that sent it, for audit. */
   cliTokenId?: string
@@ -70,6 +73,7 @@ export function systemSender(
 }
 
 const SOURCES = ['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'] as const
+const UNATTESTED = new Set<string>(['discord', 'slack']) // Bridges with unverified authors.
 
 export type MessageDevice = { label: string; platform: string }
 
@@ -180,7 +184,13 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
       ? { resourceUrl: m.resourceUrl }
       : {}),
     ...(replyTo ? { replyTo } : {}),
-    ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
+    ...(m.source === 'nuphos' && nonEmpty(m.requestId)
+      ? {
+          requestId: m.requestId,
+          ...(m.answeredIn === 'inbox' ? { answeredIn: m.answeredIn } : {}),
+        }
+      : {}),
+    ...(m.unattested === true && UNATTESTED.has(m.source) ? { unattested: true as const } : {}),
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
     ...(mentions ? { mentions } : {}),
     ...(channelPost ? { channelPost } : {}),

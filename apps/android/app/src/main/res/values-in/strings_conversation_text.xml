@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">Dihentikan oleh pengguna.</string>
     <string name="convtext_empty_reply">Agen mengembalikan balasan kosong.</string>
     <string name="convtext_steering_rejected">Pengarahan ditolak. Coba lagi saat runtime mengizinkan.</string>
+    <string name="convtext_stop_runtime_unreachable">Runtime tidak merespons; giliran ini dihentikan di sini.</string>
     <string name="convtext_steering_unconfirmed">Pengiriman pengarahan belum terkonfirmasi. Periksa tugas sebelum mencoba lagi.</string>
     <string name="convtext_delivery_unconfirmed">Pengiriman pesan belum terkonfirmasi. Lanjutkan koneksi semula.</string>
     <string name="convtext_task_reloaded">Tugas ini diubah di tempat lain dan dimuat ulang. Coba kirim pesan Anda lagi.</string>
@@ -58,6 +59,7 @@
     <string name="convtext_runtime_disabled">Runtime tugas ini dinonaktifkan. Ganti ke runtime lain untuk melanjutkan.</string>
     <string name="convtext_runtime_not_found">Runtime ini tidak lagi tersedia di workspace ini. Ganti ke runtime lain untuk melanjutkan.</string>
     <string name="convtext_runtime_offline">Komputer yang menjalankan runtime ini sedang offline. Buka Nuphos di komputer tersebut, atau ganti ke runtime lain.</string>
+    <string name="convtext_runtime_paused">%1$s sedang dijeda. Akan berjalan lagi saat Anda mengirim pesan.</string>
     <string name="convtext_ask_owner">Tanya pemilik</string>
     <string name="convtext_ask_admin">Tanya admin</string>
     <string name="convtext_server_status">Nuphos mengembalikan status %1$d.</string>

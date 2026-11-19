@@ -9,6 +9,34 @@ xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
+## UI tests in CI
+
+The UI tests (`nuphos-iosUITests`) take about an hour serially, so they do not run on every pull request.
+`.github/workflows/ios-ui.yml` runs all of them every night on `main`, and on any branch you dispatch it on.
+A failed test fails the job, and a failed nightly run opens or updates an issue listing the failed tests.
+When a change affects iOS screens or the UI tests themselves, run it on the pull request's branch and link the run:
+
+```bash
+gh workflow run ios-ui.yml --ref <branch>
+```
+
+## Before and after evidence for a UI test
+
+To show that a new UI test fails without a fix and passes with it, check out both
+commits side by side as `before` and `after`, copy the new test file into `before`, and run:
+
+```sh
+bash after/apps/ios/tests/ui-evidence.sh before after BotsAndTasksListUITests/testBotsKeepWhatWasOpenedByHand \
+  -destination "id=$udid" -only-testing:nuphos-iosUITests/BotsAndTasksListUITests
+```
+
+It reads each side's result bundle, not the exit code, writes a per-test table to the
+job summary and fails unless every test passes after the change and, before it, the new
+test fails while at least one other test passes. That other test is the control that
+rules out a build or launch failure, so run an existing test alongside the new one.
+Skipped tests are shown in the table and allowed. Link that table and the uploaded `ui-evidence/*.xcresult` as
+evidence, never only a run's status, and never hide a test command's exit code with `|| true`.
+
 ## Transcript regression checks
 
 After installing a Debug simulator build, run:
@@ -52,7 +80,7 @@ Commit `Shared/Localizable.xcstrings` with the change: CI fails when the catalog
 
 If you cannot write all seven languages, run the fill script for what Desktop already has, add the rest in English for now, and ask for translations in the pull request; a follow-up commit on the same branch fills them before it merges.
 
-`Shared/Localizable.xcstrings` is shared by the app, the share extension and the widgets, since all three include the `Shared` folder. The privacy prompts from `Info.plist` are translated in `nuphos-ios/InfoPlist.xcstrings`.
+`Shared/Localizable.xcstrings` is shared by the app, the share extension and the widgets, since all three include the `Shared` folder. Legal and consent text, such as the AI consent, account deletion and privacy prompt explanations, stays in English until a native speaker reviews its translations (#3031). Mark it with `comment: "Legal text"` in code (or in the `InfoPlist.xcstrings` entry) and `shouldTranslate: false` in the catalog; `tests/run.sh` fails if such a string gets a translation. After the review, add the translations and change the comment to `"Legal text. Reviewed translations"`.
 
 ## Run on a device
 

@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# A PR's new push cancels its older run. Each run dispatched by hand gets its own
+# group, so several dispatched at once (to reproduce a flake) all finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   android:
     name: Android (tests, lint, APK build)
@@ -55,6 +61,10 @@ jobs:
         run: |
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools"
+      # Compiled before the emulator boots, so Gradle never competes with it for the runner's CPU.
+      - name: Build the app and its device tests
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
       # The fixture tests only. The live smoke test skips itself without its opt-in arguments.
       - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -65,7 +75,12 @@ jobs:
           working-directory: apps/android
           script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
+        # Green runs keep the per-test report too, so a pull request can show that a test ran and passed.
+        if: ${{ !cancelled() }}
         with:
           name: android-device-tests
-          path: apps/android/app/build/reports/androidTests
+          # The report, and the screenshots tests write to the build's additional test output.
+          path: |
+            apps/android/app/build/reports/androidTests
+            apps/android/app/build/outputs/connected_android_test_additional_output
+          retention-days: 7

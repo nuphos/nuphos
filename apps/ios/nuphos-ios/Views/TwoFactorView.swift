@@ -126,7 +126,7 @@ struct TwoFactorView: View {
                 if let passkeys = status.passkeys {
                     ForEach(passkeys) { passkey in
                         HStack {
-                            Label(passkey.name, systemImage: "person.badge.key")
+                            Label(passkey.name, image: "lucide-key-round")
                             Spacer()
                             Button("Remove", role: .destructive) { confirming = .removePasskey(passkey) }
                                 .buttonStyle(.borderless)
@@ -195,8 +195,9 @@ struct TwoFactorView: View {
             load = .ready(try await AccountAPI.mfaStatus(token: token))
         } catch NuphosAPI.Failure.sessionRequired {
             load = .signInAgain
-        } catch is CancellationError {
         } catch {
+            // A cancelled request throws URLError(.cancelled), not CancellationError (#3620).
+            guard !Task.isCancelled else { return }
             load = .failed(error.localizedDescription)
         }
     }

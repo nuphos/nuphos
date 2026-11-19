@@ -51,7 +51,7 @@ struct ToolDetailSheet: View {
         .sheet(isPresented: $choosingCredentials) {
             CredentialPickerSheet(selection: Binding(
                 get: { session.credentialAccess ?? CredentialSelection() },
-                set: { session.setCredentials($0) }))
+                set: { session.setCredentials($0) }), providers: part.integrationProviders)
         }
         .sheet(isPresented: $showingConnectors) {
             NavigationStack {
@@ -96,7 +96,7 @@ struct ToolDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .raisedCard()
     }
 
     private var header: some View {
@@ -122,6 +122,6 @@ struct ToolDetailSheet: View {
                 .padding(12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }

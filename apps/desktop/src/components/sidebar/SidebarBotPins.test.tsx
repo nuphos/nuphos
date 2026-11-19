@@ -63,6 +63,7 @@ function Harness() {
         renameChat: ignore,
         archiveChat: () => Promise.resolve(),
         confirmArchiveBot: ignore,
+        confirmLeaveTask: ignore,
         unlinkChat: () => Promise.resolve(),
       }),
   )
@@ -114,7 +115,7 @@ test('a pinned Bot right-click shows all the normal Bot menu actions', async () 
         'Unpin Bot',
         'Copy link',
         'Copy Bot ID',
-        'Rename Bot',
+        'Edit Bot',
         'Change avatar',
         'Watch Bot',
         'Archive Bot',

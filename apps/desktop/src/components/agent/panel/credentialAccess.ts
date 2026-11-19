@@ -191,6 +191,7 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     cloudflareAccountIds: (options.cloudflareAccounts ?? []).map((account) => account.accountId),
     instaboxAccountIds: (options.instaboxAccounts ?? []).map((account) => account.accountId),
     deviceIds: (options.devices ?? []).map((device) => device.deviceId),
+    personalCredentialIds: (options.personalCredentials ?? []).map((own) => own.provider),
   }
 }
 
@@ -238,7 +239,7 @@ export function reconcileStoredCredentialAccess(
   if (!credentialOptionsLoaded(options)) {
     return normalizeCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS)
   }
-  // No stored selection at all means "whatever this team has", not "nothing" —
+  // For a dashboard panel, no stored selection means "whatever this team has", not "nothing" —
   // but via `defaultCredentialAccess`, so Resend stays opt-in rather than being
   // switched on for every conversation that never made a choice.
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))

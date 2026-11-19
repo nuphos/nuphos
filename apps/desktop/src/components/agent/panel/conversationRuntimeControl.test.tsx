@@ -95,14 +95,11 @@ test('Bot and Task runtime controls preserve access, confirmation, and move dedu
   expect(render({ activeTab: null })).toBeUndefined()
   expect(render({ activeTab: { ...base.activeTab, readOnly: true } })).toBeUndefined()
   expect(render({ activeTab: { ...base.activeTab, streaming: true } })?.selectDisabled).toBe(true)
-  expect(
-    render({ activeTab: { ...base.activeTab, foreign: true, canManage: false } })?.onSelect,
-  ).toBeUndefined()
-  expect(
-    render({ activeTab: { ...base.activeTab, foreign: true, canManage: true } })?.options?.map(
-      (r) => r.id,
-    ),
-  ).toEqual(['managed'])
+  // Only the owner can move a conversation, whoever else manages it.
+  for (const canManage of [false, true])
+    expect(
+      render({ activeTab: { ...base.activeTab, foreign: true, canManage } })?.onSelect,
+    ).toBeUndefined()
 
   notice = 'This moves the task to another computer'
   render()?.onSelect?.('next')

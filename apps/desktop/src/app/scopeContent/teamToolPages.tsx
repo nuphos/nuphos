@@ -84,13 +84,19 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         refreshKey={refreshKey}
         onCount={onCount}
         onLoading={onLoading}
-        onOpenSettingsSection={ctx.onOpenSettingsSection}
       />,
     )
   }
 
   if (active === 'team.files') {
-    return <RuntimeFilesView key={filter} teamId={scope.teamId} filePath={filter} />
+    return (
+      <RuntimeFilesView
+        key={filter}
+        teamId={scope.teamId}
+        filePath={filter}
+        onOpenConversation={onOpenConversation}
+      />
+    )
   }
 
   if (active === 'team.artifact') {

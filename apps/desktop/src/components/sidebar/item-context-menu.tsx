@@ -40,6 +40,7 @@ export function SidebarItemContextMenu({
   toggleFavorite,
   archiveChat,
   confirmArchiveBot,
+  confirmLeaveTask,
   unlinkChat,
   renameChat,
 }: {
@@ -52,12 +53,19 @@ export function SidebarItemContextMenu({
   renameChat: (sessionId: string, title: string) => void
   archiveChat: (sessionId: string) => Promise<void>
   confirmArchiveBot: (sessionId: string) => void
+  confirmLeaveTask: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
   // A Bot's channel shares its pin controls with the Bot row.
   const channel = menu.item.channel === true
   // A Bot is a Bot in either section (its chat or itself); otherwise a Task or a group chat.
   const noun = menu.item.bot || menu.item.botChannelOf ? 'bot' : channel ? 'chat' : 'task'
+  const pinLabels = {
+    bot: [t('Pin Bot'), t('Unpin Bot')],
+    chat: [t('Pin chat'), t('Unpin chat')],
+    task: [t('Add to Favorites'), t('Remove from Favorites')],
+  }
+  const [pinLabel, unpinLabel] = pinLabels[noun]
   const sessionId = menu.item.key.slice('agent-session:'.length)
   const viewerId = useCurrentUser()?.id ?? ''
 
@@ -67,19 +75,19 @@ export function SidebarItemContextMenu({
       y={menu.y}
       onClose={onClose}
       items={[
-        ...((!channel || noun === 'bot') && canFavorite(menu.item)
+        ...(canFavorite(menu.item)
           ? [
               favoriteMatch(menu.item)
                 ? {
                     key: 'unfavorite',
-                    label: noun === 'bot' ? t('Unpin Bot') : t('Remove from Favorites'),
-                    icon: noun === 'bot' ? PinOff : StarOff,
+                    label: unpinLabel,
+                    icon: noun === 'task' ? StarOff : PinOff,
                     onSelect: () => toggleFavorite(menu.item),
                   }
                 : {
                     key: 'favorite',
-                    label: noun === 'bot' ? t('Pin Bot') : t('Add to Favorites'),
-                    icon: noun === 'bot' ? Pin : Star,
+                    label: pinLabel,
+                    icon: noun === 'task' ? Star : Pin,
                     onSelect: () => toggleFavorite(menu.item),
                   },
             ]
@@ -185,9 +193,21 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
+        // So is someone else's Task; leaving may cost access, so it asks first.
+        ...(noun === 'task' && menu.item.leavable
+          ? [
+              {
+                key: 'leave',
+                label: t('Leave task'),
+                icon: LogOut,
+                onSelect: () => confirmLeaveTask(sessionId),
+              },
+            ]
+          : []),
         ...(noun !== 'chat' &&
         menu.item.key.startsWith('agent-session:') &&
-        (!menu.item.readOnlyChat || menu.item.managedChat)
+        // Someone else's Task is archived for you alone.
+        (!menu.item.readOnlyChat || menu.item.managedChat || menu.item.leavable)
           ? [
               {
                 key: 'archive',
@@ -236,7 +256,7 @@ const COPY_ID = {
 }
 const RENAME = {
   task: () => t('Rename task'),
-  bot: () => t('Rename Bot'),
+  bot: () => t('Edit Bot'),
   chat: () => t('Rename chat'),
 }
 const ARCHIVE = {

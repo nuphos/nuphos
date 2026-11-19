@@ -9,11 +9,12 @@ import type { SessionThreadResource } from '@/lib/agent/session-thread-resources
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { botPresence, botRuntimes } from '@/lib/agent/bot-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { lastMessage } from '@/lib/agent/last-message'
 import { runChannels } from '@/lib/agent/run-admission'
-import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { getActiveAgentRunsForSessions } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
 import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
@@ -46,21 +47,14 @@ export function restingRuntimeState(
   return stored ?? (liveRun ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
 }
 
-/**
- * A reply can be running on another client (desktop, Slack, a scheduled
- * wake-up), so list rows carry the live run the way the detail does: the
- * local registry first, then the shared store.
- */
-async function activeRunFor(
+/** A live run as a list row shows it, with the channels it answers. */
+async function withChannels(
   conversation: ListedConversation,
+  run: ConversationActiveRun | null,
 ): Promise<(ConversationActiveRun & { channelIds: string[] }) | null> {
+  if (!run) return null
+
   try {
-    const run =
-      getLocalActiveAgentRun(conversation.userId, conversation.sessionId) ??
-      (await getActiveAgentRunForSession(conversation.userId, conversation.sessionId))
-
-    if (!run) return null
-
     return {
       streamId: run.streamId,
       startedAt: run.startedAt ?? null,
@@ -69,6 +63,31 @@ async function activeRunFor(
   } catch {
     return null
   }
+}
+
+/**
+ * A reply can be running on another client (desktop, Slack, a scheduled wake-up),
+ * so list rows carry the live run the way the detail does: the local registry first,
+ * then the shared store, asked once for the whole page.
+ */
+async function activeRunsFor(conversations: ListedConversation[]) {
+  const local = conversations.map((c) => getLocalActiveAgentRun(c.userId, c.sessionId))
+  const shared = await getActiveAgentRunsForSessions(
+    conversations.filter((_, i) => !local[i]),
+  ).catch(() => [])
+  let next = 0
+
+  return Promise.all(
+    conversations.map(async (conversation, i) => {
+      if (local[i]) return withChannels(conversation, local[i])
+      const run = shared[next++]
+
+      // The shared store's runs come with their channels, read for the whole page.
+      return run
+        ? { streamId: run.streamId, startedAt: run.startedAt, channelIds: run.channelIds }
+        : null
+    }),
+  )
 }
 
 /** Owner, Slack thread and live-run enrichment for one page of `GET /agent/conversations`. */
@@ -100,15 +119,16 @@ export async function serializeConversationList<T extends ListedConversation>(
       )
     : Promise.resolve(conversations.map(() => null))
   // A stored idle or dormant snapshot already says no run is live.
-  const activeRunsPromise = runtimeStatesPromise.then((states) =>
-    Promise.all(
-      conversations.map(async (conversation, index) => {
-        const state = states[index]
+  const activeRunsPromise = runtimeStatesPromise.then(async (states) => {
+    const asked = conversations.filter((_, i) => {
+      const state = states[i]
 
-        return !state || state.state === 'active' ? activeRunFor(conversation) : null
-      }),
-    ),
-  )
+      return !state || state.state === 'active'
+    })
+    const runs = await activeRunsFor(asked)
+
+    return conversations.map((conversation) => runs[asked.indexOf(conversation)] ?? null)
+  })
   const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources, accesses] =
     await Promise.all([
       buildConversationOwnerMap(
@@ -133,7 +153,10 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const [desktops, faces, answering, lastMessages] = await Promise.all([
+  const bots = conversations.filter(
+    (conversation) => conversation.avatar && conversation.kind !== 'channel',
+  )
+  const [desktops, faces, answering, lastMessages, runtimes] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
@@ -149,6 +172,15 @@ export async function serializeConversationList<T extends ListedConversation>(
     Promise.all(
       conversations.map((conversation) => lastMessage(conversation, viewer.id).catch(() => null)),
     ),
+    teamId && bots.length
+      ? botRuntimes(teamId, bots as { userId: string; runtimeId?: string }[]).catch(
+          (err: unknown) => {
+            logError('agent.conversations.bot_presence.error', err, { team_id: teamId })
+
+            return undefined
+          },
+        )
+      : undefined,
   ])
 
   return conversations.map((conversation, index) => {
@@ -160,6 +192,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ),
       run,
     )
+    const bot = runtimes ? bots.indexOf(conversation) : -1
 
     return {
       ...listRow(
@@ -183,6 +216,15 @@ export async function serializeConversationList<T extends ListedConversation>(
       runtimeState,
       ...faces[index],
       ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
+      ...(runtimes && bot >= 0
+        ? {
+            presence: botPresence({
+              ownerRemoved: Boolean(ownerById.get(conversation.userId)?.deactivated),
+              runtime: runtimes[bot] ?? null,
+              busy: runtimeState.state === 'active' && Boolean(run),
+            }),
+          }
+        : {}),
     }
   })
 }

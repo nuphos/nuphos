@@ -257,10 +257,14 @@ export function codexProviderConfig(contents: string, provider: CustomProvider |
   ].join('\n')
 }
 
-/** Brings a Codex home's config.toml in line with the provider saved beside it. */
-export function applyCodexProvider(userDir: string, config: string): void {
+/** Brings a Codex home's config.toml in line with the provider saved beside it, or the one given. */
+export function applyCodexProvider(
+  userDir: string,
+  config: string,
+  provider = readCustomProviders(userDir).codex,
+): void {
   const current = existsSync(config) ? readFileSync(config, 'utf8') : ''
-  const next = codexProviderConfig(current, readCustomProviders(userDir).codex)
+  const next = codexProviderConfig(current, provider)
 
   if (next !== current) writeFileSync(config, next, { mode: 0o600 })
 }

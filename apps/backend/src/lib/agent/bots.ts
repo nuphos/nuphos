@@ -3,16 +3,21 @@ import { randomUUID } from 'node:crypto'
 import { initializeSessionBypass } from './auto-mode/store'
 import { derivedAvatar } from './bot-avatars'
 import { botChange, upsertConversationShell } from './db'
+import { botStarterInstructions } from './bot-starters'
 
-import type { BotAvatar } from './bot-avatars'
+import type { BotAvatar, BotAvatarBackground } from './bot-avatars'
 import type { AgentConversation } from './db'
 import type { BotChangeSource } from './db/timeline-events'
 
 export type NewBot = {
   /** What is making it, for the record kept with its face. */
   source: BotChangeSource
+  onboarding?: boolean
+  starter?: 'coordinate'
+  locale?: string
   title?: string
   avatar?: BotAvatar
+  background?: BotAvatarBackground
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
@@ -34,6 +39,7 @@ export async function createBot(
   const avatar = bot.avatar ?? derivedAvatar(sessionId)
   const title = bot.title ?? 'New Bot'
   const { source, agentRuntime, runtimeId, runtimeLabel } = bot
+  const background = bot.background === 'none' ? undefined : bot.background
 
   await upsertConversationShell({
     sessionId,
@@ -41,11 +47,18 @@ export async function createBot(
     teamId,
     title,
     firstMessage: '',
-    bot: { avatar, change: botChange({ actorId: userId, ...source }, avatar) },
+    bot: {
+      avatar,
+      ...(background ? { background } : {}),
+      change: botChange({ actorId: userId, ...source }, avatar),
+    },
+    ...(bot.onboarding || bot.starter ? { instructions: botStarterInstructions(bot.starter) } : {}),
+    ...(bot.onboarding ? { botOnboarding: 'pending' as const } : {}),
+    ...(bot.locale ? { locale: bot.locale } : {}),
     ...(agentRuntime ? { agentRuntime } : {}),
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
   await initializeSessionBypass(sessionId, userId, bypass)
 
-  return { sessionId, title, avatar }
+  return { sessionId, title, avatar, ...(background ? { avatarBackground: background } : {}) }
 }

@@ -5,8 +5,10 @@ import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
+import { personalConnectorOpens } from '../settings/personalConnectorOpens'
 import {
   PERSONAL_CREDENTIALS_CHANGED,
+  connectPersonalCredential,
   credentialFor,
   nameOf,
 } from '../settings/personalCredentials'
@@ -14,12 +16,13 @@ import {
 import { CONNECTOR_HOVER } from './connector-actions'
 import { OverflowMarquee } from './overflow-marquee'
 
-import type { PersonalCredential } from '../../types'
+import type { PersonalCredential, TeamGoogleClient } from '../../types'
 import type { PersonalConnector } from '../settings/personalCredentials'
 
 /**
  * The member's own accounts, listed beside the team's connectors so Connectors is the one place
- * to find every integration. They are managed in Settings → Personal Credentials, which a row opens.
+ * to find every integration. Connect signs in to the account in place; a connected one is managed
+ * in Settings → Personal Credentials, which its row opens.
  */
 export function PersonalConnectors({
   teamId,
@@ -31,6 +34,8 @@ export function PersonalConnectors({
   onOpenSettings: () => void
 }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
+  // Whether Google accounts can connect here; unknown (null) leaves Connect to say why if not.
+  const [googleClient, setGoogleClient] = useState<TeamGoogleClient | null>(null)
   // Status only decorates the rows; if it cannot be read they still open Settings.
   const refresh = useCallback(() => {
     void api
@@ -38,6 +43,13 @@ export function PersonalConnectors({
       .then(setCredentials)
       .catch(() => setCredentials(null))
   }, [])
+
+  useEffect(() => {
+    void api
+      .atlasGetTeamGoogleClient(teamId)
+      .then(setGoogleClient)
+      .catch(() => setGoogleClient(null))
+  }, [teamId])
 
   useEffect(() => {
     refresh()
@@ -55,18 +67,23 @@ export function PersonalConnectors({
       <div className="mb-1.5 flex items-baseline justify-between gap-3 border-b border-line-control/55 pb-2.5">
         <h2 className="text-[13px] font-medium text-main">{t('Personal')}</h2>
         <span className="truncate text-[12px] text-tertiary">
-          {t('Connect your own accounts so the agent acts as you.')}
+          {t('Connect your own accounts so your Bots and tasks act as you.')}
         </span>
       </div>
       <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 sm:grid-cols-2">
         {items.map(({ provider, summary }) => {
           const name = nameOf(provider)
           const credential = credentialFor(credentials, provider, teamId)
+          const opens = personalConnectorOpens(credential, provider, googleClient)
 
           return (
             <div
               key={provider}
-              onClick={onOpenSettings}
+              onClick={
+                opens === 'connect'
+                  ? () => void connectPersonalCredential(provider, teamId)
+                  : onOpenSettings
+              }
               className={clsx(
                 'group flex min-w-0 items-center gap-3 rounded-lg px-2 py-2.5',
                 CONNECTOR_HOVER,

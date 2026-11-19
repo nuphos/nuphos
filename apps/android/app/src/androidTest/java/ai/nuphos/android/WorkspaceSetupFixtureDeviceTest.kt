@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -240,7 +240,7 @@ class WorkspaceSetupFixtureDeviceTest {
     }
     /** The workspace list is in the profile sheet. */
     private fun openWorkspaces() {
-        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         waitText("Workspace")
         compose.onNodeWithText("Workspace").performScrollTo().performClick()
     }

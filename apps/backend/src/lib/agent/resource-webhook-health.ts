@@ -4,6 +4,7 @@ import { logEvent } from '@/lib/observability'
 
 import { agentConversations } from './db'
 import { fetchPullHealth } from './github-pull-health'
+import { allowedResourceRecipients } from './session-resource-lookup'
 
 const pr = z.object({ number: z.number().int().positive() })
 // The parts of a GitHub webhook that say which linked PR an event is about.
@@ -83,19 +84,16 @@ export function githubUnattachedSuiteCommit(event: string, payload: unknown) {
 /** A linked PR to refresh; a status event knows the repository but not the number, so it comes from the key. */
 export type HealthTarget = { key: string; installationId: number; repository: string }
 
-/** Re-reads what blocks a linked PR and stores it on every tag for it. */
+/** Re-reads what blocks a linked PR and stores it on every tag for it that may still read it. */
 async function refreshPullHealth(target: HealthTarget) {
-  const linked = await agentConversations().findOne(
-    { 'linkedResources.key': target.key },
-    { projection: { _id: 1 } },
-  )
+  const recipients = await allowedResourceRecipients(target.key)
 
-  if (!linked) return
+  if (!recipients.length) return
   const number = Number(target.key.split('/').pop())
   const health = await fetchPullHealth(target.installationId, target.repository, number)
 
   await agentConversations().updateMany(
-    { 'linkedResources.key': target.key },
+    { _id: { $in: recipients } },
     { $set: { 'linkedResources.$[resource].health': health } },
     { arrayFilters: [{ 'resource.key': target.key }] },
   )

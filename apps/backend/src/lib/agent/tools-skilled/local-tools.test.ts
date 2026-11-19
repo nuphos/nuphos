@@ -152,6 +152,42 @@ describe('createLocalExecTool execute', () => {
     expect(result).toEqual({ error: 'Device disconnected while the command was running.' })
   })
 
+  test('a terminal request names the missing support instead of a generic unavailable device', async () => {
+    const none = createLocalExecTool([], turn, 'terminal') as ExecTool
+    const some = createLocalExecTool(twoDevices, turn, 'terminal') as ExecTool
+
+    expect(await none.execute({ label: 'run', command: '{}' }, {})).toEqual({
+      error:
+        "No selected device can open a terminal: a Box's `nuphos agent` does not support terminals, and an offline computer cannot open one. Use local_exec on a Box instead.",
+    })
+    expect(await none.execute({ label: 'run', command: '{}', device: 'box' }, {})).toEqual({
+      error:
+        "Device box cannot open a terminal: a Box's `nuphos agent` does not support terminals, and an offline computer cannot open one. Use local_exec on a Box instead.",
+    })
+    expect(await some.execute({ label: 'run', command: '{}', device: 'box' }, {})).toEqual({
+      error:
+        "Device box cannot open a terminal: a Box's `nuphos agent` does not support terminals, and an offline computer cannot open one. Use local_exec on a Box instead. Terminals can open on: d1 (MacBook), d2 (Linux box).",
+    })
+    expect(dispatchCalls).toEqual([])
+  })
+
+  test('says a computer that cannot open the stream does not support it, rather than disconnected', async () => {
+    dispatchOutcome = { status: 'unsupported' }
+    const exec = createLocalExecTool([{ deviceId: 'd1', label: 'Box' }], turn) as ExecTool
+    const terminal = createLocalExecTool(
+      [{ deviceId: 'd1', label: 'Box' }],
+      turn,
+      'terminal',
+    ) as ExecTool
+
+    expect(await exec.execute({ label: 'run', command: 'echo hi' }, {})).toEqual({
+      error: 'Device d1 does not support local commands.',
+    })
+    expect(await terminal.execute({ label: 'run', command: '{}' }, {})).toEqual({
+      error: 'Device d1 does not support terminals; use local_exec there instead.',
+    })
+  })
+
   test('maps a timeout to a clear error', async () => {
     dispatchOutcome = { status: 'timeout' }
     const tool = createLocalExecTool([{ deviceId: 'd1', label: 'MacBook' }], turn) as ExecTool

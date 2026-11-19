@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join, dirname, relative } from 'node:path'
 import test from 'node:test'
@@ -48,6 +58,8 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     'PLAYWRIGHT_BROWSERS_PATH',
     'PIP_CACHE_DIR',
     'UV_CACHE_DIR',
+    'npm_config_cache',
+    'pnpm_config_store_dir',
   ]) {
     assert.equal(a[key], b[key])
     assert.equal(relative(host.HOME, a[key]).startsWith('.nuphos'), false)
@@ -182,6 +194,65 @@ test('real git global config changes stay in the calling session', (t) => {
   assert.equal(git(b, 'user.name'), 'Session B')
   assert.equal(git(a, 'user.name'), 'Session A')
   assert.throws(() => readFileSync(join(host.HOME, '.gitconfig')), { code: 'ENOENT' })
+})
+
+test('two sessions install into one pnpm store, and a session keeps a store it chose', (t) => {
+  const host = runtime(t)
+  const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const b = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  const store = join(host.HOME, '.local', 'share', 'pnpm', 'store')
+  const rc = (env) => join(env.XDG_CONFIG_HOME, 'pnpm', 'rc')
+  for (const env of [a, b]) {
+    assert.equal(env.pnpm_config_store_dir, store)
+    assert.equal(readFileSync(rc(env), 'utf8'), `store-dir=${store}\n`)
+  }
+  writeFileSync(rc(b), 'store-dir=/elsewhere\n')
+  nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  assert.equal(readFileSync(rc(b), 'utf8'), 'store-dir=/elsewhere\n')
+  writeFileSync(rc(b), `store-dir=${store}\n`)
+  if (spawnSync('pnpm', ['--version'], { stdio: 'ignore' }).status !== 0)
+    return t.skip('Optional real CLI check requires pnpm; no registry requests are made')
+  // pnpm appends its store layout version (v3, v10, ...) to the configured directory.
+  const path = (env) =>
+    execFileSync('pnpm', ['store', 'path'], { cwd: env.HOME, env, encoding: 'utf8' }).trim()
+  assert.equal(path(a), path(b))
+  assert.equal(dirname(path(a)), store)
+})
+
+test('two sessions share Gradle caches but keep their own gradle.properties', (t) => {
+  const host = runtime(t)
+  const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const b = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  const shared = join(host.HOME, '.gradle', 'caches')
+  put(join(a.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'jar')
+  assert.equal(readFileSync(join(b.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'utf8'), 'jar')
+  assert.equal(realpathSync(join(a.HOME, '.gradle', 'caches')), realpathSync(shared))
+  // Gradle keeps repository credentials in gradle.properties, beside the caches.
+  put(join(a.HOME, '.gradle', 'gradle.properties'), 'token=a')
+  assert.throws(() => readFileSync(join(b.HOME, '.gradle', 'gradle.properties')), {
+    code: 'ENOENT',
+  })
+  // A home that already has caches of its own keeps them.
+  rmSync(join(b.HOME, '.gradle', 'caches'))
+  mkdirSync(join(b.HOME, '.gradle', 'caches'))
+  nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  assert.equal(lstatSync(join(b.HOME, '.gradle', 'caches')).isDirectory(), true)
+})
+
+test('a session still starts when its pnpm rc cannot be written', (t) => {
+  if (process.getuid?.() === 0) return t.skip('root writes through the read-only directory')
+  const host = runtime(t)
+  const first = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const dir = join(first.XDG_CONFIG_HOME, 'pnpm')
+  rmSync(join(dir, 'rc'))
+  chmodSync(dir, 0o500)
+  const warn = t.mock.method(process.stderr, 'write', () => true)
+  const env = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  warn.mock.restore()
+  chmodSync(dir, 0o700)
+  assert.equal(env.HOME, first.HOME)
+  assert.equal(env.pnpm_config_store_dir, first.pnpm_config_store_dir)
+  assert.match(String(warn.mock.calls[0]?.arguments[0]), /could not share the pnpm store/)
 })
 
 test('real gcloud active configuration and gh token reads remain session scoped', (t) => {

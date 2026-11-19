@@ -31,9 +31,9 @@ export async function reportStopOutcome(args: {
   track('agent_response_stop_failed', { status: outcome.status, phase: outcome.kind })
   if (outcome.kind === 'still_running') {
     toast.error(
-      t('The agent turn is still running on the server'),
+      t('The turn is still running on the server'),
       t(
-        'The turn is still active after several stop checks. Try reopening the agent before sending another message.',
+        'The turn is still active after several stop checks. Try reopening the task before sending another message.',
       ),
     )
 

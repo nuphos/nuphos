@@ -1,11 +1,11 @@
 import { clsx } from 'clsx'
-import { Monitor } from 'lucide-react'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
-import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
+import { botIsOnboarding } from '../../lib/agentInputRequests'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
+import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { ChatColumn } from '../agent/panel/ChatColumn'
@@ -15,19 +15,22 @@ import { FileDropZone } from '../agent/panel/FileDropZone'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
+import { useAgentSessions } from '../sidebar/agentSessions'
 import { HeaderEdge } from '../ui/header-edge'
-import { IconButton } from '../ui/icon-button'
 import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
+import { BotDesktopButton } from './BotDesktopButton'
 import { BotStatusPill } from './BotStatusPill'
 import { BotTaskButton } from './BotTaskButton'
+import { BotTriggers } from './BotTriggers'
+import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
-import { ChannelIntro, ChatHeaderIcon, ReplyingBanner } from './channelParts'
+import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
 import { ChannelTitle } from './ChannelTitle'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
-import { useBotRuntimeControl } from './useBotRuntimeControl'
+import { useBotComposerControls } from './useBotComposerControls'
 import { useBotTaskAccess } from './useBotTaskAccess'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -74,23 +77,22 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const [replying, setReplying] = useState<AgentMessageReply | null>(null)
-  const composerRef = useRef<HTMLDivElement>(null)
+  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = chat ? chat.title || t('New Group Chat') : ''
   const bot = botOfChannel(chat)
   const botState = useSyncExternalStore(subscribeRuntimeStates, () => runtimeStateOf(bot))
+  const preparingFirstReply = runtimeTurnActive(botState)
+  const firstReplyFailed =
+    detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
-  const runtimeControl = useBotRuntimeControl(
-    teamId,
-    bot,
-    botOwned,
-    user,
-    botState,
-    refresh,
-    fixes?.onOpenAgentSettings,
-  )
-  const canOpenTask = useBotTaskAccess(teamId, bot, botOwned)
+  const lent = { manage: fixes?.onOpenAgentSettings, agents }
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, lent)
+  const sessions = useAgentSessions(teamId).data
+  const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
+  const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
+  const canOpenTask = taskAccess && !settingUp
   const canOpenBotDesktop =
     bot !== undefined &&
     sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
@@ -109,8 +111,7 @@ export function ChannelPane({
 
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
-
-  const stickToBottom = useStickToBottom(scrollRef)
+  const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
@@ -120,7 +121,7 @@ export function ChannelPane({
 
   function focusComposer() {
     requestAnimationFrame(() =>
-      composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
+      composer?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
     )
   }
 
@@ -170,7 +171,7 @@ export function ChannelPane({
         className={clsx(
           'workspace-agent-titlebar sheet-titlebar-row relative flex flex-shrink-0 items-center gap-2 pl-3',
           titlebarClassName,
-          dockOpen ? 'pr-3' : 'pr-12',
+          dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
         )}
       >
         {titlebarLeading}
@@ -192,23 +193,14 @@ export function ChannelPane({
             onOpenLink={onOpenNuphosLink}
           />
         </div>
+        {bot && <BotTriggers key={bot} teamId={teamId} botId={bot} />}
         {bot && canOpenTask && (
           <BotTaskButton
             provider={agents.find((agent) => agent.sessionId === bot)?.provider}
             onClick={() => (onOpenTask ?? onOpenSession)(bot)}
           />
         )}
-        {bot && canOpenBotDesktop && (
-          <IconButton
-            label={t('Desktop')}
-            icon={<Monitor />}
-            onClick={() => {
-              openSessionDesktop(teamId, bot, api.openSessionDesktop).catch((error: unknown) =>
-                toast.apiError(t('Could not open the desktop'), error),
-              )
-            }}
-          />
-        )}
+        {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}
         {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
@@ -234,14 +226,23 @@ export function ChannelPane({
       </div>
       <HeaderEdge
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 pb-4 selectable"
+        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
       >
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
         <ChatColumn>
-          {detail && messages.length === 0 && <ChannelIntro faces={detail.faces} title={title} />}
+          {detail && messages.length === 0 && (
+            <ChannelEmptyState
+              faces={detail.faces}
+              title={title}
+              bot={Boolean(bot)}
+              preparingFirstReply={preparingFirstReply}
+              firstReplyFailed={firstReplyFailed}
+            />
+          )}
           {detail && (
             <ChannelMessages
+              botId={bot}
               messages={messages}
               events={detail?.timelineEvents ?? []}
               agents={agents}
@@ -268,8 +269,8 @@ export function ChannelPane({
         {/* Inset past the faces on both sides, so the reply bar and the composer
             line up with the bubbles: a face and its gap (2.375rem) on each side. */}
         <div
-          ref={composerRef}
-          className="px-[2.375rem]"
+          ref={setComposer}
+          className="relative px-[2.375rem]"
           onKeyDown={(event) => {
             if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
           }}
@@ -290,7 +291,7 @@ export function ChannelPane({
             }}
             placeholder={t('Message {name}', { name: title })}
             credentialSelector={questions.credentials}
-            runtimeControl={runtimeControl}
+            {...controls}
           />
         </div>
       </ChatColumn>

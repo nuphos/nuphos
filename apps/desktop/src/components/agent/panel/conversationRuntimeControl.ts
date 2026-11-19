@@ -38,7 +38,6 @@ type RuntimeTab = Pick<
   | 'movingTo'
   | 'readOnly'
   | 'foreign'
-  | 'canManage'
   | 'streaming'
   | 'timelineEvents'
 >
@@ -153,8 +152,9 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
     if (!sessionId || !teamId || tab?.readOnly) return
-    // A teammate's conversation you cannot manage: its agent's state and fixes, nothing to pick.
-    const canMove = !tab?.foreign || tab.canManage
+    // A teammate's conversation: its agent's state and fixes, nothing to pick, as only its
+    // owner can move it.
+    const canMove = !tab?.foreign
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
@@ -167,11 +167,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
         label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
-      // Only the owner puts a session on a local or self-hosted agent.
-      options:
-        tab?.foreign && canMove
-          ? runtimeInstances.filter((instance) => instance.kind === 'managed')
-          : runtimeInstances,
+      options: runtimeInstances,
       ...(canMove && {
         onSelect: (runtimeId: string, access) => {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)

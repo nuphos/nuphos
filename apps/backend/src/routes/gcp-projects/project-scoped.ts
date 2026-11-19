@@ -1,9 +1,14 @@
 import { Hono } from 'hono'
 
-import { accessView, bindingAccessUpdateSchema, normalizeAccessInput } from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireGcpMemberAccess, requireGcpProject, requireTeamRole } from '@/middleware/auth'
+import {
+  disconnectBinding,
+  requireCanDisconnect,
+  requireGcpMemberAccess,
+  requireGcpProject,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import { registerGcpCloudRunRoutes } from './cloud-run'
@@ -18,47 +23,21 @@ export const gcpProjectScoped = new Hono<{ Variables: GcpProjectVariables }>()
 
 gcpProjectScoped.use('*', requireGcpProject())
 
-gcpProjectScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) => {
-  return c.json(accessView(c.get('gcpBinding').access))
-})
+registerBindingAccessRoutes(gcpProjectScoped, 'gcpServiceAccounts', (c) => c.get('gcpBinding'))
 
-gcpProjectScoped.put(
-  '/access',
+gcpProjectScoped.delete(
+  '/',
   requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
+  requireCanDisconnect('gcpBinding'),
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const serviceAccountId = c.get('gcpBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
 
-    await teamByosBindings().updateOne(
-      { _id: teamId, 'gcpServiceAccounts.id': serviceAccountId },
-      {
-        $set: {
-          'gcpServiceAccounts.$.access': access,
-          updatedAt: access.updatedAt,
-        },
-      },
-    )
+    await disconnectBinding(c, teamId, 'gcpServiceAccounts', { id: serviceAccountId })
 
-    return c.json(accessView(access))
+    return c.body(null, 204)
   },
 )
-
-gcpProjectScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const serviceAccountId = c.get('gcpBinding').id
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { gcpServiceAccounts: { id: serviceAccountId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
-
-  return c.body(null, 204)
-})
 
 gcpProjectScoped.use('*', requireGcpMemberAccess())
 

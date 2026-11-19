@@ -1,4 +1,4 @@
-import { LayoutGrid, Plus, Trash2 } from 'lucide-react'
+import { LayoutGrid, Plus } from 'lucide-react'
 import { useState } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -6,10 +6,15 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { EmptyState } from '../../components/EmptyState'
 import { Table } from '../../components/Table'
 import { Button } from '../../components/ui/button'
+import { useTeamRole } from '../../hooks/useTeamRole'
 import { t } from '../../i18n'
 
 import { DashboardGrid } from './DashboardGrid'
+import { FormerMembersSection } from './FormerMembersSection'
 import { RANGE_PRESETS, rangeLabel } from './helpers'
+import { SectionHeading } from './SectionHeading'
+import { useDashboardMenuItems } from './useDashboardMenuItems'
+import { splitByVisibility } from './visibility'
 
 import type { Column } from '../../components/Table'
 import type { NuphosDashboard, OpenAgentChat } from '../schema'
@@ -17,9 +22,10 @@ import type { Dispatch, SetStateAction } from 'react'
 
 type Props = {
   embedded?: boolean
-  canEdit: boolean
+  teamId: string
   loading: boolean
   dashboards: NuphosDashboard[]
+  setDashboards: Dispatch<SetStateAction<NuphosDashboard[]>>
   visibleDashboards: NuphosDashboard[]
   dashboardToDelete: NuphosDashboard | null
   setDashboardToDelete: Dispatch<SetStateAction<NuphosDashboard | null>>
@@ -31,9 +37,10 @@ type Props = {
 
 export function DashboardListPage({
   embedded = false,
-  canEdit,
+  teamId,
   loading,
   dashboards,
+  setDashboards,
   visibleDashboards,
   dashboardToDelete,
   setDashboardToDelete,
@@ -42,8 +49,11 @@ export function DashboardListPage({
   onOpenAgentChat,
   onDashboardOpened,
 }: Props) {
-  // Declared above the empty-state early return so the hook order stays stable.
+  // Hooks sit above the empty-state early return so their order stays stable.
   const [menu, setMenu] = useState<{ row: NuphosDashboard; x: number; y: number } | null>(null)
+  const role = useTeamRole(teamId)
+  const menuItems = useDashboardMenuItems(teamId, setDashboards, setDashboardToDelete)
+  const canCreate = role !== undefined // a new dashboard is personal: no team write role needed
 
   if (!loading && dashboards.length === 0) {
     return (
@@ -51,9 +61,9 @@ export function DashboardListPage({
         icon={LayoutGrid}
         title={t('Custom boards')}
         description={t(
-          'Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have the agent build it.',
+          'Dashboards chart what matters to your team — cloud spend, AI usage, delivery, and system health — with panels that pull live data from Nuphos and your connected accounts. Create one and add panels, or have Nuphos build it.',
         )}
-        {...(canEdit
+        {...(canCreate
           ? {
               primaryAction: {
                 label: embedded ? t('New custom board') : t('Create dashboard'),
@@ -118,20 +128,10 @@ export function DashboardListPage({
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
-          items={[
-            {
-              key: 'delete',
-              label: t('Delete dashboard'),
-              icon: Trash2,
-              destructive: true,
-              // Confirmation is the richer ConfirmDialog below, not the menu's
-              // own one-line prompt — it spells out what else gets deleted.
-              onSelect: () => setDashboardToDelete(menu.row),
-            },
-          ]}
+          items={menuItems(menu.row)}
         />
       )}
-      {embedded && canEdit && (
+      {embedded && canCreate && (
         <div className="mb-3 flex justify-end">
           <Button variant="ghost" size="sm" onClick={() => void createDashboard()}>
             <Plus className="size-3.5" />
@@ -139,28 +139,27 @@ export function DashboardListPage({
           </Button>
         </div>
       )}
-      {embedded ? (
-        <DashboardGrid
-          dashboards={visibleDashboards}
-          loading={loading}
-          onOpen={(dashboard) =>
-            onDashboardOpened?.({ dashboardId: dashboard.id, dashboardName: dashboard.name })
-          }
-          {...(canEdit ? { onMenu: (row, position) => setMenu({ row, ...position }) } : {})}
-        />
-      ) : (
-        <Table<NuphosDashboard>
+      {listSections(visibleDashboards, dashboards).map((section) => (
+        <section key={section.key} className="mb-6">
+          <SectionHeading title={section.title} hint={section.hint} inset={!embedded} />
+          <SectionBody
+            embedded={embedded}
+            rows={section.rows}
+            columns={columns}
+            loading={loading}
+            empty={section.empty}
+            onOpen={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
+            hasMenu={(row) => menuItems(row).length > 0}
+            onMenu={(row, position) => setMenu({ row, ...position })}
+          />
+        </section>
+      ))}
+      {role === 'ADMINISTRATOR' && !embedded && (
+        <FormerMembersSection
+          teamId={teamId}
           columns={columns}
-          rows={visibleDashboards}
-          rowKey={(d) => d.id}
-          onPrimaryAction={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
-          {...(canEdit
-            ? { onRowContextMenu: (row, e) => setMenu({ row, x: e.clientX, y: e.clientY }) }
-            : {})}
-          storageKey="cost-dashboards"
-          defaultSort={{ key: 'updated', dir: 'desc' }}
-          loading={loading}
-          empty={t('No dashboards match.')}
+          setDashboards={setDashboards}
+          onOpen={(d) => onDashboardOpened?.({ dashboardId: d.id, dashboardName: d.name })}
         />
       )}
       <ConfirmDialog
@@ -180,5 +179,76 @@ export function DashboardListPage({
         onClose={() => setDashboardToDelete(null)}
       />
     </>
+  )
+}
+
+/** The list's two sections, each with the filtered rows and what to say when it has none. */
+function listSections(visible: NuphosDashboard[], all: NuphosDashboard[]) {
+  const shown = splitByVisibility(visible)
+  const owned = splitByVisibility(all)
+
+  return [
+    {
+      key: 'personal',
+      title: t('Personal'),
+      hint: t('Only you can see these.'),
+      rows: shown.personal,
+      empty: owned.personal.length ? t('No dashboards match.') : t('No personal dashboards yet.'),
+    },
+    {
+      key: 'team',
+      title: t('Team'),
+      hint: t('Everyone in the team can see these.'),
+      rows: shown.team,
+      empty: owned.team.length ? t('No dashboards match.') : t('No team dashboards yet.'),
+    },
+  ]
+}
+
+/** One section's dashboards: cards on the team home, a table on the Dashboards page. */
+function SectionBody({
+  embedded,
+  rows,
+  columns,
+  loading,
+  empty,
+  onOpen,
+  onMenu,
+  hasMenu,
+}: {
+  embedded: boolean
+  rows: NuphosDashboard[]
+  columns: Column<NuphosDashboard>[]
+  loading: boolean
+  empty: string
+  onOpen: (dashboard: NuphosDashboard) => void
+  onMenu: (row: NuphosDashboard, position: { x: number; y: number }) => void
+  hasMenu: (row: NuphosDashboard) => boolean
+}) {
+  if (!embedded) {
+    return (
+      <Table<NuphosDashboard>
+        columns={columns}
+        rows={rows}
+        rowKey={(d) => d.id}
+        onPrimaryAction={onOpen}
+        onRowContextMenu={(row, e) => hasMenu(row) && onMenu(row, { x: e.clientX, y: e.clientY })}
+        storageKey="cost-dashboards"
+        defaultSort={{ key: 'updated', dir: 'desc' }}
+        loading={loading}
+        empty={empty}
+      />
+    )
+  }
+  if (!rows.length && !loading) return <p className="text-[12px] text-tertiary">{empty}</p>
+
+  return (
+    <DashboardGrid
+      dashboards={rows}
+      loading={loading}
+      onOpen={onOpen}
+      onMenu={onMenu}
+      hasMenu={hasMenu}
+    />
   )
 }

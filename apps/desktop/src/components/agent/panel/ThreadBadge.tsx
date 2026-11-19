@@ -99,7 +99,7 @@ export function ThreadBadge({
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
   const known = title ?? info.title ?? knownThreadTitle(info.threadId)
-  const name = known ?? (status === 'unavailable' ? t('Agent unavailable') : t('Agent'))
+  const name = known ?? (status === 'unavailable' ? t('Task unavailable') : t('Task'))
   const verb = info.verb === 'started' ? t('Started') : t('Messaged')
   const href = threadHref(teamId, info.threadId, status)
   const body = (

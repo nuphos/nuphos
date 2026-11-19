@@ -1,9 +1,11 @@
 import type { AgentCredentialAccess } from './agent-credential-types.ts'
+import type { AgentInputRequest } from './agent-input-request.ts'
 import type { AgentChannelPost, AgentMessageMention, AgentMessageReply } from './mention-types.ts'
 import type { SessionResource } from './session-resource-types'
 import type { AgentProvider } from '../types/runtime.ts'
 
 export type { AgentMessageMention, AgentMessageReply, ChannelMention } from './mention-types.ts'
+export type { AgentInputRequest }
 
 /** Someone on a conversation: its owner, or a teammate who joined it. */
 export type AgentConversationPerson = {
@@ -29,8 +31,32 @@ export type ConversationMoveCheck = {
 /** A participant replies while they may use the computer the session runs on; else they read. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
-/** What makes a person an agent: the face it shows, and whether this viewer may take it out. */
-export type AgentFace = { avatar?: string; provider?: AgentProvider; removable?: boolean }
+/** Whether an agent can reply now, as the server works it out (#3308). */
+export type BotPresence =
+  | { state: 'online' }
+  | { state: 'busy' }
+  | {
+      state: 'offline'
+      reason:
+        | 'owner_removed'
+        | 'runtime_deleted'
+        | 'runtime_disabled'
+        | 'computer_offline'
+        | 'sign_in_required'
+        | 'usage_limit'
+      resetsAt?: string
+    }
+
+/** What makes a person an agent: the face it shows, whether this viewer may take it out, and
+ *  whether it can reply now. */
+export type AgentFace = {
+  avatar?: string
+  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
+  avatarBackground?: string
+  provider?: AgentProvider
+  removable?: boolean
+  presence?: BotPresence
+}
 
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean
@@ -52,10 +78,12 @@ export type ChannelFace = {
   id: string
   name: string
   avatarURL?: string
-  agent?: { avatar?: string; provider?: AgentProvider }
+  agent?: { avatar?: string; avatarBackground?: string; provider?: AgentProvider }
 }
 
 export type AgentConversation = {
+  /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
+  waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
   kind?: 'channel'
   /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
@@ -70,6 +98,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
+  avatarBackground?: string
   /** A Bot's current standing instructions, in full. */
   instructions?: string
   firstMessage: string
@@ -110,6 +140,7 @@ export type AgentConversation = {
   readSeq?: number
   /** Every open question, oldest first; Desktop resolves each by id after a reply or dismissal. */
   inputRequests?: AgentInputRequest[]
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   /** Someone asked who can sign this conversation's agent in; their message waits for it. */
   signInRequest?: AgentSignInRequest
   /** The newest message, for the row's preview: raw markdown cut short, empty for files only.
@@ -124,27 +155,6 @@ export type AgentSignInRequest = {
   askedUserIds: string[]
   askedName: string
   askedAt: string
-}
-
-export type AgentInputRequest = {
-  /** The request_user_decision tool call id. */
-  id: string
-  category: string
-  question: string
-  /** Markdown the agent wrote so the question can be decided without the chat. */
-  body?: string
-  options?: string[]
-  /** Any number of `options` may be picked. */
-  multiSelect?: boolean
-  /** Related questions answered together; `question` is their headline. */
-  questions?: { question: string; options?: string[]; multiSelect?: boolean }[]
-  /** The secret a `credential` request asks for, the providers an `integration` one connects (any access) or the member's own credentials it asks for (only selecting one answers), or the plan it approves. */
-  secretName?: string
-  providers?: string[]
-  credentials?: { provider: 'personal'; id: 'github' | 'linear' }[]
-  planId?: string
-  askedAt: string
-  status: 'open' | 'answered' | 'dismissed'
 }
 
 export type AgentConversationActivitySource = {
@@ -228,6 +238,9 @@ export type AgentMessageMetadata = {
   sourceSessionId?: string
   /** The message this one replies to. */
   replyTo?: AgentMessageReply
+  /** A person's answer to question card `requestId`, posted for them; `answeredIn` if in the Inbox. */
+  requestId?: string
+  answeredIn?: 'inbox'
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */
@@ -251,27 +264,11 @@ export type AgentPersistedMessage = {
   feedback?: 'up' | 'down'
 }
 
-export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
-export type AgentTimelineRuntime = { label: string; provider?: AgentProvider }
-
-/** Who joined, left or moved the session; `text` is the whole line, plain. */
-export type AgentTimelineEvent = {
-  kind: string
-  at: string
-  text: string
-  /** agents_paused: the turn budget the channel's agents used up. */
-  turns?: number
-  actor?: AgentTimelinePerson
-  target?: AgentTimelinePerson
-  from?: AgentTimelineRuntime
-  to?: AgentTimelineRuntime
-  /** Set when a fallback moved the session: its agent was low on usage, unreachable, or failed a turn. */
-  reason?: 'quota' | 'offline' | 'failure'
-  /** A fallback that found no agent: each one passed over, and why. */
-  skipped?: { label: string; reason: string }[]
-  /** message_edited / conversation_forked: the destination session. */
-  forkSessionId?: string
-}
+export type {
+  AgentTimelineEvent,
+  AgentTimelinePerson,
+  AgentTimelineRuntime,
+} from './agent-timeline-types'
 
 export type AgentConversationDetail = AgentConversation & {
   messages: AgentPersistedMessage[]
@@ -282,7 +279,7 @@ export type AgentConversationDetail = AgentConversation & {
   transcriptUpdatedAt?: string | null
   activeRun?: AgentActiveRun | null
   slackThread?: AgentSlackThread | null
-  timelineEvents?: AgentTimelineEvent[]
+  timelineEvents?: import('./agent-timeline-types').AgentTimelineEvent[]
   /** The runtime's guess at the next prompt, offered in the composer. */
   promptSuggestion?: string | null
 }

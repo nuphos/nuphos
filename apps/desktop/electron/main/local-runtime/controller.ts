@@ -1,4 +1,5 @@
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { executable } from './agent-cli-apps.ts'
+import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { discoverModels } from './agent-models.ts'
 import {
   freshAgent,
@@ -35,6 +36,7 @@ export class LocalRuntimeController {
   private readonly usage: ReturnType<typeof createUsageSampler>
   private online = false
   private superseded = false
+  private revoked = false
   private readonly deps: LocalRuntimeControllerDeps
   private readonly providers: readonly LocalAgentProvider[]
   private requestedIdentity: string | undefined
@@ -76,6 +78,7 @@ export class LocalRuntimeController {
       this.superseded,
       this.userId,
       this.instances?.states(this.online),
+      this.revoked,
     )
   }
   async setUser(userId: string | null): Promise<void> {
@@ -120,13 +123,17 @@ export class LocalRuntimeController {
 
     if (!userId) return this.state()
     const env = await this.deps.userEnv()
+    const moved = new Set<LocalAgentProvider>()
 
     await Promise.all(
       providers.map(async (provider) => {
         const agentHome = prepareHomeFor(this.deps, provider, userId, env)
         const cli = await this.deps.probeCli(provider, env, agentHome)
 
-        if (userId === this.userId) this.agents[provider].cli = cli
+        if (userId !== this.userId) return
+        // A running agent keeps the CLI it started with, so one found elsewhere needs a restart.
+        if (cliPath(this.agents[provider].cli) !== cliPath(cli)) moved.add(provider)
+        this.agents[provider].cli = cli
       }),
     )
     if (userId !== this.userId) return this.state()
@@ -135,7 +142,7 @@ export class LocalRuntimeController {
     this.changed()
     await Promise.all(
       providers
-        .filter((provider) => restart || !this.agents[provider].process)
+        .filter((provider) => restart || !this.agents[provider].process || moved.has(provider))
         .map((provider) => this.launch(provider)),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
@@ -152,6 +159,7 @@ export class LocalRuntimeController {
     this.tunnel = undefined
     this.online = false
     this.superseded = false
+    this.revoked = false
     await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
     await this.instances?.shutdown()
   }
@@ -174,9 +182,10 @@ export class LocalRuntimeController {
         ...this.status(),
         ...(this.instances ? { instances: this.instances.status() } : {}),
       }),
-      (connected, superseded) => {
+      (connected, superseded, revoked = false) => {
         this.online = connected
         this.superseded = superseded
+        this.revoked = revoked
         this.changed()
       },
       (request) => this.instanceRequest(request),
@@ -187,18 +196,19 @@ export class LocalRuntimeController {
     return this.agents[provider].runtime
   }
   /**
-   * The running agent, for a stream that asks for it. One whose CLI was missing is looked
-   * for again: it may have been installed since, and nothing else would notice until a restart.
+   * The running agent, for a stream that asks for it. One whose CLI is missing or gone (the
+   * Claude app deletes its old copy as it updates) is looked for again; nothing else would.
    */
   runtimeForStream(provider: LocalAgentProvider) {
     const agent = this.agents[provider]
+    const path = cliPath(agent.cli)
 
-    if (!agent.runtime && agent.cli?.installed === false)
-      agent.recheck ??= this.launch(provider, true).finally(() => {
-        agent.recheck = undefined
-      })
+    if (agent.cli?.installed !== false && (!path || executable(path))) return agent.runtime
+    agent.recheck ??= this.launch(provider, true).finally(() => {
+      agent.recheck = undefined
+    })
 
-    return agent.runtime
+    return null
   }
   status() {
     return tunnelStatusOf(this.agents, this.deps.backendUrl)

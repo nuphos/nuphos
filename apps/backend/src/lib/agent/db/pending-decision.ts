@@ -2,8 +2,10 @@ import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision
 
 import { agentConversations } from './shared'
 
+import type { SecretField } from '@/lib/agent/tools-skilled/decision-secrets'
 import type { PersonalCredentialRef } from '@/lib/agent/tools-skilled/decision-tools'
 import type { ExplicitUserDecision } from '@/lib/agent/tools-skilled/types'
+import type { WaitingAnswer } from '@/lib/agent/waiting-answers'
 
 /**
  * A request_user_decision card the owner has to answer, kept on the conversation
@@ -15,6 +17,9 @@ export type InputRequest = ExplicitUserDecision & {
   id: string
   /** The secret a `credential` request asks for, so its secure card finds it. */
   secretName?: string
+  /** The details a `credential` request asks for in one card, and the site they are entered on. */
+  fields?: SecretField[]
+  site?: string
   /** The plan (#N) a plan's approval question decides. */
   planId?: string
   /** The channel whose post woke the turn that asked: the answer is recorded there and the agent replies there. */
@@ -26,6 +31,10 @@ export type InputRequest = ExplicitUserDecision & {
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
   askedAt: Date
+  /** When the agent last corrected it with update_user_decision. */
+  updatedAt?: Date
+  /** Set aside by the owner: out of their Inbox until then, still answerable where it was asked. */
+  snoozedUntil?: Date
   /** Always 'open': clients still filter on it. */
   status: 'open'
 }
@@ -34,6 +43,41 @@ export type InputRequest = ExplicitUserDecision & {
 export type ConversationInputRequests = {
   /** The open questions asked through request_user_decision. */
   inputRequests?: InputRequest[]
+  /** The site each file a secure card saved was asked for; `local_browser` `fill` enters it nowhere else. */
+  secretSites?: { path: string; site: string }[]
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
+  /** Answered questions whose agent could not run the answer yet. */
+  waitingAnswers?: WaitingAnswer[]
+}
+
+/**
+ * The site a value saved under `name` is for: the one the open requests with
+ * that field name. None when no request asks for it, or two disagree.
+ */
+export function siteAskedFor(
+  conversation: ConversationInputRequests,
+  name: string,
+): string | undefined {
+  const sites = new Set(
+    openInputRequests(conversation)
+      .filter((request) => request.fields?.some((field) => field.name === name))
+      .map((request) => request.site),
+  )
+  const [site] = sites
+
+  return sites.size === 1 ? site : undefined
+}
+
+/** Keeps the site a saved file is for. The latest few are enough: the files expire. */
+export async function recordSecretSite(
+  sessionId: string,
+  userId: string,
+  entry: { path: string; site: string },
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, userId },
+    { $push: { secretSites: { $each: [entry], $slice: -60 } } },
+  )
 }
 
 /** A new question joins the open ones; it never replaces another open request. */
@@ -75,7 +119,10 @@ export async function updateInputRequest(
       }
   }
   const set = Object.fromEntries(
-    Object.entries(patch).map(([field, value]) => [`inputRequests.$.${field}`, value]),
+    Object.entries({ ...patch, updatedAt: new Date() }).map(([field, value]) => [
+      `inputRequests.$.${field}`,
+      value,
+    ]),
   )
   const result = await agentConversations().updateOne(
     { sessionId, userId, 'inputRequests.id': id },
@@ -146,6 +193,25 @@ export async function resolveInputRequest(
   return result.matchedCount > 0
 }
 
+/**
+ * The owner sets an open request aside until `until`, or brings it back with
+ * null. The agent is not told. False when it is not open.
+ */
+export async function snoozeInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+  until: Date | null,
+): Promise<boolean> {
+  const field = 'inputRequests.$.snoozedUntil'
+  const result = await agentConversations().updateOne(
+    { sessionId, userId, inputRequests: { $elemMatch: { id, status: 'open' } } },
+    until ? { $set: { [field]: until } } : { $unset: { [field]: '' } },
+  )
+
+  return result.matchedCount > 0
+}
+
 /** An answer whose agent could not be told: the question goes back on the list. */
 export async function reopenInputRequest(sessionId: string, userId: string, request: InputRequest) {
   await agentConversations().updateOne(
@@ -176,4 +242,14 @@ export function openInputRequests(
   return (conversation.inputRequests ?? [])
     .filter((request) => request.status === 'open' && !answering.has(request.id))
     .sort((a, b) => new Date(a.askedAt).getTime() - new Date(b.askedAt).getTime())
+}
+
+/** Setup preferences stay answerable in chat without becoming work attention. */
+export function attentionInputRequests(conversation: ConversationInputRequests): InputRequest[] {
+  const settingUp =
+    conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'active'
+
+  return openInputRequests(conversation).filter(
+    (request) => !settingUp || request.category !== 'preference',
+  )
 }

@@ -5,10 +5,14 @@ import {
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
-import { pickOf } from '@/lib/claude-code-preview/session-config-options'
+import { pickOf, storedPick } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
 import { getConversationBySessionId } from './db'
+import { liveAttachment } from './db/shared'
+
+import type { AgentConversation } from './db'
+import type { SettingsChangeBy } from './db/settings-history'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
@@ -75,6 +79,8 @@ export async function threadRuntimes(
       ready: !instance.notReady,
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
+      // Up front, so an agent sees it before moving to an account that ran out too.
+      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
       ...(models[i]?.length ? { models: models[i] } : {}),
     })),
   }
@@ -96,12 +102,29 @@ export async function assertThreadRuntime(
 
 export type ThreadModelPick = { model?: string; effort?: string; fast?: string }
 
+/** The model, effort and fast mode a conversation runs with: what a thread it starts begins on. */
+export function currentPick(conversation: AgentConversation): ThreadModelPick {
+  const attachment = liveAttachment(conversation)
+  const { model, ...settings } = attachment
+    ? storedPick(attachment)
+    : (conversation.initialSessionConfig ?? {})
+
+  // A session on Claude Code's "Default" reports `default`, which no catalog
+  // lists: it means the agent's default, what a session given no model runs.
+  return model && model !== 'default' ? { ...settings, model } : settings
+}
+
 /**
  * Sets a thread's model, effort and fast mode as the conversation's model picker
  * does, so the runtime's own catalog decides what is valid. The model goes first:
  * the efforts and speeds on offer depend on it. Nothing to set returns nothing.
  */
-export async function setThreadModel(threadId: string, userId: string, pick: ThreadModelPick) {
+export async function setThreadModel(
+  threadId: string,
+  userId: string,
+  pick: ThreadModelPick,
+  by: SettingsChangeBy,
+) {
   if (!pick.model && !pick.effort && !pick.fast) return
   let options: Awaited<ReturnType<typeof conversationSessionConfig>>['options'] = []
 
@@ -113,7 +136,12 @@ export async function setThreadModel(threadId: string, userId: string, pick: Thr
 
     if (!conversation) throw new Error('Thread not found.')
     try {
-      ;({ options } = await conversationSessionConfig(conversation, { configId, value }, userId))
+      ;({ options } = await conversationSessionConfig(
+        conversation,
+        { configId, value },
+        userId,
+        by,
+      ))
     } catch (error) {
       if (!(error instanceof AppError) || error.code !== 'invalid_runtime_config') throw error
       const offered = (await conversationSessionConfig(conversation, undefined, userId)).options

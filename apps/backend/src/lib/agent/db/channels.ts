@@ -1,24 +1,30 @@
-import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
-import { derivedAvatar } from '../bot-avatars'
 import { resolveConversationAccessList } from '../devices/conversation-computer'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
 import { canReply, readableConversationScope } from './access'
+import { chatName } from './archive'
 import { assertBot } from './bot-membership'
-import { readNote } from './channel-notes'
+import { fromOwner, readNote } from './channel-notes'
 import { markChannelRead } from './channel-cursor'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
 import type { MessageMetadata } from '../message-metadata'
 
+export { chatName }
+
 /** A channel holds people and Bot sessions; it runs no agent of its own. */
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
+  /**
+   * A Slack channel's hidden record (#3702): the Bots talk in Slack, and no
+   * person ever sees it in Nuphos, so no listing returns it.
+   */
+  external?: 'slack'
   /** Started as a group chat: never a Bot's 1:1 chat, even with only one Bot in it. */
   group?: true
   agentSessionIds?: string[]
@@ -89,37 +95,6 @@ export async function removeChannelAgent(
   )
 }
 
-/** The channel's agents as their sessions. A deleted session drops out. */
-export async function listChannelAgents(channel: ChannelFields & { teamId?: string }) {
-  const ids = channel.agentSessionIds ?? []
-
-  if (ids.length === 0) return []
-  const sessions = await agentConversations()
-    .find({ sessionId: { $in: ids }, teamId: channel.teamId })
-    .project<Pick<AgentConversation, 'sessionId' | 'userId' | 'title' | 'avatar' | 'agentRuntime'>>(
-      { _id: 0, sessionId: 1, userId: 1, title: 1, avatar: 1, agentRuntime: 1 },
-    )
-    .toArray()
-  const byId = new Map(sessions.map((session) => [session.sessionId, session]))
-
-  return ids.flatMap((id) => {
-    const session = byId.get(id)
-
-    return session
-      ? [
-          {
-            sessionId: id,
-            title: session.title,
-            ownerId: session.userId,
-            // A Task has no stored face; in a channel it wears the one its id derives.
-            avatar: session.avatar ?? derivedAvatar(id),
-            provider: runtimeProvider(session.agentRuntime),
-          },
-        ]
-      : []
-  })
-}
-
 /** A stored chat post's words. */
 export function postText(parts: readonly unknown[] | undefined): string {
   return (parts ?? [])
@@ -145,19 +120,6 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
-
-/**
- * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
- */
-function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
-  return (
-    metadata?.source === 'nuphos' &&
-    metadata.sender.type === 'user' &&
-    !metadata.sender.onBehalfOf &&
-    metadata.sender.id === ownerId
-  )
-}
 
 /**
  * What the agent has not read yet, oldest first, and moves its cursor past it.
@@ -189,6 +151,8 @@ export async function readChannelMessages(
       index: { $gt: after },
       // Its own posts are not news to it, and must not push others' off the page.
       'metadata.sender.id': { $ne: agentSessionId },
+      // Nor is an answer to a question card: the agent that asked was given it as it was given.
+      'metadata.requestId': { $exists: false },
     })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)
@@ -274,7 +238,7 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
         {
           channelId: channel.sessionId,
           kind: isChannel(channel) ? 'channel' : 'agent',
-          title: channel.title,
+          title: chatName(channel),
           messageId: mention.messageId,
           at: mention.at.toISOString(),
           invited: Boolean(mention.by),

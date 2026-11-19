@@ -131,7 +131,7 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-line-control bg-state-selected px-1 py-px text-[9px] uppercase tracking-wider text-secondary"
         title={t(
-          'An approved plan was active for this agent when the call was journaled — per-command plan binding is not claimed',
+          'An approved plan was active for this task when the call was journaled — per-command plan binding is not claimed',
         )}
       >
         {typeof auth.planNumber === 'number'
@@ -152,15 +152,13 @@ export function AuthorizationChip({ authorization }: { authorization: unknown })
       </span>
     )
   }
-  if (auth.kind === 'agent-initiated') {
+  if (auth.kind === 'self-initiated') {
     return (
       <span
         className="inline-flex flex-shrink-0 items-center rounded border border-line-control bg-state-selected px-1 py-px text-[9px] uppercase tracking-wider text-tertiary"
-        title={t(
-          'The agent decided to run this on its own — no plan or per-command approval was in effect',
-        )}
+        title={t('Ran on its own — no plan or per-command approval was in effect')}
       >
-        {t('agent-initiated')}
+        {t('self-initiated')}
       </span>
     )
   }

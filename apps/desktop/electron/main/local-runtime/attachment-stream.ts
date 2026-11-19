@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { LocalDownloadStream } from './download-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
 import { LocalUploadStream } from './upload-stream.ts'
 
@@ -130,6 +131,7 @@ export class LocalAttachmentStream implements SocketLike {
 export function localFileConnectors(state: () => LocalRuntimeState, bundle: string) {
   return {
     connectUpload: () => new LocalUploadStream(),
+    connectDownload: () => new LocalDownloadStream(),
     connectAttachments: (instanceId?: string) =>
       LocalAttachmentStream.open(state(), bundle, instanceId),
     connectFile: (instanceId?: string) => LocalFileStream.open(state(), instanceId),
