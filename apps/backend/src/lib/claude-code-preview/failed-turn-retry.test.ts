@@ -99,7 +99,7 @@ useAgentRunStore({
 useRuntimeModels({ runtimeModelCatalog: async () => ({ models: [] }) as never })
 useRuntimeCatalog({
   requireRuntimeInstance: async () =>
-    ({ id: 'new', provider: 'codex', label: 'Codex', status: 'active', kind: 'external' }) as never,
+    ({ id: 'new', provider: 'codex', label: 'Codex', status: 'active', kind: 'managed' }) as never,
   developmentRuntimeEndpoint: () => {},
 })
 useRuntimeRegistry({
