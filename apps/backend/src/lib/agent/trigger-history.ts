@@ -98,11 +98,14 @@ export async function writeTrigger(
 
   if (!before) action = 'created'
   else if (!after) action = 'deleted'
+  // A write that leaves what the Trigger runs with as it was has nothing to record.
+  const unchanged =
+    before && after && JSON.stringify(config(before)) === JSON.stringify(config(after))
   let applied = false
 
   await withTransaction(async (session) => {
     applied = await write(session)
-    if (!applied) return
+    if (!applied || unchanged) return
     await triggerHistory().insertOne(
       {
         ...by,
@@ -138,7 +141,7 @@ export async function setupTriggerHistoryIndexes(): Promise<void> {
  */
 export async function readTriggerHistory(actor: TriggerActorContext, triggerId?: string) {
   if (actor.teamId) await assertTeamMember(actor)
-  const rows = await triggerHistory()
+  const cursor = triggerHistory()
     .find({
       ...(actor.teamId
         ? { teamId: actor.teamId }
@@ -146,29 +149,28 @@ export async function readTriggerHistory(actor: TriggerActorContext, triggerId?:
       ...(triggerId ? { triggerId } : {}),
     })
     .sort({ at: -1, _id: -1 })
-    .limit(200)
-    .toArray()
-  const reads = new Map<string, Promise<boolean>>()
-  const readable = await Promise.all(
-    rows.map((row) => {
-      const key = `${row.userId} ${row.targetSessionId ?? ''}`
-      const read = reads.get(key) ?? readsTriggerConversation(row, actor.userId)
+  // Read in order until 200 are readable, so records of Tasks the actor cannot
+  // read never crowd out ones they can. Each Task is checked once.
+  const reads = new Map<string, boolean>()
+  const rows: TriggerChange[] = []
 
-      reads.set(key, read)
+  for await (const row of cursor) {
+    const key = `${row.userId} ${row.targetSessionId ?? ''}`
+    const read = reads.get(key) ?? (await readsTriggerConversation(row, actor.userId))
 
-      return read
-    }),
-  )
+    reads.set(key, read)
+    if (read) rows.push(row)
+    if (rows.length === 200) break
+  }
+  await cursor.close()
 
-  return rows
-    .filter((_, index) => readable[index])
-    .map(({ _id: _ignored, at, actorId, agentSessionId, before, after, ...rest }) => ({
-      ...rest,
-      at: at.toISOString(),
-      actor: actorOf(actorId, agentSessionId),
-      ...(before ? { before: plain(before) } : {}),
-      ...(after ? { after: plain(after) } : {}),
-    }))
+  return rows.map(({ _id: _ignored, at, actorId, agentSessionId, before, after, ...rest }) => ({
+    ...rest,
+    at: at.toISOString(),
+    actor: actorOf(actorId, agentSessionId),
+    ...(before ? { before: plain(before) } : {}),
+    ...(after ? { after: plain(after) } : {}),
+  }))
 }
 
 const actorOf = (actorId: string, agentSessionId?: string) =>

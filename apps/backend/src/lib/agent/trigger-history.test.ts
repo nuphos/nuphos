@@ -44,18 +44,22 @@ useDb({
         findOne: async (filter: { sessionId?: string }) =>
           conversations[filter.sessionId ?? ''] ?? null,
         find: (filter: Partial<TriggerChange>) => ({
-          sort: () => ({
-            limit: () => ({
-              toArray: async () =>
-                records
-                  .filter(
-                    (row) =>
-                      row.teamId === filter.teamId &&
-                      (!filter.triggerId || row.triggerId === filter.triggerId),
-                  )
-                  .reverse(),
-            }),
-          }),
+          sort: () => {
+            const rows = records
+              .filter(
+                (row) =>
+                  row.teamId === filter.teamId &&
+                  (!filter.triggerId || row.triggerId === filter.triggerId),
+              )
+              .reverse()
+
+            return {
+              async *[Symbol.asyncIterator]() {
+                yield* rows
+              },
+              close: async () => {},
+            }
+          },
         }),
       }),
     }) as never,
@@ -150,4 +154,37 @@ test('the records outlive the Trigger and are read as the Trigger’s Task is', 
   expect(
     await readTriggerHistory({ userId: 'owner', teamId: 'team' }, own._id!.toHexString()),
   ).toHaveLength(1)
+})
+
+test('records of Tasks the reader cannot see never crowd out ones they can', async () => {
+  const visible = trigger('shared-task')
+  const hidden = trigger('owners-task')
+  const by = { actorId: 'owner', via: 'request' as const }
+
+  await writeTrigger({ after: visible, by }, async () => true)
+  for (let edit = 0; edit < 250; edit++)
+    await writeTrigger(
+      { before: hidden, after: { ...hidden, name: `Edit ${String(edit)}` }, by },
+      async () => true,
+    )
+
+  const teammate = await readTriggerHistory({ userId: 'teammate', teamId: 'team' })
+
+  expect(teammate.map((change) => change.triggerId)).toEqual([visible._id!.toHexString()])
+  // The owner reads the newest 200.
+  expect(await readTriggerHistory({ userId: 'owner', teamId: 'team' })).toHaveLength(200)
+})
+
+test('a write that leaves the configuration as it was records nothing', async () => {
+  const same = trigger('owners-task')
+
+  await writeTrigger(
+    {
+      before: same,
+      after: { ...same, updatedAt: new Date() },
+      by: { actorId: 'owner', via: 'request' },
+    },
+    async () => true,
+  )
+  expect(records).toEqual([])
 })
