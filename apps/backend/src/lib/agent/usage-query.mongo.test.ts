@@ -117,6 +117,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
     expect(await run({ groupBy: ['conversation'], filters: { model: ['haiku'] } })).toEqual({
       [JSON.stringify({ conversation: TASK })]: 300,
     })
+    // What a released Desktop still asks for: the same grouping, under its own key.
+    expect(await run({ groupBy: ['task'], filters: { model: ['haiku'] } })).toEqual({
+      [JSON.stringify({ task: TASK })]: 300,
+    })
   })
 
   test('buckets carry their start time', async () => {

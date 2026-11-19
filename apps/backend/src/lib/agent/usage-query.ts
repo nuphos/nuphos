@@ -6,7 +6,7 @@ import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
 import { AppError } from '@/lib/errors'
 
 // Each dimension as an expression over one usage record. `conversation` is the
-// record's own conversation, joined only when a conversation or Bot is asked.
+// record's own conversation, joined only when a conversation, Bot or Task is asked.
 const DIMENSIONS = {
   // The sender; rows from before senders were recorded fall back to the owner.
   member: { $ifNull: ['$actorUserId', '$userId'] },
@@ -26,13 +26,16 @@ const DIMENSIONS = {
       '$conversation.parentSessionId',
     ],
   },
+  // Desktop 0.130.2 and earlier still ask for `task`; it now means the same as `conversation`.
+  // Remove once those releases are gone.
+  task: '$sessionId',
 } as const
 
 /** Every record in a conversation another member made private, under any conversation grouping. */
 export const OTHERS_PRIVATE = 'private:others'
 
 // The dimensions read off the record's own conversation, and so hidden with it.
-const CONVERSATION_DIMENSIONS = ['conversation', 'bot']
+const CONVERSATION_DIMENSIONS = ['conversation', 'bot', 'task']
 
 export type UsageDimension = keyof typeof DIMENSIONS
 export const USAGE_DIMENSIONS = Object.keys(DIMENSIONS) as [UsageDimension, ...UsageDimension[]]

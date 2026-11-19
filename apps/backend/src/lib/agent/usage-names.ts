@@ -28,6 +28,7 @@ const NAMED: Partial<Record<UsageDimension, ReadNames>> = {
       .map((member) => [member.id, member.name || member.email]),
   conversation: conversationTitles,
   bot: conversationTitles,
+  task: conversationTitles,
   // Triggers and computers are the team's; every member sees their names.
   trigger: async (teamId, ids) =>
     (
