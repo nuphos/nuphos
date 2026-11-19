@@ -53,6 +53,48 @@ class SessionMentionFixtureDeviceTest {
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
+    /** Every `@` opens on what was listed before it, and typing on only narrows it (#3739). */
+    @Test fun atOpensOnWhatWasListedAndTypingReadsNothing() {
+        val reads = java.util.concurrent.atomic.AtomicInteger()
+        // No parameter named: the same source reads for an `@` or as the composer appears.
+        val source = SessionMentionSource(team, "current") {
+            reads.incrementAndGet()
+            listOf(AgentConversation("synthetic-session", teamId = team, title = "Synthetic project notes"),
+                AgentConversation("synthetic-other", teamId = team, title = "Synthetic deploy log"))
+        }
+        compose.setContent {
+            NuphosTheme {
+                CompositionLocalProvider(LocalAgentStore provides store, ai.nuphos.android.ui.LocalAuthSession provides (androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as ai.nuphos.android.NuphosApplication).authSession) {
+                    Surface(Modifier.fillMaxSize()) {
+                        Column(Modifier.fillMaxSize().padding(top = 48.dp)) {
+                            Text("Synthetic fixture · no real service data", Modifier.padding(16.dp))
+                            Spacer(Modifier.weight(1f))
+                            ChatComposer(isStreaming = false, showControls = true, mentions = source, onSend = { sends++; true })
+                        }
+                    }
+                }
+            }
+        }
+        field().performClick()
+        compose.waitForIdle()
+        Thread.sleep(500)
+        val listed = reads.get()
+        field().performTextInput("@")
+        compose.onNodeWithText("Synthetic project notes").assertIsDisplayed()
+        compose.onNodeWithText("Synthetic deploy log").assertIsDisplayed()
+        snap("synthetic-mention-at-once")
+        field().performTextInput("p")
+        field().performTextInput("r")
+        field().performTextInput("o")
+        compose.onNodeWithText("Synthetic project notes").assertIsDisplayed()
+        compose.onNodeWithText("Synthetic deploy log").assertDoesNotExist()
+        Thread.sleep(500)
+        compose.waitForIdle()
+        snap("synthetic-mention-narrowed")
+        assertEquals("Typing read the server again", listed, reads.get())
+        assertEquals(0, sends)
+    }
+
     @Test fun selectionCancelEmailMultilineAndThemesNeverSend() {
         var dark by mutableStateOf(false)
         val calls = CopyOnWriteArrayList<String>()
