@@ -49,7 +49,10 @@ class SessionMentionFixtureDeviceTest {
     private fun snap(name: String) {
         compose.waitForIdle()
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: error("No screenshot")
-        val dir = File(instrumentation.targetContext.filesDir, "mention-synthetic").apply { mkdirs() }
+        // The run's additional output, so the captures land in the CI artifact.
+        val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: File(instrumentation.targetContext.filesDir, "mention-synthetic")
+        dir.mkdirs()
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
