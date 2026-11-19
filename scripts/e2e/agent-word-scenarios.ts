@@ -53,7 +53,7 @@ export const agentWordScenarios: Scenario[] = [
     // Batch 3 of #3250: Settings describe Bots, tasks and runtimes.
     name: 'Settings pages never say agent',
     // The e2e backend has no skills store, so the Skills page's list answers 503.
-    expected: /Skills store is not configured/,
+    expected: /Skills store is not configured|skills_store_unconfigured/,
     run: async (page) => {
       const main = page.locator('main').last()
       const said: string[] = []
