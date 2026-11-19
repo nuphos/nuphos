@@ -753,6 +753,23 @@ class AgentStore(
      * The chats kept in memory, as on Desktop (#3526): the most recent [RETAINED_CHATS]. One that is
      * replying or sending is never let go, and a screen still holding one it lets go keeps using it.
      */
+    private val prefetchedTeams = mutableSetOf<String>()
+
+    /**
+     * The three most recent chats load before they are opened, once per team, so they open from
+     * memory (#3526). One with a turn running is left to its open, which follows it.
+     */
+    private fun prefetchRecent(teamId: String) {
+        if (!prefetchedTeams.add(teamId)) return
+        for (row in conversations.filter { !it.isChannel && it.activeRun == null }.take(3)) {
+            val chat = session(row)
+            if (chat.loaded) continue
+            storeScope.launch {
+                try { chat.load() } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { }
+            }
+        }
+    }
+
     private fun retained(key: SessionKey, make: () -> ChatSession): ChatSession {
         val session = sessions.remove(key) ?: make()
         sessions[key] = session
@@ -968,6 +985,7 @@ class AgentStore(
             hasMore = page.hasMore
             phase = Phase.Loaded
             phaseError = null
+            prefetchRecent(team.id)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
