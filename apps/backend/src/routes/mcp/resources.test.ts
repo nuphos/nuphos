@@ -56,9 +56,9 @@ test('returns bound sessions using the existing session-resource store', async (
   const result = await lookup({ team_id: 't1', repository: 'owner/repo', number: 42 })
 
   expect(result.isError).not.toBe(true)
-  expect(JSON.parse(result.content[0].text).sessions).toEqual([
-    { session_id: 'task', title: 'Bound task', agent: 'Agent' },
-  ])
+  expect(result.structuredContent).toMatchObject({
+    sessions: [{ session_id: 'task', title: 'Bound task', agent: 'Agent' }],
+  })
 })
 test('refuses nonmembers before querying bindings', async () => {
   member = false
