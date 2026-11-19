@@ -147,7 +147,7 @@ class BotPresenceLiveDeviceTest {
         open(args.getString("presenceBotChat")!!)
         waitFor("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
         compose.onNodeWithText("Switch runtime").assertIsDisplayed()
-        // A Bot's chat title opens its triggers, not a list of Bots.
+        // A Bot's chat title opens its details (#3987), not a list of Bots.
         compose.onNodeWithTag("chat-bots-entry", useUnmergedTree = true).assertDoesNotExist()
         shoot("presence-bot-chat")
     }
