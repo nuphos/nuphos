@@ -88,7 +88,8 @@ function watch({
 
         for (let node: Element | null = element; node; node = node.parentElement)
           opacity *= Number(getComputedStyle(node).opacity)
-        if (opacity < faintest.opacity)
+        // Hidden text (a message's time, shown on hover) is not on screen; a fade passes above 0.
+        if (opacity > 0 && opacity < faintest.opacity)
           faintest = { opacity, text: element.textContent.trim().slice(0, 60) }
       }
 
