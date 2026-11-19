@@ -39,6 +39,16 @@ function probe(files: Record<string, unknown>, status: number) {
   return parseQuotaReading(run.stdout)
 }
 
+/** The plan a Claude login reports, with the provider answering. */
+function planOf(oauth: Record<string, string>) {
+  const reading = probe(
+    { '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access', ...oauth } } },
+    200,
+  )
+
+  return 'plan' in reading ? reading.plan : undefined
+}
+
 test('a one-year token the usage API refuses says why instead of an HTTP code', () => {
   expect(
     probe(
@@ -60,6 +70,14 @@ test('an ordinary login keeps its plain HTTP reason', () => {
   expect(
     probe({ '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access' } } }, 403),
   ).toEqual({ error: 'HTTP 403', asked: true })
+})
+
+test('a Max 20x tier reads as Ultra, the name Anthropic gave that plan', () => {
+  // Claude Code still stores "max" for both; only the rate limit tier tells them apart.
+  expect(planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_20x' })).toBe('ultra')
+  expect(planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_5x' })).toBe('max')
+  expect(planOf({ subscriptionType: 'max' })).toBe('max')
+  expect(planOf({ subscriptionType: 'pro' })).toBe('pro')
 })
 
 test('a lapsed one-year token is not used: the ordinary login beside it is', () => {
