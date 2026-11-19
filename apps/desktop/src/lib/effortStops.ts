@@ -4,8 +4,8 @@ const RANK = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra
 
 /** The levels the effort slider shows, lowest first. Runtimes list them in
  *  either direction (Grok Build lists xhigh → low), so a list whose known
- *  levels run high to low is flipped. A runtime's "default" level is where
- *  reset goes, not a stop of its own. */
+ *  levels run high to low is flipped. A runtime's "default" level names
+ *  another level, so it is not a stop of its own. */
 export function effortStops<T extends Choice>(choices: T[]): T[] {
   const stops = choices.filter((choice) => choice.value !== 'default')
   const ranks = stops.map((stop) => RANK.indexOf(stop.value)).filter((rank) => rank >= 0)
@@ -23,12 +23,6 @@ export function resolvedEffort(
   const level = choices.find((choice) => choice.value === 'default')?.description
 
   return level && choices.some((choice) => choice.value === level) ? level : current
-}
-
-/** Where ↺ returns: the runtime's own "default" level. A runtime that names
- *  none gets no reset, rather than one that guesses a baseline. */
-export function effortResetValue(choices: Choice[]): string | undefined {
-  return choices.some((choice) => choice.value === 'default') ? 'default' : undefined
 }
 
 /** How far along the track a stop sits, from 0 (first) to 1 (last). */
