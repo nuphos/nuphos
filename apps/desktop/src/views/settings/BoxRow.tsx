@@ -131,7 +131,7 @@ export function BoxRow({
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
       await hostUpdate.request(deviceId, team)
-      boxRestarts.start(deviceId, team, 'update')
+      boxRestarts.start(deviceId, team, 'update', device.lastSeenAt)
     })
 
   return (
