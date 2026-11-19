@@ -9,11 +9,17 @@ export type SlackChannelMapping = {
   createdBy: string
   createdAt: string
   updatedAt: string
-  /** The Bots that answer in this channel (#3702); `mine` ones the viewer may remove. */
+  /** The Bot that answers in this channel (#3702), one at most; `mine` if the viewer may remove it. */
   bots?: SlackChannelBot[]
 }
 
-export type SlackChannelBot = { sessionId: string; title?: string; avatar: string; mine?: boolean }
+export type SlackChannelBot = {
+  sessionId: string
+  title?: string
+  avatar: string
+  mine?: boolean
+  ownerName?: string
+}
 
 export type SlackUserMapping = {
   id: string

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations, agentMessages } from '@/lib/agent/db'
+import { assertBot } from '@/lib/agent/db/bot-membership'
 import { setSlackChannelExternalChat } from '@/lib/slack/agent-bot'
 
 import type { SlackChannelMapping } from '@/lib/slack/agent-bot'
@@ -56,6 +57,25 @@ export async function ensureExternalChat(
   if (kept !== sessionId) await agentConversations().deleteOne({ sessionId })
 
   return kept ?? sessionId
+}
+
+/** A channel answers with one Bot (#3702): it comes in only while no other is there. */
+export async function bringExternalChatBot(
+  externalChatId: string,
+  botSessionId: string,
+): Promise<boolean> {
+  await assertBot(botSessionId)
+  const { matchedCount } = await agentConversations().updateOne(
+    {
+      sessionId: externalChatId,
+      external: 'slack',
+      // No Bot there but this one.
+      agentSessionIds: { $not: { $elemMatch: { $ne: botSessionId } } },
+    },
+    { $set: { agentSessionIds: [botSessionId] } },
+  )
+
+  return matchedCount > 0
 }
 
 /** A disconnected channel's record goes, with the Slack messages it held. */

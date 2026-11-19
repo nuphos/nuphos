@@ -217,7 +217,7 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
         all.map((row) => (row.id === mapping.id ? { ...row, bots } : row)),
       )
     } catch (err) {
-      toast.apiError(t('Could not change the Bots in this channel'), err)
+      toast.apiError(t('Could not change the Bot in this channel'), err)
     } finally {
       setBusyKey(null)
     }

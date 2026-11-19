@@ -36,8 +36,8 @@ function mongo(stack: Stack, body: string, args: unknown = null): unknown {
 
 let events = 0
 
-/** Opens Slack's settings in light, with the connected channel's Bots shown, and shoots them. */
-async function shootSettings(page: Page, file: string) {
+/** Opens Slack's settings in light, with the connected channel's Bot shown, and shoots them. */
+async function shootSettings(page: Page, file: string, bot: string) {
   // The app read its connectors at start, before the scenario installed Slack.
   await page.reload()
   await page.evaluate(() => {
@@ -53,7 +53,7 @@ async function shootSettings(page: Page, file: string) {
   const channels = page.getByText('Connected channels').first()
 
   await channels.waitFor()
-  await page.getByText('Mei Bot', { exact: true }).first().waitFor()
+  await page.getByText(bot, { exact: true }).first().waitFor()
   // The dialog scrolls its own body: bring the channel list to its top.
   await channels.evaluate((element) => element.scrollIntoView({ block: 'start' }))
   await page.waitForTimeout(300)
@@ -201,9 +201,21 @@ export default {
         throw new Error(`The owner's message was stored ${String(stored.asked)} times`)
       if (stored.replyTo !== `slack:${CHANNEL}:${asked}`)
         throw new Error(`The thread reply quotes ${String(stored.replyTo)}, not its root`)
-      // The settings screen as Yuanlin reviews it, in light. The channel holds the viewer's
-      // own Bot and a teammate's, and the viewer has one more Bot to add.
+      // The settings screen as Yuanlin reviews it, in light: one Bot per channel. The
+      // viewer has a spare Bot, so the picker shows, closed while their own Bot is there.
+      await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-leonardo' })
+      await shootSettings(page, 'slack-settings-admin-channels-light.png', 'E2E Bot')
+      await page.getByRole('button', { name: 'Connect a channel' }).click()
+      await page.getByText('Link by ID', { exact: true }).waitFor()
+      await page.screenshot({ path: `${artifacts}/slack-settings-admin-connect-light.png` })
+      // A teammate's Bot waits while the viewer's is there, and comes in once it is out.
       const teammate = await joinTeam(stack, 'slack-teammate')
+
+      mongo(
+        stack,
+        `await db.collection('users').updateOne({ _id: new ObjectId(args.id) }, { $set: { name: 'Mei' } })`,
+        { id: teammate.id },
+      )
       const theirs = (await settings(
         stack,
         'POST',
@@ -211,19 +223,27 @@ export default {
         { title: 'Mei Bot', avatar: '05-rembrandt' },
         teammate.token,
       )) as { sessionId: string }
+      const bringTheirs = () =>
+        settings(
+          stack,
+          'POST',
+          `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`,
+          { botSessionId: theirs.sessionId },
+          teammate.token,
+        )
+      const refused = await bringTheirs().then(
+        () => 'answered 200',
+        (error: unknown) => String(error),
+      )
 
+      if (!refused.endsWith('answered 409'))
+        throw new Error(`A second Bot came into the channel: ${refused}`)
       await settings(
         stack,
-        'POST',
-        `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`,
-        { botSessionId: theirs.sessionId },
-        teammate.token,
+        'DELETE',
+        `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots/${bot.sessionId}`,
       )
-      await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-leonardo' })
-      await shootSettings(page, 'slack-settings-admin-channels-light.png')
-      await page.getByRole('button', { name: 'Connect a channel' }).click()
-      await page.getByText('Link by ID', { exact: true }).waitFor()
-      await page.screenshot({ path: `${artifacts}/slack-settings-admin-connect-light.png` })
+      await bringTheirs()
       // The same screen for a member: the viewer's role, as the team stores it, set to member.
       const me = ((await settings(stack, 'GET', '/auth/me')) as { id: string }).id
       // Sets the viewer's stored role and answers the one it replaced.
@@ -239,7 +259,7 @@ export default {
       const admin = role('MEMBER')
 
       try {
-        await shootSettings(page, 'slack-settings-member-light.png')
+        await shootSettings(page, 'slack-settings-member-light.png', 'Mei Bot')
         if ((await page.getByRole('button', { name: 'Connect a channel' }).count()) > 0)
           throw new Error('A member is offered to connect a channel')
       } finally {

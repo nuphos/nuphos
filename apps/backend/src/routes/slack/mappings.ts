@@ -1,13 +1,12 @@
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import {
-  addChannelAgent,
   isChannel,
   listChannelAgents,
   ownsChannelAgent,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { AppError } from '@/lib/errors'
-import { getTeamsByIds } from '@/lib/identity'
+import { getTeamMembers, getTeamsByIds } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import {
   deleteSlackChannelMapping,
@@ -16,7 +15,11 @@ import {
   upsertSlackChannelMapping,
 } from '@/lib/slack/agent-bot'
 import { describeSlackChannel } from '@/lib/slack/destinations'
-import { ensureExternalChat, removeExternalChat } from '@/lib/slack/external-chats'
+import {
+  bringExternalChatBot,
+  ensureExternalChat,
+  removeExternalChat,
+} from '@/lib/slack/external-chats'
 import { resolveInstalledWorkspaceBot } from '@/lib/slack/installations'
 import { assertChannelMappingCreationAllowed } from '@/lib/slack/mapping-authorization'
 import { requireAuth } from '@/middleware/auth'
@@ -78,7 +81,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
         return {
           ...serializeMapping(mapping),
-          bots: await channelBots(mapping.externalChatId, c.get('userId')),
+          bots: await channelBots(mapping.externalChatId, c.get('userId'), teamId),
           workspace: {
             id: mapping.slackWorkspaceId,
             name: installation?.name ?? null,
@@ -172,8 +175,8 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
     return c.json({ mapping: serializeMapping({ ...mapping, externalChatId }) })
   })
 
-  // A connected channel's Bots: each member brings only their own (#3702),
-  // as in a group chat. An admin removes them all by disconnecting the channel.
+  // A connected channel's Bot (#3702): one per channel, brought in and taken out
+  // only by its owner. An admin removes it by disconnecting the channel.
   slackRoutes.post('/mappings/:workspaceId/:channelId/bots', async (c) => {
     const body = await c.req.json()
     const { record, userId, teamId } = await connectedChannel(c, body.teamId)
@@ -181,9 +184,14 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
     if (!(await ownsChannelAgent(botSessionId, userId, teamId)))
       throw new AppError(403, 'forbidden', 'Only a Bot’s owner can bring it into a Slack channel')
-    await addChannelAgent(record, botSessionId)
+    if (!(await bringExternalChatBot(record, botSessionId)))
+      throw new AppError(
+        409,
+        'slack_channel_has_bot',
+        'This Slack channel already has a Bot; its owner takes it out before another comes in',
+      )
 
-    return c.json({ bots: await channelBots(record, userId) })
+    return c.json({ bots: await channelBots(record, userId, teamId) })
   })
 
   slackRoutes.delete('/mappings/:workspaceId/:channelId/bots/:botSessionId', async (c) => {
@@ -194,7 +202,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       throw new AppError(403, 'forbidden', 'Only a Bot’s owner can take it out of a Slack channel')
     await removeChannelAgent(record, botSessionId)
 
-    return c.json({ bots: await channelBots(record, userId) })
+    return c.json({ bots: await channelBots(record, userId, teamId) })
   })
 
   slackRoutes.delete('/mappings/:workspaceId/:channelId', async (c) => {
@@ -231,14 +239,16 @@ async function connectedChannel(c: Context<{ Variables: AuthVariables }>, team: 
   return { record: mapping.externalChatId, userId: c.get('userId'), teamId }
 }
 
-/** The Bots answering in a channel, and which of them are the viewer's to remove. */
-async function channelBots(externalChatId: string | undefined, viewerId: string) {
+/** The Bot answering in a channel: whose it is, and whether it is the viewer's to remove. */
+async function channelBots(externalChatId: string | undefined, viewerId: string, teamId: string) {
   const record = externalChatId ? await getConversationBySessionId(externalChatId) : null
 
   if (!record || !isChannel(record)) return []
+  const [bots, members] = await Promise.all([listChannelAgents(record), getTeamMembers(teamId)])
 
-  return (await listChannelAgents(record)).map((bot) => ({
-    ...bot,
-    mine: bot.ownerId === viewerId,
-  }))
+  return bots.map((bot) => {
+    const owner = members.find((member) => member.id === bot.ownerId)
+
+    return { ...bot, mine: bot.ownerId === viewerId, ownerName: owner?.name || owner?.email }
+  })
 }

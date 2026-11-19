@@ -28,6 +28,11 @@ useIdentity({
       ? ({ role: userId === ADMIN ? 'ADMINISTRATOR' : 'MEMBER' } as never)
       : null,
   getTeamsByIds: async () => [],
+  getTeamMembers: async () =>
+    [
+      { id: ADMIN, name: 'Ada', email: 'ada@example.com' },
+      { id: MEMBER, name: 'Mei', email: 'mei@example.com' },
+    ] as never,
 })
 // The workspace is this team's own installation, so the channel side needs nothing more.
 useSlackInstallations({
@@ -123,12 +128,12 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       viewer = MEMBER
       await bring('member-bot')
       const listed = (await (await send('GET', '/mappings')).json()) as {
-        mappings: { bots: { sessionId: string; mine: boolean }[] }[]
+        mappings: { bots: { sessionId: string; mine: boolean; ownerName?: string }[] }[]
         myBots: { sessionId: string }[]
       }
 
       expect(listed.mappings[0]?.bots).toEqual([
-        expect.objectContaining({ sessionId: `${TEAM}-member-bot`, mine: true }),
+        expect.objectContaining({ sessionId: `${TEAM}-member-bot`, mine: true, ownerName: 'Mei' }),
       ])
       expect(listed.myBots.map((bot) => bot.sessionId)).toEqual([`${TEAM}-member-bot`])
     })
@@ -149,6 +154,27 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       expect((await bring('member-bot')).status).toBe(403)
 
       expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-bot`])
+    })
+
+    test('a channel answers with one Bot: another waits until its owner takes it out', async () => {
+      await connect()
+      viewer = MEMBER
+      expect((await bring('member-bot')).status).toBe(200)
+      // Bringing it in again changes nothing.
+      expect((await bring('member-bot')).status).toBe(200)
+      viewer = ADMIN
+      const refused = await bring('admin-bot')
+
+      expect(refused.status).toBe(409)
+      expect(((await refused.json()) as { error: { code: string } }).error.code).toBe(
+        'slack_channel_has_bot',
+      )
+      expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-bot`])
+      viewer = MEMBER
+      await send('DELETE', `/mappings/T1/${channel}/bots/${TEAM}-member-bot`)
+      viewer = ADMIN
+      expect((await bring('admin-bot')).status).toBe(200)
+      expect((await record())?.agentSessionIds).toEqual([`${TEAM}-admin-bot`])
     })
 
     test('only a Bot’s owner takes it out; an admin disconnects the whole channel', async () => {
