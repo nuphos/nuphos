@@ -130,6 +130,13 @@ async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
     goOffline()
   }
   await banner.waitFor({ state: 'detached' })
+  // Its agent is a runtime no one can switch off, so scenarios later in the run would find it.
+  const forgot = await fetch(`${stack.apiUrl}/agent/devices/e2e-laptop`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${stack.token}` },
+  })
+
+  if (!forgot.ok) throw new Error(`Forgetting the laptop answered ${forgot.status}`)
 }
 
 const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
