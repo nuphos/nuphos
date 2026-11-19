@@ -22,8 +22,6 @@ export {
   deleteSlackUserMapping,
   getCrossWorkspaceChannelMapping,
   getSlackChannelMapping,
-  getSlackChannelMappingByExternalChat,
-  setSlackChannelExternalChat,
   getSlackUserMapping,
   getSlackUserMappingForNuphosUser,
   listSlackChannelMappings,

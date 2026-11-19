@@ -7,9 +7,10 @@ export type SlackChannelMapping = {
   slackWorkspaceId: string
   slackChannelId: string
   teamId: string
-  // The hidden record behind this channel as an external chat (#3702): what
-  // its Bots read and post. Set, it replaces the mention and thread paths.
-  externalChatId?: string
+  agentUserId?: string
+  // Opt-in: the conversation a top-level message in this channel wakes, with no
+  // mention needed. Unset for every channel unless an admin sets it.
+  wakeSessionId?: string
   enabled: boolean
   createdBy: string
   createdAt: Date
