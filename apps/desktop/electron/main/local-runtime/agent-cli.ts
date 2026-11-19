@@ -116,7 +116,13 @@ async function claudeLogin(
   env: NodeJS.ProcessEnv,
 ): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
   const oauth = (await readClaudeCredential(homeOf(env), env))?.claudeAiOauth as
-    { accessToken?: unknown; refreshToken?: unknown; subscriptionType?: unknown } | undefined
+    | {
+        accessToken?: unknown
+        refreshToken?: unknown
+        subscriptionType?: unknown
+        rateLimitTier?: unknown
+      }
+    | undefined
   const config = env.CLAUDE_CONFIG_DIR
     ? await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.claude.json'))
     : null
@@ -132,7 +138,13 @@ async function claudeLogin(
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
     ...(typeof email === 'string' ? { account: email } : {}),
-    ...(typeof oauth?.subscriptionType === 'string' ? { plan: oauth.subscriptionType } : {}),
+    // Max 20x is now called Ultra, but Claude Code still stores "max" for it; only the
+    // rate limit tier tells it from Max 5x.
+    ...(typeof oauth?.subscriptionType === 'string'
+      ? {
+          plan: oauth.rateLimitTier === 'default_claude_max_20x' ? 'ultra' : oauth.subscriptionType,
+        }
+      : {}),
   }
 }
 
