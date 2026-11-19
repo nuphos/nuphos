@@ -12,6 +12,7 @@ import { getConversationBySessionId } from './db'
 import { liveAttachment } from './db/shared'
 
 import type { AgentConversation } from './db'
+import type { SettingsChangeBy } from './db/settings-history'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
@@ -113,7 +114,12 @@ export function currentPick(conversation: AgentConversation): ThreadModelPick {
  * does, so the runtime's own catalog decides what is valid. The model goes first:
  * the efforts and speeds on offer depend on it. Nothing to set returns nothing.
  */
-export async function setThreadModel(threadId: string, userId: string, pick: ThreadModelPick) {
+export async function setThreadModel(
+  threadId: string,
+  userId: string,
+  pick: ThreadModelPick,
+  by: SettingsChangeBy,
+) {
   if (!pick.model && !pick.effort && !pick.fast) return
   let options: Awaited<ReturnType<typeof conversationSessionConfig>>['options'] = []
 
@@ -125,7 +131,12 @@ export async function setThreadModel(threadId: string, userId: string, pick: Thr
 
     if (!conversation) throw new Error('Thread not found.')
     try {
-      ;({ options } = await conversationSessionConfig(conversation, { configId, value }, userId))
+      ;({ options } = await conversationSessionConfig(
+        conversation,
+        { configId, value },
+        userId,
+        by,
+      ))
     } catch (error) {
       if (!(error instanceof AppError) || error.code !== 'invalid_runtime_config') throw error
       const offered = (await conversationSessionConfig(conversation, undefined, userId)).options

@@ -30,6 +30,7 @@ import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
@@ -125,6 +126,7 @@ const scenarios: Scenario[] = [
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpScenarios,
   threadModeScenario,
