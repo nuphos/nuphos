@@ -44,11 +44,10 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
-/** Grok Build, OpenCode 1.x, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
+/** Grok Build, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
  *  their login is this file, as in the cloud runtime. */
 const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
-  opencode: '.local/share/opencode/auth.json',
   dsh: '.dsh/.credentials.yaml',
   hermes: '.hermes/auth.json',
   pi: '.pi/agent/auth.json',

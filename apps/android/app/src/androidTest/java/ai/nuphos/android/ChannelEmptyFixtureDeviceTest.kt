@@ -48,6 +48,8 @@ class ChannelEmptyFixtureDeviceTest {
     @Volatile private var messages = 0
     @Volatile private var running = false
     @Volatile private var answering = "chat-a"
+    /** The chat is a Bot's own: its one face is the Bot's. */
+    @Volatile private var botChat = false
     private lateinit var store: AgentStore
     private lateinit var auth: AuthSession
     private lateinit var tokens: TokenStore
@@ -60,7 +62,9 @@ class ChannelEmptyFixtureDeviceTest {
         val posts = (1..messages).joinToString(",") {
             """{"id":"p$it","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"agent-ops","displayName":"Release ops"},"sentAt":"2026-11-03T09:0$it:00Z","sourceSessionId":"agent-ops"},"parts":[{"type":"text","text":"Post $it"}]}"""
         }
-        return """{"kind":"channel","title":"chat-a","transcriptUpdatedAt":"t$messages","messageCount":$messages,"activitySeq":$messages,"messages":[$posts]}"""
+        val face = if (botChat) ""","faces":[{"id":"agent-ops","name":"Release ops","agent":{"avatar":"07-ada"}}]""" else ""
+        val title = if (botChat) "Release ops" else "chat-a"
+        return """{"kind":"channel","title":"$title","transcriptUpdatedAt":"t$messages","messageCount":$messages,"activitySeq":$messages$face,"messages":[$posts]}"""
     }
     /** The agent is asked directly, so being past the first page of the agent list makes no difference. */
     private fun agent(): String {
@@ -121,7 +125,7 @@ class ChannelEmptyFixtureDeviceTest {
     private val words = "Everyone here sees each message and decides for themselves whether to reply, as in any group chat."
     private fun render() {
         compose.setContent {
-            NuphosTheme {
+            NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("darkTheme") == "true") {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     ChannelScreen("chat-a", onBack = { fail("The chat closed itself") })
                 }
@@ -138,6 +142,21 @@ class ChannelEmptyFixtureDeviceTest {
         assertEquals(2, compose.onAllNodesWithText("chat-a").fetchSemanticsNodes().size)
         // Nothing to scroll to.
         compose.onNodeWithContentDescription("Scroll to latest").assertDoesNotExist()
+    }
+
+    @Test fun aBotsOwnChatIntroducesTheBotInstead() {
+        botChat = true
+        render()
+        val intro = "This is your conversation with Release ops. Talk about what you want help with, and shape how you work together."
+        compose.waitUntil(8_000) { has(intro) }
+        compose.onNodeWithText("You can start by telling Release ops what you would like to do.").assertIsDisplayed()
+        // The group chat's line is not for a chat with one person and one Bot.
+        compose.onNodeWithText(words).assertDoesNotExist()
+        compose.waitForIdle()
+        val dark = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"
+        java.io.File(inst.targetContext.getExternalFilesDir("intro")!!, "bot-chat-intro-${if (dark) "dark" else "light"}.png").outputStream().use {
+            inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
     @Test fun theFirstPostReplacesIt() {

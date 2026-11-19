@@ -9,7 +9,6 @@
     <string name="chats_show_less">Show less</string>
     <string name="chats_show_more">Show more</string>
     <string name="chats_question_your_answer">Your answer</string>
-    <string name="chats_question_or_type_answer">Or type your own answer</string>
     <string name="chats_question_send_answer">Send answer</string>
     <string name="chats_question_heading_approval">Approval needed</string>
     <string name="chats_question_heading_preference">Your choice</string>
@@ -52,4 +51,12 @@
     <string name="chats_message_placeholder">Message %1$s</string>
     <string name="chats_replying_to">Replying to %1$s</string>
     <string name="chats_cancel_reply">Cancel reply</string>
+    <string name="chats_question_snooze">Snooze</string>
+    <string name="chats_question_dismiss">Dismiss</string>
+    <string name="chats_question_snooze_hour">1 hour</string>
+    <string name="chats_question_snooze_tomorrow">Tomorrow, 9:00</string>
+    <string name="chats_question_snooze_monday">Next Monday, 9:00</string>
+    <string name="chats_question_dismiss_reason">Reason (optional)</string>
+    <string name="chats_empty_bot_body">This is your conversation with %1$s. Talk about what you want help with, and shape how you work together.</string>
+    <string name="chats_empty_bot_start">You can start by telling %1$s what you would like to do.</string>
 </resources>
