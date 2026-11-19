@@ -133,7 +133,9 @@ export const boxScenarios: Scenario[] = [
     name: 'a conversation on a Box that is away says the send resumes it, and does not block the send',
     // The send does start the wake, which reaches the half this stack cannot run: a Box resumed
     // here would have no public URL to dial back on. The message still queues, which is the point.
-    expected: /"event":"agent\.box\.heal_failed".*no public URL for a cloud computer/,
+    // Removing the Box at the end fails what waits on it, as it should; that is waited for here.
+    expected:
+      /"event":"agent\.box\.heal_failed".*no public URL for a cloud computer|"event":"agent\.pending_messages\.queued_launch_failed".*no longer available/,
     run: async (page, stack) => {
       const deviceId = randomUUID()
       const sandboxId = `m_e2e_${deviceId.slice(0, 8)}`
@@ -141,6 +143,7 @@ export const boxScenarios: Scenario[] = [
       const sessionId = `e2e-paused-box-${randomUUID()}`
       const title = `Paused Box chat ${deviceId.slice(0, 8)}`
       const userId = await me(stack)
+      const from = backendLines()
 
       // A machine instabox has parked, and no host: exactly what an idle Box looks like.
       instaboxMachines.set(sandboxId, { id: sandboxId, state: 'suspended', operations: [] })
@@ -196,6 +199,14 @@ export const boxScenarios: Scenario[] = [
         await newTask(page)
         boxRow(stack.mongoUri, { remove: deviceId })
         instaboxMachines.delete(sandboxId)
+        // The queued message is told it cannot run now, here rather than in the next scenario.
+        await until('the queued message to fail without its Box', async () =>
+          backendLog(from).some(
+            (line) =>
+              line.includes('"event":"agent.pending_messages.queued_launch_failed"') &&
+              line.includes(`"session_id":"${sessionId}"`),
+          ),
+        )
       }
     },
   },
