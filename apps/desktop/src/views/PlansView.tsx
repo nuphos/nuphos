@@ -26,7 +26,7 @@ export function PlansView({ teamId, filter = '', onOpenInChat }: Props) {
     <EmptyState
       icon={ClipboardList}
       title={t('Plans')}
-      description={t('Agents now ask for approval in the Inbox.')}
+      description={t('Bots and tasks now ask for approval in the Inbox.')}
     />
   )
 }

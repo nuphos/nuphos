@@ -320,15 +320,15 @@ container's limits. The agent command itself is not pinned there: it stays on
 Each runtime owns its own login. Nuphos never stores the account and never sends
 one to a runtime it did not provision; it only shows what the runtime reports.
 
-| Variant       | Sign in on the host                                                                   | Credential                                     |
-| ------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json`         |
-| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                  |
-| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                   |
-| `antigravity` | Sign in from the app (below)                                                          | Official CLI keyring (status via `agy models`) |
-| `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`   |
-| `hermes`      | Sign in from the app (below)                                                          | `/home/node/.hermes/auth.json`                 |
-| `dsh`         | Sign in from the app (below)                                                          | `/home/node/.dsh/.credentials.yaml`            |
+| Variant       | Sign in on the host                                                                            | Credential                                     |
+| ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`)          | `/home/node/.claude/.credentials.json`         |
+| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                                     | `/home/node/.codex/auth.json`                  |
+| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                                      | `/home/node/.grok/auth.json`                   |
+| `antigravity` | Sign in from the app (below)                                                                   | Official CLI keyring (status via `agy models`) |
+| `opencode`    | None for its free models; `docker exec -it nuphos-runtime opencode providers login` for others | `/home/node/.local/share/opencode/auth.json`   |
+| `hermes`      | Sign in from the app (below)                                                                   | `/home/node/.hermes/auth.json`                 |
+| `dsh`         | Sign in from the app (below)                                                                   | `/home/node/.dsh/.credentials.yaml`            |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume

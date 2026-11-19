@@ -2,6 +2,7 @@
 import { join } from 'node:path'
 
 import { agentEvents } from './agent-log.ts'
+import { inDatabase } from './agent-sign-in-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -120,6 +121,48 @@ export const triggerScenarios: Scenario[] = [
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
+    },
+  },
+  {
+    // #3718: a fire whose agent is gone failed before its turn and was never counted, so it never paused.
+    name: 'a Trigger whose agent is gone pauses after three fires and says to move the Task',
+    expected: /runtime_not_found|This agent is no longer available to you/,
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Soon without its agent E2E_DELIVERY:trigger-gone')
+      await page.getByText('ACK E2E_DELIVERY:trigger-gone').waitFor()
+      const sessionId = await taskWith(stack, 'E2E_DELIVERY:trigger-gone')
+
+      // The agent's computer is gone: the Task now names one that is not in the team.
+      inDatabase(
+        stack.mongoUri,
+        `const row = await db.collection('agent_conversations').findOne({ sessionId: process.argv[2] })
+        await db.collection('agent_conversations').updateOne({ sessionId: process.argv[2] },
+          { $set: { runtimeId: 'local_' + row.userId + '_gone-computer' } })`,
+        sessionId,
+      )
+      const api = client(stack)
+      const trigger = await createTrigger(
+        stack,
+        sessionId,
+        'Gone report',
+        'Report E2E_DELIVERY:gone',
+      )
+      const read = () => api<Trigger>('GET', `/agent/triggers/${trigger.id}?teamId=${stack.teamId}`)
+
+      for (let fire = 1; fire <= 3; fire++) {
+        await api('POST', `/agent/triggers/${trigger.id}/test-fire?teamId=${stack.teamId}`)
+        // Each fails before any turn starts; give it time to be recorded.
+        await new Promise((resolve) => setTimeout(resolve, 3_000))
+        if (fire < 3 && !(await read()).enabled)
+          throw new Error(`${String(fire)} failures paused the Trigger`)
+      }
+      await until('the Trigger to pause', async () => !(await read()).enabled)
+      const paused = await read()
+
+      console.log(`Agent gone 3 times: ${JSON.stringify(paused)}`)
+      if (!paused.executionAuthorizationError?.includes('Move this conversation to another agent'))
+        throw new Error(`The Trigger was not paused with its reason: ${JSON.stringify(paused)}`)
     },
   },
 ]

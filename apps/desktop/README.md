@@ -38,7 +38,9 @@ using local Codex normally.
 
 Other runtimes, including cloud ones, reach the same installation through the
 `local_cua` tool. Desktop runs the App's `cua_repl` on the Mac for the
-conversation and relays each call over the device tunnel; the App's per-app
+conversation, started through the App's own `codex` because Computer Use only
+answers a caller whose parent OpenAI signed, and relays each call over the
+device tunnel; the App's per-app
 approval prompts appear as the conversation's approval card, and an app allowed
 once stays allowed for that conversation.
 

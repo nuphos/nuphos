@@ -35,10 +35,10 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-handoff')
         // A running sub-Task is listed under the Bot once its tree is open. Opened from there,
         // it stays listed when it finishes, since it is the open chat.
-        const tree = bots.locator('[aria-label="Show sub-agents"], [aria-label="Hide sub-agents"]')
+        const tree = bots.locator('[aria-label="Show sub-tasks"], [aria-label="Hide sub-tasks"]')
 
         await tree.first().waitFor()
-        if ((await tree.first().getAttribute('aria-label')) === 'Show sub-agents')
+        if ((await tree.first().getAttribute('aria-label')) === 'Show sub-tasks')
           await tree.first().dispatchEvent('click')
         await kid.click()
         writeFileSync(release, '')

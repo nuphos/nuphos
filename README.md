@@ -255,6 +255,30 @@ single source of repository rules for people and agents alike.
   changes from `apps/desktop`. A contract change that affects both lands in one
   PR so the API and the desktop client stay compatible.
 
+### CI and runners
+
+Every GitHub-hosted job in this repository shares one organization-wide limit
+(20 concurrent jobs, of which at most 5 run on macOS), and GitHub has no job
+priority. A pull-request job that holds a runner delays the merge queue and
+releases, so:
+
+- Use macOS runners only for steps that need Xcode or the iOS simulator. The
+  macOS slots are the scarcest, and releases and TestFlight wait for them too.
+- Give every job a `timeout-minutes` and every pull-request workflow a
+  `concurrency` group with `cancel-in-progress: true`. A hung simulator or a
+  superseded run otherwise holds a runner for hours.
+- Never run a fork's pull request on a self-hosted runner (`instabox-*`). The
+  repository is public, so that runner would execute anyone's code.
+
+A workflow added only to capture screenshots or a recording for a pull request
+lives on its own branch, so `workflow_dispatch` cannot start it:
+
+- Gate each job on `[run]` in the commit message, e.g.
+  `if: contains(github.event.head_commit.message, '[run]')`. Otherwise every
+  push to the branch, including merges from main, runs it again.
+- Delete the workflow file once the evidence is captured, and the branch with
+  it. A leftover workflow keeps firing on later pushes.
+
 ### Backend environment variables
 
 `apps/backend/src/config.ts` and the section files under

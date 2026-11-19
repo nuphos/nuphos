@@ -1,6 +1,8 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credentials'
+
 import { aboutField } from './decision-about'
 import {
   QUESTION_MAX_CHARS,
@@ -60,7 +62,7 @@ export type ConnectableProvider = keyof typeof CONNECTABLE_PROVIDERS
 
 /** The member's own credential, named as list_credentials names it: only its selection answers. */
 export const PERSONAL_CREDENTIAL_REF = z
-  .object({ provider: z.literal('personal'), id: z.enum(['github', 'linear']) })
+  .object({ provider: z.literal('personal'), id: z.enum(PERSONAL_CREDENTIAL_PROVIDERS) })
   .strict()
 
 export type PersonalCredentialRef = z.infer<typeof PERSONAL_CREDENTIAL_REF>
@@ -89,7 +91,7 @@ export function integrationTargetProblem(input: {
 }): string | null {
   if (input.credentials === undefined) return null
   if (!Array.isArray(input.credentials) || !input.credentials.every(isPersonalCredentialRef)) {
-    return "`credentials` names only the member's own credential, {provider: 'personal', id: 'github' | 'linear'}; ask for team access with `providers`."
+    return "`credentials` names only the member's own credential, {provider: 'personal', id} with id one of github, linear, gmail, google-drive, google-calendar; ask for team access with `providers`."
   }
   if (input.providers !== undefined) {
     return "Pass either `providers` (any access of that kind, a team binding included) or `credentials` (only the member's own), not both: ask one question per target."

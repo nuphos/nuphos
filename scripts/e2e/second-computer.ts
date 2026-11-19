@@ -22,6 +22,12 @@ export async function startSecondComputer(
     apiUrl = stack.apiUrl,
     runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
     stagedUpdate = '',
+    env: extra = {},
+  }: {
+    apiUrl?: string
+    runtimeDir?: string
+    stagedUpdate?: string
+    env?: Record<string, string>
   } = {},
 ) {
   const deviceId = randomUUID()
@@ -60,6 +66,7 @@ export async function startSecondComputer(
     NUPHOS_API_URL: apiUrl,
     NUPHOS_CLI_CONFIG: cliConfig,
     NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+    ...extra,
   }
   let stopped = false
   let restarts = 0
