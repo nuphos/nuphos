@@ -749,10 +749,6 @@ class AgentStore(
     // Insertion-ordered: the last one asked for is last, so the front is the least recently used.
     private val sessions = mutableMapOf<SessionKey, ChatSession>()
 
-    /**
-     * The chats kept in memory, as on Desktop (#3526): the most recent [RETAINED_CHATS]. One that is
-     * replying or sending is never let go, and a screen still holding one it lets go keeps using it.
-     */
     private val prefetchedTeams = mutableSetOf<String>()
 
     /**
@@ -770,6 +766,10 @@ class AgentStore(
         }
     }
 
+    /**
+     * The chats kept in memory, as on Desktop (#3526): the most recent [RETAINED_CHATS]. One that is
+     * replying or sending is never let go, and a screen still holding one it lets go keeps using it.
+     */
     private fun retained(key: SessionKey, make: () -> ChatSession): ChatSession {
         val session = sessions.remove(key) ?: make()
         sessions[key] = session
