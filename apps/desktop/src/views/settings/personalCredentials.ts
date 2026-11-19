@@ -1,5 +1,6 @@
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { isGoogle } from '../../types'
 
 import type {
   PersonalCredential,
@@ -23,9 +24,6 @@ export function nameOf(provider: PersonalCredentialProvider): string {
 }
 
 export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
-
-export const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive' || provider === 'google-calendar'
 
 /** The credential that applies in this team: Google grants are per team. */
 export function credentialFor(

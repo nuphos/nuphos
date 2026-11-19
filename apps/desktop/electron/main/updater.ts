@@ -6,6 +6,7 @@ import { app, autoUpdater as nativeUpdater, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics.ts'
+import { isNuphosCloud } from '../api-endpoint.ts'
 
 import { startAutoInstall } from './auto-update-electron.ts'
 import { isDev } from './env.ts'
@@ -46,7 +47,9 @@ export function watchUpdater(changed: () => void) {
 
 /** The staged update, and whether the last restart into it came back on the old version. */
 export function readyUpdate(): { failedBefore: boolean } | null {
-  return updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null
+  return isNuphosCloud() && updaterState.kind === 'ready'
+    ? { failedBefore: updaterState.installerUrl !== null }
+    : null
 }
 
 export function getUpdaterState(): UpdaterState {
@@ -61,6 +64,7 @@ let update: Promise<void> | null = null
  * installs the newest release without downloading anything then. electron-updater
  * skips unpacked builds; a failure also emits 'error', which reports telemetry. */
 export function checkForUpdates() {
+  if (!isNuphosCloud()) return
   update ??= downloadNewest().finally(() => {
     update = null
   })
@@ -76,6 +80,8 @@ async function downloadNewest() {
   if (!ready) setUpdaterState({ kind: 'checking' })
   try {
     const check = await autoUpdater.checkForUpdates()
+
+    if (!isNuphosCloud()) return
     const version = check?.isUpdateAvailable ? check.updateInfo.version : null
 
     if (!version) {
@@ -110,7 +116,7 @@ const restartFile = () => join(app.getPath('userData'), 'update-restart.json')
 /** Restarts into the ready update. It is ready only once it is staged, so the
  * restart starts with no update work in flight. */
 export function installUpdate() {
-  if (updaterState.kind !== 'ready') return
+  if (!isNuphosCloud() || updaterState.kind !== 'ready') return
   // The installer runs after the app quits and can't report back. If the app
   // comes back on its old version, the next launch says so.
   try {

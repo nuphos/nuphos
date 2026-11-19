@@ -34,8 +34,8 @@ export type AnalyticsEvent =
   | 'logout'
   | 'team_switched'
   | 'navigation'
-  | 'tab_opened'
-  | 'tab_closed'
+  // Click on a chat's row to its messages on screen, in ms.
+  | 'chat_switch'
   | 'agent_chat_started'
   | 'agent_client_tool_deadline_exceeded'
   | 'agent_message_sent'

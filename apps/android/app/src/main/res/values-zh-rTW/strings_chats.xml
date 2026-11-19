@@ -44,7 +44,7 @@
     <string name="chats_select_text">選取文字</string>
     <string name="chats_reply">回覆</string>
     <string name="chats_copy">複製</string>
-    <string name="chats_usage_returns">用量將於 %1$s 恢復。</string>
+    <string name="chats_usage_resets">用量%1$s。</string>
     <string name="chats_switch_runtime">切換執行環境</string>
     <string name="chats_retry">重試</string>
     <string name="chats_send_failed_title">無法傳送訊息</string>

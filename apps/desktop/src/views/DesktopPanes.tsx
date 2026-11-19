@@ -21,11 +21,37 @@ import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 /** What the remote page shows once its connection is over; the view then reconnects with a new link. */
 const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
 
+/** How long a connected desktop has to show its first picture. */
+const FIRST_PICTURE_MS = 8_000
+
+/**
+ * Calls `shown` once noVNC's canvas, transparent until a frame lands on it, has a
+ * picture, or `failed` if none comes in time; returns how to stop waiting.
+ */
+function awaitPicture(host: HTMLElement, shown: () => void, failed: () => void): () => void {
+  const since = Date.now()
+  const timer = setInterval(() => {
+    const canvas = host.querySelector('canvas')
+    const drawn = canvas?.width
+      ? canvas.getContext('2d')?.getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1).data[3]
+      : 0
+
+    if (drawn) shown()
+    else if (Date.now() - since < FIRST_PICTURE_MS) return
+    else failed()
+    clearInterval(timer)
+  }, 250)
+
+  return () => {
+    clearInterval(timer)
+  }
+}
+
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? t('You have the Mac’s screen; the agent can still use it too.')
-    : t('You have the desktop; the agent’s input tools wait until you hand it back.')
+    ? t('You have the Mac’s screen; Nuphos can still use it too.')
+    : t('You have the desktop; Nuphos’s input tools wait until you hand it back.')
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
@@ -72,13 +98,20 @@ export function SessionDesktopView({
       rfb.viewOnly = true
       rfb.scaleViewport = true
       rfb.background = 'transparent'
-      rfb.addEventListener('connect', opened)
+      // Connected once the desktop shows: a stream that never draws counts as a failed
+      // attempt, so the tab says so instead of staying blank.
+      let stopWaiting: (() => void) | undefined
+
+      rfb.addEventListener('connect', () => {
+        stopWaiting = awaitPicture(target, opened, closed)
+      })
       rfb.addEventListener('disconnect', closed)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
 
       return () => {
+        stopWaiting?.()
         rfb.removeEventListener('disconnect', closed)
         rfb.disconnect()
         if (rfbRef.current === rfb) rfbRef.current = null
@@ -112,12 +145,12 @@ export function SessionDesktopView({
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? t('Select an agent to see its desktop.')
+          ? t('Select a runtime to see its desktop.')
           : phase.kind !== 'connected'
             ? undefined
             : holding
               ? holdingStatus(display)
-              : t('Watching the agent’s desktop.')
+              : t('Watching the runtime’s desktop.')
       }
       action={
         <button

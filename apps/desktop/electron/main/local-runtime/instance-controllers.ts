@@ -177,7 +177,10 @@ export class InstanceControllers {
       return true
     }
     if (final && !(entry.metadata.state === undefined && loggedIn == null))
-      await this.remove(entry.metadata.instanceId, userId)
+      await this.remove(entry.metadata.instanceId, userId).catch((error: unknown) => {
+        // The agent is gone either way; only a Keychain entry may be left behind.
+        console.warn('[local-runtime] removing an unfinished agent', error)
+      })
 
     return false
   }
@@ -194,9 +197,12 @@ export class InstanceControllers {
 
     await entry.starting?.catch(() => {})
     await entry.controller.shutdown()
-    if (entry.metadata.provider === 'claude-code')
-      await this.removeCredential(secureStorageEnv(dir, userId))
-    rmSync(dir, { recursive: true, force: true })
+    try {
+      if (entry.metadata.provider === 'claude-code')
+        await this.removeCredential(secureStorageEnv(dir, userId))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   }
 
   async request(request: unknown, userId: string | null): Promise<unknown> {

@@ -45,6 +45,7 @@ import {
 import { boxDesktops, ownComputer } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
@@ -164,7 +165,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     const registration = c.req.valid('json')
 
     if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
-      throw new AppError(409, 'device_is_box', 'A cloud computer is not registered this way')
+      throw new AppError(409, 'device_is_box', 'A computer from Nuphos is not registered this way')
     await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
@@ -208,8 +209,8 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     },
   )
 
-  // Forgets an offline computer, credential and agents with it; opening Nuphos there registers it
-  // again. Online, it would just re-register, so it must be quit first. A Box has its own delete.
+  // Forgets a computer, online or not, credential and agents with it; opening Nuphos there again
+  // registers it again. A Box has its own delete.
   routes.delete(
     '/devices/:deviceId',
     zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),
@@ -219,15 +220,20 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
-      if (device.box) throw new AppError(400, 'device_is_box', 'Use Delete for a cloud computer')
-      if (await deps.isOnline(userId, deviceId))
-        throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
+      if (device.box)
+        throw new AppError(400, 'device_is_box', 'Use Delete for a computer from Nuphos')
       // Forgotten before the delete, so a failure here leaves the computer registered and
       // deletable again, rather than leaving these rows behind with nothing left to match.
       await deps.forgetDeviceShares(userId, deviceId)
       await deps.deleteDevice(userId, deviceId)
-      // In case it connected since the check: its credential is gone, so close what it holds.
-      await deps.disconnect(userId, deviceId)
+      // An online computer is told it was removed and stops, rather than registering again. The
+      // record is gone either way, so a failure here is logged, never the removal's.
+      await Promise.all([
+        deps.revokeCredential(userId, deviceId),
+        deps.disconnect(userId, deviceId),
+      ]).catch((error) =>
+        logError('agent.device.disconnect_failed', error, { user_id: userId, device_id: deviceId }),
+      )
 
       return c.json({ ok: true })
     },
