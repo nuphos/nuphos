@@ -146,18 +146,18 @@ struct InboxQuestionView: View {
     private var setAside: some View {
         // Side by side, wrapping as one, so the two stay a pair.
         HStack(spacing: 8) {
-        Menu {
-            ForEach(Snooze.times(from: .now), id: \.self) { time in
-                Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+            Menu {
+                ForEach(Snooze.times(from: .now), id: \.self) { time in
+                    Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+                }
+            } label: {
+                QuestionPillLabel(title: String(localized: "Snooze"))
             }
-        } label: {
-            QuestionPillLabel(title: String(localized: "Snooze"))
-        }
-        .buttonStyle(.plain)
-        QuestionPill(title: String(localized: "Dismiss"), on: dismissing) {
-            dismissing.toggle()
-            focused = dismissing
-        }
+            .buttonStyle(.plain)
+            QuestionPill(title: String(localized: "Dismiss"), on: dismissing) {
+                dismissing.toggle()
+                focused = dismissing
+            }
         }
     }
 
