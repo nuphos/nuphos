@@ -46,14 +46,11 @@ export const mentionScenarios: Scenario[] = [
         throw new Error(
           `The @ menu filled in over ${String(opened.length)} steps: ${JSON.stringify(opened)}`,
         )
-      if (
-        !/People/.test(opened[0]) ||
-        !/Bots and tasks/.test(opened[0]) ||
-        !/E2E Bot/.test(opened[0])
-      )
+      // By section, not by row: which chats fill the five rows depends on the scenarios before.
+      if (!/People/.test(opened[0]) || !/Bots and tasks/.test(opened[0]))
         throw new Error(`The @ menu opened without people and Bots: ${opened[0]}`)
-      // One change at most per keystroke, and the Bot still offered.
-      if (typed.length > opened.length + 3 || !/E2E Bot/.test(typed.at(-1) ?? ''))
+      // One change at most per keystroke, and Bots and tasks still offered.
+      if (typed.length > opened.length + 3 || !/Bots and tasks/.test(typed.at(-1) ?? ''))
         throw new Error(
           `Typing changed the menu more than it narrowed it: ${JSON.stringify(typed)}`,
         )
