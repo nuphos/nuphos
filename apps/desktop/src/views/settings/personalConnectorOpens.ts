@@ -1,7 +1,6 @@
-import type { PersonalCredential, PersonalCredentialProvider, TeamGoogleClient } from '../../types'
+import { isGoogle } from '../../types'
 
-export const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive' || provider === 'google-calendar'
+import type { PersonalCredential, PersonalCredentialProvider, TeamGoogleClient } from '../../types'
 
 /** A Google account this team cannot connect yet: it has no OAuth client, nor Composio. */
 export function needsTeamGoogleClient(
