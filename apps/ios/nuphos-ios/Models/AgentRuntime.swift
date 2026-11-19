@@ -155,6 +155,12 @@ struct RuntimeQuota: Decodable, Sendable {
         return String(localized: "resets in \(minutes)m")
     }
 
+    /// The widest a reset reads, under a day and past one, for a column that fits any of them.
+    static var widestResets: [String] {
+        let now = Date(timeIntervalSince1970: 0)
+        return [23 * 60 + 59, 29 * 1440 + 23 * 60].compactMap { resetsIn(now.addingTimeInterval(Double($0) * 60), now: now) }
+    }
+
     let runtimeId: String
     let available: Bool
     /// Why there are no figures, in the agent's own words.
