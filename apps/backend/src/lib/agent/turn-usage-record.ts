@@ -8,6 +8,7 @@ import { agentTokenUsage, cleanRecord } from './token-usage-db'
 import { refreshConversationTokenUsageSummary } from './token-usage-summary'
 
 import type { ConversationTriggerRun } from './conversation-trigger-run'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
 import type {
   AgentTokenUsageKind,
   AgentTokenUsageRecord,
@@ -75,7 +76,36 @@ export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<voi
 async function turnModelId(sessionId: string, teamId: string): Promise<string> {
   const attachment = await getConversationPreviewAttachment(sessionId, teamId).catch(() => null)
 
-  return storedPick(attachment ?? undefined).model ?? 'unknown'
+  return pickedModelId(attachment ?? undefined)
+}
+
+/**
+ * The model a session's picker is on, as a model id. Claude Code offers aliases
+ * (`default`, `opus`, `sonnet`, …) that move with each release, so an alias is
+ * read through the label the runtime gave it, "Opus 5.5" → `claude-opus-5-5`;
+ * `default` names its model in the description, and is `unknown` when it does
+ * not. Any other value, such as another runtime's `opencode/big-pickle`, is kept.
+ */
+export function pickedModelId(attachment?: Parameters<typeof storedPick>[0]): string {
+  const value = storedPick(attachment).model
+
+  return value ? resolveModelAlias(value, attachment?.sessionConfig) : 'unknown'
+}
+
+/** `value` as a model id, read through `sessionConfig`'s labels when it is an alias. */
+export function resolveModelAlias(value: string, sessionConfig?: SessionConfigOption[]): string {
+  // A model id carries a version; an alias does not.
+  if (/\d/.test(value)) return value
+  const choice = sessionConfig
+    ?.find((option) => option.kind === 'model')
+    ?.options.find((option) => option.value === value)
+  const named = /^(opus|sonnet|haiku|fable|mythos) (\d+(?:\.\d+)*)$/i.exec(
+    (value === 'default' ? choice?.description : choice?.name)?.trim() ?? '',
+  )
+
+  if (named) return `claude-${named[1].toLowerCase()}-${named[2].replaceAll('.', '-')}`
+
+  return value === 'default' ? 'unknown' : value
 }
 
 // claude-agent-acp and codex-acp send the uncached remainder as ACP `inputTokens`;

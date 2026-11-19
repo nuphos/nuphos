@@ -12,6 +12,7 @@ const conversationUpdates: { filter: unknown; update: unknown }[] = []
 const failures: string[] = []
 let insertError: Error | null = null
 let summaryRows: unknown[] = []
+let preview: Record<string, unknown> = { runtimeDefaults: { model: 'claude-opus-5' } }
 
 const usageCollection = {
   insertMany: (rows: AgentTokenUsageRecord[]) => {
@@ -23,8 +24,7 @@ const usageCollection = {
   aggregate: () => ({ toArray: () => Promise.resolve(summaryRows) }),
 }
 const conversationCollection = {
-  findOne: () =>
-    Promise.resolve({ claudeCodePreview: { runtimeDefaults: { model: 'claude-opus-5' } } }),
+  findOne: () => Promise.resolve({ claudeCodePreview: preview }),
   updateOne: (filter: unknown, update: unknown) => {
     conversationUpdates.push({ filter, update })
 
@@ -50,6 +50,7 @@ beforeEach(() => {
   failures.length = 0
   insertError = null
   summaryRows = []
+  preview = { runtimeDefaults: { model: 'claude-opus-5' } }
 })
 
 // The recorder is fire-and-forget; one macrotask turn lets its whole chain
@@ -285,6 +286,47 @@ test('a turn without model rows falls back to its usage and the picked model', a
   await writeRuntimeTurnUsage({ ...turn, quota: { token_count: {}, model_usage: [] } })
 
   expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('claude-opus-5')
+})
+
+// Claude Code's picker offers aliases; each names its model in the label the runtime gave it.
+const picker = (currentValue: string) => ({
+  sessionConfig: [
+    {
+      id: 'model',
+      name: 'Model',
+      kind: 'model',
+      currentValue,
+      options: [
+        { value: 'default', name: 'Default (recommended)', description: 'Opus 5.5' },
+        { value: 'opus', name: 'Opus 5.5', description: 'For complex work and everyday tasks' },
+        { value: 'sonnet', name: 'Sonnet 5.5', description: 'Most efficient for simpler tasks' },
+        { value: 'claude-opus-5', name: 'Opus 5', description: 'Best for everyday tasks' },
+        { value: 'opencode/big-pickle', name: 'Big Pickle' },
+      ],
+    },
+  ],
+})
+
+test('a picked alias records the model its picker names, not the alias', async () => {
+  const picked = async (value: string) => {
+    inserted.length = 0
+    preview = picker(value)
+    await writeRuntimeTurnUsage(turn)
+
+    return inserted.find((row) => row.kind === 'step_total')?.modelId
+  }
+
+  expect(await picked('default')).toBe('claude-opus-5-5')
+  expect(await picked('opus')).toBe('claude-opus-5-5')
+  expect(await picked('sonnet')).toBe('claude-sonnet-5-5')
+  expect(await picked('claude-opus-5')).toBe('claude-opus-5')
+  // Another runtime's model id is kept as picked.
+  expect(await picked('opencode/big-pickle')).toBe('opencode/big-pickle')
+  // A default whose label names no model is unknown, never "default".
+  preview = { runtimeDefaults: { model: 'default' } }
+  inserted.length = 0
+  await writeRuntimeTurnUsage(turn)
+  expect(inserted.find((row) => row.kind === 'step_total')?.modelId).toBe('unknown')
 })
 
 test('a quota whose models report nothing countable falls back to its usage', async () => {

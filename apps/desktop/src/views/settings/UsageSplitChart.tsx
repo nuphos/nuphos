@@ -63,6 +63,8 @@ export function UsageSplitChart({
                 dataKey={key}
                 stackId="usage"
                 fill={color(index)}
+                // A day far below the busiest still shows that it used something.
+                minPointSize={(value) => ((value ?? 0) > 0 ? 2 : 0)}
                 isAnimationActive={false}
               />
             ))}
