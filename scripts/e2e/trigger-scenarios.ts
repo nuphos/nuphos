@@ -178,8 +178,12 @@ export const triggerScenarios: Scenario[] = [
       for (const answer of [firing, resolved, again])
         if (answer.status !== 200 || !answer.body.ok)
           throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
+      // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
+      // E2E_HOLD: that turn keeps running too, so its start is what shows it.
       await page.locator('button[title="Stop"]').click()
-      await page.getByText('ACK E2E_DELIVERY:hook-again').waitFor()
+      await until('the later alerts to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
+      )
       const turns = agentLog(stack)
         .filter((entry) => entry.sessionId && entry.event === 'start')
         .map((entry) => entry.markers ?? [])
@@ -194,6 +198,10 @@ export const triggerScenarios: Scenario[] = [
           after[0]!.indexOf('E2E_DELIVERY:hook-again')
       )
         throw new Error(`The later alerts did not run together, in order: ${JSON.stringify(turns)}`)
+      await page.locator('button[title="Stop"]').click()
+      await until('the later alerts to stop', async () =>
+        agentEvents(stack).includes('cancelled E2E_DELIVERY:hook-again'),
+      )
 
       // A Trigger set to fire at most every 5 minutes asks the sender to come back, not ok.
       const limited = await createWebhook(stack, sessionId, 'At most every 5 minutes', {
@@ -205,7 +213,10 @@ export const triggerScenarios: Scenario[] = [
       console.log(`Rate-limited deliveries: ${JSON.stringify([first, soon])}`)
       if (first.status !== 200 || soon.status !== 429 || soon.retryAfter !== '300')
         throw new Error(`A delivery inside the limit was not refused: ${JSON.stringify(soon)}`)
-      await page.getByText('ACK E2E_DELIVERY:hook-limited').waitFor()
+      await until('the accepted one to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:hook-limited'),
+      )
+      await page.locator('button[title="Stop"]').click()
     },
   },
 ]
