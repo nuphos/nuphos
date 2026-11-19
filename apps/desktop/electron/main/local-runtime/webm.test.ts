@@ -19,5 +19,5 @@ test('a WebM lasts as long as it was recorded, with a cluster and a cue at every
   assert.equal(count('1f43b675'), 2)
   assert.equal(count('bb01'), 2)
   // The frame at 40 ms is 40 ms into the first cluster, and not a key frame.
-  assert.ok(bytes.includes(Buffer.from('8100280056503' + '8', 'hex')))
+  assert.ok(bytes.includes(Buffer.from('81002800565038', 'hex')))
 })

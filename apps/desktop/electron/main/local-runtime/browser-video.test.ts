@@ -42,7 +42,7 @@ function tab({ failScreencast = false, failScreenshot = false } = {}) {
 }
 
 /** A helper page that encodes nothing: `finish(ms)` answers with one frame's chunk. */
-function helper({ fail }: { fail?: 'setup' | 'finish' } = {}) {
+function helper({ fail, empty }: { fail?: 'setup' | 'finish'; empty?: boolean } = {}) {
   const page = {
     scripts: [] as string[],
     closed: false,
@@ -54,7 +54,9 @@ function helper({ fail }: { fail?: 'setup' | 'finish' } = {}) {
         return Promise.reject(new Error('no VideoEncoder'))
       if (fail === 'finish' && finish) return Promise.reject(new Error('encoder crashed'))
 
-      return Promise.resolve(finish ? JSON.stringify([{ ms: 0, key: true, data: 'VlA4' }]) : null)
+      const chunks = empty ? [] : [{ ms: 0, key: true, data: 'VlA4' }]
+
+      return Promise.resolve(finish ? JSON.stringify(chunks) : null)
     },
     close: () => {
       page.closed = true
@@ -182,4 +184,11 @@ test('each frame is encoded at the time it arrived, however late the helper runs
   const at = Number(/^draw\("AAAA", (\d+)\)$/.exec(page.scripts.at(-1) ?? '')?.[1])
 
   assert.ok(at >= 300 && at < 1000, String(at))
+})
+
+test('a video with no frame at all fails record_stop instead of writing an empty WebM', async () => {
+  const { contents } = tab()
+  const video = await startVideo(contents.debugger, () => Promise.resolve(helper({ empty: true })))
+
+  await assert.rejects(stopVideo(video, join(temp, 'empty.webm')), /No frame/)
 })
