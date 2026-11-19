@@ -21,7 +21,7 @@ import type { SlackEventEnvelope, SlackMessageEvent } from '@/routes/slack/types
 let memory = portabilityDb()
 let woken: string[] = []
 let marked: string[] = []
-let groupChatId: string | undefined = 'chat'
+let externalChatId: string | undefined = 'chat'
 // Slack users as users.info reports them: their home workspace and email.
 const slackUsers: Record<string, { team_id: string; email: string; name: string }> = {
   UOWNER: { team_id: 'T1', email: 'Owner@Example.com', name: 'Owner in Slack' },
@@ -81,7 +81,7 @@ useSlackAgentBot({
   getSlackChannelMapping: async () => ({
     teamId: 'team',
     enabled: true,
-    ...(groupChatId ? { groupChatId } : {}),
+    ...(externalChatId ? { externalChatId } : {}),
   }),
   getSlackUserMapping: async (_workspace: string, _team: string, slackUserId: string) =>
     links[slackUserId] ?? null,
@@ -106,7 +106,7 @@ useSlackApi({
   },
 })
 
-const { routeSlackToGroupChat } = await import('@/routes/slack/group-chat')
+const { routeSlackToExternalChat } = await import('@/routes/slack/external-chat')
 
 let events = 0
 const envelope = (event: Partial<SlackMessageEvent>, eventId?: string): SlackEventEnvelope => ({
@@ -126,7 +126,7 @@ beforeEach(async () => {
   woken = []
   marked = []
   events = 0
-  groupChatId = 'chat'
+  externalChatId = 'chat'
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       woken.push(args.sessionId)
@@ -148,7 +148,7 @@ beforeEach(async () => {
       ...extra,
     })
 
-  await seed('chat', { kind: 'channel', agentSessionIds: ['bot'] })
+  await seed('chat', { kind: 'channel', external: 'slack', agentSessionIds: ['bot'] })
   await seed('bot', { avatar: '07-ada' })
 })
 afterEach(async () => {
@@ -156,9 +156,9 @@ afterEach(async () => {
   await clearPendingUserMessages('owner', 'bot')
 })
 
-describe('a Slack channel connected to a group chat', () => {
+describe('a Slack channel that is an external chat', () => {
   test("the Bot's owner, by email in their own workspace, speaks as the owner", async () => {
-    expect(await routeSlackToGroupChat(envelope({ user: 'UOWNER' }))).toBe(true)
+    expect(await routeSlackToExternalChat(envelope({ user: 'UOWNER' }))).toBe(true)
 
     expect(await lastRead()).toMatchObject({
       sender: { type: 'user', id: 'owner', fromOwner: true },
@@ -169,20 +169,20 @@ describe('a Slack channel connected to a group chat', () => {
   })
 
   test('a linked Slack account speaks as its member', async () => {
-    await routeSlackToGroupChat(envelope({ user: 'ULINKED' }))
+    await routeSlackToExternalChat(envelope({ user: 'ULINKED' }))
 
     expect(await lastRead()).toMatchObject({ sender: { id: 'owner', fromOwner: true } })
   })
 
   test("a teammate's Slack post is attributed to them, without adding them to the chat", async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UMEI' }))
+    await routeSlackToExternalChat(envelope({ user: 'UMEI' }))
 
     expect(await lastRead()).toMatchObject({ sender: { type: 'user', id: 'mei', name: 'Mei' } })
     expect((await chat()).participantIds ?? []).not.toContain('mei')
   })
 
   test('a Slack Connect outsider whose email matches is only data, and still wakes the Bot', async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UEXT', user_team: 'TOTHER' }))
+    await routeSlackToExternalChat(envelope({ user: 'UEXT', user_team: 'TOTHER' }))
     const post = await lastRead()
 
     expect(post?.sender).toMatchObject({ id: 'slack:T1:UEXT', name: 'Outsider' })
@@ -191,7 +191,7 @@ describe('a Slack channel connected to a group chat', () => {
   })
 
   test('an unlinked member of the workspace wakes the Bot, as data', async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UNEW' }))
+    await routeSlackToExternalChat(envelope({ user: 'UNEW' }))
     const post = await lastRead()
 
     expect(post?.sender).toMatchObject({ id: 'slack:T1:UNEW', name: 'Stranger' })
@@ -200,17 +200,19 @@ describe('a Slack channel connected to a group chat', () => {
   })
 
   test('a message Slack delivers twice, or also as a mention, is stored once', async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UNEW' }))
-    await routeSlackToGroupChat(envelope({ user: 'UNEW' }))
-    expect(await routeSlackToGroupChat(envelope({ type: 'app_mention', user: 'UNEW' }))).toBe(true)
+    await routeSlackToExternalChat(envelope({ user: 'UNEW' }))
+    await routeSlackToExternalChat(envelope({ user: 'UNEW' }))
+    expect(await routeSlackToExternalChat(envelope({ type: 'app_mention', user: 'UNEW' }))).toBe(
+      true,
+    )
 
     expect(await agentMessages().countDocuments({ messageId: 'slack:C1:10.1' })).toBe(1)
     expect(woken).toEqual(['bot'])
   })
 
   test('a reply in a Slack thread quotes the thread root', async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UOWNER' }))
-    await routeSlackToGroupChat(
+    await routeSlackToExternalChat(envelope({ user: 'UOWNER' }))
+    await routeSlackToExternalChat(
       envelope({ user: 'UNEW', ts: '10.2', thread_ts: '10.1', text: 'Yes.' }),
     )
 
@@ -220,18 +222,26 @@ describe('a Slack channel connected to a group chat', () => {
   })
 
   test("the app's own posts and other bots never enter the chat", async () => {
-    await routeSlackToGroupChat(envelope({ user: 'UBOT' }))
-    await routeSlackToGroupChat(envelope({ user: 'UNEW', bot_id: 'B1' }))
-    await routeSlackToGroupChat(envelope({ user: 'UNEW', subtype: 'message_changed' }))
+    await routeSlackToExternalChat(envelope({ user: 'UBOT' }))
+    await routeSlackToExternalChat(envelope({ user: 'UNEW', bot_id: 'B1' }))
+    await routeSlackToExternalChat(envelope({ user: 'UNEW', subtype: 'message_changed' }))
 
     expect(await agentMessages().countDocuments({})).toBe(0)
     expect(woken).toEqual([])
   })
 
-  test('a channel with no group chat is left to the existing handlers', async () => {
-    groupChatId = undefined
+  test('a mapping that names an ordinary Nuphos chat posts nothing there', async () => {
+    await agentConversations().updateOne({ sessionId: 'chat' }, { $unset: { external: '' } })
+    await routeSlackToExternalChat(envelope({ user: 'UOWNER' }))
 
-    expect(await routeSlackToGroupChat(envelope({ user: 'UNEW' }))).toBe(false)
+    expect(await agentMessages().countDocuments({})).toBe(0)
+    expect(woken).toEqual([])
+  })
+
+  test('a channel with no external chat is left to the existing handlers', async () => {
+    externalChatId = undefined
+
+    expect(await routeSlackToExternalChat(envelope({ user: 'UNEW' }))).toBe(false)
     expect(marked).toEqual([])
   })
 })

@@ -15,21 +15,22 @@ import type { SlackUserMapping } from '@/lib/slack/agent-bot'
 import type { SlackEventEnvelope, SlackMessageEvent } from '@/routes/slack/types'
 
 /**
- * A channel connected to a Nuphos group chat (#3702): each person's message
- * there becomes a post in the chat, which wakes its Bots as any post does.
+ * A Slack channel that is an external chat (#3702): the Bots talk in Slack, and
+ * a hidden record holds what they read there. Each person's message becomes a
+ * post in that record, which wakes its Bots as any chat post does.
  * True when the channel is connected, so no other handler takes the event. A
  * mention arrives as a message too, so `app_mention` adds nothing.
  */
-export async function routeSlackToGroupChat(envelope: SlackEventEnvelope): Promise<boolean> {
+export async function routeSlackToExternalChat(envelope: SlackEventEnvelope): Promise<boolean> {
   const { event, event_id: eventId, team_id: slackWorkspaceId } = envelope
 
   if (!event?.channel || !eventId || !slackWorkspaceId || event.channel_type === 'im') return false
   const mapping = await getSlackChannelMapping(slackWorkspaceId, event.channel)
 
-  if (!mapping?.groupChatId) return false
+  if (!mapping?.externalChatId) return false
   const posted =
     event.type === 'message' &&
-    (await postFromSlack(slackWorkspaceId, mapping.teamId, mapping.groupChatId, event))
+    (await postFromSlack(slackWorkspaceId, mapping.teamId, mapping.externalChatId, event))
 
   await markSlackEvent(eventId, posted ? 'completed' : 'ignored')
 
@@ -39,7 +40,7 @@ export async function routeSlackToGroupChat(envelope: SlackEventEnvelope): Promi
 async function postFromSlack(
   slackWorkspaceId: string,
   teamId: string,
-  groupChatId: string,
+  externalChatId: string,
   event: SlackMessageEvent,
 ): Promise<boolean> {
   const bot = await resolveSlackBotForWorkspace(slackWorkspaceId)
@@ -47,12 +48,12 @@ async function postFromSlack(
 
   if (!bot || !post) return false
   const { channel: slackChannelId, user: slackUserId, ts, text: raw } = post
-  const chat = await getConversationBySessionId(groupChatId)
+  const chat = await getConversationBySessionId(externalChatId)
 
-  if (!chat || !isChannel(chat) || chat.teamId !== teamId) {
-    logEvent('warn', 'slack.group_chat.unavailable', {
+  if (!chat || !isChannel(chat) || chat.external !== 'slack' || chat.teamId !== teamId) {
+    logEvent('warn', 'slack.external_chat.unavailable', {
       team_id: teamId,
-      group_chat_id: groupChatId,
+      external_chat_id: externalChatId,
     })
 
     return false
@@ -166,7 +167,7 @@ async function slackUser(botToken: string, slackUserId: string) {
 
     return user && typeof user === 'object' ? user : null
   } catch (error) {
-    logError('slack.group_chat.users_info_failed', error, { slack_user_id: slackUserId })
+    logError('slack.external_chat.users_info_failed', error, { slack_user_id: slackUserId })
 
     return null
   }

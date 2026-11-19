@@ -8,7 +8,7 @@ import {
   handleAssistantThreadStarted,
 } from '@/routes/slack/assistant-lifecycle'
 import { handleAssistantMessage } from '@/routes/slack/assistant-message'
-import { routeSlackToGroupChat } from '@/routes/slack/group-chat'
+import { routeSlackToExternalChat } from '@/routes/slack/external-chat'
 import { handleAppHomeOpened } from '@/routes/slack/home'
 import { handleAppMention } from '@/routes/slack/mention'
 import { postThreadMessage } from '@/routes/slack/shared'
@@ -26,8 +26,8 @@ async function handleSlackEvent(envelope: SlackEventEnvelope): Promise<void> {
 
     return
   }
-  // A channel connected to a group chat takes its messages and mentions there.
-  if ((type === 'message' || type === 'app_mention') && (await routeSlackToGroupChat(envelope)))
+  // A channel that is an external chat takes its messages and mentions there.
+  if ((type === 'message' || type === 'app_mention') && (await routeSlackToExternalChat(envelope)))
     return
   if (type === 'app_mention') {
     await handleAppMention(envelope)

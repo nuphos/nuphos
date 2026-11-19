@@ -1,10 +1,9 @@
-// #3702: a Slack channel connected to the Bot's chat. Each person's Slack message becomes a
-// post there and wakes the Bot. Only the owner, known by their linked email in this workspace,
-// speaks for them: a Slack Connect outsider with the same email and an unlinked member are data.
+// #3702: a Slack channel is an external chat. Each person's message reaches the Bot through a
+// hidden record no listing shows, and only the owner, known by their email in this workspace,
+// speaks for them: a Slack Connect outsider with that email and an unlinked member are data.
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { agentLog } from '../agent-log.ts'
 import { until } from '../processes.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent } from '../slack-stub.ts'
 
@@ -49,7 +48,7 @@ async function slackMessage(stack: Stack, user: string, text: string, extra: obj
   return ts
 }
 
-/** Waits for the Bot's answer in its chat, as the database has it. */
+/** Waits for the Bot's answer in the external chat, as the database has it. */
 async function answer(stack: Stack, chatId: string, text: string) {
   await until(`the Bot to answer "${text}"`, async () =>
     Boolean(
@@ -63,18 +62,21 @@ async function answer(stack: Stack, chatId: string, text: string) {
 }
 
 export default {
-  name: "a Slack channel's messages reach its group chat, and only the owner speaks for them",
+  name: "a Slack channel's messages reach its Bot as an external chat, and only the owner speaks for them",
   run: async (_page, stack) => {
-    const chatId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
-
-    if (!chatId) throw new Error('The Bot has not answered in its chat yet')
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
     addSlackUser('UNEW', { team_id: WORKSPACE, email: 'stranger@example.com', name: 'Stranger' })
-    const created = mongo(
+    // The record the settings will make for this channel: the E2E Bot's, and nobody's chat.
+    const { chatId, created } = mongo(
       stack,
-      `await db.collection('slack_channel_mappings').insertOne({ slackWorkspaceId: args.workspace,
-        slackChannelId: args.channel, teamId: args.teamId, groupChatId: args.chatId, enabled: true,
+      `const bot = await db.collection('agent_conversations').findOne({ title: 'E2E Bot', avatar: { $exists: true } })
+      const chatId = crypto.randomUUID()
+      await db.collection('agent_conversations').insertOne({ sessionId: chatId, userId: bot.userId,
+        teamId: args.teamId, kind: 'channel', external: 'slack', agentSessionIds: [bot.sessionId],
+        title: '#e2e', firstMessage: '', messageCount: 0, createdAt: new Date(), lastActiveAt: new Date() })
+      await db.collection('slack_channel_mappings').insertOne({ slackWorkspaceId: args.workspace,
+        slackChannelId: args.channel, teamId: args.teamId, externalChatId: args.chatId, enabled: true,
         createdBy: 'e2e', createdAt: new Date(), updatedAt: new Date() })
       const done = await db.collection('team_byos_bindings').updateOne(
         { _id: new ObjectId(args.teamId) },
@@ -82,20 +84,28 @@ export default {
           slackTeamName: 'E2E', botUserId: 'UE2EBOT', encryptedBotToken: args.token,
           installerSlackUserId: null, scope: '', createdAt: new Date() } } },
         { upsert: true })
-      return Boolean(done.upsertedId)`,
+      return { chatId, created: Boolean(done.upsertedId) }`,
       {
         workspace: WORKSPACE,
         channel: CHANNEL,
         teamId: stack.teamId,
-        chatId,
         token: sealSlackToken('xoxb-e2e'),
       },
-    )
+    ) as { chatId: string; created: boolean }
 
     try {
       const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')
 
       await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-owner from=owner')
+      // Nothing of it shows in Nuphos, even to the Bot's owner with a matching search.
+      const listing = await fetch(
+        `${stack.apiUrl}/agent/conversations?teamId=${stack.teamId}&scope=team&kind=channel&search=e2e`,
+        { headers: { authorization: `Bearer ${stack.token}` } },
+      )
+      const { conversations } = (await listing.json()) as { conversations: { sessionId: string }[] }
+
+      if (!listing.ok || conversations.some((row) => row.sessionId === chatId))
+        throw new Error('The external chat is listed in Nuphos')
       await slackMessage(stack, 'UEXT', 'Me too E2E_WHO E2E_DELIVERY:slack-ext', {
         user_team: 'TOTHER',
       })
@@ -138,10 +148,12 @@ export default {
       mongo(
         stack,
         `await db.collection('slack_channel_mappings').deleteOne({ slackChannelId: args.channel })
+        await db.collection('agent_conversations').deleteOne({ sessionId: args.chatId })
+        await db.collection('agent_messages').deleteMany({ sessionId: args.chatId })
         const team = { _id: new ObjectId(args.teamId) }
         if (args.created) await db.collection('team_byos_bindings').deleteOne(team)
         else await db.collection('team_byos_bindings').updateOne(team, { $pull: { slackWorkspaces: { slackTeamId: args.workspace } } })`,
-        { channel: CHANNEL, teamId: stack.teamId, workspace: WORKSPACE, created },
+        { channel: CHANNEL, teamId: stack.teamId, workspace: WORKSPACE, created, chatId },
       )
     }
   },
