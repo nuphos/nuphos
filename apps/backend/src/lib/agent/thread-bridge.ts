@@ -15,8 +15,8 @@ import {
   setConversationParent,
 } from './db'
 import { isChannel } from './db/channels'
-import { prepareThread } from './thread-delegation'
 import { relatedQuestionsNote } from './db/pending-decision'
+import { prepareThread } from './thread-delegation'
 
 import type { AgentConversation } from './db'
 import type { ThreadModelPick } from './thread-runtime'
@@ -154,11 +154,16 @@ export async function updateThread(
   await assertThreadRuntime(actor, change.runtimeId)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
+  const by = {
+    actorId: actor.userId,
+    agentSessionId: actor.sessionId,
+    via: 'update_thread',
+  } as const
   const runtime = change.runtimeId
-    ? await moveConversationRuntime(target, change.runtimeId, actor.userId)
+    ? await moveConversationRuntime(target, change.runtimeId, actor.userId, { by })
     : undefined
   // Apply any explicit choice after the move has preserved compatible settings.
-  const model = await setThreadModel(threadId, actor.userId, change)
+  const model = await setThreadModel(threadId, actor.userId, change, by)
 
   return {
     threadId,

@@ -190,7 +190,7 @@ fun HomeRoute(
                     memberships = { WorkspaceApi(token).memberships() },
                     teamId = { team: ai.nuphos.android.model.Team -> team.id },
                     conversation = { destination ->
-                        NuphosApi.conversationDetail(token, destination.teamId, destination.conversationId)
+                        NuphosApi.conversationDetail(token, destination.teamId, destination.conversationId, tail = 1, runtimeState = false)
                     },
                 ).resolve(request.destination, ::current)
                 // Navigation and workspace mutations require the Android main thread.

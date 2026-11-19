@@ -23,7 +23,7 @@ export function UsageSplitChart({
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px]">
-        <span className="text-tertiary">{t('Tokens per day')}</span>
+        <span className="text-tertiary">{t('Tokens per day · last 30 days')}</span>
         <span className="whitespace-nowrap font-mono text-main">
           {t('{tokens} tokens', { tokens: formatTokens(total) })}
         </span>
@@ -63,6 +63,8 @@ export function UsageSplitChart({
                 dataKey={key}
                 stackId="usage"
                 fill={color(index)}
+                // A day far below the busiest still shows that it used something.
+                minPointSize={(value) => ((value ?? 0) > 0 ? 2 : 0)}
                 isAnimationActive={false}
               />
             ))}

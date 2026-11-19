@@ -163,7 +163,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
                 <span className="text-[12px] text-secondary">
                   {credentials.usesDefault
                     ? t(
-                        'Credentials: {selected}/{total} selected · same default as a new agent',
+                        'Credentials: {selected}/{total} selected · same default as a new task',
                         counts,
                       )
                     : t('Credentials: {selected}/{total} selected', counts)}
@@ -171,7 +171,7 @@ export function PanelEditorModal({ teamId, panel, saving, onCancel, onSave }: Pr
               </div>
               <p className="text-[11px] text-tertiary">
                 {t(
-                  "Runs on one of your team's online agents when created, refreshed, or on the dashboard's auto-refresh schedule. Available globals: {params}, {nuphos} (read-only Nuphos APIs as the script author, limited to the credentials selected above), and {emit}. Editing the script creates a new version; old snapshots keep theirs.",
+                  "Runs on one of your team's online runtimes when created, refreshed, or on the dashboard's auto-refresh schedule. Available globals: {params}, {nuphos} (read-only Nuphos APIs as the script author, limited to the credentials selected above), and {emit}. Editing the script creates a new version; old snapshots keep theirs.",
                 )
                   .split(/(\{params\}|\{nuphos\}|\{emit\})/)
                   .map((part, i) => (

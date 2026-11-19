@@ -5,10 +5,12 @@ import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
@@ -91,6 +93,10 @@ export type AgentConversation = ConversationTaskState & {
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
@@ -214,7 +220,7 @@ export type AgentCredentialAccess = {
   // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
-  personalCredentialIds?: ('github' | 'linear')[] // the owner's own, with no team binding
+  personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
 }
