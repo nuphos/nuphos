@@ -15,6 +15,7 @@ const NAMES: Record<PersonalCredentialProvider, string> = {
   linear: 'Linear',
   gmail: 'Gmail',
   'google-drive': 'Google Drive',
+  'google-calendar': 'Google Calendar',
 }
 
 export function nameOf(provider: PersonalCredentialProvider): string {
@@ -24,9 +25,9 @@ export function nameOf(provider: PersonalCredentialProvider): string {
 export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
 
 export const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive'
+  provider === 'gmail' || provider === 'google-drive' || provider === 'google-calendar'
 
-/** The credential that applies in this team: Gmail / Google Drive grants are per team. */
+/** The credential that applies in this team: Google grants are per team. */
 export function credentialFor(
   credentials: PersonalCredential[] | null,
   provider: PersonalCredentialProvider,
@@ -60,6 +61,11 @@ export const PERSONAL_CONNECTORS: PersonalConnector[] = [
     provider: 'google-drive',
     summary: t('Find, read and save your own files.'),
     keywords: 'google docs sheets files',
+  },
+  {
+    provider: 'google-calendar',
+    summary: t('Check your schedule and set up events.'),
+    keywords: 'google calendar events meetings schedule',
   },
 ]
 

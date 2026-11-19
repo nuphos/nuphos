@@ -7,7 +7,6 @@ import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { abandonPendingPreviewWaits } from './decision-waiter'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
@@ -88,7 +87,7 @@ export async function probeExecutionState(
     if (!endpoint || (attachment && !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl)))
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
-      ...(await reachableRuntimeEndpoint(endpoint)),
+      ...endpoint,
       connectTimeoutMs,
       callTimeoutMs: 3_000,
     })
@@ -132,7 +131,7 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new Error('Conversation runtime changed')
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 3_000,
   })
@@ -267,7 +266,7 @@ export async function steerConversationRuntime(
     steer.metadata ??
     (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken))
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 15_000,
   })

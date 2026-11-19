@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { managesRuntime } from '../../../views/settings/agentPresentation'
 import {
@@ -13,7 +14,7 @@ import { useRuntimeFallback } from '../../../views/settings/useRuntimeFallback'
 import { toast } from '../../ui/toast'
 
 import { FallbackSetupDialog } from './FallbackSetupDialog'
-import { latestFailure, turnSwitchAgent } from './turnFailureActions'
+import { latestFailure, reinstallProvider, turnSwitchAgent } from './turnFailureActions'
 
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
@@ -35,6 +36,7 @@ export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl |
     enabled: failed && Boolean(runtime?.local),
   }).list?.devices.find((entry) => entry.deviceId === runtime?.local?.deviceId)
   const { fallbacks, save } = useRuntimeFallback(teamId, runtime?.id, failed)
+  const reinstall = reinstallProvider(failure?.cause, runtime, useThisComputer())
   const [open, setOpen] = useState(false)
   const move = control?.onSelect
   const offered = offersFallbackSetup({
@@ -71,5 +73,5 @@ export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl |
     />
   )
 
-  return { agentMenu, turnSwitch: turnSwitch && { ...turnSwitch, fallbackDialog } }
+  return { agentMenu, turnSwitch: turnSwitch && { ...turnSwitch, fallbackDialog, reinstall } }
 }

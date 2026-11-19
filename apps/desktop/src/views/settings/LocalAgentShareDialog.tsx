@@ -146,7 +146,7 @@ function ShareForm({
       onClose={onClose}
       title={t('Share {device}', { device: deviceLabel })}
       description={t(
-        'Choose who may use this computer. Managers can also add agents, rename it and let others use it.',
+        'Choose who may use this computer. Managers can also add runtimes, rename it and let others use it.',
       )}
       width={560}
       footer={

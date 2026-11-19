@@ -83,9 +83,7 @@ export function applySetting(sessionId, id, value, log) {
   return list
 }
 
-/** The response language a new session's system prompt names, whatever shape the agent gets it in (#3469). */
-export function sessionLanguage(params) {
-  return /The user's language, inferred from the messages they typed: ([^.\\]+)/.exec(
-    JSON.stringify(params._meta ?? {}),
-  )?.[1]
+/** The response language a turn's prompt names (#3469). */
+export function promptLanguage(text) {
+  return /Response language: ([^.\n]+)\./.exec(text)?.[1]
 }

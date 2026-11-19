@@ -191,7 +191,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text(stringResource(R.string.try_again)) }
                 }
                 // Nothing posted yet: say what kind of place this is, as on iOS.
-                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, Modifier.align(Alignment.CenterStart))
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, bot = botFace != null, modifier = Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -210,14 +210,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
 }
 
-/** A chat with no posts yet: its icon, its name and how a chat works, the same words as iOS. */
+/** A chat with no posts yet: its icon, its name and how it works, in Desktop's words: a Bot's own chat introduces the Bot. */
 @Composable
-private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, modifier: Modifier = Modifier) {
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, bot: Boolean, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChatIcon(faces, title, 44.dp)
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text(stringResource(R.string.chats_empty_chat_body),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val lines = if (bot) listOf(stringResource(R.string.chats_empty_bot_body, title), stringResource(R.string.chats_empty_bot_start, title))
+            else listOf(stringResource(R.string.chats_empty_chat_body))
+        lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -303,7 +304,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.botId, onLink = onLink,
-                                failure = session.answerFailure(question), onConnect = { connect(question) })
+                                failure = session.answerFailure(question), onConnect = { connect(question) },
+                                onDismiss = { if (allowed()) session.dismiss(question, scope) })
                         }
                     }
                 }

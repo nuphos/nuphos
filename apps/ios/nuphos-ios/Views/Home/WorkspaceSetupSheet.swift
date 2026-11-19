@@ -61,7 +61,7 @@ struct WorkspaceSetupSheet: View {
                 do {
                     let result: WorkspaceAPI.TeamsEnvelope = try await WorkspaceAPI.request("teams/discoverable", token: token)
                     discoverable = result.teams
-                } catch { self.error = error.localizedDescription }
+                } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
             }
         }
     }
