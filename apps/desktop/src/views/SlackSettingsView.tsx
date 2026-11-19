@@ -246,7 +246,8 @@ export function SlackSettingsView({
             ))}
           </div>
         )}
-        {!loading && (
+        {/* Only an admin connects channels; members bring their Bots on the rows above. */}
+        {!loading && canManage && (
           <div className="border-t border-line-control/60">
             <button
               type="button"
@@ -265,7 +266,6 @@ export function SlackSettingsView({
             </button>
             {linkChannelOpen && (
               <LinkChannelPanel
-                canManage={canManage}
                 installed={installed}
                 oauthAvailable={oauthAvailable}
                 onInstall={() => setInstallOpen(true)}

@@ -35,7 +35,6 @@ function InstallButton({
 }
 
 export function LinkChannelPanel({
-  canManage,
   installed,
   oauthAvailable,
   onInstall,
@@ -46,7 +45,6 @@ export function LinkChannelPanel({
   linkChannelSubmitting,
   onSubmit,
 }: {
-  canManage: boolean
   installed: boolean
   oauthAvailable: boolean
   onInstall: () => void
@@ -64,64 +62,48 @@ export function LinkChannelPanel({
           <UiIcon size={14} icon={LinkIcon} className="h-3.5 w-3.5 text-secondary" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">
-            {t('Link by ID')}
-            <span className="ml-2 rounded border border-line-control px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
-              {t('admins')}
-            </span>
-          </div>
+          <div className="text-[12.5px] font-medium text-main">{t('Link by ID')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
               "Works for any workspace with a Nuphos installation. A channel in another team's workspace needs your linked Slack account to be a member of it.",
             )}
           </div>
-          {canManage ? (
-            <form
-              onSubmit={(e) => void onSubmit(e)}
-              className="mt-3 flex flex-wrap items-end gap-2"
+          <form onSubmit={(e) => void onSubmit(e)} className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="min-w-[140px] flex-1">
+              <span className="mb-1 block text-[11.5px] text-tertiary">{t('Workspace ID')}</span>
+              <input
+                value={newChannelWorkspaceId}
+                onChange={(e) => setNewChannelWorkspaceId(e.target.value)}
+                placeholder="T01ABCDEF"
+                className={clsx(inputClasses, 'font-mono')}
+              />
+            </label>
+            <label className="min-w-[140px] flex-1">
+              <span className="mb-1 block text-[11.5px] text-tertiary">{t('Channel ID')}</span>
+              <input
+                value={newChannelId}
+                onChange={(e) => setNewChannelId(e.target.value)}
+                placeholder="C01ABCDEF"
+                className={clsx(inputClasses, 'font-mono')}
+              />
+            </label>
+            <Button
+              size="sm"
+              type="submit"
+              disabled={
+                !newChannelWorkspaceId.trim() || !newChannelId.trim() || linkChannelSubmitting
+              }
             >
-              <label className="min-w-[140px] flex-1">
-                <span className="mb-1 block text-[11.5px] text-tertiary">{t('Workspace ID')}</span>
-                <input
-                  value={newChannelWorkspaceId}
-                  onChange={(e) => setNewChannelWorkspaceId(e.target.value)}
-                  placeholder="T01ABCDEF"
-                  className={clsx(inputClasses, 'font-mono')}
-                />
-              </label>
-              <label className="min-w-[140px] flex-1">
-                <span className="mb-1 block text-[11.5px] text-tertiary">{t('Channel ID')}</span>
-                <input
-                  value={newChannelId}
-                  onChange={(e) => setNewChannelId(e.target.value)}
-                  placeholder="C01ABCDEF"
-                  className={clsx(inputClasses, 'font-mono')}
-                />
-              </label>
-              <Button
-                size="sm"
-                type="submit"
-                disabled={
-                  !newChannelWorkspaceId.trim() || !newChannelId.trim() || linkChannelSubmitting
-                }
-              >
-                <UiIcon size={16} icon={LinkIcon} className="h-4 w-4" />
-                {linkChannelSubmitting ? t('Linking…') : t('Link channel')}
-              </Button>
-            </form>
-          ) : (
-            <div className="mt-1 text-[12px] text-tertiary">
-              {t('Ask a team administrator to link it for you.')}
-            </div>
-          )}
+              <UiIcon size={16} icon={LinkIcon} className="h-4 w-4" />
+              {linkChannelSubmitting ? t('Linking…') : t('Link channel')}
+            </Button>
+          </form>
         </div>
-        {canManage && (
-          <InstallButton
-            oauthAvailable={oauthAvailable}
-            installed={installed}
-            onInstall={onInstall}
-          />
-        )}
+        <InstallButton
+          oauthAvailable={oauthAvailable}
+          installed={installed}
+          onInstall={onInstall}
+        />
       </div>
     </div>
   )

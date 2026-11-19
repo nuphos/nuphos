@@ -5,10 +5,12 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { artifacts, until } from '../processes.ts'
+import { joinTeam } from '../dashboard-scenarios.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
+import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const WORKSPACE = 'TE2E'
@@ -34,12 +36,37 @@ function mongo(stack: Stack, body: string, args: unknown = null): unknown {
 
 let events = 0
 
+/** Opens Slack's settings in light, with the connected channel's Bots shown, and shoots them. */
+async function shootSettings(page: Page, file: string) {
+  await page.evaluate(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+  })
+  await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+  await page
+    .getByRole('button', { name: /^Open Slack/ })
+    .first()
+    .click()
+  const channels = page.getByText('Connected channels', { exact: true })
+
+  await channels.waitFor()
+  await page.getByText('Mei Bot', { exact: true }).first().waitFor()
+  await channels.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: `${artifacts}/${file}` })
+}
+
 /** One call to the Slack settings API as the e2e user, a team admin who owns the E2E Bot. */
-async function settings(stack: Stack, method: string, path: string, body?: object) {
+async function settings(
+  stack: Stack,
+  method: string,
+  path: string,
+  body?: object,
+  token = stack.token,
+) {
   const query = body ? '' : `${path.includes('?') ? '&' : '?'}teamId=${stack.teamId}`
   const response = await fetch(`${stack.apiUrl}${path}${query}`, {
     method,
-    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     ...(body ? { body: JSON.stringify({ teamId: stack.teamId, ...body }) } : {}),
   })
 
@@ -169,26 +196,52 @@ export default {
         throw new Error(`The owner's message was stored ${String(stored.asked)} times`)
       if (stored.replyTo !== `slack:${CHANNEL}:${asked}`)
         throw new Error(`The thread reply quotes ${String(stored.replyTo)}, not its root`)
-      // The settings screen as it is reviewed, in light: the channel with its Bot, then connecting one.
-      await page.evaluate(() => {
-        document.documentElement.classList.remove('dark')
-        document.documentElement.classList.add('light')
-      })
-      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
-      await page
-        .getByRole('button', { name: /^Open Slack/ })
-        .first()
-        .click()
-      const channels = page.getByText('Connected channels', { exact: true })
+      // The settings screen as Yuanlin reviews it, in light. The channel holds the viewer's
+      // own Bot and a teammate's, and the viewer has one more Bot to add.
+      const teammate = await joinTeam(stack, 'slack-teammate')
+      const theirs = (await settings(
+        stack,
+        'POST',
+        '/agent/bots',
+        { title: 'Mei Bot', avatar: '05-rembrandt' },
+        teammate.token,
+      )) as { sessionId: string }
 
-      await channels.waitFor()
-      await channels.scrollIntoViewIfNeeded()
-      await page.getByText('E2E Bot', { exact: true }).first().waitFor()
-      await page.screenshot({ path: `${artifacts}/slack-settings-channels-light.png` })
+      await settings(
+        stack,
+        'POST',
+        `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`,
+        { botSessionId: theirs.sessionId },
+        teammate.token,
+      )
+      await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-curie' })
+      await shootSettings(page, 'slack-settings-admin-channels-light.png')
       await page.getByRole('button', { name: 'Connect a channel' }).click()
       await page.getByText('Link by ID', { exact: true }).waitFor()
-      await page.screenshot({ path: `${artifacts}/slack-settings-connect-light.png` })
-      await page.keyboard.press('Escape')
+      await page.screenshot({ path: `${artifacts}/slack-settings-admin-connect-light.png` })
+      // The same screen for a member: the viewer's role, as the team stores it, set to member.
+      const me = ((await settings(stack, 'GET', '/auth/me')) as { id: string }).id
+      // Sets the viewer's stored role and answers the one it replaced.
+      const role = (to: string) =>
+        mongo(
+          stack,
+          `const team = { _id: new ObjectId(args.teamId) }
+          const before = (await db.collection('teams').findOne(team)).members.find((m) => String(m.userId) === args.userId).role
+          await db.collection('teams').updateOne({ ...team, 'members.userId': new ObjectId(args.userId) }, { $set: { 'members.$.role': args.role } })
+          return before`,
+          { teamId: stack.teamId, userId: me, role: to },
+        ) as string
+      const admin = role('MEMBER')
+
+      try {
+        await page.reload()
+        await shootSettings(page, 'slack-settings-member-light.png')
+        if ((await page.getByRole('button', { name: 'Connect a channel' }).count()) > 0)
+          throw new Error('A member is offered to connect a channel')
+      } finally {
+        role(admin)
+        await page.reload()
+      }
     } finally {
       await settings(stack, 'DELETE', `/slack/mappings/${WORKSPACE}/${CHANNEL}`)
       mongo(
