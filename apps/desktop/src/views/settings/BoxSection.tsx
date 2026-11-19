@@ -39,15 +39,12 @@ export function BoxSection({
   instances,
   onSelect,
   canCreate,
-  onOpenSettingsSection,
 }: {
   teamId: string
   /** Only the team's administrators add computers, from the page's Add computer; the backend enforces it. */
   canCreate: boolean
   instances: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
-  /** Opens a Settings section: here, Local runtime, where this computer's agent signs in. */
-  onOpenSettingsSection?: (section: string) => void
 }) {
   const thisComputer = useThisComputer()
   const previous = useRef<AgentDevice[]>([])
@@ -94,8 +91,6 @@ export function BoxSection({
   const owned = list?.devices ?? []
   // Members cannot create a Box: say who can, where the button would be.
   const admin = useAdminName(teamId, !canCreate && Boolean(list?.boxAvailable))
-  const setUpLocalAgent =
-    onOpenSettingsSection && (() => onOpenSettingsSection('device.localRuntime'))
 
   return (
     <section aria-label={t('Computers')} className="min-w-0">
@@ -151,7 +146,6 @@ export function BoxSection({
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
-                  onSetUpLocalAgent={setUpLocalAgent}
                   onChanged={reload}
                 />
               ))}
