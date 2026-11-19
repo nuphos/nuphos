@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
+import { fixtureBundle } from './tunnel-scenarios.ts'
 import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -33,7 +34,10 @@ export const installScenarios: Scenario[] = [
     name: 'adding Claude Code to a just-connected computer without it installs it there, signs it in, and runs a turn',
     run: async (page, stack) => {
       const label = 'E2E Mac mini'
-      const computer = await startSecondComputer(stack, label)
+      // The fixture agent behind its Claude Code, so the turn below gets the fixture's answer.
+      const computer = await startSecondComputer(stack, label, {
+        runtimeDir: fixtureBundle(stack, 'install'),
+      })
 
       try {
         await openComputers(page)
