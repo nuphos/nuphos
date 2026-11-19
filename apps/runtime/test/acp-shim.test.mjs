@@ -191,7 +191,8 @@ test('a link the OS refuses never fails the turn, and Windows gets a junction', 
       ])
 
       assert.match(reply.result?.seen?.env.HOME ?? '', /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
-      assert.equal(links.length, 2)
+      // OpenCode's two links and Gradle's caches.
+      assert.equal(links.length, 3)
       // Node makes a junction from this on Windows and ignores it elsewhere.
       for (const args of links) assert.equal(args[2], 'junction')
     })
