@@ -207,7 +207,10 @@ function check(baseline: Record<string, number> | null) {
 
     if (watch.framesToContent === null) fail('its history never showed')
     if (watch.fadeFrames > 0) fail(`${String(watch.fadeFrames)} frames faded it in`)
-    if (watch.washFrames > 0) fail(`${String(watch.washFrames)} frames had faded text in the pane`)
+    if (watch.washFrames > 0)
+      fail(
+        `${String(watch.washFrames)} frames had faded text in the pane, faintest ${String(watch.washedText)}`,
+      )
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)

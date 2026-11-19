@@ -12,6 +12,8 @@ export type SwitchWatch = {
   fadeFrames: number
   /** Frames where text sampled across the chat pane was fainter than once the switch settled. */
   washFrames: number
+  /** The faintest of those texts, its opacity and the text, to say what washed out. */
+  washedText: string | null
   /** Frames with `typedFrom` on screen but not `typedTo`: a reply being typed out. */
   typedFrames: number
   /** ms from the click to the first frame with `newest` on screen. */
@@ -72,7 +74,7 @@ function watch({
   // The faintest text across the chat pane, its title bar included, sampled down to the composer.
   const paneOpacity = () => {
     const left = (document.querySelector('aside')?.getBoundingClientRect().right ?? 0) + 24
-    let faintest = 1
+    let faintest = { opacity: 1, text: '' }
 
     for (let col = 0; col < 6; col++)
       for (let row = 0; row < 7; row++) {
@@ -86,7 +88,8 @@ function watch({
 
         for (let node: Element | null = element; node; node = node.parentElement)
           opacity *= Number(getComputedStyle(node).opacity)
-        faintest = Math.min(faintest, opacity)
+        if (opacity < faintest.opacity)
+          faintest = { opacity, text: element.textContent.trim().slice(0, 60) }
       }
 
     return faintest
@@ -96,7 +99,7 @@ function watch({
     let clicked: number | null = null
     let settledAt: number | null = null
     // Each frame's faintest pane text; text meant to be faint is as faint in the last frame.
-    const panes: number[] = []
+    const panes: { opacity: number; text: string }[] = []
     let frames = 0
     const result: SwitchWatch = {
       clickedAt: 0,
@@ -104,6 +107,7 @@ function watch({
       framesToContent: null,
       fadeFrames: 0,
       washFrames: 0,
+      washedText: null,
       typedFrames: 0,
       newestAfterMs: null,
     }
@@ -133,9 +137,15 @@ function watch({
         // On for half a second more, for a fade that starts once the chat is there.
         if (result.newestAfterMs !== null && result.framesToContent !== null) settledAt ??= now
         if ((settledAt !== null && now - settledAt > 500) || now - clicked > timeoutMs) {
-          const settled = panes.at(-1) ?? 1
+          const settled = panes.at(-1)?.opacity ?? 1
+          const washed = panes.filter((faintest) => faintest.opacity < settled - 0.05)
+          const worst = washed.reduce<(typeof washed)[number] | null>(
+            (a, b) => (a && a.opacity <= b.opacity ? a : b),
+            null,
+          )
 
-          result.washFrames = panes.filter((faintest) => faintest < settled - 0.05).length
+          result.washFrames = washed.length
+          result.washedText = worst && `${worst.opacity.toFixed(2)} "${worst.text}"`
           resolve(result)
 
           return
