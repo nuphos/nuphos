@@ -4,7 +4,10 @@ import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -133,16 +136,27 @@ fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (quota?.available != true || quota.windows.isEmpty()) {
             Text(stringResource(R.string.agent_usage_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else (if (compact) listOf(quota.windows.maxBy { it.usedPercent }) else quota.windows).forEach { window ->
-            val reset = resetsInText(ResetsIn.of(window.resetsAt))
-            val left = (100.0 - window.usedPercent).coerceIn(0.0, 100.0)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                ContinuousUsageBar(progress = (left / 100.0).toFloat(), modifier = Modifier.weight(1f))
-                reset?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        } else {
+            val windows = if (compact) listOf(quota.windows.maxBy { it.usedPercent }) else quota.windows
+            // One trailing column for every bar's reset, as wide as the widest the formatter writes,
+            // so the bars all end at the same x and the text never moves them as it ticks.
+            val resetStyle = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum")
+            val widest = listOfNotNull(resetsInText(ResetsIn(0, 23, 59)), resetsInText(ResetsIn(29, 23, 0)))
+            val column = windows.any { ResetsIn.of(it.resetsAt) != null }
+            windows.forEach { window ->
+                val reset = resetsInText(ResetsIn.of(window.resetsAt))
+                val left = (100.0 - window.usedPercent).coerceIn(0.0, 100.0)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ContinuousUsageBar(progress = (left / 100.0).toFloat(), modifier = Modifier.weight(1f))
+                    if (column) Box(contentAlignment = Alignment.CenterEnd) {
+                        widest.forEach { Text(it, style = resetStyle, color = Color.Transparent, maxLines = 1, modifier = Modifier.clearAndSetSemantics {}) }
+                        Text(reset.orEmpty(), style = resetStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
+                }
+                val percent = String.format(locale, "%.0f", left)
+                Text(if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            val percent = String.format(locale, "%.0f", left)
-            Text(if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent),
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
