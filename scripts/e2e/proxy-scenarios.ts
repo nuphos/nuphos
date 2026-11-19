@@ -24,7 +24,8 @@ const SYSTEM_PROXY: Record<string, (proxies: Proxies) => Record<string, string>>
   }),
   // Its first proxy is down: the tunnel moves on to the next one (#3400).
   pac: (p) => ({ auto_proxy: p.pacUrl }),
-  socks: (p) => ({ all_proxy: `socks5://127.0.0.1:${String(p.socks)}` }),
+  // Chromium reads `all_proxy=socks5://…` as an HTTP proxy; SOCKS_SERVER keeps it SOCKS5.
+  socks: (p) => ({ SOCKS_SERVER: `127.0.0.1:${String(p.socks)}`, SOCKS_VERSION: '5' }),
 }
 
 const tunnelLines = (deviceId: string) =>
