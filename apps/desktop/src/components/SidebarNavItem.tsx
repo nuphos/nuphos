@@ -262,7 +262,7 @@ export function SidebarNavItem({
               >
                 {preview || t('No messages yet')}
               </span>
-              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center">
+              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center empty:hidden">
                 {trailing}
               </span>
             </span>
