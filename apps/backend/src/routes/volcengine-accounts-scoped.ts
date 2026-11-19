@@ -6,7 +6,12 @@ import { listVkeClusters, generateVkeKubeconfig, BOOTSTRAP_REGION } from '@/lib/
 import { listVolcEcsInstances, getVolcRegions } from '@/lib/byos/volcengine-ecs'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -64,10 +69,7 @@ volcengineAccountScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('volcengineBinding').id
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { volcengineAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-    )
+    await disconnectBinding(c, teamId, 'volcengineAccounts', { id: accountId })
 
     return c.body(null, 204)
   },
