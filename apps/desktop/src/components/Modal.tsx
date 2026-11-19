@@ -50,7 +50,7 @@ type Props = {
   closeOnBackdrop?: boolean
   /** Focus the first control in the body on open (default); false focuses the panel itself, so nothing looks selected and Tab still enters the body. */
   focusFirstControl?: boolean
-  /** `wide` lines the header controls up with a body that pads its content 32px from each side. */
+  /** `wide` lines the header controls up with a body that pads its content 24px from each side. */
   headerInset?: 'default' | 'wide'
   /** Reset body scroll when navigating between views within this modal. */
   scrollResetKey?: string
@@ -192,8 +192,8 @@ export function Modal({
             titleHidden && headerInset === 'wide' && 'min-h-14',
             headerInset === 'wide'
               ? titleHidden
-                ? 'items-center px-8 py-3.5 pr-16'
-                : 'px-8 py-4 pr-16'
+                ? 'items-center px-6 py-3.5 pr-14'
+                : 'px-6 py-4 pr-14'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
@@ -248,8 +248,8 @@ export function Modal({
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
             headerInset === 'wide'
               ? titleHidden
-                ? 'right-[26px] top-3 min-h-8'
-                : 'right-[26px] top-4 min-h-8'
+                ? 'right-4 top-3.5 min-h-8'
+                : 'right-4 top-4 min-h-8'
               : headerCompact
                 ? 'right-2 top-1.5'
                 : 'right-3.5 top-3.5',

@@ -111,7 +111,7 @@ function TeamConnectorsDialog({
             type="button"
             aria-label={t('Back')}
             onClick={() => (detail ? setDetail(null) : catalogHeader?.back?.())}
-            className="-ml-1.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
+            className="relative top-0.5 -ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           </button>

@@ -7,7 +7,6 @@ import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
 import { credentialFor, matchingPersonalConnectors, nameOf } from '../settings/personalCredentials'
 
-
 import { CatalogConnector } from './CatalogConnector'
 import { ConnectorGroups } from './connector-groups'
 import { ConnectorHeaderContext } from './connector-header'
@@ -158,14 +157,14 @@ export function IntegrationCatalog({
 
   return (
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
-      <div className="w-full px-8 pb-8 pt-2 selectable">
+      <div className="w-full px-6 pb-8 pt-2 selectable">
         <header className="mb-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
               {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
             </h1>
             {catalogTab === 'browse' && (
-              <Button className="-mr-1.5" variant="secondary" onClick={() => setCatalogTab('mine')}>
+              <Button className="-mr-2" variant="secondary" onClick={() => setCatalogTab('mine')}>
                 {t('Manage connections')}
               </Button>
             )}
@@ -264,7 +263,7 @@ export function IntegrationCatalog({
                               }
                             : summary
                         }
-                        sharingSummary={own ? undefined : connectionOwnership(installed, sharing)}
+                        sharingSummary={connectionOwnership(installed, sharing, own ? 1 : 0)}
                         onActivate={
                           personalProvider
                             ? () => openPersonalCredentials(personalProvider)
