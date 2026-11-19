@@ -202,7 +202,7 @@ export function holdAnswer(
       void (
         'dismissed' in answer
           ? dismissDecision(teamId, sessionId, requestId, answer.reason)
-          : answerDecision(teamId, sessionId, requestId, answer)
+          : answerDecision(teamId, sessionId, requestId, { ...answer, answeredIn: 'inbox' })
       ).then((ok) => {
         if (!ok) onFailed(failures.get(requestId))
       })

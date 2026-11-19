@@ -64,6 +64,8 @@ export type InternalChatCtx = {
   currentUrl: string | null
   localToolsEnabled: boolean
   secretCardEnabled?: boolean
+  /** The app that sent the turn (requestClient), for the record of settings it picks. */
+  client?: string
   // Kubeconfig context the desktop's current workspace tab is bound to (sent
   // via X-Atlas-Kube-Context). Plumbed into the system prompt so the agent
   // knows which `context` to pass to typed K8s tools like port_forward_start

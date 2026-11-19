@@ -1,4 +1,5 @@
-import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
+import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
@@ -18,6 +19,7 @@ import type { RuntimeModelCatalog } from './runtime-models'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 
 export async function controlSessionConfig(
   client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
@@ -105,15 +107,17 @@ export async function restoreSessionConfigForWrite(
   }
 }
 
+/** `by` says who makes a `selection` and from where; absent, the viewer through the picker. */
 export async function conversationSessionConfig(
   conversation: AgentConversation,
   selection?: SessionConfigSelection,
   viewerUserId?: string,
+  by: SettingsChangeBy = { actorId: viewerUserId ?? 'system', via: 'picker' },
 ): Promise<SessionConfigState> {
   const attachment = liveAttachment(conversation)
 
   if (!conversation.teamId) return { status: 'unsupported', options: [] }
-  if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
+  if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId, by)
   const catalogFor = runtimeCatalog(conversation, viewerUserId)
 
   if (!selection) {
@@ -121,7 +125,7 @@ export async function conversationSessionConfig(
 
     return namedModel(await sessionConfigView(storedPick(attachment), catalogFor), attachment)
   }
-  const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
+  const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId, by)
 
   return await sessionConfigView(picked, catalogFor)
 }
@@ -145,9 +149,9 @@ export async function sessionConfigView(
   picked: RuntimeDefaults,
   catalogFor: CatalogFor,
 ): Promise<SessionConfigState> {
-  const { status, options } = await catalogState(picked, catalogFor, true)
+  const { status, options, reason } = await catalogState(picked, catalogFor, true)
 
-  return { status: status === 'dormant' ? 'ready' : status, options }
+  return { status: status === 'dormant' ? 'ready' : status, options, ...(reason ? { reason } : {}) }
 }
 
 async function catalogState(
@@ -169,9 +173,10 @@ async function initialSessionConfig(
   conversation: AgentConversation,
   selection: SessionConfigSelection | undefined,
   viewerUserId: string | undefined,
+  by: SettingsChangeBy,
 ): Promise<SessionConfigState> {
   const stored = conversation.initialSessionConfig ?? {}
-  const { status, options, kept } = await catalogState(
+  const { status, options, kept, reason } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
   )
@@ -189,16 +194,9 @@ async function initialSessionConfig(
     )
   // Reading a catalog must not erase a saved choice it no longer offers.
   if (selection && JSON.stringify(kept) !== JSON.stringify(stored))
-    await agentConversations().updateOne(
-      {
-        sessionId: conversation.sessionId,
-        teamId: conversation.teamId,
-        claudeCodePreview: { $exists: false },
-      },
-      { $set: { initialSessionConfig: kept } },
-    )
+    await keepFirstSessionPick(conversation.sessionId, conversation.teamId, kept, by)
 
-  return { status, options }
+  return { status, options, ...(reason ? { reason } : {}) }
 }
 
 // Restore a reaped agent when its owner opens a recent chat; older ones are mostly just read.
@@ -248,7 +246,8 @@ async function applySessionConfig(
   conversation: AgentConversation,
   attachment: NonNullable<ReturnType<typeof liveAttachment>>,
   selection: SessionConfigSelection,
-  viewerUserId?: string,
+  viewerUserId: string | undefined,
+  by: SettingsChangeBy,
 ): Promise<RuntimeDefaults> {
   const options = await withSessionClient(conversation, attachment, async (client, endpoint) => {
     await restoreSessionConfigForWrite(
@@ -267,6 +266,7 @@ async function applySessionConfig(
     conversation.teamId,
     attachment.openabSessionId,
     options,
+    by,
   )
 
   return storedPick({ ...attachment, sessionConfig: options })

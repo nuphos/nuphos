@@ -37,6 +37,14 @@ const MODEL_PRICES: [key: string, price: ModelPrice][] = [
   ['sonnet-4', { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 }],
   ['haiku-4-5', { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 }],
   ['haiku-3-5', { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 }],
+  // OpenAI Standard tier, short-context rates, read 2026-11-19 from https://developers.openai.com/api/docs/pricing
+  // (openai.com/api/pricing points there). cacheWrite is its 30-minute write rate.
+  // gpt-6.1-terra and gpt-6-luna are listed only at the Flex tier, not the Standard one
+  // Codex runs at, so they stay unpriced.
+  ['gpt-6.2-astra', { input: 8, output: 40, cacheRead: 0.4, cacheWrite: 10 }],
+  ['gpt-6.2-sol', { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 }],
+  ['gpt-6.1-sol', { input: 2, output: 10, cacheRead: 0.1, cacheWrite: 2.5 }],
+  ['gpt-6-astra', { input: 10, output: 50, cacheRead: 1, cacheWrite: 12.5 }],
 ]
 
 function priceForModel(modelId: string): ModelPrice | undefined {

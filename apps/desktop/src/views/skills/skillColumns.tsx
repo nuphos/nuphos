@@ -40,7 +40,7 @@ export function buildSkillColumns(shadowed?: ReadonlySet<string>): Column<TeamSk
             <div
               className="mt-0.5 flex items-center gap-0.5 text-[11px] text-status-warning"
               title={t(
-                'A team skill has this name, and the agent uses the team skill. Rename this one to use it.',
+                'A team skill has this name, and Nuphos uses the team skill. Rename this one to use it.',
               )}
             >
               <AlertTriangle className="w-3 h-3 flex-shrink-0" strokeWidth={1.8} />

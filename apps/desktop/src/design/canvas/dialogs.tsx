@@ -23,14 +23,14 @@ export function AskAgentDialog({
     <Modal
       open
       onClose={onClose}
-      title={t('Ask the agent to edit')}
+      title={t('Ask Nuphos to edit')}
       appearance="prompt"
       description={
         screens.length === 1
-          ? t('The agent will change “{screen}” and update it here.', {
+          ? t('Nuphos will change “{screen}” and update it here.', {
               screen: screens[0] ?? '',
             })
-          : t('The agent will change {count} screens and update them here.', {
+          : t('Nuphos will change {count} screens and update them here.', {
               count: screens.length,
             })
       }
@@ -40,7 +40,7 @@ export function AskAgentDialog({
             {t('Cancel')}
           </Button>
           <Button size="sm" disabled={!request.trim()} onClick={() => onSend(request)}>
-            {t('Send to agent')}
+            {t('Send to Nuphos')}
           </Button>
         </div>
       }
