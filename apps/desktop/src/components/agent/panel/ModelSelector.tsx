@@ -152,6 +152,9 @@ export function ModelSelector({
     !control.open &&
     (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
 
+  // Shown once the task's own settings are known, never a placeholder before them.
+  if (loading && !slow && !error && !data) return null
+
   return (
     <>
       <Popover.Root
@@ -184,7 +187,6 @@ export function ModelSelector({
             {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
             <ModelChipLabel
               name={name}
-              loading={loading && !slow && !error && !data}
               level={level}
               levels={effortLevels}
               choosingEffort={effortOpen && Boolean(effort)}
