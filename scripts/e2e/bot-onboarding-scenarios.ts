@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
 
 import { agentEvents } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
@@ -118,7 +117,7 @@ export const botOnboardingScenarios: Scenario[] = [
   {
     name: 'a Bot whose Claude account Anthropic holds for verification says where to verify it',
     run: async (page, stack) => {
-      const hold = join(dirname(stack.acpLog), 'verification-hold')
+      const hold = `${stack.acpLog}.verification-hold`
       const portal = /https:\S+/u.exec(VERIFICATION_HOLD)![0]
 
       writeFileSync(hold, '')
