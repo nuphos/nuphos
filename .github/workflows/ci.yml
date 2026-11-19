@@ -704,6 +704,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test which backend log lines fail an e2e run
+        run: node --test --experimental-strip-types scripts/e2e/*.test.ts
       - name: Test filling mobile strings from the Desktop translations
         run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
