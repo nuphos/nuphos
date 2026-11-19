@@ -25,6 +25,8 @@ let target: RuntimeInstance
 let conversation: AgentConversation
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
 let destinationModels: string[] | null = allModels
+// What the destination reports running when nothing is picked; none by default.
+let destinationDefaults: { modelId: string; defaultEffort?: string } = { modelId: 'default' }
 
 useRuntimeModels({
   runtimeModelCatalog: async (): Promise<RuntimeModelCatalog> => {
@@ -33,7 +35,7 @@ useRuntimeModels({
     return {
       models: destinationModels.map((id) => ({ id, name: id })),
       controls: {
-        modelId: 'default',
+        ...destinationDefaults,
         effort: [
           { value: 'low', name: 'Low' },
           { value: 'high', name: 'High' },
@@ -63,6 +65,7 @@ beforeEach(() => {
   memory = portabilityDb()
   busy = false
   destinationModels = allModels
+  destinationDefaults = { modelId: 'default' }
   target = {
     id: 'new',
     provider: 'claude-code',
@@ -186,7 +189,7 @@ test('history moves to the other agent type and leaves no session behind', async
   expect(conversation.runtimeId).toBe('new')
   expect(conversation.claudeCodePreview).toBeUndefined()
   // Picks were the old agent's; the destination's list starts fresh.
-  expect(conversation.initialSessionConfig).toBeUndefined()
+  expect(conversation.initialSessionConfig).toEqual({})
 })
 
 test('a move retains the old runtime without needing an online source', async () => {
@@ -259,14 +262,30 @@ test('a same-provider move without a pick does not invent one', async () => {
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation).toMatchObject({ initialSessionConfig: {} })
 })
-test('a cross-provider move clears confirmed choices as well as the old attachment', async () => {
+test('a cross-provider move drops the old choices and names what the destination runs', async () => {
   conversation.claudeCodePreview!.sessionConfig = [
     { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
+    { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
   ]
+  destinationDefaults = { modelId: 'latest-model', defaultEffort: 'low' }
+  target.provider = 'codex'
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  // Never "nothing": a Task with no stored effort runs on one nobody sees.
+  expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'low' })
+  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+test('a cross-provider move with an unreadable destination catalog stores no stale choices', async () => {
+  destinationModels = null
   target.provider = 'codex'
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toBeUndefined()
-  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+test('a same-provider move keeps the model and stores the effort it will run on', async () => {
+  delete conversation.claudeCodePreview
+  conversation.initialSessionConfig = { model: 'chosen-model' }
+  destinationDefaults = { modelId: 'chosen-model', defaultEffort: 'low' }
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'low' })
 })
 
 test('a choice saved after the move request was read is preserved from durable state', async () => {
