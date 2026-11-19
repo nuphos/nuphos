@@ -196,19 +196,30 @@ export function Modal({
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
-            titleHidden && headerInset === 'wide' && 'min-h-14',
+            titleHidden && headerInset === 'wide' && 'min-h-10',
             headerInset === 'wide'
-              ? 'px-8 py-4 pr-16'
+              ? titleHidden
+                ? 'items-center px-8 py-1.5 pr-16'
+                : 'px-8 py-4 pr-16'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
-            (headerDivider === true || (headerDivider === 'scroll' && bodyScrolled)) &&
+            headerDivider === true &&
               !isPrompt && [
                 'border-b',
                 isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
               ],
           )}
         >
+          {headerDivider === 'scroll' && bodyScrolled && (
+            <div
+              aria-hidden="true"
+              className={clsx(
+                'pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b to-transparent',
+                isLight ? 'from-white' : 'from-surface-sheet',
+              )}
+            />
+          )}
           {headerLeading}
           <div className="min-w-0">
             <div
@@ -243,7 +254,9 @@ export function Modal({
           className={clsx(
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
             headerInset === 'wide'
-              ? 'right-[26px] top-4 min-h-8'
+              ? titleHidden
+                ? 'right-[26px] top-1 min-h-8'
+                : 'right-[26px] top-4 min-h-8'
               : headerCompact
                 ? 'right-2 top-1.5'
                 : 'right-3.5 top-3.5',
