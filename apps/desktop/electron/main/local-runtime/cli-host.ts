@@ -22,6 +22,7 @@ import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
+import { cliAutoUpdate } from './cli-auto-update.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
@@ -37,7 +38,7 @@ import {
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { withHostProvider } from './host-provider.ts'
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -157,9 +158,12 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: bundledModelProbe(bundle),
-  createTunnel: withE2eStagedUpdate(stop, (runtime, status, onChange, instances) => {
+  createTunnel: withE2eStagedUpdate(stop, (runtime, runtimeStatus, onChange, runtimeInstances) => {
+    const [status, instances] = autoUpdate.wrap(runtimeStatus, runtimeInstances)
+
     tunnel = new RuntimeTunnelClient({
       instances,
+      activity: autoUpdate.activity,
       sampleMetrics: readDeviceMetrics,
       connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -208,13 +212,9 @@ const controller = new LocalRuntimeController(withHostProvider(process.env, deps
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 // A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
 const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
-const macScreenHost = {
-  binary: () => path.join(bundleRoot, 'mac-screen-host'),
-  handOver: (human: boolean) =>
-    console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
-  owner: () => owner,
-  ownPermissions: true,
-}
+const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
+// Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
+const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
 /** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
