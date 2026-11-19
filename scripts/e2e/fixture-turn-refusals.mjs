@@ -6,6 +6,8 @@ export const VERIFICATION_HOLD =
   "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
 
 // Turns the fixture refuses, worded as OpenAB reports Claude Code's refusals.
+import { existsSync } from 'node:fs'
+
 export function refuse(text, outOfUsage) {
   // While a scenario holds the account, a new Bot's setup turn is refused for verification.
   if (
@@ -17,7 +19,11 @@ export function refuse(text, outOfUsage) {
       { code: -32603 },
     )
   // A computer's own Codex, a broken npm install: codex-acp's startup error, its CLI's stderr.
-  if (text.includes('E2E_CODEX_BROKEN'))
+  if (
+    text.includes('E2E_CODEX_BROKEN') ||
+    (text.includes('The person just created you') &&
+      existsSync(`${process.env.E2E_ACP_LOG}.codex-broken-onboarding`))
+  )
     throw Object.assign(
       new Error(
         'Codex process has exited with code 1:\nError: spawn /Users/e2e/.npm-global/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT',

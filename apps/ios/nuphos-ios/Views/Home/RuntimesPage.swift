@@ -12,6 +12,9 @@ struct RuntimesPage: View {
     @State private var desktop: DesktopSession?
     /// The computer a runtime is being added to, with the runtimes it already has.
     @State private var adding: NewRuntimeTarget?
+    /// The Box its owner asked to delete, until they confirm.
+    @State private var deleting: AgentDevice?
+    @State private var deleteFailure: String?
 
     struct NewRuntimeTarget: Identifiable {
         let device: AgentDevice
@@ -75,6 +78,24 @@ struct RuntimesPage: View {
                 }
             }
         }
+        // Desktop's confirmation (`removal`), word for word.
+        .alert(
+            "Delete \(deleting?.label ?? "")?",
+            isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
+            presenting: deleting
+        ) { device in
+            Button("Delete computer", role: .destructive) { Task { await delete(device) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text("This permanently deletes the computer, its files and its runtimes' sign-ins, and stops tasks running on it. Your task history stays in Nuphos.")
+        }
+        .alert(
+            "Could not delete computer",
+            isPresented: Binding(get: { deleteFailure != nil }, set: { if !$0 { deleteFailure = nil } }),
+            presenting: deleteFailure
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { Text($0) }
         // A Box's runtimes join once it is up, and leave when it pauses: read them again then.
         .onChange(of: store.agentDevices.map { $0.box?.state ?? "" }) { _, _ in
             Task { await store.loadRuntimes(force: true) }
@@ -84,6 +105,20 @@ struct RuntimesPage: View {
             async let quotas: Void = store.loadQuotas()
             async let devices: Void = store.loadAgentDevices()
             _ = await (agents, quotas, devices)
+        }
+    }
+
+    private func delete(_ device: AgentDevice) async {
+        guard let team = store.selectedTeam else { return }
+        do {
+            _ = try await AgentChatAPI.send(
+                "DELETE", NewBox.deletePath(deviceId: device.deviceId), query: [URLQueryItem(name: "teamId", value: team.id)],
+                token: store.token, body: JSONValue?.none, timeout: 60)
+            async let devices: Void = store.loadAgentDevices()
+            async let runtimes: Void = store.loadRuntimes(force: true)
+            _ = await (devices, runtimes)
+        } catch {
+            deleteFailure = error.localizedDescription
         }
     }
 
@@ -137,6 +172,14 @@ struct RuntimesPage: View {
                             : "No runtime yet. Install Claude Code or Codex on \(device.label) and sign in.")
                             .font(.system(size: 13)).foregroundStyle(Theme.muted)
                             .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
+                    }
+                    if let device = box.device, NewBox.deletable(isBox: device.box != nil, access: device.access) {
+                        Button(role: .destructive) { deleting = device } label: {
+                            Label { Text("Delete computer") } icon: { LucideIcon("trash-2") }
+                                .font(.system(size: 15)).foregroundStyle(Theme.attention)
+                        }
+                        .accessibilityIdentifier("delete-\(box.id)")
+                        .listRowInsets(EdgeInsets(top: 12, leading: 44, bottom: 12, trailing: 20))
                     }
                 }
                 .listRowBackground(Theme.surface)

@@ -36,11 +36,16 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
     }
   }
 
+  // A narrow toolbar hides the "Auto-refresh:" prefix, so the name and tooltip keep it.
   const title = cadence
-    ? [describeCadence(cadence), nextRefreshAt && describeNextRefresh(nextRefreshAt)]
+    ? [
+        `${t('Auto-refresh:')} ${describeCadence(cadence)}`,
+        nextRefreshAt && describeNextRefresh(nextRefreshAt),
+      ]
         .filter(Boolean)
         .join('\n')
     : t('Auto-refresh is off')
+  const name = cadence ? `${t('Auto-refresh:')} ${CADENCE_LABELS[cadence]}` : title
 
   return (
     <Menu>
@@ -49,8 +54,9 @@ export function CadenceMenu({ teamId, detail, onSaved }: Props) {
           <button
             type="button"
             title={title}
+            aria-label={name}
             disabled={saving}
-            className="flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md border border-line-control px-2 text-[12px] text-secondary outline-none hover:bg-state-hover hover:text-main focus:border-line-focus disabled:opacity-50"
+            className="flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-line-control px-2.5 text-[12.5px] text-secondary outline-none hover:bg-state-hover hover:text-main focus:border-line-focus disabled:opacity-50"
           >
             <Clock className="h-3.5 w-3.5 text-tertiary" />
             <span className="hidden @xl:inline">{t('Auto-refresh:')}</span>

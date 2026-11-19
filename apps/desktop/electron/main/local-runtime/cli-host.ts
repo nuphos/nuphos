@@ -23,7 +23,9 @@ import { podOwnerAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { cliAutoUpdate } from './cli-auto-update.ts'
+import { cliBrowser } from './cli-browser.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
+import { findBrowser } from './cli-chromium.ts'
 import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
@@ -182,6 +184,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
+      ...cliBrowser(dataDir, findBrowser()),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 

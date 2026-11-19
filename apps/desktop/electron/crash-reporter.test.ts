@@ -17,6 +17,7 @@ type StartOptions = {
 const noop = () => {}
 const userData = mkdtempSync(path.join(tmpdir(), 'crash-reporter-'))
 const settingFile = path.join(userData, 'diagnostics.json')
+let uploads = false
 let started: StartOptions | undefined
 let analytics: boolean[] = []
 let broadcasts: unknown[][] = []
@@ -66,8 +67,12 @@ before(async () => {
       crashReporter: {
         start: (options: StartOptions) => {
           started = options
+          uploads = options.uploadToServer
         },
         addExtraParameter: (key: string, value: string) => extra.set(key, value),
+        setUploadToServer: (value: boolean) => {
+          uploads = value
+        },
       },
     },
   })
@@ -123,27 +128,27 @@ test('a self-hosted backend gets crash reports and never starts usage analytics'
   assert.deepEqual(broadcasts, [['diagnostics:changed', false]])
 })
 
-test('moving to a self-hosted backend stops usage analytics and flags later crashes', async () => {
+test('moving to a self-hosted backend stops usage analytics and disables crash uploads until restart', async () => {
   setApiUrl(CLOUD)
   await launch()
   assert.equal(started?.submitURL, `${CLOUD}/desktop/crash-reports`)
   assert.equal(analytics.at(-1), true)
   assert.equal(syncValue('diagnostics:usage'), true)
 
-  // Crashpad keeps uploading to Cloud until the next launch.
+  // Stop uploads before a later crash can use the previous destination.
   setApiUrl(SELF_HOSTED)
   assert.equal(analytics.at(-1), false)
   assert.equal(syncValue('diagnostics:usage'), false)
   assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', false])
-  assert.equal(extra.get('upload_off'), '1')
+  assert.equal(uploads, false)
 
   setApiUrl(CLOUD)
   assert.equal(analytics.at(-1), true)
   assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', true])
-  assert.equal(extra.get('upload_off'), '0')
+  assert.equal(uploads, false)
 })
 
-test('the setting defaults on; turning it off stops analytics and flags later crashes', async () => {
+test('the setting defaults on; turning it off stops analytics and crash uploads', async () => {
   setApiUrl(CLOUD)
   // Earlier launches are still subscribed to the backend and have flagged their own Crashpad.
   extra.clear()
@@ -156,12 +161,14 @@ test('the setting defaults on; turning it off stops analytics and flags later cr
   assert.equal(syncValue(), true)
 
   assert.equal(setSendDiagnostics(false), false)
-  assert.equal(extra.get('upload_off'), '1')
+  assert.equal(uploads, false)
   assert.equal(analytics.at(-1), false)
   assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', false])
   assert.equal(syncValue(), false)
   assert.equal(syncValue('diagnostics:usage'), false)
   assert.deepEqual(JSON.parse(readFileSync(settingFile, 'utf8')), { send: false })
+  setSendDiagnostics(true)
+  assert.equal(uploads, false, 'upload consent is restored only at the next launch')
   assert.throws(() => setSendDiagnostics('no'))
 })
 

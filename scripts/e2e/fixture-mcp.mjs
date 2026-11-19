@@ -70,10 +70,12 @@ export const reporting = (send) => async (sessionId, name, args) => {
 
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
-  const [, name, args] = /E2E_CALL (\S+) (\{.*\})/.exec(text) ?? []
-  const message = await call(sessionId, name, JSON.parse(args ?? '{}'))
+  // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
+  for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
+    const message = await call(sessionId, name, JSON.parse(args))
 
-  log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+    log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+  }
 }
 
 /** E2E_PERSONAL_TOKEN:<provider>: fetches the owner's own credential as an agent's setup script does, and logs the answer. */
