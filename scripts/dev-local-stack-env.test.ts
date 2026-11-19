@@ -31,7 +31,7 @@ test('a compose .env missing a generated secret is not usable', () => {
   assert.equal(localStackFromEnv({ ...composeEnv, S3_SECRET_KEY: '' }), null)
 })
 
-test('the backend env points every datastore at the local stack and turns cluster access off', () => {
+test('the backend env points every datastore at the local stack', () => {
   const stack = localStackFromEnv(composeEnv)!
   const env = localBackendEnv(stack)
 
@@ -39,7 +39,6 @@ test('the backend env points every datastore at the local stack and turns cluste
   assert.equal(env.MONGODB_URI, 'mongodb://127.0.0.1:27117/?directConnection=true')
   assert.equal(env.ATLAS_REDIS_ENABLED, 'false')
   assert.equal(env.NUPHOS_LOCAL_STACK, 'true')
-  assert.equal(env.CLAUDE_CODE_RUNTIME_KUBECTL, 'false')
   for (const key of [
     'NUPHOS_FILE_TRANSFER_S3_ENDPOINT',
     'ATLAS_SKILLS_S3_ENDPOINT',

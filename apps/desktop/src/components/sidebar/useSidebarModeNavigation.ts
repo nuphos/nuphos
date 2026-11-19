@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 
-import { sidebarActivation } from './sidebarActivation'
 import {
   modeItems,
   readModeSelection,
@@ -20,9 +19,6 @@ export function useSidebarModeNavigation(
   sections: Section[],
   list: ListProps,
 ) {
-  const [activation] = useState(sidebarActivation)
-
-  useEffect(() => () => activation.cancel(), [activation])
   const teamId = list.scope.teamId
   const bots = modeItems(sections, 1)
   const tasks = modeItems(sections, 2)
@@ -36,11 +32,12 @@ export function useSidebarModeNavigation(
     if (selectedTask) rememberModeSelection(teamId, 2, selectedTask)
   }, [teamId, selectedTask])
 
-  const changePage = useCallback(
+  // The page and what it opens change in one event, so they render together: the main pane
+  // never shows the page with nothing selected (Bots' New Bot page) in between.
+  return useCallback(
     (next: SidebarPage) => {
       onPage(next)
       if (next === 2) {
-        activation.cancel()
         if (list.active !== 'team.inbox') list.onSelect('team.inbox')
 
         return
@@ -49,19 +46,16 @@ export function useSidebarModeNavigation(
       const target = restoreModeItem(next === 0 ? bots : tasks, readModeSelection(teamId, mode))
 
       if (!target) {
-        activation.cancel()
         if (list.active !== 'team.agent') list.onSelect('team.agent')
 
         return
       }
       rememberModeSelection(teamId, mode, target)
-      activation.schedule(target.active ? target.key : list.active, target.key, () => {
-        if (target.onActivate) target.onActivate(false)
-        else list.onSelect(target.key)
-      })
+      // Never reopen the conversation already shown.
+      if (target.active || list.active === target.key) return
+      if (target.onActivate) target.onActivate(false)
+      else list.onSelect(target.key)
     },
-    [onPage, list, bots, tasks, teamId, activation],
+    [onPage, list, bots, tasks, teamId],
   )
-
-  return Object.assign(changePage, { cancelPending: () => activation.cancel() })
 }

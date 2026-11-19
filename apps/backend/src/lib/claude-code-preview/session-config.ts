@@ -4,7 +4,6 @@ import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
@@ -286,7 +285,7 @@ async function withSessionClient<T>(
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     callTimeoutMs: 100_000,
   })
 

@@ -43,7 +43,7 @@ export async function attachRuntimeTunnel(
   client?: string,
 ): Promise<RuntimeTunnel> {
   const conn = randomUUID()
-  const streams = new Map<string, { actorId: string; teamId: string }>() // who opened it, in which team
+  const streams = new Map<string, { actorId: string; teamId: string; purpose: string }>() // who opened it, in which team, for what
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
   let recorded: string | undefined
@@ -57,13 +57,14 @@ export async function attachRuntimeTunnel(
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
-  const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
+  const { toStream, toComputer, usedAt } = streamRelay(deps.bus, streams, connection)
   const current = () => ({
     conn,
     // Fixed for the life of this tunnel: what opened it, not what it reports.
     ...(client ? { client } : {}),
     ...(status ? { status } : {}),
     ...(metrics ? { metrics, metricsReceivedAt } : {}),
+    usedAt: usedAt(),
     seenAt: Date.now(),
   })
   // The computer moves here on this tunnel's first frame; until then the old one serves (#3366).
@@ -139,7 +140,7 @@ export async function attachRuntimeTunnel(
 
       return
     }
-    streams.set(message.s, { actorId: message.actorId, teamId: message.teamId })
+    streams.set(message.s, message)
     connection.send({
       t: 'open',
       s: message.s,

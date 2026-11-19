@@ -211,7 +211,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              t('Removing the runtime and its files. Agent history stays in Nuphos.')}
+              t('Removing the runtime and its files. Task history stays in Nuphos.')}
           </p>
         ) : (
           <>
