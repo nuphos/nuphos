@@ -212,6 +212,8 @@ export const offlineScenarios: Scenario[] = [
           .getByRole('menuitem', { name: /Claude Code/ })
           .last()
           .click()
+        // A teammate's computer asks first: its owner can see the work.
+        await page.getByRole('button', { name: 'Move', exact: true }).click()
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         // The device list is read once the runtime is picked; give it time to say anything.
         await page.waitForTimeout(3_000)
