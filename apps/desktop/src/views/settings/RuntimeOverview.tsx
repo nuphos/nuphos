@@ -75,7 +75,7 @@ export function RuntimeOverview({
     body = (
       <Note>
         {t(
-          'Nuphos is starting this workspace’s {name} agent; this usually takes about a minute. Sign in once the status changes to Online.',
+          'Nuphos is starting this workspace’s {name} runtime; this usually takes about a minute. Sign in once the status changes to Online.',
           { name: instance.label },
         )}
       </Note>

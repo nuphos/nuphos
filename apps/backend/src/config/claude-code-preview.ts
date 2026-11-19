@@ -45,21 +45,3 @@ export function claudeCodePreviewConfig(): ClaudeCodePreviewConfig {
           ),
   }
 }
-
-export type ClaudeCodeRuntimeProvisionerConfig = {
-  namespace: string
-  /** Dev-only: reconcile through the operator's kubectl login instead of the
-   *  in-cluster ServiceAccount. Ignored in production. */
-  kubectl: boolean
-  /** Dev-only: kubeconfig context for those kubectl calls, so the operator's
-   *  current context does not have to be the runtime cluster. */
-  kubeContext?: string
-}
-
-export function claudeCodeRuntimeProvisionerConfig(): ClaudeCodeRuntimeProvisionerConfig {
-  return {
-    namespace: optional('CLAUDE_CODE_RUNTIME_NAMESPACE') ?? 'openab-runtimes',
-    kubectl: process.env.NODE_ENV !== 'production' && bool('CLAUDE_CODE_RUNTIME_KUBECTL', false),
-    kubeContext: optional('CLAUDE_CODE_RUNTIME_KUBE_CONTEXT'),
-  }
-}
