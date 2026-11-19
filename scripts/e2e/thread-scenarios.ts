@@ -87,13 +87,14 @@ export const threadScenarios: Scenario[] = [
       const turn = (marker: string) =>
         agentLog(stack).find((entry) => entry.event === 'start' && entry.marker === marker)
 
-      await newTask(page)
+      // In the Task the scenario before left open: a new Task would take one more of the
+      // agent host's four sessions, and the thread a later scenario starts gets none.
       await send(page, 'Pick your own model E2E_DELIVERY:self-start')
       await page.getByText('ACK E2E_DELIVERY:self-start').waitFor()
       const task = (await listedConversations(stack)).find((row) =>
-        row.title?.includes('Pick your own model'),
+        row.title?.includes('Before the pick'),
       )
-      // A new Task starts on the last model picked, so pick whichever one it is not on.
+      // Pick whichever model the Task is not on.
       const before = turn('E2E_DELIVERY:self-start')?.model
       const pick = before === 'fixture-small' ? 'fixture' : 'fixture-small'
       const args = JSON.stringify({ label: 'Change model', taskId: task?.sessionId, model: pick })
