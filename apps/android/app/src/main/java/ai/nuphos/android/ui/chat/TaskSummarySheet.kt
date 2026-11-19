@@ -74,6 +74,7 @@ internal fun TaskSummarySheet(
     val uriHandler = LocalUriHandler.current
     val childIds = remember(children) { children.mapTo(mutableSetOf()) { it.sessionId } }
     suspend fun refreshTriggers() {
+        if (!allowed()) return
         try {
             triggers = ConversationTriggersApi.list(token, session.teamId, session.sessionId)
             triggersFailed = false
@@ -91,11 +92,13 @@ internal fun TaskSummarySheet(
         if (selectedId != null) selectedId = null else onDismiss()
     }
 
-    LaunchedEffect(inbox) {
-        while (true) {
+    LaunchedEffect(inbox, allowed()) {
+        while (allowed()) {
             inbox.refresh()
             attempted = true
+            if (!allowed()) break
             session.refreshResources()
+            if (!allowed()) break
             session.refreshDownloads()
             refreshTriggers()
             delay(20_000)
