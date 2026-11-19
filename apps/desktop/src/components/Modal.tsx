@@ -35,7 +35,7 @@ type Props = {
   headerCompact?: boolean
   /** Whether the header draws its bottom divider (default true). Turn off when
    *  the body opens with its own surface and the line would double up. */
-  headerDivider?: boolean
+  headerDivider?: boolean | 'scroll'
   /** Optional icon button rendered before the title (e.g. a back arrow). */
   headerLeading?: ReactNode
   /** Optional icon buttons rendered in the top-right corner, just left of
@@ -76,6 +76,13 @@ export function Modal({
   headerInset = 'default',
   titleHidden = false,
 }: Props) {
+  const [bodyScrolled, setBodyScrolled] = useState(false)
+  const [scrollOpen, setScrollOpen] = useState(open)
+
+  if (scrollOpen !== open) {
+    setScrollOpen(open)
+    setBodyScrolled(false)
+  }
   const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
 
@@ -189,12 +196,13 @@ export function Modal({
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
+            titleHidden && headerInset === 'wide' && 'min-h-14',
             headerInset === 'wide'
               ? 'px-8 py-4 pr-16'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
-            headerDivider &&
+            (headerDivider === true || (headerDivider === 'scroll' && bodyScrolled)) &&
               !isPrompt && [
                 'border-b',
                 isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
@@ -262,6 +270,7 @@ export function Modal({
             and squeezing the header above. */}
         <div
           ref={bodyRef}
+          onScrollCapture={(event) => setBodyScrolled((event.target as HTMLElement).scrollTop > 0)}
           className="titlebar-no-drag relative z-0 min-h-0 flex-1 overflow-auto scrollbar-thin"
         >
           {children}

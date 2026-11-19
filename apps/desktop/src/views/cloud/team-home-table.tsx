@@ -138,7 +138,6 @@ export function IntegrationCatalog({
           <PersonalCredentialsSection
             team={teamQuery.data}
             provider={personalProvider}
-            hideHeading
             onOpenSection={onOpenSettingsSection}
           />
         ) : null}
@@ -153,6 +152,16 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
+              {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
+            </h1>
+            {catalogTab === 'browse' && (
+              <Button className="-mr-1.5" variant="secondary" onClick={() => setCatalogTab('mine')}>
+                {t('Manage connections')}
+              </Button>
+            )}
+          </div>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
             {t('Connect Nuphos to your code, data, cloud, and everyday tools.')}
           </p>

@@ -2,7 +2,6 @@ import { ArrowLeft } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { Modal } from '../../components/Modal'
-import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 import { ConnectorHeaderContext } from '../../views/cloud/connector-header'
 import { TeamHomeView } from '../../views/CloudViews'
@@ -103,14 +102,8 @@ function TeamConnectorsDialog({
       fillHeight
       focusFirstControl={false}
       headerInset="wide"
-      headerDivider
-      headerActions={
-        !detail && catalogHeader?.manage ? (
-          <Button size="sm" variant="secondary" onClick={catalogHeader.manage}>
-            {t('Manage connections')}
-          </Button>
-        ) : undefined
-      }
+      titleHidden
+      headerDivider="scroll"
       headerLeading={
         detail || catalogHeader?.back ? (
           <button
