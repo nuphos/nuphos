@@ -78,7 +78,7 @@ struct ChatComposerBar<Controls: View>: View {
         return SessionMention.sessions(sessions, matching: query)
     }
     private var mentionDevices: [CredentialCatalog.Item] {
-        guard let query = mentionQuery, let mentions, mentions.sessions != nil else { return [] }
+        guard let query = mentionQuery, let mentions else { return [] }
         return Array(mentions.devices.filter { SessionMention.matches($0.label, query) }.prefix(3))
     }
 
@@ -166,7 +166,11 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
-        .task(id: mentions?.teamId) { await mentions?.refresh() }
+        // Listed as the composer appears and again on each focus, so a failed listing is retried
+        // and new Bots and Tasks show up before the next `@`.
+        .task(id: "\(mentions?.teamId ?? "")|\(focused)") {
+            if focused || mentions?.sessions == nil { await mentions?.refresh() }
+        }
         .onAppear {
             guard !importedInitialAttachments else { return }
             importedInitialAttachments = true
