@@ -1,8 +1,14 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 
 import { UptimeKumaApiError } from '@/lib/byos/uptime-kuma'
 import { AppError } from '@/lib/errors'
-import { describeUnknown, errorMessage, normalizeError } from '@/lib/observability'
+import {
+  describeUnknown,
+  errorMessage,
+  logError,
+  logEvent,
+  normalizeError,
+} from '@/lib/observability'
 
 // The strings these build become `AppError` messages, and `errorHandler` puts
 // an AppError message straight in the response body. A rejection payload from
@@ -101,5 +107,114 @@ describe('normalizeError names the runtime an error is about', () => {
       runtime_id: 'runtime-1',
       device_id: 'device-1',
     })
+  })
+})
+
+/** The JSON line `run` writes to stderr, parsed. */
+function captureError(run: () => void): Record<string, unknown> {
+  const spy = spyOn(console, 'error').mockImplementation(() => null)
+
+  try {
+    run()
+
+    return JSON.parse(String(spy.mock.calls[0]?.[0])) as Record<string, unknown>
+  } finally {
+    spy.mockRestore()
+  }
+}
+
+// An upstream error can name a credential in its message, and the stack and
+// cause repeat it. Every structured log line is masked where it is
+// serialized, whichever field or nesting level the text arrives in.
+describe('structured log lines carry no credential-shaped text', () => {
+  // Synthetic fixture, not a real credential.
+  const FAKE_KEY = 'tkey_0synthetic0fixture0only1'
+  const AMZ_ID_2 = 'Uv8Xq3Lk9Zp2Rt6Wy1Bn4Mc7Df0Gh5Jk8Sa3Qe6Tr9Yu2Io5Pz/AbCdEfGhIjKlMnOp='
+
+  function upstreamAuthError(): Error {
+    const err = Object.assign(
+      new Error(
+        `API key ${FAKE_KEY} expired; create an API key at https://example.test/keys and send it as "Authorization: Bearer <key>"`,
+        { cause: new Error(`rejected API key ${FAKE_KEY}`) },
+      ),
+      { status: 401, code: 'expired_key', retryable: false },
+    )
+
+    err.name = 'UpstreamAuthError'
+
+    return err
+  }
+
+  test('message, stack and cause of a logged error are masked', () => {
+    const line = captureError(() => {
+      logError('agent.example.failed', upstreamAuthError(), {
+        session_id: '2f1c7a4e-9b3d-4e8a-8c1f-5d6e7f8a9b0c',
+        request_id: 'req_7Hc2LmQp',
+        provider_request_id: AMZ_ID_2,
+      })
+    })
+
+    expect(JSON.stringify(line)).not.toContain(FAKE_KEY)
+    expect(line.error_message).toContain('API key [REDACTED:secret-phrase] expired')
+    expect(line.error_stack).toContain('UpstreamAuthError: API key [REDACTED:secret-phrase]')
+    expect(line.cause_message).toBe('rejected API key [REDACTED:secret-phrase]')
+    // What an operator needs to act on the failure survives.
+    expect(line).toMatchObject({
+      error_name: 'UpstreamAuthError',
+      error_status: 401,
+      provider_error_code: 'expired_key',
+      retryable: false,
+      session_id: '2f1c7a4e-9b3d-4e8a-8c1f-5d6e7f8a9b0c',
+      request_id: 'req_7Hc2LmQp',
+      provider_request_id: AMZ_ID_2,
+    })
+  })
+
+  test('an error nested in properties and a plain message string are masked', () => {
+    const line = captureError(() => {
+      logEvent('error', 'agent.example.failed', {
+        upstream: upstreamAuthError(),
+        error: `upstream said: API key ${FAKE_KEY} expired`,
+      })
+    })
+
+    expect(JSON.stringify(line)).not.toContain(FAKE_KEY)
+    expect(line.error).toBe('upstream said: API key [REDACTED:secret-phrase] expired')
+  })
+
+  test('ids and hashes in a message stay readable', () => {
+    const message =
+      'push of ba52879a65f80fe52db77d9df203b0f92f97afb1 for team 6a2360b039eaf6c10401d96e failed'
+    const line = captureError(() => {
+      logError('agent.example.failed', new Error(message))
+    })
+
+    expect(line.error_message).toBe(message)
+  })
+})
+
+describe('long log strings', () => {
+  const FAKE_KEY = 'tkey_0synthetic0fixture0only1'
+
+  test('a key that crosses the truncation point is masked, not cut in half', () => {
+    const line = captureError(() => {
+      logEvent('error', 'agent.example.failed', {
+        error: `${'x '.repeat(495)}API key ${FAKE_KEY} expired ${'y'.repeat(5_000_000)}`,
+      })
+    })
+
+    expect(String(line.error)).not.toContain(FAKE_KEY.slice(0, 8))
+    expect(String(line.error)).toEndWith('...')
+  })
+})
+
+describe('request paths', () => {
+  test('a path made of ids stays readable, so a log line still names its route', () => {
+    const path = '/agent/conversations/fd843d8c-98f7-4290-b155-bd014bb2315c'
+    const line = captureError(() => {
+      logEvent('error', 'http.request', { path, status: 404 })
+    })
+
+    expect(line.path).toBe(path)
   })
 })
