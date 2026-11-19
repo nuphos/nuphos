@@ -539,8 +539,8 @@ private struct ReplyFailedLine: View {
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
     }
 
     var body: some View {

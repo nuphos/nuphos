@@ -43,6 +43,9 @@ struct AgentDetailView: View {
                                 Text("\(window.leftPercent)% left")
                                     .monospacedDigit()
                                     .foregroundStyle(window.labelTint ?? .secondary)
+                                if let reset = RuntimeQuota.resetsIn(window.resetsAt) {
+                                    Text(reset).monospacedDigit().foregroundStyle(.secondary)
+                                }
                             }
                         }
                     }
