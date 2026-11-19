@@ -38,6 +38,8 @@ let events = 0
 
 /** Opens Slack's settings in light, with the connected channel's Bots shown, and shoots them. */
 async function shootSettings(page: Page, file: string) {
+  // The app read its connectors at start, before the scenario installed Slack.
+  await page.reload()
   await page.evaluate(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')
@@ -234,7 +236,6 @@ export default {
       const admin = role('MEMBER')
 
       try {
-        await page.reload()
         await shootSettings(page, 'slack-settings-member-light.png')
         if ((await page.getByRole('button', { name: 'Connect a channel' }).count()) > 0)
           throw new Error('A member is offered to connect a channel')
