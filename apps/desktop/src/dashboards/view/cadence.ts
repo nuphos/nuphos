@@ -7,7 +7,7 @@ export const CADENCE_LABELS: Record<DashboardCadence, string> = {
   monthly: t('Monthly'),
 }
 
-const RUN_HOUR_UTC = 9
+const RUN_HOUR_UTC = 0
 
 export function nextCadenceRun(cadence: DashboardCadence, now: Date): Date {
   const y = now.getUTCFullYear()
@@ -58,13 +58,13 @@ export function describeCadence(
 ): string {
   const { weekday, time, isFirst } = zonedParts(nextCadenceRun(cadence, now), timeZone)
 
-  if (cadence === 'daily') return t('Daily at 09:00 UTC ({time} your time)', { time })
+  if (cadence === 'daily') return t('Daily at 00:00 UTC ({time} your time)', { time })
   if (cadence === 'weekly')
-    return t('Weekly on Monday at 09:00 UTC ({weekday} {time} your time)', { weekday, time })
+    return t('Weekly on Monday at 00:00 UTC ({weekday} {time} your time)', { weekday, time })
 
   return isFirst
-    ? t('Monthly on the 1st at 09:00 UTC (the 1st at {time} your time)', { time })
-    : t('Monthly on the 1st at 09:00 UTC (the day before at {time} your time)', { time })
+    ? t('Monthly on the 1st at 00:00 UTC (the 1st at {time} your time)', { time })
+    : t('Monthly on the 1st at 00:00 UTC (the day before at {time} your time)', { time })
 }
 
 export function describeNextRefresh(iso: string, timeZone?: string): string {
