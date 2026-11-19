@@ -24,7 +24,10 @@ export function createArtifactTool() {
       'html: one complete document with inline <style> and <script>. It runs in a sandbox with no ' +
       "access to Nuphos, the user's session, cookies or storage, so it cannot call Nuphos APIs. It may " +
       "load libraries from public https CDNs, and its links open in the user's browser. " +
-      'markdown: a document. svg: a single <svg> element with a viewBox. code: one file; set language. ' +
+      'markdown: a document. To show a video, image, audio file or PDF, push it with the ' +
+      'file-transfer skill and put ![caption](https://nuphos.ai/_reply-images/<groupId>) on its ' +
+      'own line in a markdown artifact. svg: a single <svg> element with a viewBox. code: one ' +
+      'file; set language. ' +
       'People open artifacts in a narrow side panel, on phones, tablets and foldables, so write HTML ' +
       'mobile-first and fluid: include <meta name="viewport" content="width=device-width, initial-scale=1">, ' +
       'size with %, rem, fr and clamp() rather than fixed pixel widths, let flex and grid rows wrap, keep ' +
