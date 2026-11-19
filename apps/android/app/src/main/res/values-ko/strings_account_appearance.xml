@@ -2,7 +2,7 @@
 <resources>
     <string name="account_appearance">화면 스타일</string>
     <string name="account_bot_avatars">봇 아바타</string>
-    <string name="account_bot_avatars_help">에이전트에 캐릭터 아바타를 표시합니다. 끄면 런타임 아이콘을 표시합니다.</string>
+    <string name="account_bot_avatars_help">Bot에 캐릭터 아바타를 표시합니다. 끄면 런타임 아이콘을 표시합니다.</string>
     <string name="account_integrations">연동 서비스</string>
     <string name="account_connectors">커넥터</string>
     <string name="account_signed_in_accounts">로그인된 계정</string>

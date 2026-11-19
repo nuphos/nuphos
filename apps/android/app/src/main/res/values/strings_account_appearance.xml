@@ -2,7 +2,7 @@
 <resources>
     <string name="account_appearance">Appearance</string>
     <string name="account_bot_avatars">Bot avatars</string>
-    <string name="account_bot_avatars_help">Give Agents a character avatar. Turn off to show Runtime icons.</string>
+    <string name="account_bot_avatars_help">Give Bots a character avatar. Turn off to show Runtime icons.</string>
     <string name="account_integrations">Integrations</string>
     <string name="account_connectors">Connectors</string>
     <string name="account_signed_in_accounts">Signed-in accounts</string>

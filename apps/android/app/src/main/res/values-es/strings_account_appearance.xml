@@ -2,7 +2,7 @@
 <resources>
     <string name="account_appearance">Apariencia</string>
     <string name="account_bot_avatars">Avatares de bots</string>
-    <string name="account_bot_avatars_help">Muestra un avatar de personaje para los agentes. Desactívalo para mostrar los iconos del entorno de ejecución.</string>
+    <string name="account_bot_avatars_help">Muestra un avatar de personaje para los Bots. Desactívalo para mostrar los iconos del entorno de ejecución.</string>
     <string name="account_integrations">Integraciones</string>
     <string name="account_connectors">Conectores</string>
     <string name="account_signed_in_accounts">Cuentas con sesión iniciada</string>
