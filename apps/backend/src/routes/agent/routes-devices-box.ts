@@ -243,10 +243,12 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
 
     // Close the Box's tunnel cleanly before its machine goes, not by a dropped socket.
     if (await deps.revokeCredential(userId, deviceId)) await deps.disconnect(userId, deviceId)
-    await requireBoxes().destroy(userId, deviceId)
+    const killed = await requireBoxes().destroy(userId, deviceId)
+
     await deps.deleteDevice(userId, deviceId)
 
-    return c.json({ ok: true })
+    // Deleted either way; the owner hears when its machine may still run at the provider.
+    return c.json({ ok: true, ...(killed ? {} : { machineLeft: true }) })
   })
 
   return routes

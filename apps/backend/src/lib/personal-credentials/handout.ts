@@ -156,16 +156,18 @@ export async function personalOwnToken(
   return doc ? currentToken(doc) : null
 }
 
-/** The member's own GitHub and Linear Personal Credentials, as the selector offers them. */
-export async function ownPersonalCredentialOptions(userId: string) {
+/**
+ * The member's own Personal Credentials, as the selector offers them. A Google
+ * grant belongs to the team whose client issued it, so only that team offers it.
+ */
+export async function ownPersonalCredentialOptions(userId: string, teamId: string) {
   const docs = await personalCredentials()
-    .find(
-      { userId, provider: { $in: ['github', 'linear'] } },
-      { projection: { provider: 1, login: 1 } },
-    )
+    .find({ userId }, { projection: { provider: 1, login: 1, teamId: 1 } })
     .toArray()
 
-  return docs.map((doc) => ({ provider: doc.provider as 'github' | 'linear', login: doc.login }))
+  return docs
+    .filter((doc) => !doc.teamId || doc.teamId === teamId)
+    .map((doc) => ({ provider: doc.provider, login: doc.login }))
 }
 
 /** The sender's Linear token, when they connected the same workspace as this binding. */

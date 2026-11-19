@@ -47,12 +47,21 @@ export function modelHint(
   busy: boolean,
   /** A runtime may offer effort without a model list, and that effort works now. */
   hasSettings = false,
+  /** Why the runtime offers nothing, as the server read it. */
+  reason?: SessionConfigState['reason'],
 ) {
   if (status === 'offline')
     return t('This runtime is offline. Model settings return when it reconnects.')
   if (busy) return t('Changes apply after this reply.')
-  if (status === 'dormant' && !hasModel && !hasSettings)
-    return t('Send a message to start this task before changing model settings.')
+  if (hasModel || hasSettings) return
+  if (reason === 'unreported')
+    return t('This computer hasn’t reported its models yet. Try again in a moment.')
+  if (reason === 'signed-out')
+    return t('This runtime is signed out on its computer. Sign in there to choose a model.')
+  if (reason === 'undiscovered')
+    return t(
+      'Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.',
+    )
 }
 
 /** The composer around a chip: the nearest ancestor holding its message box. */

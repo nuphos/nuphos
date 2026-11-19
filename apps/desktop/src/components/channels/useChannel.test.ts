@@ -21,7 +21,8 @@ mock.module('../../lib/chatSwitchTiming.ts', { namedExports: { useChatSwitchShow
 
 const { createQueryClient } = await import('../../lib/query/client.ts')
 const { queryKeys } = await import('../../lib/query/keys.ts')
-const { channelRetryMs, loadChannel, refreshChannel } = await import('./useChannel.ts')
+const { channelRetryMs, loadChannel, prefetchChannel, refreshChannel } =
+  await import('./useChannel.ts')
 
 test('a refresh from any pane of the channel fetches it all, even with nothing changed', async () => {
   const client = createQueryClient()
@@ -33,8 +34,9 @@ test('a refresh from any pane of the channel fetches it all, even with nothing c
     })
 
   await load()
+  assert.deepEqual(calls.splice(0), ['full'], 'a chat with nothing on hand reads it all at once')
   await load()
-  assert.deepEqual(calls.splice(0), ['probe', 'full', 'probe'])
+  assert.deepEqual(calls.splice(0), ['probe'], 'with a copy on hand, only the probe')
   // Another pane posted: its refresh must reach the load every pane shares.
   await refreshChannel(client, 't', 'c')
   await load()
@@ -53,4 +55,21 @@ test('a channel whose first load fails tries again in 8 s, then backs off', () =
   assert.equal(failed(9, 1_000, 2_000), 8_000, 'a channel that just loaded starts short too')
   // Fixed per attempt, so a rerender between attempts never pushes the next one back.
   assert.equal(failed(9, 1_000, 31_000), 30_000)
+})
+
+test('a chat whose read failed, one left or deleted, is not prefetched again', async () => {
+  const client = createQueryClient()
+  const queryKey = queryKeys.channel('t', 'gone')
+
+  await client
+    .query({ queryKey, queryFn: () => Promise.reject(new Error('404')), retry: false })
+    .catch(() => {})
+  calls.splice(0)
+  prefetchChannel(client, 't', 'gone')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.deepEqual(calls, [], 'no read for a chat that already failed')
+  prefetchChannel(client, 't', 'c')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.deepEqual(calls.splice(0), ['full'], 'one never read is read at once')
+  client.clear()
 })

@@ -9,8 +9,10 @@ import { toolsServer } from './fixture-mcp.mjs'
   refused,
 }) {
   return async (sessionId, text) => {
-    const secret = text.includes('E2E_ASK_SECRET')
-    const credential = secret || text.includes('E2E_ASK_CREDENTIAL')
+    // The newest ask decides: a session reopened on another runtime is sent its history too.
+    const kind = (text.match(/E2E_ASK\w*/g) ?? []).at(-1)
+    const secret = kind === 'E2E_ASK_SECRET'
+    const credential = secret || kind === 'E2E_ASK_CREDENTIAL'
     const message = await call(sessionId, 'request_user_decision', {
       label: 'Ask which marker to use',
       category: credential ? 'credential' : 'preference',
