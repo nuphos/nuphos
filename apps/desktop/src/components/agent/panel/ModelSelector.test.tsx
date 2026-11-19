@@ -142,12 +142,29 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
   await act(() => root.unmount())
 })
 
-// #3701: on a task's first open the chip was a grey placeholder bar before its model showed.
-test('the chip shows nothing until its settings arrive, then the model', async () => {
+// #3427: the chip opened before its settings arrived stayed on the bare model list.
+test('a chip opened while its settings load shows the effort card once they arrive', async () => {
+  const withEffort: SessionConfigState = {
+    status: 'ready',
+    options: [
+      ...offering.options,
+      {
+        id: 'effort',
+        name: 'Effort',
+        kind: 'effort',
+        currentValue: 'high',
+        options: [
+          { value: 'low', name: 'Low' },
+          { value: 'high', name: 'High' },
+        ],
+      },
+    ],
+  }
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
+  let open = false
   const render = (data?: SessionConfigState) =>
     act(() =>
       root.render(
@@ -160,8 +177,10 @@ test('the chip shows nothing until its settings arrive, then the model', async (
             error: null,
             writeError: null,
             queued: undefined,
-            open: false,
-            setOpen: () => {},
+            open,
+            setOpen: (next: boolean) => {
+              open = next
+            },
             select: () => {},
             refresh: () => {},
           },
@@ -169,11 +188,14 @@ test('the chip shows nothing until its settings arrive, then the model', async (
         }),
       ),
     )
-  const chip = () => container.querySelector('[data-model-chip]')
 
   await render()
-  assert.equal(chip(), null, 'no chip, and no placeholder, while the settings load')
-  await render(offering)
-  assert.match(chip()?.textContent ?? '', /Sonnet/, 'the chip reads the model from its first frame')
+  const chip = dom.document.querySelector('[data-model-chip]') as unknown as HTMLButtonElement
+
+  await act(() => chip.click())
+  assert.equal(open, true, 'the chip opens while its settings load')
+  await render(withEffort)
+  assert.equal(dom.document.querySelector('[role="menu"]'), null, 'no bare model list')
+  assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows')
   await act(() => root.unmount())
 })
