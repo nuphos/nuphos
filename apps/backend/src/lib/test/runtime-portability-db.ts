@@ -16,6 +16,7 @@ function matches(doc: Doc, query: Doc): boolean {
     const actual = valueAt(doc, key)
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$not' in expected) return !matches(doc, { [key]: expected.$not })
       if ('$elemMatch' in expected)
         return (
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))

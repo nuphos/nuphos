@@ -268,10 +268,19 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = replyFailedReason(agent, cause, error, resetsAt)
+  const atMessage = (await getConversationBySessionId(channelId).catch(() => null))?.messageCount
 
   await agentConversations()
     .updateOne(
-      { sessionId: channelId },
+      // A runtime that keeps dropping fails the same wake again: one line per post (#3332).
+      atMessage === undefined
+        ? { sessionId: channelId }
+        : {
+            sessionId: channelId,
+            timelineEvents: {
+              $not: { $elemMatch: { kind: 'agent_reply_failed', agentId, atMessage } },
+            },
+          },
       {
         $push: pushTimelineEvent({
           kind: 'agent_reply_failed',
@@ -282,6 +291,7 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
+          ...(atMessage === undefined ? {} : { atMessage }),
         }),
       },
     )

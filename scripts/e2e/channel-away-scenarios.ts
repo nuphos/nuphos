@@ -1,6 +1,7 @@
 // A Bot whose agent host goes away while a person posts in its chat (#3260).
 import { agentLog } from './agent-log.ts'
-import { artifacts } from './processes.ts'
+import { inDatabase } from './agent-sign-in-scenarios.ts'
+import { artifacts, until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -77,6 +78,47 @@ export const channelAwayScenarios: Scenario[] = [
 
       if (!line) throw new Error('Nothing in the chat said the Bot could not reply')
       if (!answered) throw new Error('The Bot did not answer the post once its host was back')
+    },
+  },
+  {
+    // #3284: away longer than its session's reattach window, nothing woke the Bot once back.
+    // #3332: each failed wake wrote its own line. One line for the post, one answer.
+    name: 'a Bot whose host is away past the reattach window answers once back, with one line for the post',
+    run: async (page, stack) => {
+      const post = poster(stack)
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail ?? ''
+      const failures = () =>
+        Number(
+          inDatabase(
+            stack.mongoUri,
+            `const row = await db.collection('agent_conversations').findOne({ sessionId: process.argv[2] })
+            console.log((row?.timelineEvents ?? []).filter((e) => e.kind === 'agent_reply_failed').length)`,
+            channelId,
+          ),
+        )
+
+      await post('Before it goes long E2E_DELIVERY:awake-long')
+      await page.getByText('POSTED E2E_DELIVERY:awake-long', { exact: true }).first().waitFor()
+      const before = failures()
+
+      await stack.restartAgentHost(async () => {
+        await post('While it is away E2E_DELIVERY:away-long')
+        await until('the couldn’t-reply line', async () => failures() > before, 150_000)
+        // Past every reattach attempt (about 108 s), so only its next connection can wake it.
+        await new Promise((resolve) => setTimeout(resolve, 120_000))
+      })
+      const answered = await shown(
+        page,
+        page.getByText('POSTED E2E_DELIVERY:away-long', { exact: true }).first(),
+        150_000,
+        'bot-away-long-answered-light.png',
+      )
+
+      if (!answered)
+        throw new Error('The Bot did not answer the missed posts once its host was back')
+      // Every retry while it was away, and its wake once back, add no second line.
+      if (failures() !== before + 1)
+        throw new Error(`Expected 1 couldn’t-reply line, got ${String(failures() - before)}`)
     },
   },
 ]
