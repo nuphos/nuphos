@@ -37,6 +37,19 @@ test("a Bot's change reads every chat it is a member of again", () => {
   client.clear()
 })
 
+test('being told again that the push is up reads nothing again', () => {
+  const client = createQueryClient()
+  const key = queryKeys.channel('again', 'a')
+
+  applyChange(client, { teamId: 'again', sessionId: null, connected: true })
+  client.setQueryData(key, { revision: 'r' })
+  applyChange(client, { teamId: 'again', sessionId: null, connected: true })
+  assert.equal(client.getQueryState(key)?.isInvalidated, false, 'a view that asks to follow later')
+  applyChange(client, { teamId: 'again', sessionId: null, connected: false })
+  assert.equal(client.getQueryState(key)?.isInvalidated, true, 'going down reads it again')
+  client.clear()
+})
+
 test('a team polls until its stream is up, and again while it is down', () => {
   const client = createQueryClient()
 

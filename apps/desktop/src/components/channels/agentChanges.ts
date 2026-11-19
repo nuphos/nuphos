@@ -34,9 +34,13 @@ type Cached = { agents?: { sessionId: string }[] } | undefined
  * every chat of the team again, which also starts or stops its poll.
  */
 export function applyChange(client: QueryClient, { teamId, sessionId, connected: up }: Change) {
-  if (up === true) connected.add(teamId)
-  if (up === false) connected.delete(teamId)
-  if (up !== undefined) for (const changed of watchers) changed()
+  if (up !== undefined) {
+    // Told again what it already knows (every view that asks to follow hears it): nothing to read.
+    if (up === connected.has(teamId)) return
+    if (up) connected.add(teamId)
+    else connected.delete(teamId)
+    for (const changed of watchers) changed()
+  }
   void client.invalidateQueries({
     queryKey: [...queryKeys.team(teamId), 'channel'],
     predicate: ({ queryKey, state }) =>
