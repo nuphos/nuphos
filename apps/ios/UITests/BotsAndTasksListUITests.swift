@@ -29,6 +29,9 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("agent-rollout", "Roll out to staging", at: "09:50", parent: "agent-ops"),
             Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?"),
             Self.row("agent-notes", "Write the changelog", at: "09:40"),
+            // A teammate's: I take part in one, and only read the other (#3686).
+            Self.teammates(Self.row("agent-review", "Review the migration", at: "09:35"), canArchive: true),
+            Self.teammates(Self.row("agent-offsite", "Plan the offsite", at: "09:34"), canArchive: false),
             // What the Bots dispatched, at any depth: listed under Bots, never in Tasks.
             Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
             Self.row("agent-rerun", "Rerun the iOS job", at: "09:46", parent: "agent-ci"),
@@ -165,6 +168,34 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("3-tasks")
     }
 
+    /// Someone else in a teammate's Task archives it for themselves from its row (#3686): by a swipe…
+    func testTeammatesTaskIsArchivedFromItsSwipe() throws {
+        teammatesTask("Review the migration").swipeLeft()
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "A Task I take part in offers no Archive")
+        shot("4-teammates-task-swipe")
+    }
+
+    /// …or from its menu.
+    func testTeammatesTaskIsArchivedFromItsMenu() throws {
+        teammatesTask("Review the migration").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "Its menu offers no Archive")
+        shot("5-teammates-task-menu")
+    }
+
+    /// A teammate's Task I only read is not mine to archive. Its menu, as it has no swipe actions.
+    func testTeammatesTaskIOnlyReadOffersNoArchive() throws {
+        teammatesTask("Plan the offsite").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Watch"].waitForExistence(timeout: 5), "Its menu did not open")
+        XCTAssertFalse(app.buttons["Archive"].exists, "A Task I only read offers Archive")
+    }
+
+    private func teammatesTask(_ title: String) -> XCUIElement {
+        launch(page: "agent")
+        let row = app.staticTexts[title].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Tasks did not load")
+        return row
+    }
+
     /// What the Inbox opens, as a notification does, lands over the list that has it (#2964): Tasks
     /// lists no Bot nor what one dispatched, so those go back to Bots, never to a Tasks page without them.
     func testWhatTheInboxOpensReturnsToItsList() throws {
@@ -233,6 +264,10 @@ final class BotsAndTasksListUITests: XCTestCase {
         ["id": id, "role": "user", "parts": [["type": "text", "text": text]],
          "metadata": ["version": 1, "sender": sender, "sentAt": "2026-11-03T09:50:00.000Z"],
          "createdAt": "2026-11-03T09:50:00.000Z"]
+    }
+
+    private static func teammates(_ row: [String: Any], canArchive: Bool) -> [String: Any] {
+        row.merging(["isOwner": false, "canManage": false, "canArchive": canArchive, "watching": false]) { $1 }
     }
 
     private static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {
