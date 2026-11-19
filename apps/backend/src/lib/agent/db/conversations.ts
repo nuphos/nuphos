@@ -57,7 +57,12 @@ export async function upsertConversationShell(
     ...(data.originChannelIds?.length ? { originChannelIds: data.originChannelIds } : {}),
     ...(data.kind ? { kind: data.kind } : {}),
     ...(data.bot
-      ? { avatar: data.bot.avatar, titleManuallySet: true, timelineEvents: [data.bot.change] }
+      ? {
+          avatar: data.bot.avatar,
+          ...(data.bot.background ? { avatarBackground: data.bot.background } : {}),
+          titleManuallySet: true,
+          timelineEvents: [data.bot.change],
+        }
       : {}),
     ...(data.instructions ? { instructions: data.instructions } : {}),
     ...(data.botOnboarding ? { botOnboarding: data.botOnboarding } : {}),
