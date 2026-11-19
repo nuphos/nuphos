@@ -34,6 +34,13 @@ test('Codex model ids read the way Codex desktop shows them', () => {
   assert.equal(modelChoiceLabel({ name: 'GPT-6.1-Sol (low)' }), 'GPT-6.1-Sol (low)')
 })
 
+// OpenCode names each model "<provider>/<model>"; the chip and the list read the model alone.
+test("a provider's prefix is not part of the model's name", () => {
+  assert.equal(modelChoiceLabel({ name: 'OpenCode/Beam Free' }), 'Beam Free')
+  assert.equal(modelChoiceLabel({ name: 'OpenCode/Big Pickle' }), 'Big Pickle')
+  assert.equal(modelChoiceLabel({ name: 'openrouter/GPT-6.1-Sol' }), 'GPT-6.1 Sol')
+})
+
 test('known effort values read naturally; unknown ones keep the runtime name', () => {
   assert.equal(effortLabel({ value: 'xhigh', name: 'Xhigh' }), 'Extra High')
   assert.equal(effortLabel({ value: 'low', name: 'Low' }), 'Low')
