@@ -1,0 +1,11 @@
+{
+  "providerRequests": [
+    "github"
+  ],
+  "openedUrls": [
+    "https://github.com/login/oauth/authorize?client_id=e2e&state=e2e"
+  ],
+  "expectedUrl": "https://github.com/login/oauth/authorize?client_id=e2e&state=e2e",
+  "routeBefore": "http://localhost:33029/",
+  "routeAfter": "http://localhost:33029/"
+}
