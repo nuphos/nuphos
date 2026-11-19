@@ -10,7 +10,6 @@ import {
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
-import { agentHostAway } from './openab-acp-connect'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { promptFailure } from './prompt-failure'
@@ -32,7 +31,7 @@ import {
   RUNTIME_CWD,
 } from './team-openab-runtime'
 import { renewTurnCredentials } from './turn-credential-renewal'
-import { RuntimeStateProbeError } from './turn-diagnostics'
+import { probeFailure } from './turn-diagnostics'
 
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
@@ -136,7 +135,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      throw agentHostAway(cause) ? cause : await RuntimeStateProbeError.from(cause)
+      throw await probeFailure(cause, session.conversationId, session.endpoint)
     })
   const observed = await observe()
 

@@ -117,11 +117,6 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  if (
-    text.includes('The person just created you') &&
-    existsSync(`${process.env.E2E_ACP_LOG}.codex-broken-onboarding`)
-  )
-    refuse('E2E_CODEX_BROKEN', false)
   refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
   // Nuphos tells the agent when a person dismisses its question.
   if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })

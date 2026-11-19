@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -163,11 +164,13 @@ export async function runTurn(
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check, or its computer is reconnecting.
-        // Back to the front, retried after a wait rather than on the release that follows.
+        // The runtime took another turn after the check, its computer is reconnecting, or
+        // this replica is draining. Back to the front, retried after a wait rather than on
+        // the release that follows; a draining replica starts nothing, so another one does.
         const offline = reconnecting(error, head)
+        const draining = error instanceof AppError && error.code === 'server_draining'
 
-        if (!offline && !isRuntimeRefusal(error)) throw error
+        if (!offline && !draining && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
         await requeueTurnQueue(data.userId, data.targetSessionId, rest, {

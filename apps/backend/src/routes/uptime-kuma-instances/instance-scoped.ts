@@ -7,6 +7,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireTeamRole,
   requireUptimeKumaMemberAccess,
@@ -147,13 +148,7 @@ export function registerUptimeKumaInstanceRoutes(
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const instanceId = new ObjectId(c.get('uptimeKumaInstanceId'))
-      const result = await teamByosBindings().updateOne(
-        { _id: teamId },
-        {
-          $pull: { uptimeKumaInstances: { id: instanceId } },
-          $set: { updatedAt: new Date() },
-        },
-      )
+      const result = await disconnectBinding(c, teamId, 'uptimeKumaInstances', { id: instanceId })
 
       if (result.modifiedCount === 0) {
         throw new AppError(404, 'uptime_kuma_instance_not_bound', 'Uptime Kuma instance not found')
