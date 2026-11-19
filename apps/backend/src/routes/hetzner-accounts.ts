@@ -11,6 +11,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireHetznerAccount,
   requireHetznerMemberAccess,
@@ -120,13 +121,7 @@ accountScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = new ObjectId(c.get('hetznerAccountId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { hetznerAccounts: { id: accountId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'hetznerAccounts', { id: accountId })
 
     if (result.modifiedCount === 0) {
       throw new AppError(404, 'hetzner_account_not_bound', 'Hetzner account not found')
