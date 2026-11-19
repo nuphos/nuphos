@@ -23,11 +23,12 @@ import type { AcpSocket } from '@/lib/claude-code-preview/openab-acp-session'
 type Frame = { id?: number; method?: string; params?: Record<string, unknown> }
 
 /**
- * A runtime over a real WebSocket whose state RPC answers its second call (the
- * admission check before the prompt; the first is the queue's status read) only
- * after the backend's 3 s call deadline, then answers promptly again.
+ * A runtime over a real WebSocket whose state RPC answers the calls `slow` picks
+ * only after the backend's 3 s call deadline. A queued turn makes two: the
+ * queue's status read, then the admission check before the prompt.
  */
 const stateCalls: number[] = []
+let slow: (call: number) => boolean = (call) => call === 2
 const prompted: string[] = []
 const gateway = Bun.serve({
   port: 0,
@@ -44,7 +45,7 @@ const gateway = Bun.serve({
         return reply({ result: { protocolVersion: 1, agentCapabilities: {} } })
       if (frame.method === '_openab/session/state') {
         stateCalls.push(Date.now())
-        if (stateCalls.length === 2) await Bun.sleep(3_500)
+        if (slow(stateCalls.length)) await Bun.sleep(3_500)
 
         return reply({
           result: {
@@ -120,11 +121,18 @@ afterAll(() => {
 })
 
 let runs = 0
+const notices: string[] = []
 
 installQueuedTurnStarter(startQueuedTurn)
 installTurnRunner({
   hasActiveAgentRunForSession: async () => false,
   claimAgentRunForSession: async () => () => {},
+  // The notice to a sender whose message did not run.
+  claimAgentRunOrEnqueue: async ({ message }) => {
+    notices.push(message.renderedText)
+
+    return { mode: 'queued' }
+  },
   // The trigger run's prompt step; its failures reach runTurn unchanged.
   runAgentForTrigger: async (args) => {
     runs++
@@ -157,11 +165,12 @@ test('a queued message whose state check times out once is sent again and delive
   await enqueuePendingUserMessage(OWNER, SESSION, message)
   await startQueuedTurn(OWNER, SESSION)
 
-  // The check timed out: the message is back at the head, counted, and nothing was prompted.
+  // The check timed out: the message is back at the head, waiting out the grace an
+  // agent host away gets, and nothing was prompted.
   const [waiting] = await listPendingUserMessages(OWNER, SESSION)
 
   expect(waiting?.id).toBe(message.id)
-  expect(waiting?.attempts).toBe(1)
+  expect(waiting?.offlineSince).toBeString()
   expect(prompted).toEqual([])
 
   // The queue's own retry, 2 s later, delivers it.
@@ -172,4 +181,28 @@ test('a queued message whose state check times out once is sent again and delive
   expect(prompted[0]).toContain('CI passed')
   expect(runs).toBe(2)
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
+}, 20_000)
+
+test('a state check still timing out after the grace: the message is dropped and its sender told why', async () => {
+  // Every admission check is slow; the queue's own status reads answer.
+  slow = (call) => call % 2 === 0
+  stateCalls.length = 0
+  prompted.length = 0
+  const message = buildPendingUserMessage({
+    renderedText: 'deploy finished',
+    source: 'agent.thread',
+    actorUserId: OWNER,
+    metadata: { sourceSessionId: 'sender-session' } as never,
+  })
+
+  await enqueuePendingUserMessage(OWNER, SESSION, {
+    ...message,
+    offlineSince: new Date(Date.now() - 61_000).toISOString(),
+  })
+  await expect(startQueuedTurn(OWNER, SESSION)).rejects.toThrow('did not report its state in time')
+
+  expect(prompted).toEqual([])
+  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
+  expect(notices).toHaveLength(1)
+  expect(notices[0]).toContain('did not report its state in time')
 }, 20_000)
