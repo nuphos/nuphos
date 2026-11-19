@@ -134,7 +134,7 @@ export const offlineScenarios: Scenario[] = [
         await confirm
           .getByText('Workspaces, sign-ins, Docker images and volumes are kept.')
           .waitFor()
-        await confirm.getByText("Running Tasks aren’t stopped", { exact: false }).waitFor()
+        await confirm.getByText('Running Tasks aren’t stopped', { exact: false }).waitFor()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'disk-box-confirm.png') })
         await confirm.getByRole('button', { name: 'Cancel' }).click()
