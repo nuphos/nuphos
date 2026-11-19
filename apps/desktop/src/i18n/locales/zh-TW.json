@@ -4866,7 +4866,7 @@
   "Token usage": "Token 用量",
   "Token usage by group": "各分組的 Token 用量",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "權杖會加密並自動更新 · 隨時可在 Cloudflare 撤銷。",
-  "Tokens per day": "每日 Token",
+  "Tokens per day · last 30 days": "每日 Token · 最近 30 天",
   "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "團隊 runtime 回報的 Token 用量。輸入包含快取的 Token；費用以定價估算。",
   "Tolerations": "Tolerations",
   "Tomorrow, 9:00": "明天 9:00",

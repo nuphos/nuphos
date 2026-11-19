@@ -4866,7 +4866,7 @@
   "Token usage": "การใช้โทเค็น",
   "Token usage by group": "การใช้โทเค็นตามกลุ่ม",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "โทเค็นถูกเข้ารหัสและรีเฟรชโดยอัตโนมัติ · เพิกถอนได้ทุกเมื่อใน Cloudflare",
-  "Tokens per day": "โทเค็นต่อวัน",
+  "Tokens per day · last 30 days": "โทเค็นต่อวัน · 30 วันที่ผ่านมา",
   "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "โทเค็นที่ runtime ของทีมรายงาน อินพุตรวมโทเค็นที่แคชไว้ และค่าใช้จ่ายประเมินจากราคาปกติ",
   "Tolerations": "Toleration",
   "Tomorrow, 9:00": "พรุ่งนี้ 9:00",

@@ -4866,7 +4866,7 @@
   "Token usage": "Penggunaan token",
   "Token usage by group": "Penggunaan token per kelompok",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "Token dienkripsi dan diperbarui secara otomatis · cabut kapan saja di Cloudflare.",
-  "Tokens per day": "Token per hari",
+  "Tokens per day · last 30 days": "Token per hari · 30 hari terakhir",
   "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "Token yang dilaporkan runtime tim. Input mencakup token yang di-cache; biaya diperkirakan dengan harga daftar.",
   "Tolerations": "Toleration",
   "Tomorrow, 9:00": "Besok, 9:00",

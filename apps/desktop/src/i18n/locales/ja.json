@@ -4866,7 +4866,7 @@
   "Token usage": "トークン使用量",
   "Token usage by group": "グループ別のトークン使用量",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "トークンは暗号化され、自動的に更新されます · Cloudflare でいつでも取り消せます。",
-  "Tokens per day": "1日あたりのトークン",
+  "Tokens per day · last 30 days": "1日あたりのトークン · 過去 30 日間",
   "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "チームの runtime が報告したトークン数です。入力にはキャッシュされたトークンが含まれ、コストは定価で見積もっています。",
   "Tolerations": "Tolerations",
   "Tomorrow, 9:00": "明日 9:00",

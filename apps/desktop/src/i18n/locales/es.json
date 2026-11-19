@@ -4866,7 +4866,7 @@
   "Token usage": "Uso de tokens",
   "Token usage by group": "Uso de tokens por grupo",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "Los tokens se cifran y se renuevan automáticamente · revócalos cuando quieras en Cloudflare.",
-  "Tokens per day": "Tokens por día",
+  "Tokens per day · last 30 days": "Tokens por día · últimos 30 días",
   "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "Tokens que informaron los runtimes del equipo. La entrada incluye los tokens en caché; el costo se estima con precios de lista.",
   "Tolerations": "Tolerations",
   "Tomorrow, 9:00": "Mañana, 9:00",
