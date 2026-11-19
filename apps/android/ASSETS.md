@@ -44,3 +44,22 @@ Exact source files (relative to `apps/ios/nuphos-ios/Assets.xcassets/Logos/`):
 
 Huawei currently has no matching mark in that iOS catalog and retains the explicit
 initials fallback. It is not represented by another provider’s logo.
+
+# Nuphos mark sources
+
+`app/src/main/res/drawable/ic_notification.xml` (notification small icon) and
+`app/src/main/res/drawable/app_icon_b2_monochrome.xml` (themed-icon layer of the default
+app icon B2) share one traced path, not the brand master vector. The single-color mark on
+[nuphos.ai/brand](https://nuphos.ai/brand), `nuphos-icon-mono-white.svg`, wraps a
+1254 × 1254 PNG. The PNG's alpha channel was thresholded at 128 and traced with Potrace
+1.16 (`--turdsize 20 --alphamax 1.0 --opttolerance 0.4`). Both drawables keep Potrace's
+coordinates and place them with a group transform:
+
+- `ic_notification.xml`: the PNG's full canvas spans the 24 dp viewport. The mark itself
+  covers about 19.3 dp, leaving about 2.4 dp on each side.
+- `app_icon_b2_monochrome.xml`: the PNG's canvas spans the middle 72 dp of the 108 dp
+  adaptive layer, so the mark (about 58 dp) sits inside the 66 dp safe zone.
+
+Replace both with the master path if one becomes available.
+`apps/desktop/scripts/render-app-icons.mjs` references the B2 monochrome layer but does
+not generate it.

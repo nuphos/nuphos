@@ -135,14 +135,14 @@ test('a failure never falls back to the assistant text', () => {
       outcome: { kind: 'failed', cause: '   ' },
       messages: [assistant(text('a half-written answer'))],
     }).body,
-    'The agent stopped with an error.',
+    'The task stopped with an error.',
   )
 })
 
 test('a finish with nothing to show says so instead of going silent', () => {
   assert.equal(
     buildAgentStopNotification({ outcome: { kind: 'finished' }, messages: [user('hi')] }).body,
-    'The agent finished without a text response.',
+    'Finished without a text response.',
   )
 })
 
@@ -154,7 +154,7 @@ test('a run whose conversation was closed names the conversation and points back
     }),
     {
       title: 'Cluster check',
-      body: 'The agent stopped while it was closed — open it to see what happened.',
+      body: 'The task stopped while it was closed — open it to see what happened.',
     },
   )
 })
@@ -167,6 +167,13 @@ test('long bodies are truncated without splitting an emoji', () => {
 
   assert.equal([...body].length, 201)
   assert.ok(body.endsWith('🚀…'))
+})
+
+test('stripMarkdown keeps underscores inside a word', () => {
+  assert.equal(
+    stripMarkdown('Set `NUPHOS_AGENT_HOME` to _your_ __home__ and **this**'),
+    'Set NUPHOS_AGENT_HOME to your home and this',
+  )
 })
 
 test('stripMarkdown collapses fenced code to a marker', () => {

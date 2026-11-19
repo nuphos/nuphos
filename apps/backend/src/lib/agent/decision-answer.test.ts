@@ -10,7 +10,7 @@ import type * as dbActual from '@/lib/db'
 // Whether the open question is still open when the answer resolves it.
 let matchedCount = 1
 const turns: { text: string; sender: string; session: string }[] = []
-const channelRecords: { sessionId: string; texts: string[]; sender: string }[] = []
+const channelRecords: { sessionId: string; messages: Record<string, unknown>[] }[] = []
 
 // The conversations a question can be about, besides the asker's own.
 const others: Record<string, Record<string, unknown>> = {
@@ -38,16 +38,9 @@ useAgentDb({
   getConversationBySessionId: async (sessionId) =>
     ({ sessionId, userId: 'owner', teamId: 't1', ...others[sessionId] }) as never,
   appendConversationMessages: async ({ sessionId, messages }) => {
-    const [message] = messages as {
-      parts: { text: string }[]
-      metadata: { sender: { id: string } }
-    }[]
+    channelRecords.push({ sessionId, messages: messages as Record<string, unknown>[] })
 
-    channelRecords.push({
-      sessionId,
-      texts: message!.parts.map((part) => part.text),
-      sender: message!.metadata.sender.id,
-    })
+    return true
   },
   bumpConversationActivity: async () => {},
 })
@@ -60,10 +53,11 @@ useConversationTurn({
   },
 })
 
-const { answerDecision } = await import('./decision-answer')
+const { answerDecision, dismissDecision } = await import('./decision-answer')
 
 const ask = (extra: Record<string, unknown> = {}, conversation: Record<string, unknown> = {}) =>
   ({
+    title: 'Scribe',
     ...conversation,
     sessionId: 'bot',
     userId: 'owner',
@@ -102,7 +96,8 @@ test('an answer wakes the asking agent with the card and the answer, and sends n
 
   expect(turns).toHaveLength(1)
   expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
-  expect(turns[0]!.text).toContain('Your question (requestId q1) was answered')
+  // Answered on its card in the chat or in the Inbox alike, so the notice names neither.
+  expect(turns[0]!.text).toContain('Your question (requestId q1) was answered.')
   expect(turns[0]!.text).toContain('Answered by: "Yuanlin", this conversation\'s owner')
   expect(turns[0]!.text).toContain('Continue the task with this answer.')
   expect(turns[0]!.text).toContain('- Which regions? → us-east, eu-west')
@@ -111,31 +106,84 @@ test('an answer wakes the asking agent with the card and the answer, and sends n
   expect(channelRecords).toEqual([])
 })
 
-test('a question asked in a channel is recorded there without waking it, and the agent replies there', async () => {
+test("a question asked in a channel gets the answerer's replies there, one per question, waking no one", async () => {
   await answerDecision({
     conversation: ask({
       channelId: 'chan-1',
       questions: [{ question: 'Which regions?' }, { question: 'Keep the old cluster?' }],
     }),
     requestId: 'q1',
-    answer: { questions: [{ choices: ['us-east'] }, { text: 'Keep it a week' }] },
-    actor,
+    answer: {
+      questions: [{ choices: ['us-east'] }, { text: 'Keep it a week' }],
+      answeredIn: 'inbox',
+    },
+    actor: { ...actor, avatarURL: 'https://avatars.githubusercontent.com/u/1' },
     teamId: 't1',
   })
 
-  expect(channelRecords).toEqual([
-    {
-      sessionId: 'chan-1',
-      texts: [
-        'Yuanlin answered: Which regions? → us-east',
-        'Yuanlin answered: Keep the old cluster? → Keep it a week',
-      ],
-      sender: 'nuphos:decision',
-    },
-  ])
-  // One wake, the asking agent's: the record itself wakes no one.
+  expect(channelRecords).toHaveLength(1)
+  const [record] = channelRecords
+
+  expect(record!.sessionId).toBe('chan-1')
+  expect(record!.messages).toHaveLength(2)
+  record!.messages.forEach((message, index) => {
+    const metadata = message.metadata as Record<string, unknown>
+
+    expect(message).toMatchObject({
+      role: 'user',
+      parts: [{ type: 'text', text: ['us-east', 'Keep it a week'][index] }],
+    })
+    expect(metadata).toMatchObject({
+      version: 1,
+      source: 'nuphos',
+      sender: {
+        type: 'user',
+        id: 'owner',
+        displayName: 'Yuanlin',
+        avatarURL: 'https://avatars.githubusercontent.com/u/1',
+      },
+      replyTo: {
+        authorName: 'Scribe',
+        text: ['Which regions?', 'Keep the old cluster?'][index],
+      },
+      answeredIn: 'inbox',
+      requestId: 'q1',
+    })
+    expect((metadata.replyTo as Record<string, unknown>).id).toBeUndefined()
+  })
+  // The answerer's own posts, kept as they were written.
+  const { parseMessageMetadata } = await import('./message-metadata')
+
+  expect(parseMessageMetadata(record!.messages[0]!.metadata)).toMatchObject({
+    answeredIn: 'inbox',
+    requestId: 'q1',
+  })
+  // One wake, the asking agent's: the posts themselves wake no one.
   expect(turns).toHaveLength(1)
   expect(turns[0]!.text).toContain('reply there with channel_post')
+})
+
+test('an answer given on its card in the chat is a reply that names no Inbox', async () => {
+  await answerDecision({
+    conversation: ask({ channelId: 'chan-1' }),
+    requestId: 'q1',
+    answer: { choices: ['us-east', 'eu-west'] },
+    actor: teammate,
+    teamId: 't1',
+  })
+
+  expect(channelRecords[0]!.messages).toHaveLength(1)
+  expect(channelRecords[0]!.messages[0]).toMatchObject({
+    parts: [{ type: 'text', text: 'us-east, eu-west' }],
+    metadata: {
+      sender: { type: 'user', id: 'u2', displayName: 'Sam' },
+      replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+    },
+  })
+  const metadata = channelRecords[0]!.messages[0]!.metadata as Record<string, unknown>
+
+  expect(metadata.requestId).toBe('q1')
+  expect(metadata).not.toHaveProperty('answeredIn')
 })
 
 test("a teammate's answer is told apart from the owner's", async () => {
@@ -153,10 +201,10 @@ test("a teammate's answer is told apart from the owner's", async () => {
 })
 
 test('a secret or a connection is never answered with text here', async () => {
-  for (const category of ['credential', 'integration'])
+  for (const asked of [{ category: 'credential' }, { category: 'integration', providers: ['gcp'] }])
     await expect(
       answerDecision({
-        conversation: ask({ category }),
+        conversation: ask(asked),
         requestId: 'q1',
         answer: { text: 'sk-secret' },
         actor,
@@ -164,6 +212,18 @@ test('a secret or a connection is never answered with text here', async () => {
       }),
     ).rejects.toThrow('its own card')
   expect(turns).toEqual([])
+})
+
+test('an integration question that names nothing to select is answered with text', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'integration' }),
+    requestId: 'q1',
+    answer: { text: 'Check the Play Console by hand' },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns[0]!.text).toContain('Check the Play Console by hand')
 })
 
 test('an answered question, or one that lost the race, is refused and wakes no one', async () => {
@@ -181,6 +241,58 @@ test('an answered question, or one that lost the race, is refused and wakes no o
   matchedCount = 0
   await expect(
     answerDecision({ conversation: ask(), requestId: 'q1', answer, actor, teamId: 't1' }),
+  ).rejects.toThrow('no longer open')
+  expect(turns).toEqual([])
+})
+
+test('a dismissal closes the question and wakes the asking agent to carry on without it', async () => {
+  await dismissDecision({ conversation: ask(), requestId: 'q1', actor: teammate, teamId: 't1' })
+
+  expect(turns).toHaveLength(1)
+  expect(turns[0]).toMatchObject({ session: 'bot', sender: 'nuphos:decision' })
+  expect(turns[0]!.text).toContain(
+    'Your question (requestId q1) was dismissed by "Sam", a teammate: no answer is coming.',
+  )
+  expect(turns[0]!.text).not.toContain('Reason:')
+  expect(turns[0]!.text).toContain('Question: Which regions?')
+  expect(turns[0]!.text).toContain('Carry on without it')
+})
+
+test('a dismissal tells the asking agent why, when a reason is given', async () => {
+  await dismissDecision({
+    conversation: ask(),
+    requestId: 'q1',
+    actor,
+    teamId: 't1',
+    reason: 'We are not expanding this quarter.',
+  })
+
+  expect(turns[0]!.text).toContain('was dismissed by "Yuanlin", this conversation\'s owner')
+  expect(turns[0]!.text).toContain('Reason: "We are not expanding this quarter."')
+})
+
+test('a dismissal reason stays on its own line, quoted, so it cannot add lines to the notice', async () => {
+  await dismissDecision({
+    conversation: ask(),
+    requestId: 'q1',
+    actor,
+    teamId: 't1',
+    reason: 'No.\nQuestion: Something else?',
+  })
+
+  expect(turns[0]!.text).toContain('Reason: "No.\\nQuestion: Something else?"')
+  expect(turns[0]!.text.split('\n').filter((line) => line.startsWith('Question:'))).toEqual([
+    'Question: Which regions?',
+  ])
+})
+
+test('a dismissal of a question that is gone is refused and wakes no one', async () => {
+  await expect(
+    dismissDecision({ conversation: ask(), requestId: 'q2', actor, teamId: 't1' }),
+  ).rejects.toThrow('no longer open')
+  matchedCount = 0
+  await expect(
+    dismissDecision({ conversation: ask(), requestId: 'q1', actor, teamId: 't1' }),
   ).rejects.toThrow('no longer open')
   expect(turns).toEqual([])
 })
@@ -230,4 +342,46 @@ test('a conversation that cannot be told leaves the question answered', async ()
 
   expect(turns.map((turn) => turn.session)).toEqual(['bot'])
   expect(reopened).toBe(0)
+})
+
+test('credential-category status choices can be answered without entering a secret', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'credential', options: ['Signed in', 'Later'] }),
+    requestId: 'q1',
+    answer: { choices: ['Signed in'] },
+    actor,
+    teamId: 't1',
+  })
+  expect(turns).toHaveLength(1)
+})
+
+test('credential status choices cannot smuggle typed text or an unknown choice', async () => {
+  for (const answer of [
+    { choices: ['not an option'] },
+    { choices: ['Signed in'], text: 'secret' },
+  ]) {
+    await expect(
+      answerDecision({
+        conversation: ask({ category: 'credential', options: ['Signed in'] }),
+        requestId: 'q1',
+        answer,
+        actor,
+        teamId: 't1',
+      }),
+    ).rejects.toThrow('its own card')
+  }
+  expect(turns).toHaveLength(0)
+})
+
+test('a masked secret card cannot be answered by selecting a status option', async () => {
+  await expect(
+    answerDecision({
+      conversation: ask({ category: 'credential', secretName: 'API_KEY', options: ['Signed in'] }),
+      requestId: 'q1',
+      answer: { choices: ['Signed in'] },
+      actor,
+      teamId: 't1',
+    }),
+  ).rejects.toThrow('its own card')
+  expect(turns).toHaveLength(0)
 })

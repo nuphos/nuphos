@@ -10,9 +10,6 @@ import {
   extractLegacyPlanCreateExtras,
   normalizeAgentPlanMetaInput,
   normalizeAgentPlanStepInput,
-  normalizeAgentPlanUpdatePatch,
-  planUpdateOperation,
-  updatePlanBodySchema,
 } from './plans'
 
 // The label field every agent tool carries (transient UI status text). Mirrors
@@ -251,100 +248,5 @@ describe('normalizers', () => {
 
     expect(normalized.title?.length).toBe(120)
     expect(normalized.overview).toBeUndefined()
-  })
-})
-
-describe('updatePlanBodySchema (plan skill REST construction path)', () => {
-  test('accepts a pure construction patch (appendStep)', () => {
-    const parsed = updatePlanBodySchema.safeParse({
-      appendStep: {
-        title: 'Create bucket',
-        jobs: [{ title: 'aws s3 mb', commands: [{ command: 'aws s3 mb s3://x' }] }],
-      },
-    })
-
-    expect(parsed.success).toBe(true)
-  })
-
-  test('accepts decisions / cost / risk section patches', () => {
-    expect(
-      updatePlanBodySchema.safeParse({ decisions: [{ label: 'Region', value: 'us-east-1' }] })
-        .success,
-    ).toBe(true)
-    expect(updatePlanBodySchema.safeParse({ costSummary: '~$5/month' }).success).toBe(true)
-    expect(
-      updatePlanBodySchema.safeParse({
-        riskWorstCase: 'Brief 502s',
-        riskMitigations: ['rolling restart'],
-      }).success,
-    ).toBe(true)
-  })
-
-  test('accepts step revisions (editStep / removeStep) and meta', () => {
-    expect(
-      updatePlanBodySchema.safeParse({
-        editStep: { stepIdx: 0, step: { title: 'Revised', jobs: [{ title: 'j' }] } },
-      }).success,
-    ).toBe(true)
-    expect(updatePlanBodySchema.safeParse({ removeStep: { stepIdx: 1 } }).success).toBe(true)
-    expect(updatePlanBodySchema.safeParse({ title: 'New title' }).success).toBe(true)
-  })
-
-  test('still accepts lifecycle / command progress patches', () => {
-    expect(updatePlanBodySchema.safeParse({ status: 'executing' }).success).toBe(true)
-    expect(
-      updatePlanBodySchema.safeParse({
-        commandStatuses: [{ stepIdx: 0, jobIdx: 0, cmdIdx: 0, status: 'done' }],
-      }).success,
-    ).toBe(true)
-  })
-
-  test('rejects an empty patch', () => {
-    expect(updatePlanBodySchema.safeParse({}).success).toBe(false)
-    expect(updatePlanBodySchema.safeParse({ teamId: 't1' }).success).toBe(false)
-  })
-})
-
-describe('plan_update agent tool lifecycle boundary', () => {
-  const inputSchema = planUpdateOperation.agent.inputSchema
-
-  test('does not expose human approval or rejection decisions to the agent', () => {
-    expect(inputSchema.safeParse({ planId: '1', status: 'approved' }).success).toBe(false)
-    expect(inputSchema.safeParse({ planId: '1', status: 'rejected' }).success).toBe(false)
-  })
-
-  test('still exposes execution progress after a human approval', () => {
-    expect(inputSchema.safeParse({ planId: '1', status: 'executing' }).success).toBe(true)
-    expect(inputSchema.safeParse({ planId: '1', status: 'completed' }).success).toBe(true)
-  })
-})
-
-describe('normalizeAgentPlanUpdatePatch', () => {
-  test('truncates partial cost/risk patches independently (no sibling gating)', () => {
-    const long = 'x'.repeat(1000)
-    const costOnly = normalizeAgentPlanUpdatePatch({ costOneTime: long })
-
-    expect(costOnly.costOneTime!.length).toBeLessThan(200)
-
-    const riskOnly = normalizeAgentPlanUpdatePatch({ riskWorstCase: long })
-
-    expect(riskOnly.riskWorstCase!.length).toBeLessThanOrEqual(400)
-
-    const mitigationsOnly = normalizeAgentPlanUpdatePatch({ riskMitigations: [long] })
-
-    expect(mitigationsOnly.riskMitigations![0]!.length).toBeLessThanOrEqual(200)
-  })
-
-  test('truncates meta and decisions; leaves lifecycle fields untouched', () => {
-    const long = 'y'.repeat(1000)
-    const out = normalizeAgentPlanUpdatePatch({
-      title: long,
-      decisions: [{ label: long, value: long }],
-      status: 'executing' as const,
-    })
-
-    expect(out.title!.length).toBeLessThanOrEqual(120)
-    expect(out.decisions![0]!.label.length).toBeLessThanOrEqual(60)
-    expect(out.status).toBe('executing')
   })
 })

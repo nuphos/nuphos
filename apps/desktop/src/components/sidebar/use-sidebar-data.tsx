@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { agentAvatarPick } from '../../lib/agentAvatarChoices'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
@@ -192,7 +193,9 @@ export function useSidebarChats({
         announceChatArchived({ sessionId, teamId })
         offerUndo(sessionId, botSessionId)
       } else {
-        toast.error(t('Could not archive agent'))
+        toast.error(
+          agentAvatarPick(sessionId) ? t('Could not archive Bot') : t('Could not archive task'),
+        )
       }
     },
     [client, teamId, offerUndo],

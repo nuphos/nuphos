@@ -12,7 +12,7 @@ import {
 import { conversationActivity } from './activity'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
-import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
+import { DecisionCardsProvider } from './DecisionCardsProvider'
 import { AgentHomeAnimation } from './homeAnimation'
 import { OpenQuestionCards } from './OpenQuestionCards'
 import { CollapsedWorkView, LoadingText } from './partChrome'
@@ -144,7 +144,7 @@ function MessageList({
 
   return (
     // The composer's inner padding, so messages stay inside its edges.
-    <div className="space-y-4 px-3">
+    <div className="flex flex-col gap-4 px-3">
       {hasEarlier && (
         <div
           // Read by SessionFindBar: part of the conversation is not in the DOM.
@@ -194,7 +194,7 @@ function MessageList({
               <div
                 key={m.id}
                 data-message-id={m.id}
-                className="transition-shadow"
+                className="mt-4 transition-shadow first:mt-0" // A new turn: the room goes above it.
                 style={wrapperStyle}
               >
                 <UserMessage
@@ -290,11 +290,9 @@ function MessageList({
 
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
-  const answers = useMemo(() => decisionAnswers(props.tab.messages), [props.tab.messages])
-
   return (
-    <DecisionAnswersContext.Provider value={answers}>
+    <DecisionCardsProvider messages={props.tab.messages} waiting={props.tab.waitingAnswers}>
       <MessageList {...props} />
-    </DecisionAnswersContext.Provider>
+    </DecisionCardsProvider>
   )
 }

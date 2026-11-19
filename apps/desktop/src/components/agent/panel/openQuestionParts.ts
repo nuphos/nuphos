@@ -45,6 +45,7 @@ export function questionPart(question: ReplyQuestion): ToolPart {
       ...(question.multiSelect ? { multiSelect: true } : {}),
       ...(question.questions ? { questions: question.questions } : {}),
       ...(question.secretName ? { secretName: question.secretName } : {}),
+      ...(question.fields ? { fields: question.fields, site: question.site } : {}),
     },
     state: 'input-available',
   }

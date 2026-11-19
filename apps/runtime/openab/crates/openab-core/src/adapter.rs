@@ -7,6 +7,7 @@ use tracing::{error, warn};
 use crate::acp::connection::{
     build_permission_response, PermissionResponder, SessionActivity, ACP_NOTIFICATION_CAPACITY,
 };
+use crate::acp::pool::session_lost;
 use crate::acp::protocol::JsonRpcMessage;
 use crate::acp::{
     classify_notification, parse_turn_result, AcpEvent, ContentBlock, SessionPool, TurnResult,
@@ -899,6 +900,51 @@ impl AdapterRouter {
         other_bot_present: bool,
         recipient: Option<(String, String)>,
     ) -> Result<()> {
+        let result = self
+            .run_prompt(
+                adapter,
+                thread_key,
+                content_blocks.clone(),
+                thread_channel,
+                reactions.clone(),
+                other_bot_present,
+                recipient.clone(),
+                true,
+            )
+            .await;
+        if !result.as_ref().is_err_and(|e| e.is::<SessionGone>()) {
+            return result;
+        }
+        // The agent lost the session before showing anything. Restore it the way a dead
+        // connection is restored (session/load, or a new session where that is gone too)
+        // and run the prompt once more; a second loss fails the turn as usual.
+        self.pool.suspend_session(thread_key).await;
+        self.pool.get_or_create(thread_key, None, &[], None).await?;
+        self.run_prompt(
+            adapter,
+            thread_key,
+            content_blocks,
+            thread_channel,
+            reactions,
+            other_bot_present,
+            recipient,
+            false,
+        )
+        .await
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn run_prompt(
+        &self,
+        adapter: &Arc<dyn ChatAdapter>,
+        thread_key: &str,
+        content_blocks: Vec<ContentBlock>,
+        thread_channel: &ChannelRef,
+        reactions: Arc<StatusReactionController>,
+        other_bot_present: bool,
+        recipient: Option<(String, String)>,
+        retry_lost_session: bool,
+    ) -> Result<()> {
         let adapter = adapter.clone();
         let thread_channel = thread_channel.clone();
         let message_limit = reply_message_limit(&thread_channel.platform, adapter.message_limit());
@@ -952,6 +998,9 @@ impl AdapterRouter {
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();
+                // Redacted out here, not in the async block: `with_connection` returns a future
+                // that outlives any borrow of `thread_key`, so it may only capture owned values.
+                let redacted_thread_key = crate::redact::redact_session_ids(thread_key);
                 Box::pin(async move {
                     let reset = conn.session_reset;
                     conn.session_reset = false;
@@ -1098,9 +1147,13 @@ impl AdapterRouter {
                     // The adapter's original `{code, message}`, kept alongside the
                     // display text so the ACP gateway can relay it as `error.data`.
                     let mut response_error_data: Option<serde_json::Value> = None;
+                    // ACP "resource not found": the agent no longer holds this session.
+                    let mut session_gone = false;
                     let mut turn_result = TurnResult::default();
                     // The provider's own usage object, forwarded verbatim at turn end.
                     let mut turn_usage: Option<serde_json::Value> = None;
+                    let mut turn_quota: Option<serde_json::Value> = None;
+                    let mut turn_stop_reason: Option<serde_json::Value> = None;
                     let mut last_activity = tokio::time::Instant::now();
                     let prompt_activity = conn.activity_handle();
                     // Stall visibility (see #43/prod incident): once a turn has been
@@ -1160,7 +1213,35 @@ impl AdapterRouter {
                                         "Agent exceeded inactivity timeout ({}s)",
                                         prompt_inactivity_timeout.as_secs(),
                                     ));
-                                    conn.abandon_request(request_id).await;
+                                    // Alive but silent for the whole timeout: a cancel
+                                    // would leave this process to take the next prompt
+                                    // and stall it the same way. End it, so the next
+                                    // prompt takes the dead-agent path instead: a new
+                                    // process that resumes the session.
+                                    conn.kill_agent();
+                                    let stopped = tokio::time::timeout(
+                                        std::time::Duration::from_secs(2),
+                                        async {
+                                            while conn.alive() {
+                                                tokio::time::sleep(
+                                                    std::time::Duration::from_millis(20),
+                                                )
+                                                .await;
+                                            }
+                                        },
+                                    )
+                                    .await
+                                    .is_ok();
+                                    if !stopped {
+                                        // Still not observed dead: never let the next prompt be
+                                        // routed to a process we already gave up on. Retiring it
+                                        // makes the pool rebuild and resume the session instead.
+                                        warn!(
+                                            thread_id = %redacted_thread_key,
+                                            "killed agent still reported alive after 2s; retiring the connection"
+                                        );
+                                        conn.retire();
+                                    }
                                     break;
                                 }
                                 let elapsed = last_activity.elapsed();
@@ -1249,12 +1330,15 @@ impl AdapterRouter {
                             let notification =
                                 crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
+                                session_gone = session_lost(err);
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message().as_deref()));
                                 response_error_data = Some(err.relay_data());
                             }
                             if let Some(ref result) = notification.result {
                                 turn_result = parse_turn_result(result);
                                 turn_usage = result.get("usage").cloned();
+                                turn_quota = result.pointer("/_meta/quota").cloned();
+                                turn_stop_reason = result.get("stopReason").cloned();
                             }
                             // The provider's prompt response is the turn boundary.
                             // Background tools may outlive it (or never emit another
@@ -1434,6 +1518,19 @@ impl AdapterRouter {
                                 _ => {}
                             }
                         }
+                    }
+
+                    // Nothing was shown yet, so the turn can run again on the restored session
+                    // instead of failing (see `stream_prompt_blocks`).
+                    if session_gone
+                        && retry_lost_session
+                        && text_buf.is_empty()
+                        && tool_lines.is_empty()
+                        && placeholder_msg.is_none()
+                        && native_msg.is_none()
+                    {
+                        conn.prompt_done(None).await;
+                        return Err(SessionGone.into());
                     }
 
                     // Lock-free marker for the relay below. The pool's eviction
@@ -1726,16 +1823,21 @@ impl AdapterRouter {
                         // turn. `turn_usage` is not part of the ACP schema: the relay
                         // forwards session updates verbatim, clients that do not know
                         // the kind ignore it, and a runtime with no usage sends
-                        // nothing at all.
+                        // nothing at all. The agent's `_meta.quota` rides along: its
+                        // per-model rows also count sub-agents and compaction.
                         if let Some(usage) = turn_usage.as_ref() {
+                            let mut update = serde_json::json!({
+                                "sessionUpdate": "turn_usage",
+                                "usage": usage,
+                            });
+                            if let Some(quota) = turn_quota.as_ref() {
+                                update["quota"] = quota.clone();
+                            }
+                            if let Some(stop_reason) = turn_stop_reason.as_ref() {
+                                update["stopReason"] = stop_reason.clone();
+                            }
                             if let Err(e) = adapter
-                                .forward_agent_update(
-                                    &thread_channel,
-                                    serde_json::json!({
-                                        "sessionUpdate": "turn_usage",
-                                        "usage": usage,
-                                    }),
-                                )
+                                .forward_agent_update(&thread_channel, update)
                                 .await
                             {
                                 tracing::warn!(error = ?e, platform = %thread_channel.platform, "acp turn usage send failed");
@@ -1917,6 +2019,19 @@ impl AdapterRouter {
 /// or a role mention (`<@&123>`).
 /// Used to detect cross-bot mentions so the streaming path can switch from
 /// edit (MESSAGE_UPDATE, no mention notification) to delete+send (MESSAGE_CREATE).
+/// The agent answered a prompt with ACP "resource not found" before any output: it no
+/// longer holds the session, so the turn may run again once the session is restored.
+#[derive(Debug)]
+struct SessionGone;
+
+impl std::fmt::Display for SessionGone {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("the agent no longer holds this session")
+    }
+}
+
+impl std::error::Error for SessionGone {}
+
 fn contains_bot_mention(content: &str) -> bool {
     let mut i = 0;
     let bytes = content.as_bytes();

@@ -111,7 +111,7 @@ afterEach(() => {
   acquire.mockRestore()
   sessionsByConversation.delete('team:conversation')
 })
-const run = (systemPrompt?: string) =>
+const run = (systemPrompt?: string, signal = new AbortController().signal) =>
   runClaudeCodePreviewPrompt({
     teamId: 'team',
     conversationId: 'conversation',
@@ -121,7 +121,7 @@ const run = (systemPrompt?: string) =>
     text: 'Continue',
     systemPrompt,
     endpoint,
-    signal: new AbortController().signal,
+    signal,
     onTextDelta: noop,
   })
 
@@ -199,6 +199,14 @@ test('a reattach that lost the inner agent reports it on the very next prompt', 
 test('an ordinary turn prompts the message itself', async () => {
   expect(await run()).toEqual({ stopReason: 'end_turn' })
   expect(prompted).toBe('Continue')
+})
+
+test('a turn stopped before its prompt is sent says the agent never received it', async () => {
+  const stop = new AbortController()
+
+  stop.abort()
+  expect(await run(undefined, stop.signal)).toEqual({ stopReason: 'cancelled', unsent: true })
+  expect(calls).not.toContain('prompt')
 })
 
 test('a turn the runtime refuses keeps the loss pending for the turn that lands', async () => {
@@ -283,6 +291,21 @@ for (const [name, error, diagnostics] of [
     expect(calls).toEqual(['observe-control'])
   })
 }
+
+test('an agent host the probe finds away fails the turn as away, which the queue waits out', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const { OpenAbConnectError } = await import('./openab-acp-connect')
+
+  for (const away of [
+    new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
+    new OpenAbConnectError('OpenAB ACP connection failed'),
+  ]) {
+    calls.length = 0
+    probeError = away
+    expect(await run().catch((cause: unknown) => cause)).toBe(away)
+    expect(calls).toEqual(['observe-control'])
+  }
+})
 
 test('a probe failure is redacted before display and cancellation still takes precedence', async () => {
   probeError = new Error('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')

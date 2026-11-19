@@ -218,6 +218,43 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.deepEqual(await listed('show-1'), [page.id])
 })
 
+test("a hidden tab's popup is the conversation's tab too: unseen, driven, and shown with its tab", async () => {
+  const { window, page } = await opened('popup-1')
+  // webview-guard.ts opens a hidden tab's popup hidden and transparent.
+  const popup = new Window({ show: false, opacity: 0, webPreferences: { session: browserSession } })
+
+  page.emit('did-create-window', popup)
+  assert.deepEqual(await listed('popup-1'), [page.id, popup.webContents.id])
+  // Its first paint stays unseen too, so the agent can capture and drive the sign-in page.
+  popup.emit('ready-to-show')
+  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [true, false, 1])
+  popup.webContents.script = Promise.resolve('signed in')
+  const result = await runBrowserCall({
+    action: 'eval',
+    team: 't1',
+    session: 'popup-1',
+    tab: popup.webContents.id,
+    script: 'document.title',
+  })
+
+  assert.equal(textOf(result), 'signed in')
+  // Showing the tab brings the popup it opened on screen with it, and any popup that one opened.
+  const nested = new Window({
+    show: false,
+    opacity: 0,
+    webPreferences: { session: browserSession },
+  })
+
+  popup.webContents.emit('did-create-window', nested)
+  await runBrowserCall({ action: 'show', team: 't1', session: 'popup-1', tab: page.id })
+  assert.deepEqual([window.visible, popup.visible, nested.visible], [true, true, true])
+  nested.destroy()
+  // A sign-in popup closes itself when done; its opener waits for that.
+  popup.close()
+  assert.equal(popup.destroyed, true)
+  assert.deepEqual(await listed('popup-1'), [page.id])
+})
+
 test('an update restart closes a hidden tab, so the app can quit and install', async () => {
   const { window } = await opened('update-1')
 
@@ -265,13 +302,35 @@ test('eval settles when its script navigates the tab to a new document', async (
   })
 
   await tick()
+  page.emit('did-navigate', {}, 'https://example.com/edit')
+  // The stream turns a rejected call into an error result for the agent.
+  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+})
+
+test('eval still answers when its click starts a download instead of a new page (#3299)', async () => {
+  const { page } = await opened()
+  let answer = (_value: unknown) => {}
+
+  page.script = new Promise((resolve) => {
+    answer = resolve
+  })
+  const result = runBrowserCall({
+    action: 'eval',
+    team: 't1',
+    session: 's1',
+    tab: page.id,
+    script: 'clickDownloadLink()',
+  })
+
+  await tick()
+  // Chromium starts a navigation for the link, then turns it into a download: no commit.
   page.emit('did-start-navigation', {
-    url: 'https://example.com/edit',
+    url: 'https://example.com/file',
     isMainFrame: true,
     isSameDocument: false,
   })
-  // The stream turns a rejected call into an error result for the agent.
-  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+  answer('clicked')
+  assert.equal(textOf(await result), 'clicked')
 })
 
 test('eval keeps waiting through a client-side route change', async () => {

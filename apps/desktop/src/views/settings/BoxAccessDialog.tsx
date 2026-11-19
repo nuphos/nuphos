@@ -7,12 +7,13 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { BoxAccessFields } from './BoxAccessFields'
+import { AccessHistory } from './AccessHistory'
 import { SharedComputerNotice } from './SharedComputerNotice'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
 
 import type { AgentDevice } from '../../api'
 
-/** Change who in the team may use a Box: its admins only, everyone, or specific people. */
+/** Change who in the team may use a Box: no one else, everyone, or specific people. */
 export function BoxAccessDialog({
   teamId,
   device,
@@ -44,7 +45,7 @@ export function BoxAccessDialog({
       open
       onClose={onClose}
       title={t('Who can use {name}', { name: device.label })}
-      description={t('People who lose access have their open agents on this computer closed.')}
+      description={t('People who lose access have their open tasks on this computer closed.')}
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
@@ -58,8 +59,9 @@ export function BoxAccessDialog({
       }
     >
       <div className="space-y-4 p-5">
-        <BoxAccessFields teamId={teamId} choice={choice} />
+        <BoxAccessFields teamId={teamId} ownerUserId={device.ownerUserId} choice={choice} />
         <SharedComputerNotice />
+        <AccessHistory deviceId={device.deviceId} teamId={teamId} />
       </div>
     </Modal>
   )

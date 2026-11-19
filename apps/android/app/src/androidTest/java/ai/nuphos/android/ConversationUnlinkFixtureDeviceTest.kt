@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -177,7 +177,7 @@ class ConversationUnlinkFixtureDeviceTest {
     private fun openConfirm() {
         compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithTag("menu-unlink:child").performClick()
-        waitText("Unlink agent?")
+        waitText("Unlink task?")
     }
     private fun confirm() { compose.onAllNodesWithText("Unlink").onLast().performClick() }
 
@@ -203,7 +203,7 @@ class ConversationUnlinkFixtureDeviceTest {
         openConfirm(); confirm()
         compose.waitUntil(5_000) { store.unlinkError != null && store.unlinkingSessionId == null }
         assertEquals("normal", child().parentSessionId); assertEquals(1, deletes())
-        compose.onNodeWithText("This agent is unavailable or you no longer have permission to unlink it.").assertExists()
+        compose.onNodeWithText("This task is unavailable or you no longer have permission to unlink it.").assertExists()
         shot("denied")
         responseCode = 200; responseBody = "{}"; confirm()
         compose.waitUntil(5_000) { deletes() == 2 && store.unlinkingSessionId == null }
@@ -259,7 +259,7 @@ class ConversationUnlinkFixtureDeviceTest {
         render()
         compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithText("Rename").performClick()
-        waitText("Rename agent")
+        waitText("Rename task")
         compose.onNode(hasSetTextAction() and hasText("Title")).performTextReplacement("Changed title")
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(requests.none { it.method == "PATCH" })
@@ -322,7 +322,7 @@ class ConversationUnlinkFixtureDeviceTest {
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithTag("menu-archive:child").performClick()
-        compose.onNodeWithText("Archive agent?").assertIsDisplayed()
+        compose.onNodeWithText("Archive task?").assertIsDisplayed()
         compose.onNodeWithText("Cancel").performClick()
         assertTrue(requests.none { it.method in setOf("PUT", "PATCH", "DELETE") })
     }

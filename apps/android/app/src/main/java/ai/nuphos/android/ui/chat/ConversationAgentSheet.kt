@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
@@ -32,6 +34,7 @@ internal fun ConversationAgentSheet(
     onManage: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val devices = ai.nuphos.android.ui.agent.rememberRuntimeDevices(token, session.teamId)
     var catalog by remember(session) { mutableStateOf<List<AgentRuntime>?>(null) }
     var error by remember(session) { mutableStateOf<String?>(null) }
@@ -45,7 +48,7 @@ internal fun ConversationAgentSheet(
             val loaded = loadCatalog?.invoke() ?: AgentRuntimeApi(token, session.teamId).catalog()
             if (isCurrent()) { catalog = loaded; error = null }
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { if (isCurrent()) error = e.message ?: "Could not load runtimes." }
+        catch (e: Exception) { if (isCurrent()) error = e.message ?: resources.getString(R.string.composer_load_runtimes_failed) }
         finally { refreshing = false }
     }
     fun move(target: AgentRuntime) {
@@ -61,7 +64,7 @@ internal fun ConversationAgentSheet(
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) {
                 if (isCurrent()) {
-                    error = e.message ?: "Could not switch runtimes. Refresh and try again."
+                    error = e.message ?: resources.getString(R.string.composer_switch_runtime_failed)
                     // Reconcile ambiguous network failures without optimistically changing placement.
                     session.reloadFromServer()
                 }
@@ -80,16 +83,16 @@ internal fun ConversationAgentSheet(
             HorizontalDivider()
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (session.movingAgent || committing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Switching runtime…") }
+                if (session.movingAgent || committing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(stringResource(R.string.composer_switching_runtime)) }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                if (!session.canManage) Text("You can view this agent's runtime, but cannot move it.")
-                else if (!session.canMoveAgent && !session.movingAgent) Text("Wait for the current response or pending message to finish before switching runtimes.")
-                if (refreshing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Loading runtimes…") }
-                val choices = catalog?.filter { (session.isOwner || it.kind == "managed") && it.selectable &&
+                if (!session.canManage) Text(stringResource(R.string.composer_runtime_view_only))
+                else if (!session.canMoveAgent && !session.movingAgent) Text(stringResource(R.string.composer_runtime_wait))
+                if (refreshing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(stringResource(R.string.composer_loading_runtimes)) }
+                val choices = catalog?.filter { session.isOwner && it.selectable &&
                     it.local?.online != false && quotas[it.id]?.needsSignIn != true }
                 if (choices != null && choices.isEmpty()) {
-                    Text("No available runtimes.", style = MaterialTheme.typography.titleMedium)
-                    Text("Open Nuphos on your computer to add a Box or connect your own computer.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.composer_no_runtimes), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.composer_no_runtimes_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (choices != null) ai.nuphos.android.ui.agent.RuntimeChoiceList(choices, session.runtimeId, quotas,
                     enabled = !refreshing && !committing && session.canMoveAgent, devices = devices, onSelect = { target ->
@@ -100,17 +103,17 @@ internal fun ConversationAgentSheet(
                     })
                 onManage?.let { manage ->
                     TextButton(enabled = !committing && !session.movingAgent && isCurrent(), onClick = manage) {
-                        Text("Manage computers and runtimes")
+                        Text(stringResource(R.string.composer_manage_runtimes))
                     }
                 }
-                TextButton(enabled = !refreshing && !committing && !session.movingAgent, onClick = { refresh++ }) { Text("Refresh runtimes") }
+                TextButton(enabled = !refreshing && !committing && !session.movingAgent, onClick = { refresh++ }) { Text(stringResource(R.string.composer_refresh_runtimes)) }
             }
         }
     }
     pendingLocal?.let { target ->
-        AlertDialog(onDismissRequest = { pendingLocal = null }, title = { Text("Move to ${target.label}?") },
-            text = { Text("This runtime runs on your computer. After the move, people in this conversation can reply only if they can use this computer; the others can still read it.") },
-            confirmButton = { TextButton(enabled = isCurrent() && session.canMoveAgent, onClick = { pendingLocal = null; move(target) }) { Text("Move") } },
-            dismissButton = { TextButton(onClick = { pendingLocal = null }) { Text("Cancel") } })
+        AlertDialog(onDismissRequest = { pendingLocal = null }, title = { Text(stringResource(R.string.composer_move_to, target.label)) },
+            text = { Text(stringResource(R.string.composer_move_local_body)) },
+            confirmButton = { TextButton(enabled = isCurrent() && session.canMoveAgent, onClick = { pendingLocal = null; move(target) }) { Text(stringResource(R.string.composer_move)) } },
+            dismissButton = { TextButton(onClick = { pendingLocal = null }) { Text(stringResource(R.string.cancel)) } })
     }
 }

@@ -14,6 +14,7 @@ const started: {
   messages: unknown[]
 }[] = []
 const answers: unknown[][] = []
+const dismissals: unknown[][] = []
 let answerFails = false
 
 Object.defineProperty(globalThis, 'window', {
@@ -29,6 +30,11 @@ Object.defineProperty(globalThis, 'window', {
       },
       agentStart: async (args: (typeof started)[number]) => {
         started.push(args)
+      },
+      agentResolveDecision: async (...args: unknown[]) => {
+        dismissals.push(args)
+
+        return { ok: true, resolved: true }
       },
       agentAnswerDecision: async (...args: unknown[]) => {
         answers.push(args)
@@ -107,4 +113,64 @@ test('an answer the server refuses brings the card back', async () => {
   await inbox.answerDecision('team', 'agent', 'q-refused', { text: 'Ship it' })
   answerFails = false
   assert.equal(count(), 1)
+})
+
+test('a held Inbox answer leaves at once, comes back on Undo, and is sent when the next is given', async () => {
+  answerFails = false
+  publish([waiting('h1'), waiting('h2')])
+  const before = answers.length
+  const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] }, () => {})
+
+  assert.equal(count(), 1)
+  assert.equal(undo(), true)
+  assert.equal(count(), 2)
+  assert.equal(undo(), false, 'undoing twice does nothing')
+  assert.equal(answers.length, before, 'an undone answer is never sent')
+
+  inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] }, () => {})
+  inbox.holdAnswer('team', 'agent', 'h2', { choices: ['No'] }, () => {})
+  await settle()
+  assert.deepEqual(
+    answers.slice(before).map((args) => args[1]),
+    ['h1'],
+    'the next answer sends the one held before it',
+  )
+  inbox.sendHeldAnswer()
+  await settle()
+  assert.deepEqual(
+    answers.slice(before).map((args) => args[1]),
+    ['h1', 'h2'],
+  )
+  assert.equal(count(), 0)
+})
+
+test('a held Inbox answer refused once sent says why, though its question is already gone', async () => {
+  answerFails = true
+  publish([waiting('h3')])
+  const reasons: (string | undefined)[] = []
+
+  inbox.holdAnswer('team', 'agent', 'h3', { choices: ['Yes'] }, (reason) => reasons.push(reason))
+  // Closed meanwhile (dismissed on its card in the chat), so it is no longer listed.
+  publish([])
+  inbox.sendHeldAnswer()
+  await settle()
+  await settle()
+  assert.deepEqual(reasons, ['This question is no longer open'])
+  answerFails = false
+})
+
+test('a held Inbox dismissal leaves at once, comes back on Undo, and is sent with its reason', async () => {
+  publish([waiting('d1')])
+  const undo = inbox.holdAnswer('team', 'agent', 'd1', { dismissed: true }, () => {})
+
+  assert.equal(count(), 0)
+  assert.equal(undo(), true)
+  assert.equal(count(), 1)
+  assert.deepEqual(dismissals, [], 'an undone dismissal is never sent')
+
+  inbox.holdAnswer('team', 'agent', 'd1', { dismissed: true, reason: 'Not now' }, () => {})
+  inbox.sendHeldAnswer()
+  await settle()
+  assert.deepEqual(dismissals, [['agent', 'd1', 'team', 'dismissed', 'Not now']])
+  assert.equal(count(), 0)
 })

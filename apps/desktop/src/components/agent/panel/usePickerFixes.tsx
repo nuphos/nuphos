@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useManagedComputers } from '../../../hooks/useManagedComputers'
 import { RUNTIME_INSTANCES_CHANGED } from '../../../hooks/useRuntimeInstances'
 import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -57,6 +58,7 @@ export function usePickerFixes({
   const thisComputer = useThisComputer()
   // Keyed by team: a selector that outlives a team switch never names the last team's admin.
   const members = useTeamMemberList(teamId, open)
+  const managed = useManagedComputers(teamId, open)
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const wakes = useBoxWakes()
   const [signIn, setSignIn] = useState<Extract<AgentFix, { kind: 'signIn' | 'cli' }> | null>(null)
@@ -146,6 +148,7 @@ export function usePickerFixes({
         isTeamAdmin,
         onThisComputer: (instance) => agentTier(instance, thisComputer) === 'local',
         members,
+        manages: (deviceId) => managed.has(deviceId),
       },
       run,
       busy: (fix) => {

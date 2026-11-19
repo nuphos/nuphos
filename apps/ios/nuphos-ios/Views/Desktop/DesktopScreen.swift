@@ -140,7 +140,7 @@ struct DesktopScreen: View {
     /// with control only, as the relay passes the request then.
     private var windowButton: some View {
         Button { desktop.showsWindow.toggle() } label: {
-            Image(systemName: desktop.showsWindow ? "macwindow" : "menubar.dock.rectangle")
+            LucideIcon(systemName: desktop.showsWindow ? "macwindow" : "menubar.dock.rectangle")
                 .font(.system(size: 16, weight: .medium))
                 .frame(width: 44, height: 36)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.12)))
@@ -162,7 +162,7 @@ struct DesktopScreen: View {
 
     private var closeButton: some View {
         Button(action: close) {
-            Image(systemName: "xmark")
+            LucideIcon("x")
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(Color.white.opacity(0.12)))
@@ -173,7 +173,7 @@ struct DesktopScreen: View {
 
     private var keyboardButton: some View {
         Button { keyboard.toggle() } label: {
-            Image(systemName: keyboard ? "keyboard.chevron.compact.down" : "keyboard")
+            LucideIcon(systemName: keyboard ? "keyboard.chevron.compact.down" : "keyboard")
                 .font(.system(size: 16, weight: .medium))
                 .frame(width: 44, height: 36)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(keyboard ? 0.24 : 0.12)))
@@ -184,7 +184,7 @@ struct DesktopScreen: View {
 
     private var controlButton: some View {
         Button { desktop.setControlling(!desktop.controlling) } label: {
-            Label(desktop.controlling ? "Hand back" : "Take over", systemImage: desktop.controlling ? "hand.raised.slash" : "hand.point.up.left")
+            DesignLabel(desktop.controlling ? "Hand back" : "Take over", systemImage: desktop.controlling ? "hand.raised.slash" : "hand.point.up.left")
                 .font(Theme.Text.label.weight(.semibold))
                 .padding(.horizontal, 14)
                 .frame(height: 36)
@@ -196,7 +196,7 @@ struct DesktopScreen: View {
 
     private var takeOverPrompt: some View {
         VStack(spacing: 10) {
-            Image(systemName: "hand.point.up.left")
+            LucideIcon("mouse-pointer-2")
                 .font(.system(size: 28, weight: .light))
             Text(desktop.isMacScreen
                  ? "Take over to click, type and scroll on the Mac from here."
@@ -235,7 +235,7 @@ struct DesktopScreen: View {
                 .foregroundStyle(.white.opacity(0.7))
         case .failed(let message):
             VStack(spacing: 14) {
-                Image(systemName: "display.trianglebadge.exclamationmark")
+                LucideIcon("monitor-x")
                     .font(.system(size: 34, weight: .light))
                 Text(message)
                     .font(Theme.Text.secondary)

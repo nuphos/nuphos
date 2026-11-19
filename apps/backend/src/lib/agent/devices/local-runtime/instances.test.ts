@@ -5,6 +5,7 @@ import { attachRuntimeTunnel } from './holder'
 import {
   commitLocalAgentInstance,
   createLocalAgentInstance,
+  openLocalDesktop,
   removeLocalAgentInstance,
 } from './instances'
 import { createMemoryPresenceStore } from './presence'
@@ -214,4 +215,18 @@ test('a reply about a different agent is rejected', async () => {
   await expect(
     commitLocalAgentInstance(target, { instanceId: instance.instanceId }, { deps }),
   ).rejects.toMatchObject({ code: 'agent_instance_invalid_response' })
+})
+
+// #2947: a Mac that cannot be controlled refuses its screen, and the viewer is told why.
+test('opening a desktop surfaces the host refusal word for word', async () => {
+  const reason =
+    'Accessibility is not allowed for Nuphos yet. Allow it on this Mac in System Settings > Privacy & Security > Accessibility.'
+  const { deps, requests } = await answering(() => ({ ok: false, error: reason }))
+
+  await expect(openLocalDesktop(target, 'runtime:mac', { deps })).rejects.toMatchObject({
+    status: 409,
+    code: 'agent_instance_failed',
+    message: reason,
+  })
+  expect(requests).toEqual([{ method: 'desktop', sessionId: 'runtime:mac' }])
 })

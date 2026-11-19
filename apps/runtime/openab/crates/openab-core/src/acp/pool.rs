@@ -1,5 +1,5 @@
 use crate::acp::connection::{AcpConnection, AcpRequestError, SessionActivity};
-use crate::acp::protocol::ConfigOption;
+use crate::acp::protocol::{ConfigOption, JsonRpcError};
 use crate::acp::session_credentials::{
     try_write_session_credentials, write_session_credentials, SESSION_CREDENTIALS_DIR_ENV,
     SESSION_CREDENTIALS_META_KEY,
@@ -49,7 +49,6 @@ struct PoolState {
     /// normally revokes it cannot fire while a hung streaming task still holds an Arc of the
     /// connection, and `AcpTunnelSource` authorizes by channel alone, so an un-revoked predecessor
     /// token would keep reaching whatever tunnel a successor registers for that channel (F3).
-    #[cfg(feature = "acp-mcp")]
     facade_tokens: HashMap<String, String>,
     /// Lock-free activity handles for hung-session detection without the connection mutex.
     activity: HashMap<String, Arc<SessionActivity>>,
@@ -67,6 +66,9 @@ struct PoolState {
     /// Serializes create/resume work per thread so rapid same-thread requests
     /// cannot race each other into duplicate `session/load` attempts.
     creating: HashMap<String, Arc<Mutex<()>>>,
+    /// When Stop was last asked for a thread, including while its session was
+    /// still opening and there was nothing yet to send the cancel to.
+    stopped_at: HashMap<String, std::time::Instant>,
     /// Per-session working directory overrides (from control directives).
     /// thread_key → canonical workspace path.
     session_workdirs: HashMap<String, String>,
@@ -93,9 +95,7 @@ pub struct SessionPool {
     meta_path: PathBuf,
     credentials_root: PathBuf,
     default_config_options: HashMap<String, String>,
-    #[cfg(feature = "acp-mcp")]
     session_registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
-    #[cfg(feature = "acp-mcp")]
     facade_url: Option<String>,
 }
 
@@ -277,7 +277,6 @@ fn better_candidate(current_oldest: Option<Instant>, candidate_last_active: Inst
 /// credential for a session that cannot use it and leave it valid until eviction, while the
 /// failure showed up only as a warning. Returning `None` keeps the session running without
 /// browser capabilities, which is the honest description of what actually happened.
-#[cfg(feature = "acp-mcp")]
 async fn setup_facade_session(
     workdir: &str,
     facade_url: &str,
@@ -308,6 +307,17 @@ async fn setup_facade_session(
 /// clone of the connection, so the agent process may be alive and mid-turn. If the session id
 /// stayed in `suspended`/`persisted`, the next message would `session/load` the same session while
 /// the old process still owns an in-flight turn.
+/// Forgets a thread's live connection state but keeps its session id, persisted and
+/// suspended, so the next `get_or_restore` loads that session instead of starting fresh.
+fn suspend_entry(state: &mut PoolState, thread_id: &str, sid: &str) {
+    state.cancel_handles.remove(thread_id);
+    state.steering_handles.remove(thread_id);
+    state.activity.remove(thread_id);
+    state.pgids.remove(thread_id);
+    state.persisted.insert(thread_id.to_string(), sid.to_string());
+    state.suspended.insert(thread_id.to_string(), sid.to_string());
+}
+
 fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.admission_permits.remove(key);
     state.cancel_handles.remove(key);
@@ -316,6 +326,7 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.pgids.remove(key);
     state.suspended.remove(key);
     state.persisted.remove(key);
+    state.stopped_at.remove(key);
     // Do NOT remove the creating gate: it is concurrency control, not session
     // state. Removing it while a holder still owns the old gate Arc would let
     // a concurrent get_or_create mint a fresh gate and run two creations for
@@ -323,6 +334,59 @@ fn purge_session_entries(state: &mut PoolState, key: &str) {
     state.session_workdirs.remove(key);
     state.session_mcp_servers.remove(key);
     state.session_meta.remove(key);
+}
+
+/// ACP's "resource not found" (`-32002`): what claude-agent-acp answers a
+/// `session/load` with for a conversation it never persisted.
+pub(crate) const ACP_RESOURCE_NOT_FOUND: i64 = -32002;
+
+/// The agent does not hold this session, whether a prompt, a setting or a `session/load` asked.
+/// ACP says "resource not found"; claude-agent-acp throws a plain "Session not found", which the
+/// ACP SDK relays as an internal error; codex-acp names the session in its own wording.
+pub(crate) fn session_lost(err: &JsonRpcError) -> bool {
+    if err.code == ACP_RESOURCE_NOT_FOUND
+        || (err.code == -32603 && err.data_message().as_deref() == Some("Session not found"))
+    {
+        return true;
+    }
+    let text = load_error_text(err);
+    // The rollout phrase is unambiguous, whatever code codex-acp relays it under.
+    text.contains(CODEX_MISSING_THREAD_PHRASE)
+        // -32602 is also what an agent says about a genuinely malformed request, so there the
+        // wording itself has to name the session.
+        || (err.code == INVALID_PARAMS
+            && SESSION_GONE_PHRASES.iter().any(|phrase| text.contains(phrase)))
+}
+
+/// JSON-RPC "invalid params" (`-32602`), which codex-acp also uses for `Unknown session: <id>`.
+const INVALID_PARAMS: i64 = -32602;
+
+/// codex's app-server, relayed by codex-acp as an internal error, when it has no rollout
+/// (transcript) for the thread it was asked to resume.
+const CODEX_MISSING_THREAD_PHRASE: &str = "no rollout found";
+
+/// Wording an agent uses when the session it was asked about does not exist. Matched
+/// case-insensitively against the error's message and its `data` detail, because the phrasing is
+/// the agent's own; only the stable part of each known phrase is listed.
+const SESSION_GONE_PHRASES: &[&str] = &[
+    // codex-acp, as invalid params.
+    "unknown session",
+    "session not found",
+    "no such session",
+    "session does not exist",
+    // claude-agent-acp's CLI, before the adapter maps it to -32002.
+    "no conversation found",
+];
+
+/// An agent error's own wording, lowercased: the JSON-RPC message plus the detail it carries in
+/// `error.data` (codex-acp reports its app-server error there).
+fn load_error_text(err: &JsonRpcError) -> String {
+    let mut text = err.message.to_lowercase();
+    if let Some(detail) = err.data_message() {
+        text.push(' ');
+        text.push_str(&detail.to_lowercase());
+    }
+    text
 }
 
 /// Escalating kill for a hung agent's process group: wait 10s after the
@@ -345,11 +409,7 @@ async fn kill_pgid_after_grace(pgid: Option<i32>) {
         }
     }
     #[cfg(not(unix))]
-    {
-        // No process-group kill on non-unix; rely on AcpConnection::Drop's
-        // Windows handling if/when the hung task eventually unwinds.
-        let _ = pgid;
-    }
+    crate::acp::connection::kill_process_group(pgid);
 }
 
 /// Remove a hung session from all pool maps. Returns true if the exact
@@ -374,7 +434,6 @@ fn apply_hung_eviction(
 /// holds an Arc) the guard never fires — so revoking the superseded token here is what stops it
 /// staying valid for the channel after a successor takes over (F3). Revocation is by exact token
 /// and idempotent, so overlapping with the guard on a clean replacement is harmless.
-#[cfg(feature = "acp-mcp")]
 fn install_facade_token(
     state: &mut PoolState,
     key: &str,
@@ -397,7 +456,6 @@ fn install_facade_token(
 /// and `AcpTunnelSource` (channel-only authorization) would let the hung predecessor reach a
 /// successor's tunnel (F3). `purge_session_entries` deliberately does NOT touch `facade_tokens`, so
 /// this can run *after* `apply_hung_eviction` and still find the token to revoke.
-#[cfg(feature = "acp-mcp")]
 fn revoke_facade_token_for_key(
     state: &mut PoolState,
     key: &str,
@@ -538,13 +596,13 @@ impl SessionPool {
                 admission_permits: HashMap::new(),
                 cancel_handles: HashMap::new(),
                 steering_handles: HashMap::new(),
-                #[cfg(feature = "acp-mcp")]
                 facade_tokens: HashMap::new(),
                 activity: HashMap::new(),
                 pgids: HashMap::new(),
                 persisted: suspended.clone(),
                 suspended,
                 creating: HashMap::new(),
+                stopped_at: HashMap::new(),
                 session_workdirs,
                 session_mcp_servers: HashMap::new(),
                 session_meta: HashMap::new(),
@@ -557,9 +615,7 @@ impl SessionPool {
             meta_path,
             credentials_root,
             default_config_options,
-            #[cfg(feature = "acp-mcp")]
             session_registrar: None,
-            #[cfg(feature = "acp-mcp")]
             facade_url: None,
         }
     }
@@ -574,7 +630,6 @@ impl SessionPool {
     /// of the agent, and a `type:acp` server must actually attach over `/acp` —
     /// admission is that transport auth, not a config allowlist (D-29 removed
     /// `[[mcp.acp_servers]]`, reversing D-20).
-    #[cfg(feature = "acp-mcp")]
     pub fn with_facade_sessions(
         mut self,
         registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
@@ -681,7 +736,6 @@ impl SessionPool {
                 state.steering_handles.remove(&key);
                 state.activity.remove(&key);
                 state.pgids.remove(&key);
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
                 info!(evicted = %crate::redact::redact_session_ids(&key), "pool full, suspending oldest idle session before replacement spawn");
                 if let Some(sid) = sid {
@@ -774,14 +828,28 @@ impl SessionPool {
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
         info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers changed, respawning idle session");
-        state.cancel_handles.remove(thread_id);
-        state.steering_handles.remove(thread_id);
-        state.activity.remove(thread_id);
-        state.pgids.remove(thread_id);
-        state.persisted.insert(thread_id.to_string(), sid.clone());
-        state.suspended.insert(thread_id.to_string(), sid.clone());
+        suspend_entry(&mut state, thread_id, &sid);
         self.save_mapping(&state.persisted);
         Some(sid)
+    }
+
+    /// Drops a thread's connection but keeps its session id, so the next `get_or_create`
+    /// restores the session with `session/load`, or starts a new one where that is gone too.
+    /// For an agent that no longer holds the session its process still runs.
+    pub async fn suspend_session(&self, thread_id: &str) {
+        let mut state = self.state.write().await;
+        let Some(handle) = state.active.remove(thread_id) else {
+            return;
+        };
+        let sid = handle
+            .try_lock()
+            .ok()
+            .and_then(|conn| conn.acp_session_id.clone());
+        if let Some(sid) = sid {
+            info!(thread_id = %crate::redact::redact_session_ids(thread_id), "agent lost its session, restoring it");
+            suspend_entry(&mut state, thread_id, &sid);
+            self.save_mapping(&state.persisted);
+        }
     }
 
     /// Restore only a known native session, without a prompt or output attachment.
@@ -1005,9 +1073,7 @@ impl SessionPool {
         // There is no transport fallback. Without `[mcp]` the root wires no registrar, and the
         // session simply starts without browser capabilities — which is the honest outcome and is
         // reported once at startup rather than being silently substituted per session.
-        #[cfg(feature = "acp-mcp")]
         let mut session_token: Option<String> = None;
-        #[cfg(feature = "acp-mcp")]
         let facade_token_guard: Option<tokio_util::sync::DropGuard> = match (
             thread_id.strip_prefix("acp:"),
             self.session_registrar.as_ref(),
@@ -1053,7 +1119,6 @@ impl SessionPool {
                 dir.to_string_lossy().into_owned(),
             );
         }
-        #[cfg(feature = "acp-mcp")]
         let spawn_env: std::collections::HashMap<String, String> = {
             let mut env = base_env;
             if let Some(tok) = &session_token {
@@ -1063,8 +1128,6 @@ impl SessionPool {
             }
             env
         };
-        #[cfg(not(feature = "acp-mcp"))]
-        let spawn_env = base_env;
         // Callers may pass a per-session working directory that doesn't exist
         // yet (e.g. per-conversation isolation). Create it so the spawn's
         // current_dir() doesn't fail.
@@ -1082,7 +1145,6 @@ impl SessionPool {
         .await?;
 
         let mut resumed = false;
-        let mut load_timed_out = false;
         if let Some(ref sid) = saved_session_id {
             if new_conn.supports_load_session {
                 match new_conn
@@ -1103,25 +1165,15 @@ impl SessionPool {
                             .context("Could not restore the saved native session")
                             .into());
                     }
-                    Err(e @ AcpRequestError::Timeout { .. }) => {
-                        warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
-                            "session/load failed transiently, preserving session ID for retry");
-                        load_timed_out = true;
-                    }
+                    // Whatever the reason, the turn continues in a new session: failing it instead
+                    // only leaves the user stuck, since every next turn meets the same saved
+                    // session. `session_reset` below tells them the saved context was dropped.
                     Err(e) => {
                         warn!(thread_id = %crate::redact::redact_session_ids(thread_id), session_id = %crate::redact::redact_session_ids(sid), error = %e,
                             "session/load failed, creating new session");
                     }
                 }
             }
-        }
-
-        if load_timed_out {
-            // session/load timed out. The original session ID is already
-            // in state.persisted (we haven't touched it), so the next message will
-            // retry session/load automatically. Return an error so the current message
-            // is not processed against a context-free session.
-            return Err(anyhow!("session load timeout: could not restore previous session").into());
         }
 
         if !resumed {
@@ -1158,7 +1210,6 @@ impl SessionPool {
         let activity_handle = new_conn.activity_handle();
         let child_pgid = new_conn.child_pgid();
         let cancel_session_id = new_conn.acp_session_id.clone().unwrap_or_default();
-        #[cfg(feature = "acp-mcp")]
         new_conn.set_facade_token_guard(facade_token_guard);
         let new_conn = Arc::new(Mutex::new(new_conn));
 
@@ -1210,7 +1261,6 @@ impl SessionPool {
         }
         // Record this connection's exact token lock-free, revoking any predecessor token it
         // supersedes under the same key (its guard cannot fire if that predecessor is hung). F3.
-        #[cfg(feature = "acp-mcp")]
         if let Some(token) = session_token {
             install_facade_token(
                 &mut state,
@@ -1266,6 +1316,50 @@ impl SessionPool {
         f(&mut conn).await
     }
 
+    /// What a new session of this agent offers, read from a process that never
+    /// joins the pool and is killed when this returns. With `model`, the
+    /// choices are read after selecting it, since effort and speed depend on it.
+    pub async fn fresh_config_options(
+        &self,
+        model: Option<&str>,
+    ) -> std::result::Result<serde_json::Value, (i32, String)> {
+        let workdir = &self.config.working_dir;
+        let _ = std::fs::create_dir_all(workdir);
+        let mut conn = spawn_initialized(
+            &AgentCommand {
+                command: &self.config.command,
+                args: &self.config.args,
+                working_dir: workdir,
+                env: &self.config.env,
+                inherit_env: &self.config.inherit_env,
+            },
+            &[],
+        )
+        .await
+        .map_err(|_| (-32603, "Agent did not start".to_string()))?;
+        conn.session_new(workdir, &[], None)
+            .await
+            .map_err(|_| (-32603, "Agent did not start a session".to_string()))?;
+        for (config_id, value) in &self.default_config_options {
+            let _ = conn.set_config_option_strict(config_id, value).await;
+        }
+        if let Some(model) = model {
+            let option = conn
+                .config_options
+                .iter()
+                .find(|o| o.category.as_deref() == Some("model") || o.id == "model")
+                .filter(|o| o.options.iter().any(|choice| choice.value == model))
+                .ok_or((-32602, "Unknown model".to_string()))?;
+            if option.current_value != model {
+                let id = option.id.clone();
+                conn.set_config_option_strict(&id, model)
+                    .await
+                    .map_err(|_| (-32603, "Agent did not select the model".to_string()))?;
+            }
+        }
+        Ok(serde_json::json!({ "configOptions": conn.config_options }))
+    }
+
     /// Get cached configOptions for a session (e.g. available models).
     pub async fn get_config_options(&self, thread_id: &str) -> Vec<ConfigOption> {
         let state = self.state.read().await;
@@ -1299,54 +1393,70 @@ impl SessionPool {
     }
 
     /// Control an existing inner session without attaching an output sink,
-    /// starting a prompt, or changing the session's execution principal.
+    /// starting a prompt, or changing the session's execution principal. A setting the
+    /// agent rejects as a lost session restores the session once and is sent again.
     pub async fn session_config_options(
         &self,
         thread_id: &str,
         selection: Option<(&str, &str)>,
     ) -> std::result::Result<serde_json::Value, (i32, String)> {
-        let handle = self
-            .state
-            .read()
-            .await
-            .active
-            .get(thread_id)
-            .cloned()
-            .ok_or_else(|| {
-                (
-                    -32004,
-                    "Session is not running; send a message to resume it".into(),
-                )
-            })?;
-        let mut conn = handle.try_lock().map_err(|_| {
-            (
-                -32005,
-                "Session is responding; wait for the current turn to finish".into(),
-            )
-        })?;
-        if !conn.alive() {
-            return Err((
-                -32004,
-                "Session is not running; send a message to resume it".into(),
-            ));
-        }
-        if let Some((id, value)) = selection {
-            let valid = conn.config_options.iter().any(|option| {
-                option.id == id && option.options.iter().any(|choice| choice.value == value)
-            });
-            if !valid {
-                return Err((-32602, "Unknown configuration option or value".into()));
-            }
-            conn.set_config_option_strict(id, value)
+        for retry_lost_session in [true, false] {
+            let handle = self
+                .state
+                .read()
                 .await
-                .map_err(|_| {
+                .active
+                .get(thread_id)
+                .cloned()
+                .ok_or_else(|| {
                     (
-                        -32603,
-                        "Agent could not confirm the configuration change".into(),
+                        -32004,
+                        "Session is not running; send a message to resume it".into(),
                     )
                 })?;
+            let mut conn = handle.try_lock().map_err(|_| {
+                (
+                    -32005,
+                    "Session is responding; wait for the current turn to finish".into(),
+                )
+            })?;
+            if !conn.alive() {
+                return Err((
+                    -32004,
+                    "Session is not running; send a message to resume it".into(),
+                ));
+            }
+            if let Some((id, value)) = selection {
+                let valid = conn.config_options.iter().any(|option| {
+                    option.id == id && option.options.iter().any(|choice| choice.value == value)
+                });
+                if !valid {
+                    return Err((-32602, "Unknown configuration option or value".into()));
+                }
+                if let Err(e) = conn.set_config_option_strict(id, value).await {
+                    let session_gone = e
+                        .downcast_ref::<JsonRpcError>()
+                        .is_some_and(session_lost);
+                    if !(session_gone && retry_lost_session) {
+                        return Err((
+                            -32603,
+                            "Agent could not confirm the configuration change".into(),
+                        ));
+                    }
+                    // The agent lost the session: restore it as a prompt does, then send
+                    // the setting once more. The old process exits before the new starts.
+                    drop(conn);
+                    drop(handle);
+                    self.suspend_session(thread_id).await;
+                    self.restore_for_config(thread_id, &[], None)
+                        .await
+                        .map_err(|_| (-32004, "Saved session could not be restored".into()))?;
+                    continue;
+                }
+            }
+            return Ok(serde_json::json!({ "configOptions": conn.config_options }));
         }
-        Ok(serde_json::json!({ "configOptions": conn.config_options }))
+        unreachable!("the second pass never retries")
     }
 
     /// Query account-level usage/billing from the backend agent for a session
@@ -1370,7 +1480,10 @@ impl SessionPool {
     /// Uses pre-stored cancel handles to avoid locking the connection (which is held during streaming).
     pub async fn cancel_session(&self, thread_id: &str) -> Result<()> {
         let (stdin, session_id) = {
-            let state = self.state.read().await;
+            let mut state = self.state.write().await;
+            state
+                .stopped_at
+                .insert(thread_id.to_string(), std::time::Instant::now());
             if let Some(activity) = state.activity.get(thread_id) {
                 if activity.in_flight() || activity.execution.snapshot()["state"] == "active" {
                     activity.execution.operation("cancelling");
@@ -1389,6 +1502,16 @@ impl SessionPool {
         };
         tracing::info!(session_id = %crate::redact::redact_session_ids(&session_id), "sending session/cancel");
         send_session_cancel(&stdin, &session_id).await
+    }
+
+    /// Whether Stop was asked for this thread at or after `since`. A turn that has
+    /// waited since then for its session to open must not be sent to the agent.
+    pub async fn stopped_since(&self, thread_id: &str, since: std::time::Instant) -> bool {
+        let state = self.state.read().await;
+        state
+            .stopped_at
+            .get(thread_id)
+            .is_some_and(|at| *at >= since)
     }
 
     /// Reset a session: cancel any in-flight operation, remove the active connection,
@@ -1417,7 +1540,6 @@ impl SessionPool {
         purge_session_entries(&mut state, thread_id);
         // Resetting a hung session drops the map's Arc but not the one the stuck task holds, so the
         // guard cannot revoke — do it synchronously here too (F3).
-        #[cfg(feature = "acp-mcp")]
         revoke_facade_token_for_key(&mut state, thread_id, self.session_registrar.as_ref());
         self.save_mapping(&state.persisted);
         self.save_meta(&state.session_workdirs);
@@ -1542,7 +1664,6 @@ impl SessionPool {
                 state.steering_handles.remove(&key);
                 state.activity.remove(&key);
                 state.pgids.remove(&key);
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
                 if let Some(sid) = sid {
                     state.persisted.insert(key.clone(), sid.clone());
@@ -1560,7 +1681,6 @@ impl SessionPool {
                 // resolving to the channel and a successor's tunnel becomes reachable by the hung
                 // predecessor (F3). Safe after `apply_hung_eviction`: its `purge_session_entries`
                 // leaves `facade_tokens` alone.
-                #[cfg(feature = "acp-mcp")]
                 revoke_facade_token_for_key(&mut state, &key, self.session_registrar.as_ref());
             } else {
                 warn!(thread_id = %crate::redact::redact_session_ids(&key), "hung session was replaced before eviction; maps untouched");
@@ -1629,27 +1749,23 @@ mod tests {
         PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
+    use crate::acp::protocol::JsonRpcError;
     use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::Mutex;
     use tokio::time::Instant;
 
     /// Registrar double that records every mint, so a test can assert one never happened.
-    #[cfg(feature = "acp-mcp")]
     #[derive(Default)]
     struct CountingRegistrar {
         minted: std::sync::Mutex<Vec<String>>,
         revoked: std::sync::Mutex<Vec<String>>,
     }
-
-    #[cfg(feature = "acp-mcp")]
     impl CountingRegistrar {
         fn revoked(&self) -> Vec<String> {
             self.revoked.lock().unwrap().clone()
         }
     }
-
-    #[cfg(feature = "acp-mcp")]
     impl crate::acp_mcp::SessionTokenRegistrar for CountingRegistrar {
         fn mint(&self, channel_id: &str) -> String {
             self.minted.lock().unwrap().push(channel_id.to_string());
@@ -1661,7 +1777,6 @@ mod tests {
     }
 
     /// Build an empty `PoolState` for a helper-level test.
-    #[cfg(feature = "acp-mcp")]
     fn empty_pool_state() -> super::PoolState {
         super::PoolState {
             active: HashMap::new(),
@@ -1674,6 +1789,7 @@ mod tests {
             suspended: HashMap::new(),
             persisted: HashMap::new(),
             creating: HashMap::new(),
+            stopped_at: HashMap::new(),
             session_workdirs: HashMap::new(),
             session_mcp_servers: HashMap::new(),
             session_meta: HashMap::new(),
@@ -1684,7 +1800,6 @@ mod tests {
     /// the successor's standing. Without the revoke the predecessor token keeps resolving to the
     /// channel and — since `AcpTunnelSource` authorizes by channel — could reach the successor's
     /// tunnel. Exercises the production `install_facade_token`.
-    #[cfg(feature = "acp-mcp")]
     #[test]
     fn installing_a_successor_token_revokes_only_the_superseded_predecessor() {
         let reg = Arc::new(CountingRegistrar::default());
@@ -1724,7 +1839,6 @@ mod tests {
     /// F3: hung eviction revokes the exact facade token synchronously (the DropGuard cannot fire
     /// while the hung task holds an Arc). Exercises the production `revoke_facade_token_for_key`,
     /// which the hung-eviction loop calls after `apply_hung_eviction`.
-    #[cfg(feature = "acp-mcp")]
     #[test]
     fn hung_eviction_revokes_the_exact_facade_token_and_forgets_it() {
         let reg = Arc::new(CountingRegistrar::default());
@@ -1759,7 +1873,6 @@ mod tests {
     /// A failed facade config write must not mint a token. The agent has no `openab` entry, so it
     /// can never present one; minting anyway would leave a live credential registered for a
     /// session that cannot use it until eviction.
-    #[cfg(feature = "acp-mcp")]
     #[tokio::test]
     async fn no_token_is_minted_when_the_facade_config_write_fails() {
         let dir = tempfile::tempdir().unwrap();
@@ -1789,8 +1902,29 @@ mod tests {
         );
     }
 
+    /// #2872: a Stop pressed while the session is still opening has no agent to reach yet.
+    #[tokio::test]
+    async fn a_stop_before_the_session_exists_is_remembered() {
+        let pool = super::SessionPool::new(
+            crate::config::AgentConfig::default(),
+            1,
+            60,
+            HashMap::new(),
+        );
+        let before = std::time::Instant::now();
+
+        assert!(
+            pool.cancel_session("acp:opening").await.is_err(),
+            "there is no agent session to cancel yet"
+        );
+
+        assert!(pool.stopped_since("acp:opening", before).await);
+        assert!(!pool.stopped_since("acp:other", before).await);
+        let later = std::time::Instant::now() + std::time::Duration::from_millis(1);
+        assert!(!pool.stopped_since("acp:opening", later).await);
+    }
+
     /// The happy path still mints exactly once, for the right channel.
-    #[cfg(feature = "acp-mcp")]
     #[tokio::test]
     async fn a_successful_facade_config_write_mints_one_token() {
         let dir = tempfile::tempdir().unwrap();
@@ -2154,7 +2288,6 @@ mod tests {
             admission_permits: HashMap::from([("hung".to_string(), admission_permit)]),
             cancel_handles: HashMap::new(),
             steering_handles: HashMap::new(),
-            #[cfg(feature = "acp-mcp")]
             facade_tokens: HashMap::new(),
             activity: HashMap::from([
                 ("hung".to_string(), Arc::new(SessionActivity::new())),
@@ -2170,6 +2303,7 @@ mod tests {
                 ("other".to_string(), "session-other".to_string()),
             ]),
             creating: HashMap::from([("hung".to_string(), Arc::new(Mutex::new(())))]),
+            stopped_at: HashMap::new(),
             session_workdirs: HashMap::from([("hung".to_string(), "/tmp/ws".to_string())]),
             session_mcp_servers: HashMap::from([(
                 "hung".to_string(),
@@ -2249,5 +2383,44 @@ mod tests {
         assert_eq!(meta_working_dir(Some(&meta(1.into()))), None);
         assert_eq!(meta_working_dir(Some(&serde_json::json!({}))), None);
         assert_eq!(meta_working_dir(None), None);
+    }
+
+    /// The agent does not hold the session: ACP's "resource not found", or a code and wording that
+    /// name a missing session. Anything else says nothing about the session.
+    #[test]
+    fn session_lost_recognizes_each_agents_wording() {
+        let agent_error = |code: i64, message: &str, detail: Option<&str>| JsonRpcError {
+            code,
+            message: message.into(),
+            data: detail.map(|detail| serde_json::json!({ "details": detail })),
+        };
+
+        for gone in [
+            // claude-agent-acp: ACP's "resource not found", whatever its message says.
+            agent_error(-32002, "Resource not found: sess_1", None),
+            // claude-agent-acp: a plain "Session not found", relayed as an internal error.
+            agent_error(-32603, "Internal error", Some("Session not found")),
+            // codex-acp: invalid params that names the session.
+            agent_error(-32602, "Invalid params: Unknown session: sess_1", None),
+            agent_error(-32602, "INVALID PARAMS: UNKNOWN SESSION: sess_1", None),
+            agent_error(-32602, "Session not found", None),
+            agent_error(-32602, "No such session", None),
+            // codex's app-server, which codex-acp relays as an internal error.
+            agent_error(
+                -32603,
+                "Internal error",
+                Some("no rollout found for thread id 3f2a"),
+            ),
+        ] {
+            assert!(super::session_lost(&gone), "{gone} must mean the session is gone");
+        }
+
+        for other in [
+            agent_error(-32603, "Internal error", Some("session store is locked")),
+            agent_error(-32603, "Internal error", None),
+            agent_error(-32602, "Invalid params: cwd must be an absolute path", None),
+        ] {
+            assert!(!super::session_lost(&other), "{other} names no missing session");
+        }
     }
 }

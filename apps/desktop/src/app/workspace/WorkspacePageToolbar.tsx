@@ -1,5 +1,6 @@
 import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { clsx } from 'clsx'
 import { Profiler } from 'react'
 
 import { FULL_BLEED_PAGE_KEYS } from '../../app/workspaceTabState'
@@ -13,9 +14,15 @@ import { useWorkspacePane } from './WorkspacePaneContext'
 import type { WorkspaceController } from './useWorkspaceController'
 
 /** The header above a page tab; full-bleed pages go without one unless they fill the window's corner. */
-export function WorkspacePageToolbar({ ws }: { ws: WorkspaceController }) {
+export function WorkspacePageToolbar({
+  ws,
+  mainPage,
+}: {
+  ws: WorkspaceController
+  mainPage: boolean
+}) {
   const {
-    mainPageOpen,
+    dockOpen,
     activeTab,
     activeExternalLink,
     toolbarPageUrl,
@@ -40,7 +47,7 @@ export function WorkspacePageToolbar({ ws }: { ws: WorkspaceController }) {
   } = ws
   const cornerPane = useWorkspacePane()?.cornerPane ?? false
   // In the dock this page sits right of the chat; only as the main page does it own the corner.
-  const corner = mainPageOpen && cornerPane
+  const corner = mainPage && cornerPane
 
   if (!scope || (!corner && FULL_BLEED_PAGE_KEYS.has(activeTab?.active ?? ''))) return null
 
@@ -48,7 +55,11 @@ export function WorkspacePageToolbar({ ws }: { ws: WorkspaceController }) {
     <Profiler id="toolbar" onRender={(id, _p, ms) => reportShellRender(id, ms)}>
       <Toolbar
         leading={corner ? <CornerSidebarToggle /> : undefined}
-        headerClassName={corner ? CORNER_TITLEBAR_CLASS : undefined}
+        headerClassName={clsx(
+          corner && CORNER_TITLEBAR_CLASS,
+          // The dock toggle sits over this header while the dock is closed.
+          mainPage && !dockOpen && 'pr-[var(--dock-toggle-pad)]',
+        )}
         segments={toolbarSegments}
         filter={filter}
         onFilterChange={setActiveFilter}

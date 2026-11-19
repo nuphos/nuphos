@@ -36,23 +36,23 @@ enum SignInSessions {
         let ua = session.userAgent ?? ""
         // The nuphos.ai web sign-in reaches the backend from the website's server.
         if session.client == nil, ua.range(of: #"^(node|undici)\b"#, options: [.regularExpression, .caseInsensitive]) != nil {
-            return "Web sign-in (nuphos.ai)"
+            return String(localized: "Web sign-in (nuphos.ai)")
         }
         func first(_ list: [(String, String)]) -> String? {
             list.first { ua.range(of: $0.0, options: .regularExpression) != nil }?.1
         }
         switch (first(browsers), first(systems)) {
-        case let (browser?, system?): return "\(browser) on \(system)"
+        case let (browser?, system?): return String(localized: "\(browser) on \(system)")
         case let (browser?, nil): return browser
-        case let (nil, system?): return "A browser on \(system)"
-        case (nil, nil): return "Unknown device"
+        case let (nil, system?): return String(localized: "A browser on \(system)")
+        case (nil, nil): return String(localized: "Unknown device")
         }
     }
 
     /// `City, CC · IP`.
     static func place(_ session: SignInSession) -> String {
         let place = [session.city, session.country].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
-        return [place.isEmpty ? "Unknown location" : place, session.ip ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
+        return [place.isEmpty ? String(localized: "Unknown location") : place, session.ip ?? ""].filter { !$0.isEmpty }.joined(separator: " · ")
     }
 
     /// This device first, then the most recently active.
@@ -64,14 +64,15 @@ enum SignInSessions {
 
     /// "Active now" for this device, else "Last active 3 hours ago".
     static func activity(_ session: SignInSession, now: Date = .now) -> String {
-        if session.isCurrent { return "Active now" }
+        if session.isCurrent { return String(localized: "Active now") }
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         guard let raw = session.lastUsedAt, let date = iso.date(from: raw) ?? ISO8601DateFormatter().date(from: raw) else {
-            return "Last active: unknown"
+            return String(localized: "Last active: unknown")
         }
         let relative = RelativeDateTimeFormatter()
-        relative.locale = Locale(identifier: "en_US")
-        return "Last active \(relative.localizedString(for: min(date, now), relativeTo: now))"
+        // The language the rest of the line is shown in; English in tests.
+        relative.locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return String(localized: "Last active \(relative.localizedString(for: min(date, now), relativeTo: now))")
     }
 }

@@ -47,6 +47,8 @@ enum ChatRow: Identifiable, Equatable {
     case failed
     case hint(id: String, text: String, isError: Bool)
     case event(id: String, event: ChatMessage.Event)
+    /// A question someone answered, in place of the notice that told the agent.
+    case answered(id: String, question: AnsweredQuestion)
     /// A chat's post, loop-guard line or typing bubble.
     case channel(id: String, item: ChannelItem)
 
@@ -55,7 +57,7 @@ enum ChatRow: Identifiable, Equatable {
         case .timestamp(let id, _), .user(let id, _, _, _, _, _), .assistantText(let id, _, _, _),
              .reasoning(let id, _), .tool(let id, _, _, _), .toolRun(let id, _, _, _), .work(let id, _, _),
              .memory(let id, _, _), .memoryRecall(let id, _, _), .downloads(let id, _), .hint(let id, _, _),
-             .event(let id, _), .channel(let id, _):
+             .event(let id, _), .answered(let id, _), .channel(let id, _):
             return id
         case .activity: return "activity"
         case .sending: return "sending"
@@ -123,7 +125,7 @@ extension ChatRow {
                     if let row = userRow(steer, id: "steering.\(id)", messageId: message.id) { body.append(row) }
                 }
             case .turnInterrupted(let p):
-                body.append(.hint(id: "interrupted.\(message.id).\(p.id)", text: p.reason == .cancelled ? "Stopped." : p.message, isError: p.reason != .cancelled))
+                body.append(.hint(id: interruptedId(message.id, p.id), text: p.reason == .cancelled ? String(localized: "Stopped.") : p.message, isError: p.reason != .cancelled))
             case .other(let v) where v["type"]?.stringValue == "memory-ingest":
                 let created = Int(v["memoriesCreated"]?.numberValue ?? 0), updated = Int(v["memoriesUpdated"]?.numberValue ?? 0)
                 guard created + updated > 0 else { continue }
@@ -245,5 +247,40 @@ extension ChatRow {
             if case .turnInterrupted(let p) = part, p.reason != .cancelled { return p.message }
         }
         return nil
+    }
+
+    static func interruptedId(_ messageId: String, _ partId: String) -> String { "interrupted.\(messageId).\(partId)" }
+
+    /// What Copy puts on the clipboard for a failed turn's line, as on the
+    /// desktop: the headline, the error and when it happened.
+    static func failureReport(rowId: String, in messages: [ChatMessage]) -> String? {
+        for message in messages.reversed() {
+            for case .turnInterrupted(let p) in message.parts where p.reason != .cancelled && interruptedId(message.id, p.id) == rowId {
+                return [p.reason == .timeout ? String(localized: "Turn timed out.") : String(localized: "Turn failed."), p.message, p.createdAt].joined(separator: "\n")
+            }
+        }
+        return nil
+    }
+
+    /// The latest turn's failure line and the viewer's own prompt Retry would
+    /// resend, as on the desktop. A stopped turn is not offered, nor a prompt
+    /// with files (resending only its text would ask something else), nor a
+    /// teammate's prompt in a shared chat.
+    static func failedTurn(in messages: [ChatMessage], userId: String?, foreignChat: Bool) -> (rowId: String, prompt: String)? {
+        guard messages.count >= 2, let reply = messages.last, reply.role == .assistant else { return nil }
+        let asked = messages[messages.count - 2]
+        guard let p = reply.parts.reversed().lazy.compactMap({ part -> ChatPart.TurnInterruptedPart? in
+            if case .turnInterrupted(let p) = part { return p }; return nil
+        }).first, p.reason != .cancelled, asked.role == .user, asked.event == nil else { return nil }
+        if let senderId = asked.metadata?["sender"]?["id"]?.stringValue {
+            guard senderId == userId else { return nil }
+        } else if foreignChat { return nil }
+        var texts: [String] = []
+        for part in asked.parts {
+            guard case .text(let t) = part else { return nil }
+            texts.append(t.text)
+        }
+        let prompt = texts.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        return prompt.isEmpty ? nil : (interruptedId(reply.id, p.id), prompt)
     }
 }

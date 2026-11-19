@@ -6,9 +6,9 @@ import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChatFace
-import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChannelReply
 import kotlinx.coroutines.CancellationException
@@ -73,12 +73,18 @@ class ChannelSession(
         override suspend fun pending() = questions.pending()
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
             questions.answer(sessionId, requestId, answer)
+        override suspend fun dismiss(sessionId: String, requestId: String, reason: String?) =
+            questions.dismiss(sessionId, requestId, reason)
+        override suspend fun credentials(sessionId: String) = questions.credentials(sessionId)
+        override suspend fun saveCredentials(sessionId: String, access: JsonValue) = questions.saveCredentials(sessionId, access)
     }
 
     var title by mutableStateOf(title)
         private set
     /** The chat's icon: the members other than the viewer that it shows. */
     var faces by mutableStateOf<List<ChatFace>>(emptyList())
+    /** The Bot this is the 1:1 chat of; null in a group chat, even one with only a Bot in it. */
+    var botId by mutableStateOf<String?>(null)
     var stored by mutableStateOf<List<ChannelPost>>(emptyList())
         private set
     var events by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
@@ -128,19 +134,27 @@ class ChannelSession(
 
     val posts: List<ChannelPost> get() = stored + ChannelPost.stillSending(stored, sending)
 
-    private val open = OpenQuestions(transport)
+    /** In a Bot's chat: its open questions, answered and connected on their cards as in the Inbox. */
+    val open = OpenQuestions(transport)
     /** In a Bot's chat: the open questions of the Bot and of every agent under it. */
     val questions: List<BotQuestion> get() = open.list
 
     /** A Bot's chat reads the pending listing, as Desktop's does; any other chat has none. */
     suspend fun refreshQuestions() {
-        val bot = faces.botFace?.id ?: return
+        val bot = botId ?: return
         open.refresh { BotQuestions.under(bot, it) }
     }
 
     /** Answers a question in this chat: the server wakes the agent that asked, which replies where it asked. */
     fun answer(question: BotQuestion, text: String, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, text, scope)
+
+    /** Answers a several-question or multi-select card with what its form built. */
+    fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
+        open.answer(question, body, scope)
+
+    /** Dismisses a question in this chat at once, without a reason: the agent that asked is told. */
+    fun dismiss(question: BotQuestion, scope: kotlinx.coroutines.CoroutineScope) = open.dismiss(question, null, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
@@ -286,9 +300,12 @@ class ChannelSession(
         sendingAttachments = sendingAttachments.filterKeys { id -> sending.any { it.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces
+        botId = detail.botId
         noteActivity(detail)
         revision = stamp(detail)
         loadError = null

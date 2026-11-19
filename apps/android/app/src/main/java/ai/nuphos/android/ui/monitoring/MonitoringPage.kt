@@ -19,6 +19,8 @@ import ai.nuphos.android.model.providerHttpsUrl
 import ai.nuphos.android.session.BrowsingPhase
 import ai.nuphos.android.session.MonitoringStore
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,34 +45,34 @@ fun MonitoringPage(store: MonitoringStore, selectedTeamId: String?, onOpenConnec
     }
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            OutlinedTextField(query, { query = it }, label = { Text("Search monitoring") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(query, { query = it }, label = { Text(stringResource(R.string.monitoring_search)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                TextButton(onClick = { query = ""; provider = ""; status = "" }) { Text("Clear filters") }
-                TextButton(onClick = { scope.launch { store.refresh() } }, enabled = matchesTeam && selectedTeamId != null && store.phase != BrowsingPhase.Loading) { Text("Refresh") }
+                TextButton(onClick = { query = ""; provider = ""; status = "" }) { Text(stringResource(R.string.monitoring_clear_filters)) }
+                TextButton(onClick = { scope.launch { store.refresh() } }, enabled = matchesTeam && selectedTeamId != null && store.phase != BrowsingPhase.Loading) { Text(stringResource(R.string.monitoring_refresh)) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(provider.isEmpty(), { provider = "" }, label = { Text("All providers") })
+                FilterChip(provider.isEmpty(), { provider = "" }, label = { Text(stringResource(R.string.monitoring_all_providers)) })
                 rows.map { it.provider }.distinct().forEach { value -> FilterChip(provider == value, { provider = value }, label = { Text(value) }) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(status.isEmpty(), { status = "" }, label = { Text("All statuses") })
+                FilterChip(status.isEmpty(), { status = "" }, label = { Text(stringResource(R.string.monitoring_all_statuses)) })
                 rows.distinctBy { it.status }.forEach { value -> FilterChip(status == value.status, { status = value.status }, label = { Text(value.statusLabel) }) }
             }
         }
         when {
-            selectedTeamId == null -> item { Text("Select a team to view monitoring.") }
-            !matchesTeam || store.phase == BrowsingPhase.Idle || store.phase == BrowsingPhase.Loading -> item { Text("Loading monitoring…") }
-            store.phase == BrowsingPhase.Denied -> item { Text("Monitoring access denied. Check your team membership.") }
-            store.phase == BrowsingPhase.Failed && rows.isEmpty() -> item { Text("Could not load monitoring. ${store.error.orEmpty()}") }
+            selectedTeamId == null -> item { Text(stringResource(R.string.monitoring_select_team)) }
+            !matchesTeam || store.phase == BrowsingPhase.Idle || store.phase == BrowsingPhase.Loading -> item { Text(stringResource(R.string.monitoring_loading)) }
+            store.phase == BrowsingPhase.Denied -> item { Text(stringResource(R.string.monitoring_access_denied)) }
+            store.phase == BrowsingPhase.Failed && rows.isEmpty() -> item { Text(stringResource(R.string.monitoring_load_failed, store.error.orEmpty())) }
         }
         if (matchesTeam && selectedTeamId != null) {
-            if (store.stale) item { Text("Stale data — refresh failed. ${store.error.orEmpty()}", color = MaterialTheme.colorScheme.error) }
+            if (store.stale) item { Text(stringResource(R.string.monitoring_stale, store.error.orEmpty()), color = MaterialTheme.colorScheme.error) }
             if (store.overview.providerErrors.isNotEmpty()) item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
-                        Text("Some providers could not be loaded", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.monitoring_provider_errors_title), style = MaterialTheme.typography.titleSmall)
                         TextButton(onClick = { showErrors = !showErrors }) {
-                            Text(if (showErrors) "Hide provider errors" else "Show provider errors")
+                            Text(stringResource(if (showErrors) R.string.monitoring_hide_provider_errors else R.string.monitoring_show_provider_errors))
                         }
                         if (showErrors) store.overview.providerErrors.forEach {
                             Text("${it.provider} · ${it.integrationLabel}: ${it.message}", style = MaterialTheme.typography.bodySmall)
@@ -79,10 +81,10 @@ fun MonitoringPage(store: MonitoringStore, selectedTeamId: String?, onOpenConnec
                 }
             }
             if (store.phase == BrowsingPhase.Loaded && rows.isEmpty()) item {
-                Text("No monitoring checks", style = MaterialTheme.typography.titleMedium)
-                Text("Supported checks from Better Stack, Grafana and GCP appear here.")
-                TextButton(onClick = onOpenConnectors) { Text("Open Connectors") }
-            } else if (rows.isNotEmpty() && filtered.isEmpty()) item { Text("No matching checks") }
+                Text(stringResource(R.string.monitoring_empty_title), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.monitoring_empty_body))
+                TextButton(onClick = onOpenConnectors) { Text(stringResource(R.string.monitoring_open_connectors)) }
+            } else if (rows.isNotEmpty() && filtered.isEmpty()) item { Text(stringResource(R.string.monitoring_no_matching_checks)) }
             items(filtered, key = { it.id }) { row ->
                 Card(Modifier.fillMaxWidth().clickable { detailId = row.id }) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -106,21 +108,21 @@ private fun MonitoringInformation(row: MonitoringRow, onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(row.name, style = MaterialTheme.typography.headlineSmall)
-            Text("Status: ${row.statusLabel}")
-            Text("Provider: ${row.provider}")
-            Text("Connector: ${row.integrationLabel}")
+            Text(stringResource(R.string.monitoring_detail_status, row.statusLabel))
+            Text(stringResource(R.string.monitoring_detail_provider, row.provider))
+            Text(stringResource(R.string.monitoring_detail_connector, row.integrationLabel))
             row.lastIncidentAt?.let {
                 val label = runCatching { ai.nuphos.android.model.ChatTime.label(java.time.Instant.parse(it)) }.getOrDefault(it)
-                Text("Last incident: $label")
+                Text(stringResource(R.string.monitoring_detail_last_incident, label))
             }
             ai.nuphos.android.ui.components.TechnicalDetails(row.id) {
-                Text("Kind: ${row.kind}")
-                Text("Resource: ${row.providerResourceId}")
-                row.target?.let { Text("Target: $it") }
+                Text(stringResource(R.string.monitoring_detail_kind, row.kind))
+                Text(stringResource(R.string.monitoring_detail_resource, row.providerResourceId))
+                row.target?.let { Text(stringResource(R.string.monitoring_detail_target, it)) }
             }
-            if (url != null) TextButton(onClick = { linkError = runCatching { uriHandler.openUri(url) }.isFailure }) { Text("Open provider") }
-            if (linkError) Text("Could not open the provider link.")
-            TextButton(onClick = onDismiss) { Text("Close") }
+            if (url != null) TextButton(onClick = { linkError = runCatching { uriHandler.openUri(url) }.isFailure }) { Text(stringResource(R.string.monitoring_open_provider)) }
+            if (linkError) Text(stringResource(R.string.monitoring_open_provider_failed))
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.monitoring_close)) }
         }
     }
 }

@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import android.content.ActivityNotFoundException
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
@@ -68,7 +70,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attempt?.step, state.attempt?.codeSubmitted, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
     ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight()) {
-            RuntimePickerHeader(title = if (detail != null) "Runtime details" else if (initialSignInRuntimeId != null) "Sign in" else if (inventoryMode && store.signInRuntime != null) "Sign in" else if (managing) "Manage runtimes" else "Choose runtime", onClose = { code = ""; onDismiss() })
+            RuntimePickerHeader(title = stringResource(if (detail != null) R.string.agent_runtime_details else if (initialSignInRuntimeId != null) R.string.agent_sign_in else if (inventoryMode && store.signInRuntime != null) R.string.agent_sign_in else if (managing) R.string.agent_manage_runtimes else R.string.agent_choose_runtime), onClose = { code = ""; onDismiss() })
             HorizontalDivider()
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (detail != null) {
@@ -76,48 +78,48 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
                 })
             } else {
-                if (!managing) Text("For new agents. Existing agents keep their current runtime.",
+                if (!managing) Text(stringResource(R.string.agent_for_new_tasks),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (managing && !inventoryMode && initialSignInRuntimeId == null) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Back to runtimes") }
+                    if (managing && !inventoryMode && initialSignInRuntimeId == null) TextButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text(stringResource(R.string.agent_back_to_runtimes)) }
 
                 }
                 state.error?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
                     if (managing && !state.catalogLoaded) TextButton(onClick = store::refresh, enabled = !state.busy) {
-                        Text("Retry runtime list")
+                        Text(stringResource(R.string.agent_retry_runtime_list))
                     }
                 }
                 state.message?.let { Text(it) }
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (selection.reselectionRequired) Text("The selected runtime is unavailable. Select a saved active runtime before starting a new agent.")
+                if (selection.reselectionRequired) Text(stringResource(R.string.agent_reselect_runtime))
                 if (!managing) {
                     val ready = selection.catalog.filter { it.selectable && it.local?.online != false && quotas[it.id]?.needsSignIn != true }
                     RuntimeChoiceList(ready, selection.selectedId, quotas,
                         enabled = !state.busy && state.catalogLoaded, devices = devices,
                         onDetail = { runtime -> detailId = runtime.id },
                         onSelect = { runtime -> code = ""; store.select(runtime.id); if (store.selection.selectedId == runtime.id && store.selection.valid) onDismiss() })
-                    if (state.catalogLoaded && ready.isEmpty()) Text("No available runtimes.")
-                    TextButton(onClick = { code = ""; browserError = false; managing = true }) { Text("Manage computers and runtimes") }
-                    OutlinedButton(onClick = { store.refresh() }, enabled = !state.busy) { Text("Refresh runtimes") }
+                    if (state.catalogLoaded && ready.isEmpty()) Text(stringResource(R.string.agent_no_available_runtimes))
+                    TextButton(onClick = { code = ""; browserError = false; managing = true }) { Text(stringResource(R.string.agent_manage_computers_runtimes)) }
+                    OutlinedButton(onClick = { store.refresh() }, enabled = !state.busy) { Text(stringResource(R.string.agent_refresh_runtimes)) }
                 } else {
                     store.signInRuntime?.let { selected ->
-                        Text("Runtime sign-in", style = MaterialTheme.typography.titleSmall,
+                        Text(stringResource(R.string.agent_runtime_sign_in), style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(selected.label, style = MaterialTheme.typography.titleMedium)
                     }
-                    if (!inventoryMode && initialSignInRuntimeId == null) OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text("Change runtime") }
+                    if (!inventoryMode && initialSignInRuntimeId == null) OutlinedButton(onClick = { code = ""; browserError = false; store.clearSignInFocus(); managing = false }) { Text(stringResource(R.string.agent_change_runtime)) }
                     if (store.canSignIn) {
                         if (store.signInRuntime != null) {
-                            Button(onClick = store::startLogin, enabled = !state.busy && !selection.loginReview) { Text("Start provider sign-in") }
+                            Button(onClick = store::startLogin, enabled = !state.busy && !selection.loginReview) { Text(stringResource(R.string.agent_start_provider_sign_in)) }
                             if (selection.loginReview) {
-                                if (selection.loginRuntimeId != store.signInRuntime?.id) Text("Another runtime has an unconfirmed sign-in. Select that runtime and refresh its sign-in before starting another.")
+                                if (selection.loginRuntimeId != store.signInRuntime?.id) Text(stringResource(R.string.agent_other_unconfirmed_sign_in))
                                 val attempt = state.attempt
-                                Text("Sign-in: ${attempt?.state ?: "unconfirmed"}")
-                                OutlinedButton(onClick = store::refreshLogin, enabled = !state.busy) { Text("Refresh sign-in") }
+                                Text(stringResource(R.string.agent_sign_in_state, attempt?.state ?: stringResource(R.string.agent_unconfirmed)))
+                                OutlinedButton(onClick = store::refreshLogin, enabled = !state.busy) { Text(stringResource(R.string.agent_refresh_sign_in)) }
                                 if (attempt?.state == "awaiting_authorization" && attempt.valid(System.currentTimeMillis()) && !state.attemptMismatch && state.loginReconciled) {
                                     val step = attempt.step
-                                    if (attempt.codeSubmitted) Text("Continuing sign-in…")
+                                    if (attempt.codeSubmitted) Text(stringResource(R.string.agent_continuing_sign_in))
                                     else if (step?.kind == "choose") {
                                         step.message?.let { Text(it, style = MaterialTheme.typography.titleSmall) }
                                         step.options.forEach { option ->
@@ -128,7 +130,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                         }
                                     }
                                     step?.instructions?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                                    attempt.userCode?.let { Text("Provider code: $it") }
+                                    attempt.userCode?.let { Text(stringResource(R.string.agent_provider_code, it)) }
                                     attempt.browserUrl?.let { url ->
                                         OutlinedButton(onClick = {
                                             val currentUrl = store.authorizationUrlFor(attempt.attemptId)
@@ -136,27 +138,27 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                                                 try { if (launchBrowser != null) launchBrowser(url) else CustomTabsIntent.Builder().setShareState(CustomTabsIntent.SHARE_STATE_OFF).build().launchUrl(context, Uri.parse(url)) }
                                                 catch (_: ActivityNotFoundException) { browserError = true }
                                             }
-                                        }) { Text("Open provider sign-in") }
+                                        }) { Text(stringResource(R.string.agent_open_provider_sign_in)) }
                                     }
-                                    if (browserError) Text("Could not open the provider browser.")
+                                    if (browserError) Text(stringResource(R.string.agent_browser_error))
                                     if (!attempt.codeSubmitted && (step?.kind == "input" || step?.kind == "browser" && step.paste != null || step == null && attempt.authorizationUrl != null)) {
-                                        OutlinedTextField(code, { code = it }, label = { Text(step?.message ?: if (step?.paste == "address") "Redirect address" else "Authorization code") },
+                                        OutlinedTextField(code, { code = it }, label = { Text(step?.message ?: stringResource(if (step?.paste == "address") R.string.agent_redirect_address else R.string.agent_authorization_code)) },
                                             placeholder = { step?.placeholder?.let { Text(it) } }, singleLine = true,
                                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrectEnabled = false,
                                                 capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None,
                                                 keyboardType = if (step?.secret == true) androidx.compose.ui.text.input.KeyboardType.Password else androidx.compose.ui.text.input.KeyboardType.Text),
                                             visualTransformation = if (step?.secret == false) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(), enabled = !state.busy)
-                                        Button(onClick = { val submitted = code; code = ""; store.submitCode(submitted) }, enabled = !state.busy && ai.nuphos.android.data.validRuntimeAnswer(attempt, code)) { Text(if (step == null) "Submit sign-in code" else "Continue") }
+                                        Button(onClick = { val submitted = code; code = ""; store.submitCode(submitted) }, enabled = !state.busy && ai.nuphos.android.data.validRuntimeAnswer(attempt, code)) { Text(stringResource(if (step == null) R.string.agent_submit_sign_in_code else R.string.agent_continue)) }
                                     }
                                 }
-                                OutlinedButton(onClick = { code = ""; store.cancelLogin() }, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch && attempt?.pending == true && attempt.valid(System.currentTimeMillis())) { Text("Cancel sign-in") }
-                                if (attempt != null && !attempt.pending) OutlinedButton(onClick = store::confirmLoginRestart, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch) { Text("Review and allow a new sign-in") }
+                                OutlinedButton(onClick = { code = ""; store.cancelLogin() }, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch && attempt?.pending == true && attempt.valid(System.currentTimeMillis())) { Text(stringResource(R.string.agent_cancel_sign_in)) }
+                                if (attempt != null && !attempt.pending) OutlinedButton(onClick = store::confirmLoginRestart, enabled = !state.busy && state.loginReconciled && !state.attemptMismatch) { Text(stringResource(R.string.agent_review_new_sign_in)) }
                             }
-                        } else if (store.signInRuntime != null) Text("Provider setup for self-hosted runtimes is not available here.")
-                    } else if (!state.busy && initialSignInRuntimeId != null) Text("Sign-in is unavailable. Refresh the runtime list and check your computer access.")
-                    else if (!store.canAdminister) Text("Only a current workspace administrator can create runtimes.")
-                    Text("Closing this sheet stops local polling. It does not cancel server sign-in.")
-                    TextButton(onClick = { code = ""; onDismiss() }) { Text("Close") }
+                        } else if (store.signInRuntime != null) Text(stringResource(R.string.agent_self_hosted_unavailable))
+                    } else if (!state.busy && initialSignInRuntimeId != null) Text(stringResource(R.string.agent_sign_in_unavailable))
+                    else if (!store.canAdminister) Text(stringResource(R.string.agent_admins_only_create))
+                    Text(stringResource(R.string.agent_closing_stops_polling))
+                    TextButton(onClick = { code = ""; onDismiss() }) { Text(stringResource(R.string.agent_close)) }
                 }
             }
             Spacer(Modifier.height(16.dp))

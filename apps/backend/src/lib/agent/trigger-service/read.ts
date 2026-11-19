@@ -1,6 +1,5 @@
 import { nextCronRuns } from '@/lib/cron'
 import { logError, logEvent } from '@/lib/observability'
-import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
 import { getConversationBySessionId } from '../db'
 import { readsConversation } from '../db/access'
@@ -82,9 +81,6 @@ export async function expireTriggers(now = new Date()): Promise<number> {
     if (!trigger._id) continue
     const triggerId = trigger._id.toString()
 
-    if (trigger.incidentMode) {
-      await clearSlackNotificationIncidentsForTrigger(triggerId, trigger.teamId)
-    }
     await agentTriggers().updateOne(
       {
         _id: trigger._id,

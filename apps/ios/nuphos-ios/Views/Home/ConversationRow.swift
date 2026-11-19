@@ -4,6 +4,7 @@ import SwiftUI
 /// dot-separated meta line.
 struct ConversationRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .subheadline) private var titleSize: CGFloat = 14
     let conversation: AgentConversation
     /// Threads a folded parent hides; the row shows the most pressing of their states.
     var hidden: [AgentConversation] = []
@@ -18,33 +19,31 @@ struct ConversationRow: View {
 
     private func indicator(for row: AgentConversation) -> ConversationIndicator {
         let unread = store.unread.contains(team: team, session: row.sessionId)
-        guard row.isNativeRuntime else { return row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
     }
 
     var body: some View {
         HStack(spacing: 12) {
             // A Task row, Bot or not, leads with its runtime, never a face (#1691).
-            RuntimeMark(runtime: conversation.agentRuntime, size: 20)
-                .frame(width: 36, height: 36)
+            RuntimeMark(runtime: conversation.agentRuntime, size: 22)
+                .frame(width: 22, height: 22)
                 .opacity(conversation.owner?.deactivated == true ? 0.5 : 1)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(conversation.displayTitle)
-                    .font(Theme.Text.body.weight(.medium))
+                    .font(.system(size: titleSize, weight: .medium))
                     .foregroundStyle(Theme.heading)
                     .lineLimit(1)
 
-                Text(meta)
-                    .font(Theme.Text.label)
-                    .foregroundStyle(Theme.muted)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                    .fixedSize(horizontal: false, vertical: true)
+
             }
 
             Spacer(minLength: 0)
 
             switch shownIndicator {
+            case .waiting:
+                Circle().fill(Theme.attention).frame(width: 7, height: 7).accessibilityLabel("Needs your input")
             case .turn:
                 ProgressView()
                     .controlSize(.small)
@@ -58,13 +57,13 @@ struct ConversationRow: View {
                 EmptyView()
             }
             if conversation.isNativeRuntime, observation?.unavailable != false {
-                Image(systemName: "exclamationmark.circle")
+                LucideIcon("circle-alert")
                     .foregroundStyle(Theme.muted)
                     .accessibilityLabel("Runtime status unavailable")
             } else if observation?.paused == true {
-                Image(systemName: "exclamationmark.circle")
+                LucideIcon("circle-alert")
                     .foregroundStyle(Theme.muted)
-                    .accessibilityLabel(observation?.status ?? "Automatic continuation paused")
+                    .accessibilityLabel(observation?.status ?? String(localized: "Automatic continuation paused"))
             }
         }
         .padding(.vertical, 6)
@@ -73,7 +72,7 @@ struct ConversationRow: View {
 
     private var meta: String {
         let status = [.turn, .background].contains(indicator) || observation?.paused == true
-        var parts = [status ? (observation?.status ?? "Working…") : HistoryTime.format(conversation.lastActiveAt)]
+        var parts = [status ? (observation?.status ?? String(localized: "Working…")) : HistoryTime.format(conversation.lastActiveAt)]
         if let origin = conversation.activitySource?.origin, origin != "nuphos", origin != "unknown" {
             parts.append(origin.capitalized)
         }
@@ -94,7 +93,7 @@ struct RuntimeMark: View {
     var body: some View {
         Group {
             if runtime == "nuphos" {
-                Image(systemName: "message").font(.system(size: size))
+                LucideIcon("message-circle").font(.system(size: size))
                     .frame(width: size, height: size)
             } else {
                 BrandLogo(name: RuntimeInstance.Provider.logo(runtime), size: size)

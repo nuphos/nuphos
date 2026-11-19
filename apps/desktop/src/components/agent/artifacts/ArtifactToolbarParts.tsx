@@ -7,9 +7,11 @@ import {
   Eye,
   LayoutTemplate,
   MoreHorizontal,
+  SquareArrowOutUpRight,
   Wrench,
 } from 'lucide-react'
 
+import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
@@ -26,6 +28,7 @@ export function MoreMenu({
   line,
   current,
   errors,
+  link,
   previous,
   next,
   view,
@@ -102,12 +105,20 @@ export function MoreMenu({
             icon={<Wrench className="size-3.5 text-warning" />}
             onClick={() => onAskAgent(fixPrompt(current, errors))}
           >
-            {t('Ask the agent to fix')}
+            {t('Ask to fix')}
           </MenuItem>
         )}
         {current.kind === 'html' && onAddToDesign && (
           <MenuItem icon={<LayoutTemplate className="size-3.5" />} onClick={onAddToDesign}>
             Add to design
+          </MenuItem>
+        )}
+        {link && (
+          <MenuItem
+            icon={<SquareArrowOutUpRight className="size-3.5" />}
+            onClick={() => api.openPageWindow(link)}
+          >
+            {t('Open in new window')}
           </MenuItem>
         )}
         <MenuItem icon={<Copy className="size-3.5" />} onClick={() => void copySource(current)}>

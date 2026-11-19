@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">Cari pemantauan</string>
+    <string name="monitoring_clear_filters">Hapus filter</string>
+    <string name="monitoring_refresh">Muat ulang</string>
+    <string name="monitoring_all_providers">Semua penyedia</string>
+    <string name="monitoring_all_statuses">Semua status</string>
+    <string name="monitoring_select_team">Pilih tim untuk melihat pemantauan.</string>
+    <string name="monitoring_loading">Memuat pemantauan…</string>
+    <string name="monitoring_access_denied">Akses pemantauan ditolak. Periksa keanggotaan tim Anda.</string>
+    <string name="monitoring_load_failed">Tidak dapat memuat pemantauan. %1$s</string>
+    <string name="monitoring_stale">Data usang — gagal memuat ulang. %1$s</string>
+    <string name="monitoring_provider_errors_title">Beberapa penyedia tidak dapat dimuat</string>
+    <string name="monitoring_hide_provider_errors">Sembunyikan kesalahan penyedia</string>
+    <string name="monitoring_show_provider_errors">Tampilkan kesalahan penyedia</string>
+    <string name="monitoring_empty_title">Tidak ada pemeriksaan pemantauan</string>
+    <string name="monitoring_empty_body">Pemeriksaan yang didukung dari Better Stack, Grafana, dan GCP muncul di sini.</string>
+    <string name="monitoring_open_connectors">Buka Konektor</string>
+    <string name="monitoring_no_matching_checks">Tidak ada pemeriksaan yang cocok</string>
+    <string name="monitoring_detail_status">Status: %1$s</string>
+    <string name="monitoring_detail_provider">Penyedia: %1$s</string>
+    <string name="monitoring_detail_connector">Konektor: %1$s</string>
+    <string name="monitoring_detail_last_incident">Insiden terakhir: %1$s</string>
+    <string name="monitoring_detail_kind">Jenis: %1$s</string>
+    <string name="monitoring_detail_resource">Sumber daya: %1$s</string>
+    <string name="monitoring_detail_target">Target: %1$s</string>
+    <string name="monitoring_open_provider">Buka di penyedia</string>
+    <string name="monitoring_open_provider_failed">Tidak dapat membuka tautan penyedia.</string>
+    <string name="monitoring_close">Tutup</string>
+</resources>

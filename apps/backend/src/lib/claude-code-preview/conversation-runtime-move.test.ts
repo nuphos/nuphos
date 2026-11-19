@@ -1,6 +1,5 @@
 import { beforeEach, expect, test } from 'bun:test'
 
-import { config } from '@/config'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
@@ -11,19 +10,19 @@ import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { sessionsByConversation } from './agent-chat-registry'
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { fallBackBeforeTurn } from './runtime-fallback'
 
 import type { RuntimeInstance } from './runtime-instances'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
+import type { TeamSession } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 
 let memory = portabilityDb()
 let busy = false
 let target: RuntimeInstance
 let conversation: AgentConversation
-let hostedSources: ClaudeCodeRuntimeDoc[] = []
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
 let destinationModels: string[] | null = allModels
 
@@ -56,8 +55,6 @@ useRuntimeCatalog({
   developmentRuntimeEndpoint: () => {},
 })
 useRuntimeRegistry({
-  findHostedRuntime: async (teamId: string, url: string) =>
-    hostedSources.find((row) => row.teamId === teamId && row.url === url) ?? null,
   resolveTeamRuntimeEndpoints: async () => [
     { runtimeId: 'new', url: 'wss://new/acp', authKey: 'private' },
   ],
@@ -65,7 +62,6 @@ useRuntimeRegistry({
 beforeEach(() => {
   memory = portabilityDb()
   busy = false
-  hostedSources = []
   destinationModels = allModels
   target = {
     id: 'new',
@@ -111,6 +107,36 @@ test('moves the same conversation and keeps history and settings', async () => {
   expect(conversation.claudeCodePreview).toBeUndefined()
   expect(conversation.runtimeOperation).toBeUndefined()
 })
+test('a move ends the old session on the runtime it leaves', async () => {
+  const closed: string[] = []
+  let observing = true
+  const key = 'team:conversation'
+
+  sessionsByConversation.set(key, {
+    openabSessionId: 'native-old',
+    client: {
+      closeSession: async (id: string) => {
+        closed.push(id)
+      },
+    },
+    stopObserving: () => {
+      observing = false
+    },
+  } as unknown as TeamSession)
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(closed).toEqual(['native-old'])
+  expect(observing).toBe(false)
+  expect(sessionsByConversation.has(key)).toBe(false)
+})
+test('a runtime that cannot close the old session does not fail the move', async () => {
+  sessionsByConversation.set('team:conversation', {
+    openabSessionId: 'native-old',
+    client: { closeSession: () => Promise.reject(new Error('runtime offline')) },
+  } as unknown as TeamSession)
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.runtimeId).toBe('new')
+  expect(sessionsByConversation.has('team:conversation')).toBe(false)
+})
 test('a move records where the conversation came from', async () => {
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.runtimeMigration).toMatchObject({ fromRuntimeId: 'old', toRuntimeId: 'new' })
@@ -137,18 +163,13 @@ test('only the owner moves the session; a participant, even a former manager, ca
   })
   expect(conversation.runtimeId).toBe('old')
 })
-test('readers, disabled destinations, and deleting destinations are rejected', async () => {
+test('readers and disabled destinations are rejected', async () => {
   await expect(moveConversationRuntime(conversation, 'new', 'reader')).rejects.toMatchObject({
     status: 403,
   })
   target.status = 'disabled'
   await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
     code: 'runtime_unavailable',
-  })
-  target.status = 'active'
-  memory.rows('agent_runtime_deletions').push({ _id: 'new', teamId: 'team' })
-  await expect(moveConversationRuntime(conversation, 'new', 'owner')).rejects.toMatchObject({
-    code: 'runtime_deleting',
   })
   expect(conversation.runtimeId).toBe('old')
 })
@@ -169,39 +190,18 @@ test('history moves to the other agent type and leaves no session behind', async
 })
 
 test('a move retains the old runtime without needing an online source', async () => {
-  memory.rows('agent_runtime_deletions').push({
-    _id: 'old',
-    teamId: 'team',
-    requestedAt: new Date(),
-    placements: [{ url: 'wss://old/acp', state: 'pending' }],
-  })
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
 })
 
-test('a move cannot overwrite a different environment attachment in the shared database', async () => {
-  const namespace = `${config.claudeCodeRuntimeProvisioner.namespace}-other`
-  const sourceUrl = `ws://openab-claude-old.${namespace}.svc:8080/acp`
+test('a conversation on a retired Nuphos-hosted runtime moves to another agent', async () => {
+  const sourceUrl = 'ws://openab-claude-old.openab-runtimes.svc:8080/acp'
 
   conversation.claudeCodePreview!.runtimeUrl = sourceUrl
-  hostedSources = [
-    {
-      _id: 'old',
-      teamId: 'team',
-      url: sourceUrl,
-      hostedBy: 'nuphos',
-      status: 'active',
-      createdByUserId: 'owner',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ]
-  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
-    code: 'runtime_environment_mismatch',
-  })
-  expect(conversation.runtimeId).toBe('old')
-  expect(conversation.claudeCodePreview!.runtimeUrl).toBe(sourceUrl)
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(conversation.runtimeId).toBe('new')
+  expect(conversation.previousRuntimeUrls).toEqual([sourceUrl])
   expect(conversation.runtimeOperation).toBeUndefined()
 })
 
@@ -211,7 +211,11 @@ test('a manually registered in-cluster source remains movable using history', as
   expect(conversation.runtimeId).toBe('new')
 })
 
-useModels({ userTeamRuntimeFallbacks: () => ({ findOne: async () => ({ runtimeIds: ['new'] }) }) })
+useModels({
+  teamRuntimeFallbacks: () => ({
+    find: () => ({ toArray: async () => [{ runtimeId: 'old', fallbackRuntimeId: 'new' }] }),
+  }),
+})
 useConversationChatRoute({ resolveConversationChatRuntime: async () => ({}) })
 const runtimeCatalogOverride = useRuntimeCatalog({
   requireRuntimeInstance: async () => target,

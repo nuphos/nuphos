@@ -32,9 +32,10 @@ export function createLocalTerminalTool(devices: LocalExecDevice[], turn: LocalE
         'Open and operate a shared local terminal in the Desktop conversation dock. ' +
         'The user and agent can both send input to the same shell; human input does not disable agent input. The selected Desktop must be online; the conversation can be in the background. ' +
         'Use action=open, then the returned terminalId for read, write or interrupt. ' +
+        "action=list returns the terminals already in this conversation's dock, including ones the user opened; list first when the user refers to their terminal. " +
         'write types data and presses Enter once, so send the command alone. read returns bounded recent output, not proof a command completed. ' +
         'The shell persists between calls until the tab closes. Output may contain ANSI codes. ' +
-        'Only agent-created terminals in this conversation are accessible. ' +
+        'Terminals in other conversations are not accessible. ' +
         'A request to open a terminal and run a command belongs here: NEVER emulate it by using local_exec to launch or drive an external terminal app. Follow the same local command authorization rules.',
       execute: async (input: {
         action: string
@@ -59,7 +60,7 @@ export function createLocalTerminalTool(devices: LocalExecDevice[], turn: LocalE
       },
     },
     {
-      action: z.enum(['open', 'read', 'write', 'interrupt']),
+      action: z.enum(['list', 'open', 'read', 'write', 'interrupt']),
       terminalId: z.string().min(1).max(200).optional(),
       data: z.string().max(65536).optional(),
       cwd: z.string().min(1).max(4096).optional(),

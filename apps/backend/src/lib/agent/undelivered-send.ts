@@ -1,10 +1,16 @@
 // A person's send that will not run is never just gone: it stays in its
 // conversation, followed by why, for everyone who reads it.
-import { logError } from '@/lib/observability'
+import { randomUUID } from 'node:crypto'
 
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
+import { logError, logEvent } from '@/lib/observability'
+
+import { channelIdOf, noteReplyFailed } from './channel-wake'
 import { appendConversationMessages } from './db'
+import { reopenInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 
+import type { InputRequest } from './db/pending-decision'
 import type { PendingUserMessage } from './pending-messages'
 
 /** Stores a person's send that will not run, and why, where everyone in the conversation sees it. */
@@ -39,4 +45,102 @@ export async function keepUndeliveredSend(
       message_id: message.id,
     })
   })
+}
+
+const EARLIER_ANSWER = /^> Your earlier answer .*\n\n/
+
+/**
+ * A person's answer its agent never read is not kept as given: the question is
+ * open again, in the conversation and the Inbox, and its body says why.
+ */
+export async function reopenUndeliveredAnswer(
+  data: { userId: string; targetSessionId: string },
+  request: InputRequest,
+  reason: string,
+): Promise<void> {
+  await reopenInputRequest(data.targetSessionId, data.userId, {
+    ...request,
+    // Only the latest failure is said.
+    body: `> Your earlier answer ${reason}\n\n${request.body?.replace(EARLIER_ANSWER, '') ?? ''}`,
+    // The queue stores it as JSON.
+    askedAt: new Date(request.askedAt),
+  }).catch((error: unknown) => {
+    logError('agent.decision.reopen_failed', error, { session_id: data.targetSessionId })
+  })
+}
+
+/**
+ * A turn whose runtime connection dropped is left to the runtime, which keeps
+ * running it through a network blip and reports back as usual. When the runtime
+ * itself restarted (an OOMKill, an update), the session reattaches with no turn
+ * running (`dormant` or `interrupted`) and the turn is gone.
+ */
+export async function runtimeRestarted(data: {
+  teamId?: string
+  targetSessionId: string
+}): Promise<boolean> {
+  const session = sessionsByConversation.get(`${data.teamId}:${data.targetSessionId}`)
+
+  // False also means superseded or shutting down; only a session back on the air says anything.
+  if (!session?.reattached || !(await session.reattached)) return false
+  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
+
+  logEvent('info', 'agent.chat.lost_turn_checked', { session_id: data.targetSessionId, state })
+
+  return state === 'dormant' || state === 'interrupted'
+}
+
+/** A person's turn in the app that its runtime's restart cut off: the conversation says so. */
+export async function noteLostTurn(data: {
+  userId: string
+  teamId: string
+  targetSessionId: string
+}): Promise<void> {
+  try {
+    if (!(await runtimeRestarted(data))) return
+    await appendConversationMessages({
+      sessionId: data.targetSessionId,
+      userId: data.userId,
+      teamId: data.teamId,
+      messages: [
+        {
+          id: randomUUID(),
+          role: 'user',
+          parts: [{ type: 'text', text: `This message ${LOST_TURN}` }],
+          metadata: systemSender('nuphos', 'Nuphos'),
+        },
+      ],
+    })
+  } catch (error) {
+    logError('agent.chat.lost_turn_check_failed', error, { session_id: data.targetSessionId })
+  }
+}
+
+export const LOST_TURN =
+  'was cut off: the runtime restarted during that turn, which may have stopped partway or finished just before.'
+
+/**
+ * Keeps a message that will not run where its people see it: a channel's wake
+ * notice as that channel's line, a person's send or answer in the conversation.
+ */
+export async function keepUndelivered(
+  data: { userId: string; teamId?: string; targetSessionId: string },
+  message: PendingUserMessage,
+  reason: string,
+  /** Why, for a channel's line; none says only that the agent could not reply. */
+  error?: unknown,
+): Promise<void> {
+  const channelId = channelIdOf(message)
+
+  if (channelId) {
+    logEvent('warn', 'agent.channel.wake_undelivered', {
+      channel_id: channelId,
+      session_id: data.targetSessionId,
+      message_id: message.id,
+      reason,
+    })
+    await noteReplyFailed(channelId, data.targetSessionId, error ?? new Error(reason))
+  }
+  if (message.chat) await keepUndeliveredSend(data, message, `This message ${reason}`)
+  if (message.answers) await reopenUndeliveredAnswer(data, message.answers, reason)
 }

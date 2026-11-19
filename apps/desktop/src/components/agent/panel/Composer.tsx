@@ -11,7 +11,7 @@ import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
 import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
-import { runtimeControlSendBlock, runtimeGone } from './runtimeControlSignOut'
+import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
 import { useComposerDraft } from './useComposerDraft'
@@ -59,6 +59,7 @@ export function Composer({
   placeholder,
   promptSuggestion,
   recall,
+  agentMenu,
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
@@ -102,6 +103,7 @@ export function Composer({
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
+  agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -114,10 +116,11 @@ export function Composer({
   )
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
-  const [agentMenuOpen, setAgentMenuOpen] = useState(false) // the banner can open it
+  const ownAgentMenu = useState(false) // the banner can open it
+  const [agentMenuOpen, setAgentMenuOpen] = agentMenu ?? ownAgentMenu
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
-    newChat || runtimeGone(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
+    newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,
@@ -135,7 +138,7 @@ export function Composer({
     state.ref,
     state.composingRef,
     state.syncEmpty,
-    modelSession && modelControl.data?.status !== 'unsupported'
+    modelSession && !modelSession.lockedHint && modelControl.data?.status !== 'unsupported'
       ? () => modelControl.setOpen(true)
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
@@ -249,7 +252,7 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && (
+              {runtimeControl && !runtimeControl.offlineAgent && (
                 <RuntimeSelector
                   {...runtimeControl}
                   menuOpen={agentMenuOpen || agentMenuRequested}
@@ -262,7 +265,12 @@ export function Composer({
               )}
             </ComposerTools>
             {modelSession ? (
-              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
+              <ModelSelector
+                control={modelControl}
+                disabled={readOnly || Boolean(modelSession.lockedHint)}
+                disabledHint={modelSession.lockedHint}
+                hero={hero}
+              />
             ) : (
               newConversationModelControl
             )}

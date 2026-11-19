@@ -1,0 +1,8 @@
+{
+  "name": "nuphos-pi-acp-runtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pi-acp": "0.0.34"
+  }
+}

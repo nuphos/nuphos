@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.R
 import ai.nuphos.android.model.SessionResource
 import ai.nuphos.android.model.openFirst
+import androidx.compose.ui.res.stringResource
 
 /** Only PRs/issues already linked by the agent. No binding or editing controls. */
 @Composable
@@ -54,6 +55,7 @@ fun SessionResourceStrip(
     // Never dispatch arbitrary schemes or URLs containing credentials.
     val openLink: (String) -> Boolean = { url -> runCatching { uriHandler.openUri(url) }.isSuccess }
     if (resources.isEmpty() && !loading && !failed) return
+    val loadingLabel = stringResource(R.string.chat_resources_loading)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (resources.isNotEmpty()) LazyRow(
@@ -68,16 +70,16 @@ fun SessionResourceStrip(
                 if (showFinished) items(finished, key = { it.id }) { ResourceChip(it) { url -> openFailed = !openLink(url) } }
             }
             if (loading) {
-                CircularProgressIndicator(Modifier.padding(16.dp).size(18.dp).semantics { contentDescription = "Loading linked resources" }, strokeWidth = 2.dp)
+                CircularProgressIndicator(Modifier.padding(16.dp).size(18.dp).semantics { contentDescription = loadingLabel }, strokeWidth = 2.dp)
             } else if (failed) {
-                Text("Linked resources unavailable", Modifier.padding(start = 16.dp).weight(1f),
+                Text(stringResource(R.string.chat_resources_unavailable), Modifier.padding(start = 16.dp).weight(1f),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onRefresh) { Text("Retry") }
+                TextButton(onClick = onRefresh) { Text(stringResource(R.string.chat_retry)) }
             } else {
-                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, "Refresh linked resources") }
+                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, stringResource(R.string.chat_resources_refresh)) }
             }
         }
-        if (openFailed) Text("Could not open this link.", Modifier.padding(horizontal = 16.dp),
+        if (openFailed) Text(stringResource(R.string.chat_resource_open_failed), Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
     }
 }
@@ -94,14 +96,15 @@ private fun ResourceChip(resource: SessionResource, onOpen: (String) -> Unit) {
         resource.state == "open" -> if (dark) Color(0xFF80D69A) else Color(0xFF216E39)
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val description = if (url == null) stringResource(R.string.chat_resource_description_link_unavailable, resource.providerLabel, resource.title, resource.state)
+        else "${resource.providerLabel}, ${resource.title}, ${resource.state}"
     Surface(
         onClick = { if (url != null) onOpen(url) },
         enabled = url != null,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "${resource.providerLabel}, ${resource.title}, ${resource.state}" +
-                if (url == null) ", link unavailable" else ""
+            contentDescription = description
         },
     ) {
         Row(
@@ -119,7 +122,7 @@ private fun ResourceChip(resource: SessionResource, onOpen: (String) -> Unit) {
             Text(resource.state.replaceFirstChar { it.titlecase() }, color = tone,
                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.widthIn(max = 160.dp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (url == null) Text("Link unavailable", style = MaterialTheme.typography.labelMedium,
+            if (url == null) Text(stringResource(R.string.chat_resource_link_unavailable), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -128,12 +131,13 @@ private fun ResourceChip(resource: SessionResource, onOpen: (String) -> Unit) {
 /** The one chip standing for every finished link; tapping it shows or hides them. */
 @Composable
 private fun FinishedChip(label: String, expanded: Boolean, onToggle: () -> Unit) {
+    val description = if (expanded) stringResource(R.string.chat_resources_hide_finished, label) else stringResource(R.string.chat_resources_show_finished, label)
     Surface(
         onClick = onToggle,
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.semantics(mergeDescendants = true) {
-            contentDescription = "$label, ${if (expanded) "hide" else "show"} finished links"
+            contentDescription = description
         },
     ) {
         Text(

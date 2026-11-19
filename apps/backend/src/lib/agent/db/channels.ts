@@ -7,16 +7,23 @@ import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
 
 import { canReply, readableConversationScope } from './access'
-import { readNote } from './channel-notes'
+import { chatName } from './archive'
+import { assertBot } from './bot-membership'
+import { fromOwner, readNote } from './channel-notes'
+import { markChannelRead } from './channel-cursor'
 import { agentConversations, agentMessages } from './shared'
 
 import type { AgentConversation } from './shared'
 import type { MessageMetadata } from '../message-metadata'
 
+export { chatName }
+
 /** A channel holds people and Bot sessions; it runs no agent of its own. */
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
+  /** Started as a group chat: never a Bot's 1:1 chat, even with only one Bot in it. */
+  group?: true
   agentSessionIds?: string[]
   /** An ordinary member selected as the group's lead; never an access grant. */
   leadAgentSessionId?: string
@@ -28,10 +35,13 @@ export type ChannelFields = {
   agentTurns?: number
   /** On an agent: the channels it posted in this turn, woken once when the turn ends. */
   channelWakes?: string[]
-  /** People @mentioned here, in a channel or a shared agent, who have not posted since: their Inbox entry. */
-  mentions?: Record<string, { messageId: string; at: Date }>
-  /** A live call mirrored here: speech and chat come in, agents' posts go to its chat. */
-  meeting?: { botId: string; botName: string; url: string }
+  /** People @mentioned here, or invited `by` someone, who have not posted since: their entry. */
+  mentions?: Record<string, { messageId: string; at: Date; by?: { id: string; name: string } }>
+  /**
+   * On a Task: the live call it is in, whose speech and chat arrive as its messages. Kept once
+   * the call ends, with `endedAt`, so it still counts toward the team's meeting budget.
+   */
+  meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */
@@ -47,11 +57,13 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/** Adding a session leaves it as it was: a Task stays a Task. */
+/** Adding a session leaves it as it was, and only a Bot is added. */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
 ): Promise<AgentConversation | null> {
+  await assertBot(agentSessionId)
+
   return agentConversations().findOneAndUpdate(
     { sessionId: channelId, kind: 'channel' },
     { $addToSet: { agentSessionIds: agentSessionId } },
@@ -137,28 +149,6 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 // A turn's worth of reading. An agent new to the channel starts at its latest page.
 const READ_PAGE = 50
 
-/** Moves the agent's place in a channel forward to `index`. */
-export async function markChannelRead(channelId: string, agentSessionId: string, index: number) {
-  await agentConversations().updateOne(
-    { sessionId: channelId },
-    // Two reads at once must not move the place back.
-    { $max: { [`agentReadIndex.${agentSessionId}`]: index } },
-  )
-}
-
-/**
- * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
- */
-function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
-  return (
-    metadata?.source === 'nuphos' &&
-    metadata.sender.type === 'user' &&
-    !metadata.sender.onBehalfOf &&
-    metadata.sender.id === ownerId
-  )
-}
-
 /**
  * What the agent has not read yet, oldest first, and moves its cursor past it.
  * `peek` leaves the cursor for the caller to move to `upTo` once the posts are
@@ -183,7 +173,15 @@ export async function readChannelMessages(
 ) {
   const after = channel.agentReadIndex?.[agentSessionId] ?? channel.messageCount - READ_PAGE - 1
   const docs = await agentMessages()
-    .find({ sessionId: channel.sessionId, userId: channel.userId, index: { $gt: after } })
+    .find({
+      sessionId: channel.sessionId,
+      userId: channel.userId,
+      index: { $gt: after },
+      // Its own posts are not news to it, and must not push others' off the page.
+      'metadata.sender.id': { $ne: agentSessionId },
+      // Nor is an answer to a question card: the agent that asked was given it as it was given.
+      'metadata.requestId': { $exists: false },
+    })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)
     .toArray()
@@ -238,7 +236,7 @@ export async function readChannelMessages(
 }
 
 /**
- * Where the viewer was @mentioned and has not posted since, the newest first.
+ * Where the viewer was @mentioned or invited and has not posted since, the newest first.
  * Not where they cannot reply now: they could never post to clear it.
  */
 export async function listChannelMentions(teamId: string, viewerId: string) {
@@ -254,30 +252,34 @@ export async function listChannelMentions(teamId: string, viewerId: string) {
       const mention = channel.mentions?.[viewerId]
       const message =
         mention &&
+        !mention.by &&
         (await agentMessages().findOne({
           sessionId: channel.sessionId,
           userId: channel.userId,
           messageId: mention.messageId,
         }))
 
-      if (!mention || !message) return []
-      const metadata = parseMessageMetadata(message.metadata)
+      if (!mention || (!message && !mention.by)) return []
+      const metadata = message && parseMessageMetadata(message.metadata)
 
       return [
         {
           channelId: channel.sessionId,
           kind: isChannel(channel) ? 'channel' : 'agent',
-          title: channel.title,
+          title: chatName(channel),
           messageId: mention.messageId,
           at: mention.at.toISOString(),
-          sender: metadata
-            ? {
-                type: metadata.sender.type,
-                id: metadata.sender.id,
-                name: metadata.sender.displayName,
-              }
-            : null,
-          text: postText(message.parts),
+          invited: Boolean(mention.by),
+          sender: mention.by
+            ? { type: 'user', ...mention.by }
+            : metadata
+              ? {
+                  type: metadata.sender.type,
+                  id: metadata.sender.id,
+                  name: metadata.sender.displayName,
+                }
+              : null,
+          text: message ? postText(message.parts) : '',
         },
       ]
     }),

@@ -20,7 +20,8 @@ type TerminalSession = {
   /** A view already replayed this output, so its terminal queries were answered. */
   replayed: boolean
   exited: boolean
-  agentScope?: string
+  /** The conversation whose dock holds this tab; its agent may operate the shell. */
+  conversationId?: string
   release: () => void
 }
 
@@ -59,7 +60,7 @@ export class LocalTerminalSessions {
     cols: number,
     rows: number,
     cwd = os.homedir(),
-    agentScope?: string,
+    conversationId?: string,
   ): { id: string; shell: string } {
     if (typeof id !== 'string' || !id || id.length > 200) {
       throw new Error('Invalid terminal id.')
@@ -92,7 +93,7 @@ export class LocalTerminalSessions {
       bufferedBytes: 0,
       replayed: false,
       exited: false,
-      agentScope,
+      conversationId,
       release: onPageGone(owner, () => this.close(owner, id)),
     }
 
@@ -162,12 +163,20 @@ export class LocalTerminalSessions {
     if (!session.exited) session.pty.write(data)
   }
 
-  agentRequest(id: string, scope: string, data?: string) {
+  /** The terminals in a conversation's dock, whoever opened them. */
+  agentList(conversationId: string) {
+    return [...this.sessions]
+      .filter(([, session]) => session.conversationId === conversationId)
+      .map(([terminalId, session]) => ({ terminalId, exited: session.exited }))
+  }
+
+  agentRequest(id: string, conversationId: string, data?: string) {
     const session = this.sessions.get(id)
 
     if (!session) throw new Error('Terminal is no longer available.')
 
-    if (session.agentScope !== scope) throw new Error('Terminal belongs to another agent.')
+    if (session.conversationId !== conversationId)
+      throw new Error('Terminal belongs to another conversation.')
     if (data !== undefined) {
       if (session.exited) throw new Error('Terminal has exited.')
       if (data.length > 65536) throw new Error('Terminal input is too large.')

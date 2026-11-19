@@ -22,7 +22,6 @@ import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
-import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
@@ -43,14 +42,12 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
-import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-notifications'
-import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
   teamHomeLayouts,
   teamInvitations,
-  userTeamRuntimeFallbacks,
+  teamRuntimeFallbacks,
   userTeamSidebarFavorites,
 } from '@/models/team'
 
@@ -91,7 +88,6 @@ export async function setupIndexes(): Promise<void> {
     ['mfa-challenges', setupMfaChallengeIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
-    ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
     ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
     ['box-usage-history', setupBoxUsageHistoryIndexes],
@@ -105,8 +101,6 @@ export async function setupIndexes(): Promise<void> {
     ['skill-metadata', setupSkillMetadataIndexes],
     ['auto-mode', setupAutoModeIndexes],
     ['slack-agent', setupSlackAgentIndexes],
-    ['slack-incident-occurrences', setupSlackIncidentOccurrenceIndexes],
-    ['slack-notification-incidents', setupSlackNotificationIncidentIndexes],
     ['discord', setupDiscordIndexes],
     ['lark-agent', setupLarkAgentIndexes],
     // Every registered memory provider's setup(), per-provider fail-soft: a
@@ -169,9 +163,9 @@ async function setupHomeLayoutIndexes(): Promise<void> {
 }
 
 async function setupRuntimeFallbackIndexes(): Promise<void> {
-  await userTeamRuntimeFallbacks().createIndex(
-    { teamId: 1, userId: 1 },
-    { unique: true, name: 'user_team_runtime_fallbacks_scope_unique' },
+  await teamRuntimeFallbacks().createIndex(
+    { teamId: 1, runtimeId: 1 },
+    { unique: true, name: 'team_runtime_fallbacks_runtime_unique' },
   )
 }
 

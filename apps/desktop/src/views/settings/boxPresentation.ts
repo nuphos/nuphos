@@ -1,7 +1,7 @@
 import { t } from '../../i18n/index.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
-import { agentName } from './agentPresentation.ts'
+import { agentName, canManage } from './agentPresentation.ts'
 
 import type { RuntimeStatusView } from './runtimePresentation'
 import type { AgentDevice, BoxState, BoxStatus, LocalAgentProvider } from '../../api/device-types'
@@ -34,9 +34,20 @@ export const BOX_BADGE: Record<MachineState, RuntimeStatusView> = {
   error: { label: t("Didn't start"), tone: 'error' },
 }
 
-/** A member who may only use a machine sees it, not the controls the backend would refuse. */
-export function canManage(device: AgentDevice): boolean {
-  return device.access !== 'use'
+// instabox's own pauses that the next use wakes from. Not its abuse and billing pauses, nor
+// max_run, which refuses every wake for minutes afterwards.
+const WAKES_ON_USE = new Set(['idle', 'drain', 'admin'])
+
+/** Why a paused Box is paused when its provider did it, not a person, and that using it wakes it. */
+export function providerPause(device: AgentDevice): string | undefined {
+  const reason = device.box?.state === 'paused' ? device.box.pausedBy : undefined
+
+  if (reason === 'memory_pressure')
+    return t('Paused by the provider (host out of memory). It resumes when you use it.')
+
+  return reason && WAKES_ON_USE.has(reason)
+    ? t('Paused by the provider. It resumes when you use it.')
+    : undefined
 }
 
 /** Shown when the backend gives no reason, e.g. an older backend without the route. */
@@ -61,7 +72,7 @@ export function removal(device: AgentDevice) {
       error: t('Could not delete computer'),
       fallback: REMOVE_FALLBACK,
       description: t(
-        "This permanently deletes the computer, its files and its runtimes' sign-ins, and stops agents running on it. Your agent history stays in Nuphos.",
+        "This permanently deletes the computer, its files and its runtimes' sign-ins, and stops tasks running on it. Your task history stays in Nuphos.",
       ),
     }
 
@@ -73,7 +84,7 @@ export function removal(device: AgentDevice) {
     error: t('Could not remove computer'),
     fallback: REMOVE_FALLBACK,
     description: t(
-      'This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your agent history stays in Nuphos.',
+      'This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your task history stays in Nuphos.',
     ),
   }
 }
@@ -149,7 +160,7 @@ export function accessHint(device: AgentDevice): string | null {
 
   if (!access || !canManage(device)) return null
   if (access.everyone) return t('Everyone')
-  if (!access.userIds.length) return t('Admins only')
+  if (!access.userIds.length) return t('Private')
 
   return t('Shared with {n}', { n: access.userIds.length })
 }
@@ -228,7 +239,7 @@ export const BOX_PLANS = [
     usdPerMonth: 20,
     example: t('e.g. one 4 vCPU computer'),
     perks: [
-      t('Your agents keep working while your laptop sleeps'),
+      t('Your Bots and tasks keep working while your laptop sleeps'),
       t('A full desktop in every computer'),
     ],
   },
@@ -248,7 +259,7 @@ export const BOX_PLANS = [
     vcpus: 24,
     usdPerMonth: 100,
     example: t('e.g. three 8 vCPU build computers at once'),
-    perks: [t('Many agents working in parallel'), t('Computers for the whole team at once')],
+    perks: [t('Many tasks working in parallel'), t('Computers for the whole team at once')],
   },
 ]
 
@@ -269,7 +280,7 @@ const SIZE_TIERS = [
 ]
 
 const sessionCount = (n: number) =>
-  n === 1 ? t('Up to 1 agent at once') : t('Up to {n} agents at once', { n })
+  n === 1 ? t('Up to 1 task at once') : t('Up to {n} tasks at once', { n })
 
 /** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {

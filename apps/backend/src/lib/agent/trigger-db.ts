@@ -1,12 +1,9 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 
-import { ObjectId } from 'mongodb'
-
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
 import type { AgentTrigger } from './trigger-db-types'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { Collection } from 'mongodb'
 
 export type {
@@ -44,42 +41,6 @@ export function triggerConfigRevisionFilter(
   return revision === 0
     ? { $or: [{ configRevision: 0 }, { configRevision: { $exists: false } }] }
     : { configRevision: revision }
-}
-
-/**
- * Re-check the persisted authorization immediately around an outbound side
- * effect. This fences trigger runs that loaded before a reroute, disable, or
- * message-template edit.
- */
-export async function isSlackTriggerNotificationConfigurationCurrent(input: {
-  triggerId: string
-  userId: string
-  teamId: string
-  configRevision: number
-  approvedDestination: SlackOutboundDestination
-}): Promise<boolean> {
-  if (!ObjectId.isValid(input.triggerId)) return false
-  const destinationFilter =
-    input.approvedDestination.type === 'channel'
-      ? {
-          'slackDestination.type': 'channel' as const,
-          'slackDestination.channelId': input.approvedDestination.channelId,
-        }
-      : { 'slackDestination.type': 'dm_self' as const }
-  const current = await agentTriggers().findOne(
-    {
-      _id: new ObjectId(input.triggerId),
-      userId: input.userId,
-      teamId: input.teamId,
-      enabled: true,
-      incidentMode: true,
-      ...destinationFilter,
-      ...triggerConfigRevisionFilter(input.configRevision),
-    },
-    { projection: { _id: 1 } },
-  )
-
-  return current !== null
 }
 
 export async function setupTriggerIndexes(): Promise<void> {

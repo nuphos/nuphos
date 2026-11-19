@@ -84,6 +84,9 @@ enum BotAvatars {
         case "grok": "logo-grok"
         case "antigravity": "logo-antigravity"
         case "opencode": "logo-opencode"
+        case "dsh": "logo-deepseek"
+        case "hermes": "logo-hermes"
+        case "pi": "logo-pi"
         default: nil
         }
     }

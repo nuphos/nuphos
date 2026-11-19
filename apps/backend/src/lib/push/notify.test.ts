@@ -2,16 +2,13 @@ import { generateKeyPairSync } from 'node:crypto'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { SESSION_COALESCE_MS, USER_PUSHES_PER_MINUTE } from './admit'
 import { sendApns, setApnsTransportForTests } from './apns'
-import {
-  BADGE_DEBOUNCE_MS,
-  createTurnNotifier,
-  SESSION_COALESCE_MS,
-  USER_PUSHES_PER_MINUTE,
-} from './notify'
+import { BADGE_DEBOUNCE_MS, createTurnNotifier } from './notify'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
 import type { PushDevice, PushDeviceStore } from './devices'
+import type { FcmRequest } from './fcm'
 import type { NotifiableRun, TurnNotifierDeps } from './notify'
 
 const credentials: ApnsCredentials = {
@@ -424,6 +421,39 @@ describe('FCM dispatch', () => {
     expect(delivered).toEqual(['FCM:MixedCase'])
     expect(sent).toEqual([])
   })
+  test('Android receives the same Bot identity as APNs, and Tasks carry none', async () => {
+    const bot = {
+      userId: 'owner-1',
+      title: 'Bot',
+      teamId: 'team-1',
+      watcherIds: ['user-1'],
+      avatar: '07-ada',
+      agentRuntime: 'grok',
+    }
+
+    devices = [
+      device('ios'),
+      { ...device('fcm'), platform: 'android', projectId: 'nuphos-android' },
+    ]
+    const requests: FcmRequest[] = []
+    const n = (conversation?: typeof bot) =>
+      notifier({
+        ...(conversation ? { conversation: async () => conversation } : {}),
+        fcmProject: () => 'nuphos-android',
+        sendFcm: async (_project, request) => {
+          requests.push(request)
+
+          return { status: 200, deadToken: false }
+        },
+      })
+
+    await n(bot).runEnded(run())
+    expect(requests[0]?.agentIdentity).toEqual({ isBot: true, avatar: '07-ada', provider: 'grok' })
+    expect(sent[0]?.payload.agentIdentity).toEqual(requests[0]?.agentIdentity)
+    requests.length = 0
+    await n().runEnded(run())
+    expect(requests[0]?.agentIdentity).toEqual({ isBot: false })
+  })
   test('does not send a token belonging to another Firebase project', async () => {
     devices = [{ ...device('wrong'), platform: 'android', projectId: 'another-project' }]
     let calls = 0
@@ -589,6 +619,31 @@ describe('nudge', () => {
     title: 'Sign-in requested',
     body: 'Shant asked you',
   }
+
+  test("a Bot's channel post carries its own face, not the channel's, and wakes the extension", async () => {
+    await notifier({ conversation: async () => ({ userId: 'owner-1', kind: 'channel' }) }).nudge(
+      'user-1',
+      {
+        sessionId: 'chan-1',
+        teamId: 'team-1',
+        title: 'Ada',
+        subtitle: 'Release',
+        body: 'The build is green.',
+        speaker: { isBot: true, avatar: '07-ada' },
+        aps: { 'mutable-content': 1 },
+      },
+    )
+
+    expect(sent[0]?.payload).toMatchObject({
+      aps: {
+        alert: { title: 'Ada', subtitle: 'Release', body: 'The build is green.' },
+        'mutable-content': 1,
+      },
+      agentIdentity: { isBot: true, avatar: '07-ada' },
+      sessionId: 'chan-1',
+    })
+    expect(sent[0]?.payload.aps).not.toHaveProperty('category')
+  })
 
   test('someone who can read the conversation gets a push that opens it', async () => {
     await notifier().nudge('user-1', push)

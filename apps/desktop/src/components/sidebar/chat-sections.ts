@@ -1,3 +1,5 @@
+import { nearestBot } from '../../lib/nearestBot.ts'
+
 import { doneGroup, nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -9,6 +11,18 @@ export const BOTS_SECTION = 'Channels'
 /** Bot tree fold keys stay scoped to the Bots section. */
 export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
+}
+
+/** A Bot tree fold, not its done group: folded until opened by hand, then remembered per team. */
+export function isBotTreeFold(title: string): boolean {
+  return title.startsWith('bots:') && !title.endsWith(':done')
+}
+
+/** The stored folds of a Bots row: its tree and its done group. */
+export function botFoldTitles(sessionId: string): string[] {
+  const tree = foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
+
+  return [tree, `${tree}:done`]
 }
 
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
@@ -53,22 +67,17 @@ export function withChatSections(
   const originals = new Map(
     agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
   )
-  const botOwner = (item: Item): Item | undefined => {
-    const seen = new Set<string>()
-    let parent = item.parentKey
-
-    while (parent && !seen.has(parent)) {
-      seen.add(parent)
-      const row = originals.get(parent)
-
-      if (!row) return undefined
-      if (row.bot) return row
-      parent = row.parentKey
-    }
-
-    return undefined
-  }
-  const owners = new Map([...originals].map(([key, item]) => [key, botOwner(item)]))
+  const owners = new Map(
+    [...originals].map(([key, item]) => [
+      key,
+      nearestBot(
+        item.parentKey,
+        (parent) => originals.get(parent),
+        (row) => Boolean(row.bot),
+        (row) => row.parentKey,
+      ),
+    ]),
+  )
   const chatByBot = new Map<string, string>()
 
   for (const item of agents.items) {
@@ -152,4 +161,26 @@ export function withSectionActions(
 
     return action ? { ...section, action } : section
   })
+}
+
+/** Assemble the chat navigation in one place for the full and compact sidebar. */
+export function decorateChatSections(options: {
+  sections: Section[]
+  openBot: (botId: string) => void
+  projects: (tasks: Item[]) => Item[]
+  favorites: Item[]
+  compact: boolean
+  actions: Partial<Record<string, ReactNode>>
+}): Section[] {
+  const sections = withChatSections(options.sections, options.openBot, options.projects)
+
+  if (options.favorites.length)
+    sections.splice(1, 0, { title: 'Favorites', items: options.favorites })
+
+  return withSectionActions(
+    options.compact
+      ? sections.filter((section, index) => index === 0 || isChatSection(section))
+      : sections,
+    options.actions,
+  )
 }

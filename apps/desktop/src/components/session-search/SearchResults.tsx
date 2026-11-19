@@ -6,6 +6,7 @@ import { searchKeyAction } from '../../lib/searchKeyboard'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { Avatar } from '../Avatar'
 import { ChatIcon } from '../channels/channelParts'
+import { onBotsPage } from '../sidebar/chat-item'
 
 import { searchPreview } from './matchedResource'
 import { PaletteCommandRows } from './PaletteCommandRows'
@@ -57,10 +58,10 @@ export function SearchResults({
     () => (mode === 'sessions' && !owner ? matchPaletteCommands(query, otherTeams) : []),
     [mode, owner, query, otherTeams],
   )
-  // As the sidebar lists them: chats (channels and Bots' chats) under Bots, every agent under Tasks.
+  // As the sidebar lists them: chats and Bots under Bots, everything else under Tasks.
   const sessions = useMemo(() => {
-    const chats = results.sessions.filter(({ conversation }) => conversation.kind === 'channel')
-    const tasks = results.sessions.filter(({ conversation }) => conversation.kind !== 'channel')
+    const chats = results.sessions.filter(({ conversation }) => onBotsPage(conversation))
+    const tasks = results.sessions.filter(({ conversation }) => !onBotsPage(conversation))
 
     return { chats, tasks, ordered: [...chats, ...tasks] }
   }, [results.sessions])
@@ -124,12 +125,8 @@ export function SearchResults({
     selectedIndex,
   ])
 
-  const heading =
-    mode === 'people'
-      ? t('People in {team}', { team: teamName })
-      : owner
-        ? t('Agents by {name}', { name: owner.name || owner.email })
-        : t('Agents')
+  const ownerName = owner ? owner.name || owner.email : ''
+  const heading = t('People in {team}', { team: teamName })
   const sessionRow = (result: SessionResult, index: number) => {
     const { conversation } = result
     const at = commands.length + index
@@ -139,7 +136,7 @@ export function SearchResults({
         key={conversation.sessionId}
         id={`${listId}-${String(at)}`}
         preview={searchPreview(conversation, query)}
-        title={conversation.title || conversation.firstMessage || t('Untitled agent')}
+        title={conversation.title || conversation.firstMessage || t('Untitled task')}
         meta={metaFor(result, userId)}
         query={query}
         selected={at === selectedIndex}
@@ -186,11 +183,11 @@ export function SearchResults({
       <div
         id={listId}
         role="listbox"
-        aria-label={heading}
+        aria-label={mode === 'people' ? heading : t('Search Bots and tasks')}
         aria-busy={busy}
         className="space-y-0.5 px-2 pb-2"
       >
-        {!busy && (mode === 'people' || owner) && resultCount > 0 && <GroupLabel text={heading} />}
+        {!busy && mode === 'people' && resultCount > 0 && <GroupLabel text={heading} />}
         {!busy &&
           mode === 'people' &&
           results.people.map((person, index) => (
@@ -209,7 +206,7 @@ export function SearchResults({
                   className="shrink-0 rounded-full"
                 />
               }
-              action={t('View agents')}
+              action={t('View Bots and tasks')}
               onSelect={() => setSelected(index)}
               onOpen={() => {
                 trackOpened('person', index, 'mouse', query)
@@ -217,17 +214,15 @@ export function SearchResults({
               }}
             />
           ))}
-        {!busy && mode === 'sessions' && owner && sessions.ordered.map(sessionRow)}
-        {!busy && mode === 'sessions' && !owner && sessions.chats.length > 0 && (
-          <GroupLabel text={t('Bots')} />
+        {!busy && mode === 'sessions' && sessions.chats.length > 0 && (
+          <GroupLabel text={owner ? t('Bots by {name}', { name: ownerName }) : t('Bots')} />
         )}
-        {!busy && mode === 'sessions' && !owner && sessions.chats.map(sessionRow)}
-        {!busy && mode === 'sessions' && !owner && sessions.tasks.length > 0 && (
-          <GroupLabel text={t('Tasks')} />
+        {!busy && mode === 'sessions' && sessions.chats.map(sessionRow)}
+        {!busy && mode === 'sessions' && sessions.tasks.length > 0 && (
+          <GroupLabel text={owner ? t('Tasks by {name}', { name: ownerName }) : t('Tasks')} />
         )}
         {!busy &&
           mode === 'sessions' &&
-          !owner &&
           sessions.tasks.map((result, index) => sessionRow(result, sessions.chats.length + index))}
       </div>
       {busy && <ResultSkeleton />}
@@ -236,10 +231,10 @@ export function SearchResults({
         {!busy && !results.error && resultCount === 0 && (
           <p className="py-5">
             {results.recent
-              ? t('Agents you open will appear here. Type to search your team.')
+              ? t('Bots and tasks you open will appear here. Type to search your team.')
               : mode === 'people'
                 ? t('No people found. Try another name or email.')
-                : t('No agents found. Try another search or clear the person filter.')}
+                : t('No Bots or tasks found. Try another search or clear the person filter.')}
           </p>
         )}
         {!busy && results.error && (
@@ -257,12 +252,12 @@ export function SearchResults({
           disabled={results.loadingMore}
           onClick={() => void results.loadMore()}
         >
-          {results.loadingMore ? t('Loading…') : t('Load more agents')}
+          {results.loadingMore ? t('Loading…') : t('Load more Bots and tasks')}
         </button>
       )}
       {!busy && mode === 'people' && count > 0 && (
         <p className="px-4 pb-3 text-xs text-secondary">
-          {t('Choose a teammate, then search within their agents.')}
+          {t('Choose a teammate, then search within their Bots and tasks.')}
         </p>
       )}
     </div>

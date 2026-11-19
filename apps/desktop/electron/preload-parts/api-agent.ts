@@ -10,7 +10,15 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) =>
+    ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => ipcRenderer.invoke('agent:snoozeDecision', sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,
@@ -214,8 +222,8 @@ export const agentApi = {
     },
     teamId?: string,
   ) => ipcRenderer.invoke('agent:updateTrigger', triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId, withoutProviderCleanup),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId),
   appOpenExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   appOpenSsh: (url: string) => ipcRenderer.invoke('app:openSsh', url),
   sshTerminalInput: (id: string, data: string) =>

@@ -3,6 +3,7 @@ import { redisEnabled, withRedis } from '@/lib/redis'
 import {
   FINISHED_RUN_KEY_TTL_SEC,
   frameType,
+  REPLAY_FIELD_MAX_BYTES,
   RUN_KEY_TTL_SEC,
   RUN_STREAM_FRAME_MAX_BYTES,
   RUN_STREAM_MAXLEN,
@@ -37,13 +38,31 @@ export function mirrorAgentRunFrame(userId: string, streamId: string, frame: str
   })
 }
 
-/** The frame as a reconnecting client replays it: an oversized tool output is left out. */
+/**
+ * The frame as a reconnecting client replays it. An oversized frame of any type
+ * keeps its place (clients resume by frame count) and its small fields (type,
+ * ids, names), but each large field becomes `{ omitted, bytes }`; the live
+ * stream still carried the full frame.
+ */
 export function replayFrame(frame: string): string {
-  if (frame.length <= RUN_STREAM_FRAME_MAX_BYTES || frameType(frame) !== 'tool-output-available')
-    return frame
-  const payload = JSON.parse(frame.slice('data: '.length)) as Record<string, unknown>
+  if (frame.length <= RUN_STREAM_FRAME_MAX_BYTES) return frame
+  let payload: Record<string, unknown>
 
-  return `data: ${JSON.stringify({ ...payload, output: { omitted: true, bytes: frame.length } })}\n\n`
+  try {
+    payload = JSON.parse(frame.slice('data: '.length)) as Record<string, unknown>
+  } catch {
+    return frame
+  }
+  const kept = Object.entries(payload).map(([field, value]) => {
+    const bytes = JSON.stringify(value)?.length ?? 0
+
+    return [
+      field,
+      field === 'type' || bytes <= REPLAY_FIELD_MAX_BYTES ? value : { omitted: true, bytes },
+    ]
+  })
+
+  return `data: ${JSON.stringify(Object.fromEntries(kept))}\n\n`
 }
 
 /** Once the run has finished, keep its buffer only as long as a reconnect takes. */

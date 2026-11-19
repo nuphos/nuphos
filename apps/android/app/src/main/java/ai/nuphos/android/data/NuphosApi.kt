@@ -67,8 +67,9 @@ object NuphosApi {
         channels: Boolean = false,
         bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision, includeOnboarding)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -82,6 +83,7 @@ object NuphosApi {
         channels: Boolean = false,
         bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): List<Pair<String, String>> {
         return buildList {
             add("teamId" to teamId)
@@ -98,6 +100,7 @@ object NuphosApi {
             if (bots) add("bots" to "true")
             // Only conversations with an open question, each with every parent above it.
             if (pendingDecision) add("pendingDecision" to "true")
+            if (includeOnboarding) add("includeOnboarding" to "true")
         }
     }
 
@@ -152,13 +155,6 @@ object NuphosApi {
         val json: JsonValue = get("agent/credential-options", token, listOf("teamId" to teamId), timeoutSeconds = 20)
         return CredentialCatalog(json["options"] ?: json, CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
     }
-
-    @Serializable
-    private data class ShareApprovalEnvelope(val status: String? = null)
-
-    /** Whether the caller's conversation on a teammate's shared computer waits for its owner; null when never asked. */
-    suspend fun ownShareApproval(token: String, sessionId: String): String? =
-        get<ShareApprovalEnvelope>("agent/devices/share-approvals/mine", token, listOf("sessionId" to sessionId), timeoutSeconds = 15).status
 
     @Serializable
     private data class ErrorEnvelope(val error: Inner? = null) {

@@ -103,6 +103,7 @@ export type WindowAgentApi = AgentDecisionApi & {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      includeOnboarding?: boolean
       kind?: 'channel'
     },
   ): Promise<AgentConversationsPage>
@@ -258,9 +259,5 @@ export type WindowAgentApi = AgentDecisionApi & {
     patch: UpdateAgentTriggerInput,
     teamId?: string,
   ): Promise<AgentTrigger>
-  agentDeleteTrigger(
-    triggerId: string,
-    teamId?: string,
-    withoutProviderCleanup?: boolean,
-  ): Promise<DeleteAgentTriggerResult>
+  agentDeleteTrigger(triggerId: string, teamId?: string): Promise<DeleteAgentTriggerResult>
 }

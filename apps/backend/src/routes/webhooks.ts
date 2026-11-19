@@ -4,7 +4,6 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { executeTrigger } from '@/lib/agent/trigger-executor'
-import { shouldBypassTriggerCooldown } from '@/lib/agent/webhook-cooldown'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -57,10 +56,6 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     throw new AppError(401, 'invalid_secret', 'Webhook secret missing or incorrect')
   }
 
-  // Parse before claiming the flood-guard window so terminal incident
-  // deliveries can bypass it. Exact-once recovery posting is enforced by the
-  // incident store in the executor, so concurrent duplicate recoveries remain
-  // safe while a real recovery can never be lost behind a recent firing run.
   const rawBody = await c.req.text()
   let payload: unknown
   const contentType = c.req.header('content-type') ?? ''
@@ -132,7 +127,7 @@ webhooksRoutes.post('/:triggerId', async (c) => {
   // a failure and retry, which would amplify the very storm being damped.
   const cooldownSeconds = trigger.minIntervalSeconds ?? config.agent.triggers.webhookCooldownSeconds
 
-  if (cooldownSeconds > 0 && !shouldBypassTriggerCooldown(trigger.incidentMode, payload)) {
+  if (cooldownSeconds > 0) {
     const now = new Date()
     const cutoff = new Date(now.getTime() - cooldownSeconds * 1000)
     const claimed = await agentTriggers().findOneAndUpdate(

@@ -8,7 +8,7 @@ import { Hono } from 'hono'
 
 import { aggregateMonitoringOverview } from '@/lib/monitoring/overview'
 import { parseObjectId } from '@/lib/objectid'
-import { requireTeamMember } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamMember } from '@/middleware/auth'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 
@@ -17,8 +17,9 @@ monitoringRoutes.use('*', requireTeamMember())
 
 monitoringRoutes.get('/overview', async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const userId = c.get('userId')
-  const overview = await aggregateMonitoringOverview(teamId, userId)
+  const overview = await aggregateMonitoringOverview(teamId, (access) =>
+    canRequestUseBinding(c, access),
+  )
 
   return c.json(overview)
 })

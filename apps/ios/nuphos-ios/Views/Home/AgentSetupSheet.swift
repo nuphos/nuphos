@@ -43,6 +43,7 @@ struct AgentSetupView: View {
     private static let providers: [(RuntimeInstance.Provider, vendor: String)] = [
         (.claudeCode, "Anthropic"), (.codex, "OpenAI"), (.grok, "xAI"), (.antigravity, "Google"), (.opencode, "OpenCode"),
         (.hermes, "Nous Research"),
+        (.dsh, "DeepSeek"),
     ]
 
     private var connected: Bool { login?.state == "connected" }
@@ -53,7 +54,7 @@ struct AgentSetupView: View {
         Form {
             signIn(runtime)
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .navigationTitle(runtime.label)
@@ -93,7 +94,7 @@ struct AgentSetupView: View {
                 ZStack(alignment: .bottomTrailing) {
                     ProviderIcon(provider: runtime.provider, size: 64)
                     if connected {
-                        Image(systemName: "checkmark.circle.fill")
+                        LucideIcon("circle-check")
                             .font(.system(size: 22))
                             .foregroundStyle(.white, .green)
                             .background(Circle().fill(Theme.canvas).padding(-2))
@@ -105,7 +106,7 @@ struct AgentSetupView: View {
                     .font(.title3.weight(.semibold))
                 Text(headline(runtime))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.body)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -128,7 +129,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(userCode).font(.title2.monospaced().weight(.semibold)).textSelection(.enabled)
                             Spacer()
-                            Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                            DesignButton(copied ? "Copied" : "Copy", image: copied ? "lucide-check" : "lucide-copy") {
                                 UIPasteboard.general.string = userCode
                                 copied = true
                             }
@@ -216,7 +217,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(option.label).foregroundStyle(Theme.heading)
                             Spacer()
-                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
+                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(Theme.body) }
                         }
                         .contentShape(Rectangle())
                     }
@@ -224,7 +225,7 @@ struct AgentSetupView: View {
                     .disabled(busy)
                 }
             } header: {
-                Text(step.message ?? "Choose")
+                Text(step.message ?? String(localized: "Choose"))
             }
         } else if step.kind == "input" {
             Section {
@@ -289,14 +290,14 @@ struct AgentSetupView: View {
     }
 
     private func headline(_ runtime: RuntimeInstance) -> String {
-        if agentStarting { return "A new runtime takes a moment to start." }
-        guard let login else { return "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply." }
+        if agentStarting { return String(localized: "A new runtime takes a moment to start.") }
+        guard let login else { return String(localized: "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply.") }
         switch login.state {
-        case "connected": return "\(runtime.label) is ready to use."
+        case "connected": return String(localized: "\(runtime.label) is ready to use.")
         case "starting", "awaiting_authorization":
-            if login.step != nil, login.url == nil { return "Choose how to sign in, then follow the steps." }
-            return login.url == nil ? "Getting your sign-in page ready." : "Sign in with your \(account(runtime.provider)) account, then come back here."
-        default: return login.error ?? "Sign-in didn't finish."
+            if login.step != nil, login.url == nil { return String(localized: "Choose how to sign in, then follow the steps.") }
+            return login.url == nil ? String(localized: "Getting your sign-in page ready.") : String(localized: "Sign in with your \(account(runtime.provider)) account, then come back here.")
+        default: return login.error ?? String(localized: "Sign-in didn't finish.")
         }
     }
 

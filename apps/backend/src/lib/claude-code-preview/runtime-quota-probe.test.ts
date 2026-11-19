@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -112,4 +113,42 @@ test('an API key in Claude settings is signed in, with no usage to read, before 
   ).toEqual({ error: 'API-key agents have no usage limits' })
   // Settings without a key leave the sign-in as it was.
   expect(probe({ 'settings.json': { env: {} } }, 200)).toEqual({ error: 'Sign in required' })
+})
+
+test('the probe names the Claude account by a hash of its UUID, never the email', () => {
+  const home = mkdtempSync(join(tmpdir(), 'quota-probe-'))
+
+  homes.push(home)
+  mkdirSync(join(home, '.claude'), { recursive: true })
+  writeFileSync(
+    join(home, '.claude', '.credentials.json'),
+    JSON.stringify({ claudeAiOauth: { accessToken: 'fixture-access' } }),
+  )
+  writeFileSync(
+    join(home, '.claude.json'),
+    JSON.stringify({ oauthAccount: { accountUuid: 'acc-1', emailAddress: 'a@example.com' } }),
+  )
+  writeFileSync(join(home, 'params.json'), JSON.stringify({ provider: 'claude-code' }))
+  writeFileSync(join(home, 'probe.mjs'), RUNTIME_QUOTA_PROBE)
+  writeFileSync(
+    join(home, 'fake-fetch.mjs'),
+    `globalThis.fetch = async () => new Response('{}', { status: 200 })`,
+  )
+  const run = spawnSync(
+    process.execPath,
+    ['--preload', join(home, 'fake-fetch.mjs'), join(home, 'probe.mjs'), home],
+    { env: { HOME: home, PATH: process.env.PATH }, encoding: 'utf8' },
+  )
+
+  expect(run.stdout).not.toContain('a@example.com')
+  expect(parseQuotaReading(run.stdout)).toEqual({
+    usage: {},
+    accountKey: createHash('sha256').update('claude-code:acc-1').digest('hex').slice(0, 16),
+  })
+})
+
+test('a reading keeps only a 16-hex account key', () => {
+  expect(parseQuotaReading('__NUPHOS_QUOTA__{"usage":{},"accountKey":"a@example.com"}\n')).toEqual({
+    usage: {},
+  })
 })

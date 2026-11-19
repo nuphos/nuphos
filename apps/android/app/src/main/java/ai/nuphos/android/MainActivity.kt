@@ -86,17 +86,17 @@ class MainActivity : ComponentActivity() {
             val id = try { app.incomingShares.begin(app.authSession.user?.id) }
             catch (failure: Exception) {
                 if (failure is kotlinx.coroutines.CancellationException) throw failure
-                android.widget.Toast.makeText(this@MainActivity, "Shared drafts are unavailable. Check storage and try again.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this@MainActivity, getString(R.string.shell_share_unavailable), android.widget.Toast.LENGTH_LONG).show()
                 return@launch
             }
             if (id == null) {
-                android.widget.Toast.makeText(this@MainActivity, "Finish or cancel the current share before sharing another item.", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(this@MainActivity, getString(R.string.shell_share_busy), android.widget.Toast.LENGTH_LONG).show()
                 return@launch
             }
             val remaining = try { app.incomingShares.remainingBytes() }
             catch (failure: Exception) {
                 if (failure is kotlinx.coroutines.CancellationException) throw failure
-                app.incomingShares.failed(id, "Could not check saved attachment storage. Try again.")
+                app.incomingShares.failed(id, getString(R.string.shell_share_storage_check_failed))
                 return@launch
             }
             var loaded = emptyList<ai.nuphos.android.model.ComposerAttachment>()
@@ -120,7 +120,7 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {
                 withContext(kotlinx.coroutines.NonCancellable + kotlinx.coroutines.Dispatchers.IO) { loaded.forEach { it.releaseOwnedCopy() } }
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                app.incomingShares.failed(id, "Could not read this share. Check its size and permissions, then share it again.")
+                app.incomingShares.failed(id, getString(R.string.shell_share_read_failed))
             } finally {
                 java.lang.ref.Reference.reachabilityFence(captured)
             }

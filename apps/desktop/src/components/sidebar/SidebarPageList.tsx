@@ -4,10 +4,9 @@ import { useRef } from 'react'
 
 import { t } from '../../i18n'
 
-import { unpinnedChatItems } from './chat-sections'
+import { BOTS_SECTION, foldKey, unpinnedChatItems } from './chat-sections'
 import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
-import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarBotPins } from './SidebarBotPins'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { taskPageSections } from './task-page-sections'
@@ -52,12 +51,19 @@ export function SidebarPageList({
   const empty =
     source.every((section) => !section.loading) &&
     shown.every((section) => section.items.length === 0)
+  // Bots drops its title to hide its heading, so its row folds take back the Bots scope.
+  const scoped = (fold: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+    page === 0 && fold.title?.startsWith('agent-session:')
+      ? { ...fold, title: foldKey({ title: BOTS_SECTION }, fold.title) }
+      : fold
   const props = {
     ...listProps,
     isGroupCollapsed: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
       section.title === 'Tasks' || section.title === 'Channels'
         ? false
-        : listProps.isGroupCollapsed(section),
+        : listProps.isGroupCollapsed(scoped(section)),
+    toggleGroup: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+      listProps.toggleGroup(scoped(section)),
   }
   const list = <SidebarSectionList {...props} sections={visible} />
 
@@ -103,6 +109,7 @@ export function SidebarPageList({
             onPlace={listProps.botPins?.place}
             pinned={pinned}
             toggle={listProps.toggleFavorite}
+            onItemMenu={listProps.onItemMenu}
             onSelect={listProps.onSelect}
             teamId={listProps.scope.teamId}
           >
@@ -122,11 +129,6 @@ export function SidebarPageList({
           </div>
         )}
       </nav>
-      {page === 1 && (
-        <div className="shrink-0 px-2.5 pb-1">
-          <SidebarArchiveSection listProps={listProps} />
-        </div>
-      )}
     </div>
   )
 }

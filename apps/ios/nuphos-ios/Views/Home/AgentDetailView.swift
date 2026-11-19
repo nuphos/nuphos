@@ -47,7 +47,7 @@ struct AgentDetailView: View {
                         }
                     }
                 } else {
-                    Text(quota?.reason ?? "Unavailable").foregroundStyle(.secondary)
+                    Text(quota?.reason ?? String(localized: "Unavailable")).foregroundStyle(Theme.body)
                 }
             }
             Section {
@@ -65,7 +65,7 @@ struct AgentDetailView: View {
                 Button("Remove Runtime", role: .destructive) { confirmRemoval = true }
             }
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .disabled(busy)
@@ -75,8 +75,8 @@ struct AgentDetailView: View {
             Button("Remove Runtime", role: .destructive) { remove() }
         } message: {
             Text(current.kind == "managed"
-                ? "This stops the runtime and permanently deletes its files and sign-in. Your agents' history stays in Nuphos."
-                : "This disconnects the runtime. Your agents stay in Nuphos.")
+                ? "This stops the runtime and permanently deletes its files and sign-in. Your tasks' history stays in Nuphos."
+                : "This disconnects the runtime. Your tasks stay in Nuphos.")
         }
     }
 

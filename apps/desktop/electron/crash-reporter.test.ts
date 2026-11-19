@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { before, beforeEach, mock, test } from 'node:test'
@@ -20,7 +20,10 @@ const settingFile = path.join(userData, 'diagnostics.json')
 let started: StartOptions | undefined
 let analytics: boolean[] = []
 let broadcasts: unknown[][] = []
-let syncHandler: ((event: { returnValue?: unknown }) => void) | undefined
+const syncHandlers = new Map<string, (event: { returnValue?: unknown }) => void>()
+const CLOUD = 'https://api.nuphos.ai'
+const SELF_HOSTED = 'https://api.example.test'
+let setApiUrl: (url: string | null) => string
 const extra = new Map<string, string>()
 
 type CrashReporterModule = typeof CrashReporter
@@ -35,17 +38,18 @@ const launch = async (): Promise<CrashReporterModule> => {
 
   return mod
 }
-const syncValue = () => {
+const syncValue = (channel = 'diagnostics:enabled') => {
   const event: { returnValue?: unknown } = {}
 
-  syncHandler?.(event)
+  syncHandlers.get(channel)?.(event)
 
   return event.returnValue
 }
 
-before(() => {
+before(async () => {
   delete process.env.VITE_DEV_SERVER_URL
-  process.env.NUPHOS_API_URL = 'https://api.example.test'
+  process.env.NUPHOS_CLI_CONFIG = path.join(userData, 'cli.test.yaml')
+  process.env.NUPHOS_API_URL = SELF_HOSTED
   mock.module('electron', {
     namedExports: {
       app: { getPath: () => userData },
@@ -55,8 +59,8 @@ before(() => {
         ],
       },
       ipcMain: {
-        on: (channel: string, handler: typeof syncHandler) => {
-          if (channel === 'diagnostics:enabled') syncHandler = handler
+        on: (channel: string, handler: (event: { returnValue?: unknown }) => void) => {
+          syncHandlers.set(channel, handler)
         },
       },
       crashReporter: {
@@ -76,9 +80,12 @@ before(() => {
   mock.module('./main/device-identity.ts', {
     namedExports: { readDeviceIdentity: () => ({ deviceId: 'hardware-uuid-1234' }) },
   })
+  ;({ setApiUrl } = await import('./api-endpoint.ts'))
 })
 
 beforeEach(() => {
+  rmSync(settingFile, { force: true })
+  setApiUrl(SELF_HOSTED)
   started = undefined
   analytics = []
   broadcasts = []
@@ -88,7 +95,7 @@ beforeEach(() => {
 test('uploads plain minidumps to the backend with non-identifying annotations', async () => {
   await launch()
 
-  assert.equal(started?.submitURL, 'https://api.example.test/desktop/crash-reports')
+  assert.equal(started?.submitURL, `${SELF_HOSTED}/desktop/crash-reports`)
   assert.equal(started?.uploadToServer, true)
   assert.equal(started?.compress, false)
   assert.equal(started?.rateLimit, true)
@@ -101,18 +108,59 @@ test('uploads plain minidumps to the backend with non-identifying annotations', 
   }
 })
 
-test('the setting defaults on; turning it off stops analytics and flags later crashes', async () => {
+test('a self-hosted backend gets crash reports and never starts usage analytics', async () => {
   const { setSendDiagnostics } = await launch()
 
-  assert.deepEqual(analytics, [true])
+  assert.equal(started?.submitURL, `${SELF_HOSTED}/desktop/crash-reports`)
+  assert.equal(started?.uploadToServer, true)
+  assert.deepEqual(analytics, [false])
+  assert.equal(syncValue(), true, 'the setting itself is on')
+  assert.equal(syncValue('diagnostics:usage'), false)
+
+  // Saving the setting as on does not start it either.
+  assert.equal(setSendDiagnostics(true), true)
+  assert.deepEqual(analytics, [false, false])
+  assert.deepEqual(broadcasts, [['diagnostics:changed', false]])
+})
+
+test('moving to a self-hosted backend stops usage analytics and flags later crashes', async () => {
+  setApiUrl(CLOUD)
+  await launch()
+  assert.equal(started?.submitURL, `${CLOUD}/desktop/crash-reports`)
+  assert.equal(analytics.at(-1), true)
+  assert.equal(syncValue('diagnostics:usage'), true)
+
+  // Crashpad keeps uploading to Cloud until the next launch.
+  setApiUrl(SELF_HOSTED)
+  assert.equal(analytics.at(-1), false)
+  assert.equal(syncValue('diagnostics:usage'), false)
+  assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', false])
+  assert.equal(extra.get('upload_off'), '1')
+
+  setApiUrl(CLOUD)
+  assert.equal(analytics.at(-1), true)
+  assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', true])
+  assert.equal(extra.get('upload_off'), '0')
+})
+
+test('the setting defaults on; turning it off stops analytics and flags later crashes', async () => {
+  setApiUrl(CLOUD)
+  // Earlier launches are still subscribed to the backend and have flagged their own Crashpad.
+  extra.clear()
+  const { setSendDiagnostics } = await launch()
+
+  assert.equal(syncValue('diagnostics:usage'), true)
+
+  assert.equal(analytics.at(-1), true)
   assert.equal(extra.get('upload_off'), undefined)
   assert.equal(syncValue(), true)
 
   assert.equal(setSendDiagnostics(false), false)
   assert.equal(extra.get('upload_off'), '1')
-  assert.deepEqual(analytics, [true, false])
-  assert.deepEqual(broadcasts, [['diagnostics:changed', false]])
+  assert.equal(analytics.at(-1), false)
+  assert.deepEqual(broadcasts.at(-1), ['diagnostics:changed', false])
   assert.equal(syncValue(), false)
+  assert.equal(syncValue('diagnostics:usage'), false)
   assert.deepEqual(JSON.parse(readFileSync(settingFile, 'utf8')), { send: false })
   assert.throws(() => setSendDiagnostics('no'))
 })
@@ -122,6 +170,6 @@ test('a saved opt-out keeps uploads and analytics off from launch', async () => 
   await launch()
 
   assert.equal(started?.uploadToServer, false)
-  assert.deepEqual(analytics, [false])
+  assert.equal(analytics.at(-1), false)
   assert.equal(syncValue(), false)
 })

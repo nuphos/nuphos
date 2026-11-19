@@ -7,6 +7,7 @@ export type TunnelPurpose =
   | 'control'
   | 'exec'
   | 'upload'
+  | 'download'
   | 'file'
   | 'attachments'
   | 'terminal'
@@ -22,6 +23,9 @@ export const LOCAL_AGENT_PROVIDERS = [
   'grok',
   'antigravity',
   'opencode',
+  'dsh',
+  'hermes',
+  'pi',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -110,6 +114,9 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** An added agent's CLI being installed by the computer, or why that failed. */
+    installing: z.boolean().optional().catch(undefined),
+    installError: z.string().max(500).optional().catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
@@ -125,6 +132,8 @@ const localAgentStatusSchema = z.object({
   /** When that computer read it. Codex reports its windows as offsets from the
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
+  /** The account whose quota it spends, as a hash only that computer can make. */
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -155,6 +164,7 @@ export const localRuntimeStatusSchema = z.object({
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localUpload: z.boolean().optional(),
+  localDownload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
@@ -166,6 +176,15 @@ export const localRuntimeStatusSchema = z.object({
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
+  /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
+   *  the restart its owner may ask for from another computer (`method: 'update'`). Never fatal. */
+  app: z
+    .object({
+      version: z.string().max(50),
+      update: z.object({ version: z.string().max(50), ready: z.boolean() }).optional(),
+    })
+    .optional()
+    .catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
@@ -182,6 +201,9 @@ export const localRuntimeStatusSchema = z.object({
     grok: localAgentStatusSchema.optional(),
     antigravity: localAgentStatusSchema.optional(),
     opencode: localAgentStatusSchema.optional(),
+    dsh: localAgentStatusSchema.optional(),
+    hermes: localAgentStatusSchema.optional(),
+    pi: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })

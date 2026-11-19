@@ -7,6 +7,8 @@ import SwiftUI
 struct DockPanel: View {
     let session: ChatSession
     var openDesktop: () -> Void
+    /// A shell on the conversation's computer, as the Mac's Runtime terminal.
+    var openTerminal: () -> Void
     /// A web page in the phone's browser: its address (nil for a blank one) and its dock tab.
     var openWeb: (URL?, String?) -> Void
     /// A screen the iPhone has: Runtimes or Connectors.
@@ -32,7 +34,7 @@ struct DockPanel: View {
             HStack {
                 Text("Dock").font(.headline).foregroundStyle(Theme.heading)
                 Spacer()
-                Button("Close", systemImage: "xmark", action: close)
+                DesignButton("Close", image: "lucide-x", action: close)
                     .labelStyle(.iconOnly)
                     .foregroundStyle(Theme.body)
                     .accessibilityIdentifier("dock-close")
@@ -44,9 +46,9 @@ struct DockPanel: View {
             // Below the list, not in it: a scrolled list would hide what the tap just did.
             if let notice {
                 HStack(spacing: 8) {
-                    Label(notice, systemImage: "macbook").font(Theme.Text.secondary).foregroundStyle(Theme.body)
+                    Label(notice, image: "lucide-laptop").font(Theme.Text.secondary).foregroundStyle(Theme.body)
                     Spacer(minLength: 4)
-                    Button("Dismiss", systemImage: "xmark") { self.notice = nil }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
+                    DesignButton("Dismiss", image: "lucide-x") { self.notice = nil }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -54,7 +56,7 @@ struct DockPanel: View {
                 .accessibilityIdentifier("dock-notice")
             }
         }
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .task { await load() }
         .alert("Couldn't reach your Mac", isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })) {
             Button("OK", role: .cancel) {}
@@ -69,7 +71,7 @@ struct DockPanel: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(dock?.tabs ?? []) { tab in chip(tab) }
-                Button("New tab", systemImage: "plus") { searching = true }
+                DesignButton("New tab", image: "lucide-plus") { searching = true }
                     .labelStyle(.iconOnly)
                     .frame(width: 32, height: 32)
                     .background(Circle().fill(Theme.chatCanvas))
@@ -86,7 +88,7 @@ struct DockPanel: View {
             Button { open(tab.destination, tab: tab.id, title: tab.title) } label: {
                 HStack(spacing: 6) {
                     icon(tab.destination, kind: tab.kind)
-                    Text(tab.title.isEmpty ? "Untitled" : tab.title)
+                    Text(tab.title.isEmpty ? String(localized: "Untitled") : tab.title)
                         .font(Theme.Text.label)
                         .foregroundStyle(front ? Theme.heading : Theme.body)
                         .lineLimit(1)
@@ -94,7 +96,7 @@ struct DockPanel: View {
                 }
             }
             .accessibilityIdentifier("dock-tab-\(tab.id)")
-            Button("Close \(tab.title)", systemImage: "xmark") { Task { await closeTab(tab) } }
+            DesignButton("Close \(tab.title)", image: "lucide-x") { Task { await closeTab(tab) } }
                 .labelStyle(.iconOnly)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(Theme.muted)
@@ -120,7 +122,7 @@ struct DockPanel: View {
                     .accessibilityIdentifier("dock-search")
             }
             if let loadError, dock == nil {
-                Section { Label(loadError, systemImage: "exclamationmark.triangle").font(Theme.Text.secondary).foregroundStyle(Theme.muted) }
+                Section { Label(loadError, image: "lucide-triangle-alert").font(Theme.Text.secondary).foregroundStyle(Theme.muted) }
             }
             if query.trimmingCharacters(in: .whitespaces).isEmpty { groups } else { results }
         }
@@ -142,7 +144,7 @@ struct DockPanel: View {
                 }
             }
         }
-        Section("Workspace") {
+        Section(String(localized: "Workspace")) {
             ForEach(DockWorkspaceItem.all(teamId: session.teamId, desktop: session.canOpenDesktop)) { item in
                 row(item.title, detail: nil, destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
             }
@@ -165,14 +167,14 @@ struct DockPanel: View {
         let matches: (String) -> Bool = { text in terms.allSatisfy { text.lowercased().contains($0) } }
         Section {
             if let url = DockDestination.addressOrSearch(query) {
-                let label = DockDestination.address(query) != nil ? "Open \(url.absoluteString)" : "Search for “\(query)”"
+                let label = DockDestination.address(query) != nil ? String(localized: "Open \(url.absoluteString)") : String(localized: "Search for “\(query)”")
                 row(label, detail: nil, destination: .web(url), id: "address", systemImage: "globe")
             }
             ForEach((dock?.recent ?? []).filter { matches($0.title + " " + ($0.url ?? "")) }) {
                 row($0.title, detail: $0.url, destination: $0.destination, id: "recent-\($0.href)")
             }
             ForEach(DockWorkspaceItem.all(teamId: session.teamId, desktop: session.canOpenDesktop).filter { matches($0.title) }) { item in
-                row(item.title, detail: "Workspace", destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
+                row(item.title, detail: String(localized: "Workspace"), destination: item.destination, id: "workspace-\(item.id)", systemImage: item.systemImage)
             }
         }
     }
@@ -180,13 +182,13 @@ struct DockPanel: View {
     private func row(_ title: String, detail: String?, destination: DockDestination, id: String, systemImage: String? = nil) -> some View {
         Button { open(destination, tab: nil, title: title) } label: {
             HStack(spacing: 12) {
-                if let systemImage { Image(systemName: systemImage).foregroundStyle(Theme.muted).frame(width: 20) } else { icon(destination, kind: nil) }
+                if let systemImage { LucideIcon(systemName: systemImage).foregroundStyle(Theme.muted).frame(width: 20) } else { icon(destination, kind: nil) }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title).foregroundStyle(Theme.heading).lineLimit(1)
                     if let detail { Text(detail).font(Theme.Text.label).foregroundStyle(Theme.muted).lineLimit(1) }
                 }
                 Spacer(minLength: 0)
-                if case .onMac = destination { Image(systemName: "macbook").font(.caption).foregroundStyle(Theme.muted) }
+                if case .onMac = destination { LucideIcon("laptop").font(.caption).foregroundStyle(Theme.muted) }
             }
             .contentShape(Rectangle())
         }
@@ -198,11 +200,11 @@ struct DockPanel: View {
         switch destination {
         case .web(let url):
             AsyncImage(url: Self.favicon(url)) { image in image.resizable().scaledToFit() } placeholder: {
-                Image(systemName: "globe").foregroundStyle(Theme.muted)
+                LucideIcon("globe").foregroundStyle(Theme.muted)
             }
             .frame(width: 18, height: 18)
         default:
-            Image(systemName: Self.symbol(destination, kind: kind)).foregroundStyle(Theme.muted).frame(width: 18)
+            LucideIcon(systemName: Self.symbol(destination, kind: kind)).foregroundStyle(Theme.muted).frame(width: 18)
         }
     }
 
@@ -218,6 +220,7 @@ struct DockPanel: View {
         switch destination {
         case .web, .newBrowser: "globe"
         case .desktop: "display"
+        case .terminal: "terminal"
         case .runtimes: "cpu"
         case .connectors: "link"
         case .chat: "bubble.left"
@@ -249,7 +252,7 @@ struct DockPanel: View {
             dock = try await session.dock()
             loadError = nil
         } catch {
-            if dock == nil { loadError = error.localizedDescription }
+            if dock == nil, !Task.isCancelled { loadError = error.localizedDescription }
         }
         self.favorites = await favorites ?? self.favorites
         if let connectors, connectors.inventory == nil { await connectors.load(teamId: session.teamId) }
@@ -262,6 +265,7 @@ struct DockPanel: View {
             if tab != nil { openWeb(url, tab) } else { openAddress(url) }
         case .newBrowser: openWeb(nil, nil)
         case .desktop: openDesktop()
+        case .terminal: openTerminal()
         case .runtimes, .connectors: openScreen(destination)
         case .chat(let id):
             if let link = URL(string: "https://nuphos.ai/teams/\(session.teamId)/agent/\(id)") { openURL(link) }
@@ -285,7 +289,7 @@ struct DockPanel: View {
             let id: String
             if let tab { id = tab } else { id = try await session.openDockTab(href: href, page: href == nil ? page : nil) }
             try await session.focusDockTab(id)
-            notice = "\(title) isn't on iPhone yet. It's open on your Mac."
+            notice = String(localized: "\(title) isn't on iPhone yet. It's open on your Mac.")
             await load()
         } catch {
             problem = error.localizedDescription

@@ -26,6 +26,7 @@ import { getLocalActiveAgentRun } from './run-registry'
 import { normalizeOptionalTeamId, readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 import {
+  credentialSource,
   getConversationMessages,
   getConversationWithMessages,
   getConversations,
@@ -37,6 +38,7 @@ import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
+import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
@@ -121,6 +123,7 @@ agent.get('/conversations', async (c) => {
     sort,
     ...(triggerIds ? { triggerIds } : {}),
     ...(c.req.query('pendingDecision') === 'true' ? { pendingDecision: true } : {}),
+    ...(c.req.query('includeOnboarding') === 'true' ? { includeOnboarding: true } : {}),
     ...(c.req.query('kind') === 'channel' ? { channels: true } : {}),
     // The Bots page lists every Bot, not only those on a loaded history page (#1741).
     ...(c.req.query('bots') === 'true' ? { bots: true } : {}),
@@ -242,6 +245,11 @@ agent.get('/conversations/:sessionId', async (c) => {
       })
     }
   }
+  // A Task under a Bot shows the Bot's selection, the one it uses.
+  const source = await credentialSource(result.conversation)
+  const inherited = source.sessionId !== sessionId
+
+  if (inherited) result.conversation.credentialAccess = source.credentialAccess
   const conversationForViewer = serializeConversationForViewer(
     result.conversation,
     viewer,
@@ -253,6 +261,7 @@ agent.get('/conversations/:sessionId', async (c) => {
 
   return c.json({
     ...conversationForViewer,
+    ...(inherited ? { credentialSource: { sessionId: source.sessionId } } : {}),
     ...(await channelFacesField(result.conversation, viewer.id, ownerById)),
     // A resolved Slack binding no longer forces read-only: the turn is mirrored
     // into the thread (the Slack-bound branch in routes-chat-post.ts). A FAILED
@@ -260,7 +269,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     // either, so a transient read-only view is the cheaper failure.
     readOnly: slackThreadLookupFailed ? true : conversationForViewer.readOnly,
     slackThread,
-    messages: result.messages.map(serializeMessageDoc),
+    messages: (await withCurrentAgentNames(result.messages, teamId)).map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
     timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
     runtimeState,

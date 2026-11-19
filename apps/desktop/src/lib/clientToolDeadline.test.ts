@@ -14,7 +14,6 @@ const never = () => new Promise<never>(() => {})
 // any other unlisted tool name.
 test('an unlisted tool name gets the default deadline', () => {
   assert.equal(clientToolDeadlineMs('local_exec'), CLIENT_TOOL_DEFAULT_DEADLINE_MS)
-  assert.equal(clientToolDeadlineMs('upload_attachment'), CLIENT_TOOL_DEFAULT_DEADLINE_MS)
 })
 
 test('an invoke that never settles rejects instead of parking the turn forever', async () => {

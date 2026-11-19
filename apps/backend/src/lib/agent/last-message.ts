@@ -1,11 +1,15 @@
+import { plainText } from '@/lib/push/turn-outcome'
+
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
+import { withCurrentAgentNames } from './sender-names'
 
 import type { AgentConversation } from './db/shared'
 
 /**
- * A chat's newest message, for its list row's preview. `text` is the raw
- * markdown, cut short; it is empty when the message only carries files.
+ * A chat's newest message, for its list row's preview. `text` is plain text,
+ * as a notification shows it, so no client renders markdown syntax; it is
+ * empty when the message only carries files.
  * `from` names who sent it in a group chat, unless it was the viewer.
  */
 export type LastMessage = { text: string; from?: string }
@@ -16,7 +20,7 @@ const FILE_PARTS = new Set(['file', 'transfer-upload', 'transfer-download'])
 type Part = { type?: unknown; text?: unknown }
 
 export async function lastMessage(
-  conversation: Pick<AgentConversation, 'sessionId' | 'userId'> & { kind?: string },
+  conversation: Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId'> & { kind?: string },
   viewerId: string,
 ): Promise<LastMessage | undefined> {
   const [message] = await agentMessages()
@@ -62,13 +66,15 @@ export async function lastMessage(
   const files = parts.some((part) => FILE_PARTS.has(part.type as string))
 
   if (!text && !files) return undefined
-  const sender = parseMessageMetadata(message.metadata)?.sender
-  const from =
-    conversation.kind === 'channel' && sender && sender.id !== viewerId
-      ? shortName(sender.type, sender.displayName)
+  const metadata = parseMessageMetadata(message.metadata)
+  // Only a group chat's row names its sender, so only it looks the name up.
+  const sender =
+    conversation.kind === 'channel' && metadata && metadata.sender.id !== viewerId
+      ? (await withCurrentAgentNames([{ metadata }], conversation.teamId))[0]?.metadata.sender
       : undefined
+  const from = sender && shortName(sender.type, sender.displayName)
 
-  return { text: text?.slice(0, PREVIEW_CHARS) ?? '', ...(from ? { from } : {}) }
+  return { text: plainText(text?.slice(0, PREVIEW_CHARS) ?? ''), ...(from ? { from } : {}) }
 }
 
 /** A person by their first name, as iMessage does; an agent's title is its only name. */

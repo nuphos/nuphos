@@ -10,15 +10,12 @@ struct PushTarget: Equatable, Hashable, Identifiable {
     let teamId: String
     let sessionId: String
     let title: String
-    /// The open question the conversation's composer answers once open: an Inbox card's "Other…".
-    var answering: AgentConversation.InputRequest?
     var id: String { "\(teamId)/\(sessionId)" }
 
-    init(teamId: String, sessionId: String, title: String = "Agent", answering: AgentConversation.InputRequest? = nil) {
+    init(teamId: String, sessionId: String, title: String = "Agent") {
         self.teamId = teamId
         self.sessionId = sessionId
         self.title = title
-        self.answering = answering
     }
 
     nonisolated init?(userInfo: [AnyHashable: Any]) {
@@ -92,6 +89,17 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         #else
         "production"
         #endif
+    }
+
+    /// Whether this phone hears when a computer goes offline or comes back; on unless turned off.
+    static let computerAlertsKey = "push.computerAlerts"
+    private static var computerAlerts: Bool {
+        UserDefaults.standard.object(forKey: computerAlertsKey) as? Bool ?? true
+    }
+
+    /// Sends the account sheet's switch to the backend with this phone's registration.
+    func computerAlertsChanged() {
+        Task { await upload() }
     }
 
     /// Session pushes carry this category: long-press to reply without opening the app.
@@ -183,14 +191,15 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     private func performUpload() async {
         guard let authToken, let deviceToken else { return }
-        let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")"
+        let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")/\(Self.computerAlerts)"
         guard pair != registeredPair else { return }
         do {
             try await AgentChatAPI.registerPushDevice(
                 token: authToken,
                 device: .init(token: deviceToken, deviceId: Self.deviceId, environment: Self.environment,
                               bundleId: Bundle.main.bundleIdentifier ?? "",
-                              liveActivityStartToken: liveActivityStartToken)
+                              liveActivityStartToken: liveActivityStartToken,
+                              computerAlerts: Self.computerAlerts)
             )
             if self.authToken == authToken { registeredPair = pair }
         } catch {

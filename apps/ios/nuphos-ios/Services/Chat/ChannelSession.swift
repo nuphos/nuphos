@@ -14,6 +14,8 @@ final class ChannelSession {
     private(set) var title: String
     /// The chat's icon: the members other than the viewer that it shows.
     var faces: [ChatFace] = []
+    /// The Bot this is the 1:1 chat of; nil in a group chat, even one with only a Bot in it.
+    var botId: String?
     private(set) var stored: [ChannelPost] = []
     private(set) var events: [AgentConversationDetail.TimelineEvent] = []
     private(set) var agents: [ChannelAgent] = []
@@ -81,7 +83,9 @@ final class ChannelSession {
             await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
-            if !loaded { loadError = error.localizedDescription; loaded = true }
+            // Cancelled (the chat closed, the app left the foreground): not a
+            // failure, and not loaded, so the next poll reads it (#3620).
+            if !loaded, !Task.isCancelled { loadError = error.localizedDescription; loaded = true }
         }
     }
 
@@ -91,9 +95,12 @@ final class ChannelSession {
         sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar) }
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
+        botId = detail.botId
         revision = detail.channelRevision
         loadError = nil
         loaded = true
@@ -127,7 +134,7 @@ final class ChannelSession {
 
     /// A Bot's chat reads the pending listing, as the desktop's does; any other chat has none.
     func refreshQuestions() async {
-        guard let bot = faces.botId else { return }
+        guard let bot = botId else { return }
         await questions.refresh { BotQuestions.under(bot: bot, rows: $0) }
     }
 
@@ -135,6 +142,11 @@ final class ChannelSession {
     /// where it asked; no message is sent.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) {
         Task { await questions.answer(question, with: answer) }
+    }
+
+    /// Dismisses a question unanswered, as the desktop's Dismiss does: the agent that asked is told.
+    func dismiss(_ question: BotQuestion) {
+        Task { await questions.dismiss(question) }
     }
 
     // MARK: - Posting

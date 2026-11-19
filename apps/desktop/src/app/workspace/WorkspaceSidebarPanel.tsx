@@ -11,6 +11,7 @@ import {
   MY_PREFERENCES_DEFAULT_SECTION,
   USER_SETTINGS_DEFAULT_SECTION,
 } from '../../views/settings/settingsNav'
+import { useComputerAccessNotices } from '../../views/settings/useComputerAccessNotices'
 
 import { sidebarSurface } from './store/workspaceState'
 
@@ -54,7 +55,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     onSidebarOpenPath,
     handleLogout,
     selectedSessionId,
-    mainPageOpen,
+    mainPageTab,
     workspaceActions,
   } = ws
 
@@ -106,6 +107,9 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsInitialSection(null)
     setSettingsOpen(true)
   })
+  const openComputers = useStableCallback(() => openSettingsSection('workspace.computers'))
+
+  useComputerAccessNotices(currentTeam?.id, ws.teams, openComputers)
   const openMyPreferences = useStableCallback(() =>
     openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION),
   )
@@ -122,7 +126,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   const pageHasOwnNavigation =
     sidebarView(scope, ws.sidebarActive, grafanaInstance, sidebarRepositoryNav).level > 0
   const { dynamicNavigation, active, chatShown } = sidebarSurface(
-    mainPageOpen,
+    mainPageTab?.active ?? null,
     ws.workspaceDockExpanded && pageHasOwnNavigation,
     ws.sidebarActive,
   )
@@ -163,6 +167,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         history={history}
         onSidebarBack={inDatasourceExplorer || sidebarBack ? sidebarBackToParent : undefined}
         hierarchy={breadcrumb}
+        onOpenComputers={currentTeam ? openComputers : undefined}
         onOpenSettings={currentTeam ? openSettings : undefined}
         onOpenMyPreferences={currentTeam ? openMyPreferences : undefined}
         onOpenUserSettings={openUserSettings}

@@ -2,12 +2,31 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
-import { addUserToTeam, getTeamsByIds } from '@/lib/identity'
-import { normalizeInviteeEmail, serializeTeamInvitation } from '@/lib/team-invitations'
+import { addUserToTeam, getTeamMembership, getTeamsByIds } from '@/lib/identity'
+import {
+  invitationRole,
+  normalizeInviteeEmail,
+  serializeTeamInvitation,
+} from '@/lib/team-invitations'
 import { requireAuth } from '@/middleware/auth'
 import { teamInvitations } from '@/models'
 
+import type { NuphosTeamRole } from '@/lib/identity/types'
 import type { AuthVariables } from '@/middleware/auth'
+import type { TeamInvitation } from '@/models'
+
+/** Admin only while whoever invited is still an admin of the team; Editor otherwise. */
+async function roleOnAccept(invitation: TeamInvitation): Promise<NuphosTeamRole> {
+  const role = invitationRole(invitation)
+
+  if (role !== 'ADMINISTRATOR') return role
+  const inviter = await getTeamMembership(
+    invitation.inviterId.toHexString(),
+    invitation.teamId.toHexString(),
+  )
+
+  return inviter?.role === 'ADMINISTRATOR' ? role : 'EDITOR'
+}
 
 export const invitationsRoutes = new Hono<{ Variables: AuthVariables }>()
 invitationsRoutes.use('*', requireAuth)
@@ -80,9 +99,11 @@ invitationsRoutes.post('/:invitationId/accept', async (c) => {
   }
 
   let added: boolean
+  let role: NuphosTeamRole
 
   try {
-    added = await addUserToTeam(teamIdStr, c.get('userId'), 'EDITOR')
+    role = await roleOnAccept(invitation)
+    added = await addUserToTeam(teamIdStr, c.get('userId'), role)
   } catch (e) {
     await rollbackAcceptedAtOrThrow()
     throw e
@@ -94,7 +115,8 @@ invitationsRoutes.post('/:invitationId/accept', async (c) => {
   }
 
   return c.json({
-    invitation: serializeTeamInvitation(invitation),
+    // The role they joined with, which is Editor when the inviter is no longer an admin.
+    invitation: serializeTeamInvitation({ ...invitation, role }),
   })
 })
 

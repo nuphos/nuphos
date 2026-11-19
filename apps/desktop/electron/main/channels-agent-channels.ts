@@ -18,9 +18,12 @@ export const agentChannelChannels = {
     selection: BotImportSelection,
   ) => agent.applyBotImport(target, id, selection),
   'agent:saveGrokExportSkill': () => agent.saveGrokExportSkill(),
-  'agent:createChannel': (_e: unknown, teamId: string) => agent.createChannel(teamId),
+  'agent:createChannel': (_e: unknown, teamId: string, group?: boolean) =>
+    agent.createChannel(teamId, group),
   'agent:createBot': (_e: unknown, teamId: string, bot?: agent.NewBot) =>
     agent.createBot(teamId, bot),
+  'agent:startBotOnboarding': (_e: unknown, sessionId: string, teamId: string, channelId: string) =>
+    agent.startBotOnboarding(sessionId, teamId, channelId),
   'agent:makeBot': (_e: unknown, sessionId: string, teamId: string) =>
     agent.makeBot(sessionId, teamId),
   'agent:listChannelMentions': (_e: unknown, teamId: string) => agent.listChannelMentions(teamId),
@@ -45,16 +48,5 @@ export const agentChannelChannels = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
-    decisionReplyTo?: string,
-  ) =>
-    agent.postChannelMessage(
-      channelId,
-      teamId,
-      text,
-      id,
-      upload,
-      mentions,
-      replyTo,
-      decisionReplyTo,
-    ),
+  ) => agent.postChannelMessage(channelId, teamId, text, id, upload, mentions, replyTo),
 }

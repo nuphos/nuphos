@@ -17,6 +17,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -34,6 +39,8 @@ import ai.nuphos.android.ui.LocalAgentStore
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 /** Whether a chat row has posts the viewer has not read, from the same read state as agents. */
 internal object Unread {
@@ -84,19 +91,19 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         AlertDialog(
             onDismissRequest = { store.clearBotChatError() },
             text = { Text(message) },
-            dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text("OK") } },
+            dismissButton = { TextButton(onClick = { store.clearBotChatError() }) { Text(stringResource(R.string.chats_ok)) } },
             confirmButton = { TextButton(onClick = {
                 val botId = store.botChatFailedId
                 store.clearBotChatError()
                 botId?.let(::openBot)
-            }) { Text("Try again") } },
+            }) { Text(stringResource(R.string.try_again)) } },
         )
     }
     Column(Modifier.fillMaxSize()) {
     if (searching) ai.nuphos.android.ui.components.SearchField(
         value = store.search,
         onValueChange = store::updateSearch,
-        placeholder = "Search bots",
+        placeholder = stringResource(R.string.chats_search_bots),
         onCancel = { store.updateSearch(""); onSearchingChange(false) },
     )
     if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt()
@@ -107,10 +114,10 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
         item(key = "bots-header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Bots", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+                Text(stringResource(R.string.chats_bots), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 IconButton(onClick = { showNewBot = true }, enabled = !store.creatingBot) {
-                    Icon(Icons.Outlined.Add, "New Bot")
+                    Icon(Icons.Outlined.Add, stringResource(R.string.chats_new_bot))
                 }
             }
         }
@@ -149,16 +156,19 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
     var menu by remember { mutableStateOf(false) }
+    val typingLabel = stringResource(R.string.chats_is_typing, title)
+    val unreadLabel = stringResource(R.string.chats_unread_posts)
+    val openingLabel = stringResource(R.string.chats_opening)
     // A long press offers Archive Bot, as Desktop's sidebar does for a Bot and its chat.
     Box { DropdownMenu(expanded = menu && onArchiveBot != null, onDismissRequest = { menu = false }) {
-        DropdownMenuItem(text = { Text("Archive Bot") }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
+        DropdownMenuItem(text = { Text(stringResource(R.string.chats_archive_bot)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
             onClick = { menu = false; onArchiveBot?.invoke() })
     }
     ListItem(
         modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
-            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { "More actions" })
+            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { stringResource(R.string.chats_more_actions) })
             .testTag("chat-row:${chat.sessionId}").semantics {
-            contentDescription = listOfNotNull(title, if (typing) "$title is typing" else preview, "unread posts".takeIf { unread }, "opening".takeIf { opening }).joinToString(", ")
+            contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
         leadingContent = {
@@ -184,32 +194,33 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
 
 /** An unnamed chat is called by its one other member, which is how a Bot's 1:1 chat gets its name. */
 internal val AgentConversation.displayTitleForChat: String
-    get() = title.ifBlank { faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: "Untitled chat" }
+    @Composable get() = title.ifBlank { faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.chats_untitled_chat) }
+
+/** Where a group's faces sit in a 36dp box, whoever spoke last largest: left, top and size. */
+internal val ChatCluster = listOf(Triple(0f, 0f, 24f), Triple(18f, 12f, 18f), Triple(5f, 22f, 14f))
 
 /**
- * A chat's icon, as iMessage draws one: the one other member's face, or two overlapping, whoever spoke
- * last in front. A chat with nobody else shows its title's initials.
+ * A chat's icon: the one other member's face, or up to three members clustered as in the design
+ * system. A chat with nobody else shows its title's initials.
  */
 @Composable
 internal fun ChatIcon(faces: List<ChatFace>, title: String, size: Dp) {
-    val front = faces.getOrNull(0)
-    val back = faces.getOrNull(1)
     when {
-        front == null -> NuphosAvatar(NuphosUser(id = "", name = title), size)
-        back == null -> Face(front, size)
-        else -> Box(Modifier.size(size)) {
-            val small = size * 0.72f
-            Box(Modifier.align(Alignment.TopStart)) { Face(back, small, showBadge = false) }
-            Box(Modifier.align(Alignment.BottomEnd).background(MaterialTheme.colorScheme.background, CircleShape)
-                .padding(1.5.dp)) { Face(front, small - 3.dp, showBadge = false) }
-            val badgeSize = if (small <= 24.dp) 9.dp else 12.dp
-            val separation = if (back.agent != null && front.agent != null)
-                maxOf(0.dp, badgeSize - (size - small - 1.5.dp)) else 0.dp
-            Box(Modifier.align(Alignment.TopStart).size(small), contentAlignment = Alignment.BottomEnd) {
-                FaceBadge(back, badgeSize)
-            }
-            Box(Modifier.align(Alignment.BottomEnd).offset(separation, separation).size(small).padding(1.5.dp), contentAlignment = Alignment.BottomEnd) {
-                FaceBadge(front, badgeSize)
+        faces.isEmpty() -> NuphosAvatar(NuphosUser(id = "", name = title), size)
+        faces.size == 1 -> Face(faces[0], size)
+        // Each face's ring cuts the faces beneath it out, so it is whatever lies behind the icon.
+        else -> Box(Modifier.size(size).graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }) {
+            val scale = size / 36.dp
+            faces.take(ChatCluster.size).forEachIndexed { index, face ->
+                val (x, y, disc) = ChatCluster[index]
+                Box(
+                    Modifier.offset((x - 2).dp * scale, (y - 2).dp * scale).size((disc + 4).dp * scale)
+                        .drawBehind { drawCircle(Color.Black, blendMode = BlendMode.Clear) },
+                )
+                Box(
+                    Modifier.offset(x.dp * scale, y.dp * scale).size(disc.dp * scale).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) { Face(face, disc.dp * scale, showBadge = false) }
             }
         }
     }
@@ -219,12 +230,4 @@ internal fun ChatIcon(faces: List<ChatFace>, title: String, size: Dp) {
 private fun Face(face: ChatFace, size: Dp, showBadge: Boolean = true) {
     if (face.agent != null) AgentAvatar(face.id, face.agent.provider, size, showBadge)
     else NuphosAvatar(NuphosUser(id = face.id, name = face.name, avatarURL = face.avatarURL.orEmpty()), size)
-}
-
-
-@Composable
-private fun FaceBadge(face: ChatFace, size: Dp) {
-    if (face.agent != null && ai.nuphos.android.model.BotFaces.face(face.id) != null) {
-        ai.nuphos.android.ui.components.AgentRuntimeBadge(face.agent.provider, size)
-    }
 }

@@ -5,22 +5,21 @@ import { BotStatusLine } from './bot-status-line'
 import { chatSidebarItem } from './chat-item'
 import { ChatRowStatus } from './ChatRowStatus'
 
-import type { Activity, Run } from './bot-activity'
+import type { Run } from './bot-activity'
 import type { Item } from './types'
 import type { ChannelFace } from '../../api/agent-types'
 
-/** A question outranks an unread reply; work alone shows no dot. */
-function rowDot(activity: Activity, unread: boolean): 'waiting' | 'unread' | null {
-  if (activity.kind === 'asking') return 'waiting'
-
+/** Reading clears the neutral dot; pending questions stay in the preview. */
+function rowDot(unread: boolean): 'unread' | null {
   return unread ? 'unread' : null
 }
 
 /**
  * The rows for one Bot's chat. While the Bot or any of its sub-agents works,
  * its face plays its idle loop, the name shimmers and the preview line shows
- * the typing dots with the working run's latest message. Under the chat come
+ * work dots without unrelated Task transcript text. Under the chat come
  * its actual sub-agents, without repeating the Bot's own execution as a row.
+ * They carry no unread: the Bot's one dot is its own messages.
  */
 export function botChatRows({
   chat,
@@ -30,7 +29,6 @@ export function botChatRows({
   teamId,
   unread,
   openId,
-  unreadIds = new Set<string>(),
 }: {
   chat: Item
   faces: ChannelFace[] | undefined
@@ -40,7 +38,6 @@ export function botChatRows({
   unread: boolean
   /** The chat open in the pane, if any. */
   openId: string | undefined
-  unreadIds?: ReadonlySet<string>
 }): Item[] {
   const copy = (run: Run, parentKey: string): Item => ({
     ...chatSidebarItem({
@@ -48,7 +45,7 @@ export function botChatRows({
       teamId,
       active: openId === run.conversation.sessionId,
       runtimeState: run.runtimeState,
-      unread: unreadIds.has(run.conversation.sessionId),
+      unread: false,
     }),
     parentKey,
     bot: false,
@@ -63,11 +60,12 @@ export function botChatRows({
   const busy = activity.kind === 'working' || activity.kind === 'background'
   const row: Item = {
     ...chat,
+    dot: rowDot(unread),
     // The motion says "working"; the mark keeps only what asks for attention.
     trailing: (
       <ChatRowStatus
         runtimeState={activity.kind === 'error' ? bot?.runtimeState : undefined}
-        dot={rowDot(activity, unread)}
+        dot={rowDot(unread)}
       />
     ),
     ...(busy && {

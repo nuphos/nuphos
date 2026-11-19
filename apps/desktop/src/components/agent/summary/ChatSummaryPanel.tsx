@@ -26,6 +26,7 @@ import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
+import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent } from 'react'
 
@@ -36,8 +37,6 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
-  /** Points the main composer's reply at one of this conversation's own questions. */
-  onChooseReply?: (requestId: string) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -125,6 +124,19 @@ function OutputsSection({
   )
 }
 
+/** A Bot's standing instructions in full, which its transcript only shows clipped. */
+function BotInstructionsSection({ conversation }: { conversation?: AgentConversation }) {
+  if (!conversation?.avatar) return null
+
+  return (
+    <SummarySection title={t('Bot instructions')}>
+      <p className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-5 text-main">
+        {conversation.instructions || <span className="text-tertiary">{t('None yet')}</span>}
+      </p>
+    </SummarySection>
+  )
+}
+
 /** Esc inside the panel closes this pane's summary and hands focus back to the toggle that opened it. */
 function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, paneId: string) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
@@ -167,7 +179,6 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
-  onChooseReply,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -185,7 +196,6 @@ function SummaryBody({
       const { id, question, options } = request.inputRequest
 
       setSelected(null)
-      onChooseReply?.(id)
       onOpenRequest(sessionId, { toolCallId: id, question, options })
     } else {
       setSelected(request)
@@ -205,7 +215,7 @@ function SummaryBody({
   const panel = (
     <aside
       ref={rootRef}
-      aria-label={t('Agent summary')}
+      aria-label={t('Task summary')}
       inert={closing}
       onKeyDown={(event) => closeOnEscape(event, frameRef.current, paneId)}
       style={style}
@@ -232,6 +242,7 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
+          <BotInstructionsSection conversation={conversation} />
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
             key={`${teamId}:${triggerHome}`}
@@ -253,7 +264,7 @@ function SummaryBody({
               <p className="text-main">{t('Nothing here yet')}</p>
               <p className="text-tertiary">
                 {t(
-                  'Pull requests, sub-agents and files from this agent appear here after its first reply.',
+                  'Pull requests, sub-tasks and files from this task appear here after its first reply.',
                 )}
               </p>
             </div>

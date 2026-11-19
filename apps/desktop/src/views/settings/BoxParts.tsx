@@ -1,6 +1,7 @@
 import clsx from 'clsx'
-import { Plus } from 'lucide-react'
+import { Loader2, Play, Plus } from 'lucide-react'
 
+import { LOCAL_AGENT_PROVIDERS } from '../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Button } from '../../components/ui/button'
@@ -10,6 +11,7 @@ import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
 import { accessHint, machineLine, seenFrom } from './boxPresentation'
+import { PreviewTag } from './PreviewTag'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
@@ -67,9 +69,19 @@ export function LiveDot() {
 
 /** One short line after the status: the machine's kind, and when it was last seen if it is away. For a manager the
  * tooltip adds its UID and where it last reported from; Copy UID lives in its ⋯ menu. */
-export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean }) {
+/** `live`: the status beside it is this computer's own, so the backend's last sighting is left out. */
+export function MachineLine({
+  device,
+  dim,
+  live = false,
+}: {
+  device: AgentDevice
+  dim: boolean
+  live?: boolean
+}) {
   const seen = seenFrom(device)
-  const away = device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
+  const away =
+    !live && device.lastSeenAt && !device.online ? relativeTimeFromNow(device.lastSeenAt) : null
   const line = away ? `${machineLine(device)} · ${away}` : machineLine(device)
   const details =
     device.access === 'manage'
@@ -91,9 +103,7 @@ export function MachineLine({ device, dim }: { device: AgentDevice; dim: boolean
   )
 }
 
-const PROVIDERS: LocalAgentProvider[] = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']
-
-/** Add an agent to a machine; an older host can only sign in the agents it already has. */
+/** Add an agent to a machine, or sign in one it already has. */
 export function NewAgentMenu({
   device,
   agents,
@@ -105,9 +115,6 @@ export function NewAgentMenu({
   busy: boolean
   onAdd: (provider: LocalAgentProvider) => void
 }) {
-  // An older host cannot add agents; the backend still refuses with 409 if this is stale.
-  const canAddAgents = agents.some((agent) => agent.local?.agentInstances === true)
-
   return (
     <Menu>
       <MenuTrigger
@@ -118,9 +125,9 @@ export function NewAgentMenu({
         <Plus className="h-3.5 w-3.5" />
       </MenuTrigger>
       <MenuContent align="start">
-        {PROVIDERS.map((provider) => {
+        {LOCAL_AGENT_PROVIDERS.map((provider) => {
           const action = newAgentAction(agents, provider)
-          const label = AGENT_PROVIDER[provider].label
+          const { label, preview } = AGENT_PROVIDER[provider]
 
           return (
             <MenuItem
@@ -134,12 +141,10 @@ export function NewAgentMenu({
                 : action && 'create' in action
                   ? label
                   : t('Sign in to {provider}', { provider: label })}
+              {preview && <PreviewTag />}
             </MenuItem>
           )
         })}
-        {!canAddAgents && (
-          <MenuItem disabled>{t('Update the computer host to add more runtimes')}</MenuItem>
-        )}
       </MenuContent>
     </Menu>
   )
@@ -150,4 +155,30 @@ export function AccessHint({ device }: { device: AgentDevice }) {
   const hint = accessHint(device)
 
   return hint && <span className="truncate text-[11px] text-tertiary">· {hint}</span>
+}
+
+/** Sharing is the usual reason to open a computer's menu, so its row has its own button. */
+export function ShareButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="h-6 shrink-0 rounded-md px-1.5 text-[12px] text-tertiary outline-none hover:bg-state-hover hover:text-main focus-visible:ring-2 focus-visible:ring-line-focus disabled:opacity-50"
+    >
+      {t('Share')}
+    </button>
+  )
+}
+
+/** Wakes a paused or stopped cloud computer, for those who manage it. */
+export function ResumeButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+  return (
+    <div className="mt-2">
+      <Button size="sm" variant="secondary" disabled={busy} onClick={onClick}>
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+        {busy ? t('Resuming…') : t('Resume')}
+      </Button>
+    </div>
+  )
 }

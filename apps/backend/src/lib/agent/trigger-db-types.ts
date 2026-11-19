@@ -1,7 +1,5 @@
 import type { AgentCredentialAccess } from './db'
-import type { SessionRouting } from './session-routing'
 import type { TriggerCredentialMode } from './trigger-credential-access'
-import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { ObjectId } from 'mongodb'
 
 export type TriggerType = 'cron' | 'webhook'
@@ -47,8 +45,6 @@ export type AgentTrigger = {
   cronExpression?: string
   timeZone?: string
   webhookSecret?: string
-  /** Legacy: only on rows created before binding was required. Binding clears it. */
-  sessionRouting?: SessionRouting
   /**
    * The existing conversation every fire is delivered into. It must belong to
    * the execution principal in the same team. Required on every new Trigger;
@@ -70,10 +66,6 @@ export type AgentTrigger = {
    * user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
-  /** Legacy unbound incident delivery; no longer writable. Binding clears it. */
-  incidentMode?: boolean
-  /** Legacy approved Slack destination for incidentMode. Binding clears it. */
-  slackDestination?: SlackOutboundDestination
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.
@@ -82,8 +74,13 @@ export type AgentTrigger = {
   lastRunAt?: Date
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: Date
-  /** Scheduled time of the latest fire that never ran; unset by the next fire. */
+  /** Time of the latest fire that never ran; unset by the next turn that runs. */
   missedRunAt?: Date
+  /**
+   * Fires in a row whose turn failed for a reason that cannot pass with time.
+   * Unset by a turn that runs and by the pause it leads to.
+   */
+  failedRunCount?: number
   createdAt: Date
   updatedAt: Date
 }

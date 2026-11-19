@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { config } from '@/config'
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { credentialSource, getConversationBySessionId } from '@/lib/agent/db'
 import { verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
@@ -24,6 +24,7 @@ import {
   composioUserId,
   executeComposioTool,
 } from '@/lib/personal-credentials/composio'
+import { NAMES } from '@/lib/personal-credentials/exchange'
 import { isGoogleProvider, teamGoogleClient } from '@/lib/personal-credentials/google'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
@@ -176,7 +177,9 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
 
     if (
       conversation?.userId !== claims.own ||
-      !conversation.credentialAccess?.personalCredentialIds?.includes(provider)
+      !(await credentialSource(conversation)).credentialAccess?.personalCredentialIds?.includes(
+        provider,
+      )
     ) {
       throw new AppError(
         403,
@@ -202,7 +205,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   if (!isGoogleProvider(provider)) {
     throw new AppError(404, 'not_found', 'Unknown Personal Credential provider')
   }
-  const claims = await ownerClaims(authorization, 'Gmail and Google Drive')
+  const claims = await ownerClaims(authorization, `Your own ${NAMES[provider]} credential`)
   // The conversation token is only valid under its own /teams/:teamId.
   const teamId = claims.tid
 
@@ -217,12 +220,12 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
     throw new AppError(
       409,
       'personal_credential_via_composio',
-      'This member connected through Composio: run Gmail and Google Drive tools with POST /teams/:teamId/composio/execute',
+      'This member connected through Composio: run Google tools with POST /teams/:teamId/composio/execute',
     )
   }
   const personal = await personalGoogleToken(claims.own, provider, teamId)
 
-  if (!personal) throw notConnected(provider === 'gmail' ? 'Gmail' : 'Google Drive')
+  if (!personal) throw notConnected(NAMES[provider])
 
   return c.json(handedOut(personal))
 })
@@ -252,14 +255,17 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     throw new AppError(
       400,
       'tool_not_allowed',
-      'Only Gmail and Google Drive tools, other than permanent mail deletion, can run here',
+      'Only Gmail, Google Drive and Google Calendar event tools, other than permanent mail deletion, can run here',
     )
   }
-  const claims = await ownerClaims(c.req.header('Authorization') ?? '', 'Gmail and Google Drive')
+  const claims = await ownerClaims(
+    c.req.header('Authorization') ?? '',
+    `Your own ${NAMES[provider]} credential`,
+  )
   const credential = await composioCredential(claims.own, provider, claims.tid)
 
   if (!credential?.composioAccountId) {
-    throw notConnected(provider === 'gmail' ? 'Gmail' : 'Google Drive')
+    throw notConnected(NAMES[provider])
   }
 
   return c.json(

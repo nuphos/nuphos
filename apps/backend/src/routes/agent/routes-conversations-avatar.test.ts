@@ -2,7 +2,9 @@ import '@/routes/agent'
 
 import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
+import { ObjectId } from 'mongodb'
 
+import { hostedAvatarOwner } from '@/lib/identity/avatar-url'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
@@ -23,10 +25,13 @@ useConversationTurn({
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const otherTeam = 'cccccccccccccccccccccccc'
 const caller = 'bbbbbbbbbbbbbbbbbbbbbbbb'
+const botId = 'dddddddddddddddddddddddd'
 
 let owner = caller
 let managerIds: string[] = []
 let saved: (string | null)[] = []
+// Who each saved face is recorded as changed by.
+let actors: string[] = []
 let stillThere = true
 let shells: Record<string, unknown>[] = []
 let currentAvatar: string | undefined
@@ -42,6 +47,7 @@ useAgentDb({
   getReadableConversation: async (_session, _user, team) =>
     team === teamId
       ? {
+          _id: new ObjectId(botId),
           sessionId: 's1',
           userId: owner,
           teamId,
@@ -56,26 +62,31 @@ useAgentDb({
 
     return { isNew: true }
   },
-  claimBotAvatar: async (_session, avatar) => {
+  claimBotAvatar: async (_session, avatar, actorId) => {
     if (!claimWins) {
       currentAvatar = '07-ada'
 
       return false
     }
     saved.push(avatar)
+    actors.push(actorId)
 
     return true
   },
   // As the write: a face changes only on a Bot; taking it away works on any.
-  setConversationAvatar: async (_session, avatar) => {
+  setConversationAvatar: async (_session, avatar, actorId) => {
     if (!stillThere || (avatar !== null && !currentAvatar)) return false
     saved.push(avatar)
+    actors.push(actorId)
 
     return true
   },
 })
 // Full-access grants a new Bot starts with: \`${userId}:${conversationId}\` → bypass.
 const bypass = new Map<string, unknown>()
+let left: string[] = []
+// The Bots whose stored photos were pruned.
+let pruned: string[] = []
 
 useDb({
   db: () => ({
@@ -88,6 +99,21 @@ useDb({
 
         return Promise.resolve()
       },
+      // The chats a Bot made a Task leaves.
+      find: (filter: { agentSessionIds?: string }) => {
+        if (filter.agentSessionIds) left.push(filter.agentSessionIds)
+
+        return { toArray: () => Promise.resolve([]) }
+      },
+      updateMany: () => Promise.resolve(),
+      // An uploaded face: nothing else is stored for this Bot, and nothing to prune.
+      // A new Bot also has no parent to take its permission mode from.
+      findOne: () => Promise.resolve(null),
+      deleteMany: (filter: { userId: unknown }) => {
+        pruned.push(String(filter.userId))
+
+        return Promise.resolve()
+      },
     }),
   }),
 })
@@ -97,9 +123,12 @@ app.onError((error, c) =>
   c.json({ error: error.message }, (error as { status?: 400 | 404 }).status ?? 500),
 )
 beforeEach(() => {
+  left = []
+  pruned = []
   owner = caller
   managerIds = []
   saved = []
+  actors = []
   stillThere = true
   shells = []
   currentAvatar = undefined
@@ -121,8 +150,14 @@ test("the owner changes a Bot's face, and taking it away makes it a Task", async
 
   expect(response.status).toBe(200)
   expect(await response.json()).toEqual({ avatar: '05-rembrandt' })
+  // A photo it wore before is not kept.
+  expect(pruned).toEqual([botId])
+  expect(left).toEqual([])
   expect((await pick(null)).status).toBe(200)
   expect(saved).toEqual(['05-rembrandt', null])
+  expect(actors).toEqual([caller, caller])
+  // A Task is never in a chat.
+  expect(left).toEqual(['s1'])
 })
 
 test('only the owner picks; a participant may not', async () => {
@@ -159,6 +194,38 @@ test('a face never makes a Task a Bot', async () => {
   expect(saved).toEqual([])
 })
 
+// A 1x1 PNG.
+const photo = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+)
+const upload = (body: Uint8Array) =>
+  app.request(`/agent/conversations/s1/avatar/image?teamId=${teamId}`, {
+    method: 'PUT',
+    headers: { authorization: 'Bearer test-token', 'content-type': 'application/octet-stream' },
+    body,
+  })
+
+test("the owner uploads a photo as a Bot's face", async () => {
+  currentAvatar = '07-ada'
+  const response = await upload(photo)
+  const { avatar } = (await response.json()) as { avatar: string }
+
+  expect(response.status).toBe(200)
+  expect(hostedAvatarOwner(avatar)).toBe(botId)
+  expect(saved).toEqual([avatar])
+  expect(actors).toEqual([caller])
+})
+
+test('a photo is only for a Bot, from its owner, and must be an image', async () => {
+  expect((await upload(photo)).status).toBe(400)
+  currentAvatar = '07-ada'
+  expect((await upload(Buffer.from('not an image'))).status).toBe(415)
+  owner = 'someone-else'
+  expect((await upload(photo)).status).toBe(404)
+  expect(saved).toEqual([])
+})
+
 const createBot = (body: Record<string, unknown> = {}, team = teamId) =>
   app.request(`/agent/bots?teamId=${team}`, {
     method: 'POST',
@@ -182,7 +249,16 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       teamId,
       title: 'New Bot',
       firstMessage: '',
-      avatar: body.avatar,
+      bot: {
+        avatar: body.avatar,
+        change: {
+          kind: 'bot_changed',
+          at: expect.any(Date),
+          actorId: caller,
+          via: 'new_bot',
+          avatar: body.avatar,
+        },
+      },
     },
   ])
 })
@@ -199,6 +275,7 @@ test('"Make this a Bot" gives the Task its face and asks it to name itself', asy
 
   expect(response.status).toBe(200)
   expect(saved).toEqual([avatar])
+  expect(actors).toEqual([caller])
   expect(turns).toHaveLength(1)
   expect(turns[0]?.avatar).toBe(avatar)
   expect(turns[0]?.text).toContain('update_self')
@@ -254,4 +331,32 @@ test('"Make this a Bot" clicked twice at once starts one turn', async () => {
   expect(await (await makeBot()).json()).toEqual({ avatar: '07-ada' })
   expect(saved).toEqual([])
   expect(turns).toEqual([])
+})
+
+test('coordination starter saves durable instructions without a primary role', async () => {
+  const response = await createBot({
+    title: 'Coordinator',
+    starter: 'coordinate',
+    onboarding: true,
+  })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('list_tasks')
+  expect(shells[0]?.instructions).toContain('never grants human approval')
+  expect(shells[0]?.botOnboarding).toBe('pending')
+  expect(shells[0]).not.toHaveProperty('primary')
+  expect(turns).toHaveLength(0)
+})
+
+test('ordinary onboarding learns purpose and persists it', async () => {
+  const response = await createBot({ title: 'Research Expert', onboarding: true })
+
+  expect(response.status).toBe(201)
+  expect(shells[0]?.instructions).toContain('one focused question')
+  expect(shells[0]?.instructions).toContain('update_self')
+})
+
+test('unknown starters and invalid onboarding values are rejected', async () => {
+  expect((await createBot({ starter: 'admin' })).status).toBe(400)
+  expect((await createBot({ onboarding: 'yes' })).status).toBe(400)
 })

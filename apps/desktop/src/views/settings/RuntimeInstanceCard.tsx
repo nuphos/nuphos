@@ -7,7 +7,6 @@ import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { InlineRename } from '../../components/ui/inline-rename'
 import { toast } from '../../components/ui/toast'
-import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
@@ -16,11 +15,14 @@ import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn } from './agentPresentation'
+import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
+import { editsRuntime } from './runtimeFallback'
+import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
+import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { removeRuntime } from './runtimeRemoval'
@@ -28,6 +30,7 @@ import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
+import { useAgentDevices } from './useAgentDevices'
 
 import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
@@ -44,10 +47,15 @@ export function RuntimeInstanceCard({
   quota?: RuntimeQuota
   isAdmin: boolean
 }) {
-  const me = useCurrentUser()
   const [signingIn, setSigningIn] = useState(false)
   const [cliSigningIn, setCliSigningIn] = useState(false)
-  const signIn = localSignIn(instance, useThisComputer())
+  const thisComputer = useThisComputer()
+  const computer = useAgentDevices(() => 0, teamId, {
+    teamId,
+    enabled: instance.local !== undefined,
+  }).list?.devices.find((device) => device.deviceId === instance.local?.deviceId)
+  const manages = managesRuntime(instance, computer, isAdmin)
+  const signIn = manages ? localSignIn(instance, thisComputer) : undefined
   const [editing, setEditing] = useState(false)
   const [confirmRemoval, setConfirmRemoval] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -78,11 +86,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  // A computer's agents answer to its owner, not to a team role (box-access.ts).
-  const canEdit =
-    (instance.local ? instance.local.ownerUserId === me?.id : isAdmin) &&
-    instance.kind !== 'development' &&
-    !instance.deletion
+  const canEdit = editsRuntime(instance, manages)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
@@ -136,6 +140,7 @@ export function RuntimeInstanceCard({
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
               {AGENT_PROVIDER[instance.provider].label}
+              {AGENT_PROVIDER[instance.provider].preview && <PreviewTag />}
               {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
@@ -206,7 +211,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              t('Removing the runtime and its files. Agent history stays in Nuphos.')}
+              t('Removing the runtime and its files. Task history stays in Nuphos.')}
           </p>
         ) : (
           <>
@@ -241,9 +246,23 @@ export function RuntimeInstanceCard({
               <RuntimeUsageSection quota={quota} />
             </div>
             <div className="px-5 py-6">
+              <RuntimeFallbackPicker teamId={teamId} instance={instance} canEdit={canEdit} />
+            </div>
+            <div className="px-5 py-6">
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
+            {instance.local && ownSignedInCli(instance) && (
+              <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
+                {t(
+                  'This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.',
+                  {
+                    provider: AGENT_PROVIDER[instance.provider].label,
+                    device: instance.local.deviceLabel,
+                  },
+                )}
+              </p>
+            )}
           </>
         )}
       </div>

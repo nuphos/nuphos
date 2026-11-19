@@ -51,23 +51,7 @@ export type MfaStatus = {
 /** A new authenticator secret, to scan or type in before confirming. */
 export type MfaSetup = { secret: string; otpauthUrl: string }
 
-export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
-
-export type PersonalCredential = {
-  provider: PersonalCredentialProvider
-  login: string
-  workspaceName: string | null
-  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
-  teamId?: string | null
-  connectedAt: string
-}
-
-/** Outcome of a nuphos://personal-credential deep link, claimed by the main process. */
-export type PersonalCredentialDeepLinkPayload = {
-  provider: PersonalCredentialProvider
-  login?: string
-  error?: string
-}
+export * from './personal-credentials.ts'
 
 export type UpdaterState =
   | { kind: 'idle' }
@@ -176,6 +160,8 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  inviteUrl?: string
+  role?: TeamRole
 }
 
 export type SidebarFavoriteCloudEntry = { label: string; key?: string; href?: string }
@@ -223,8 +209,8 @@ export type HomeGridItem = { i: string; x: number; y: number; w: number; h: numb
 /** The caller's own layout and the team default; either is null when unset. */
 export type HomeLayouts = { personal: HomeLayout | null; team: HomeLayout | null }
 
-/** The agents the caller's conversations move to, in order, when theirs runs out or breaks. */
-export type RuntimeFallback = { runtimeIds: string[] }
+/** Each runtime's fallback, by runtime id: where its conversations move when it runs out or breaks. */
+export type RuntimeFallback = { fallbacks: Record<string, string> }
 
 export type TeamActivityRange = '1d' | '7d' | '30d'
 
@@ -286,7 +272,7 @@ export type TeamActivity = {
   range: TeamActivityRange
   slotMinutes: number
   start: string
-  sessions: { id: string; title: string; runtime: AgentProvider | null }[]
+  sessions: { id: string; title: string | null; runtime: AgentProvider | null }[]
   /** Every current member, busiest first. */
   members: {
     id: string

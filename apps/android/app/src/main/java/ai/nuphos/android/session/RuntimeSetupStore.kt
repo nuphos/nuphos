@@ -1,5 +1,7 @@
 package ai.nuphos.android.session
 
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -105,7 +107,7 @@ class RuntimeSetupStore(
         if (selection.select(id)) {
             signInTargetId = null
             generation++; poll?.cancel(); state = state.copy(attempt = null, loginReconciled = false, attemptMismatch = false,
-                message = "Runtime selected for new agents. Registration does not confirm provider readiness.")
+                message = Words(R.string.storetext_runtime_selected))
             if (selection.loginReview && selection.loginRuntimeId == id && canSignIn) refreshLogin()
         }
     }
@@ -119,7 +121,7 @@ class RuntimeSetupStore(
                 if (e is CancellationException) throw e
                 if (!current(ticket) || !canSignIn) return@launch
                 if (definite(e)) { selection.loginReview = false; throw e }
-                state = state.copy(message = "Sign-in may have started. Read its saved status before restarting.")
+                state = state.copy(message = Words(R.string.storetext_runtime_signin_maybe_started))
                 readLogin(ticket); return@launch
             }
             if (!current(ticket) || !canSignIn || signInRuntime?.id != runtime.id) return@launch
@@ -139,7 +141,7 @@ class RuntimeSetupStore(
         if (!current(ticket) || !canSignIn || !loginTargetCurrent()) return
         val expected = selection.loginAttemptId
         if (expected != null && expected != result.attemptId) {
-            state = state.copy(attemptMismatch = true, error = "A different sign-in is saved. This attempt cannot submit or cancel it.")
+            state = state.copy(attemptMismatch = true, error = Words(R.string.storetext_runtime_signin_other_saved))
             return
         }
         selection.loginAttemptId = result.attemptId
@@ -149,7 +151,7 @@ class RuntimeSetupStore(
         if (!current(ticket) || !canSignIn) return
         val observed = if (result.pending && !result.valid(now())) result.copy(state = "failed", verificationUri = null, userCode = null, authorizationUrl = null, step = null) else result
         state = state.copy(attempt = observed, loginReconciled = true, attemptMismatch = false,
-            message = if (observed.state == "connected") "Provider sign-in connected. Refreshing saved runtime registration; readiness is not confirmed." else null)
+            message = if (observed.state == "connected") Words(R.string.storetext_runtime_signin_connected) else null)
         if (observed.state == "connected") {
             state = state.copy(catalogLoaded = false)
             val saved = api.catalog()
@@ -168,14 +170,14 @@ class RuntimeSetupStore(
     fun submitCode(code: String) {
         val attempt = currentAttempt() ?: return
         if (attempt.state != "awaiting_authorization" || attempt.codeSubmitted || !validRuntimeAnswer(attempt, code)) {
-            state = state.copy(error = "Enter a valid answer for the current sign-in step."); return
+            state = state.copy(error = Words(R.string.storetext_runtime_signin_invalid_answer)); return
         }
         val id = selection.loginRuntimeId ?: return
         launch(login = true) { ticket ->
             state = state.copy(loginReconciled = false)
             val result = api.code(id, attempt.attemptId, code.trim())
             if (!current(ticket) || !canSignIn) return@launch
-            if (result.attemptId != attempt.attemptId) { state = state.copy(attemptMismatch = true, error = "A different sign-in response was ignored."); return@launch }
+            if (result.attemptId != attempt.attemptId) { state = state.copy(attemptMismatch = true, error = Words(R.string.storetext_runtime_signin_other_ignored)); return@launch }
             adopt(result, ticket)
         }
     }
@@ -187,7 +189,7 @@ class RuntimeSetupStore(
         launch(login = true) { ticket ->
             api.cancel(id, attempt.attemptId)
             if (current(ticket) && canSignIn) state = state.copy(attempt = attempt.copy(state = "cancelled", verificationUri = null,
-                userCode = null, authorizationUrl = null, step = null), loginReconciled = true, message = "Sign-in cancelled. The registered runtime remains saved.")
+                userCode = null, authorizationUrl = null, step = null), loginReconciled = true, message = Words(R.string.storetext_runtime_signin_cancelled))
         }
     }
     fun confirmLoginRestart() {
@@ -206,7 +208,7 @@ class RuntimeSetupStore(
             if (!active || !foreground || !canSignIn) return@launch
             if (!attempt.valid(now())) {
                 state = state.copy(attempt = attempt.copy(state = "failed", verificationUri = null, userCode = null, authorizationUrl = null, step = null),
-                    message = "Sign-in expired. Review its status before starting again.")
+                    message = Words(R.string.storetext_runtime_signin_expired))
             } else refreshLogin()
         }
     }
@@ -215,9 +217,9 @@ class RuntimeSetupStore(
     private fun fail(e: Exception) {
         if (e is NuphosApi.Failure.Unauthorized) expired()
         else state = state.copy(error = when {
-            e is RuntimeLoginAbsent -> "No actor-bound sign-in was found. The result is unconfirmed; no new attempt was started."
-            e is RuntimeHttpFailure && e.status == 403 -> "Administrator permission is required. Your account stays signed in."
-            else -> "We could not confirm the runtime result. Refresh saved state before continuing."
+            e is RuntimeLoginAbsent -> Words(R.string.storetext_runtime_signin_absent)
+            e is RuntimeHttpFailure && e.status == 403 -> Words(R.string.storetext_runtime_admin_required)
+            else -> Words(R.string.storetext_runtime_unconfirmed)
         })
     }
 }

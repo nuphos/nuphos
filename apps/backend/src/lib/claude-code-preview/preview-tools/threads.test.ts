@@ -46,18 +46,21 @@ test('a refused change reaches the agent as its reason, not an internal error', 
   expect(JSON.stringify(result)).toContain('another conversation you own')
 })
 
-test('update_thread takes revoke as a change on its own', async () => {
-  const ctx = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'en' }
-  const tools = threadToolModule().handlers(ctx as PreviewToolContext)
-  const result = await tools.update_thread?.({
-    label: 'x',
-    threadId: '00000000-0000-4000-8000-000000000000',
-    revoke: [{ provider: 'aws', id: 'role-1' }],
-  })
+test.each(['grant', 'revoke'])(
+  "update_thread has no %s: a thread uses its top conversation's credentials",
+  async (key) => {
+    const ctx = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'en' }
+    const tools = threadToolModule().handlers(ctx as PreviewToolContext)
+    const result = await tools.update_thread?.({
+      label: 'x',
+      threadId: '00000000-0000-4000-8000-000000000000',
+      [key]: [{ provider: 'aws', id: 'role-1' }],
+    })
 
-  // Past the schema and the empty-change check, to the ownership check.
-  expect(JSON.stringify(result)).toContain('another conversation you own')
-})
+    expect(result).toMatchObject({ isError: true })
+    expect(JSON.stringify(result)).toContain('unrecognized_keys')
+  },
+)
 
 test.each([false, true])(
   'a thread message shows one card, the stored ACP call, with revealed permission=%s',

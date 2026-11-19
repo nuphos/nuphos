@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 
 import { decisionRequestId, parseSecretRequest, secretSavedReply } from './connectCardModel.ts'
+import { DECISION_NOTICE, parseDecisionNotice } from './decisionNotice.ts'
 
 import type { Message } from './model'
 
@@ -12,6 +13,9 @@ export type DecisionAnswer = { option: string }
  * card's saved reply, and for any other card the answer the server's notice
  * records when it wakes the agent (an answer itself sends no message).
  */
+/** The line each answered card shows while its answer waits for the agent, by request id. */
+export const WaitingAnswersContext = createContext<ReadonlyMap<string, string>>(new Map())
+
 export const DecisionAnswersContext = createContext<ReadonlyMap<string, DecisionAnswer>>(new Map())
 
 /** Which replies answer a secure card: its saved reply. */
@@ -21,30 +25,38 @@ function answeredBy(input: unknown): ((text: string) => boolean) | null {
   return secret ? (text) => text.startsWith(secretSavedReply(secret.name)) : null
 }
 
-/** The sender of the notice an answer wakes the asking agent with. */
-const DECISION_NOTICE = 'nuphos:decision'
+/** A question card in the transcript: what was asked, and when. */
+export type AskedCard = { toolCallId: string; input: unknown; askedAt?: number }
 
-/** The "- Which regions? → us, eu" lines right after a notice's "Answer:": the answers. */
-function noticeAnswer(text: string): string | undefined {
-  const lines = text.split('\n')
-  const answers: string[] = []
+/** Each question card of a conversation, by its request id as the card's result names it. */
+export const AskedCardsContext = createContext<ReadonlyMap<string, AskedCard>>(new Map())
 
-  for (const line of lines.slice(lines.indexOf('Answer:') + 1)) {
-    if (!line.startsWith('- ') || !line.includes(' → ')) break
-    answers.push(line.slice(line.lastIndexOf(' → ') + 3))
+export function askedCards(messages: readonly Message[]): Map<string, AskedCard> {
+  const cards = new Map<string, AskedCard>()
+
+  for (const message of messages) {
+    if (message.role !== 'assistant') continue
+    for (const part of message.parts) {
+      if (part.type !== 'tool' || part.toolName !== 'request_user_decision') continue
+      cards.set(decisionRequestId(part.output) ?? part.toolCallId, {
+        toolCallId: part.toolCallId,
+        input: part.input,
+        askedAt: message.createdAt,
+      })
+    }
   }
 
-  return lines.includes('Answer:') && answers.length > 0 ? answers.join('; ') : undefined
+  return cards
 }
 
 /** The card a server notice records an answer for, and that answer. */
-function noticeOf(message: Message, text: string, cards: ReadonlyMap<string, string>) {
-  if (message.metadata?.sender.id !== DECISION_NOTICE) return null
-  const requestId = /\(requestId ([^)\s]+)\)/.exec(text)?.[1]
-  const card = requestId ? cards.get(requestId) : undefined
-  const option = noticeAnswer(text)
+function noticeOf(message: Message, text: string, cards: ReadonlyMap<string, AskedCard>) {
+  const notice = message.metadata?.sender.id === DECISION_NOTICE ? parseDecisionNotice(text) : null
+  const card = notice && cards.get(notice.requestId)
 
-  return card && option ? { card, option } : null
+  return notice && card
+    ? { card: card.toolCallId, option: notice.answers.map(({ answer }) => answer).join('; ') }
+    : null
 }
 
 /**
@@ -54,8 +66,7 @@ function noticeOf(message: Message, text: string, cards: ReadonlyMap<string, str
 export function decisionAnswers(messages: readonly Message[]): Map<string, DecisionAnswer> {
   const answers = new Map<string, DecisionAnswer>()
   const open: { id: string; matches: (text: string) => boolean }[] = []
-  // A card's request id, as its call's result names it, to the card.
-  const cards = new Map<string, string>()
+  const cards = askedCards(messages)
 
   for (const message of messages) {
     if (message.role === 'assistant') {
@@ -63,7 +74,6 @@ export function decisionAnswers(messages: readonly Message[]): Map<string, Decis
         if (part.type !== 'tool' || part.toolName !== 'request_user_decision') continue
         const matches = answeredBy(part.input)
 
-        cards.set(decisionRequestId(part.output) ?? part.toolCallId, part.toolCallId)
         if (matches) open.push({ id: part.toolCallId, matches })
       }
       continue

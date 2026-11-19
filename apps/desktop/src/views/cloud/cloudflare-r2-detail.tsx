@@ -1,9 +1,9 @@
-import { faArrowsRotate, faUpload } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { RefreshCw as RefreshCwIcon, Upload as UploadIcon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
@@ -214,14 +214,14 @@ export function CloudflareR2BucketDetailView({
           onClick={() => fileInputRef.current?.click()}
           className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
-          <FontAwesomeIcon icon={faUpload} className="w-3.5 h-3.5" /> {t('Upload')}
+          <UiIcon size={16} icon={UploadIcon} className="w-4 h-4" /> {t('Upload')}
         </button>
         <button
           onClick={() => loadObjects(prefix)}
           className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
           title={t('Refresh')}
         >
-          <FontAwesomeIcon icon={faArrowsRotate} className="w-3.5 h-3.5" />
+          <UiIcon size={16} icon={RefreshCwIcon} className="w-4 h-4" />
         </button>
       </CfDetailActionBar>
       <input

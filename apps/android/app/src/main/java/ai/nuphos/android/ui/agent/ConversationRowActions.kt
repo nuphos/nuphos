@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -86,6 +88,7 @@ internal fun ConversationRowActions(
     onClick: () -> Unit,
     content: @Composable (Modifier, @Composable () -> Unit) -> Unit,
 ) {
+    val showActions = stringResource(R.string.agent_show_task_actions)
     val drag = remember(id) { AnchoredDraggableState(Reveal.Closed) }
     val source = remember(id) { MutableInteractionSource() }
     val dragging by source.collectIsDraggedAsState()
@@ -140,7 +143,7 @@ internal fun ConversationRowActions(
             .focusRequester(moreFocus)
             .combinedClickable(
                 onClick = { if (interactions.revealedId != null) interactions.dismiss() else onClick() },
-                onLongClickLabel = "Show agent actions",
+                onLongClickLabel = showActions,
                 onLongClick = { interactions.menu(id) },
             )
             .semantics {

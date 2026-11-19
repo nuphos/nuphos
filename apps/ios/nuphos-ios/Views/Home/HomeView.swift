@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// The signed-in shell: the page name is the (large) navigation title and
-/// doubles as the page switcher via the title menu; search, filter and the
-/// account avatar sit on the trailing edge. The Agent page brings its own composer.
+/// The signed-in shell shares its stores across three native home tabs.
+/// The split view keeps conversation navigation and its keyboard behavior intact.
 struct HomeView: View {
     @Environment(AuthSession.self) private var session
     let user: NuphosUser
@@ -13,8 +12,12 @@ struct HomeView: View {
     @State private var pageChosen = CommandLine.arguments.contains("-page")
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
+    @State private var showTeamPicker = false
     @State private var showProfile = false
-    @State private var isSearching = false
+    @State private var showNewBot = false
+    @State private var showNewTask = false
+    @State private var submittedTask: AgentPage.OpenChat?
+    @State private var workspacePage: HomePage? = Self.initialWorkspacePage
     @State private var titleCollapsed = false
     @State private var store: AgentStore?
     @State private var plans: PlansStore?
@@ -22,6 +25,8 @@ struct HomeView: View {
     /// The selected team's open questions: the Inbox page and its badge.
     @State private var inbox: OpenQuestions?
     @State private var openChat: AgentPage.OpenChat?
+    @State private var botTask: ChatSession?
+    @State private var showBotTask = false
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
     private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
@@ -59,54 +64,99 @@ struct HomeView: View {
                     Theme.canvas
                 }
             }
-            // The page switcher sits in the bar, on the same row as search,
-            // filter and the account avatar.
+            .navigationSplitViewColumnWidth(min: 380, ideal: 400, max: 500)
+            // The title and workspace actions stay above the native home tabs.
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .navigationTitle("")
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    PageTitleMenu(selection: $page, style: .bar, inboxCount: inbox?.list.count ?? 0)
-                }
-                .sharedBackgroundHidden()
-
-                // Each control gets its own glass group
-                // (ToolbarSpacer(.fixed) splits groups, per the toolbar docs).
-                if page.isHomeList, store != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            isSearching.toggle()
-                        } label: {
-                            Label("Search agents", systemImage: "magnifyingglass")
+                if let store, !store.teams.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { showTeamPicker = true } label: {
+                            HStack(spacing: 6) {
+                                if let team = store.selectedTeam { TeamAvatar(team: team) }
+                                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
+                                LucideIcon("chevron-down", size: 14)
+                            }
                         }
+                        .sheet(isPresented: $showTeamPicker) {
+                            TeamSwitcherPopover(store: store)
+                                .presentationDetents([.medium, .large])
+                                .presentationDragIndicator(.visible)
+                                .presentationBackground(.ultraThinMaterial)
+                        }
+                        .accessibilityLabel("Switch team")
                     }
-                    GlassGroupSpacer()
                 }
-                // The avatar draws its own circular glass: the system glass
-                // for a non-icon label is a capsule, not a circle.
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showProfile = true
-                    } label: {
-                        AvatarView(user: user, size: 30)
-                            .padding(7)
-                            .glass(interactive: true, in: Circle())
+                if sizeClass != .regular || openChat != nil {
+                    if #available(iOS 27, *) {
+                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
+                        } else {
+                            ToolbarItem(placement: .topBarTrailing) {
+                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                            }
                     }
-                    .buttonStyle(.plain)
-                    #if os(iOS)
-                    .hoverEffect()
-                    #endif
-                    .accessibilityLabel("Account")
                 }
-                .sharedBackgroundHidden()
             }
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
             #endif
+            .sheet(isPresented: $showNewTask, onDismiss: {
+                if let submittedTask {
+                    openChat = submittedTask
+                    self.submittedTask = nil
+                }
+            }) {
+                NavigationStack {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            NewTaskWelcome(name: user.name)
+                        }
+                        .defaultScrollAnchor(.center, for: .alignment)
+                        .frame(maxHeight: .infinity)
+                        NewChatComposer(autoFocus: true, openChat: Binding(get: { nil }, set: { chat in
+                            guard let chat else { return }
+                            submittedTask = chat
+                            showNewTask = false
+                        }))
+                        .readableWidth()
+                    }
+                    .background(Theme.chatCanvas)
+                    .navigationTitle("New Task")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showNewTask = false }
+                        }
+                    }
+                }
+                .environment(store)
+                .presentationDetents([.large])
+            }
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
+            }
+            .sheet(item: workspaceSheet) { destination in
+                NavigationStack {
+                    workspaceContent(destination)
+                        .navigationTitle(destination == .runtimes ? Text("Computers & runtimes") : Text("Connectors"))
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button { workspacePage = nil } label: { LucideIcon("x") }
+                                    .accessibilityLabel("Close workspace")
+                            }
+                        }
+                }
+                .environment(store)
+                .environment(connectors)
             }
             #if DEBUG
             .overlay {
@@ -117,13 +167,18 @@ struct HomeView: View {
             // One stable root. Collapsed, swapping the column's root between
             // these views made a reopened chat appear and vanish at once: its
             // tasks were cancelled while it stayed on screen, never loading.
+            NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel)
+                    ChannelView(channel: channel) { bot in
+                        guard let store else { return }
+                        botTask = store.session(sessionId: bot, title: channel.title, teamId: channel.teamId)
+                        showBotTask = true
+                    }
                         .id(channel.channelId)
                         .toolbar { newAgentItem }
                 } else if let openChat, let chatSession = openChat.session {
-                    ConversationView(session: chatSession, initialPrompt: openChat.prompt)
+                    ConversationView(session: chatSession, initialPrompt: openChat.prompt, onArchived: { self.openChat = nil })
                         .id(openChat.id)
                         // A link to a chat opens as a session until its kind is known.
                         .onChange(of: chatSession.isChannel) { _, isChannel in
@@ -131,17 +186,27 @@ struct HomeView: View {
                             self.openChat = AgentPage.OpenChat(channel: store.channel(
                                 sessionId: chatSession.sessionId, title: chatSession.title, teamId: chatSession.teamId))
                         }
-                        // Compact pops back to the list's composer; wide has
-                        // no back, so this returns the column to it.
+                        // Wide layouts expose the same task-creation sheet.
                         .toolbar { newAgentItem }
-                } else if page == .agent, store != nil, sizeClass == .regular {
-                    Theme.chatCanvas.ignoresSafeArea()
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            NewChatComposer(openChat: $openChat).readableWidth()
-                        }
+                } else if page == .inbox, let inbox, let question = inbox.list.first(where: { $0.id == inbox.selected }) {
+                    InboxQuestionView(inbox: inbox, question: question)
+                        .id(question.id)
                 } else {
                     Theme.canvas.ignoresSafeArea()
                 }
+            }
+            .toolbar {
+                if sizeClass == .regular, openChat == nil {
+                    ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
+                }
+            }
+            .navigationDestination(isPresented: $showBotTask) {
+                if let botTask {
+                    ConversationView(session: botTask, onArchived: { showBotTask = false; self.botTask = nil; openChat = nil })
+                        .onAppear { store?.follow(botTask) }
+                        .onDisappear { store?.follow(nil) }
+                }
+            }
             }
         }
         // Wide, the list stays beside the detail. The automatic style overlays
@@ -195,12 +260,29 @@ struct HomeView: View {
         }
         .focusedSceneValue(\.newChat) {
             page = .agent
-            openChat = nil
+            showNewTask = true
+        }
+        // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
+        // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
+        .onChange(of: openChat?.channel?.channelId) { _, id in
+            guard id != nil, page == .agent, let chat = openChat else { return }
+            page = .chats
+            // After the page change below has cleared it.
+            Task { openChat = chat }
+        }
+        .onChange(of: openChat?.id) { _, _ in
+            showBotTask = false
+            botTask = nil
         }
         .onChange(of: page) { oldPage, newPage in
+            showBotTask = false
+            botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            isSearching = false
             openChat = nil
+            inbox?.selected = nil
+            // An answer held for Undo goes once the Inbox is left.
+            let left = inbox
+            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -208,6 +290,8 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
+                let left = inbox
+                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
@@ -215,11 +299,18 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        // Nor does a held answer wait for an app that is put away.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { Task { await inbox?.sendHeld() } }
+        }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
+        // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
+        // chat or Bot's Task (#2708), so anything but a listed Task returns to Bots.
         .onChange(of: PushNotifications.shared.pendingTarget, initial: true) { _, target in
-            if target != nil, !page.isHomeList { page = .agent }
+            guard let target, !page.isHomeList else { return }
+            page = store?.listedConversations.contains { $0.sessionId == target.sessionId } == true ? .agent : .chats
         }
         // The default tab, once the chats are known: Chats when there is one.
         // Never after the viewer picked a page, nor under a chat already open.
@@ -236,13 +327,12 @@ struct HomeView: View {
         }
     }
 
-    /// Compact pops back to the list's composer; wide has no back, so this
-    /// returns the column to it.
+    /// Create another task without replacing the current conversation first.
     @ToolbarContentBuilder
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
             ToolbarItem(placement: .topBarLeading) {
-                Button("New task", systemImage: "square.and.pencil") { openChat = nil }
+                DesignButton("New task", image: "lucide-square-pen") { showNewTask = true }
             }
         }
     }
@@ -251,7 +341,8 @@ struct HomeView: View {
     private static var initialPage: HomePage {
         #if DEBUG
         let args = CommandLine.arguments
-        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]) {
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count, let page = HomePage(rawValue: args[i + 1]),
+           page.isHomeList || page == .inbox {
             return page
         }
         #endif
@@ -259,21 +350,79 @@ struct HomeView: View {
     }
 
     @ViewBuilder
+    private var homeActions: some View {
+            Menu {
+                Button { showNewBot = true } label: {
+                    Label("New Bot", image: "home-tab-bots")
+                }
+                .disabled(store?.creatingBot == true || store?.runtimesLoaded != true)
+                Button { showNewTask = true } label: {
+                    Label("New Task", image: "home-tab-tasks")
+                }
+            } label: {
+                LucideIcon("plus", size: 16).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Create")
+            .disabled(store?.selectedRuntimeUnavailable != false)
+            Button { workspacePage = .runtimes } label: {
+                LucideIcon("monitor", size: 16).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Computers & runtimes")
+            .disabled(store == nil)
+            Button { showProfile = true } label: {
+                AvatarView(user: user, size: 24).frame(width: 36, height: 44)
+            }
+            .accessibilityLabel("Account")
+    }
+
     private var pageContent: some View {
-        switch page {
-        case .chats, .agent:
-            AgentPage(page: $page, isSearching: $isSearching, titleCollapsed: $titleCollapsed, openChat: $openChat, showsComposer: sizeClass != .regular)
-        case .inbox:
-            InboxPage(inbox: inbox)
-                .onAppear { titleCollapsed = false }
-        case .connectors:
-            ConnectorsPage()
-                .onAppear { titleCollapsed = false }
-        case .runtimes:
-            RuntimesPage()
-                .onAppear { titleCollapsed = false }
+        TabView(selection: $page) {
+            Tab("Bots", image: "home-tab-bots", value: HomePage.chats) {
+                homeList(.chats)
+            }
+            .badge(store?.pageCounts[.chats] ?? 0)
+            Tab("Tasks", image: "home-tab-tasks", value: HomePage.agent) {
+                homeList(.agent)
+            }
+            .badge(store?.pageCounts[.agent] ?? 0)
+            Tab("Inbox", image: "home-tab-inbox", value: HomePage.inbox) {
+                InboxPage(inbox: inbox, wide: sizeClass == .regular)
+            }
+            .badge(inbox?.waiting.count ?? 0)
         }
     }
+
+    private func homeList(_ tab: HomePage) -> some View {
+        AgentPage(page: .constant(tab),
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false))
+
+    }
+
+    @ViewBuilder
+    private func workspaceContent(_ destination: HomePage) -> some View {
+        switch destination {
+        case .runtimes: RuntimesPage()
+        default: ConnectorsPage()
+        }
+    }
+
+    /// The workspace sheet is handed the store, so it waits for one: opened from the
+    /// toolbar there always is, but `-page` asks for it before the store is built.
+    private var workspaceSheet: Binding<HomePage?> {
+        Binding(get: { store == nil ? nil : workspacePage }, set: { workspacePage = $0 })
+    }
+
+    private static var initialWorkspacePage: HomePage? {
+        #if DEBUG
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "-page"), i + 1 < args.count,
+           let page = HomePage(rawValue: args[i + 1]), page == .runtimes || page == .connectors {
+            return page
+        }
+        #endif
+        return nil
+    }
+
 }
 
 /// Splits trailing controls into separate glass groups. Before iOS 26
@@ -307,7 +456,7 @@ private extension ToolbarContent {
 /// that Xcode rendered each SVG.
 private struct LogoPreviewGrid: View {
     private var names: [String] {
-        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode"]
+        CredentialCatalog.providers.map(\.logo) + ["logo-claude", "logo-openai", "logo-grok", "logo-antigravity", "logo-opencode", "logo-deepseek"]
     }
 
     var body: some View {

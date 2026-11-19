@@ -36,9 +36,9 @@ export function isGoogleAuthorizeUrl(value: unknown): value is string {
 }
 
 /**
- * One step of a sign-in that asks before it authorizes (OpenCode): pick a provider,
- * method or option; type a field or an API key; or approve on a page, which may hand
- * back a code or end on a loopback address the user pastes.
+ * One step of a sign-in that asks before it authorizes (OpenCode, DeepSeek Harness): pick
+ * a provider, method or option; type a field or an API key; or approve on a page, which
+ * may hand back a code or end on a loopback address the user pastes.
  */
 export type RuntimeLoginStep =
   | { kind: 'choose'; message: string; options: { value: string; label: string; hint?: string }[] }
@@ -50,6 +50,8 @@ export type RuntimeLoginFrame =
   | { type: 'device'; verificationUri: string; userCode: string }
   | { type: 'authorize'; url: string }
   | { type: 'step'; step: RuntimeLoginStep }
+  /** The computer is installing the agent's CLI before its sign-in can start. */
+  | { type: 'installing' }
   | { type: 'authenticated' }
   /** The runtime removed the API key it was signed in with. */
   | { type: 'signedOut' }

@@ -1,0 +1,40 @@
+<resources>
+    <string name="plans_title_fallback">플랜</string>
+    <string name="plans_back">뒤로</string>
+    <string name="plans_actions">작업</string>
+    <string name="plans_mark_unplanned">계획 외로 표시</string>
+    <string name="plans_plan_number">플랜 %1$s</string>
+    <string name="plans_untitled">제목 없는 플랜</string>
+    <string name="plans_still_building">에이전트가 아직 이 플랜을 작성하고 있습니다. 승인할 수 있기 전에 단계, 비용, 위험이 채워집니다.</string>
+    <string name="plans_decisions">결정 사항</string>
+    <string name="plans_steps">단계</string>
+    <string name="plans_cost">비용</string>
+    <string name="plans_cost_one_time">"일회성  %1$s"</string>
+    <string name="plans_cost_monthly">"월간  %1$s"</string>
+    <string name="plans_cost_savings">"절감액  %1$s"</string>
+    <string name="plans_risk">위험</string>
+    <string name="plans_risk_worst_case">"최악의 경우  %1$s"</string>
+    <string name="plans_approval">승인</string>
+    <string name="plans_approval_requester">요청자 %1$s</string>
+    <string name="plans_approval_team">팀 %1$d/%2$d</string>
+    <string name="plans_loading">플랜 불러오는 중…</string>
+    <string name="plans_unplan_confirm_title">플랜 %1$s을(를) 계획 외로 표시할까요?</string>
+    <string name="plans_unplan_confirm_body">플랜은 참고용으로 남지만 더 이상 실행되지 않습니다.</string>
+    <string name="plans_error_title">문제가 발생했습니다</string>
+    <string name="plans_ok">확인</string>
+    <string name="plans_approval_notice_title">플랜 승인</string>
+    <string name="plans_approval_already_recorded">이 플랜에 대한 승인이 이미 기록되어 있습니다.</string>
+    <string name="plans_approve_failed">플랜을 승인할 수 없습니다.</string>
+    <plurals name="plans_step_count">
+        <item quantity="other">%1$d단계</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="other">작업 %1$d개</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="other">명령 %1$d개</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="other">승인 %1$d건이 기록되었습니다.</item>
+    </plurals>
+</resources>

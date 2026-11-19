@@ -1,6 +1,5 @@
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
-import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
@@ -16,8 +15,8 @@ import type { TriggerActor } from '../trigger-access'
  *
  * DELETE is idempotent: an already-removed Trigger is the requested final
  * state. The row goes first so a delivery that loaded it fails its re-check;
- * the schedule and incident state are then best-effort, since a leftover cron
- * job finds no row and the scheduler prunes it on the next start.
+ * the schedule is then best-effort, since a leftover cron job finds no row and
+ * the scheduler prunes it on the next start.
  */
 export async function deleteTrigger(triggerId: string, actor: TriggerActor): Promise<void> {
   const _id = parseTriggerId(triggerId)
@@ -39,9 +38,4 @@ export async function deleteTrigger(triggerId: string, actor: TriggerActor): Pro
       logError('agent.trigger.delete_unschedule_failed', err, { trigger_id: triggerId })
     })
   }
-  await clearSlackNotificationIncidentsForTrigger(triggerId, trigger.teamId).catch(
-    (err: unknown) => {
-      logError('agent.trigger.delete_incident_cleanup_failed', err, { trigger_id: triggerId })
-    },
-  )
 }

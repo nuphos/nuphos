@@ -1,7 +1,6 @@
-//! Every TUI action as a command that needs no terminal, so scripts and other
-//! agents can drive Nuphos: `exec` sends a message and prints the reply, and
-//! `team`, `runtime` and `model` list choices without a value and switch with
-//! one. `--json` prints machine-readable output.
+//! Every TUI action as a command scripts and other agents can run: `exec` sends
+//! a message and prints the reply; `team`, `agents` (with `--session` or
+//! `--default`) and `model` list without a value and switch with one.
 
 use std::io::Write;
 use std::time::{Duration, Instant};
@@ -31,7 +30,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    fn team_id(&self) -> String {
+    pub(crate) fn team_id(&self) -> String {
         self.team["id"].as_str().unwrap_or_default().to_string()
     }
 
@@ -39,7 +38,7 @@ impl Ctx {
         Ok(shared::active_runtimes(self.api.runtimes(&self.team_id()).await?))
     }
 
-    fn print_json(&self, value: &Value) {
+    pub(crate) fn print_json(&self, value: &Value) {
         println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
     }
 }
@@ -71,9 +70,9 @@ pub async fn team(ctx: &mut Ctx, name: Option<String>) -> Result<()> {
     Ok(())
 }
 
-/// `nuphos agents [NAME] [--session ID]`: list the team's agents, or pick
-/// NAME for new conversations, or move a conversation to it.
-pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String>) -> Result<()> {
+/// `nuphos agents [NAME --session ID | NAME --default]`: list the team's
+/// runtimes, move a conversation to NAME, or pick NAME for new conversations.
+pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String>, make_default: bool) -> Result<()> {
     let runtimes = ctx.runtimes().await?;
     let current = match &session {
         Some(id) => {
@@ -96,13 +95,14 @@ pub async fn runtime(ctx: &mut Ctx, name: Option<String>, session: Option<String
     let target = shared::find(&runtimes, &name, "runtime")?;
     let target_id = target["id"].as_str().unwrap_or_default().to_string();
     match session {
+        None if !make_default => bail!("pass --session ID to move a task, or --default to pick it for new tasks"),
         None => {
             ctx.prefs.runtime_ids.insert(ctx.team_id(), target_id);
             config::write_prefs(&ctx.prefs);
             if ctx.json {
                 ctx.print_json(&target);
             } else {
-                println!("New agents in {} run on {}", label(&ctx.team), label(&target));
+                println!("New tasks in {} run on {}", label(&ctx.team), label(&target));
             }
         }
         Some(id) => {
@@ -223,7 +223,7 @@ pub async fn model(
     }
 
     if value.is_some() || effort.is_some() {
-        bail!("Pick a model per agent: pass --session, or choose one in the app before the first message.");
+        bail!("Pick a model per task: pass --session, or choose one in the app before the first message.");
     }
     let runtimes = ctx.runtimes().await?;
     let runtime = shared::default_runtime(&runtimes, &ctx.prefs, &team, &ctx.me_id)
@@ -334,7 +334,7 @@ pub async fn exec(
             body["agentRuntime"] = r["provider"].clone();
         }
     } else if runtime.is_some() {
-        bail!("--agent picks the runtime for a new agent; use `nuphos agents NAME --session ID` to move one.");
+        bail!("--agent picks the runtime for a new task; use `nuphos agents NAME --session ID` to move one.");
     }
 
     let (sender, mut rx) = unbounded_channel();
@@ -434,7 +434,7 @@ pub async fn exec(
     if ctx.json {
         println!("{}", json!({ "type": "nuphos-session", "sessionId": session_id, "teamId": team }));
     } else {
-        eprintln!("agent {session_id}");
+        eprintln!("task {session_id}");
     }
     if let Some(error) = error {
         eprintln!("nuphos: {}", clean(&error));

@@ -1,11 +1,9 @@
 import clsx from 'clsx'
-import { PinOff } from 'lucide-react'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
 import { t } from '../../i18n'
-import { ContextMenu } from '../ContextMenu'
 
 import { BOT_PIN_DRAG_TYPE } from './bot-pin-drag'
 import { previewPinOrder } from './bot-pin-order'
@@ -15,7 +13,7 @@ import { SidebarPinShelf } from './SidebarPinShelf'
 import { useBotPinDrag } from './useBotPinDrag'
 import { usePinPreview } from './usePinPreview'
 
-import type { Item } from './types'
+import type { Item, ItemMenuRequest } from './types'
 import type { ReactNode } from 'react'
 
 type Props = {
@@ -24,6 +22,7 @@ type Props = {
   bots: Item[]
   pinned: (item: Item) => boolean
   toggle: (item: Item) => void
+  onItemMenu: (menu: ItemMenuRequest) => void
   onSelect: (key: string) => void
   teamId: string
   children: ReactNode
@@ -35,6 +34,7 @@ export function SidebarBotPins({
   pinned,
   toggle,
   onSelect,
+  onItemMenu,
   teamId,
   children,
   order = [],
@@ -75,35 +75,26 @@ export function SidebarBotPins({
     { onMove: movePin, onPinDrop: commitPin, onEnd: resetPin },
   )
   const [over, setOver] = useState(false)
-  const [menu, setMenu] = useState<{ bot: Item; x: number; y: number } | null>(null)
   const draggedBot = bots.find((bot) => bot.key === dragged)
   const preview = pinPreview && pinPreview.key === draggedBot?.key ? pinPreview.before : undefined
   const displayPins = previewPinOrder(pins, draggedBot, preview)
   const columns = Math.max(1, Math.min(displayPins.length, availableColumns))
   const rows = Math.max(1, Math.ceil(displayPins.length / columns))
+  const faceSize = Math.min(56, cellWidth - 20)
+  const cellHeight = Math.max(cellWidth, faceSize + 44)
 
   const dropBot = (data: DataTransfer) =>
     bots.find((bot) => bot.key === data.getData(BOT_PIN_DRAG_TYPE))
 
   return (
     <div {...pointerHandlers} className="flex min-h-full select-none flex-col">
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            { key: 'unpin', label: t('Unpin Bot'), icon: PinOff, onSelect: () => toggle(menu.bot) },
-          ]}
-        />
-      )}
       {draggedBot &&
         createPortal(
           <div
             ref={ghost}
             className="pointer-events-none fixed left-0 top-0 z-[9999] flex w-[88px] flex-col items-center gap-1 rounded-xl bg-surface-raised/90 p-2 shadow-lg"
           >
-            <BotPinFace item={draggedBot} size={Math.min(56, cellWidth - 20)} />
+            <BotPinFace item={draggedBot} size={faceSize} />
             <span className="w-full truncate text-center text-[11px] text-main">
               {draggedBot.label}
             </span>
@@ -117,7 +108,7 @@ export function SidebarBotPins({
           aria-label={t('Pinned Bots')}
           style={{
             gridTemplateColumns: `repeat(${String(columns)}, ${String(cellWidth)}px)`,
-            gridTemplateRows: `repeat(${String(rows)}, ${String(cellWidth)}px)`,
+            gridTemplateRows: `repeat(${String(rows)}, ${String(cellHeight)}px)`,
             gridAutoFlow: 'row',
           }}
           className={clsx(
@@ -165,7 +156,7 @@ export function SidebarBotPins({
                 }
                 onContextMenu={(event) => {
                   event.preventDefault()
-                  setMenu({ bot, x: event.clientX, y: event.clientY })
+                  onItemMenu({ item: bot, x: event.clientX, y: event.clientY })
                 }}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'copyMove'
@@ -182,17 +173,17 @@ export function SidebarBotPins({
                     bot.label,
                   )
                 }}
-                style={{ height: cellWidth }}
+                style={{ height: cellHeight }}
                 className={clsx(
                   'flex w-full flex-col items-center justify-center gap-1 rounded-xl hover:bg-state-hover focus-visible:outline focus-visible:outline-line-focus',
                   bot.active && 'bg-state-selected',
                 )}
               >
                 <span className="relative">
-                  <BotPinFace item={bot} size={Math.min(56, cellWidth - 20)} />
+                  <BotPinFace item={bot} size={faceSize} />
                   <span className="absolute -right-1 top-0">{bot.trailing}</span>
                 </span>
-                <span className="w-full truncate px-1 text-center text-[12px] leading-4 text-secondary">
+                <span className="line-clamp-2 w-full break-words px-1 text-center text-[12px] leading-4 text-secondary">
                   {bot.label}
                 </span>
               </button>

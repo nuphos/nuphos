@@ -62,11 +62,12 @@ affiliated with xAI.
 | `apps/desktop` | Electron/Vite/React client — the workspace itself                       |
 | `apps/runtime` | Claude Code / Codex container images, adapters and independent releases |
 | `apps/ios`     | SwiftUI client: pick a session back up away from your desk              |
-| `apps/android` | Jetpack Compose client for Nuphos Cloud                                 |
+| `apps/android` | Jetpack Compose client for Nuphos Cloud or a self-hosted backend        |
 
 See [`apps/android/README.md`](apps/android/README.md) for Android build and test
-instructions. The Android client currently uses Nuphos Cloud sign-in; custom
-self-hosted endpoints are not yet supported.
+instructions. The Android client defaults to Nuphos Cloud, and **Server
+settings** on its welcome screen takes the HTTPS address of a self-hosted
+backend. A self-hosted session gets no push notifications, only local ones.
 
 The agent runtime lives in [`apps/runtime`](apps/runtime) (Apache-2.0).
 Its image executes a turn, and a self-hosted deployment registers its own.
@@ -106,8 +107,9 @@ What to know before you plan around it:
 - **The runtime signs in to Claude itself**, once, from its own console. You
   supply your own account; there is no key to configure in Nuphos.
 - **Point the clients at your backend from the sign-in screen.** Desktop and
-  iOS both have a "Self-hosted? Set API endpoint" link there, and email
-  sign-in works against any backend. Emailing codes needs a Resend key;
+  iOS both have a "Self-hosted? Set API endpoint" link there, Android has
+  **Server settings** on its welcome screen, and email sign-in works against
+  any backend. Emailing codes needs a Resend key;
   without one, `nuphos-admin` in the backend image creates the first user and
   team and prints sign-in codes and server join tokens (see the
   [Helm README](deploy/helm/README.md#first-user-and-team)). A launch-time `NUPHOS_API_URL` (as
@@ -137,6 +139,8 @@ change touches.
 - Bun for `apps/backend`.
 - Node.js 22 and pnpm 10 for `apps/desktop`.
 - Docker (Docker Desktop, or Docker Engine with Compose v2.24+) and `openssl` for the local stack `bun run dev` runs on.
+- Rust, installed with [rustup](https://rustup.rs), for the Local runtime's `openab` binary, which
+  `bun run dev` builds from `apps/runtime/openab`. The build installs the pinned toolchain itself.
 - Google OAuth credentials and `NUPHOS_JWT_SECRET` for Nuphos auth flows.
 
 ## Formatting and Linting
@@ -181,6 +185,28 @@ bun run dev
 It starts the local stack, backend, runtime and Electron Desktop with isolated
 configuration. Do not start Desktop on its own or use the web-only Vite server
 as the default dev loop.
+
+### End-to-end test
+
+```bash
+bun run e2e
+```
+
+It starts a MongoDB, the backend, OpenAB and the Desktop app, all on free ports
+and with a profile of their own, and walks the app through the flows people use
+most: sign in, send a message and read the reply, queue a message and press
+Stop, answer an agent's question from its card and from the Inbox. A scripted
+agent stands in for the model, so no model account or network access is needed
+and the run takes about a minute. It does not touch a running `bun run dev`.
+
+It needs the dependencies of `apps/backend` and `apps/desktop` installed, an
+`openab` binary (`node apps/desktop/local-runtime/prepare.mjs` builds one with Rust, or
+set `OPENAB` to an existing one), and either `mongod` on the PATH or Docker.
+Logs and a screenshot after each scenario are written to the directory the run
+prints first; set `E2E_ARTIFACTS` to choose it.
+
+The scenarios are in `scripts/e2e/run.ts`. When a flow breaks after merge, the
+pull request that repairs it adds the scenario that would have caught it.
 
 ### Parallel instances
 

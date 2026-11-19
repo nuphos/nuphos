@@ -125,20 +125,6 @@ describe('POST /webhooks/:triggerId', () => {
     expect(fires).toHaveLength(0)
   })
 
-  test('no longer routes a stored session-routing row into its own session', async () => {
-    stored = webhook({
-      targetSessionId: undefined,
-      sessionRouting: { keyTemplate: '{{payload.number}}' },
-    })
-
-    const res = await post({ number: 7 })
-
-    // The executor pauses it; the route never answers with a routed session.
-    expect(res.status).toBe(200)
-    expect(await res.json()).not.toHaveProperty('sessionId')
-    expect(fires).toHaveLength(1)
-  })
-
   test('still refuses a disabled Trigger without firing', async () => {
     stored = webhook({ enabled: false })
 

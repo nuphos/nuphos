@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.118.0",
+  "version": "0.129.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -14,7 +14,7 @@
     "release": "vite build && electron-builder --publish always",
     "local-runtime:prepare": "node local-runtime/prepare.mjs",
     "postinstall": "node scripts/prepare-terminal.mjs",
-    "test:ui": "bun test src/app/workspace/WorkspaceBotsStart.test.tsx && bun test src/components/sidebar/NewChatButton.test.tsx && bun test src/components/sidebar/SidebarPinShelf.test.tsx && bun test src/components/sidebar/SidebarStatsButton.test.tsx && bun test src/components/sidebar/chat-item.test.tsx && bun test src/components/sidebar/SidebarPageList.test.tsx"
+    "test:ui": "node scripts/test-ui.mjs"
   },
   "dependencies": {
     "@kubernetes/client-node": "^1.4.0",
@@ -23,7 +23,8 @@
     "electron-chrome-extensions": "4.10.0",
     "electron-updater": "^6.8.11",
     "node-pty": "^1.1.0",
-    "posthog-node": "^5.35.2"
+    "posthog-node": "^5.35.2",
+    "undici": "^7.30.1"
   },
   "devDependencies": {
     "@base-ui/react": "^1.5.0",

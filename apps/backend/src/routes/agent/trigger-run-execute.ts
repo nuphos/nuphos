@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
+import { registry } from '@/lib/claude-code-preview/agent-chat-registry'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/agent-chat-runtime'
 import { fallBackBeforeTurn } from '@/lib/claude-code-preview/runtime-fallback'
-import { logError, logEvent } from '@/lib/observability'
+import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 
 import { ensurePreviewChannelCredentialsSafe } from './chat-preview-credentials'
@@ -30,8 +31,8 @@ import type { AgentRun, AgentRunTrace } from './types'
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentCredentialAccess } from '@/lib/agent/db'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { LarkReplyToolContext, SlackReplyToolContext } from '@/lib/agent/tools-skilled/types'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
 
 export type { AgentRunFrameSink } from './run-registry'
@@ -57,11 +58,14 @@ export type TriggerRunParams = {
   // channels omit it and default to 'user'.
   origin?: AgentSessionOrigin
   client?: AgentClientMeta
+  /** The agent a new conversation runs on, already checked against the caller. */
+  runtimeId?: string
+  /** The model and effort a new conversation starts with, already checked against its agent. */
+  initialSessionConfig?: RuntimeDefaults
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
-  triggerNotification?: SlackTriggerNotificationContext
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
   /** The channels whose posts this turn answers. */
@@ -99,6 +103,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
     ownerUserId: conversationOwnerUserId,
     sessionId,
     source,
+    ...(params.runtimeId ? { runtimeId: params.runtimeId } : {}),
   })
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
@@ -208,6 +213,12 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       getSlackAgentThreadBySessionId(sessionId).catch(() => null),
     ])
 
+    // Fixed before the first session exists, as the app's first-turn pick is.
+    if (params.initialSessionConfig && (await isNewConversationPromise))
+      await agentConversations().updateOne(
+        { sessionId, teamId, claudeCodePreview: { $exists: false } },
+        { $set: { initialSessionConfig: params.initialSessionConfig } },
+      )
     const ended = await runClaudeCodePreviewChatTurn({
       run,
       sessionId,
@@ -223,13 +234,17 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       endpoint: chatRuntime.endpoint,
       onRunHandoff: attachFrameSink,
-      onTurnUsage: (usage) => {
+      onTurnUsage: (report) => {
         recordRuntimeTurnUsage({
           sessionId,
           userId: conversationOwnerUserId,
           teamId,
           provider: chatRuntime.endpoint.provider ?? 'claude-code',
-          usage,
+          ...report,
+          actorUserId: HUMAN_SENDER_SOURCES.has(source) ? userId : conversationOwnerUserId,
+          turnSource: source,
+          runtimeId: chatRuntime.endpoint.runtimeId,
+          deviceId: chatRuntime.endpoint.local?.deviceId,
           ...(params.trigger ? { trigger: params.trigger } : {}),
         })
       },
@@ -251,7 +266,12 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
 
     return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
-    recordTriggerRunFailure(err, runTrace, source)
+    recordTriggerRunFailure(
+      err,
+      runTrace,
+      source,
+      teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
+    )
     chatSpan.end()
     if (!run.abortController.signal.aborted) {
       appendAgentRunError(run, err)

@@ -7,6 +7,8 @@ import { onChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
 import { queryKeys } from '../../lib/query/keys'
 
 import { removeChat, restoreChat } from './agentSessions'
+import { botFoldTitles } from './chat-sections'
+import { forgetGroupFolds } from './state'
 
 import type { AgentConversation } from '../../api'
 
@@ -26,6 +28,7 @@ export function useSidebarArchiveEvents({
       onChatArchived((change) => {
         if (change.teamId !== teamId) return
         void removeChat(client, teamId, change.sessionId)
+        forgetGroupFolds(teamId, botFoldTitles(change.sessionId))
         onArchived?.(change.sessionId)
       }),
     [client, teamId, onArchived],
@@ -57,7 +60,7 @@ export function useSidebarArchiveEvents({
       offerArchiveUndo({
         sessionId,
         teamId,
-        title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled agent'),
+        title: [row?.title, row?.firstMessage].find(Boolean) ?? t('Untitled task'),
         ...(botSessionId ? { noun: 'bot' } : row?.kind === 'channel' ? { noun: 'chat' } : {}),
         onRestored: () => {
           if (row && teamIdRef.current === teamId) void restoreChat(client, teamId, row)

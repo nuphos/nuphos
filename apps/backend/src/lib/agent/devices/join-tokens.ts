@@ -71,17 +71,6 @@ export async function issueDeviceJoinToken(
   return { token, expiresAt }
 }
 
-/** Whether the token can still be used: issued here, unused and unexpired. */
-export async function isDeviceJoinTokenLive(token: string): Promise<boolean> {
-  return Boolean(
-    await joinTokens().findOne({
-      _id: hashDeviceSecret(token),
-      usedAt: { $exists: false },
-      expiresAt: { $gt: new Date() },
-    }),
-  )
-}
-
 /**
  * Uses the token once and registers a new device for its issuer, or returns
  * null when the token is not usable. The device id is the server's, so a token
@@ -89,7 +78,7 @@ export async function isDeviceJoinTokenLive(token: string): Promise<boolean> {
  */
 export async function redeemDeviceJoinToken(
   token: string,
-  device: Pick<AgentDeviceRegistration, 'label' | 'platform'>,
+  device: Pick<AgentDeviceRegistration, 'label' | 'platform' | 'model'>,
 ): Promise<{ userId: string; deviceId: string; credential: string; box?: true } | null> {
   if (!token.startsWith(DEVICE_JOIN_TOKEN_PREFIX)) return null
   const now = new Date()
@@ -122,6 +111,7 @@ export async function redeemDeviceJoinToken(
       deviceId,
       label: used.label ?? device.label,
       platform: device.platform,
+      ...(device.model ? { model: device.model } : {}),
       allowLocalExec: true,
     },
     credentialHash,

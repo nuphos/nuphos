@@ -2,7 +2,7 @@ package ai.nuphos.android
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
 import ai.nuphos.android.session.*
@@ -126,7 +126,7 @@ class RuntimeSetupFixtureDeviceTest {
         selection.saveCatalog(listOf(AgentRuntime("computer", "codex", "My laptop", "active", "local")))
         compose.setContent { NuphosTheme { AgentChip(selection, true, {}) } }
         compose.onNodeWithText("Choose runtime").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Runtime for new agents: Choose runtime").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Runtime for new tasks: Choose runtime").assertIsDisplayed()
         compose.runOnIdle { assertTrue(selection.select("computer")) }
         compose.onNodeWithText("Codex · My laptop").assertIsDisplayed()
         compose.runOnIdle { selection.saveCatalog(emptyList()) }

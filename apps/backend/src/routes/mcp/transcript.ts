@@ -1,4 +1,4 @@
-import { getConversationWithMessages } from '@/lib/agent/db'
+import { getLatestAssistantMessage, getReadableConversation } from '@/lib/agent/db'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 
 import type { UIMessage } from 'ai'
@@ -77,10 +77,10 @@ export async function readLatestAnswer(
   viewerUserId: string,
   teamId: string | undefined,
 ): Promise<string | null> {
-  const result = await getConversationWithMessages(sessionId, viewerUserId, teamId)
+  const conversation = await getReadableConversation(sessionId, viewerUserId, teamId)
 
-  if (!result) return null
-  const assistant = [...result.messages].reverse().find((m) => m.role === 'assistant')
+  if (!conversation) return null
+  const assistant = await getLatestAssistantMessage(sessionId, conversation.userId)
 
   return assistant ? partsToText(assistant.parts) : null
 }

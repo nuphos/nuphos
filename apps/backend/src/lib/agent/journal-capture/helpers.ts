@@ -37,7 +37,6 @@ const CLIENT_TOOL_NAMES = new Set([
   'port_forward_start',
   'port_forward_stop',
   'port_forward_list',
-  'upload_attachment',
 ])
 
 export const OUTPUT_PREVIEW_CHARS = 400

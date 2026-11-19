@@ -10,12 +10,12 @@ import {
   openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
-import { promptImages } from '@/lib/agent/image-parts'
 import {
   attributionHeader,
   parseMessageMetadata,
   renderAttributedMessage,
 } from '@/lib/agent/message-metadata'
+import { turnLanguage } from '@/lib/agent/db/ancestor-user-texts'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
 import { answerHumanTurn } from '@/lib/agent/plan-decision'
@@ -27,6 +27,7 @@ import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-tran
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
 import { resolvePreviewTurnMemory } from './chat-preview-memory'
+import { responseLanguageLine } from './chat-system-messages'
 import { traceAgentChatError } from './trace'
 import { getUserMessageTexts } from './transcript'
 import { turnInputMessages } from './turn-start-frame'
@@ -79,6 +80,8 @@ export function turnPrompt(args: {
   inputs: UIMessage[]
   turnContext?: string
   carried: string
+  /** The user's language, named on every turn: a running agent reads its system prompt only once. */
+  language?: string
 }): { lead: (history?: string | null) => string; text: string } {
   const final = args.resume === null ? args.inputs.at(-1) : undefined
   // Only a verified sender's words take the last block; an unattested message
@@ -94,7 +97,10 @@ export function turnPrompt(args: {
   const header = last ? attributionHeader(last.id, last.metadata) : ''
 
   return {
-    lead: (history) => [history, ...turn, args.carried, header].filter(Boolean).join('\n\n'),
+    lead: (history) =>
+      [history, ...turn, args.carried, args.language && responseLanguageLine(args.language), header]
+        .filter(Boolean)
+        .join('\n\n'),
     text: args.resume ?? (last ? userText(last) : ''),
   }
 }
@@ -139,6 +145,7 @@ export async function persistPreviewTurnContext(
       activeTurnKey: requestId,
       activeTurnOrigin: args.origin,
       ...(args.localToolsEnabled ? { localTools: true } : {}),
+      ...(args.secretCardEnabled ? { secretCard: true } : {}),
       ...(args.diagramId ? { diagramId: args.diagramId } : {}),
       ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
     })
@@ -181,7 +188,7 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, drained, toolsVersion, conversation] =
+  const [memory, systemPrompt, compactionSummary, drained, toolsVersion, conversation, language] =
     await Promise.all([
       resolvePreviewTurnMemory({
         sessionId,
@@ -201,7 +208,6 @@ export async function preparePreviewTurn(
         teamId,
         sessionId,
         locale: args.locale,
-        userTexts,
         ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
         ...(args.diagramId ? { diagramId: args.diagramId } : {}),
         ...(args.currentUrl ? { currentUrl: args.currentUrl } : {}),
@@ -221,21 +227,18 @@ export async function preparePreviewTurn(
       }),
       // Only names the thread's parent on the token; never fail the turn after the queue was taken.
       getConversationBySessionId(sessionId).catch(() => null),
+      turnLanguage(sessionId, userTexts, args.locale),
     ])
   // A channel that syncs its thread into the transcript may already hold a queued message.
   const carried = drained.filter((entry) => !args.messages.some((m) => m.id === entry.id))
 
-  // What this turn took from the queue has reached the agent; a retract can tell.
-  args.run.queuedMessageIds = carried.map((entry) => entry.id)
   const messages = turnPromptMessages(args.messages, args.resume)
   const inputs = turnInputMessages(messages)
-  const images = args.resume ? [] : inputs.flatMap((m) => promptImages(m.parts))
   const attachments = args.resume
     ? []
     : await runtimeAttachments(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
-        images,
       )
 
   const { lead, text } = turnPrompt({
@@ -243,6 +246,7 @@ export async function preparePreviewTurn(
     inputs,
     turnContext: args.turnContext,
     carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
+    language,
   })
 
   return {

@@ -36,4 +36,19 @@ object SessionMention {
         }.distinctBy { it.sessionId }.take(5)
 
     fun link(teamId: String, sessionId: String): String = ai.nuphos.android.session.ConversationLink(teamId, sessionId).url
+
+    /** The draft as it is sent: each picked `@Title` becomes the link it stands for. */
+    fun expand(text: String, links: Map<String, String>): String =
+        links.keys.sortedByDescending { it.length }.fold(text) { draft, name -> draft.replace(name, links.getValue(name)) }
+
+    /** A post as it reads: a bare link to a conversation the viewer knows shows
+     *  as its `@Title`, still a link, as desktop shows it as a chip. A link
+     *  already in markdown, `[label](link)` or `<link>`, keeps its own text. */
+    fun named(text: String, title: (String) -> String?): String = Regex(
+        "(?<![(\\[<])" + Regex.escape(ai.nuphos.android.data.NuphosWeb.SITE_URL) +
+            "/teams/[a-fA-F0-9]{24}/agent/([A-Za-z0-9][A-Za-z0-9_-]{0,127})",
+    ).replace(text) { match ->
+        val name = title(match.groupValues[1])?.takeIf { it.isNotEmpty() } ?: return@replace match.value
+        "[@${name.replace("[", "\\[").replace("]", "\\]")}](${match.value})"
+    }
 }

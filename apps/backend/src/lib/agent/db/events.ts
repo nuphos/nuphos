@@ -33,16 +33,32 @@ export async function setupAgentIndexes(): Promise<void> {
       { background: true, partialFilterExpression: { archivedAt: { $exists: true } } },
     )
     await c.createIndex({ 'linkedResources.key': 1 }, { background: true })
+    // The Inbox: a team's chats with an open question, or asking someone to sign in.
+    // Without both, its $or reads the team's whole history to find a few.
+    await c.createIndex({ teamId: 1, 'inputRequests.status': 1 }, { background: true })
+    await c.createIndex({ teamId: 1, 'signInRequest.askedUserIds': 1 }, { background: true })
+    // The app badge counts what a person watches and has not archived. Most of a heavy
+    // user's conversations are opened by agents and triggers, which start unwatched.
+    await c.createIndex({ watcherIds: 1, archivedAt: 1 }, { background: true })
+    // Channel mentions are keyed by person (`mentions.<userId>`).
+    await c.createIndex({ 'mentions.$**': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
+    await c.createIndex({ teamId: 1, userId: 1, parentSessionId: 1, lastActiveAt: -1 })
+    await db()
+      .collection('agent_task_reports')
+      .createIndex({ deliveredAt: 1, droppedAt: 1, createdAt: 1 })
     // The channels an agent is in, for clearing it out when its session is deleted.
     await c.createIndex(
       { agentSessionIds: 1 },
       { background: true, partialFilterExpression: { agentSessionIds: { $exists: true } } },
     )
+    // The agents on a computer, read each time it reconnects (`onDevice`).
+    await c.createIndex(
+      { runtimeId: 1 },
+      { background: true, partialFilterExpression: { runtimeId: { $exists: true } } },
+    )
     await c.createIndex({ teamId: 1, 'claudeCodePreview.runtimeUrl': 1 }, { background: true })
     await c.createIndex({ teamId: 1, previousRuntimeUrls: 1 }, { background: true })
-    await db().collection('agent_runtime_deletions').createIndex({ provider: 1, completedAt: 1 })
-    await db().collection('agent_runtime_deletions').createIndex({ teamId: 1, 'placements.url': 1 })
     // Every conversation listing now discriminates on the trigger stamp: a
     // Trigger's Runs list matches it, Chats excludes it. Both are the same
     // team-scoped, lastActiveAt-ordered page, so one index serves both — and

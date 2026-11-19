@@ -1,3 +1,4 @@
+import type { InputRequest } from './db/pending-decision'
 import type { AgentCredentialAccess } from './db/shared'
 import type { MessageMetadata } from './message-metadata'
 import type { UIMessage } from 'ai'
@@ -9,6 +10,8 @@ export type QueuedChatTurn = {
   message: UIMessage
   locale: string
   localTools: boolean
+  /** The sender's client draws the secure input card. */
+  secretCard?: boolean
   /** The question this message answers, resolved when the queued turn is admitted. */
   decisionReplyTo?: string
   kubeContext?: string
@@ -31,6 +34,12 @@ export type PendingUserMessage = {
   chat?: QueuedChatTurn
   /** Times a turn took this message and could not run it. */
   attempts?: number
+  /** A runtime that kept refusing it: no replica tries again before this time. */
+  retryAfter?: string
+  /** When a turn first found its computer offline or failed to start; reported once that outlasts the grace. */
+  offlineSince?: string
+  /** The question this notice answers: open again when the notice never runs. */
+  answers?: InputRequest
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.

@@ -8,7 +8,6 @@ import { OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
-import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
 import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
@@ -44,8 +43,6 @@ export type PreviewPromptArgs = {
   teamId: string
   sessionId: string
   locale: string
-  /** Latest user texts, newest first — drives the user-facing language. */
-  userTexts?: string[]
   kubeContext?: string
   diagramId?: string
   currentUrl?: string | null
@@ -64,7 +61,7 @@ const runtimeNote = (where: string) =>
     '- This is a conversation principal rather than a general user session, but it is accepted by the ordinary `/teams/...` APIs. The backend applies this conversation’s team and credential selection automatically. A 403 means that operation or resource is outside the conversation’s capabilities; do not test or search for another token.',
     '- `nuphos-credentials`: use `list_credentials` to refresh the live selection. Use `get_credential` only when a provider skill has no setup script; never put a returned secret on a command line. Selection is per conversation: a credential under `notSelected` is bound to the team but not enabled here. When a task needs one that is not selected or not connected, call `request_user_decision` with category `integration` and its provider in `providers` (for the member\'s own credential, provider `personal`, its (provider, id) pair in `credentials` instead, e.g. `{provider: "personal", id: "github"}`), rather than reporting it missing; in the Desktop app the user connects or selects it from a card below your message. Once it is selected, by the user or by a parent agent, the question is answered and a new message tells you to continue. Never ask in a free-text question to tick a credential in the picker.',
     '- `nuphos-tools`: host-control operations such as decisions, local Desktop actions, team-skill authoring, memory, charts, and channel replies. Nuphos Dashboards, architecture diagrams, triggers, one-shot schedules, databases, knowledge, and instructions use their native skills and canonical Nuphos REST APIs.',
-    '- When progress needs an answer only the user can provide, call `nuphos-tools.request_user_decision` with the actual question and optional choices. You need not end the turn: continue with work that does not depend on the answer, which arrives as a new message. This registers a question in the Needs your input panel, where the user can reply to each agent separately. A question written only in chat, a channel post or a thread reply is not registered there, so ask every choice, approval or missing piece of information with this tool, wherever you are talking, and say at most one short sentence pointing to the card. Use the same tool for every agent provider; do not ask for routine choices you can resolve yourself.',
+    '- When progress needs an answer only the user can provide, call `nuphos-tools.request_user_decision` with the question as one short line, its context in `body`, and optional choices. You need not end the turn: continue with work that does not depend on the answer, which arrives as a new message. This registers a question in the Needs your input panel, where the user can reply to each agent separately. A question written only in chat, a channel post or a thread reply is not registered there, so ask every choice, approval or missing piece of information with this tool, wherever you are talking, and say at most one short sentence pointing to the card. Use the same tool for every agent provider; do not ask for routine choices you can resolve yourself.',
     '',
     'Kubernetes: `~/.kube/config` starts empty. Before the first kubectl/helm/flux/argocd call, call `get_kubeconfig` (in `nuphos-tools`) and write the returned YAML to `~/.kube/config` with mode 0600. It holds one context per cluster the selected credentials reach — EKS, GKE, on-prem, and the other providers — and no current-context, so pass `--context <name>` (helm: `--kube-context`) on every call. Call it again and rewrite the file when kubectl reports an authentication error, a connection timeout, connection refused or no such host (the cluster’s API endpoint may have moved), or when a cluster the user just connected is missing. Re-fetch once; if the same error persists, report it instead of fetching again. Do not use `gcloud container clusters get-credentials`, other provider kubeconfig commands, or the kubectl skill’s `sync-clusters.sh`.',
   ].join('\n')
@@ -171,10 +168,9 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
       taskNameSection(args.sessionId).catch(() => null),
       channelsSection(args.sessionId).catch(() => null),
     ])
-  const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
-  // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
+  // Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
   const provider = args.provider ?? 'claude-code'
   const nativeText = (text: string | null) =>
     text === null || provider === 'claude-code'
@@ -201,7 +197,7 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     buildKubeContextMessage(args.kubeContext),
     nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     urlContext,
-    buildTurnRulesMessage({ userFacingLanguage }),
+    buildTurnRulesMessage(),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
     taskName,

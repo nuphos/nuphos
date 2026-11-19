@@ -19,7 +19,6 @@ export const CLIENT_SIDE_TOOLS = new Set([
   'port_forward_start',
   'port_forward_stop',
   'port_forward_list',
-  'upload_attachment',
 ])
 
 type ToolPart = {

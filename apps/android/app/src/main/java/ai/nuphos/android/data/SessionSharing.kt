@@ -1,14 +1,16 @@
 package ai.nuphos.android.data
 
+import ai.nuphos.android.R
 import ai.nuphos.android.model.TeamMember
+import androidx.annotation.StringRes
 import kotlinx.serialization.Serializable
 
 /** Who in the team may open the session without an invite. Only a chat offers [Reply]. */
 @Serializable
-enum class GeneralAccess(val title: String) {
-    @kotlinx.serialization.SerialName("none") Invited("Only people invited"),
-    @kotlinx.serialization.SerialName("view") View("Team can view"),
-    @kotlinx.serialization.SerialName("reply") Reply("Team can view and reply");
+enum class GeneralAccess(@StringRes val title: Int) {
+    @kotlinx.serialization.SerialName("none") Invited(R.string.chat_share_access_invited),
+    @kotlinx.serialization.SerialName("view") View(R.string.chat_share_access_view),
+    @kotlinx.serialization.SerialName("reply") Reply(R.string.chat_share_access_reply);
     val raw get() = when (this) { Invited -> "none"; View -> "view"; Reply -> "reply" }
 }
 
@@ -20,7 +22,7 @@ data class SessionAccess(val generalAccess: GeneralAccess, val participants: Lis
         val role: String? = null, val avatarURL: String? = null, val deactivated: Boolean = false) {
         val displayName get() = name.ifBlank { email.ifBlank { "Unknown user" } }
         val canReply get() = role != "view"
-        val roleTitle get() = if (canReply) "Can reply" else "Can view"
+        @get:StringRes val roleTitle get() = if (canReply) R.string.chat_share_can_reply else R.string.chat_share_can_view
     }
 }
 

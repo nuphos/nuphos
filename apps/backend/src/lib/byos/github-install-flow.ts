@@ -8,9 +8,9 @@ import { getInstallation } from '@/lib/byos/github'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
-import { teamByosBindings } from '@/models'
+import { emptyTeamByosBindings, teamByosBindings } from '@/models'
 
-import type { GithubInstallationBinding } from '@/models'
+import type { BindingAccess, BindingShareChoice, GithubInstallationBinding } from '@/models'
 import type { Context } from 'hono'
 
 // The setup flow binds a GitHub installation to a team. The backend signs who
@@ -26,6 +26,8 @@ export type InstallFlowState = {
   u: string
   /** The client's own correlation state, handed back unchanged. */
   s?: string
+  /** Who the starter chose to share the installation with. */
+  sh?: BindingShareChoice
   /** Installation id and setup action, once GitHub has returned them. */
   i?: number
   a?: string
@@ -108,17 +110,21 @@ export async function administeredTeamName(userId: string, teamId: string): Prom
 export async function bindGithubInstallation(
   teamId: ObjectId,
   installationId: number,
+  access: BindingAccess,
 ): Promise<GithubInstallationBinding> {
   const existing = await teamByosBindings().findOne(
     { _id: teamId },
     { projection: { githubInstallations: 1 } },
   )
-  const bound = existing?.githubInstallations.find((b) => b.installationId === installationId)
+  const bound = (existing?.githubInstallations ?? []).find(
+    (b) => b.installationId === installationId,
+  )
 
   if (bound) return bound
 
   const info = await getInstallation(installationId)
   const createdAt = new Date()
+  const { githubInstallations: _pushed, ...insertDefaults } = emptyTeamByosBindings()
   const binding: GithubInstallationBinding = {
     id: new ObjectId(),
     installationId,
@@ -127,6 +133,7 @@ export async function bindGithubInstallation(
     accountId: info.account.id,
     targetType: info.repositorySelection,
     createdAt,
+    access,
   }
 
   const result = await teamByosBindings().updateOne(
@@ -134,15 +141,7 @@ export async function bindGithubInstallation(
     {
       $push: { githubInstallations: binding },
       $set: { updatedAt: createdAt },
-      $setOnInsert: {
-        awsRoles: [],
-        gcpServiceAccounts: [],
-        grafanaInstances: [],
-        cloudflareAccounts: [],
-        linodeAccounts: [],
-        tailscaleClients: [],
-        zeaburProviders: [],
-      },
+      $setOnInsert: insertDefaults,
     },
     { upsert: !existing },
   )
@@ -152,7 +151,9 @@ export async function bindGithubInstallation(
   // A concurrent flow bound it first.
   const doc = await teamByosBindings().findOne({ _id: teamId })
 
-  return doc?.githubInstallations.find((b) => b.installationId === installationId) ?? binding
+  return (
+    (doc?.githubInstallations ?? []).find((b) => b.installationId === installationId) ?? binding
+  )
 }
 
 export function invalidFlow(): never {

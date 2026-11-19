@@ -52,7 +52,7 @@ export default defineRailway(() => {
     },
   })
   const backend = service('backend', {
-    source: image('ghcr.io/nuphos/backend:v0.130.0'),
+    source: image('ghcr.io/nuphos/backend:v0.144.1'),
     replicas: { 'us-west2': 1 },
     deploy: { restartPolicyType: 'ALWAYS' },
     healthcheck: '/health/ready',
@@ -73,8 +73,6 @@ export default defineRailway(() => {
         NUPHOS_EMAIL_FROM: required('NUPHOS_EMAIL_FROM'),
       }),
       ATLAS_REDIS_ENABLED: 'false',
-      CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
-      CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
       NUPHOS_FILE_TRANSFER_S3_BUCKET: 'nuphos-file-transfers',
       NUPHOS_FILE_TRANSFER_S3_REGION: 'us-east-1',
       NUPHOS_FILE_TRANSFER_S3_ENDPOINT: `https://${storageDomain}`,

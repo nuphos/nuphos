@@ -8,9 +8,12 @@ import {
   resolveInputRequest,
   updateInputRequest,
 } from '@/lib/agent/db/pending-decision'
+import { botFace } from '@/lib/agent/mentions'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
 
 import type { PreviewToolContext } from '../preview-tool-context'
 import type { AiSdkToolLike } from './ai-sdk-adapter'
@@ -58,13 +61,14 @@ const requestFollowUps = {
     const open = await listOpenInputRequests(ctx.sessionId, owner, answering)
 
     return toolResult({
-      requests: open.map(({ id, category, question, options, about, askedAt }) => ({
+      requests: open.map(({ id, category, question, options, about, askedAt, snoozedUntil }) => ({
         requestId: id,
         category,
         question,
         ...(options ? { options } : {}),
         ...(about ? { about } : {}),
         askedAt,
+        ...(snoozedUntil ? { snoozedUntil } : {}),
       })),
     })
   },
@@ -81,7 +85,13 @@ export async function checkedCall<T>(
 ): Promise<ToolResult> {
   const parsed = (tool.inputSchema as ZodType<T>).safeParse(args)
 
-  return parsed.success ? handle(parsed.data) : toolError(`Invalid input: ${parsed.error.message}`)
+  if (parsed.success) return handle(parsed.data)
+  // Each problem as one line the agent can act on, not the raw issue JSON.
+  const problems = parsed.error.issues.map(({ path, message }) =>
+    path.length ? `${path.join('.')}: ${message}` : message,
+  )
+
+  return toolError(`Invalid input: ${problems.join('; ')}`)
 }
 
 export function followUpHandler(
@@ -134,7 +144,7 @@ export async function aboutRefs(
  * they talk to it, when it has exactly one open. Otherwise none is guessed,
  * nor for the questions a card answers by itself.
  */
-export async function askedInChannel(
+async function askedInChannel(
   ctx: PreviewToolContext,
   category: unknown,
 ): Promise<{ channelId?: string }> {
@@ -150,6 +160,39 @@ export async function askedInChannel(
     (await botChat(ctx.sessionId, owner))
 
   return channelId ? { channelId } : {}
+}
+
+/**
+ * Where the question is asked, telling its owner there: the turn does not stop
+ * for a question, so its end says nothing of it.
+ */
+export async function askInChannel(
+  ctx: PreviewToolContext,
+  category: unknown,
+  question: string,
+): Promise<{ channelId?: string }> {
+  const asked = await askedInChannel(ctx, category)
+
+  if (asked.channelId) {
+    // The card is already out: an unread title falls back to the generic name.
+    const bot = await getConversationBySessionId(ctx.sessionId).catch(() => null)
+
+    if (
+      category === 'preference' &&
+      (bot?.botOnboarding === 'pending' || bot?.botOnboarding === 'active')
+    )
+      return asked
+    notifyNudge([requestOwner(ctx)], {
+      sessionId: asked.channelId,
+      teamId: ctx.teamId,
+      title: bot?.title || 'Nuphos agent',
+      subtitle: 'Has a question for you',
+      body: truncate(plainText(question)),
+      ...botFace(bot),
+    })
+  }
+
+  return asked
 }
 
 /** The owner's one open 1:1 chat with this Bot: a channel whose only members are the two. */

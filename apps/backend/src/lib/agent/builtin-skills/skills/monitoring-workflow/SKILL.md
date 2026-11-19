@@ -16,7 +16,7 @@ provider-native condition
   -> provider webhook / notification destination
   -> Nuphos webhook trigger, bound to one existing conversation
   -> that conversation investigates every firing
-  -> optional first-party slack_post updates, in one thread per problem
+  -> optional first-party slack_post updates
 ```
 
 Every Trigger needs `targetSessionId`. Use the current conversation
@@ -92,16 +92,14 @@ real payload:
 
 1. A provider test/drill payload must STOP without investigating or posting.
 2. A real firing first checks the earlier firings in this conversation — has
-   this alert gone off before, and in which Slack thread was it reported?
-3. If the user wants Slack updates, post quickly to the exact approved
-   destination from known payload facts, so whoever is watching knows it is
-   being looked at. Pass `replyToThread` with that earlier thread when this is
-   the same problem still going or coming back; omit it to start a new thread
-   when it is genuinely different.
-4. Then investigate, and follow up in that same thread when there is something
-   worth saying. Judge that the way an on-call who respects their team would —
-   nothing enforces it.
-5. When it recovers, say so in its thread and stop. Nothing needs closing.
+   this alert gone off before, and was it already reported?
+3. Then investigate.
+4. If the user wants Slack updates, call `slack_post` once per firing that is
+   worth telling people about — a new problem, a material change, or its
+   recovery — to the exact approved destination. An unchanged repeat needs no
+   post. Keep `bindConversation` on unless this conversation is already bound
+   to a Slack thread, so replies there continue this conversation.
+5. When it recovers, say so and stop. Nothing needs closing.
 
 Use explicit documented payload fields when available. If the schema is not
 documented, require the provider's test delivery, inspect its exact payload,

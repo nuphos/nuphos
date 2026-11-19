@@ -36,7 +36,7 @@ export function ConversationPlaceholder({ unavailable, onNewChat }: Props) {
         strokeWidth={1.7}
         aria-hidden="true"
       />
-      <span className="sr-only">{t('Opening agent')}</span>
+      <span className="sr-only">{t('Opening task')}</span>
     </div>
   )
 }

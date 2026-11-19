@@ -1,6 +1,5 @@
 import { CRON_TIME_ZONE, isValidCronExpression, isValidTimeZone } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
-import { clearSlackNotificationIncidentsForTrigger } from '@/lib/slack/incident-notifications'
 
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
@@ -17,8 +16,8 @@ import type { UpdateFilter } from 'mongodb'
 
 /**
  * Patch name / messageTemplate / enabled / cronExpression. The MongoDB write
- * owns the revision fence; scheduler and incident side effects run
- * only after it succeeds and the row is rolled back if reconciliation fails.
+ * owns the revision fence; scheduler side effects run only after it succeeds
+ * and the row is rolled back if reconciliation fails.
  */
 export async function updateTrigger(
   triggerId: string,
@@ -107,9 +106,6 @@ export async function updateTrigger(
     configRevision: currentConfigRevision + 1,
   }
 
-  const resetIncidentLifecycle =
-    trigger.incidentMode === true && (patch.enabled === false || messageTemplateChanged)
-
   // Re-assert the revision in the same write, so an update that raced another
   // edit or a deletion cannot apply on top of it.
   const update: UpdateFilter<AgentTrigger> = { $set }
@@ -117,6 +113,8 @@ export async function updateTrigger(
 
   // A missed-run marker belongs to the schedule it was raised for.
   if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
+  // The reason it was paused for, which its owner has now acted on.
+  if (enabledChanged && nextEnabled) $unset.executionAuthorizationError = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }
@@ -164,9 +162,6 @@ export async function updateTrigger(
           'Trigger changed concurrently; reload it and retry',
         )
       }
-    }
-    if (resetIncidentLifecycle) {
-      await clearSlackNotificationIncidentsForTrigger(triggerId, trigger.teamId)
     }
   } catch (err) {
     await rollbackTriggerUpdate({ _id, triggerId, trigger, currentConfigRevision, reconcileCron })

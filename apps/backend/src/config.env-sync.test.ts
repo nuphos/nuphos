@@ -57,7 +57,7 @@ const BYPASS_ALLOWLIST = new Set([
   ...configModuleFiles().map((f) => f.slice(APP_DIR.length + 1)),
   'src/test-preload.ts',
   // Exported JavaScript source, executed only inside the selected OpenAB
-  // container via private Kubernetes exec. Its process.env is the native
+  // container as a runtime `panel` job. Its process.env is the native
   // runtime's environment, never the backend's config. The protocol tests
   // verify that transport/skills secrets are stripped from the adapter env.
   'src/lib/claude-code-preview/runtime-model-probe.ts',
@@ -88,9 +88,6 @@ const SCRIPTS_BYPASS_ALLOWLIST = new Set([
   'scripts/agent-drive.ts',
   'scripts/test-deploy-flow.ts',
   'scripts/xtrace-webhook.ts',
-  // Isolated process E2E: binary overrides and a sanitized child environment.
-  'scripts/webhook-routing-e2e/run.ts',
-  'scripts/webhook-routing-e2e/processes.ts',
 ])
 
 /**

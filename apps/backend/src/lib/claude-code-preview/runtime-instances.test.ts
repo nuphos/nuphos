@@ -1,14 +1,8 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 
-import { OPENAB_PROVIDERS } from './runtime-provider'
+import { IMAGE_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
-
-import {
-  publishedRuntimeImage,
-  publishRuntimeRelease,
-  restoreRuntimeReleases,
-} from './runtime-release-testing'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
@@ -19,12 +13,10 @@ import type { TeamAuthVariables } from '@/middleware/auth'
 import type { OpenAbProvider } from './runtime-provider'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
-const FLEET_VERSION = '0.3.1'
 
 config.claudeCodePreview.tokenEncryptionKey = randomBytes(32).toString('base64')
 afterAll(() => {
   config.claudeCodePreview.tokenEncryptionKey = previousKey
-  restoreRuntimeReleases()
 })
 
 let store = portabilityDb()
@@ -32,9 +24,7 @@ let store = portabilityDb()
 useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 const { registerAgentRuntimeRoutes } = await import('@/routes/teams/agent-runtimes')
 const { listRuntimeInstances, requireRuntimeInstance } = await import('./runtime-catalog')
-const { resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
-const { deriveRuntimeControlKey } = await import('./runtime-control-key')
-const { createManagedRuntimeInstance } = await import('./runtime-instances')
+const { registerTeamRuntime, resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
 
 function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR') {
   const app = new Hono<{ Variables: TeamAuthVariables }>()
@@ -57,40 +47,34 @@ function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATO
 function json(method: string, body: unknown) {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
-// Seed a runtime that predates retirement without reopening the HTTP creation path.
+// A runtime Nuphos hosted before retirement, as its row was stored.
 async function existing(label: string, provider: OpenAbProvider = 'codex') {
-  return createManagedRuntimeInstance({ teamId: 'one', userId: 'admin', label, provider })
+  const id = randomUUID()
+
+  return registerTeamRuntime({
+    id,
+    teamId: 'one',
+    userId: 'admin',
+    url: `ws://openab-${provider}-${id.slice(0, 8)}.openab-runtimes.svc:8080/acp`,
+    provider,
+    authKey: randomBytes(32).toString('hex'),
+    label,
+    hostedBy: 'nuphos',
+  })
 }
 const runtimeRows = () => store.rows('claude_code_runtimes')
 
-beforeEach(async () => {
+beforeEach(() => {
   store = portabilityDb()
-  await publishRuntimeRelease({ version: FLEET_VERSION })
 })
 
-test('an existing managed runtime keeps its endpoint and encrypted credentials', async () => {
-  for (const provider of OPENAB_PROVIDERS) {
+test('an existing managed runtime keeps its row but no longer resolves', async () => {
+  for (const provider of IMAGE_PROVIDERS) {
     const created = await existing(`${provider} work`, provider)
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 
-    expect(created).toMatchObject({
-      kind: 'managed',
-      image: publishedRuntimeImage(FLEET_VERSION, provider),
-    })
     expect(row).toMatchObject({ hostedBy: 'nuphos', provider, status: 'active' })
-    expect(row.url).toMatch(
-      new RegExp(
-        `^ws://openab-[a-z]+-[0-9a-f]{24}\\.${config.claudeCodeRuntimeProvisioner.namespace}\\.svc:8080/acp$`,
-      ),
-    )
-    const [endpoint] = await resolveTeamRuntimeEndpoints('one', undefined, provider)
-
-    expect(endpoint?.runtimeId).toBe(created.id)
-    expect(endpoint?.authKey.length).toBeGreaterThanOrEqual(32)
-    expect(JSON.stringify(row)).not.toContain(endpoint!.authKey)
-    const [control] = await resolveTeamRuntimeEndpoints('one', undefined, provider, 'control')
-
-    expect(control?.authKey).toBe(deriveRuntimeControlKey(endpoint!.authKey))
+    expect(await resolveTeamRuntimeEndpoints('one', provider)).toEqual([])
   }
 })
 
@@ -115,24 +99,54 @@ test('hosted runtimes list as managed; rows of the retired provisioner model are
   ])
 })
 
-test('rename and disable change the hosted runtime row itself', async () => {
+test('a retired managed runtime lists as disabled and refuses status, update and patch', async () => {
   const server = app()
   const instance = await existing('Work')
 
-  expect(
-    (
-      await server.request(
-        `/agent-runtimes/${instance.id}`,
-        json('PATCH', { label: 'Renamed', status: 'disabled' }),
-      )
-    ).status,
-  ).toBe(200)
   expect(await requireRuntimeInstance('one', instance.id)).toMatchObject({
-    label: 'Renamed',
     status: 'disabled',
     kind: 'managed',
   })
-  expect(await resolveTeamRuntimeEndpoints('one', undefined, 'codex')).toEqual([])
+  for (const [path, init] of [
+    [`/agent-runtimes/${instance.id}/status`, undefined],
+    [`/agent-runtimes/${instance.id}/update`, json('POST', {})],
+    [`/agent-runtimes/${instance.id}`, json('PATCH', { status: 'active' })],
+  ] as const) {
+    const response = await server.request(path, init)
+
+    expect(response.status).toBe(410)
+    expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
+  }
+  expect(runtimeRows().find((doc) => doc._id === instance.id)).toMatchObject({ label: 'Work' })
+})
+
+test('deleting a retired managed runtime removes it the way an external one goes', async () => {
+  const server = app()
+  const instance = await existing('Retired')
+  const external = await registerTeamRuntime({
+    teamId: 'one',
+    userId: 'admin',
+    url: 'wss://own.example/acp',
+    authKey: randomBytes(32).toString('hex'),
+  })
+  const device = { userId: 'admin', deviceId: 'pod-device' }
+
+  runtimeRows().find((doc) => doc._id === instance.id)!.device = device
+  store.rows('agent_devices').push({ ...device })
+  store.rows('agent_device_join_tokens').push({ deviceId: device.deviceId })
+  // A teardown job the retired Kubernetes cleanup never finished.
+  store.rows('agent_runtime_deletions').push({ _id: instance.id, teamId: 'one', placements: [] })
+
+  for (const id of [instance.id, external.id]) {
+    const response = await server.request(`/agent-runtimes/${id}`, { method: 'DELETE' })
+
+    expect(response.status).toBe(204)
+  }
+  expect(runtimeRows()).toEqual([])
+  expect(store.rows('agent_runtime_deletions')).toEqual([])
+  expect(store.rows('agent_devices')).toEqual([])
+  expect(store.rows('agent_device_join_tokens')).toEqual([])
+  expect(await listRuntimeInstances('one')).toEqual([])
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
@@ -205,7 +219,5 @@ test('retired creation leaves existing runtime records and routes untouched', as
   expect(JSON.stringify(runtimeRows())).toBe(before)
   expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
-  expect((await resolveTeamRuntimeEndpoints('one', undefined, 'codex'))[0]?.runtimeId).toBe(
-    runtime.id,
-  )
+  expect(await resolveTeamRuntimeEndpoints('one', 'codex')).toEqual([])
 })

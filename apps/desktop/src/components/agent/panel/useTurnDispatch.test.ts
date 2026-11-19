@@ -125,7 +125,6 @@ function panel(tab: Partial<Tab> = {}) {
     newConversationSessionConfig: {},
     newConversationCredentialAccess: {},
     onOpenAgentSettings: undefined,
-    replyTarget: null,
     sendableCredentialAccess: (access: unknown) => access,
     setActiveId: () => {},
     setBypassBySession: () => {},

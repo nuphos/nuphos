@@ -505,6 +505,9 @@ pub struct AcpConnection {
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
     pub supports_load_session: bool,
+    /// The agent also offers `session/resume`: the same restore without replaying
+    /// the history, which nobody here reads.
+    supports_resume_session: bool,
     supports_steering: bool,
     /// Agent name from `initialize` (`agentInfo.name`), e.g. "Kiro CLI Agent".
     /// Used to gate agent-specific extension methods.
@@ -519,12 +522,15 @@ pub struct AcpConnection {
     pub terminal: Arc<super::terminal::TerminalManager>,
     _reader_handle: JoinHandle<()>,
     _stderr_handle: Option<JoinHandle<()>>,
+    /// The pool must not route to this connection again, even if the reader has not
+    /// observed the agent's exit yet. Set with [`AcpConnection::retire`] when a killed
+    /// process outlives the grace the caller gave it.
+    retired: bool,
     /// Revokes this session's facade token when the connection is dropped, on any evict path.
     /// Held only for its `Drop` side effect (never read).
     ///
     /// It used to cancel a per-session MCP proxy server; that server is gone and the guard now
     /// carries the minted token instead.
-    #[cfg(feature = "acp-mcp")]
     #[allow(dead_code)]
     facade_token_guard: Option<tokio_util::sync::DropGuard>,
 }
@@ -901,9 +907,18 @@ pub(crate) fn kill_process_group(pgid: i32) {
             }
         });
     }
-    #[cfg(not(unix))]
+    // No process groups to signal: end the whole tree, since codex-acp runs Codex under cmd.exe
+    // and a Codex left running keeps the session's thread, so restoring it fails (#3371).
+    #[cfg(windows)]
     {
-        let _ = pgid; // suppress unused warning on Windows
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pgid.to_string()])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .status();
     }
 }
 
@@ -1013,6 +1028,7 @@ impl AcpConnection {
             acp_session_id: None,
             mcp_servers: Vec::new(),
             supports_load_session: false,
+            supports_resume_session: false,
             supports_steering: false,
             agent_name: String::new(),
             config_options: Vec::new(),
@@ -1022,13 +1038,12 @@ impl AcpConnection {
             terminal,
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
-            #[cfg(feature = "acp-mcp")]
+            retired: false,
             facade_token_guard: None,
         })
     }
 
     /// Attach the guard that revokes this session's facade token when the connection drops.
-    #[cfg(feature = "acp-mcp")]
     pub fn set_facade_token_guard(&mut self, guard: Option<tokio_util::sync::DropGuard>) {
         self.facade_token_guard = guard;
     }
@@ -1094,7 +1109,12 @@ impl AcpConnection {
 
         self.send_raw(&data).await?;
 
-        let timeout_secs = if method == "session/new" { 120 } else { 30 };
+        // Restoring a session does everything opening one does (auth, skills, MCP servers, the
+        // model list) plus reading its transcript, so it gets at least the same budget.
+        let timeout_secs = match method {
+            "session/new" | "session/load" | "session/resume" => 120,
+            _ => 30,
+        };
         let closed = || AcpRequestError::ConnectionClosed {
             method: method.to_string(),
         };
@@ -1159,9 +1179,13 @@ impl AcpConnection {
             .and_then(|c| c.get("loadSession"))
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        self.supports_resume_session = result
+            .and_then(|r| r.pointer("/agentCapabilities/sessionCapabilities/resume"))
+            .is_some_and(|v| !v.is_null());
         info!(
             agent = agent_name,
             load_session = self.supports_load_session,
+            resume_session = self.supports_resume_session,
             "initialized"
         );
         Ok(())
@@ -1284,7 +1308,7 @@ impl AcpConnection {
                 if let Some(error) = response.error {
                     // An explicit rejection leaves the last acknowledged state
                     // usable, so a subsequent valid selection can be retried.
-                    return Err(anyhow!("{error}"));
+                    return Err(error.into());
                 }
                 let options = response
                     .result
@@ -1449,11 +1473,21 @@ impl AcpConnection {
     }
 
     pub fn alive(&self) -> bool {
-        !self._reader_handle.is_finished()
+        !self.retired && !self._reader_handle.is_finished()
     }
 
-    /// Resume a previous session by ID. Returns Ok(()) if the agent accepted
-    /// the load, or an error if it failed (caller should fall back to session/new).
+    /// Stop routing to this connection, whatever the reader has seen. [`kill_agent`] waits for
+    /// its stdout to close; when that grace runs out the process is stuck or unkillable, and the
+    /// pool must rebuild instead of handing it the next prompt.
+    ///
+    /// [`kill_agent`]: AcpConnection::kill_agent
+    pub(crate) fn retire(&mut self) {
+        self.retired = true;
+    }
+
+    /// Resume a previous session by ID, with `session/resume` when the agent offers it.
+    /// Returns Ok(()) if the agent accepted the restore, or an error if it failed
+    /// (caller should fall back to session/new).
     pub async fn session_load(
         &mut self,
         session_id: &str,
@@ -1461,9 +1495,14 @@ impl AcpConnection {
         mcp_servers: &[serde_json::Value],
         session_meta: Option<&serde_json::Value>,
     ) -> Result<(), AcpRequestError> {
+        let method = if self.supports_resume_session {
+            "session/resume"
+        } else {
+            "session/load"
+        };
         let resp = self
             .send_request(
-                "session/load",
+                method,
                 Some(session_load_params(
                     session_id,
                     cwd,
@@ -1480,6 +1519,14 @@ impl AcpConnection {
         }
         self.activity.execution.initialized();
         Ok(())
+    }
+
+    /// End the agent process now. Its stdout closes, so the connection stops
+    /// reporting alive and the pool rebuilds it on the next message.
+    pub(crate) fn kill_agent(&mut self) {
+        // The tree first: on Windows it is found through the agent, which must still be running.
+        self.kill_process_group();
+        let _ = self._proc.start_kill();
     }
 
     /// Kill the entire process group: SIGTERM → SIGKILL.
@@ -1506,7 +1553,7 @@ fn session_new_params(
     params
 }
 
-/// `session/load` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
+/// `session/load` and `session/resume` params — same `mcpServers` / `_meta` passthrough as `session_new_params`.
 fn session_load_params(
     session_id: &str,
     cwd: &str,
@@ -1822,6 +1869,42 @@ mod request_error_tests {
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_offers_resume_is_restored_with_it() {
+        let args = vec!["-c".to_string(), "read line".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        conn.supports_resume_session = true;
+        match conn.session_load("sid", ".", &[], None).await {
+            Err(AcpRequestError::ConnectionClosed { method }) => {
+                assert_eq!(method, "session/resume")
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+}
+
+/// A process that outlived `kill_agent`'s grace must stop being routable even though its reader
+/// has seen no EOF. No timing here: the reader stays alive for the whole test.
+#[cfg(all(test, unix))]
+mod retirement_tests {
+    use super::AcpConnection;
+
+    #[tokio::test]
+    async fn a_retired_connection_stops_reporting_alive() {
+        let args = vec!["-c".to_string(), "sleep 30".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        assert!(conn.alive());
+        conn.retire();
+        assert!(
+            !conn.alive(),
+            "a retired connection must not take the next prompt"
+        );
     }
 }
 

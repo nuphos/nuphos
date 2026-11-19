@@ -10,6 +10,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
     "noEmit": true,
@@ -20,5 +21,10 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "electron/**/*.ts", "scripts/build-sidebar-gestures.ts"]
+  "include": [
+    "vite.config.ts",
+    "electron/**/*.ts",
+    "scripts/build-sidebar-gestures.ts",
+    "scripts/windows-npm-claude-spawn.ts"
+  ]
 }

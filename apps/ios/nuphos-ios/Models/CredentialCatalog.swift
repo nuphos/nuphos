@@ -108,6 +108,35 @@ struct CredentialCatalog: Equatable, Sendable {
         CredentialCatalog(sections: sections.filter { scope.includes($0.provider.selectionKey) })
     }
 
+    /// The backend's `CONNECTABLE_PROVIDERS`: the selection key an integration question's provider is answered by.
+    static let connectKeys: [String: String] = [
+        "github": "githubInstallationIds", "gitlab": "gitlabBindingIds", "linear": "linearWorkspaceIds",
+        "jira": "jiraSiteIds", "asana": "asanaAccountIds", "sentry": "sentryAccountIds",
+        "posthog": "posthogIntegrationIds", "plaud": "plaudAccountIds", "grafana": "grafanaInstanceIds",
+        "sonarqube": "sonarqubeIntegrationIds", "notion": "notionIntegrationIds", "upstash": "upstashAccountIds",
+        "resend": "resendIntegrationIds", "trello": "trelloIntegrationIds", "cloudflare": "cloudflareAccountIds",
+        "betterstack": "betterStackIntegrationIds", "uptime-kuma": "uptimeKumaInstanceIds",
+        "tailscale": "tailscaleClientIds", "zeabur": "zeaburIds", "vanta": "vantaIntegrationIds",
+        "secureframe": "secureframeIntegrationIds", "aws": "awsRoleIds", "gcp": "gcpServiceAccountIds",
+        "azure": "azureAccountIds", "linode": "linodeAccountIds", "hetzner": "hetznerAccountIds",
+        "tencent": "tencentAccountIds", "aliyun": "aliyunAccountIds", "volcengine": "volcengineAccountIds",
+        "huawei": "huaweiAccountIds", "onprem-k8s": "onpremClusterIds",
+    ]
+
+    /// Only what answers a question asking for `providers`, as the server decides: a credential of
+    /// that kind, or the member's own one of that name. Nil keeps everything.
+    func answering(_ providers: [String]?) -> CredentialCatalog {
+        guard let providers else { return self }
+        let keys = Set(providers.compactMap { Self.connectKeys[$0] })
+        return CredentialCatalog(sections: sections.compactMap { section in
+            let items = section.items.filter {
+                keys.contains($0.provider.selectionKey)
+                    || ($0.provider.selectionKey == "personalCredentialIds" && providers.contains($0.id))
+            }
+            return items.isEmpty ? nil : (section.provider, items)
+        })
+    }
+
     static func platformName(_ platform: String) -> String {
         switch platform {
         case "darwin": "macOS"

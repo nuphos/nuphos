@@ -9,8 +9,24 @@ import { toast } from '../ui/toast'
 
 import { chooseBotChat, openBotChats, readBotChats } from './botChats'
 import { markChannel } from './channelKind'
+import { listedConversation } from './channelShared'
+
+import type { ChannelAgent } from '../../api'
 
 export { botOfChannel } from './botChats'
+
+/** Whether the viewer owns a chat's Bot: by the chat's agents, or by the sidebar's row
+ *  of the Bot until the chat loads. */
+export function ownsBot(
+  teamId: string,
+  botId: string | undefined,
+  viewerId: string,
+  agents: ChannelAgent[] | null,
+): boolean {
+  return agents
+    ? agents.some((agent) => agent.sessionId === botId && agent.ownerId === viewerId)
+    : listedConversation(teamId, botId)?.isOwner === true
+}
 
 const making = new Map<string, Promise<string>>()
 
@@ -80,7 +96,7 @@ function ensureBotChannel(teamId: string, botId: string): Promise<string> {
 export function openBotChannel(teamId: string, botId: string, open: (key: string) => void) {
   ensureBotChannel(teamId, botId).then(
     (chatId) => open(`agent-session:${chatId}`),
-    (error: unknown) => toast.apiError(t('Failed to open agent'), error),
+    (error: unknown) => toast.apiError(t('Failed to open task'), error),
   )
 }
 
@@ -116,15 +132,19 @@ export function makeBot(teamId: string, sessionId: string) {
 }
 
 /**
- * "Turn into a Task": the face goes, and so do the Bot's open chats, which
- * would otherwise stay in Bots under a Task's name. Making it a Bot again
- * brings back the latest of them.
+ * "Turn into a Task": the face goes, and the server files away the Bot's open
+ * chats, which would otherwise stay in Bots under a Task's name; the sidebar
+ * hears of each. Making it a Bot again brings back the latest of them.
  */
 export function turnIntoTask(teamId: string, sessionId: string) {
-  return pickAgentAvatar(sessionId, null, () =>
-    api.agentSetConversationAvatar(sessionId, null, teamId),
-  )
-    .then(() => listBotChats(teamId, sessionId))
-    .then((chats) => setChatsArchived(teamId, openBotChats(chats), true))
+  return listBotChats(teamId, sessionId)
+    .then((chats) =>
+      pickAgentAvatar(sessionId, null, () =>
+        api.agentSetConversationAvatar(sessionId, null, teamId),
+      ).then(() => {
+        for (const chatId of openBotChats(chats))
+          announceChatArchived({ sessionId: chatId, teamId })
+      }),
+    )
     .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
 }

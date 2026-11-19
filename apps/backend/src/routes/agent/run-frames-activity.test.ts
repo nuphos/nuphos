@@ -14,10 +14,14 @@ import { createAgentRun } from './run-registry'
 import type * as dbActual from '@/lib/db'
 
 const bumps: unknown[] = []
+// A bump first looks the conversation up, then writes.
+const settled = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 useDb({
   db: (() => ({
     collection: () => ({
+      // Not a Task under a Bot: a plain bump.
+      findOne: () => Promise.resolve(null),
       updateOne: (filter: unknown, update: unknown) => {
         bumps.push({ filter, update })
 
@@ -40,7 +44,7 @@ test('every turn boundary, and nothing else, records conversation activity', asy
   appendAgentRunPhase(run, 'connecting-model')
   appendAgentRunTurnPaused(run, 'max-steps')
   appendAgentRunTurnComplete(run)
-  await Promise.resolve()
+  await settled()
 
   const bump = {
     filter: { sessionId: 'session-a', userId: 'owner' },
@@ -56,11 +60,11 @@ test('a turn only channel posts started records activity for a pause, not for it
   const run = createAgentRun('owner', 'session-b', 'stream-b', undefined, { channelWoken: true })
 
   appendAgentRunTurnComplete(run)
-  await Promise.resolve()
+  await settled()
   expect(bumps).toEqual([])
 
   appendAgentRunTurnPaused(run, 'max-steps')
-  await Promise.resolve()
+  await settled()
   expect(bumps).toEqual([
     { filter: { sessionId: 'session-b', userId: 'owner' }, update: { $inc: { activitySeq: 1 } } },
   ])

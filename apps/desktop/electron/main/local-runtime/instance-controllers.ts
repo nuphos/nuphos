@@ -12,6 +12,7 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { RefreshDefault } from './default-agent.ts'
+import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -94,10 +95,13 @@ export class InstanceControllers {
     )
   }
 
+  /** The added agent a stream asks for. */
   runtime(instanceId: string, provider: LocalAgentProvider): RunningRuntime | null {
     const entry = this.entries.get(instanceId)
 
-    return entry?.metadata.provider === provider ? entry.controller.runtime(provider) : null
+    return entry?.metadata.provider === provider
+      ? entry.controller.runtimeForStream(provider)
+      : null
   }
 
   states(online: boolean) {
@@ -108,13 +112,14 @@ export class InstanceControllers {
     return instanceStatus(this.entries.values())
   }
 
-  private add(metadata: AgentInstanceRecord, userId: string): Entry {
+  /** `install`: set for an agent being added, whose missing CLI this computer installs. */
+  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller }
+    const entry: Entry = { metadata, controller, install }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -250,7 +255,7 @@ export class InstanceControllers {
       userDir(this.deps.dataDir(), userId),
       [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const entry = this.add(record, userId)
+    const entry = this.add(record, userId, {})
 
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {

@@ -1,6 +1,6 @@
 {
   "name": "nuphos-backend",
-  "version": "0.130.0",
+  "version": "0.144.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -19,8 +19,7 @@
     "skills:reconcile-mutations": "bun scripts/reconcile-skill-mutations.ts",
     "sonarqube:fixture": "bash scripts/scan-sonarqube-fixture.sh",
     "billing:backfill-cache-write": "bun scripts/backfill-cache-write-tokens.ts",
-    "billing:reconcile-vertex": "bun scripts/reconcile-vertex-billing.ts",
-    "test:e2e:webhook-routing": "bun run scripts/webhook-routing-e2e/run.ts"
+    "billing:reconcile-vertex": "bun scripts/reconcile-vertex-billing.ts"
   },
   "dependencies": {
     "@alicloud/cs20151215": "^7.0.1",

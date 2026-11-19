@@ -1,38 +1,8 @@
 export type AgentTriggerType = 'cron' | 'webhook'
-export type AgentTriggerSlackDestination =
-  { type: 'dm_self' } | { type: 'channel'; channelId: string }
 
-// Who created the trigger: absent/'user' = this UI, 'agent' = the agent's
-// trigger_* tools in a conversation. 'automation' only appears on older rows.
+// Who created the trigger: absent/'user' = this UI or the API. 'agent' (the
+// removed agent trigger tools) and 'automation' only appear on older rows.
 export type AgentTriggerSource = 'user' | 'agent' | 'automation'
-export type AgentTriggerCleanupStatus = 'deleting' | 'cleanup_failed'
-export type ManagedProviderResourceOwnership = 'created' | 'modified' | 'referenced'
-export type ManagedProviderCleanupAction = 'delete' | 'detach' | 'restore' | 'preserve' | 'manual'
-export type ManagedProviderCleanupStepAction =
-  'disable' | 'delete' | 'detach' | 'restore' | 'preserve' | 'manual'
-
-export type ManagedProviderResourcePlan = {
-  provider: string
-  providerLabel?: string
-  cleanupMode?: 'automatic' | 'manual'
-  integrationLabel?: string
-  recordedAt?: string
-  resources: {
-    kind: string
-    name: string
-    id: string
-    url?: string
-    ownership: ManagedProviderResourceOwnership
-    cleanupAction: ManagedProviderCleanupAction
-    description: string
-  }[]
-  cleanupSteps: {
-    action: ManagedProviderCleanupStepAction
-    description: string
-    resourceId?: string
-  }[]
-}
-
 export type AgentTrigger = {
   scheduleDescription?: string
   canDelete?: boolean
@@ -52,8 +22,6 @@ export type AgentTrigger = {
   timeZone?: string
   /** Every fire is delivered into this conversation instead of a new one. */
   targetSessionId?: string
-  /** Present on webhook triggers that route to a session per resource. */
-  sessionRouting?: object
   messageTemplate: string
   enabled: boolean
   source?: AgentTriggerSource
@@ -62,24 +30,6 @@ export type AgentTrigger = {
   expiresAt?: string
   // Webhook flood guard: min seconds between runs (unset = server default).
   minIntervalSeconds?: number
-  incidentMode?: boolean
-  slackDestination?: AgentTriggerSlackDestination
-  watchGroupId?: string
-  watchGroupPartitionKey?: string
-  watchGroupMemberKeys?: string[]
-  providerWiring?: {
-    provider: 'grafana' | 'gcp' | 'betterstack' | 'aws' | 'generic' | 'watch_group'
-  }
-  providerWiringFinalizedAt?: string
-  managedProviderResources?: ManagedProviderResourcePlan
-  providerHint?: string
-  requiresProviderCleanup?: boolean
-  cleanupStatus?: AgentTriggerCleanupStatus
-  cleanupError?: string
-  /** `provider_integration_disconnected` offers removal without provider cleanup. */
-  cleanupErrorCode?: string
-  cleanupStartedAt?: string
-  cleanupUpdatedAt?: string
   lastRunAt?: string
   /** A scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: string
@@ -101,6 +51,4 @@ export type UpdateAgentTriggerInput = {
   enabled?: boolean
 }
 
-export type DeleteAgentTriggerResult =
-  | { ok: true; deleted: true; leftBehind?: string[] }
-  | { ok: true; deleted: false; trigger: AgentTrigger }
+export type DeleteAgentTriggerResult = { ok: true; deleted: true }

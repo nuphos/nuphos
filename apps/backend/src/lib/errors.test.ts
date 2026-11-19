@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
+import { upgradeWebSocket } from 'hono/bun'
 
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 
@@ -61,5 +62,26 @@ describe('errorHandler', () => {
     const res = await appThrowing(new AppError(409, 'conflict', 'taken')).request('/')
 
     expect(res.status).toBe(409)
+  })
+})
+
+describe('a WebSocket upgrade the client abandoned', () => {
+  // Bun's server.upgrade returns false once the client has gone, e.g. a computer
+  // redialing its tunnel; Hono then throws. That is the client's abort, not ours.
+  test('answers 499 client_closed instead of a 500', async () => {
+    const app = new Hono()
+
+    app.onError(errorHandler)
+    app.get('/ws', (c) => upgradeWebSocket(c, {}))
+
+    const res = await app.request(
+      '/ws',
+      { headers: { upgrade: 'websocket' } },
+      {
+        upgrade: () => false,
+      },
+    )
+
+    expect(res.status).toBe(499)
   })
 })

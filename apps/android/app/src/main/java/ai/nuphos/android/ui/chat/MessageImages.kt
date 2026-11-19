@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.*
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -42,8 +43,15 @@ import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.IOException
 import java.io.File
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 
 internal typealias MessageImageLoader = suspend (String, Int) -> ImageBitmap?
+/**
+ * Fetches a video to a local file for the viewer to play, or null when it can't be read. With
+ * `again`, a copy kept from before is dropped and fetched anew: it may be the file that failed.
+ */
+internal typealias MessageVideoLoader = suspend (key: String, again: Boolean) -> java.io.File?
 private val inlineImageLoader: MessageImageLoader = { source, edge -> MessageImageDecoder.decode(source, edge) }
 
 /** No URL fetching: conversation File parts currently contain inline data images.
@@ -145,13 +153,13 @@ internal fun MessageImages(images: List<String>, messageId: String, loader: Mess
             val load by imageLoad(source, 256, loader)
             Box(Modifier.size(96.dp).clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainer)
-                .clickable(onClickLabel = "Open image ${index + 1} of ${images.size}") { selected = index },
+                .clickable(onClickLabel = stringResource(R.string.chat_image_open_position, index + 1, images.size)) { selected = index },
                 contentAlignment = Alignment.Center) {
                 when (val result = load) {
-                    is ImageLoad.Ready -> Image(result.bitmap, "Image ${index + 1} of ${images.size}",
+                    is ImageLoad.Ready -> Image(result.bitmap, stringResource(R.string.chat_image_position, index + 1, images.size),
                         Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    ImageLoad.Loading -> Text("Loading image", style = MaterialTheme.typography.labelSmall)
-                    ImageLoad.Unavailable -> Text("Image unavailable", style = MaterialTheme.typography.labelSmall)
+                    ImageLoad.Loading -> Text(stringResource(R.string.chat_image_loading), style = MaterialTheme.typography.labelSmall)
+                    ImageLoad.Unavailable -> Text(stringResource(R.string.chat_image_unavailable), style = MaterialTheme.typography.labelSmall)
                 }
                 if (index == 3 && images.size > 4) Text("+${images.size - 4}", color = Color.White,
                     modifier = Modifier.align(Alignment.BottomEnd).background(Color.Black.copy(alpha = .7f)).padding(6.dp))
@@ -164,7 +172,10 @@ internal fun MessageImages(images: List<String>, messageId: String, loader: Mess
 }
 
 @Composable
-internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline, onDismiss: () -> Unit) {
+internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: (Int) -> Unit = {}, loader: MessageImageLoader = inlineImageLoader, originalWriter: ImageOriginalWriter = ImageExports::writeInline,
+    /** The items that are videos, as on iOS: they play in the same viewer as the images beside them. */
+    videos: Set<String> = emptySet(), videoLoader: MessageVideoLoader? = null, onSaveVideo: ((String) -> Unit)? = null,
+    onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         val view = LocalView.current
         DisposableEffect(view) {
@@ -181,8 +192,8 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
         if (images.isEmpty()) {
             Surface(Modifier.fillMaxSize(), color = Color.Black, contentColor = Color.White) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text("No images")
-                    TextButton(onClick = onDismiss) { Text("Close", color = Color.White) }
+                    Text(stringResource(R.string.chat_image_none))
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.chat_image_close), color = Color.White) }
                 }
             }
             return@Dialog
@@ -193,27 +204,35 @@ internal fun MessageImagePager(images: List<String>, initialIndex: Int, onPage: 
         LaunchedEffect(pager.currentPage) { zoomed = false; onPage(pager.currentPage) }
         Column(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onDismiss) { Text("Close", color = Color.White) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.chat_image_close), color = Color.White) }
                 Spacer(Modifier.weight(1f))
                 Text("${pager.currentPage + 1} / ${images.size}", color = Color.White,
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { zoomed = false }) { Text("Reset zoom", color = Color.White) }
+                // A video has nothing to zoom; an empty slot keeps the count centred.
+                if (images[pager.currentPage] in videos) Spacer(Modifier.width(48.dp))
+                else TextButton(onClick = { zoomed = false }) { Text(stringResource(R.string.chat_image_reset_zoom), color = Color.White) }
             }
             HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth(), userScrollEnabled = !zoomed,
                 beyondViewportPageCount = 0) { page ->
                 // Adjacent pages keep only placeholders, preventing multiple full-size decodes.
-                if (page == pager.currentPage) {
-                    key(page, images[page]) { ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it } }
+                if (page == pager.currentPage) key(page, images[page]) {
+                    if (images[page] in videos && videoLoader != null)
+                        VideoPage(images[page], page, images.size, videoLoader, onSaveVideo?.let { save -> { save(images[page]) } })
+                    else ZoomImage(images[page], page, images.size, zoomed, loader) { zoomed = it }
                 }
             }
-            key(images[pager.currentPage]) { ImageExportActions(images[pager.currentPage], originalWriter) }
+            // A video's page offers its own Save, only while the video can load.
+            key(images[pager.currentPage]) {
+                val current = images[pager.currentPage]
+                if (current !in videos) ImageExportActions(current, originalWriter)
+            }
             if (images.size > 1) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { zoomed = false; scope.launch { pager.scrollToPage((pager.currentPage - 1 + images.size) % images.size) } }) {
-                    Text("Previous image", color = Color.White)
+                    Text(stringResource(R.string.chat_image_previous), color = Color.White)
                 }
                 TextButton(onClick = { zoomed = false; scope.launch { pager.scrollToPage((pager.currentPage + 1) % images.size) } }) {
-                    Text("Next image", color = Color.White)
+                    Text(stringResource(R.string.chat_image_next), color = Color.White)
                 }
             }
         }
@@ -240,6 +259,10 @@ private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, l
         offset = bounded(offset + pan, scale)
         onZoom(scale > 1.01f)
     }
+    val position = stringResource(R.string.chat_image_position, index + 1, count)
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val zoomIn = stringResource(R.string.chat_image_zoom_in)
+    val resetZoom = stringResource(R.string.chat_image_reset_zoom)
     Box(Modifier.fillMaxSize().clipToBounds().onSizeChanged { size = it }
         .transformable(transform, canPan = { scale > 1.01f })
         .pointerInput(source) { detectTapGestures(onDoubleTap = {
@@ -248,19 +271,80 @@ private fun ZoomImage(source: String, index: Int, count: Int, zoomed: Boolean, l
             onZoom(scale > 1.01f)
         }) }
         .semantics {
-            contentDescription = "Image ${index + 1} of $count"
-            stateDescription = "${(scale * 100).toInt()} percent zoom"
+            contentDescription = position
+            stateDescription = resources.getString(R.string.chat_image_zoom_percent, (scale * 100).toInt())
             customActions = listOf(
-                CustomAccessibilityAction("Zoom in") { scale = (scale + 1f).coerceAtMost(4f); onZoom(true); true },
-                CustomAccessibilityAction("Reset zoom") { scale = 1f; offset = Offset.Zero; onZoom(false); true },
+                CustomAccessibilityAction(zoomIn) { scale = (scale + 1f).coerceAtMost(4f); onZoom(true); true },
+                CustomAccessibilityAction(resetZoom) { scale = 1f; offset = Offset.Zero; onZoom(false); true },
             )
         }, contentAlignment = Alignment.Center) {
         when (val result = load) {
             is ImageLoad.Ready -> Image(result.bitmap, null, Modifier.fillMaxSize().graphicsLayer {
                 scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y
             }, contentScale = ContentScale.Fit)
-            ImageLoad.Loading -> Text("Loading image", color = Color.White)
-            ImageLoad.Unavailable -> Text("Image unavailable", color = Color.White)
+            ImageLoad.Loading -> Text(stringResource(R.string.chat_image_loading), color = Color.White)
+            ImageLoad.Unavailable -> Text(stringResource(R.string.chat_image_unavailable), color = Color.White)
+        }
+    }
+}
+
+private sealed interface VideoLoad {
+    data object Loading : VideoLoad
+    data object Failed : VideoLoad
+    /** [attempt]: which try fetched it, so a file from an earlier try (perhaps since deleted) is never played. */
+    data class Ready(val file: java.io.File, val attempt: Int) : VideoLoad
+}
+
+/**
+ * A video in the viewer, as on iOS: fetched when its page shows, waiting with its controls rather
+ * than playing on its own, and stopped when the page goes. One that can't load says so and retries.
+ */
+@Composable
+private fun VideoPage(source: String, index: Int, count: Int, loader: MessageVideoLoader, onSave: (() -> Unit)?) {
+    var attempt by remember(source) { mutableIntStateOf(0) }
+    var broken by remember(source, attempt) { mutableStateOf(false) }
+    var prepared by remember(source, attempt) { mutableStateOf(false) }
+    val load by produceState<VideoLoad>(VideoLoad.Loading, source, attempt) {
+        value = VideoLoad.Loading
+        // Trying again fetches anew, so a file that wouldn't play isn't the one played again.
+        value = loader(source, attempt > 0)?.let { VideoLoad.Ready(it, attempt) } ?: VideoLoad.Failed
+    }
+    val position = stringResource(R.string.chat_video_position, index + 1, count)
+    val readyToPlay = stringResource(R.string.chat_video_ready)
+    val failed = load == VideoLoad.Failed || broken
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f).fillMaxWidth().semantics {
+            contentDescription = position
+            if (prepared && !broken) stateDescription = readyToPlay
+        }, contentAlignment = Alignment.Center) {
+            val ready = (load as? VideoLoad.Ready)?.takeIf { it.attempt == attempt }
+            when {
+                load == VideoLoad.Loading || (load is VideoLoad.Ready && ready == null) -> Text(stringResource(R.string.chat_video_loading), color = Color.White)
+                failed -> TextButton(onClick = { attempt++ }, modifier = androidx.compose.ui.Modifier.semantics { this.testTag = "video-retry" }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(androidx.compose.material.icons.Icons.Outlined.Refresh, null, tint = Color.White)
+                        Text(stringResource(R.string.chat_video_load_failed), color = Color.White)
+                    }
+                }
+                ready != null -> key(ready.file.absolutePath) { androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { context ->
+                        android.widget.VideoView(context).apply {
+                            val controls = android.widget.MediaController(context)
+                            controls.setAnchorView(this)
+                            setMediaController(controls)
+                            // The first frame, still, until it's played.
+                            setOnPreparedListener { seekTo(1); controls.show(0); prepared = true }
+                            setOnErrorListener { _, _, _ -> broken = true; true }
+                            setVideoPath(ready.file.absolutePath)
+                        }
+                    },
+                    onRelease = { it.stopPlayback() },
+                    modifier = Modifier.fillMaxSize().semantics { this.testTag = "video-player" },
+                ) }
+            }
+        }
+        if (onSave != null && !failed) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            TextButton(onClick = onSave) { Text(stringResource(R.string.chat_video_save), color = Color.White) }
         }
     }
 }

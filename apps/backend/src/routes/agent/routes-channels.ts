@@ -18,15 +18,14 @@ import {
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
+import { withPresence } from '@/lib/agent/channel-agent-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { postChannelMessage, replyQuote, wakeChannelAgents } from '@/lib/agent/channel-chat'
 import { resolveMentions } from '@/lib/agent/mentions'
-import { answerInputRequest } from '@/lib/agent/plan-decision'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
 
 import { buildConversationOwnerMap } from './conversation-view'
-import { assertDecisionUnanswered, decisionReplyOf } from './decision-reply'
 import {
   assertConversationSendable,
   readTeamIdCandidate,
@@ -77,7 +76,9 @@ function channelOrNotFound(conversation: AgentConversation | null): AgentConvers
 }
 
 async function agentsResponse(channel: AgentConversation | null) {
-  return { agents: await listChannelAgents(channelOrNotFound(channel)) }
+  const found = channelOrNotFound(channel)
+
+  return { agents: await withPresence(found.teamId, await listChannelAgents(found)) }
 }
 
 channelRoutes.post('/channels', async (c) => {
@@ -102,6 +103,8 @@ channelRoutes.post('/channels', async (c) => {
     firstMessage: '',
     kind: 'channel',
   })
+  if (body.group === true)
+    await agentConversations().updateOne({ sessionId }, { $set: { group: true } })
 
   return c.json({ sessionId }, 201)
 })
@@ -246,35 +249,9 @@ channelRoutes.post('/conversations/:sessionId/channel-messages', async (c) => {
   const replyTo = await replyQuote(channel, body.replyTo)
 
   if (replyTo) metadata.replyTo = replyTo
-  // A post may answer a question an agent in the chat asked: the post is the answer.
-  const decisionReplyTo = decisionReplyOf(body)
-  const asked = decisionReplyTo ? await askingAgent(channel, decisionReplyTo, id) : undefined
-
   await postChannelMessage(channel, { id, text, metadata, files: upload ? [upload] : [] })
-  if (asked && decisionReplyTo)
-    await answerInputRequest({
-      sessionId: asked.sessionId,
-      userId: asked.userId,
-      requestId: decisionReplyTo,
-      answer: text,
-      actorUserId: userId,
-      teamId,
-    })
   // Speaking in a channel is joining it, as it is anywhere else.
   if (userId !== channel.userId) await addConversationParticipants(channel.sessionId, [userId])
 
   return c.json({ id }, 201)
 })
-
-/** The chat's agent that asked this question, while one answer may still take it. */
-async function askingAgent(channel: AgentConversation, requestId: string, messageId: string) {
-  const asked = await agentConversations().findOne({
-    sessionId: { $in: channel.agentSessionIds ?? [] },
-    'inputRequests.id': requestId,
-  })
-
-  if (!asked) throw new AppError(404, 'not_found', 'No agent in this chat asked that question')
-  await assertDecisionUnanswered(asked, requestId, messageId)
-
-  return asked
-}

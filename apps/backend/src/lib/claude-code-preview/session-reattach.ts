@@ -248,6 +248,10 @@ export async function reattachAfterTransportLoss(
           session_id: session.conversationId,
           attempt: attempt + 1,
         })
+        // Back on the air: posts that could not wake it while it was away do now.
+        void import('@/lib/agent/channel-missed-posts').then(({ wakeMissedPosts }) =>
+          wakeMissedPosts({ sessionId: session.conversationId }),
+        )
 
         return true
       } catch (error) {
@@ -264,6 +268,8 @@ export async function reattachAfterTransportLoss(
         ...errorTelemetryProperties(failure.error),
         team_id: session.teamId,
         session_id: session.conversationId,
+        runtime_id: session.endpoint.runtimeId,
+        device_id: session.endpoint.local?.deviceId,
         attempts: failure.attempts,
       })
       await markBackgroundWorkLost(session, 'unreachable')
