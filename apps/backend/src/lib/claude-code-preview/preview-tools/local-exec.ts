@@ -5,6 +5,7 @@
 // local tools. It is relayed to the owner's device, so unlike those tools it
 // does not depend on the sending client's `localTools` capability.
 import { wakeBox } from '@/lib/agent/devices/box-instabox'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { createLocalDownloadTool } from '@/lib/agent/tools-skilled/local-download'
 import { createLocalTerminalTool } from '@/lib/agent/tools-skilled/local-terminal'
@@ -54,6 +55,12 @@ export async function resolveAvailableLocalExecDevices(
         )
 
         if (!target?.allowLocalExec) return null
+        // Only a computer whose runtime can open a terminal is offered one; a Box's cannot.
+        if (purpose === 'terminal') {
+          const presence = await runtimePresenceStore().get(target.userId, device.deviceId)
+
+          if (presence?.status?.localTerminal !== true) return null
+        }
 
         return {
           deviceId: device.deviceId,

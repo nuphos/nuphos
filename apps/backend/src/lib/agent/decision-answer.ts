@@ -1,47 +1,29 @@
 // A person answers an agent's question. The answer is not a message: the
-// question is resolved, a short record is kept where it was asked, and the
-// asking agent is woken with the card and the answer, as a Trigger fire is.
+// question is resolved, the person's reply is recorded where it was asked, and
+// the asking agent is woken with the card and the answer, as a Trigger fire is.
 import { randomUUID } from 'node:crypto'
 
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import {
-  appendConversationMessages,
-  bumpConversationActivity,
-  getConversationBySessionId,
-} from './db'
+import { answered, recordInChannel, said } from './decision-channel-reply'
 import { reopenInputRequest, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { answerInputRequest } from './plan-decision'
 import { ownBody } from './tools-skilled/decision-tools'
 
 import type { AgentConversation } from './db'
+import type { Actor, DecisionAnswer } from './decision-channel-reply'
 import type { InputRequest } from './db/pending-decision'
 
-/** What a person picked or typed: for one question, or per question of a card that asks several. */
-export type DecisionAnswer = {
-  choices?: string[]
-  text?: string
-  questions?: { choices?: string[]; text?: string }[]
-}
+export type { DecisionAnswer }
 
 const SENDER = 'nuphos:decision'
 const BODY_EXCERPT = 600
 
-function said({ choices, text }: { choices?: string[]; text?: string }): string {
-  return text?.trim() || choices?.join(', ') || '(no answer)'
-}
-
 /** "Which regions? → us-east, eu-west", one line per question. */
 export function answerLines(request: InputRequest, answer: DecisionAnswer): string[] {
-  const questions = request.questions ?? []
-
-  if (!questions.length) return [`${request.question} → ${said(answer)}`]
-
-  return questions.map(
-    (question, index) => `${question.question} → ${said(answer.questions?.[index] ?? {})}`,
-  )
+  return answered(request, answer).map((entry) => `${entry.question} → ${entry.said}`)
 }
 
 /** Who answered: the conversation's owner, whose answer it is, or another member. */
@@ -107,7 +89,7 @@ export async function answerDecision(args: {
   conversation: AgentConversation
   requestId: string
   answer: DecisionAnswer
-  actor: { id: string; displayName: string }
+  actor: Actor
   teamId: string
 }): Promise<void> {
   const { conversation, requestId, answer, actor, teamId } = args
@@ -140,7 +122,7 @@ export async function answerDecision(args: {
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
 
   await wakeAsker(conversation, request, teamId, answerNotice(request, answer, who))
-  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
+  if (request.channelId) await recordInChannel(conversation, request, answer, actor)
   await tellAbout(conversation, request, answer, who, teamId)
 }
 
@@ -261,30 +243,6 @@ async function tellAbout(
       })
     }
   }
-}
-
-/** The answer's record in the channel the question was asked in. It wakes no one. */
-async function recordInChannel(request: InputRequest, answer: DecisionAnswer, who: string) {
-  const channel = request.channelId ? await getConversationBySessionId(request.channelId) : null
-
-  if (!channel?.teamId) return
-  await appendConversationMessages({
-    sessionId: channel.sessionId,
-    userId: channel.userId,
-    teamId: channel.teamId,
-    messages: [
-      {
-        id: randomUUID(),
-        role: 'user',
-        parts: answerLines(request, answer).map((line) => ({
-          type: 'text',
-          text: `${who} answered: ${line}`,
-        })),
-        metadata: systemSender(SENDER, 'Nuphos'),
-      },
-    ],
-  })
-  await bumpConversationActivity(channel.sessionId, channel.userId)
 }
 
 /** A login-status button is ordinary text; secret values never enter this endpoint. */

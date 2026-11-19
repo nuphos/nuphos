@@ -1,6 +1,6 @@
 // What a person does in the app that most scenarios repeat.
 import type { Stack } from './stack.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
@@ -21,7 +21,17 @@ export async function pickAgent(page: Page, label: string) {
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
-  await page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }).click()
+  await pickInSubmenu(
+    page,
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+  )
+}
+
+/** Picks `item` in the submenu a menu row opened, by key. A pointer that jumps from the row onto
+ *  the submenu can land on the row's hover guard instead, and the submenu closes under it. */
+export async function pickInSubmenu(page: Page, item: Locator) {
+  await item.focus()
+  await page.keyboard.press('Enter')
 }
 
 /** The Bot chat's name button, which opens and closes the Bot's details. */

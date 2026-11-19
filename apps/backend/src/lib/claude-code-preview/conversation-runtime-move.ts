@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 
-import { config } from '@/config'
 import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
@@ -11,11 +10,9 @@ import { sessionsByConversation } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { placementNamespace } from './runtime-controllers'
-import { assertRuntimeNotDeleting } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
-import { findHostedRuntime, resolveTeamRuntimeEndpoints } from './runtime-registry'
+import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
@@ -38,31 +35,17 @@ export async function moveConversationRuntime(
     throw new AppError(403, 'conversation_read_only', 'Only the conversation owner can move it.')
   const provider = runtimeProvider(conversation.agentRuntime)
   const sourceUrl = conversation.claudeCodePreview?.runtimeUrl
-  const sourceHosted = sourceUrl ? await findHostedRuntime(teamId, sourceUrl) : null
-
-  // The attachment is shared across environments. Until it is environment-scoped,
-  // a dev move must never replace a production conversation's durable placement.
-  if (
-    sourceHosted &&
-    placementNamespace(sourceHosted.url) !== config.claudeCodeRuntimeProvisioner.namespace
-  )
-    throw new AppError(
-      409,
-      'runtime_environment_mismatch',
-      'This conversation belongs to another environment. Open it there to move it to another agent. Nothing has been changed.',
-    )
   const target = await requireRuntimeInstance(teamId, targetId, userId)
 
   if (target.status !== 'active')
     throw new AppError(409, 'runtime_unavailable', 'Choose an agent that is enabled.')
-  await assertRuntimeNotDeleting(teamId, target.id)
   // Only the conversation history moves: it reaches a freshly created inner
   // session as the plain-text preamble previewHistoryPreamble builds from the
   // stored transcript, so Claude Code ↔ Codex is just another move. Files stay
   // behind, since every conversation on a runtime shares its /workspace.
   if (conversation.runtimeId === target.id)
     return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
-  const endpoints = await resolveTeamRuntimeEndpoints(teamId, undefined, target.provider)
+  const endpoints = await resolveTeamRuntimeEndpoints(teamId, target.provider)
   const development = developmentRuntimeEndpoint(target.provider)
 
   if (development) endpoints.push(development)
@@ -106,7 +89,6 @@ export async function moveConversationRuntime(
         'conversation_busy',
         'Wait for the current response to finish before moving this conversation.',
       )
-    await assertRuntimeNotDeleting(teamId, target.id)
     const latestTarget = await requireRuntimeInstance(teamId, target.id, userId)
 
     if (latestTarget.status !== 'active')
