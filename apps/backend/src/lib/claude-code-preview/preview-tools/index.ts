@@ -12,6 +12,8 @@ import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createArtifactTool } from '@/lib/agent/tools-skilled/artifact-tool'
 import { createChartTool } from '@/lib/agent/tools-skilled/chart-tool'
 import { createTeamSkillTools } from '@/lib/agent/tools-team-skills'
+import { recordArtifactFileRefs } from '@/lib/file-transfer/artifact-refs'
+import { logError } from '@/lib/observability'
 
 import { publishPreviewFrame } from '../run-frame-bridge'
 
@@ -146,6 +148,48 @@ function flushMemoryActivity(tool: MemoryTool, pending: Set<Promise<void>>): Mem
   }
 }
 
+/**
+ * `render_artifact` is a pure echo, but a markdown version cites transfer
+ * groups through `_reply-images` links. This is the only place the tool is
+ * built with the conversation's team and session, so the citation is recorded
+ * here; the render still returns its receipt if recording fails.
+ */
+function artifactTools(ctx: PreviewToolContext): Record<string, unknown> {
+  const base = createArtifactTool()
+  const execute = base.execute
+
+  if (!execute) return { render_artifact: base }
+
+  return {
+    render_artifact: {
+      ...base,
+      execute: async (
+        input: Parameters<typeof execute>[0],
+        options: Parameters<typeof execute>[1],
+      ) => {
+        const output = await execute(input, options)
+
+        if (input.kind === 'markdown') {
+          await recordArtifactFileRefs({
+            teamId: ctx.teamId,
+            sessionId: ctx.sessionId,
+            artifactId: input.artifactId,
+            content: input.content,
+          }).catch((error: unknown) => {
+            logError('file_transfer.artifact_refs_failed', error, {
+              team_id: ctx.teamId,
+              session_id: ctx.sessionId,
+              artifact_id: input.artifactId,
+            })
+          })
+        }
+
+        return output
+      },
+    },
+  }
+}
+
 /** Every AI SDK tool set the preview adapts, keyed by group for the report. */
 export async function previewAiSdkToolSets(
   ctx: PreviewToolContext,
@@ -160,7 +204,7 @@ export async function previewAiSdkToolSets(
         : {}),
     }),
     chart: { render_chart: createChartTool() },
-    artifact: { render_artifact: createArtifactTool() },
+    artifact: artifactTools(ctx),
     sessions: createSessionTools(ctx.userId, ctx.sessionId, ctx.teamId),
   }
 }
