@@ -130,9 +130,6 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
   // The owner's pick goes through.
   await act(() => item('Opus')?.click())
   assert.deepEqual(selected, [{ configId: 'model', value: 'opus' }])
-  // #3147: the model shown as current is pinned too, as when Claude Code's Default shows the one it stands for.
-  await act(() => item('Sonnet')?.click())
-  assert.deepEqual(selected.at(-1), { configId: 'model', value: 'sonnet' })
 
   // Anyone else sees the same choices, is told why, and a pick changes nothing.
   await render('Only the owner can change model settings.')
@@ -141,7 +138,7 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
   assert.match(dom.document.body.textContent ?? '', /Only the owner can change model settings\./)
   assert.equal(item('Opus')?.disabled, true)
   await act(() => item('Opus')?.click())
-  assert.equal(selected.length, 2)
+  assert.equal(selected.length, 1)
   await act(() => root.unmount())
 })
 
