@@ -63,7 +63,6 @@ export const providerMoveScenarios: Scenario[] = [
         await namedSettings(page, 'provider-move-codex', /Low/)
         // A model picked there is saved with that effort, not alone.
         await chip(page).click()
-        await page.getByRole('button', { name: 'Select model' }).click()
         await page.getByRole('menuitemcheckbox', { name: /^fixture-small/ }).click()
         await namedSettings(page, 'provider-move-codex-picked', /Low/)
         await send(page, 'On Codex E2E_DELIVERY:provider-codex')
