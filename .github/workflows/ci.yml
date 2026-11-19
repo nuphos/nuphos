@@ -475,6 +475,11 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
+      # Ubuntu 24.04 keeps unprivileged user namespaces from Chrome, so the headless Chrome the
+      # second computer drives cannot start its sandbox; our own runners do not restrict them.
+      - name: Let Chrome start its sandbox
+        if: runner.environment == 'github-hosted'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
       - id: openab
         uses: ./.github/actions/openab-binaries
