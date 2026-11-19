@@ -18,6 +18,8 @@ import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
+import { leaveChatScenarios } from './leave-chat-scenarios.ts'
+import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
@@ -26,10 +28,12 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
@@ -58,7 +62,7 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors', exact: true }).click()
       await page.getByRole('button', { name: 'Add AWS' }).click()
-      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByRole('button', { name: /Set up in a task/ }).click()
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
       await until('the setup prompt to reach the agent', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
@@ -100,6 +104,8 @@ const scenarios: Scenario[] = [
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
+  ...leaveTaskScenarios,
+  ...leaveChatScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
@@ -109,6 +115,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...personalCredentialScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
@@ -125,6 +132,7 @@ const scenarios: Scenario[] = [
   ...computerScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpScenarios,
   threadModeScenario,

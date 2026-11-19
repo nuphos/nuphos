@@ -187,7 +187,7 @@ export function GcpDashboardPanel({
                 type="button"
                 onClick={() => setWatchOpen(true)}
                 className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-[10px] text-tertiary hover:bg-state-hover hover:text-main"
-                title={t('Watch this saved dashboard panel with the agent')}
+                title={t('Watch this saved dashboard panel in a task')}
               >
                 <Eye className="h-3 w-3" strokeWidth={1.8} />
                 {t('Watch')}

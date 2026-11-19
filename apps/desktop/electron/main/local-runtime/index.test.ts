@@ -45,6 +45,11 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
   '../app-paths.ts': { leftAloneDir: null },
+  // Electron's side of the automatic update switch (Settings > Updates).
+  '../auto-update-electron.ts': {
+    readAutoInstall: () => ({ enabled: true }),
+    writeAutoInstall: (value: { enabled: boolean }) => value,
+  },
   '../device-controller.ts': {
     // The socket a test installs as the global one.
     dialDeviceTunnel: (url: string) => new WebSocket(url),

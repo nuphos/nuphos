@@ -40,6 +40,11 @@ export type AgentCliStatus =
       bundled?: true
     }
 
+/** The file an installed CLI runs. */
+export function cliPath(cli: AgentCliStatus | null): string | undefined {
+  return cli?.installed ? cli.path : undefined
+}
+
 const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
