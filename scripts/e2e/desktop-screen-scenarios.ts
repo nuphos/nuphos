@@ -99,6 +99,8 @@ async function blankScreenGivesUp(page: Page) {
 export const desktopScreenScenarios: Scenario[] = [
   {
     name: 'a computer’s screen paints, takes input, and paints again when opened after its host left; one with no picture gives up with Try again',
+    // A screen's stream is not found until its host has started and the computer reports it.
+    expected: /\/runtime-desktop\/runtime\/[^"]+\/0","status":404/u,
     run: async (page, stack) => {
       writeFileSync(
         HOST,
