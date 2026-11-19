@@ -25,9 +25,10 @@ import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
+import { slackThreadFallbackUrl } from './slackThreadUrl'
+import { useClearCachesFix } from './useClearCachesFix'
 import { useComputerNotice } from './useComputerNotice'
 import { useOutdatedFix } from './useOutdatedFix'
-import { slackThreadFallbackUrl } from './slackThreadUrl'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
@@ -223,6 +224,7 @@ export function AgentStatusBanner({
   })
   const askedName = useAskedName(control.sessionId, selected?.id)
   const outdatedFix = useOutdatedFix(control.teamId ?? '', device, selected?.id, reload)
+  const clearFix = useClearCachesFix(control.teamId ?? '', device)
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
@@ -232,7 +234,7 @@ export function AgentStatusBanner({
   let copy: BannerCopy = { text: '', action: null }
 
   if (shown === 'disk' || shown === 'outdated')
-    copy = noticeCopy(noticed, outdatedFix, control.onSettings)
+    copy = noticeCopy(noticed, { ...outdatedFix, clear: clearFix.clear })
   else if (shown)
     copy = bannerCopy(
       shown,
@@ -291,6 +293,7 @@ export function AgentStatusBanner({
       </div>
       {dialogs}
       {outdatedFix.dialog}
+      {clearFix.dialog}
     </>
   )
 }

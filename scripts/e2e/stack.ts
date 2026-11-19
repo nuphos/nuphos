@@ -226,11 +226,11 @@ export async function startStack(
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
       // GitLab: a scenario serves the instance on this computer and answers its redirect.
       GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
-      GITLAB_TOKEN_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      GITLAB_TOKEN_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWdpdGxhYi1rZXktbm90LXByb2R1Y3Q=',
       OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
-      SONARQUBE_BYOK_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
+      // Seals two-factor secrets (sealers.mfa).
+      LINODE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWxpbm9kZS1rZXktbm90LXByb2R1Y3Q=',
+      SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
       ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),

@@ -15,6 +15,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireSecureframeIntegration,
   requireSecureframeMemberAccess,
@@ -136,13 +137,9 @@ integrationScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const integrationId = new ObjectId(c.get('secureframeIntegrationId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { secureframeIntegrations: { id: integrationId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'secureframeIntegrations', {
+      id: integrationId,
+    })
 
     if (result.modifiedCount === 0) {
       throw new AppError(

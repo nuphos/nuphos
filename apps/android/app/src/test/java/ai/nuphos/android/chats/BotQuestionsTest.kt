@@ -111,9 +111,9 @@ class BotQuestionsTest {
             """{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)","status":"open"}""")
         assertEquals("**Why:** see [#412](https://example.com/412)", request.body)
         assertNull(Http.json.decodeFromString(InputRequest.serializer(), """{"id":"q","question":"Ship?"}""").body)
-        // Up to three short lines show whole; more collapses behind "Show more".
-        assertFalse(isLongBody("One finding.\nA second.\nA third."))
-        assertTrue(isLongBody("1\n2\n3\n4"))
+        // Up to four short lines show whole, as #2879 cuts the body; more collapses behind "Show more".
+        assertFalse(isLongBody("One finding.\nA second.\nA third.\nA fourth."))
+        assertTrue(isLongBody("1\n2\n3\n4\n5"))
         assertTrue(isLongBody("x".repeat(241)))
     }
 
