@@ -13,10 +13,18 @@ mock.module('../../api.ts', {
     api: {
       agentListConversations: (_team: string, options: { cursor?: string }) => request(options),
     },
-    parseAtlasError: () => ({}),
+    parseAtlasError: (error: { code?: string }) => ({ code: error.code }),
   },
 })
-mock.module('../../lib/sessionHistory.ts', { namedExports: { readSessionHistory: () => [] } })
+let visits: { sessionId: string; openedAt: number }[] = []
+let forgotten: string[] = []
+
+mock.module('../../lib/sessionHistory.ts', {
+  namedExports: {
+    readSessionHistory: () => visits,
+    forgetSessionVisits: (_user: string, _team: string, ids: string[]) => forgotten.push(...ids),
+  },
+})
 mock.module('react', {
   namedExports: {
     useState: (initial: unknown) => {
@@ -48,11 +56,11 @@ mock.module('react', {
 })
 const { useSearchResults } = await import('./useSearchResults.ts')
 
-function render() {
+function render(query = 'deploy') {
   index = 0
 
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Run the real hook with a deterministic effect scheduler.
-  return useSearchResults('team', 'user', 'sessions', 'deploy', members)
+  return useSearchResults('team', 'user', 'sessions', query, members)
 }
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve))
 const page = (ids: string[], nextCursor: string | null = null) => ({
@@ -62,6 +70,8 @@ const page = (ids: string[], nextCursor: string | null = null) => ({
 })
 
 beforeEach(() => {
+  visits = []
+  forgotten = []
   slots = []
   dependencies = undefined
   cleanup = undefined
@@ -126,4 +136,42 @@ test('a failed initial request can be retried and empty results finish loading',
   assert.equal(render().error, false)
   assert.equal(render().loading, false)
   assert.deepEqual(render().sessions, [])
+})
+
+test('a recent chat that is gone or no longer yours leaves the history, so it is not asked for again', async () => {
+  visits = ['kept', 'deleted', 'left', 'offline'].map((sessionId, openedAt) => ({
+    sessionId,
+    openedAt,
+  }))
+  const failures: Record<string, string | undefined> = {
+    deleted: 'not_found',
+    left: 'forbidden',
+    offline: undefined,
+  }
+  const oldWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    value: {
+      api: {
+        agentGetConversation: async (sessionId: string) => {
+          if (!(sessionId in failures)) return { sessionId }
+          throw Object.assign(new Error('refused'), { code: failures[sessionId] })
+        },
+      },
+    },
+  })
+  try {
+    render('')
+    await flush()
+    assert.deepEqual(
+      render('').sessions.map((result) => result.conversation.sessionId),
+      ['kept'],
+    )
+    // A temporary failure keeps its visit.
+    assert.deepEqual(forgotten, ['deleted', 'left'])
+  } finally {
+    if (oldWindow) Object.defineProperty(globalThis, 'window', oldWindow)
+    else Reflect.deleteProperty(globalThis, 'window')
+  }
 })
