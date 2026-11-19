@@ -137,9 +137,18 @@ export function ModelSelector({
     onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }
-  // Closing returns to the message box, so typing carries on.
-  const finalFocus = () =>
-    composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true
+  // Closing returns to the message box, so typing carries on, unless the person
+  // already moved on: the runtime list opened while this menu closed lost focus
+  // to it and closed again (#3862).
+  const finalFocus = () => {
+    const focused = document.activeElement
+    const movedOn =
+      focused !== null && focused !== document.body && !menuRef.current?.contains(focused)
+
+    return movedOn
+      ? false
+      : (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+  }
 
   // One menu: the models, with effort and fast pinned under them. A runtime
   // without effort opens straight on its models; one without a model list
