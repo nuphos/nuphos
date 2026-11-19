@@ -191,17 +191,12 @@ export const botAccessScenarios: Scenario[] = [
       await page.reload()
       await openChat(page, SHARED)
       await setBotDetails(page, true)
-      for (const row of [/^Credentials/, /^Computers/])
+      // Its mode is shown too: whether it runs in Full Access matters to everyone it works for.
+      for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)$/])
         await access(page).getByText(row).first().waitFor()
       const offered = await access(page).getByRole('button').count()
 
       if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} access controls`)
-      if (
-        (await access(page)
-          .getByText(/^(Full Access|Auto Mode)$/)
-          .count()) > 0
-      )
-        throw new Error("A teammate's Bot shows its owner's permission mode")
       if ((await composerAccess(page)) > 0)
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')

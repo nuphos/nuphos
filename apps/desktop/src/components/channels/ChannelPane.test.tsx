@@ -262,12 +262,12 @@ test("a teammate's Bot chat shows its model locked and its access read-only", as
   assert.ok(panel, 'the details stay open in the next Bot chat')
   assert.match(panel.textContent, /Ada/)
   assert.equal(buttonNamed(panel, 'Edit Bot'), undefined)
-  // Only the owner may read or change a Bot's permission mode; everyone sees its model.
-  assert.deepEqual(bypassQueries, [])
-  // Anyone else reads what the Bot may use, with nothing to open.
+  // #3790: anyone else reads what the Bot may use and its mode, with nothing to open.
+  assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
   assert.deepEqual(accessRows(panel), [
     { text: 'Credentials0', opens: false },
     { text: 'Computers0', opens: false },
+    { text: 'Full Access', opens: false },
   ])
   assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
   assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')

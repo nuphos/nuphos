@@ -1,4 +1,4 @@
-import { Laptop, Shield } from 'lucide-react'
+import { Laptop, Lock, Shield, Unlock } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { t } from '../../i18n'
@@ -12,7 +12,7 @@ import type { CredentialSelectorControl } from '../agent/panel/credentialSection
 
 /**
  * What a Bot may use, in its details: the same pickers and mode menu its chat's composer had,
- * each opening under its row. Only the owner changes them; anyone else reads the counts.
+ * each opening under its row. Only the owner changes them; anyone else reads them.
  */
 export function BotAccessSection({
   credentials,
@@ -21,7 +21,7 @@ export function BotAccessSection({
 }: {
   /** Undefined until the Bot's selection loads. */
   credentials: CredentialSelectorControl | undefined
-  /** The owner's alone: nobody else may read the Bot's mode. */
+  /** Undefined until the Bot's mode loads. */
   bypassControl?: { active: boolean | undefined; onSelect: (bypass: boolean) => void }
   owned: boolean
 }) {
@@ -54,6 +54,18 @@ export function BotAccessSection({
             label={t('Computers')}
             note={credentials.value.deviceIds.length}
           />
+          {bypassControl?.active !== undefined && (
+            <SummaryRow
+              icon={
+                bypassControl.active ? (
+                  <Unlock className="size-3.5" strokeWidth={1.8} />
+                ) : (
+                  <Lock className="size-3.5" strokeWidth={1.8} />
+                )
+              }
+              label={bypassControl.active ? t('Full Access') : t('Auto Mode')}
+            />
+          )}
         </>
       )}
     </SummarySection>

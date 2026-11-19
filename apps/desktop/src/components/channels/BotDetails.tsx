@@ -111,7 +111,7 @@ export function BotDetailsPanel({
   /** The Bot's selection, for its Access section; undefined until it loads. */
   credentials: CredentialSelectorControl | undefined
 }) {
-  const bypassControl = useBypassControl(owned ? bot : undefined)
+  const bypassControl = useBypassControl(bot)
   const inputQueue = useSessionInputRequests(bot, teamId)
   // The sidebar's row of the Bot stands in until the chat loads.
   const listed = useAgentSessions(teamId).data?.find((row) => row.sessionId === bot)
