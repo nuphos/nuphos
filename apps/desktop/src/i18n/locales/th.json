@@ -5787,6 +5787,7 @@
   "{name} is now available in {team}.": "{name} พร้อมใช้งานใน {team} แล้ว",
   "{name} is now signed in.": "{name} ลงชื่อเข้าใช้แล้ว",
   "{name} is online and listed under Computers.": "{name} ออนไลน์แล้วและแสดงอยู่ในคอมพิวเตอร์",
+  "{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.": "{name} ออนไลน์อยู่ การลบจะตัดการเชื่อมต่อทันทีและหยุดงานที่กำลังทำงานอยู่บนเครื่อง งานที่เครื่องนี้เคยทำยังอยู่ใน Nuphos หากต้องการเพิ่มกลับมา ให้เปิด Nuphos บนคอมพิวเตอร์เครื่องนั้น",
   "{name} is ready.": "{name} พร้อมใช้งานแล้ว",
   "{name} is signed out.": "{name} ออกจากระบบแล้ว",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} ออกจากระบบแล้ว ขอให้ผู้ดูแลเวิร์กสเปซเชื่อมต่อรันไทม์นี้ใหม่",

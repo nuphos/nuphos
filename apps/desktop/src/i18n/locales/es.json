@@ -5787,6 +5787,7 @@
   "{name} is now available in {team}.": "{name} ya está disponible en {team}.",
   "{name} is now signed in.": "{name} ya inició sesión.",
   "{name} is online and listed under Computers.": "{name} está en línea y aparece en Ordenadores.",
+  "{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.": "{name} está en línea. Al quitarlo se desconecta ahora y se detiene cualquier tarea que esté ejecutando. Las tareas que ejecutó se quedan en Nuphos. Para volver a añadirlo, abre Nuphos en ese ordenador.",
   "{name} is ready.": "{name} está listo.",
   "{name} is signed out.": "{name} cerró sesión.",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} cerró sesión. Pide a un administrador del espacio de trabajo que vuelva a conectar este entorno de ejecución.",
