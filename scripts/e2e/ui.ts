@@ -18,6 +18,7 @@ export async function send(page: Page, text: string) {
 
 /** Moves the open conversation to `label`'s Claude Code runtime. */
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
+  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
@@ -25,6 +26,12 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
     page,
     page.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }),
   )
+}
+
+/** Waits until no menu is mounted, a closing one included. Opening the runtime list while the
+ *  model menu still closes can stall the window (#3862). */
+export async function noMenuOpen(page: Page) {
+  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
 /** Picks `item` in the submenu a menu row opened, by key. A pointer that jumps from the row onto
