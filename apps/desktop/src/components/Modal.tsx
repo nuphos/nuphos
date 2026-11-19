@@ -190,7 +190,7 @@ export function Modal({
             // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
             headerInset === 'wide'
-              ? 'px-8 pb-2 pt-4 pr-16'
+              ? 'px-8 py-4 pr-16'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
@@ -207,6 +207,7 @@ export function Modal({
               id={titleId}
               className={clsx(
                 titleHidden && 'sr-only',
+                !titleHidden && headerInset === 'wide' && 'flex min-h-8 items-center',
                 isPrompt
                   ? 'text-xl font-semibold tracking-tight'
                   : headerCompact
@@ -234,7 +235,7 @@ export function Modal({
           className={clsx(
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
             headerInset === 'wide'
-              ? 'right-[26px] top-4'
+              ? 'right-[26px] top-4 min-h-8'
               : headerCompact
                 ? 'right-2 top-1.5'
                 : 'right-3.5 top-3.5',

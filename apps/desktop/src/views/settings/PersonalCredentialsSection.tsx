@@ -61,8 +61,10 @@ export function PersonalCredentialsSection({
   team,
   onOpenSection,
   provider: selectedProvider,
+  hideHeading = false,
 }: {
   team: AtlasTeam | undefined
+  hideHeading?: boolean
   provider?: PersonalCredentialProvider
   /** Switch Settings to another section, e.g. Team settings for the Google OAuth client. */
   onOpenSection?: (section: string) => void
@@ -145,10 +147,12 @@ export function PersonalCredentialsSection({
 
   return (
     <div>
-      <SectionHeader
-        title={selectedProvider ? nameOf(selectedProvider) : t('Personal Credentials')}
-        description={t('Connect your own accounts so the agent acts as you.')}
-      />
+      {!hideHeading && (
+        <SectionHeader
+          title={selectedProvider ? nameOf(selectedProvider) : t('Personal Credentials')}
+          description={t('Connect your own accounts so the agent acts as you.')}
+        />
+      )}
       {!credentials && loadFailed && (
         <p className="text-[12.5px] text-tertiary">
           {t('Couldn’t load your Personal Credentials.')}{' '}

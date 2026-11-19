@@ -1,16 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useContext, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
-import { matchingPersonalConnectors } from '../settings/personalCredentials'
+import { matchingPersonalConnectors, nameOf } from '../settings/personalCredentials'
 import { PersonalCredentialsSection } from '../settings/PersonalCredentialsSection'
 
 import { CatalogConnector } from './CatalogConnector'
 import { ConnectorGroups } from './connector-groups'
+import { ConnectorHeaderContext } from './connector-header'
 import { connectionOwnership } from './connector-ownership'
 import { ConnectorSearch } from './connector-search'
 import { searchTerms } from './connector-suggestions'
@@ -108,20 +108,37 @@ export function IntegrationCatalog({
     queryFn: () => api.atlasListTeamConnectors(teamId),
   })
   const sharing = sharingQuery.data?.sharing
+  const setHeader = useContext(ConnectorHeaderContext)
+
+  useEffect(() => {
+    setHeader?.({
+      title: personalProvider
+        ? nameOf(personalProvider)
+        : catalogTab === 'browse'
+          ? t('Connectors')
+          : t('Manage connections'),
+      back: personalProvider
+        ? () => setPersonalProvider(null)
+        : catalogTab !== 'browse'
+          ? () => setCatalogTab('browse')
+          : undefined,
+      manage:
+        !personalProvider && catalogTab === 'browse' ? () => setCatalogTab('mine') : undefined,
+    })
+
+    return () => setHeader?.(null)
+  }, [setHeader, catalogTab, personalProvider])
   const openPersonalCredentials = (provider: PersonalCredentialProvider) =>
     setPersonalProvider(provider)
 
   if (personalProvider)
     return (
       <div className="flex-1 overflow-y-auto px-8 pb-8 pt-2 selectable">
-        <Button variant="ghost" size="sm" onClick={() => setPersonalProvider(null)}>
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {t('Back')}
-        </Button>
         {teamQuery.data ? (
           <PersonalCredentialsSection
             team={teamQuery.data}
             provider={personalProvider}
+            hideHeading
             onOpenSection={onOpenSettingsSection}
           />
         ) : null}
@@ -136,28 +153,6 @@ export function IntegrationCatalog({
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
       <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
-          {catalogTab !== 'browse' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-2 mb-3"
-              onClick={() => setCatalogTab('browse')}
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              {t('Connectors')}
-            </Button>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-4 pr-12">
-            <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
-              {catalogTab === 'browse' ? t('Connectors') : t('Manage connections')}
-            </h1>
-            {catalogTab === 'browse' && (
-              <Button variant="secondary" onClick={() => setCatalogTab('mine')}>
-                {t('Manage connections')}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            )}
-          </div>
           <p className="mb-5 mt-1.5 text-[13.5px] text-secondary">
             {t('Connect Nuphos to your code, data, cloud, and everyday tools.')}
           </p>
