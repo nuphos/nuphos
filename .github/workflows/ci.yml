@@ -24,10 +24,10 @@ permissions:
   pull-requests: read
 
 jobs:
-  # Every PR in a merge group already passed format and lint on pull_request,
-  # so the merge queue skips them (a skipped job still satisfies its required
-  # check). They run again on main after each merge, which catches what two
-  # PRs break only together, without holding up the queue.
+  # Every PR in a merge group already passed format on pull_request, so the merge
+  # queue skips it (a skipped job still satisfies its required check); it runs
+  # again on main after each merge. Lint stays in the queue: two PRs can push a
+  # file past max-lines only together, and that must not reach main.
   format:
     name: Format (prettier --check)
     if: github.event_name == 'pull_request' || github.event_name == 'push'
@@ -649,7 +649,7 @@ jobs:
     name: Backend lint
     needs: changes
     # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
-    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.backend == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -679,7 +679,7 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.desktop == 'true') }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
