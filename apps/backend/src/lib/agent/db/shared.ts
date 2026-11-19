@@ -69,12 +69,12 @@ export type AgentConversation = ConversationTaskState & {
   avatar?: string
   /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
   avatarBackground?: string
-  /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   botTemplate?: {
     templateId: string
     version: string
     requirements: { provider: string; required: boolean; reason: string }[]
   }
+  /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
   messageCount: number
@@ -153,16 +153,11 @@ export type AgentConversation = ConversationTaskState & {
     source?: string
     client?: AgentClientMeta
   }
-  // Memory backend that owns this conversation's recall/tools/ingest, stamped
-  // once at creation and immutable (SPI decision 4 / A3). Resolved through
-  // resolveForNewSession (global default today; team overrides arrive in
-  // Phase 3). Distinct from metadata.provider, which is the originating
-  // CHANNEL, not the memory backend.
+  // The memory backend owning its recall, tools and ingest: stamped once at creation, immutable
+  // (SPI decision 4 / A3), from resolveForNewSession. Not metadata.provider, the source channel.
   memoryProvider?: string
-  // Sticky per-conversation model fallback. Set write-once the first time a
-  // turn finishes with finishReason 'content-filter'; every later turn in this
-  // conversation then runs on toModelId instead of the primary. Permanent for
-  // the life of the conversation.
+  // Sticky model fallback, set once when a turn first ends with finishReason 'content-filter':
+  // every later turn here runs on toModelId instead of the primary, for the conversation's life.
   modelFallback?: {
     active: boolean
     reason: 'content-filter'
