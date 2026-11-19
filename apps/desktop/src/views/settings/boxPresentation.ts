@@ -242,16 +242,17 @@ export function boxSessions(memMiB: number): number {
 const SIZE_TIERS = [
   { upTo: 2, name: t('Small'), use: t('Light tasks') },
   { upTo: 6, name: t('Medium'), use: t('Everyday work') },
-  { upTo: Infinity, name: t('Large'), use: t('Heavy builds') },
+  { upTo: 8, name: t('Large'), use: t('Heavy builds') },
+  { upTo: Infinity, name: t('Extra large'), use: t('Parallel builds') },
 ]
 
 const sessionCount = (n: number) =>
   n === 1 ? t('Up to 1 task at once') : t('Up to {n} tasks at once', { n })
 
-/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
+/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, up to 8 Large, more Extra large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
   return sizes.map(({ vcpus, memMiB }) => {
-    // 0 Small, 1 Medium, 2 Large; also how many slabs its glyph fills, less one.
+    // 0 Small, 1 Medium, 2 Large, 3 Extra large; also how many slabs its glyph fills, less one.
     const tier = SIZE_TIERS.findIndex((size) => vcpus <= size.upTo)
 
     return {
