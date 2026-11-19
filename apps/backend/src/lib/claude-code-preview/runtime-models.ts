@@ -169,9 +169,7 @@ export async function discoverModels(
     : {
         models: [],
         message:
-          instance.kind === 'managed'
-            ? 'Models are unavailable. Check that the runtime is online, then retry.'
-            : 'Could not discover models. Check the agent’s sign-in and update its runtime, then retry.',
+          'Could not discover models. Check the agent’s sign-in and update its runtime, then retry.',
       }
 }
 

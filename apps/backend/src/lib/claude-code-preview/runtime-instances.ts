@@ -7,11 +7,8 @@ export type RuntimeInstance = {
   id: string
   provider: OpenAbProvider
   label: string
-  /** The image a runtime Nuphos hosts runs. */
-  image?: string
   status: 'active' | 'disabled'
-  /** `managed` is a self-hosted runtime that Nuphos deploys. */
-  kind: 'managed' | 'external' | 'development' | 'local'
+  kind: 'external' | 'development' | 'local'
   /** Self-hosted only: whether this team holds its own pairing or the runtime's shared password. */
   connection?: 'paired' | 'password'
   /** Set for `local`: one of the requesting user's own computers. */

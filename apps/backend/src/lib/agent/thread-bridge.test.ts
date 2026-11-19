@@ -137,7 +137,7 @@ useRuntimeCatalog({
       provider: 'codex',
       label: 'Other',
       status: 'active',
-      kind: 'managed',
+      kind: 'external',
       createdAt: '',
     },
     ...(userId

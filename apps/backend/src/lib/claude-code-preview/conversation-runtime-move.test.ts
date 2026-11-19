@@ -71,7 +71,7 @@ beforeEach(() => {
     provider: 'claude-code',
     label: 'New runtime',
     status: 'active',
-    kind: 'managed',
+    kind: 'external',
     createdAt: '',
   }
   conversation = {
