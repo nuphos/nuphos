@@ -306,19 +306,19 @@ export function runShim({
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
       const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
-      // A failed turn answers as Claude Code's does, so every client shows why it failed.
-      forward(
-        failure
-          ? {
-              jsonrpc: '2.0',
-              id: message.id,
-              error: {
-                code: -32603,
-                message: `Internal error: The model provider refused the request: ${failure}`,
-              },
-            }
-          : message,
-      )
+      if (failure)
+        write({
+          jsonrpc: '2.0',
+          method: 'session/update',
+          params: {
+            sessionId: promptSession,
+            update: {
+              sessionUpdate: 'agent_message_chunk',
+              content: { type: 'text', text: `The model provider refused the request: ${failure}` },
+            },
+          },
+        })
+      forward(message)
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
       else queued.delete(promptSession)
