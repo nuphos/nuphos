@@ -19,9 +19,6 @@ import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
-
-type Listed = { sessionId: string; firstMessage?: string }
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const OPENED = /"agent\.local_runtime\.tunnel_opened".*"device_id":"([^"]+)"/
@@ -77,25 +74,6 @@ async function pushed(stack: Stack, fileName: string, content: string): Promise<
   await api(stack, `${transfers}/${groupId}/finalize`, {})
 
   return groupId
-}
-
-/** What the opened fold shows and what the backend stored for the call, for a failure message. */
-async function failedRowEvidence(page: Page, stack: Stack): Promise<string> {
-  const fold = page.locator('[data-chat-fold]').last()
-  const rows = await fold.locator('button').evaluateAll((all) => all.map((b) => b.outerHTML))
-  const { conversations } = await api<{ conversations: Listed[] }>(
-    stack,
-    `/agent/conversations?teamId=${stack.teamId}`,
-  )
-  const id = conversations.find((c) => c.firstMessage?.includes('E2E_DELIVERY:not-there'))
-  const stored = JSON.stringify(await api(stack, `/agent/conversations/${id?.sessionId ?? ''}`))
-  const at = stored.indexOf('local_upload')
-
-  return [
-    `fold text: ${JSON.stringify((await fold.innerText()).slice(0, 600))}`,
-    `fold rows: ${rows.join('\n').slice(0, 2500)}`,
-    `stored call: ${stored.slice(Math.max(0, at - 300), at + 1500)}`,
-  ].join('\n')
 }
 
 export const computerScenarios: Scenario[] = [
@@ -206,17 +184,13 @@ export const computerScenarios: Scenario[] = [
         .getByRole('button', { name: /^Worked/ })
         .last()
         .click()
+      // A run of one call marks its closed line; the call's own row inside stays hidden.
       const failed = page
         .locator('[data-tool-failed]')
-        .filter({ hasText: 'Failed: file not found' })
+        .filter({ hasText: 'Failed: file not found', visible: true })
       const row = page.locator('button', { has: failed }).last()
 
-      await failed
-        .last()
-        .waitFor()
-        .catch(async (error: unknown) => {
-          throw new Error(`${String(error)}\n${await failedRowEvidence(page, stack)}`)
-        })
+      await failed.last().waitFor()
       await row.getByText('Upload a file that is not there').waitFor()
       await row.screenshot({ path: join(artifacts, 'failed-upload-row.png') })
       await page.screenshot({ path: join(artifacts, 'failed-upload.png') })

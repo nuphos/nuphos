@@ -184,7 +184,26 @@ test('text results without an error are not marked failed', () => {
   ])
     assert.equal(toolFailure(upload(output)), null, JSON.stringify(output))
   // A text block that is not JSON fails only when the result itself says isError.
-  assert.equal(toolFailure(upload({ isError: true, content: blocks('boom') })), '')
+  assert.equal(toolFailure(upload({ isError: true, content: blocks('boom') })), 'boom')
+})
+
+test('an MCP result flagged isError is failed with its text, as such, wrapped or as JSON', () => {
+  // A Nuphos tool that fails through MCP: a normal result whose payload says isError.
+  const result = {
+    content: [{ type: 'text', text: 'file not found' }],
+    isError: true,
+    _meta: { 'ai.nuphos/toolPresentation': 'runtime' },
+  }
+
+  for (const output of [result, { result, error: null }, JSON.stringify(result)])
+    assert.equal(toolFailure(upload(output)), 'file not found', JSON.stringify(output))
+  assert.equal(
+    toolFailure(upload({ ...result, content: blocks(backendText({ error: 'file_not_found' })) })),
+    'file not found',
+  )
+  assert.equal(toolFailure(upload({ isError: true, content: [] })), '')
+  assert.equal(toolFailure(upload({ ...result, isError: false })), null)
+  assert.equal(failedCallCount([upload(result), upload({ result })]), 2)
 })
 
 test("JSON a shell command printed is its stdout, not the tool's error", () => {

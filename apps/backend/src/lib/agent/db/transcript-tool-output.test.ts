@@ -57,3 +57,53 @@ test('results a client renders a card from are stored', () => {
 
   expect(withoutToolOutputs(parts)).toEqual(parts)
 })
+
+const part = (toolName: string, output: unknown) => ({
+  type: `tool-${toolName}`,
+  toolCallId: toolName,
+  state: 'output-available',
+  output,
+})
+
+test('a failed result keeps its reason, so the reloaded row still reads as failed', () => {
+  // local_upload's missing file, as the content blocks Claude Code reports as rawOutput.
+  const missing = [{ type: 'text', text: JSON.stringify({ error: 'file_not_found' }, null, 2) }]
+  const flagged = {
+    content: [{ type: 'text', text: 'file not found' }],
+    isError: true,
+    _meta: { 'ai.nuphos/toolPresentation': 'runtime' },
+  }
+
+  expect(
+    withoutToolOutputs([
+      part('local_upload', missing),
+      part('local_upload', { error: 'file_transfer_rate_limited', retryAfterSeconds: 60 }),
+      part('connector_call', flagged),
+      part('connector_call', { result: { ...flagged, content: [] }, error: null }),
+      part('local_exec', { error: 'device_unavailable' }),
+    ]),
+  ).toEqual([
+    part('local_upload', { error: 'file_not_found' }),
+    part('local_upload', { error: 'file_transfer_rate_limited' }),
+    part('connector_call', { error: 'file not found' }),
+    part('connector_call', { isError: true }),
+    part('local_exec', { error: 'device_unavailable' }),
+  ])
+})
+
+test('a result that did not fail is still left out', () => {
+  for (const [toolName, output] of [
+    ['local_upload', { groupId: 'g', fileName: 'a.txt', size: 1 }],
+    ['local_upload', { ok: true, error: 'already_reacted' }],
+    ['local_upload', { error: '  ' }],
+    ['local_upload', [{ type: 'text', text: 'There was an error, so I fixed it.' }]],
+    ['local_upload', { isError: false, content: [{ type: 'text', text: 'fine' }] }],
+    // A shell's text is its stdout: JSON a command printed is not the tool's error.
+    ['local_exec', '{"error":"rate_limited"}'],
+    ['bash', [{ type: 'text', text: '{"error":"rate_limited"}' }]],
+  ] as const) {
+    const stored = { type: `tool-${toolName}`, toolCallId: 'u', state: 'output-available' }
+
+    expect(withoutToolOutputs([{ ...stored, output }])).toEqual([stored])
+  }
+})

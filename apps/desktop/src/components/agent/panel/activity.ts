@@ -1,4 +1,4 @@
-import { toolResultRecord } from './toolResultRecord.ts'
+import { flaggedErrorText, toolResultRecord } from './toolResultRecord.ts'
 import { isPlainToolPart } from './toolRuns.ts'
 
 import type { Message } from './model.ts'
@@ -9,8 +9,9 @@ import type { Part, ToolPart } from './parts.ts'
 const SHELL_TOOLS = new Set(['bash', 'local_exec'])
 
 /**
- * A tool's own `{ error: '…' }` result: tools like local_upload report a failure as a
- * normal output, which reaches the transcript as an object, JSON text or MCP text content.
+ * A tool's own `{ error: '…' }` result, or an MCP result flagged `isError` (`''` without
+ * text): tools like local_upload report a failure as a normal output, which reaches
+ * the transcript as an object, JSON text or MCP text content.
  */
 function returnedError({ toolName, output }: ToolPart): string | null {
   const result =
@@ -19,6 +20,9 @@ function returnedError({ toolName, output }: ToolPart): string | null {
       : toolResultRecord(output)
 
   if (!result || Array.isArray(result)) return null
+  const flagged = flaggedErrorText(result)
+
+  if (flagged !== null) return flagged
   const { error, ok } = result
 
   // `{ ok: true, error }` is a success carrying a note, not a failure.
@@ -32,10 +36,7 @@ export function failedOutput(part: ToolPart): boolean {
   if (!output || typeof output !== 'object') return false
   const value = output as Record<string, unknown>
 
-  return (
-    value.isError === true ||
-    [value.exitCode, value.exit_code].some((code) => typeof code === 'number' && code !== 0)
-  )
+  return [value.exitCode, value.exit_code].some((code) => typeof code === 'number' && code !== 0)
 }
 
 /**
@@ -49,10 +50,7 @@ export function toolFailure(part: ToolPart): string | null {
   const error = returnedError(part)
 
   // An error code reads as words: file_transfer_rate_limited → file transfer rate limited.
-  if (error) return /^[a-z][a-z0-9_]*$/u.test(error) ? error.replaceAll('_', ' ') : error
-  const value = part.output as Record<string, unknown> | null | undefined
-
-  return value && typeof value === 'object' && value.isError === true ? '' : null
+  return error && /^[a-z][a-z0-9_]*$/u.test(error) ? error.replaceAll('_', ' ') : error
 }
 
 /** How many calls of a run failed, by the same rule as each call's own row. */

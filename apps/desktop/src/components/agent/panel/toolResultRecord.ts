@@ -23,3 +23,27 @@ export function toolResultRecord(output: unknown): Record<string, unknown> | nul
 
   return record(output)
 }
+
+function contentText(content: unknown[]): string {
+  return content
+    .flatMap((item) => {
+      const text = record(item)?.type === 'text' ? record(item)?.text : undefined
+
+      return typeof text === 'string' && text.trim() ? [text.trim()] : []
+    })
+    .join(' ')
+}
+
+/**
+ * Why an MCP result flagged `isError` failed: its `{ error }` JSON text or its text, `''`
+ * when it has none; null when it is not flagged. Codex wraps the result as `{ result }`.
+ */
+export function flaggedErrorText(value: Record<string, unknown>): string | null {
+  const result = record(value.result)?.isError === true ? record(value.result) : value
+
+  if (result?.isError !== true) return null
+  const content = Array.isArray(result.content) ? result.content : []
+  const error = toolResultRecord(content)?.error
+
+  return typeof error === 'string' && error.trim() ? error.trim() : contentText(content)
+}
