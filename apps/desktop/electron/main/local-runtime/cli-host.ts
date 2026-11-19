@@ -221,10 +221,7 @@ const macScreen = enableMacScreen(
   () => tunnel?.sendStatus(),
   e2eMacScreenHost ? 'darwin' : process.platform,
 )
-const macScreenHost = {
-  ...cliMacScreenHost(bundleRoot, () => owner),
-  ...(e2eMacScreenHost && { binary: () => e2eMacScreenHost }),
-}
+const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
 // Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
 const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
