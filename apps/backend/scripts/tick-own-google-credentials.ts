@@ -7,15 +7,15 @@
 // connector rule. The current backend ignores the list for Google, so running
 // it early changes nothing. Archived ones follow the rule as is.
 //
-// Needs only MONGODB_URI (and MONGODB_DB, default atlas), so it runs from a
-// backend pod before its image carries it. Dry run unless --apply; $addToSet,
+// Runs from a backend pod before its image carries it: copied into
+// /app/scripts, it uses that pod's config and database. Dry run unless --apply; $addToSet,
 // so a second run adds nothing. Before writing, --apply saves what it will add
 // to each conversation in --record (default /tmp), so a $pull of exactly those
 // ids undoes it.
 
 import { writeFile } from 'node:fs/promises'
 
-import { MongoClient } from 'mongodb'
+import { closeDb, connectDb } from '../src/lib/db'
 
 const GOOGLE = ['gmail', 'google-drive', 'google-calendar']
 
@@ -36,13 +36,9 @@ export function missingGoogle(
 
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply')
-  const uri = process.env.MONGODB_URI
-
-  if (!uri) throw new Error('MONGODB_URI is required')
-  const client = await new MongoClient(uri).connect()
+  const db = await connectDb()
 
   try {
-    const db = client.db(process.env.MONGODB_DB ?? 'atlas')
     const grants: Grants = new Map()
 
     for (const grant of await db
@@ -109,7 +105,7 @@ async function main(): Promise<void> {
         `${String(owners.length)} member(s); ids ${JSON.stringify(added)}`,
     )
   } finally {
-    await client.close()
+    await closeDb()
   }
 }
 

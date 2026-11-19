@@ -92,7 +92,7 @@ export async function personalToken({ log, sessionId, marker, text }) {
     marker,
     event: 'personal-token',
     name: provider,
-    result: { status: response.status, code: body.code },
+    result: { status: response.status, code: body.error?.code },
   })
 }
 
