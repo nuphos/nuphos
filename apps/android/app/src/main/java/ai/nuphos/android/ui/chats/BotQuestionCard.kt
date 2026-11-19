@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -102,12 +103,13 @@ internal fun BotQuestionCard(
         }
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
                 // One line, cut with an ellipsis, as on Desktop and iOS; a tap shows it in full.
                 var open by rememberSaveable(question.id) { mutableStateOf(false) }
-                Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (open) Int.MAX_VALUE else 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.testTag("bot-question-title"))
+                Text(question.request.question, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface, maxLines = if (open) Int.MAX_VALUE else 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.semantics { heading() }.testTag("bot-question-title"))
+                Text(categoryLabel(question.request.category), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("bot-question-category"))
                 question.ownBody?.let { QuestionBody(question.id, it, onLink) }
                 val form = question.form
                 val secret = question.secretPart
@@ -292,7 +294,7 @@ private fun QuestionPill(title: String, checked: Boolean?, modifier: Modifier, o
 private fun <T : Any> stateListSaver() = listSaver<SnapshotStateList<T>, T>(save = { it.toList() }, restore = { it.toMutableStateList() })
 
 @Composable
-private fun heading(category: String?): String = stringResource(when (category) {
+private fun categoryLabel(category: String?): String = stringResource(when (category) {
     "approval" -> R.string.chats_question_heading_approval
     "preference" -> R.string.chats_question_heading_preference
     "credential" -> R.string.chats_question_heading_credential
