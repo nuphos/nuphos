@@ -203,15 +203,8 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   )
 
   const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
-  const rows = await queryTeamUsage(c.get('teamId'), {
-    from,
-    to,
-    bucket,
-    timeZone,
-    groupBy,
-    filters,
-    viewerId: viewer.userId,
-  })
+  const query = { from, to, bucket, timeZone, groupBy, filters, viewerId: viewer.userId }
+  const rows = await queryTeamUsage(c.get('teamId'), query)
 
   return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })
