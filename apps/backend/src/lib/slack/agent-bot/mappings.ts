@@ -100,18 +100,17 @@ export async function upsertSlackChannelMapping(data: {
   return mapping
 }
 
+/** Disconnects a channel: the mapping it removed, if there was one. */
 export async function deleteSlackChannelMapping(
   slackWorkspaceId: string,
   slackChannelId: string,
   teamId: string,
-): Promise<boolean> {
-  const result = await slackChannelMappings().deleteOne({
+): Promise<SlackChannelMapping | null> {
+  return await slackChannelMappings().findOneAndDelete({
     slackWorkspaceId,
     slackChannelId,
     teamId,
   })
-
-  return result.deletedCount > 0
 }
 
 export async function getSlackUserMapping(

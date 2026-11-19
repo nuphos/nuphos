@@ -15,6 +15,7 @@ const TEAM = new ObjectId().toHexString()
 const ADMIN = 'admin-user'
 const MEMBER = 'member-user'
 let viewer = ADMIN
+
 useAuthMiddleware({
   requireAuth: async (c, next) => {
     c.set('userId', viewer)
@@ -36,7 +37,7 @@ useSlackInstallations({
 })
 
 const { registerSlackMappingRoutes } = await import('./mappings')
-const { agentConversations } = await import('@/lib/agent/db')
+const { agentConversations, agentMessages } = await import('@/lib/agent/db')
 const { slackChannelMappings } = await import('@/lib/slack/agent-bot')
 const { closeDb, connectDb } = await import('@/lib/db')
 const app = new Hono<{ Variables: AuthVariables }>()
@@ -163,6 +164,26 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
         200,
       )
       expect((await record())?.agentSessionIds).toEqual([])
+    })
+
+    test('disconnecting deletes the hidden record and its messages; connecting again starts afresh', async () => {
+      await connect()
+      const first = (await record())!.sessionId
+
+      await agentMessages().insertOne({
+        sessionId: first,
+        userId: ADMIN,
+        messageId: 'slack:C:1.1',
+        index: 0,
+        role: 'user',
+        parts: [{ type: 'text', text: 'a Slack message' }],
+      } as never)
+      await send('DELETE', `/mappings/T1/${channel}`)
+
+      expect(await agentConversations().countDocuments({ sessionId: first })).toBe(0)
+      expect(await agentMessages().countDocuments({ sessionId: first })).toBe(0)
+      await connect()
+      expect((await record())?.sessionId).not.toBe(first)
     })
 
     test('disconnecting removes the grant', async () => {

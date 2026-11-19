@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
-import { agentConversations } from '@/lib/agent/db'
+import { agentConversations, agentMessages } from '@/lib/agent/db'
 import { setSlackChannelExternalChat } from '@/lib/slack/agent-bot'
 
 import type { SlackChannelMapping } from '@/lib/slack/agent-bot'
 
 /**
  * A connected channel's hidden record (#3702): what its Bots read and post
- * there. Made on first connect, and kept while the channel stays connected.
+ * there. Made on first connect, kept while the channel stays connected, and
+ * deleted with its messages when an admin disconnects it.
  * Nobody watches it and nobody else may read it, so no list, badge or Inbox
  * in Nuphos ever shows it.
  */
@@ -55,4 +56,10 @@ export async function ensureExternalChat(
   if (kept !== sessionId) await agentConversations().deleteOne({ sessionId })
 
   return kept ?? sessionId
+}
+
+/** A disconnected channel's record goes, with the Slack messages it held. */
+export async function removeExternalChat(externalChatId: string): Promise<void> {
+  await agentMessages().deleteMany({ sessionId: externalChatId })
+  await agentConversations().deleteOne({ sessionId: externalChatId, external: 'slack' })
 }

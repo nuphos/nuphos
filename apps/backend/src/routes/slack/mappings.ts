@@ -16,7 +16,7 @@ import {
   upsertSlackChannelMapping,
 } from '@/lib/slack/agent-bot'
 import { describeSlackChannel } from '@/lib/slack/destinations'
-import { ensureExternalChat } from '@/lib/slack/external-chats'
+import { ensureExternalChat, removeExternalChat } from '@/lib/slack/external-chats'
 import { resolveInstalledWorkspaceBot } from '@/lib/slack/installations'
 import { assertChannelMappingCreationAllowed } from '@/lib/slack/mapping-authorization'
 import { requireAuth } from '@/middleware/auth'
@@ -208,7 +208,10 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       teamId,
     )
 
-    return c.json({ ok: true, deleted })
+    // A disconnected channel keeps nothing: its record and the Slack messages it held.
+    if (deleted?.externalChatId) await removeExternalChat(deleted.externalChatId)
+
+    return c.json({ ok: true, deleted: deleted !== null })
   })
 }
 
