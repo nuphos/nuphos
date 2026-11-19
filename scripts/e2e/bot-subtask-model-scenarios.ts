@@ -46,16 +46,16 @@ export const botSubtaskModelScenarios: Scenario[] = [
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
         )
         await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
-        await page.waitForTimeout(3_000)
+        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
+
+        // Opened while it ran, its chip names the model once the app reads it after the turn.
+        await until("the sub-Task's chip to name its model", async () =>
+          (await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted'),
+        )
         await light()
         await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
-        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
-        const label = (await chip.getAttribute('aria-label')) ?? ''
-
-        if (!label.startsWith('Model settings: fixture-unlisted'))
-          throw new Error(`The sub-Task's chip reads "${label}"`)
       } finally {
-        // Kept until the chip is read: the app reads the sub-Task's model again once it ends.
+        // Kept until the chip names the model: the app reads it again once the sub-Task ends.
         rmSync(behind, { force: true })
         rmSync(release, { force: true })
       }
