@@ -214,5 +214,10 @@
     <string name="chat_summary_triggers">Disparadores</string>
     <string name="chat_summary_no_triggers">Pide al agente que programe trabajo periódico en esta tarea.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Detalles del bot</string>
+    <string name="chat_bot_state_waiting">%1$d necesita tu respuesta</string>
+    <string name="chat_bot_state_running">%1$d en ejecución</string>
+    <string name="chat_summary_idle_since">Inactivo · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Pide aquí que se programen trabajos recurrentes.</string>
     <string name="chat_summary_paused">En pausa</string>
 </resources>

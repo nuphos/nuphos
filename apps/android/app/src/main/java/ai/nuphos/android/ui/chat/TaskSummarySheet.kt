@@ -5,7 +5,18 @@ import ai.nuphos.android.data.ConversationTrigger
 import ai.nuphos.android.data.ConversationTriggersApi
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.model.TransferUpload
+import ai.nuphos.android.session.AgentStore
+import ai.nuphos.android.ui.LocalAgentStore
+import ai.nuphos.android.ui.components.RuntimeMark
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalUriHandler
@@ -62,6 +73,10 @@ internal fun TaskSummarySheet(
     allowed: () -> Boolean,
     onOpen: (String) -> Unit,
     onDismiss: () -> Unit,
+    /** A Bot's card: with one, this is the Bot's details, its dispatched Tasks listed right after its questions. */
+    lead: (@Composable () -> Unit)? = null,
+    /** Whether a trigger row opens the triggers to edit. */
+    canManage: Boolean = true,
 ) {
     val inbox = remember(session, token) { OpenQuestions(OpenQuestions.Api(token, session.teamId)) }
     val scope = rememberCoroutineScope()
@@ -122,7 +137,11 @@ internal fun TaskSummarySheet(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(if (selected == null) R.string.chat_summary_title else R.string.chat_summary_question),
+                    stringResource(when {
+                        selected != null -> R.string.chat_summary_question
+                        lead != null -> R.string.chat_bot_details_title
+                        else -> R.string.chat_summary_title
+                    }),
                     Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
                 )
@@ -145,6 +164,10 @@ internal fun TaskSummarySheet(
                     )
                 }
             } else {
+                lead?.invoke()
+                val boxed = lead != null
+                // Bot details shows its questions only when there are some.
+                if (lead == null || questions.isNotEmpty()) SummarySection(boxed) {
                 Text(stringResource(R.string.chat_summary_needs_input), style = MaterialTheme.typography.titleMedium)
                 when {
                     !inbox.loaded && !attempted -> CircularProgressIndicator()
@@ -164,7 +187,12 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                if (background.isNotEmpty()) {
+                }
+                if (lead != null && children.isNotEmpty()) SummarySection(boxed) {
+                    Text(stringResource(R.string.chat_summary_children), style = MaterialTheme.typography.titleMedium)
+                    children.forEach { task -> BotTaskRow(task) { if (allowed()) onOpen(task.sessionId) } }
+                }
+                if (background.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_background), style = MaterialTheme.typography.titleMedium)
                     background.forEach { work ->
                         key(work.id) {
@@ -194,7 +222,7 @@ internal fun TaskSummarySheet(
                     }
                 }
                 val changes = session.linkedResources.resources.filter { it.supported }
-                if (changes.isNotEmpty()) {
+                if (changes.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_changes), style = MaterialTheme.typography.titleMedium)
                     changes.forEach { change ->
                         val url = change.safeUrl
@@ -206,7 +234,7 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                if (children.isNotEmpty()) {
+                if (lead == null && children.isNotEmpty()) {
                     Text(stringResource(R.string.chat_summary_children), style = MaterialTheme.typography.titleMedium)
                     children.forEach { child ->
                         val status = when {
@@ -220,7 +248,7 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
-                if (session.canReadDownloads && session.downloads.isNotEmpty()) {
+                if (session.canReadDownloads && session.downloads.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_files), style = MaterialTheme.typography.titleMedium)
                     session.downloads.forEach { group ->
                         key(group.groupId) {
@@ -235,6 +263,7 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
+                SummarySection(boxed) {
                 Text(stringResource(R.string.chat_summary_triggers), style = MaterialTheme.typography.titleMedium)
                 val listedTriggers = triggers
                 when {
@@ -242,14 +271,17 @@ internal fun TaskSummarySheet(
                         onClick = { scope.launch { refreshTriggers() } },
                     ) { Text(stringResource(R.string.shell_retry)) }
                     listedTriggers == null -> CircularProgressIndicator()
-                    listedTriggers.isEmpty() -> Text(stringResource(R.string.chat_summary_no_triggers))
+                    listedTriggers.isEmpty() -> if (boxed) Text(stringResource(R.string.chat_bot_details_no_triggers),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Text(stringResource(R.string.chat_summary_no_triggers))
                     else -> listedTriggers.forEach { trigger ->
                         SummaryContextRow(trigger.name,
                             if (trigger.enabled) trigger.schedule else stringResource(R.string.chat_summary_paused),
-                            R.drawable.ic_task_summary_clock, enabled = true) {
+                            R.drawable.ic_task_summary_clock, enabled = canManage) {
                             if (allowed()) showTriggers = true
                         }
                     }
+                }
                 }
             }
         }
@@ -268,6 +300,59 @@ private fun SummaryContextRow(title: String, subtitle: String, @DrawableRes icon
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/** The outlined card a Bot's details are laid out in, its card and each section alike. */
+@Composable
+internal fun SummaryCard(
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+    content: @Composable ColumnScope.() -> Unit,
+) = Column(
+    Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium).padding(16.dp),
+    horizontalAlignment = horizontalAlignment, verticalArrangement = Arrangement.spacedBy(8.dp), content = content,
+)
+
+/** A section: in its own card in Bot details, laid out as before in the Task summary. */
+@Composable
+private fun SummarySection(boxed: Boolean, content: @Composable ColumnScope.() -> Unit) =
+    if (boxed) SummaryCard(content = content)
+    else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+
+/** A Task a Bot dispatched, as its details list it: what it is doing at a glance. */
+@Composable
+private fun BotTaskRow(task: AgentConversation, onClick: () -> Unit) {
+    val state = LocalAgentStore.current.taskState(task)
+    val waiting = state == AgentStore.TaskState.Waiting
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp).testTag("bot-task-row"),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RuntimeMark(task.agentRuntime, 22.dp)
+        Column(Modifier.weight(1f)) {
+            Text(task.displayTitle, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                when (state) {
+                    AgentStore.TaskState.Waiting -> stringResource(R.string.chat_summary_needs_input)
+                    AgentStore.TaskState.Running -> stringResource(R.string.chat_summary_running)
+                    AgentStore.TaskState.Idle -> stringResource(R.string.chat_summary_idle_since, HistoryTime.format(task.lastActiveAt))
+                },
+                style = MaterialTheme.typography.bodySmall, maxLines = 1,
+                color = if (waiting) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // One slot for the dot and the spinner, so the states line up.
+        Box(Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+            when (state) {
+                AgentStore.TaskState.Waiting -> Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape))
+                // On its track, so a frame early in the sweep still reads as a spinner.
+                AgentStore.TaskState.Running -> CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, trackColor = MaterialTheme.colorScheme.outlineVariant)
+                AgentStore.TaskState.Idle -> {}
+            }
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

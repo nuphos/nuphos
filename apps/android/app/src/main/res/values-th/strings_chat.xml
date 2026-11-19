@@ -207,5 +207,10 @@
     <string name="chat_summary_triggers">ทริกเกอร์</string>
     <string name="chat_summary_no_triggers">ขอให้เอเจนต์ตั้งเวลาทำงานซ้ำในงานนี้</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">รายละเอียดบอท</string>
+    <string name="chat_bot_state_waiting">รอคำตอบจากคุณ %1$d รายการ</string>
+    <string name="chat_bot_state_running">กำลังทำงาน %1$d รายการ</string>
+    <string name="chat_summary_idle_since">ว่าง · %1$s</string>
+    <string name="chat_bot_details_no_triggers">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
     <string name="chat_summary_paused">หยุดชั่วคราว</string>
 </resources>
