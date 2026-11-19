@@ -1,7 +1,7 @@
 // Repro only (not for merge): the same Task open in two windows, and a second send
 // while the first is still pending. Each message and reply must show once.
 import { artifacts } from './processes.ts'
-import { stored } from './dup-net-scenarios.ts'
+import { sessionOf, stored } from './dup-net-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { NetProxy } from './net-proxy.ts'
@@ -51,11 +51,13 @@ export function dupCaseScenarios(proxy: NetProxy): Scenario[] {
 
         // The app's own path to a second window (a tab's Open in New Window); the menu
         // accelerator never reaches Electron through the DevTools protocol.
-        await page.evaluate(() =>
-          (window as unknown as { api: { openPageWindow: (url: string) => void } }).api.openPageWindow(
-            'https://nuphos.ai/',
-          ),
-        )
+        // The Task's own link, as a tab's Open in New Window passes it.
+        const link = `https://nuphos.ai/teams/${stack.teamId}/agent/${sessionOf(stack.mongoUri, a.marker)}`
+
+        note(`two-windows: opening ${link.replace(/[0-9a-f-]{20,}/g, '<id>')}`)
+        await page.evaluate((url) => {
+          ;(window as unknown as { api: { openPageWindow: (url: string) => void } }).api.openPageWindow(url)
+        }, link)
         let second: Page | undefined
 
         for (let i = 0; i < 40 && !second; i++) {
@@ -74,8 +76,7 @@ export function dupCaseScenarios(proxy: NetProxy): Scenario[] {
           return
         }
         await second.waitForLoadState()
-        await second.getByRole('tabpanel', { name: 'Tasks' }).getByText('Dup two windows first').first().click({ timeout: 30_000 })
-        await second.waitForTimeout(3000)
+        await second.waitForTimeout(5000)
         await second.screenshot({ path: `${artifacts}/dup2w-window2-opened.png` })
         // The window's own composer: other panes it keeps mounted are inert.
         const focused = await second.evaluate(() => {

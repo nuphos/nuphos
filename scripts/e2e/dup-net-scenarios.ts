@@ -14,6 +14,22 @@ import type { Page } from 'playwright-core'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
 /** How many stored messages of each role carry the marker. */
+/** The Task (session) a marker's message was stored in. */
+export function sessionOf(mongoUri: string, marker: string) {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const [uri, marker] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    const row = await client.db('nuphos_e2e').collection('agent_messages')
+      .findOne({ 'parts.text': { $regex: marker } }, { projection: { sessionId: 1 } })
+    console.log(row?.sessionId ?? '')
+    await client.close()`
+
+  return execFileSync('bun', ['-e', script, mongoUri, marker], { cwd: BACKEND_DIR, timeout: 20_000 })
+    .toString()
+    .trim()
+}
+
 export function stored(mongoUri: string, marker: string) {
   const script = `
     import { MongoClient } from 'mongodb'
