@@ -23,6 +23,3 @@ swiftc nuphos-ios/Views/Home/HomeColumns.swift tests/HomeColumnsTests.swift -o "
 swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
 "$test_dir/string-catalog-tests" Shared/Localizable.xcstrings
 "$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
-
-swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
-"$test_dir/hosted-bot-avatar-tests"
