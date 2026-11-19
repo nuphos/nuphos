@@ -465,6 +465,8 @@ class BotsPageFixtureDeviceTest {
         noRuntimes = true
         render()
         waitText(prompt)
+        // The runtime response may arrive before the initial list refresh finishes.
+        compose.waitUntil(8_000) { !store.isRefreshing }
         noRuntimes = false
         compose.runOnIdle { store.refresh() }
         compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
