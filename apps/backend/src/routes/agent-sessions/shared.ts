@@ -5,11 +5,12 @@ import { agentSubjectId } from '@/lib/agents/identity'
 import { canMintCredentials, isCloudCredentialPath } from '@/lib/byos/credential-role'
 import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
 import { AppError } from '@/lib/errors'
-import { dashboardPanels } from '@/models'
+import { PERSONAL_CREDENTIAL_PROVIDERS, dashboardPanels } from '@/models'
 import { allCredentialAccessFromOptions } from '@/routes/agent/credential-access'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 
 import type { AgentRef } from '@/lib/agents/identity'
+import type { PersonalCredentialProvider } from '@/models'
 import type {
   AuthVariables,
   AwsAccountVariables,
@@ -248,7 +249,8 @@ export function normalizeCredentialAccess(
     cloudflareAccountIds: optionalCredentialIds(access?.cloudflareAccountIds),
     instaboxAccountIds: optionalCredentialIds(access?.instaboxAccountIds),
     personalCredentialIds: credentialIds(access?.personalCredentialIds).filter(
-      (id): id is 'github' | 'linear' => id === 'github' || id === 'linear',
+      (id): id is PersonalCredentialProvider =>
+        (PERSONAL_CREDENTIAL_PROVIDERS as readonly string[]).includes(id),
     ),
     deviceIds: credentialIds(access?.deviceIds),
   }

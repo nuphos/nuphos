@@ -7,7 +7,7 @@
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
-import { setupHint, vendedAccountHint } from './credential-hints'
+import { personalCredentialDetails, setupHint, vendedAccountHint } from './credential-hints'
 import { describeCredentialIdentities } from './credential-identities'
 import { deviceLister, lister, vendedAccount, viaSkill, viaTeamApi } from './credential-lister'
 
@@ -225,14 +225,7 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     provider: 'personal',
     available: (o) => o.personalCredentials,
     idOf: (c) => c.provider,
-    details: (c, id) => ({
-      label: `${c.login} (your own ${id === 'github' ? 'GitHub' : 'Linear'})`,
-      credentialPath: `personal-credentials/${id}/token`,
-      hint:
-        id === 'github'
-          ? setupHint('github', 'personal')
-          : setupHint('linear', 'personal', { after: 'source ~/.linear/nuphos.env' }),
-    }),
+    details: personalCredentialDetails,
   }),
   deviceIds: (selectedIds, options) => {
     const listed = deviceLister(selectedIds, options)

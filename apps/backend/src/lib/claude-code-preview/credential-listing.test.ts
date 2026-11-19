@@ -167,6 +167,26 @@ describe('usage notes', () => {
     expect(entry?.hint).toContain('skills/github/scripts/setup-credentials.sh $TEAM personal')
   })
 
+  test('a selected Google Personal Credential names the google-workspace setup', () => {
+    const entry = flattenSelectedCredentials(
+      { personalCredentialIds: ['google-calendar'] },
+      {
+        ...oneOfEach(),
+        personalCredentials: [{ provider: 'google-calendar', login: 'me@example.com' }],
+      },
+    ).find((e) => e.provider === 'personal')
+
+    expect(entry).toMatchObject({
+      provider: 'personal',
+      id: 'google-calendar',
+      label: 'me@example.com (your own Google Calendar)',
+      credentialPath: 'personal-credentials/google-calendar/token',
+    })
+    expect(entry?.hint).toContain(
+      'skills/google-workspace/scripts/setup-credentials.sh $TEAM google-calendar',
+    )
+  })
+
   test('tell the agent how to use a Huawei account without guessing', () => {
     const [entry] = flattenSelectedCredentials({ huaweiAccountIds: [ID] }, oneOfEach())
 

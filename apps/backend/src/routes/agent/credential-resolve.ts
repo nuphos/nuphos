@@ -3,6 +3,7 @@ import { resolveConnectorCredentialAccess } from './credential-resolve-connector
 import { includeBoundOnpremCluster } from './credential-resolve-onprem'
 import { normalizeCredentialSelection } from './team-scope'
 
+import type { PersonalCredentialProvider } from '@/models'
 import type { AgentCredentialOptions, AgentCredentialSelection } from './types'
 import type { AgentCredentialAccess } from '@/lib/agent/db'
 
@@ -145,7 +146,7 @@ export function availableCredentialAccess(
       selection.personalCredentialIds,
       options.personalCredentials,
       (credential) => credential.provider,
-    ) as ('github' | 'linear')[],
+    ) as PersonalCredentialProvider[],
     // Any of the user's own devices, online or not; whether one is usable is
     // checked each time a tool uses it.
     deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),

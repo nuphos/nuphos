@@ -64,6 +64,24 @@ describe('own credential without a team binding', () => {
       linearWorkspaces: Array.from({ length: linear }, () => ({})),
     }) as unknown as AgentCredentialOptions
 
+  test('a Google credential is one own row, never an identity row', () => {
+    const google = {
+      personalCredentials: [{ provider: 'google-calendar' as const, login: 'fong@example.com' }],
+      githubInstallations: [{}],
+      linearWorkspaces: [{}],
+    } as unknown as AgentCredentialOptions
+    const value = { ...emptyCredentialAccess(), personalCredentialIds: ['google-calendar'] }
+
+    assert.deepEqual(personalRows(google, value as AgentCredentialSelection), [
+      { provider: 'google-calendar', identity: false, checked: true },
+    ])
+    assert.deepEqual(
+      setPersonalOnly(value as AgentCredentialSelection, 'google-calendar', false)
+        .personalCredentialIds,
+      [],
+    )
+  })
+
   test('every drawn own row is counted: the credential, and the identity under a binding', () => {
     const rows = personalRows(options(1, 0), {
       ...emptyCredentialAccess(),
