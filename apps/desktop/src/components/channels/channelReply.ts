@@ -26,3 +26,12 @@ export function replyTo(message: AgentPersistedMessage): AgentMessageReply | nul
       }
     : null
 }
+
+/** The last post of one Inbox answer, which says where it was answered. */
+export function endsInboxAnswer(messages: AgentPersistedMessage[], index: number): boolean {
+  const card = (message: AgentPersistedMessage | undefined) =>
+    parseMessageMetadata(message?.metadata)?.requestId
+  const here = parseMessageMetadata(messages[index]?.metadata)
+
+  return Boolean(here?.answeredIn) && card(messages[index + 1]) !== here?.requestId
+}

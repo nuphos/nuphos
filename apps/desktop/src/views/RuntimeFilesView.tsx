@@ -198,7 +198,7 @@ export function RuntimeFilesView({
               ? loading
                 ? undefined
                 : t('Select a runtime for this task, then refresh Files.')
-              : t('Select an agent to browse its workspace.')
+              : t('Select a runtime to browse its workspace.')
           }
         />
       ) : fileName ? (

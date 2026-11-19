@@ -191,6 +191,7 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     cloudflareAccountIds: (options.cloudflareAccounts ?? []).map((account) => account.accountId),
     instaboxAccountIds: (options.instaboxAccounts ?? []).map((account) => account.accountId),
     deviceIds: (options.devices ?? []).map((device) => device.deviceId),
+    personalCredentialIds: (options.personalCredentials ?? []).map((own) => own.provider),
   }
 }
 

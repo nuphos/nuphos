@@ -6,6 +6,7 @@ import { computerUseGap } from '@/lib/agent/devices/conversation-computer'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { moveConversationRuntime } from '@/lib/claude-code-preview/conversation-runtime-move'
 import { AppError } from '@/lib/errors'
+import { requestClient } from '@/lib/request-origin'
 
 import { buildConversationOwnerMap } from './conversation-view'
 import { agent } from './router'
@@ -77,7 +78,13 @@ agent.post('/conversations/:sessionId/runtime', async (c) => {
       'Only the owner or a manager of that computer can give teammates use of it.',
       { userIds: gap.needing },
     )
-  const moved = await moveConversationRuntime(conversation, body.runtimeId, userId)
+  const moved = await moveConversationRuntime(conversation, body.runtimeId, userId, {
+    by: {
+      actorId: userId,
+      via: 'runtime_move',
+      client: requestClient((name) => c.req.header(name)),
+    },
+  })
 
   const by = { actorUserId: userId, via: 'conversation_move' as const }
 

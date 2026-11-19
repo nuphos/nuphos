@@ -4,12 +4,9 @@ import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import yaml from 'js-yaml'
-
 import { callJson, setTokenSource } from '../../agent/http.ts'
 import { apiUrl } from '../../api-endpoint.ts'
 import { dialBackend } from '../../backend-socket.ts'
-import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import {
   defaultDeviceLabel,
@@ -25,8 +22,11 @@ import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
+import { cliAutoUpdate } from './cli-auto-update.ts'
+import { cliBrowser } from './cli-browser.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { cliSessionToken, hostOwner } from './cli-host-session.ts'
+import { findBrowser } from './cli-chromium.ts'
+import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
@@ -39,7 +39,8 @@ import {
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { withHostProvider } from './host-provider.ts'
+import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -48,7 +49,6 @@ import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
 import type { Instances } from './app-update-request.ts'
-import type { CliConfig } from './cli-host-session.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
@@ -96,14 +96,6 @@ const launchToken = process.env.NUPHOS_SESSION_TOKEN || null
 
 delete process.env.NUPHOS_SESSION_TOKEN
 
-function readCliConfig(): CliConfig {
-  try {
-    return yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as CliConfig
-  } catch {
-    return null
-  }
-}
-
 const launch = { token: launchToken, keychainAccount: readCliConfig()?.keychainAccount }
 const currentToken = () => cliSessionToken(readCliConfig(), launch)
 
@@ -143,7 +135,7 @@ if (!bundle()) {
 }
 
 const prepareAgentHome = podOwnerAgentHome(owner, dataDir)
-const controller: LocalRuntimeController = new LocalRuntimeController({
+const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   bundle,
   ownsMachine: ownsMachine(deviceCredential),
   dataDir: () => dataDir,
@@ -168,9 +160,12 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: bundledModelProbe(bundle),
-  createTunnel: withE2eStagedUpdate(stop, (runtime, status, onChange, instances) => {
+  createTunnel: withE2eStagedUpdate(stop, (runtime, runtimeStatus, onChange, runtimeInstances) => {
+    const [status, instances] = autoUpdate.wrap(runtimeStatus, runtimeInstances)
+
     tunnel = new RuntimeTunnelClient({
       instances,
+      activity: autoUpdate.activity,
       sampleMetrics: readDeviceMetrics,
       connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -189,6 +184,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
+      ...cliBrowser(dataDir, findBrowser()),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 
@@ -211,19 +207,17 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return tunnel
   }),
   log,
-})
+}
+// The operator's own model provider, from this process's environment (host-provider.ts).
+const controller = new LocalRuntimeController(withHostProvider(process.env, deps))
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 // A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
 const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
-const macScreenHost = {
-  binary: () => path.join(bundleRoot, 'mac-screen-host'),
-  handOver: (human: boolean) =>
-    console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
-  owner: () => owner,
-  ownPermissions: true,
-}
+const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
+// Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
+const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
 /** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {

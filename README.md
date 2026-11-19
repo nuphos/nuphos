@@ -8,8 +8,8 @@
 
 Nuphos is an open source (Apache-2.0) alternative to xAI's Grok Bot. It gives
 you always-on Bots that run on the Claude Code or Codex subscription you
-already pay for, on a managed cloud computer or a machine you own, in chats
-your whole team can join.
+already pay for, on a computer Nuphos runs for you or a machine you own, in
+chats your whole team can join.
 
 What sets Nuphos apart is the team. Your teammates work with a Bot in the same
 live session, see the same tool calls, and steer it together. Nuphos is not
@@ -18,14 +18,14 @@ affiliated with xAI.
 ## Features
 
 - **Bots that keep working.** Give a Bot a name and a face and chat with it
-  one-on-one. On a cloud computer or a server you keep running, its turn
+  one-on-one. On a computer from Nuphos or a server you keep running, its turn
   continues after you close your laptop, and you can pick it up from the iOS
   app.
 - **Use the subscription you already pay for.** Claude Code and Codex each run
   behind an [ACP](https://agentclientprotocol.com) adapter and sign in with
   your own Claude or ChatGPT account, so there is no extra model charge on
   top. OpenCode, Grok Build and Antigravity runtimes are available too.
-- **Run it where you want.** A runtime can be a cloud computer Nuphos manages,
+- **Run it where you want.** A runtime can be a computer Nuphos runs for you,
   a remote machine you own, or your laptop. Move a conversation between them
   and it keeps going.
 - **A session is a room with your teammates.** Invite someone into a running
@@ -254,6 +254,30 @@ single source of repository rules for people and agents alike.
 - Develop and check backend-only changes from `apps/backend` and desktop-only
   changes from `apps/desktop`. A contract change that affects both lands in one
   PR so the API and the desktop client stay compatible.
+
+### CI and runners
+
+Every GitHub-hosted job in this repository shares one organization-wide limit
+(20 concurrent jobs, of which at most 5 run on macOS), and GitHub has no job
+priority. A pull-request job that holds a runner delays the merge queue and
+releases, so:
+
+- Use macOS runners only for steps that need Xcode or the iOS simulator. The
+  macOS slots are the scarcest, and releases and TestFlight wait for them too.
+- Give every job a `timeout-minutes` and every pull-request workflow a
+  `concurrency` group with `cancel-in-progress: true`. A hung simulator or a
+  superseded run otherwise holds a runner for hours.
+- Never run a fork's pull request on a self-hosted runner (`instabox-*`). The
+  repository is public, so that runner would execute anyone's code.
+
+A workflow added only to capture screenshots or a recording for a pull request
+lives on its own branch, so `workflow_dispatch` cannot start it:
+
+- Gate each job on `[run]` in the commit message, e.g.
+  `if: contains(github.event.head_commit.message, '[run]')`. Otherwise every
+  push to the branch, including merges from main, runs it again.
+- Delete the workflow file once the evidence is captured, and the branch with
+  it. A leftover workflow keeps firing on later pushes.
 
 ### Backend environment variables
 

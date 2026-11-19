@@ -28,7 +28,7 @@ try {
   await page.locator('input[placeholder="000000"]').fill(stack.signInCode(email) ?? '')
   await page.getByPlaceholder('Name your workspace…').fill('New user')
   await page.getByRole('button', { name: 'Create workspace' }).click()
-  const cloud = page.getByRole('button', { name: /^Nuphos cloud computer/ })
+  const cloud = page.getByRole('button', { name: /^Rent a computer from Nuphos/ })
 
   // Each place a new user is asked for a runtime offers the cloud computer: onboarding,
   await cloud.waitFor()

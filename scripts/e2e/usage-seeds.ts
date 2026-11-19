@@ -29,7 +29,7 @@ export function tooManyModels(stack: Stack, add: boolean) {
   })
 }
 
-type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string }
+type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string; modelId?: string }
 
 /** Writes (or, with no seeds, removes) usage a turn would record, in `sessionId`, owned by its owner. */
 export function seedUsage(stack: Stack, sessionId: string, owner: string, seeds: Seed[]) {
@@ -45,7 +45,8 @@ export function seedUsage(stack: Stack, sessionId: string, owner: string, seeds:
         const base = {
           sessionId, userId: owner, actorUserId: seed.actor, teamId, operation: 'e2e.seed',
           source: 'agent-runtime', accounting: 'upstream_reported', provider: 'claude-code',
-          modelId: 'claude-opus-5-5', turnSource: seed.triggerId ? 'agent.trigger' : 'app',
+          modelId: seed.modelId ?? 'claude-opus-5-5',
+          turnSource: seed.triggerId ? 'agent.trigger' : 'app',
           createdAt: new Date(Date.now() - seed.daysAgo * 86400000),
           ...(seed.triggerId ? { triggerId: seed.triggerId } : {}),
         }
@@ -86,7 +87,7 @@ export function privateConversation(stack: Stack, sessionId: string, owner: stri
   })
 }
 
-/** Last week the teammate used little; this week their Trigger used far more than anyone. The
+/** The 30 days before, the teammate used little; in these 30 days their Trigger used far more. The
  *  owner also used a little in a conversation only they may see. */
 export function seedTenfold(
   stack: Stack,
@@ -96,10 +97,10 @@ export function seedTenfold(
 
   privateConversation(stack, privateId, owner, true)
   seedUsage(stack, privateId, owner, [{ actor: owner, total: 5_000, daysAgo: 1 }])
-  // Last week the teammate used little; this week their Trigger used far more than anyone.
+  // The 30 days before, the teammate used little; in these 30 days their Trigger used far more than anyone.
   seedUsage(stack, sessionId, owner, [
-    { actor: teammate, total: 10_000, daysAgo: 9 },
-    { actor: owner, total: 100_000, daysAgo: 9, triggerId },
+    { actor: teammate, total: 10_000, daysAgo: 35 },
+    { actor: owner, total: 100_000, daysAgo: 35, triggerId },
     { actor: teammate, total: 400_000, daysAgo: 1, triggerId },
     { actor: owner, total: 50_000, daysAgo: 1 },
   ])
