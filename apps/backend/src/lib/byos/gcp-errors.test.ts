@@ -109,6 +109,7 @@ describe('classifyListClustersError', () => {
       Object.assign(new Error('Billing disabled'), { code: 7, reason: 'BILLING_DISABLED' }),
       HANDLE,
     )
+
     expect(error?.code).toBe('gcp_billing_disabled')
   })
   // The production report: the SA already held container.clusters.list, but the

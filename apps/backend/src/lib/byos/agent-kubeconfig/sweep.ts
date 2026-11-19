@@ -145,6 +145,7 @@ export async function addRelayedContexts(opts: {
  */
 function kubernetesUnavailableReason(err: unknown): string | null {
   const reason = (err as { reason?: unknown } | null | undefined)?.reason
+
   if (
     reason === 'BILLING_DISABLED' ||
     (err instanceof AppError && err.code === 'gcp_billing_disabled')
@@ -152,6 +153,7 @@ function kubernetesUnavailableReason(err: unknown): string | null {
     return 'billing_disabled'
   if (reason === 'SERVICE_DISABLED' || (err instanceof AppError && err.code === 'gcp_api_disabled'))
     return 'service_disabled'
+
   return null
 }
 
@@ -167,6 +169,7 @@ export function reportSweepFailure(
   const properties = { provider: ctx.provider, team_id: ctx.teamId, account: ctx.account }
 
   const reason = ctx.provider === 'gcp' ? kubernetesUnavailableReason(err) : null
+
   if (reason) {
     logEvent('info', 'agent.kubeconfig.no_clusters', { ...properties, reason })
 
