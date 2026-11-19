@@ -282,6 +282,7 @@ function claudeAppCli(root: string, version: string): string {
 
 test('an agent whose CLI file is gone looks for it again and runs the copy that replaced it', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
     'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
@@ -310,6 +311,7 @@ test('an agent whose CLI file is gone looks for it again and runs the copy that 
 
 test('an agent whose CLI file is gone with nothing to replace it says it is not installed', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
     'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
@@ -328,6 +330,7 @@ test('an agent whose CLI file is gone with nothing to replace it says it is not 
 
 test('Check restarts an agent whose CLI moved, so a reinstall takes effect at once', async (t) => {
   const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
     'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },

@@ -1,4 +1,4 @@
-import { executable } from './agent-cli-apps.ts'
+import { cliPath, executable } from './agent-cli-apps.ts'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { discoverModels } from './agent-models.ts'
 import {
@@ -17,7 +17,7 @@ import { startOpenab } from './openab-start.ts'
 import { AGENT_HOME_UNAVAILABLE, INSTALL_HINT } from './providers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
-import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
+import type { LocalAgentProvider } from './agent-cli.ts'
 import type {
   Agent,
   LocalAgentRun,
@@ -196,9 +196,8 @@ export class LocalRuntimeController {
     return this.agents[provider].runtime
   }
   /**
-   * The running agent, for a stream that asks for it. One whose CLI is missing, or whose CLI
-   * file is gone (the Claude app deletes its old copy when it updates), is looked for again:
-   * nothing else would notice until a restart.
+   * The running agent, for a stream that asks for it. One whose CLI is missing or gone (the
+   * Claude app deletes its old copy as it updates) is looked for again; nothing else would.
    */
   runtimeForStream(provider: LocalAgentProvider) {
     const agent = this.agents[provider]
@@ -298,8 +297,4 @@ export class LocalRuntimeController {
       scheduleAgentRestart(agent, run, () => this.startProcess(run))
     })
   }
-}
-
-function cliPath(cli: AgentCliStatus | null): string | undefined {
-  return cli?.installed ? cli.path : undefined
 }
