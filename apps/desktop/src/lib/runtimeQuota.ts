@@ -61,9 +61,10 @@ export function quotaSummary(quota: RuntimeQuota | undefined): string | null {
   return t('{percent}% left', { percent: quotaLeftPercent(worst) })
 }
 
-/** "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nothing when the
- *  reset is unknown or already past. Every usage bar and usage-limit notice uses it. */
-export function formatResetsIn(
+/** "2d 5h", "3h 20m" or "12m" until the reset; nothing when it is unknown or
+ *  already past. The composer chip shows it bare, everything else through
+ *  formatResetsIn. */
+export function formatResetsDuration(
   resetsAt: string | null | undefined,
   now: Date = new Date(),
 ): string | null {
@@ -80,7 +81,18 @@ export function formatResetsIn(
   if (days > 0) time = t('{days}d {hours}h', { days, hours })
   else if (hours > 0) time = t('{hours}h {minutes}m', { hours, minutes })
 
-  return t('resets in {time}', { time })
+  return time
+}
+
+/** "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nothing when the
+ *  reset is unknown or already past. Every usage bar and usage-limit notice uses it. */
+export function formatResetsIn(
+  resetsAt: string | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  const time = formatResetsDuration(resetsAt, now)
+
+  return time && t('resets in {time}', { time })
 }
 
 export function quotaWindowLine(window: RuntimeQuotaWindow, now: Date): string {

@@ -8,6 +8,7 @@ import {
   computerWithUsage,
   loadingFree,
   pickRuntime,
+  shootChipResets,
   shootRuntimeLine,
   shootUsageResets,
 } from './channel-helpers.ts'
@@ -238,15 +239,10 @@ export const channelScenarios: Scenario[] = [
         const task = await shootRuntimeLine(page, 'task')
 
         // #3732: the chip names when its tightest window, the 5-hour one, resets.
-        const chipReset = await page
-          .locator('.composer-surface:visible')
-          .last()
-          .getByText(/^resets in 2h 5\dm$|^resets in 3h 0m$/u)
-          .count()
+        await shootChipResets(page)
 
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
-        if (!chipReset) throw new Error('The composer usage bar does not say when it resets')
         await shootUsageResets(page, computer)
       } finally {
         forget()

@@ -1,6 +1,7 @@
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import {
+  formatResetsDuration,
   formatResetsIn,
   mostConstrainedWindow,
   quotaDetailLines,
@@ -15,13 +16,18 @@ import type { RuntimeQuota } from '../../types/runtime'
 
 /** Drains like a battery: full when nothing is spent, empty when the tightest
  *  window is used up. When that window resets sits on its right; every
- *  window's figures sit in the tooltip. */
-export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
+ *  window's figures sit in the tooltip. In the composer chip (`chip`) the
+ *  reset is the bare duration, and it is the first thing to go when the
+ *  composer narrows, before the model chip drops its effort. Outside a
+ *  container, as in the fallback pickers, it always shows. */
+export function RuntimeUsageBar({ quota, chip = false }: { quota?: RuntimeQuota; chip?: boolean }) {
   const window = mostConstrainedWindow(quota)
 
   if (!window) return null
   const left = quotaLeftPercent(window)
   const tone = quotaWindowTone(window)
+  const reset = formatResetsIn(window.resetsAt)
+  const duration = formatResetsDuration(window.resetsAt)
 
   return (
     <Tooltip
@@ -40,7 +46,7 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={left}
-          aria-valuetext={quotaSummary(quota) ?? undefined}
+          aria-valuetext={[quotaSummary(quota), reset].filter(Boolean).join(' · ') || undefined}
           // A spent window has no fill left to colour, so its track carries the red.
           className={`h-1.5 w-10 shrink-0 overflow-hidden rounded-full ${tone === 'exhausted' ? 'bg-error/30' : 'bg-surface-sunken'}`}
         >
@@ -49,7 +55,18 @@ export function RuntimeUsageBar({ quota }: { quota?: RuntimeQuota }) {
             style={{ width: `${String(left)}%` }}
           />
         </span>
-        <ResetsIn resetsAt={window.resetsAt} />
+        {chip ? (
+          duration && (
+            <span
+              aria-hidden
+              className="whitespace-nowrap text-xs tabular-nums text-tertiary @[0px]:hidden @[520px]:inline"
+            >
+              {duration}
+            </span>
+          )
+        ) : (
+          <ResetsIn resetsAt={window.resetsAt} />
+        )}
       </span>
     </Tooltip>
   )
@@ -60,8 +77,6 @@ export function ResetsIn({ resetsAt }: { resetsAt: string | null | undefined }) 
   const reset = formatResetsIn(resetsAt)
 
   return reset ? (
-    <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-tertiary">
-      {reset}
-    </span>
+    <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-tertiary">{reset}</span>
   ) : null
 }

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  formatResetsDuration,
   formatResetsIn,
   quotaDetailLines,
   quotaNote,
@@ -91,6 +92,13 @@ test('resets in: days and hours, then hours and minutes, then minutes', () => {
   assert.equal(formatResetsIn(at(12), now), 'resets in 12m')
   // Under a minute still reads as a minute away, never as "0m".
   assert.equal(formatResetsIn(at(0.25), now), 'resets in 1m')
+})
+
+test('the bare duration is what follows "resets in"', () => {
+  const at = new Date(now.getTime() + (2 * 1440 + 5 * 60) * 60_000).toISOString()
+
+  assert.equal(formatResetsDuration(at, now), '2d 5h')
+  assert.equal(formatResetsDuration(null, now), null)
 })
 
 test('resets in is hidden when the reset is unknown or past', () => {

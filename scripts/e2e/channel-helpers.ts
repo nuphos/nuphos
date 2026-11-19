@@ -82,11 +82,48 @@ export async function shootRuntimeLine(page: Page, name: string) {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')
   })
-  await bar.waitFor({ timeout: 30_000 }).catch(() => undefined)
+  await bar.waitFor({ timeout: 30_000 }).catch(() => {})
   await page.waitForTimeout(500)
   await page.locator('.composer-surface:visible').last().screenshot({ path })
 
   return (await bar.count()) > 0
+}
+
+/** #3732: the composer chip shows the bare duration, with the whole "resets in"
+ *  in its tooltip, and drops the duration first when the composer narrows. */
+export async function shootChipResets(page: Page) {
+  const composer = page.locator('.composer-surface:visible').last()
+  const duration = composer.getByText(/^(2h 5\dm|3h 0m)$/u)
+
+  await duration.waitFor({ timeout: 30_000 })
+  await page.screenshot({ path: `${artifacts}/usage-resets-chip-wide-light.png` })
+  await composer.getByRole('progressbar', { name: 'Usage remaining' }).hover()
+  await page
+    .getByText(/resets in (2h 5\dm|3h 0m)/u)
+    .first()
+    .waitFor({ timeout: 10_000 })
+  await page.screenshot({ path: `${artifacts}/usage-resets-chip-tooltip-light.png` })
+  await page.mouse.move(0, 0)
+  // Playwright drives the app over CDP, so the page has no viewport of its own to resize.
+  const cdp = await page.context().newCDPSession(page)
+  const width = await page.evaluate(() => window.innerWidth)
+  const height = await page.evaluate(() => window.innerHeight)
+
+  try {
+    for (let narrow = width - 80; (await duration.isVisible()) && narrow >= 480; narrow -= 80)
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width: narrow,
+        height,
+        deviceScaleFactor: 0,
+        mobile: false,
+      })
+    if (await duration.isVisible()) throw new Error('A narrow composer still shows the duration')
+    await page.waitForTimeout(300)
+    await page.screenshot({ path: `${artifacts}/usage-resets-chip-narrow-light.png` })
+  } finally {
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await cdp.detach()
+  }
 }
 
 /** #3732: the Computers page's agent row and the agent's own page each say when
