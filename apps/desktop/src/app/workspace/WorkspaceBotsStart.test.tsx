@@ -32,6 +32,8 @@ test('hiding and returning to Bots preserves its existing avatar and action node
     HTMLElement: dom.HTMLElement,
     Element: dom.Element,
     Node: dom.Node,
+    requestAnimationFrame: dom.requestAnimationFrame.bind(dom),
+    cancelAnimationFrame: dom.cancelAnimationFrame.bind(dom),
     IS_REACT_ACT_ENVIRONMENT: true,
   }
   const original = Object.keys(values).map(
@@ -92,4 +94,52 @@ test('a team with Bots sees a creation page rather than first-Bot onboarding', (
   assert.ok(!html.includes('Start with your first Bot'))
   assert.ok(html.includes('New Bot'))
   assert.ok(html.includes('Import from Grok Bot'))
+})
+
+test('until the Bots are listed the intro stays hidden, then its lines rise in', async () => {
+  const { Window } = await import('happy-dom')
+  const { act } = await import('react')
+  const { createRoot } = await import('react-dom/client')
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    requestAnimationFrame: dom.requestAnimationFrame.bind(dom),
+    cancelAnimationFrame: dom.cancelAnimationFrame.bind(dom),
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const original = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const container = dom.document.createElement('div')
+  const root = createRoot(container as unknown as HTMLElement)
+  const render = (loaded: boolean) =>
+    act(() =>
+      root.render(createElement(WorkspaceBotsStart, { teamId: 'team', loaded, onOpen: () => {} })),
+    )
+  const frame = () => act(() => new Promise((resolve) => setTimeout(resolve, 50)))
+  const shown = () => Boolean(container.querySelector('.t-stagger.is-shown .t-stagger-line'))
+
+  try {
+    await render(false)
+    await frame()
+    assert.ok(container.querySelector('.t-stagger'), 'the intro is a texts reveal')
+    assert.equal(shown(), false, 'no New Bot intro before the Bots are listed')
+    await render(true)
+    await frame()
+    assert.equal(shown(), true)
+  } finally {
+    await act(() => root.unmount())
+    await dom.happyDOM.close()
+    for (const [key, descriptor] of original) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+    }
+  }
 })

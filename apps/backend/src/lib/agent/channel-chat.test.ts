@@ -16,9 +16,9 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
-  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { replyQuote } from './channel-reply'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'

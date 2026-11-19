@@ -167,6 +167,35 @@ describe('usage notes', () => {
     expect(entry?.hint).toContain('skills/github/scripts/setup-credentials.sh $TEAM personal')
   })
 
+  test('a selected Google Personal Credential names the google-workspace setup', () => {
+    const entry = flattenSelectedCredentials(
+      { personalCredentialIds: ['google-calendar'] },
+      {
+        ...oneOfEach(),
+        personalCredentials: [{ provider: 'google-calendar', login: 'me@example.com' }],
+      },
+    ).find((e) => e.provider === 'personal')
+
+    expect(entry).toMatchObject({
+      provider: 'personal',
+      id: 'google-calendar',
+      label: 'me@example.com (your own Google Calendar)',
+      credentialPath: 'personal-credentials/google-calendar/token',
+    })
+    expect(entry?.hint).toContain(
+      'skills/google-workspace/scripts/setup-credentials.sh $TEAM google-calendar',
+    )
+  })
+
+  test('an unset Personal Credential selection lists every own credential, like a connector', () => {
+    const { selected } = partitionCredentials(
+      {},
+      { ...oneOfEach(), personalCredentials: [{ provider: 'gmail', login: 'me@example.com' }] },
+    )
+
+    expect(selected.filter((e) => e.provider === 'personal').map((e) => e.id)).toEqual(['gmail'])
+  })
+
   test('tell the agent how to use a Huawei account without guessing', () => {
     const [entry] = flattenSelectedCredentials({ huaweiAccountIds: [ID] }, oneOfEach())
 
@@ -234,6 +263,7 @@ describe('usage notes', () => {
         notionIntegrations: [],
         upstashAccounts: [],
         instaboxAccounts: [],
+        personalCredentials: [],
       },
     )
 
@@ -412,7 +442,10 @@ describe('partitionCredentials', () => {
       ]
       options.linearWorkspaces = [{ workspaceId: ID, label: 'Workspace', workspaceName: 'w' }]
       const key = provider === 'github' ? 'githubInstallationIds' : 'linearWorkspaceIds'
-      const { selected, unselected } = partitionCredentials({ [key]: [ID] }, options)
+      const { selected, unselected } = partitionCredentials(
+        { [key]: [ID], personalCredentialIds: [] },
+        options,
+      )
 
       expect(selected.find((entry) => entry.provider === provider)?.identityPreference).toEqual({
         kind: 'personal',
@@ -432,6 +465,7 @@ describe('partitionCredentials', () => {
     const selection: AgentCredentialSelection = {
       githubInstallationIds: [ID],
       teamIdentity: ['github'],
+      personalCredentialIds: [],
     }
     const team = partitionCredentials(selection, options)
 
@@ -452,7 +486,7 @@ describe('partitionCredentials', () => {
 
   test('does not enable personal access through an unselected team binding', () => {
     const { selected, unselected } = partitionCredentials(
-      { githubInstallationIds: [] },
+      { githubInstallationIds: [], personalCredentialIds: [] },
       oneOfEach(),
     )
 

@@ -61,6 +61,8 @@ const TOKEN_SHAPES: Shape[] = [
   { kind: 'nuphos-token', pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/dg },
   { kind: 'github-token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/dg },
   { kind: 'slack-token', pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/dg },
+  // InstaBox API keys: `ibk_` and 52 characters (InstaBox's malformed_key docs).
+  { kind: 'instabox-api-key', pattern: /\bibk_[A-Za-z0-9]{52}\b/dg },
   // OpenAI-compatible keys without the marker the preset's openai rule requires.
   // Trailing -/_ segments belong to the key; stopping at the first one would
   // leave a suffix too short for the entropy sweep to catch.
@@ -100,6 +102,18 @@ const CONTEXTUAL: Shape[] = [
     pattern:
       // eslint-disable-next-line sonarjs/regex-complexity -- the exact-placeholder idempotency lookahead pushes past the threshold; dropping flag names or value forms to get under it would leak real credentials
       /--(?:token|password|passwd|secret|api-key|client-secret|access-key|private-key)[= ](?!\[REDACTED:[a-z0-9-]+\](?!\S))("[^"]+"|'[^']+'|[^\s"']+)/dgi,
+    group: 1,
+  },
+  {
+    // "API key <value> expired", "invalid token <value>": prose that names a
+    // key without `=` or `:`. The value must hold a digit, so the words that
+    // follow "key" in an ordinary sentence stay readable, and start with a
+    // word character, so "the secret /run/secrets/db1" (a path) does too. The
+    // gap stays on one line. A heuristic: values under 16 characters, or cut by
+    // a character outside the set (`@`, `:`, `$`), are not caught.
+    kind: 'secret-phrase',
+    pattern:
+      /\b(?:(?:api|access|secret)[ _-]?key|token|password|secret)[ \t]+(?!\[REDACTED)(?=[\w.~+/=-]*\d)(\w[\w.~+/=-]{15,})/dgi,
     group: 1,
   },
 ]

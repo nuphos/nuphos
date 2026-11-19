@@ -1,7 +1,8 @@
 import { t } from '../../../i18n/index.ts'
 import { listedAgents } from '../../../lib/agentName.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
-import { agentDisplayName } from '../../../views/settings/agentPresentation.ts'
+import { agentDisplayName, canManage } from '../../../views/settings/agentPresentation.ts'
+import { diskWarning } from '../../../views/settings/boxMetricsPresentation.ts'
 import { computerOwner, ownerName } from '../../../views/settings/computerOwner.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
@@ -154,4 +155,29 @@ export function sharedBoxOwner(
   const name = ownerName(owner, members)
 
   return name ? t('Shared by {name}', { name }) : t('Shared by a teammate')
+}
+
+/**
+ * The disk meter's tooltip once the disk is almost full, or null. Someone who cannot free
+ * space there is told who can: they get no banner above the composer (see `computerNotice`).
+ */
+export function diskMeterHint(
+  group: Pick<SelectorBox, 'device' | 'label'>,
+  members: readonly TeamMember[] | null,
+): string | null {
+  const warning = group.device && diskWarning(group.device)
+
+  if (!group.device || !warning) return null
+  const full = t('{box}’s disk is almost full ({percent}%).', {
+    box: group.label,
+    percent: String(warning.percent),
+  })
+
+  if (canManage(group.device)) return full
+  const owner = computerOwner(group.device)
+  const name = owner && ownerName(owner, members)
+
+  return name
+    ? `${full} ${t('Ask {name} to free space.', { name })}`
+    : `${full} ${t('Ask the computer’s owner to free space.')}`
 }

@@ -43,14 +43,21 @@ export type TriggerUsage = {
 type UsageRow = UsageTokenRow & {
   sessionId: string
   fireId?: string | null
-  turns: number
+  /** When each of the group's turns was recorded; a turn's rows share it across models. */
+  turnAts: Date[]
   firstRecordedAt?: Date
   lastRecordedAt: Date
 }
 
 type FireAccumulator = Accumulator & { sessionId: string; firstRecordedAt: Date }
 
-type Accumulator = { total: TriggerUsageTotal; cost: number; priced: boolean }
+type Accumulator = {
+  total: TriggerUsageTotal
+  cost: number
+  priced: boolean
+  /** One key per turn, so a turn that used several models counts once. */
+  turnKeys: Set<string>
+}
 
 export function triggerUsagePipeline(match: Document): Document[] {
   return [
@@ -63,7 +70,9 @@ export function triggerUsagePipeline(match: Document): Document[] {
           provider: '$provider',
           modelId: '$modelId',
         },
-        turns: { $sum: { $cond: [{ $eq: ['$kind', 'step_total'] }, 1, 0] } },
+        turnAts: {
+          $addToSet: { $cond: [{ $eq: ['$kind', 'step_total'] }, '$createdAt', '$$REMOVE'] },
+        },
         firstRecordedAt: { $min: '$createdAt' },
         lastRecordedAt: { $max: '$createdAt' },
         ...KIND_TOKEN_SUMS,
@@ -76,7 +85,7 @@ export function triggerUsagePipeline(match: Document): Document[] {
         fireId: '$_id.fireId',
         provider: '$_id.provider',
         modelId: '$_id.modelId',
-        turns: 1,
+        turnAts: 1,
         firstRecordedAt: 1,
         lastRecordedAt: 1,
         inputTokens: 1,
@@ -108,7 +117,8 @@ function accumulate(acc: Accumulator, row: UsageRow): void {
   total.cacheWriteTokens += row.cacheWriteTokens
   total.outputTokens += row.outputTokens
   total.totalTokens += row.totalTokens
-  total.turns += row.turns
+  for (const at of row.turnAts) acc.turnKeys.add(`${row.sessionId}|${new Date(at).toISOString()}`)
+  total.turns = acc.turnKeys.size
   const recordedAt = row.lastRecordedAt.toISOString()
 
   if (!total.lastRecordedAt || recordedAt > total.lastRecordedAt) total.lastRecordedAt = recordedAt
@@ -145,7 +155,12 @@ export async function getTriggerUsage(
       }),
     )
     .toArray()
-  const totals: Accumulator = { total: emptyTotal(), cost: 0, priced: false }
+  const totals: Accumulator = {
+    total: emptyTotal(),
+    cost: 0,
+    priced: false,
+    turnKeys: new Set<string>(),
+  }
   const sessions = new Map<string, Accumulator>()
   const fires = new Map<string, FireAccumulator>()
 
@@ -158,6 +173,7 @@ export async function getTriggerUsage(
         total: emptyTotal(),
         cost: 0,
         priced: false,
+        turnKeys: new Set<string>(),
         sessionId: row.sessionId,
         firstRecordedAt,
       }
@@ -171,6 +187,7 @@ export async function getTriggerUsage(
       total: emptyTotal(),
       cost: 0,
       priced: false,
+      turnKeys: new Set<string>(),
     }
 
     accumulate(session, row)
