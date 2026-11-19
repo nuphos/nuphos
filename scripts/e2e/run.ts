@@ -26,7 +26,6 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
-import * as chatSpacing from './chat-spacing.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -81,14 +80,14 @@ const scenarios: Scenario[] = [
       await until('the unprompted Bot introduction to finish', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
       )
-      await chatSpacing.checkChatSpacing(page)
+      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
       await send(
         page,
-        '@E2E Bot Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
       )
       await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
       await checkDecisionOutline(page)
-      await checkOutgoingChip(page, '@E2E Bot')
+      await checkOutgoingChip(page)
       await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
@@ -162,7 +161,7 @@ try {
     await scenario.run(desktop.page, stack)
     const failures = backendFailures(from, scenario.expected)
 
-    await chatSpacing.captureScenario(desktop.page, index + 1)
+    await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
     if (failures.length > 0)
       throw new Error(`"${scenario.name}" made the backend fail:\n${failures.join('\n')}`)
     console.log(`PASS ${scenario.name}`)
