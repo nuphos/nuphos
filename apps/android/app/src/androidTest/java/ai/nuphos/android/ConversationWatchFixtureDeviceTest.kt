@@ -243,6 +243,8 @@ class ConversationWatchFixtureDeviceTest {
         compose.onNode(hasText("Synthetic child") and summary).assertExists()
         compose.onAllNodes(hasText("release-notes.md") and summary).assertCountEquals(1)
         compose.onNode(hasText("Daily release check") and summary).performScrollTo().assertIsDisplayed()
+        val subTasks = compose.activity.getString(R.string.chat_summary_children)
+        compose.onNode(hasText(subTasks) and summary).performScrollTo().assertIsDisplayed()
         shot("task-summary-context")
     }
 
