@@ -123,7 +123,7 @@ export function NoPlan({
         </h2>
         <p className="text-[14px] text-secondary">
           {t(
-            'A computer plan gives your team computers that run your agents 24/7, each with its own desktop, shared with your teammates.',
+            'A computer plan gives your team cloud computers that run your agents 24/7, each with its own desktop, shared with your teammates.',
           )}
         </p>
       </section>
