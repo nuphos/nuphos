@@ -3028,8 +3028,6 @@
   "No running tasks": "실행 중인 태스크가 없습니다",
   "No runs yet": "아직 실행 없음",
   "No runtime selected": "선택된 런타임 없음",
-  "No runtime yet": "아직 런타임 없음",
-  "No runtime yet · set one up in Settings › Local runtime": "아직 런타임 없음 · 설정 › 로컬 런타임에서 설정하세요",
   "No schedule set": "설정된 일정 없음",
   "No selected members.": "선택한 멤버가 없습니다.",
   "No service accounts available for this project.": "이 프로젝트에 사용할 수 있는 서비스 계정이 없습니다.",

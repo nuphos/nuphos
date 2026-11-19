@@ -11,13 +11,7 @@ import type { AtlasTeam } from '../../types'
 const noop = () => {}
 
 /** Reuses the complete computer/runtime page, including its details and Add action. */
-export function ComputersSection({
-  team,
-  onOpenSection,
-}: {
-  team: AtlasTeam | undefined
-  onOpenSection: (section: string) => void
-}) {
+export function ComputersSection({ team }: { team: AtlasTeam | undefined }) {
   const [filter, setFilter] = useState('')
   const [count, setCount] = useState(0)
   const [aside, setAside] = useState<HTMLDivElement | null>(null)
@@ -40,7 +34,6 @@ export function ComputersSection({
             refreshKey={0}
             onCount={setCount}
             onLoading={noop}
-            onOpenSettingsSection={onOpenSection}
           />
           <div ref={setAside} className="flex min-h-0 shrink-0" />
         </div>

@@ -3028,8 +3028,6 @@
   "No running tasks": "実行中のタスクはありません",
   "No runs yet": "実行はまだありません",
   "No runtime selected": "ランタイムが選択されていません",
-  "No runtime yet": "ランタイムはまだありません",
-  "No runtime yet · set one up in Settings › Local runtime": "ランタイムはまだありません · ［設定］›［ローカルランタイム］で設定してください",
   "No schedule set": "スケジュール未設定",
   "No selected members.": "選択されたメンバーはいません。",
   "No service accounts available for this project.": "このプロジェクトで利用できるサービスアカウントはありません。",
