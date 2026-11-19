@@ -240,7 +240,7 @@ class WorkspaceSetupFixtureDeviceTest {
     }
     /** The workspace list is in the profile sheet. */
     private fun openWorkspaces() {
-        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         waitText("Workspace")
         compose.onNodeWithText("Workspace").performScrollTo().performClick()
     }
