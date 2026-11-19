@@ -4,12 +4,13 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { joinTeam } from '../dashboard-scenarios.ts'
+import { LAPTOP, laptopOnline } from '../laptop-fixture.ts'
 import { artifacts } from '../processes.ts'
-import { botDetailsToggle, setBotDetails } from '../ui.ts'
+import { botDetailsToggle, pickInSubmenu, setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
-import type { Page } from 'playwright-core'
+import type { CDPSession, Locator, Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const SECOND = 'Details Bot'
@@ -96,6 +97,43 @@ async function checkFloating(page: Page) {
     )
 }
 
+/** Floating, the panel ends above a bar the composer holds over the chat. */
+async function stopsAbove(page: Page, bar: Locator) {
+  await checkFloating(page)
+  const panel = await details(page).boundingBox()
+  const top = await bar.boundingBox()
+
+  if (!panel || !top || panel.y + panel.height > top.y)
+    throw new Error(`The floating details run past the bar: ${JSON.stringify({ panel, top })}`)
+}
+
+/** On a computer whose disk is almost full, a status banner sits on the composer (#3181). */
+async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
+  const goOffline = await laptopOnline(stack, { diskPercent: 93 })
+  const banner = page.getByRole('status').filter({ hasText: 'disk is almost full' })
+  const pick = async (runtime: string, agent: RegExp) => {
+    await page.getByRole('button', { name: /^Runtime:/ }).click()
+    await page.getByRole('menu').getByText(runtime).first().click()
+    await pickInSubmenu(page, page.getByRole('menuitem', { name: agent }).last())
+  }
+
+  try {
+    await pick(LAPTOP, /Claude Code/)
+    await banner.waitFor()
+    await shoot(page, 'owner-wide-banner')
+    await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
+    await stopsAbove(page, banner)
+    await shoot(page, 'owner-narrow-banner')
+  } finally {
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await pick('E2E fixture agent', /^E2E fixture agent.*Claude Code/)
+    goOffline()
+  }
+  await banner.waitFor({ state: 'detached' })
+}
+
+const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
+
 const scenario: Scenario = {
   name: "a Bot chat's name opens the Bot's details, which stay open from Bot to Bot",
   // The Bot handed to a teammate in Mongo is one this viewer cannot read: its session and
@@ -167,6 +205,10 @@ const scenario: Scenario = {
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await details(page).getByRole('region', { name: RENAMED }).waitFor()
     await botDetailsToggle(page).getByText(RENAMED).waitFor()
+    const banners = await page.context().newCDPSession(page)
+
+    await shootBanner(page, stack, banners)
+    await banners.detach()
 
     // A group chat keeps its header: no Bot details, its members on the right.
     await openChat(page, GROUP)
@@ -189,12 +231,7 @@ const scenario: Scenario = {
     const cdp = await page.context().newCDPSession(page)
 
     try {
-      await cdp.send('Emulation.setDeviceMetricsOverride', {
-        width: 820,
-        height: 760,
-        deviceScaleFactor: 0,
-        mobile: false,
-      })
+      await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
       await page.waitForTimeout(500)
       await checkFloating(page)
       await shoot(page, 'teammate-narrow-open')
@@ -217,14 +254,8 @@ const scenario: Scenario = {
       await setBotDetails(page, false)
       await replyAndScroll(page)
       await setBotDetails(page, true)
-      await checkFloating(page)
-      const panel = await details(page).boundingBox()
-      const bar = await page.locator('[data-composer-overlay]').boundingBox()
-
-      if (!panel || !bar || panel.y + panel.height > bar.y)
-        throw new Error(
-          `The floating details run past the reply bar: ${JSON.stringify({ panel, bar })}`,
-        )
+      // The reply bar, not the status banner the composer always holds, closed and inert.
+      await stopsAbove(page, page.locator('[data-composer-overlay]:not([inert])'))
       await shoot(page, 'owner-narrow-replying')
       await page.getByRole('button', { name: 'Cancel reply' }).click()
       await openChat(page, GROUP)
