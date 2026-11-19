@@ -58,7 +58,8 @@ function measure(frame: HTMLElement): Geometry {
   const edge = anchor
     ? floatingEdge(anchor, pane?.getBoundingClientRect(), window.innerWidth)
     : { right: window.innerWidth - box.right + EDGE }
-  const composer = composerOf(pane)
+  // A bar the composer holds above itself (a reply's) is where the composer starts.
+  const composer = pane?.querySelector<HTMLElement>('[data-above-composer]') ?? composerOf(pane)
   const bottom = composer ? composer.getBoundingClientRect().top - EDGE : box.bottom - EDGE
 
   return { width: box.width, top, edge, maxHeight: Math.max(bottom - top, 160) }

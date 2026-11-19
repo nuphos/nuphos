@@ -218,6 +218,13 @@ const scenario: Scenario = {
       await replyAndScroll(page)
       await setBotDetails(page, true)
       await checkFloating(page)
+      const panel = await details(page).boundingBox()
+      const bar = await page.locator('[data-above-composer]').boundingBox()
+
+      if (!panel || !bar || panel.y + panel.height > bar.y)
+        throw new Error(
+          `The floating details run past the reply bar: ${JSON.stringify({ panel, bar })}`,
+        )
       await shoot(page, 'owner-narrow-replying')
       await page.getByRole('button', { name: 'Cancel reply' }).click()
       await openChat(page, GROUP)
