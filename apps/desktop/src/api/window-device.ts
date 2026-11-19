@@ -76,6 +76,11 @@ export type WindowDeviceApi = {
   deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
   deviceAppUpdate(deviceId: string, teamId: string): Promise<{ version: string }>
   boxClearCaches(deviceId: string, teamId: string): Promise<{ ok: true }>
+  deviceSetAutoInstall(
+    deviceId: string,
+    teamId: string,
+    enabled: boolean,
+  ): Promise<{ enabled: boolean }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,

@@ -3,6 +3,7 @@ import { useCallback, useContext } from 'react'
 
 import { api } from '../../api.ts'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
+import { useChatSwitchShown } from '../../lib/chatSwitchTiming.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
 import { channelRevision } from './channelRevision.ts'
@@ -80,6 +81,8 @@ export function useChannel(teamId: string, channelId: string) {
   )
 
   const detail = data?.detail ?? null
+
+  useChatSwitchShown(channelId, 'bot', detail !== null)
 
   // Until the chat loads, the sidebar's row says its name and its Bot, so the header and
   // the composer open as they will stay.

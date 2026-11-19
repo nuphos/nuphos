@@ -218,7 +218,13 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
   )
 }
 
-/** Why an agent could not reply, in words fit for the chat; undefined for an internal error. */
+/** How a Pi turn the model provider refused reads after `Internal error: ` (acp-shim.mjs). */
+const PROVIDER_REFUSED = 'The model provider refused the request:'
+
+/**
+ * Why an agent could not reply, in words fit for the chat; undefined for an internal error,
+ * except a model provider's refusal.
+ */
 function replyFailedReason(
   agent: AgentConversation | null,
   cause: TurnFailureCause,
@@ -238,7 +244,11 @@ function replyFailedReason(
   if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
   if (cause === 'offline') return `its ${label}runtime could not be reached.`
 
-  return error instanceof AppError ? error.message : undefined
+  if (error instanceof AppError) return error.message
+
+  // A provider's refusal is written for people (and its keys redacted); an adapter's other
+  // internal errors may name hosts or files, so they stay out of the chat.
+  return notice?.startsWith(PROVIDER_REFUSED) ? notice.slice(0, 300) : undefined
 }
 
 async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {

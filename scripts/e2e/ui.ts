@@ -17,13 +17,13 @@ export async function send(page: Page, text: string) {
 }
 
 /** Moves the open conversation to `label`'s Claude Code runtime. */
-export async function pickAgent(page: Page, label: string) {
+export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
   await pickInSubmenu(
     page,
-    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }),
   )
 }
 

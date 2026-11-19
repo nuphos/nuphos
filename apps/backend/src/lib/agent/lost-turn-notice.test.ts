@@ -20,13 +20,16 @@ useAgentDb({
 
 const target = { userId: 'owner', teamId: 'team', targetSessionId: 'task' }
 
-function attach(state: string, reattached = true) {
+/** `lastOutcome` is how the turn ended, as the runtime that ran it recorded; a restarted one has none. */
+function attach(state: string, reattached = true, lastOutcome?: unknown) {
   sessionsByConversation.set('team:task', {
     openabSessionId: 'sess-1',
     reattached: Promise.resolve(reattached),
-    client: { getSessionExecutionState: async () => ({ state }) },
+    client: { getSessionExecutionState: async () => ({ state, lastOutcome }) },
   } as unknown as TeamSession)
 }
+
+const ended = { result: { stopReason: 'end_turn' } }
 
 beforeEach(() => {
   appended = []
@@ -34,7 +37,8 @@ beforeEach(() => {
 })
 
 test('a turn its computer restarted under (an update) says it was cut off', async () => {
-  for (const state of ['dormant', 'interrupted']) {
+  // A restarted runtime comes back with its agent loaded (idle) or not yet (dormant).
+  for (const state of ['dormant', 'interrupted', 'idle']) {
     appended = []
     attach(state)
     await noteLostTurn(target)
@@ -46,9 +50,12 @@ test('a turn its computer restarted under (an update) says it was cut off', asyn
   }
 })
 
-test('a turn the runtime kept running, or a session that did not come back, says nothing', async () => {
-  for (const state of ['active', 'idle']) {
-    attach(state)
+test('a turn the runtime kept running or finished, or a session that did not come back, says nothing', async () => {
+  attach('active')
+  await noteLostTurn(target)
+  // The runtime finished the turn while the connection was down, and recorded how.
+  for (const state of ['idle', 'dormant']) {
+    attach(state, true, ended)
     await noteLostTurn(target)
   }
   attach('dormant', false)
