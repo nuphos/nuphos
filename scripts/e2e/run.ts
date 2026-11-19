@@ -29,6 +29,7 @@ import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
@@ -114,6 +115,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...personalCredentialScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
