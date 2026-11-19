@@ -163,7 +163,7 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
       return refuse(c, QUEUE_RETRY_SECONDS, error.code)
     // The Trigger was just paused for a reason its owner is told; like a disabled one, a sender
     // retrying would not help, and a 4xx can make it turn the webhook off.
-    if (error instanceof AppError && error.status === 409)
+    if (error instanceof AppError && PAUSED.has(error.code))
       return c.json({ ok: false, reason: error.code }, 200)
     throw error
   }
@@ -172,6 +172,8 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 }
 
 const QUEUE_RETRY_SECONDS = 30
+// What resolveExecutionAuthorization pauses a Trigger with.
+const PAUSED = new Set(['trigger_target_session_invalid', 'trigger_execution_principal_invalid'])
 
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))

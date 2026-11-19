@@ -206,6 +206,13 @@ describe('POST /webhooks/:triggerId', () => {
     expect(await res.json()).toEqual({ ok: false, reason: 'trigger_target_session_invalid' })
   })
 
+  test('any other conflict on the way is an error, not a delivery', async () => {
+    stored = webhook()
+    refusal = new AppError(409, 'turn_conflict', 'Another turn holds the conversation')
+
+    expect((await post()).status).toBe(409)
+  })
+
   test('Retry-After is what is left of the window', async () => {
     stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
     lastRunAt = stored.lastRunAt
