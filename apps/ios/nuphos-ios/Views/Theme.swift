@@ -226,25 +226,3 @@ struct SetupEmptyState: View {
         .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-
-struct RuntimeSetupGuide: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("1. Open Nuphos on your computer.")
-                        Text("2. Sign in and choose this workspace.")
-                        Text("3. Connect your computer and add a runtime.")
-                    }.font(.callout).foregroundStyle(Theme.body).padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                    Link("Visit Nuphos", destination: URL(string: "https://nuphos.ai")!).prominentButton()
-                }.padding(24)
-            }.background(Theme.canvas)
-            .navigationTitle("Runtime setup").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { LucideIcon("x") }.accessibilityLabel("Close") } }
-        }
-    }
-}

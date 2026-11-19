@@ -33,7 +33,7 @@ export function PlanApprovalPolicyModal({
       onClose={() => !saving && onClose()}
       title={t('Plan approval policy')}
       description={t(
-        'Choose who must approve database changes proposed in this team, by an Agent or a person.',
+        'Choose who must approve database changes proposed in this team, whether by a Bot, a task or a person.',
       )}
       width={520}
       footer={
@@ -101,7 +101,7 @@ export function PlanApprovalPolicyModal({
         ))}
         <p className="text-[11.5px] leading-relaxed text-tertiary">
           {t(
-            'Agent cannot approve. Changing this policy clears votes on proposed plans; approved, executing, and completed plans are unchanged.',
+            'Bots and tasks cannot approve. Changing this policy clears votes on proposed plans; approved, executing, and completed plans are unchanged.',
           )}
         </p>
       </div>

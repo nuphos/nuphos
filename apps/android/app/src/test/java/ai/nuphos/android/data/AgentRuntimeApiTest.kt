@@ -26,6 +26,9 @@ class AgentRuntimeApiTest {
         assertEquals("/agent/devices", requests.last().url.encodedPath)
         assertEquals("507f1f77bcf86cd799439011", requests.last().url.queryParameter("teamId"))
         assertEquals("true", requests.last().url.queryParameter("metrics"))
+        api.devices(metrics = false)
+        assertEquals("507f1f77bcf86cd799439011", requests.last().url.queryParameter("teamId"))
+        assertNull(requests.last().url.queryParameter("metrics"))
         response = """{"runtimes":[{"id":"local","provider":"codex","label":"Computer agent","status":"active","kind":"local","local":{"deviceId":"host","deviceLabel":"Laptop","online":false,"signedIn":true}}]}"""
         assertEquals(RuntimeHost("host", "Laptop", false), api.catalog().single().local)
     }

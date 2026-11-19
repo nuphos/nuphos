@@ -7,10 +7,11 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
+import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { listCommands } from './fixture-commands.mjs'
+import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, reporting, setToolsServer, subtask, toolsServer } from './fixture-mcp.mjs'
+import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -35,21 +36,8 @@ let thread
 const refused = (message) => Boolean(message.error ?? message.result?.isError)
 const step = reporting(send)
 
-/** Asks the person a question through request_user_decision. */
-async function ask(sessionId, category) {
-  const message = await step(sessionId, 'request_user_decision', {
-    label: 'Ask which marker to use',
-    category,
-    question: 'Which marker should the fixture use?',
-    // A link the app can open without leaving this computer.
-    body: `Background is at ${new URL(toolsServer(sessionId).url).origin}/health/ready`,
-    options: ['E2E_DELIVERY:answered', 'E2E_DELIVERY:other'],
-  })
-
-  log({ sessionId, event: 'asked', isError: refused(message) })
-}
-
 const form = formSteps({ call: step, log, refused })
+const ask = askSteps({ call: step, log, refused })
 
 // A delegated turn names its sender by title, which carries the sender's own
 // markers, so the fixture tells such a turn by its prompt and does not delegate again.
@@ -147,9 +135,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) {
-    await ask(sessionId, text.includes('E2E_ASK_CREDENTIAL') ? 'credential' : 'preference')
-  }
+  if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
@@ -183,7 +169,7 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
-  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {

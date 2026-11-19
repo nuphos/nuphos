@@ -7,7 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
-import { dismissQuestion } from '../../../views/inbox/dismissQuestion'
+import { cardAsides } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
@@ -19,7 +19,6 @@ import { hidingRetracted, sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
-import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
@@ -145,7 +144,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       : undefined
 
   return activeTab && !switchingConversation ? (
-    <ConversationReveal sessionId={activeTab.sessionId}>
+    // Keyed: nothing one chat's views hold carries into the next.
+    <div key={activeTab.sessionId} className="flex min-h-0 flex-1">
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
@@ -172,8 +172,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
                   // Offered only on a card that can be answered, so `answer` already gates it.
-                  skip: (card) =>
-                    dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions)),
+                  ...cardAsides(teamId, activeTab, questions),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -290,7 +289,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
-    </ConversationReveal>
+    </div>
   ) : (
     <ConversationPlaceholder
       unavailable={c.openingConversation?.unavailable === true}

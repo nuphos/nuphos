@@ -19,7 +19,6 @@ import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
-import { rowNote } from './row-note'
 import { SessionRowSurface } from './SessionRowSurface'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
@@ -111,7 +110,7 @@ export function SidebarSectionList({
                     ) : (
                       folds(section)
                         .nest()
-                        .map(({ item, trail, hasChildren, hidden, done }) => {
+                        .map(({ item, trail, hasChildren, hidden }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -210,10 +209,9 @@ export function SidebarSectionList({
                                 }}
                                 label={item.label}
                                 preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
-                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
-                                note={rowNote(item, done, folds(section))}
+                                note={item.note}
                                 badge={item.badge}
                                 trailing={
                                   <>
