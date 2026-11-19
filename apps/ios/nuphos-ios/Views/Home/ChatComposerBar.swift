@@ -330,23 +330,29 @@ struct ChatComposerBar<Controls: View>: View {
     private var mentionList: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(mentionDevices) { device in
-                mentionRow(symbol: "laptopcomputer", title: device.label) {
+                mentionRow(title: device.label) {
                     text = SessionMention.insert("@" + device.label, into: text)
                     mentions?.pickDevice(device)
+                } icon: {
+                    LucideIcon(systemName: "laptopcomputer")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.muted)
                 }
             }
             ForEach(mentionResults) { conversation in
-                mentionRow(symbol: "bubble.left", title: conversation.displayTitle) { pickMention(conversation) }
+                // A Bot wears its face, a Task its runtime mark, as everywhere else.
+                mentionRow(title: conversation.displayTitle) { pickMention(conversation) } icon: {
+                    AgentAvatar(agentId: conversation.sessionId, runtime: conversation.agentRuntime, size: 20)
+                }
             }
         }
     }
 
-    private func mentionRow(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+    private func mentionRow<Icon: View>(title: String, action: @escaping () -> Void,
+                                        @ViewBuilder icon: () -> Icon) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                LucideIcon(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.muted)
+                icon()
                 Text(title)
                     .font(.subheadline)
                     .foregroundStyle(Theme.heading)
