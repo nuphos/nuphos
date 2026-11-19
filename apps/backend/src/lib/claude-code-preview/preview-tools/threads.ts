@@ -75,23 +75,18 @@ const setParent = z
       .describe('Conversation to nest the thread under; null stops nesting it.'),
   })
   .strict()
-const change = {
-  label: common.label,
-  fullAccess: z
-    .boolean()
-    .optional()
-    .describe('true for Full Access, false for Auto Mode. Refused for a Task under a parent.'),
-  runtimeId,
-  ...modelPick,
-}
 const update = z
   .object({
-    taskId: z.string().uuid().describe('A Task or Bot you own here, or your own session id.'),
-    ...change,
+    label: common.label,
+    threadId: z.string().uuid(),
+    fullAccess: z
+      .boolean()
+      .optional()
+      .describe('true for Full Access, false for Auto Mode. Refused for a thread under a parent.'),
+    runtimeId,
+    ...modelPick,
   })
   .strict()
-// The name update_task had until it was renamed; kept for one release.
-const updateThreadAlias = z.object({ threadId: z.string().uuid(), ...change }).strict()
 const archive = z
   .object({
     label: common.label,
@@ -181,30 +176,21 @@ export function threadToolModule(
         inputSchema: toolInputJsonSchema(list),
       },
       {
-        name: 'update_task',
+        name: 'update_thread',
         description:
-          'Change a Nuphos Task or Bot you own in this team, or yourself. fullAccess switches a ' +
+          'Change another Nuphos thread or Bot you own in this team. fullAccess switches a ' +
           'conversation with no parent between Full Access (true) and Auto Mode (false); Full ' +
           'Access is allowed only while this conversation itself has Full Access, Auto Mode ' +
           "always. A thread under a parent always runs in its top conversation's mode, so " +
           'fullAccess is refused for it. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
           "(never to someone's computer); its next turn " +
-          "runs there. model, effort and fast set the Task's model picker for its " +
+          "runs there. model, effort and fast set the thread's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
-          'the choices. With your own session id as taskId, only model, effort and fast apply, ' +
-          'from your next turn: this reply keeps its settings. Use it to move yourself to a ' +
-          'lighter model for mechanical work or a stronger one for a hard step. ' +
-          "A new Task already starts on this conversation's " +
+          "the choices. A new thread already starts on this conversation's " +
           "agent unless create_thread named another. Its credentials and computers are always the top conversation's, " +
           'so there is nothing to grant.',
         inputSchema: toolInputJsonSchema(update),
-      },
-      {
-        name: 'update_thread',
-        description:
-          'Former name of update_task, kept for one release; it takes threadId instead of taskId. Use update_task.',
-        inputSchema: toolInputJsonSchema(updateThreadAlias),
       },
       {
         name: 'set_thread_parent',
@@ -218,80 +204,66 @@ export function threadToolModule(
         inputSchema: toolInputJsonSchema(setParent),
       },
     ],
-    handlers: (ctx) => {
-      const changeTask = (taskId: string, changed: Omit<z.infer<typeof update>, 'taskId'>) => {
-        const { fullAccess, runtimeId: runtime, model, effort, fast } = changed
+    handlers: (ctx) => ({
+      create_thread: async (args) => {
+        const parsed = create.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return presentedByRuntime(publish, ctx, 'create_thread', parsed.data, () =>
+          createAgentThread(ctx, parsed.data.prompt, parsed.data.title, parsed.data),
+        )
+      },
+      send_message_to_thread: async (args) => {
+        const parsed = send.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return presentedByRuntime(publish, ctx, 'send_message_to_thread', parsed.data, () =>
+          sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+        )
+      },
+      archive_thread: async (args) => {
+        const parsed = archive.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
+      },
+      stop_thread: async (args) => {
+        const parsed = stop.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(stopAgentThread(ctx, parsed.data.threadId))
+      },
+      list_agent_runtimes: async (args) => {
+        const parsed = list.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+
+        return answer(listThreadRuntimes(ctx))
+      },
+      update_thread: async (args) => {
+        const parsed = update.safeParse(args)
+
+        if (!parsed.success) return toolError(parsed.error.message)
+        const { threadId, ...change } = parsed.data
+
+        const { fullAccess, runtimeId: runtime, model, effort, fast } = change
 
         if (fullAccess === undefined && !runtime && !model && !effort && !fast)
           return toolError('Set fullAccess, runtimeId, model, effort or fast.')
 
-        return answer(updateThread(ctx, taskId, changed))
-      }
+        return answer(updateThread(ctx, threadId, change))
+      },
+      set_thread_parent: async (args) => {
+        const parsed = setParent.safeParse(args)
 
-      return {
-        create_thread: async (args) => {
-          const parsed = create.safeParse(args)
+        if (!parsed.success) return toolError(parsed.error.message)
 
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return presentedByRuntime(publish, ctx, 'create_thread', parsed.data, () =>
-            createAgentThread(ctx, parsed.data.prompt, parsed.data.title, parsed.data),
-          )
-        },
-        send_message_to_thread: async (args) => {
-          const parsed = send.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return presentedByRuntime(publish, ctx, 'send_message_to_thread', parsed.data, () =>
-            sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
-          )
-        },
-        archive_thread: async (args) => {
-          const parsed = archive.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
-        },
-        stop_thread: async (args) => {
-          const parsed = stop.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return answer(stopAgentThread(ctx, parsed.data.threadId))
-        },
-        list_agent_runtimes: async (args) => {
-          const parsed = list.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return answer(listThreadRuntimes(ctx))
-        },
-        update_task: async (args) => {
-          const parsed = update.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-          const { taskId, ...changed } = parsed.data
-
-          return changeTask(taskId, changed)
-        },
-        update_thread: async (args) => {
-          const parsed = updateThreadAlias.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-          const { threadId, ...changed } = parsed.data
-
-          return changeTask(threadId, changed)
-        },
-        set_thread_parent: async (args) => {
-          const parsed = setParent.safeParse(args)
-
-          if (!parsed.success) return toolError(parsed.error.message)
-
-          return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
-        },
-      }
-    },
+        return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
+      },
+    }),
   }
 }
