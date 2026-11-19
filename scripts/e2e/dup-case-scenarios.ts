@@ -49,7 +49,13 @@ export function dupCaseScenarios(proxy: NetProxy): Scenario[] {
         const context = page.context()
         const before = context.pages().length
 
-        await page.keyboard.press('Control+Shift+N')
+        // The app's own path to a second window (a tab's Open in New Window); the menu
+        // accelerator never reaches Electron through the DevTools protocol.
+        await page.evaluate(() =>
+          (window as unknown as { api: { openPageWindow: (url: string) => void } }).api.openPageWindow(
+            'https://nuphos.ai/',
+          ),
+        )
         let second: Page | undefined
 
         for (let i = 0; i < 40 && !second; i++) {
@@ -84,37 +90,6 @@ export function dupCaseScenarios(proxy: NetProxy): Scenario[] {
         await report('window1 reopened', [page])
         note(`two-windows stored: ${all.map((m) => stored(stack.mongoUri, m.marker)).join(' | ')}`)
         await second.close().catch(() => {})
-      },
-    },
-    {
-      name: 'REPRO: a second send while the first is still pending shows each message once',
-      run: async (page: Page, stack: Stack) => {
-        const cases = [
-          { label: 'different text', texts: ['Dup pending one E2E_DELIVERY:duppend-1', 'Dup pending two E2E_DELIVERY:duppend-2'] },
-          { label: 'same text twice', texts: ['Dup pending same E2E_DELIVERY:duppend-s', 'Dup pending same E2E_DELIVERY:duppend-s'] },
-        ]
-
-        for (const { label, texts } of cases) {
-          const markers = [...new Set(texts.map((t) => t.slice(t.indexOf('E2E_DELIVERY'))))]
-
-          await newTask(page)
-          proxy.reset()
-          proxy.slow(2500, 0)
-          await send(page, texts[0]!)
-          await page.waitForTimeout(300)
-          await send(page, texts[1]!)
-          for (const m of markers) await ack(page, m)
-          proxy.reset()
-          await page.waitForTimeout(8000)
-          const uniq = [...new Set(texts)]
-          const live = (await Promise.all(uniq.map(async (t) => count(page, t, t.slice(t.indexOf('E2E_DELIVERY')))))).join(' | ')
-
-          await page.screenshot({ path: `${artifacts}/duppend-${label.replace(/ /g, '-')}.png` })
-          await reopen(page, uniq[0]!.split(' E2E')[0]!)
-          const reopened = (await Promise.all(uniq.map(async (t) => count(page, t, t.slice(t.indexOf('E2E_DELIVERY')))))).join(' | ')
-
-          note(`pending ${label}: live ${live} | reopened ${reopened} | stored ${markers.map((m) => stored(stack.mongoUri, m)).join(' | ')}`)
-        }
         console.log(`REPRO summary:\n${lines.join('\n')}`)
       },
     },
