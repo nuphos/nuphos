@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_appearance">外观</string>
+    <string name="account_bot_avatars">Bot 头像</string>
+    <string name="account_bot_avatars_help">为 Agent 显示角色头像。关闭后改为显示运行环境图标。</string>
+    <string name="account_integrations">集成服务</string>
+    <string name="account_connectors">连接器</string>
+    <string name="account_signed_in_accounts">已登录的账号</string>
+</resources>

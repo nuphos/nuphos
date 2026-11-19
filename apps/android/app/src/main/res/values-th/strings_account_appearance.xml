@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_appearance">ลักษณะที่ปรากฏ</string>
+    <string name="account_bot_avatars">รูปโปรไฟล์บอท</string>
+    <string name="account_bot_avatars_help">ให้เอเจนต์มีรูปโปรไฟล์ตัวละคร ปิดเพื่อแสดงไอคอนรันไทม์</string>
+    <string name="account_integrations">การผสานรวม</string>
+    <string name="account_connectors">ตัวเชื่อมต่อ</string>
+    <string name="account_signed_in_accounts">บัญชีที่ลงชื่อเข้าใช้</string>
+</resources>

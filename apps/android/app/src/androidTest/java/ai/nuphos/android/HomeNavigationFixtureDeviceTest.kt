@@ -269,6 +269,27 @@ class HomeNavigationFixtureDeviceTest {
         shot("bottom-tabs-tasks")
     }
 
+    @Test fun accountShowsIntegrationsAndPersistsAvatarPreference() {
+        render()
+        val previous = app.botAvatarsEnabled
+        try {
+            compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+            compose.onNodeWithText(app.getString(R.string.account_connectors)).performScrollTo().performClick()
+            compose.onNodeWithTag("account-connectors-title").assertIsDisplayed()
+            compose.onNodeWithTag("connector-inventory-list").assertIsDisplayed()
+            shot("account-connectors")
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_BACK)
+            compose.onNodeWithTag("account-bot-avatars").performScrollTo().performClick()
+            compose.runOnIdle { assertEquals(!previous, app.botAvatarsEnabled) }
+            shot("account-appearance")
+            compose.onNodeWithTag("account-version").performScrollTo().assertIsDisplayed()
+            shot("account-version")
+            noWrites()
+        } finally {
+            compose.runOnIdle { app.updateBotAvatars(previous) }
+        }
+    }
+
     @Test fun bottomTabsRemainUsableAfterHistoryFailureAndTeamSwitch() {
         historyFailure = true
         render()

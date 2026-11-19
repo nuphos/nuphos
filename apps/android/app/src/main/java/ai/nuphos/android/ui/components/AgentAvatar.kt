@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.BotAvatars
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import ai.nuphos.android.NuphosApplication
 import coil3.svg.SvgDecoder
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
@@ -42,7 +43,8 @@ private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.curre
 @Composable
 fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge: Boolean = true) {
     val loader = agentImageLoader()
-    val face = ai.nuphos.android.model.BotFaces.face(sessionId)
+    val app = LocalContext.current.applicationContext as NuphosApplication
+    val face = if (app.botAvatarsEnabled) ai.nuphos.android.model.BotFaces.face(sessionId) else null
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) {
