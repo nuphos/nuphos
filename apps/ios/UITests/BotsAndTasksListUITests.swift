@@ -19,6 +19,8 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("bot-lead", "Release Lead", at: "09:00", avatar: "05-rembrandt"),
             Self.row("bot-docs", "Docs Bot", at: "09:00", avatar: "02-leonardo"),
             Self.row("bot-triage", "Triage Bot", at: "09:00", avatar: "07-ada"),
+            // Has dispatched nothing.
+            Self.row("bot-notes", "Notes Bot", at: "09:00", avatar: "13-shakespeare"),
             // Opened by a Task, still a Bot of its own.
             Self.row("bot-helper", "Helper Bot", at: "09:20", parent: "agent-ops", avatar: "07-ada"),
         ]
@@ -30,6 +32,9 @@ final class BotsAndTasksListUITests: XCTestCase {
             // What the Bots dispatched, at any depth: listed under Bots, never in Tasks.
             Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
             Self.row("agent-rerun", "Rerun the iOS job", at: "09:46", parent: "agent-ci"),
+            // Newer than the waiting Task, but listed after it in the Bot's details.
+            Self.row("agent-deploy", "Deploy to staging", at: "09:47", parent: "bot-lead", working: true),
+            Self.row("agent-tag", "Tag the release", at: "09:58", parent: "bot-lead"),
             Self.row("agent-links", "Fix broken links", at: "09:44", parent: "bot-docs", working: true),
             Self.row("agent-logs", "Collect crash logs", at: "09:21", parent: "bot-helper"),
         ]
@@ -37,6 +42,7 @@ final class BotsAndTasksListUITests: XCTestCase {
             // Named before the Bot was renamed: the row shows the Bot's name.
             Self.chat("chat-lead", "release-lead-old", at: "09:55", faces: [Self.face("bot-lead", "Release Lead", "05-rembrandt")]),
             Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]),
+            Self.chat("chat-notes", "", at: "09:51", faces: [Self.face("bot-notes", "Notes Bot", "13-shakespeare")]),
             // Triage Bot is in this group chat, so it has no row of its own.
             Self.chat("chat-group", "", at: "09:48", faces: [["id": "u-ana", "name": "Ana"], Self.face("bot-triage", "Triage Bot", "07-ada")],
                       group: true, agents: ["bot-triage"]),
@@ -78,6 +84,47 @@ final class BotsAndTasksListUITests: XCTestCase {
             XCTAssertFalse(app.staticTexts[thread].exists, "\(thread) is listed under Bots")
         }
         shot("2-bots-flat")
+    }
+
+    /// A Bot's page says what its Tasks are doing and opens them (#2983). The state sits
+    /// under the Bot's name, the name opens Bot details with the Bot's own Task and what it
+    /// dispatched, waiting ones first, and Back from one of those returns to the Bot.
+    /// The Bot's own Task button is covered by `BotPinsUITests`, whose fixture can open it.
+    func testBotPageShowsAndOpensWhatItDispatched() throws {
+        launch(page: "chats")
+        let notes = app.staticTexts["Notes Bot"].firstMatch
+        XCTAssertTrue(notes.waitForExistence(timeout: 10), "Bots did not load")
+        notes.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10), "The Bot's name opens nothing")
+        XCTAssertFalse(["needs input", "running"].contains { name.label.contains($0) }, "A Bot with nothing waiting or running shows a state: \(name.label)")
+        shot("3-bot-no-tasks")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        lead.tap()
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.label.hasSuffix("1 needs input · 1 running"), "No state under the Bot's name: \(name.label)")
+        XCTAssertFalse(app.navigationBars.buttons["bot-task-entry"].exists, "The header still has its own Task button")
+        shot("4-bot-state")
+
+        name.tap()
+        let rows = app.buttons.matching(NSPredicate(format: "identifier == 'summary.task'"))
+        let waiting = rows.matching(NSPredicate(format: "label BEGINSWITH 'Check the CI flake'")).firstMatch
+        let running = rows.matching(NSPredicate(format: "label BEGINSWITH 'Deploy to staging'")).firstMatch
+        let idle = rows.matching(NSPredicate(format: "label BEGINSWITH 'Tag the release'")).firstMatch
+        XCTAssertTrue(waiting.waitForExistence(timeout: 5), "Bot details does not list what the Bot dispatched")
+        XCTAssertLessThan(waiting.frame.minY, running.frame.minY, "A Task waiting for you is not listed first")
+        XCTAssertLessThan(running.frame.minY, idle.frame.minY, "A running Task is not listed before an idle one")
+        shot("5-bot-details")
+
+        waiting.tap()
+        XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The dispatched Task did not open")
+        shot("6-task-open")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(name.waitForExistence(timeout: 10), "Back from a dispatched Task did not return to the Bot")
+        shot("7-back-to-bot")
     }
 
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
