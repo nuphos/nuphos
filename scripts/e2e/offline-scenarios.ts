@@ -186,13 +186,26 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-shared-disk')
         await page.getByText('ACK E2E_DELIVERY:before-shared-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        const disk = page.getByRole('menu').locator(`[role="meter"][title*="${MATE_LAPTOP}"]`)
-
-        await until('the disk meter to say who can free space', async () =>
-          (await disk.first().getAttribute('title'))?.includes(
-            `Ask ${teammate.email} to free space.`,
-          ),
+        const disk = page.getByRole('menu').getByRole('meter', { name: 'DISK usage' })
+        // The teammate joined after this app loaded its members, so it may name them, or fall
+        // back to "the computer's owner" as the picker's "Shared by a teammate" line does.
+        const whoCanFree = new RegExp(
+          `^${MATE_LAPTOP}’s disk is almost full \\(93%\\)\\. Ask (?:${teammate.email.replace(/[.+]/g, '\\$&')}|the computer’s owner) to free space\\.$`,
+          'u',
         )
+
+        await until('the disk meter to say who can free space', async () => {
+          const seen = await Promise.all(
+            (await disk.all()).map(
+              async (meter) => (await meter.getAttribute('title')) ?? '(no title)',
+            ),
+          )
+
+          if (!seen.some((title) => whoCanFree.test(title)))
+            throw new Error(`The disk meters' titles were ${JSON.stringify(seen)}`)
+
+          return true
+        })
         await page.screenshot({ path: join(artifacts, 'disk-shared-meter.png') })
         await page.getByRole('menu').getByText(MATE_LAPTOP).first().click()
         await page
