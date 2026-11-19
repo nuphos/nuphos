@@ -77,6 +77,55 @@ test('finds the newest enabled cua_repl the App installed', () => {
   assert.equal(cuaServerConfig({ CODEX_HOME: home }), null)
 })
 
+test('the App’s codex starts cua_repl, since Computer Use only answers a caller it trusts (#3838)', () => {
+  const home = mkdtempSync(path.join(os.tmpdir(), 'codex-'))
+  const dir = path.join(home, CUA_PLUGIN_CACHE, '26.11.1')
+  const env = { CODEX_CLI_PATH: process.execPath }
+
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(
+    path.join(dir, '.mcp.json'),
+    JSON.stringify({ mcpServers: { cua_repl: { command: '/bin/sh', args: ['repl'], env } } }),
+  )
+  assert.deepEqual(cuaServerConfig({ CODEX_HOME: home }), {
+    command: process.execPath,
+    args: [
+      'sandbox',
+      '-c',
+      'sandbox_mode="danger-full-access"',
+      '-c',
+      'shell_environment_policy.inherit="all"',
+      '--',
+      '/bin/sh',
+      'repl',
+    ],
+    env,
+  })
+})
+
+test('a Computer Use that refuses its caller says so instead of failing vaguely', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cua-'))
+  const script = path.join(dir, 'server.cjs')
+
+  writeFileSync(
+    script,
+    `require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
+  const m = JSON.parse(line)
+  const text = 'Native apps: Error: Sky Computer Use native pipe startup failed'
+  if (m.id !== undefined) process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { content: [{ type: 'text', text }] } }) + '\\n')
+})`,
+  )
+  const cua = new CuaHost('s1', { command: process.execPath, args: [script], env: {} }, () => {}, {
+    HOME: os.tmpdir(),
+  })
+  const result = await cua.run({ session: 's1', turn: 't1', code: '1' }, signal(), () =>
+    Promise.resolve(false),
+  )
+
+  await cua.close()
+  assert.match(JSON.stringify(result.content), /refused Nuphos as its caller/u)
+})
+
 test('a call carries Codex turn metadata, and only approval requests get an approval answer', async () => {
   const cua = host()
   const asked: string[] = []

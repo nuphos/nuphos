@@ -26,6 +26,18 @@ export const CUA_IDLE_MS = 60_000
 /** How long the App may take to clean up its turn before its process is stopped. */
 const TURN_END_MS = 2_000
 const CANCELLED = 'The call was cancelled before it ran.'
+/** Computer Use only answers a `cua_repl` whose parent is a trusted OpenAI process (#3838). */
+const UNDER_CODEX = [
+  'sandbox',
+  '-c',
+  'sandbox_mode="danger-full-access"',
+  '-c',
+  'shell_environment_policy.inherit="all"',
+  '--',
+]
+const REFUSED = 'Sky Computer Use native pipe startup failed'
+const REFUSED_HELP =
+  'Computer Use on this Mac refused Nuphos as its caller, so retrying will not help. Update the ChatGPT app on this Mac and try again.'
 
 export const failed = (text: string): CuaToolResult => ({
   content: [{ type: 'text', text }],
@@ -50,8 +62,13 @@ export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
     const server = manifest.mcpServers?.cua_repl
 
     if (!server?.command || server.enabled === false || !existsSync(server.command)) return null
+    const env = server.env ?? {}
+    const args = server.args ?? []
+    const codex = env.CODEX_CLI_PATH
 
-    return { command: server.command, args: server.args ?? [], env: server.env ?? {} }
+    return codex && existsSync(codex)
+      ? { command: codex, args: [...UNDER_CODEX, server.command, ...args], env }
+      : { command: server.command, args, env }
   } catch {
     return null
   }
@@ -148,9 +165,12 @@ export class CuaHost {
       })
       const error = response.error as { message?: string } | undefined
 
-      return error
-        ? failed(error.message ?? 'Computer Use failed')
-        : (response.result as CuaToolResult)
+      if (error) return failed(error.message ?? 'Computer Use failed')
+      const result = response.result as CuaToolResult
+
+      return JSON.stringify(result.content).includes(REFUSED)
+        ? { ...result, content: [...result.content, { type: 'text', text: REFUSED_HELP }] }
+        : result
     } finally {
       signal.removeEventListener('abort', cancel)
       this.elicit = undefined
