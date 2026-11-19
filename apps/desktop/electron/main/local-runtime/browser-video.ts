@@ -182,6 +182,8 @@ export async function stopVideo(video: Video, file: string) {
       key: boolean
       data: string
     }[]
+
+    if (!chunks.length) throw new Error('No frame of the tab was recorded.')
     const bytes = webm(
       chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
       SIZE,
