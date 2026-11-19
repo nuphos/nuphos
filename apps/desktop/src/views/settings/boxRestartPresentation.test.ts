@@ -5,7 +5,6 @@ import { BOX_METRICS_POLL_MS, BOX_OFFLINE_POLL_MS, boxPollMs } from './boxPresen
 import {
   appUpdateConfirm,
   appUpdateLabel,
-  BOX_RESTART_MISSED_MS,
   BOX_RESTART_TIMEOUT_MS,
   boxRestartEnded,
   boxRestartLabel,
@@ -17,11 +16,14 @@ import { boxRestarts } from './boxRestartStore.ts'
 
 import type { AgentDevice } from '../../api/device-types'
 
-const device = (online: boolean, updateStartedAt?: string): AgentDevice => ({
+const BEFORE = '2026-10-21T07:00:00.000Z'
+const AFTER = '2026-10-21T08:00:01.000Z'
+const device = (online: boolean, updateStartedAt?: string, lastSeenAt = BEFORE): AgentDevice => ({
   deviceId: 'box-1',
   label: 'Build box',
   platform: 'linux',
   online,
+  lastSeenAt,
   box: {
     provider: 'instabox',
     sandboxId: 'sb',
@@ -29,28 +31,18 @@ const device = (online: boolean, updateStartedAt?: string): AgentDevice => ({
     ...(updateStartedAt ? { updateStartedAt } : {}),
   },
 })
-const update = { kind: 'update' as const, startedAt: 0, sawOffline: false }
+const update = { kind: 'update' as const, startedAt: 0, lastSeenAt: BEFORE }
 
-test('an update restart ends only once the host has left and come back', () => {
-  // Still online right after the request: the host has not stopped yet.
+test('an update restart ends once the host has reported in again, however fast it was', () => {
+  // Still the report from before the request: the host has not restarted yet.
   assert.equal(boxRestartStep(update, device(true), 1_000).outcome, 'restarting')
-  const away = boxRestartStep(update, device(false), 5_000)
-
-  assert.equal(away.outcome, 'restarting')
-  assert.equal(away.restart.sawOffline, true)
-  assert.equal(boxRestartStep(away.restart, device(true), 60_000).outcome, 'back')
+  assert.equal(boxRestartStep(update, device(false), 5_000).outcome, 'restarting')
+  // Back between two readings, never seen offline: back as soon as it reported again.
+  assert.equal(boxRestartStep(update, device(true, undefined, AFTER), 2_000).outcome, 'back')
 })
 
-test('the host dropping before the backend reports it is still followed', () => {
-  // The first reading after the request already shows the host away.
-  const first = boxRestartStep(update, device(false), 500)
-
-  assert.equal(first.outcome, 'restarting')
-  assert.equal(boxRestartStep(first.restart, device(true), 2_500).outcome, 'back')
-})
-
-test('a host online throughout restarted between readings', () => {
-  assert.equal(boxRestartStep(update, device(true), BOX_RESTART_MISSED_MS + 1).outcome, 'back')
+test('a host that has not reported in again is still restarting long after the request', () => {
+  assert.equal(boxRestartStep(update, device(true), 120_000).outcome, 'restarting')
 })
 
 test('a resumed host is back the first time it is online', () => {
@@ -108,21 +100,18 @@ test('an update the backend reports shows for every viewer, and holds until it c
   assert.deepEqual(boxRestartOf(undefined, device(false, at)), {
     kind: 'update',
     startedAt: Date.parse(at),
-    sawOffline: false,
   })
   assert.equal(boxRestartOf(undefined, device(false)), undefined)
-  // Online again but the backend has not seen the host report in yet: still restarting.
-  const away = { ...update, sawOffline: true }
-
-  assert.equal(boxRestartStep(away, device(true, at), 10_000).outcome, 'restarting')
-  assert.equal(boxRestartStep(away, device(true), 12_000).outcome, 'back')
+  // Reported in again, but the backend still notes the update: still restarting.
+  assert.equal(boxRestartStep(update, device(true, at, AFTER), 10_000).outcome, 'restarting')
+  assert.equal(boxRestartStep(update, device(true, undefined, AFTER), 12_000).outcome, 'back')
 })
 
 test('the store keeps a restart until its host is back and reports how it ended', () => {
-  boxRestarts.start('box-1', 'team-a', 'update', 0)
+  boxRestarts.start('box-1', 'team-a', 'update', BEFORE, 0)
   assert.deepEqual(boxRestarts.settle([device(false)], 'team-a', 1_000), [])
-  assert.equal(boxRestarts.current().get('box-1')?.sawOffline, true)
-  const ended = boxRestarts.settle([device(true)], 'team-a', 2_000)
+  assert.deepEqual(boxRestarts.settle([device(true)], 'team-a', 1_500), [])
+  const ended = boxRestarts.settle([device(true, undefined, AFTER)], 'team-a', 2_000)
 
   assert.deepEqual(
     ended.map(({ kind, outcome }) => ({ kind, outcome })),
@@ -132,7 +121,7 @@ test('the store keeps a restart until its host is back and reports how it ended'
 })
 
 test("another team's list neither ends nor moves a restart", () => {
-  boxRestarts.start('box-1', 'team-a', 'resume', 0)
+  boxRestarts.start('box-1', 'team-a', 'resume', undefined, 0)
   assert.deepEqual(boxRestarts.settle([], 'team-b', 1_000), [])
   assert.equal(boxRestarts.current().get('box-1')?.kind, 'resume')
   // Its own team's list, without the Box: it was deleted.
