@@ -142,7 +142,8 @@ export async function shootUsageResets(page: Page, computer: string) {
   await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
   await row.click()
-  const card = page.locator('section[aria-label]').filter({ hasText: computer }).first()
+  // The runtime's details open in a side panel beside the list.
+  const card = page.locator('aside[aria-label]').filter({ hasText: computer }).first()
 
   await card
     .getByText(/^resets in 2d 5h$/u)
