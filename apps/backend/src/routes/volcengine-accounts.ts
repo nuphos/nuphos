@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { newBindingAccess } from '@/lib/byos/initial-access'
 import { volcengineConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { verifyVolcengineRole, volcengineOidcInfo } from '@/lib/byos/volcengine'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -74,12 +74,10 @@ volcengineAccountsRoutes.post(
       { projection: { volcengineAccounts: 1 } },
     )
 
-    assertMayBindRole(
-      c,
-      bound?.volcengineAccounts ?? [],
-      (b: { roleTrn: string }) => b.roleTrn,
-      roleTrn,
-    )
+    const check = (bindings: VolcengineAccountBinding[]) =>
+      assertMayBindRole(c, bindings, (b: { roleTrn: string }) => b.roleTrn, roleTrn)
+
+    check(bound?.volcengineAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -91,8 +89,10 @@ volcengineAccountsRoutes.post(
     const createdAt = new Date()
     const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'volcengineAccounts',
+      check,
       { 'volcengineAccounts.roleTrn': { $ne: roleTrn } },
       {
         $push: { volcengineAccounts: { id, label, roleTrn, createdAt, access } },

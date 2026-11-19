@@ -33,6 +33,8 @@ export type DecisionAnswer = {
   choices?: string[]
   text?: string
   questions?: { choices?: string[]; text?: string }[]
+  /** Given in the Inbox: its record in the chat says so. */
+  answeredIn?: 'inbox'
 }
 
 export function answerDecision(

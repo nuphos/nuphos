@@ -4,7 +4,14 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
-import { computerWithUsage, loadingFree, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import {
+  computerWithUsage,
+  loadingFree,
+  pickRuntime,
+  shootChipResets,
+  shootRuntimeLine,
+  shootUsageResets,
+} from './channel-helpers.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
@@ -256,8 +263,12 @@ export const channelScenarios: Scenario[] = [
         await pickRuntime(page, computer, /^Claude Code/)
         const task = await shootRuntimeLine(page, 'task')
 
+        // #3732: the chip names when its tightest window, the 5-hour one, resets.
+        await shootChipResets(page)
+
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+        await shootUsageResets(page, computer)
       } finally {
         forget()
       }

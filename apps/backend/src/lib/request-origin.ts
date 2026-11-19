@@ -108,3 +108,19 @@ export function signInDevice(source: SignInSource): string {
 export function signInPlace(source: SignInSource): string | undefined {
   return [source.city, source.country].filter(Boolean).join(', ') || undefined
 }
+
+const CLIENTS = new Map([
+  ['nuphos-desktop', 'desktop'],
+  ['nuphos-ios', 'ios'],
+  ['nuphos-android', 'android'],
+  ['nuphos-cli', 'cli'],
+])
+
+/** Which app sent a request: one of ours by its header, else a browser (the web app) or the API. */
+export function requestClient(header: (name: string) => string | undefined): string {
+  const app = CLIENTS.get(header('x-atlas-client')?.split('/')[0]?.trim() ?? '')
+
+  if (app) return app
+
+  return (header('User-Agent') ?? '').startsWith('Mozilla/') ? 'web' : 'api'
+}

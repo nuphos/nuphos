@@ -1,12 +1,11 @@
-// api.ts — typed accessors for the three OTel APIs.
+// api.ts — typed accessors for the OTel trace and metrics APIs.
 //
-// Calling `trace.getTracer(...)`, `metrics.getMeter(...)`, `logs.getLogger(...)`
-// directly works, but funneling through this module keeps the instrumentation
+// Calling `trace.getTracer(...)` or `metrics.getMeter(...)` directly works,
+// but funneling through this module keeps the instrumentation
 // scope name + version consistent across the codebase (showing up as a single
 // instrumentation scope in your tracing backend instead of dozens).
 
 import { metrics, trace } from '@opentelemetry/api'
-import { logs } from '@opentelemetry/api-logs'
 
 import type { Attributes } from '@opentelemetry/api'
 
@@ -22,13 +21,6 @@ export function getTracer(component?: string) {
 
 export function getMeter(component?: string) {
   return metrics.getMeter(
-    component ? `${INSTRUMENTATION_SCOPE}/${component}` : INSTRUMENTATION_SCOPE,
-    INSTRUMENTATION_VERSION,
-  )
-}
-
-export function getLogger(component?: string) {
-  return logs.getLogger(
     component ? `${INSTRUMENTATION_SCOPE}/${component}` : INSTRUMENTATION_SCOPE,
     INSTRUMENTATION_VERSION,
   )

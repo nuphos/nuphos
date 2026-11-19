@@ -1,5 +1,5 @@
 import { chatName } from './db/archive'
-import { listChannelAgents } from './db/channels'
+import { listChannelAgents } from './db/channel-agents'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
@@ -11,7 +11,7 @@ export type ChannelFace = {
   id: string
   name: string
   avatarURL?: string
-  agent?: { avatar?: string; provider?: string }
+  agent?: { avatar?: string; avatarBackground?: string; provider?: string }
 }
 
 type Person = { id: string; name: string; avatarURL?: string }
@@ -48,7 +48,11 @@ export async function channelMembers(
     members.set(agent.sessionId, {
       id: agent.sessionId,
       name: agent.title,
-      agent: { avatar: agent.avatar, provider: agent.provider },
+      agent: {
+        avatar: agent.avatar,
+        ...(agent.avatarBackground ? { avatarBackground: agent.avatarBackground } : {}),
+        provider: agent.provider,
+      },
     })
   for (const id of conversationParticipantIds(channel)) {
     const person = people.get(id)

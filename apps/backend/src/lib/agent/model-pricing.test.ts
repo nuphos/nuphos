@@ -51,6 +51,24 @@ describe('providerCostUsd', () => {
     expect(cost).toBeCloseTo((10_000 * 1 + 2_000 * 5) / 1e6, 10)
   })
 
+  test('Codex models are priced at OpenAI’s published Standard rates', () => {
+    // 1M uncached input + 1M cached input + 1M output, per model.
+    const cost = (modelId: string) =>
+      providerCostUsd({
+        modelId,
+        inputTokens: 2_000_000,
+        cachedInputTokens: 1_000_000,
+        outputTokens: 1_000_000,
+      })
+
+    expect(cost('gpt-6.1-sol')).toBeCloseTo(2 + 0.1 + 10, 6)
+    expect(cost('gpt-6.2-sol')).toBeCloseTo(2 + 0.1 + 10, 6)
+    expect(cost('gpt-6.2-astra')).toBeCloseTo(8 + 0.4 + 40, 6)
+    expect(cost('gpt-6-astra')).toBeCloseTo(10 + 1 + 50, 6)
+    // Published only at the Flex tier, not the Standard one Codex runs at.
+    expect(cost('gpt-6.1-terra')).toBeUndefined()
+  })
+
   test('unknown model returns undefined, not 0', () => {
     expect(providerCostUsd({ modelId: 'gemini-2.5-flash-lite', inputTokens: 1000 })).toBeUndefined()
   })

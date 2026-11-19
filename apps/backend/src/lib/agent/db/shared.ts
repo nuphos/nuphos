@@ -5,6 +5,7 @@ import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
@@ -66,7 +67,14 @@ export type AgentConversation = ConversationTaskState & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
+  avatarBackground?: string
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
+  botTemplate?: {
+    templateId: string
+    version: string
+    requirements: { provider: string; required: boolean; reason: string }[]
+  }
   instructions?: string
   firstMessage: string
   messageCount: number
@@ -76,20 +84,21 @@ export type AgentConversation = ConversationTaskState & {
   // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
+  memberArchivedAt?: Record<string, Date> // By user id: someone else archived a shared Task for them alone.
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
-  // Teammates who joined this conversation beside its owner. Speaking in a
-  // session and being invited from Share are the same fact — "this person is
-  // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Being here puts the conversation in the
-  // person's list and lets them read it; reply follows its computer (access.ts).
-  // Older rows also carry managerIds, which nothing reads now.
+  // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
+  // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
   /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.

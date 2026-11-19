@@ -1,6 +1,7 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { defaultStandInScenarios } from './default-stand-in-scenarios.ts'
 import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
 import { languageScenarios } from './language-scenarios.ts'
@@ -230,6 +231,7 @@ export const runtimeScenarios: Scenario[] = [
       }
     },
   },
+  ...defaultStandInScenarios,
   {
     // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
     name: 'a turn refused for usage runs again, once, after the Task moves to another agent',

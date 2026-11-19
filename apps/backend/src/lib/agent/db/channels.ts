@@ -1,7 +1,5 @@
-import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
-import { derivedAvatar } from '../bot-avatars'
 import { resolveConversationAccessList } from '../devices/conversation-computer'
 import { parseMessageMetadata } from '../message-metadata'
 import { fenceUntrusted } from '../untrusted-content'
@@ -95,37 +93,6 @@ export async function removeChannelAgent(
     { $pull: { agentSessionIds: agentSessionId } },
     { returnDocument: 'after' },
   )
-}
-
-/** The channel's agents as their sessions. A deleted session drops out. */
-export async function listChannelAgents(channel: ChannelFields & { teamId?: string }) {
-  const ids = channel.agentSessionIds ?? []
-
-  if (ids.length === 0) return []
-  const sessions = await agentConversations()
-    .find({ sessionId: { $in: ids }, teamId: channel.teamId })
-    .project<Pick<AgentConversation, 'sessionId' | 'userId' | 'title' | 'avatar' | 'agentRuntime'>>(
-      { _id: 0, sessionId: 1, userId: 1, title: 1, avatar: 1, agentRuntime: 1 },
-    )
-    .toArray()
-  const byId = new Map(sessions.map((session) => [session.sessionId, session]))
-
-  return ids.flatMap((id) => {
-    const session = byId.get(id)
-
-    return session
-      ? [
-          {
-            sessionId: id,
-            title: session.title,
-            ownerId: session.userId,
-            // A Task has no stored face; in a channel it wears the one its id derives.
-            avatar: session.avatar ?? derivedAvatar(id),
-            provider: runtimeProvider(session.agentRuntime),
-          },
-        ]
-      : []
-  })
 }
 
 /** A stored chat post's words. */
