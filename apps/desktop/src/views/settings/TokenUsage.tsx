@@ -16,6 +16,7 @@ import {
   tokenUsageLines,
   tokenUsageSplit,
   tokenUsageWindow,
+  usageCacheCutoff,
   filterQuery,
   toggleFilter,
 } from './tokenUsagePresentation'
@@ -117,7 +118,8 @@ export function TokenUsage({
       <PanelHeading
         title={t('Token usage')}
         hint={t(
-          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.',
+          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, Input left out cached tokens; Total included them.',
+          { date: usageCacheCutoff() },
         )}
         right={
           <RangeSwitch

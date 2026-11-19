@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { api, parseAtlasError } from '../../api.ts'
-import { readSessionHistory } from '../../lib/sessionHistory.ts'
+import { forgetSessionVisits, readSessionHistory } from '../../lib/sessionHistory.ts'
 
 import type { AgentConversation } from '../../api.ts'
 import type { TeamMember } from '../../types'
@@ -69,6 +69,16 @@ export function useSearchResults(
         )
 
         if (cancelled) return
+        const refused = (result: PromiseSettledResult<unknown>) =>
+          result.status === 'rejected' &&
+          ['not_found', 'forbidden'].includes(parseAtlasError(result.reason).code ?? '')
+
+        // Deleted, or no longer theirs: drop it rather than ask again on every open.
+        forgetSessionVisits(
+          userId,
+          teamId,
+          visits.flatMap((visit, at) => (refused(results[at]) ? [visit.sessionId] : [])),
+        )
         const shown = results.flatMap((result) =>
           result.status === 'fulfilled' &&
           !result.value.conversation.archivedAt &&
@@ -80,13 +90,7 @@ export function useSearchResults(
         recentCache.set(cacheKey, shown)
         setSessions(shown)
         // A temporary failure must not look like an empty history.
-        setError(
-          results.some(
-            (result) =>
-              result.status === 'rejected' &&
-              !['not_found', 'forbidden'].includes(parseAtlasError(result.reason).code ?? ''),
-          ),
-        )
+        setError(results.some((result) => result.status === 'rejected' && !refused(result)))
       } else {
         const page = await api.agentListConversations(teamId, {
           scope: 'team',
