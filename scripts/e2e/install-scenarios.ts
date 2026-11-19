@@ -24,6 +24,8 @@ async function openLocalRuntime(page: Page) {
   await page.keyboard.press('Enter')
 }
 
+const REINSTALL =
+  "This runtime couldn't start on its computer. Install it there again, then resend your message."
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */
@@ -195,6 +197,27 @@ export const installScenarios: Scenario[] = [
       await ready.waitFor({ timeout: 60_000 })
       await shot(page, 'local-5-reinstalled')
       await page.getByText('Back to app', { exact: true }).click()
+
+      // A copy that is there but will not start: the turn says so in plain words, and this
+      // computer's failure line offers its installer.
+      const fixture = readFileSync(cli, 'utf8')
+
+      writeFileSync(cli, '#!/nonexistent/interpreter\n', { mode: 0o755 })
+      try {
+        await newTask(page)
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menu').getByText(hostname()).click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+        await send(page, 'Start Claude Code')
+        await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
+        await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
+        await shot(page, 'local-6-chat-reinstall')
+        const raw = await page.getByText(/ENOENT|native binary|-32603/).count()
+
+        if (raw > 0) throw new Error(`The chat shows the raw error ${String(raw)} times`)
+      } finally {
+        writeFileSync(cli, fixture, { mode: 0o755 })
+      }
     },
   },
   // TODO(#3654): adding an agent to a just-connected computer can skip installing its CLI;
