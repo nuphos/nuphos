@@ -236,6 +236,7 @@ data class AgentConversationDetail(
     val faces: List<ChatFace> = emptyList(),
     /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
     val group: Boolean? = null,
+    val avatar: String? = null,
 ) {
     val isChannel: Boolean get() = kind == "channel"
 
