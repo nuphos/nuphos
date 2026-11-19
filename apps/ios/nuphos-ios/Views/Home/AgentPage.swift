@@ -299,7 +299,7 @@ struct AgentPage: View {
                         pinAction(conversation)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -314,7 +314,7 @@ struct AgentPage: View {
                     }
                 } else {
                     row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -387,7 +387,7 @@ struct AgentPage: View {
 
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation, tinted: Bool = true) -> some View {
-        if conversation.canManage { Button {
+        if conversation.canArchive { Button {
             if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
