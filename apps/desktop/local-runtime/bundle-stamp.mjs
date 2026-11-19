@@ -41,6 +41,7 @@ export const RUNTIME_SOURCES = [
   'hermes-providers.json',
   'acp-shim.mjs',
   'hermes-session.mjs',
+  'opencode-session.mjs',
   'pi-login.mjs',
   'pi-session.mjs',
   'pi-acp/package.json',

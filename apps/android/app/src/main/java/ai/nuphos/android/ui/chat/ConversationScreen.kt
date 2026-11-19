@@ -73,6 +73,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -234,12 +235,31 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberRuntimeOffline(auth.token, session.teamId, session.runtimeId))
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
     if (showTriggers && auth.token != null) {
         ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+    }
+    var showSummary by remember(session, selectedTeamId) { mutableStateOf(false) }
+    val summaryToken = auth.token
+    val summaryAllowed = session.readAllowed && (!fresh || !session.isNew) && !newChat && auth.aiAllowed && selectedTeamId == session.teamId &&
+        summaryToken != null && conversation?.isBot != true && ai.nuphos.android.model.BotFaces.face(sessionId) == null
+    if (showSummary && summaryAllowed && summaryToken != null) {
+        TaskSummarySheet(
+            session = session,
+            token = summaryToken,
+            childIds = store.conversations.filter {
+                it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
+            }.mapTo(mutableSetOf()) { it.sessionId },
+            allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
+            onOpen = { child ->
+                showSummary = false
+                nav.navigate("conversation/${android.net.Uri.encode(child)}")
+            },
+            onDismiss = { showSummary = false },
+        )
     }
     val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
@@ -274,6 +294,11 @@ fun ConversationScreen(
                     else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
                 },
                 actions = {
+                    if (summaryAllowed) {
+                        IconButton(onClick = { showSummary = true }) {
+                            Icon(painterResource(R.drawable.ic_task_summary), stringResource(R.string.chat_summary_open))
+                        }
+                    }
                     ConversationMenu(session, store, onBack, onChooseRuntime = { showAgent = true })
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = chatCanvas),

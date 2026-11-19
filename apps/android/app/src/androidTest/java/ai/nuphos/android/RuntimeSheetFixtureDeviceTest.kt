@@ -49,6 +49,9 @@ class RuntimeSheetFixtureDeviceTest {
     @Volatile private var catalogStatus = 200
     @Volatile private var catalogBody = """{"runtimes":[{"id":"cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"},{"id":"local","provider":"codex","label":"Synthetic Computer","status":"active","kind":"local","local":{"online":true}}]}"""
 
+    /** Served for `/agent/devices` when set; otherwise that read fails like other polling. */
+    @Volatile private var devicesBody: String? = null
+
     @Before fun blockNetwork() {
         compose.runOnIdle {
             savedAccess = accessState().value
@@ -63,6 +66,9 @@ class RuntimeSheetFixtureDeviceTest {
             if (request.url.encodedPath.endsWith("/agent-runtimes")) {
                 check(gate.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "Synthetic catalog gate timed out" }
                 return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(catalogStatus).message("fixture").body(catalogBody.toResponseBody(Http.jsonMedia)).build()
+            }
+            devicesBody?.takeIf { request.url.encodedPath == "/agent/devices" }?.let {
+                return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture").body(it.toResponseBody(Http.jsonMedia)).build()
             }
             val chat = request.url.encodedPath == "/agent/chat"
             val cancel = request.url.encodedPath.endsWith("/cancel-runtime")
@@ -255,6 +261,22 @@ class RuntimeSheetFixtureDeviceTest {
         }
         compose.onNodeWithText("Switch runtime").performClick()
         compose.onNodeWithText("Choose runtime", useUnmergedTree = true).assertExists()
+    }
+    /** #3296: a paused Box resumes when the message goes, so nothing offers another runtime. */
+    @Test fun aPausedBoxSaysItResumesOnSendWithoutOfferingAnotherRuntime() {
+        catalogBody = catalogBody.replace("\"online\":true", "\"deviceId\":\"box\",\"online\":false")
+        devicesBody = """{"devices":[{"deviceId":"box","label":"Synthetic Box","online":false,"box":{"state":"paused"},"metricsStatus":"offline"}]}"""
+        gate.countDown()
+        render(snapshot(phase="completed",send=true), native=false, owner=true)
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Synthetic Box is paused. It resumes when you send.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        compose.onNodeWithText("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.").assertDoesNotExist()
+        compose.onNodeWithText("Switch runtime").assertDoesNotExist()
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { dir ->
+            java.io.File(dir, "runtime-paused-3296-android.png").outputStream().use {
+                InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
     }
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)

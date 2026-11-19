@@ -1,5 +1,6 @@
 // instabox as the backend sees it: only the machines a scenario adds, each with its
-// operation log. Nothing here starts, pauses or resumes a machine.
+// operation log. Nothing here starts, pauses or resumes a machine. An order is accepted and
+// its machine runs, but nothing on it ever answers, so a new Box stays starting.
 import { createServer } from 'node:http'
 
 export type StubOperation = { type: string; state: string; trigger?: string; createdAt: string }
@@ -36,7 +37,22 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
     const [, , kind, id, part] = path.split('/')
     const machine = kind === 'machines' && id ? machines.get(decodeURIComponent(id)) : undefined
 
-    if (request.method !== 'GET') return send(404, { error: { code: 'not_found' } })
+    if (request.method === 'POST' && path === '/v1/machines') {
+      const chunks: Buffer[] = []
+
+      request.on('data', (chunk: Buffer) => chunks.push(chunk))
+      request.on('end', () => {
+        const { name } = JSON.parse(Buffer.concat(chunks).toString()) as { name: string }
+
+        machines.set(name, { id: name, state: 'running', operations: [] })
+        send(202, { id: `op_${name}`, type: 'create', state: 'succeeded', machineId: name })
+      })
+
+      return
+    }
+    // The machine's own work (its idle pause, its install) never finishes.
+    if (request.method !== 'GET') return
+    if (path === '/v1/templates') return send(200, { templates: [{ id: 'agent-browser' }] })
     if (path === '/v1/me')
       return send(200, { allowedSpecs: [{ vcpus: 2, memMiB: 4096, persistentDiskGiB: 20 }] })
     if (path === '/v1/machines')
