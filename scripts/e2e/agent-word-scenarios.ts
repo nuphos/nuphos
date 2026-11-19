@@ -73,7 +73,12 @@ export const agentWordScenarios: Scenario[] = [
         await page.getByRole('option', { name: settings }).first().click()
         await page.getByRole('searchbox', { name: 'Search settings' }).fill(section!)
         await page.keyboard.press('Enter')
-        await main.getByRole('heading').first().waitFor()
+        // Skills shows its name in a toolbar, not a heading.
+        await main
+          .getByRole('heading')
+          .or(main.getByText(section!, { exact: true }))
+          .first()
+          .waitFor()
         // The section loads its data after it opens; shoot it once it has settled.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: `${artifacts}/${shot!}.png` })
