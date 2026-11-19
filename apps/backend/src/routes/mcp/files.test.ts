@@ -35,7 +35,7 @@ const run = async (args: Record<string, unknown> = { session_id: 'task' }) => {
   const { toolsForContext } = await import('./tools')
   const handler = toolsForContext({ userId: 'caller' } as never).nuphos_files
 
-  expect(handler).toBeDefined()
+  if (!handler) throw new Error('MCP tool is not registered')
 
   return handler(args)
 }
