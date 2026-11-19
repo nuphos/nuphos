@@ -16,6 +16,7 @@ import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
+import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
@@ -29,6 +30,7 @@ import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
@@ -127,10 +129,13 @@ const scenarios: Scenario[] = [
   ...mcpScenarios,
   threadModeScenario,
   ...botFoldScenarios,
+  ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.

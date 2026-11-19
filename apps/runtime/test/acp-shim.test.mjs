@@ -59,6 +59,8 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     },
     onExit: (code) => exits.push(code),
     settleMs: 20,
+    refusalPollMs: 50,
+    refusalQuietMs: 200,
   })
   let id = 0
   const call = (method, params) =>
@@ -579,33 +581,186 @@ test('pi runs through the pi-acp adapter and gets the session MCP servers as its
   })
 })
 
-test('a pi turn the provider refused shows why, which pi-acp drops', async () => {
-  await withShim('pi', async ({ call, home, notifications }) => {
+// pi-acp as it answers a provider's refusal: Pi records the error in its session file
+// (here a prompt over the model's context, then the context_edit Pi adds), and pi-acp
+// ends the turn as if Pi had replied.
+const PI_REFUSED = `
+const fs = require('node:fs')
+const path = require('node:path')
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/new') return reply(m.id, { sessionId: 's1', configOptions: [] })
+  if (m.method !== 'session/prompt') return reply(m.id, {})
+  const text = m.params.prompt.at(-1).text
+  const folder = path.join(process.env.PI_CODING_AGENT_DIR, 'sessions', '--workspace--')
+  fs.mkdirSync(folder, { recursive: true })
+  const entry = (e) => JSON.stringify(e) + '\\n'
+  fs.writeFileSync(path.join(folder, '2026-11-18T00-00-00-000Z_s1.jsonl'),
+    text === 'too long'
+      ? entry({ type: 'message', message: { role: 'assistant', stopReason: 'error', errorMessage: '400: request (46055 tokens) exceeds the available context size (8192 tokens)' } }) +
+        entry({ type: 'context_edit', targetId: 'm1', replacement: [] })
+      : entry({ type: 'message', message: { role: 'assistant', stopReason: 'stop', content: [] } }))
+  reply(m.id, { stopReason: 'end_turn' })
+})
+`
+
+test("a provider's refusal fails Pi's turn with the provider's words", async () => {
+  await withShim(
+    'pi',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1, clientCapabilities: {} })
+      await call('session/new', session('Be Nuphos.'))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+
+      const refused = await prompt('too long')
+      assert.equal(refused.result, undefined)
+      assert.deepEqual(refused.error, {
+        code: -32603,
+        message:
+          'Internal error: The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)',
+      })
+      // The failure is the turn's answer, never a reply the agent seems to have written.
+      assert.equal(
+        notifications.some((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk'),
+        false,
+      )
+      assert.deepEqual((await prompt('hi')).result, { stopReason: 'end_turn' })
+    },
+    PI_REFUSED,
+  )
+})
+
+// OpenCode 1.19 stand-in: a prompt never answers on its own, as when OpenCode retries a
+// provider error inside the turn; a cancel ends it.
+const STALLED_OPENCODE = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const open = new Map()
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/cancel') {
+    for (const id of open.values()) reply(id, { stopReason: 'end_turn' })
+    return open.clear()
+  }
+  if (m.id === undefined) return
+  if (m.method === 'session/prompt') return void open.set(m.params.sessionId, m.id)
+  reply(m.id, m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {})
+})
+`
+
+const openCodeLog = (home) => join(home, '.local', 'share', 'opencode', 'log', 'opencode.log')
+const streamError = (at, sessionId, small, error) =>
+  `timestamp=${at} level=ERROR run=r1 message="stream error" providerID=opencode modelID=big-pickle session.id=${sessionId} small=${small} agent=build mode=primary error.error="${error}"\n`
+const LIMIT =
+  'AI_APICallError: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+
+test('an opencode turn its provider refuses ends with OpenCode’s own error instead of hanging (#3630)', async () => {
+  await withShim(
+    'opencode',
+    async ({ call, home, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const { appendFile, mkdir } = await import('node:fs/promises')
+      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+      // An earlier turn's error, and the title request's, end nothing.
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date(Date.now() - 60_000).toISOString(), 'ses_1', false, LIMIT) +
+          streamError(new Date().toISOString(), 'ses_1', true, LIMIT),
+      )
+      const answered = call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+      const early = await Promise.race([answered, new Promise((r) => setTimeout(r, 300, 'open'))])
+      assert.equal(early, 'open', 'a retrying turn stays open until OpenCode reports why')
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
+      )
+      const reply = await Promise.race([answered, new Promise((r) => setTimeout(r, 5000, 'hung'))])
+
+      assert.notEqual(reply, 'hung', 'the turn ends once OpenCode logged the refusal')
+      assert.equal(reply.result.stopReason, 'end_turn')
+      const shown = notifications.filter(
+        (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
+      )
+      assert.equal(shown.length, 1)
+      assert.match(
+        shown[0].params.update.content.text,
+        /^The model provider refused the request: Free usage limit reached\./u,
+      )
+    },
+    STALLED_OPENCODE,
+  )
+})
+
+test('an opencode turn that answers is left alone, whatever another session logged', async () => {
+  await withShim('opencode', async ({ call, home, notifications }) => {
     await call('initialize', { protocolVersion: 1 })
     await call('session/new', session('Be Nuphos.'))
-    const { mkdir, readdir, writeFile } = await import('node:fs/promises')
-    const sessions = join(home, '.nuphos', 'session-homes')
-    const [sessionHome] = await readdir(sessions)
-    const folder = join(sessions, sessionHome, '.pi', 'agent', 'sessions', '--workspace--')
-    await mkdir(folder, { recursive: true })
-    const failed = {
-      type: 'message',
-      message: {
-        role: 'assistant',
-        content: [],
-        stopReason: 'error',
-        errorMessage: '401 invalid x-api-key',
-      },
-    }
-    await writeFile(
-      join(folder, '2026-11-15T00-00-00-000Z_s1.jsonl'),
-      `{"type":"session"}\n${JSON.stringify(failed)}\n`,
+    const { appendFile, mkdir } = await import('node:fs/promises')
+    await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+    await appendFile(
+      openCodeLog(home),
+      streamError(new Date().toISOString(), 'ses_other', false, LIMIT),
     )
-    await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
-    const shown = notifications.filter(
-      (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
+    const reply = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'hi' }],
+    })
+
+    assert.ok(reply.result.seen, 'the agent’s own answer')
+    assert.equal(
+      notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk').length,
+      0,
     )
-    assert.equal(shown.length, 1)
-    assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
   })
+})
+
+test('an opencode turn still answering is never ended for a refusal in its log', async () => {
+  // Streams for a while, then answers: a refusal OpenCode retried past.
+  const streaming = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method !== 'session/prompt') return say({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {} })
+  let n = 0
+  const timer = setInterval(() => {
+    say({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'ses_1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'x' } } } })
+    if (++n === 12) { clearInterval(timer); say({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } }) }
+  }, 50)
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call, home, notifications, children }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const { appendFile, mkdir } = await import('node:fs/promises')
+      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
+      await appendFile(
+        openCodeLog(home),
+        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
+      )
+      const reply = await call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+
+      assert.equal(reply.result.stopReason, 'end_turn')
+      const text = notifications
+        .filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+        .map((n) => n.params.update.content.text)
+        .join('')
+      assert.equal(text, 'x'.repeat(12), 'only the agent’s own words')
+    },
+    streaming,
+  )
 })

@@ -95,7 +95,13 @@ export function NewChatButton({
           <div className="titlebar-no-drag px-5 pt-1 pb-5">
             {connecting && (
               <div className="space-y-4 pt-3">
-                <LocalAgentSetupCards />
+                <LocalAgentSetupCards
+                  teamId={teamId}
+                  onCloud={() => {
+                    setConnecting(false)
+                    setOpen(false)
+                  }}
+                />
                 <div className="flex justify-end">
                   <Button variant="secondary" onClick={() => setConnecting(false)}>
                     {t('Back')}
