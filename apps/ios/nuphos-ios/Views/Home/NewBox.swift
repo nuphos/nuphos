@@ -39,7 +39,13 @@ enum NewBox {
         }
     }
 
-    enum Phase { case idle, starting, ready, error, timeout }
+    enum Phase {
+        case idle, starting, ready, error, timeout
+
+        /// A Box's runtimes join one by one, so its list is read again while it starts
+        /// and while it is shown, as Desktop's is.
+        var reads: Bool { self == .starting || self == .ready }
+    }
 
     /// Desktop's `boxSetupPhase`: up once the team lists one of its runtimes. A Box not
     /// listed yet is starting, as Desktop's unloaded list is: a failed read keeps the old one.
