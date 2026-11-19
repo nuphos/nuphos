@@ -56,10 +56,7 @@ export function SettingsPageFrame({
   const [left, setLeft] = useState<HTMLElement | null>(null)
   const [right, setRight] = useState<HTMLElement | null>(null)
   const [primaryAction, setPrimaryAction] = useState<ToolbarPrimaryAction | null>(null)
-  const slots = useMemo(
-    () => ({ left, right, headerRight: null, setOccupied: noop, setHeaderRightOccupied: noop }),
-    [left, right],
-  )
+  const slots = useMemo(() => ({ left, right, setOccupied: noop }), [left, right])
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-main">

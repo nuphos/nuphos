@@ -9,7 +9,7 @@ import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-type Dashboard = { id: string; name: string; visibility?: string }
+type Dashboard = { id: string; name: string; visibility?: string; cadence?: string | null }
 
 async function listed(stack: Stack, token: string) {
   const response = await fetch(`${stack.apiUrl}/teams/${stack.teamId}/dashboards`, {
@@ -93,6 +93,17 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByText('This dashboard is empty.').waitFor()
       await expectVisibility(stack, 'New dashboard', 'personal')
       await shot(page, '2-new-dashboard')
+      // Refresh and auto-refresh on the dashboard itself, in the panel beside the chat (#3821).
+      await page.getByRole('button', { name: 'Refresh', exact: true }).waitFor()
+      await page.getByTitle('Auto-refresh is off').click()
+      await page.getByRole('menuitem', { name: /^Daily at/ }).click()
+      await until('"New dashboard" to refresh daily on the backend', async () => {
+        const dashboard = await ownersDashboard(stack, 'New dashboard')
+
+        return dashboard?.cadence === 'daily'
+      })
+      await page.getByTitle(/^Daily at/).waitFor()
+      await shot(page, '2b-refresh-controls')
       // The toolbar's Personal / Team menu, shown wherever the dashboard is open.
       await page.getByRole('button', { name: 'Personal', exact: true }).click()
       await page.getByRole('menuitem', { name: 'Team', exact: true }).waitFor()
