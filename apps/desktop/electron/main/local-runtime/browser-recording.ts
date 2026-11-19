@@ -115,7 +115,12 @@ export async function stopRecording(contents: RecordedTab, { dir, creator }: Har
 
   await mkdir(dir, { recursive: true, mode: 0o700 })
   // Before the debugger detaches: the video stops its screencast through it.
-  const video = recording.video && (await stopVideo(recording.video, `${name}.webm`))
+  // A video that fails to finish is reported as failed, and the HAR is still written.
+  const video =
+    recording.video &&
+    (await stopVideo(recording.video, `${name}.webm`).catch((error: unknown) => ({
+      failed: error instanceof Error ? error.message : String(error),
+    })))
 
   contents.debugger.off('message', recording.onMessage)
   if (contents.debugger.isAttached()) contents.debugger.detach()

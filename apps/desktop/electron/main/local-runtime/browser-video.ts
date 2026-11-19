@@ -21,10 +21,14 @@ export type Video = {
   stopped: boolean
   truncated: boolean
   limits: { maxMs: number; maxBytes: number }
+  /** Closes the helper of a recording nobody stopped, say because its tab closed first. */
+  expiry: ReturnType<typeof setTimeout>
 }
 
 /** By default a video ends after 2 minutes or 100 MB of frames, whichever comes first. */
 const LIMITS = { maxMs: 120_000, maxBytes: 100 * 1024 * 1024 }
+/** How long past its cap a video's helper waits for record_stop before it closes. */
+const ABANDONED_MS = 10 * 60_000
 /** The tab's viewport (browser-tabs.ts, cli-browser.ts): frames are drawn at that size. */
 const SIZE = { width: 1440, height: 900 }
 
@@ -65,8 +69,6 @@ export async function startVideo(
   limits = LIMITS,
 ): Promise<Video> {
   const helper = await open()
-
-  await helper.evaluate(SETUP)
   const video: Video = {
     debugger: debug,
     helper,
@@ -79,15 +81,28 @@ export async function startVideo(
     stopped: false,
     truncated: false,
     limits,
+    expiry: setTimeout(() => {
+      stopFrames(video)
+      helper.close()
+    }, limits.maxMs + ABANDONED_MS),
   }
 
-  debug.on('message', video.onMessage)
-  await debug.sendCommand('Page.startScreencast', {
-    format: 'jpeg',
-    quality: 70,
-    maxWidth: SIZE.width,
-    maxHeight: SIZE.height,
-  })
+  video.expiry.unref()
+  try {
+    await helper.evaluate(SETUP)
+    debug.on('message', video.onMessage)
+    await debug.sendCommand('Page.startScreencast', {
+      format: 'jpeg',
+      quality: 70,
+      maxWidth: SIZE.width,
+      maxHeight: SIZE.height,
+    })
+  } catch (error) {
+    clearTimeout(video.expiry)
+    debug.off('message', video.onMessage)
+    helper.close()
+    throw error
+  }
 
   return video
 }
@@ -122,6 +137,7 @@ function stopFrames(video: Video): void {
 
 /** Ends the video and writes it to `file`; returns what `record_stop` reports of it. */
 export async function stopVideo(video: Video, file: string) {
+  clearTimeout(video.expiry)
   stopFrames(video)
   try {
     const webm = Buffer.from((await video.helper.evaluate('finish()')) as string, 'base64')
