@@ -56,6 +56,9 @@ function expireAndCite(stack: Stack, marker: string, refused: string, deleted: s
 export const replyFileScenarios: Scenario[] = [
   {
     name: 'files a reply cites read as expired past their lifetime, with no Retry',
+    // Both groups are refused on purpose: one expired (410), one deleted (404).
+    expected:
+      /"error_code":"transfer_(expired|not_found)"|"path":"\/teams\/[^"]+\/file-transfers\/[a-f0-9]{24}\/download","status":(404|410)/,
     run: async (page, stack) => {
       const marker = 'E2E_DELIVERY:reply-files'
 
