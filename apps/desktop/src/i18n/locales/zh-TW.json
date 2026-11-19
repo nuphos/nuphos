@@ -1,4 +1,5 @@
 {
+  "Not run: a new message cancelled this approval. Ask again if you still want it.": "未執行：新訊息已取消這項核准請求。若仍要執行，請再次提出要求。",
   "\"{domain}\" will stop serving this Pages project.": "「{domain}」將不再提供此 Pages 專案的服務。",
   "\"{key}\" will be permanently deleted.": "「{key}」將被永久刪除。",
   "\"{name}\" and all of its panels, snapshots, and alerts will be permanently deleted.": "「{name}」及其所有面板、快照與警示將被永久刪除。",

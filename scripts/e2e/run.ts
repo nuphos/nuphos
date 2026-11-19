@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
+import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
@@ -150,6 +151,7 @@ const scenarios: Scenario[] = [
   ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpScenarios,
+  ...approvalFeedbackScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,

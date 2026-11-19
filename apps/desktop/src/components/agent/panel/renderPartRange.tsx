@@ -1,3 +1,5 @@
+import { t } from '../../../i18n'
+
 import { segmentParts } from './toolRuns'
 import { ToolRunView } from './ToolRunView'
 
@@ -66,4 +68,18 @@ export function renderSelectedParts(
     (part, index, options) => renderPart(part, indices[index], options),
     now,
   )
+}
+
+const supersededApprovalMessage =
+  'Not run: a new message cancelled this approval. Ask again if you still want it.'
+
+/** A cancelled approval's outcome stays outside the work it would otherwise fold into. */
+export function approvalNotice(parts: readonly Part[]): ReactNode {
+  return parts.some(
+    (part) => part.type === 'tool' && part.errorText === supersededApprovalMessage,
+  ) ? (
+    <p role="status" className="text-[12.5px] leading-5 text-secondary">
+      {t(supersededApprovalMessage)}
+    </p>
+  ) : null
 }
