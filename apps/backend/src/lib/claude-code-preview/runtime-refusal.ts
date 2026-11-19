@@ -1,3 +1,4 @@
+import { getAgentDevice } from '@/lib/agent/devices/store'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
@@ -47,10 +48,15 @@ export async function noteOutdated(
   if (!local || !(error instanceof Error) || isRuntimeRefusal(error)) return
   const hint = await runtimePresenceStore()
     .get(local.userId, local.deviceId)
-    .then(hostUpdateHint)
+    .then(async (presence) => {
+      const device = await getAgentDevice(local.userId, local.deviceId).catch(() => null)
+
+      return hostUpdateHint(presence, device?.label)
+    })
     .catch(() => undefined)
 
-  if (hint) error.message += `\n\n${hint}`
+  if (hint)
+    error.message += `${/[.!?]$/u.test(error.message) || turnFailureCause(error) === 'usage_limit' ? '' : '.'}\n\n${hint}`
 }
 
 /** The message waits in the session queue: the expected outcome, not a failure. */

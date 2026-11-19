@@ -9,6 +9,7 @@ import {
   hostOutdated,
   updateAvailable,
   DESKTOP_UPDATE_READY_HINT,
+  hostUpdateHint,
   withOutdatedHint,
 } from './host-minimum-version'
 import { ownComputer } from './session-desktops'
@@ -135,4 +136,13 @@ test('a Bot update hint neither repeats a product error nor exposes a raw error'
   expect(withOutdatedHint(shown, error)).toBe(shown)
   expect(withOutdatedHint(undefined, error)).toBe(DESKTOP_UPDATE_READY_HINT)
   expect(withOutdatedHint(undefined, new Error('internal path'))).toBeUndefined()
+})
+
+test('an update hint names the host and preserves the known sentence without raw diagnostics', async () => {
+  const hint = await hostUpdateHint({ client: 'nuphos-desktop/0.123.0' }, 'Build Mac')
+
+  expect(hint).toBe(
+    'Nuphos Desktop on Build Mac is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.',
+  )
+  expect(withOutdatedHint(undefined, new Error(`private diagnostic\n\n${hint}`))).toBe(hint)
 })

@@ -11,10 +11,10 @@ import type { Page } from 'playwright-core'
 
 // What the conversation shows for a failed turn there: its summary, then the out-of-date line.
 export const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on this computer is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
 
 export const OUTDATED_FLOOR_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on this computer is out of date. Check for updates in Help, then quit and reopen Nuphos.'
+  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
 // keeps the scenarios after these off the laptop, which has gone offline by then.
@@ -76,7 +76,7 @@ export const outdatedTurnScenarios: Scenario[] = [
           .click()
         await send(page, 'Explain the update waiting on this computer')
         await page
-          .getByText(/couldn’t reply:.*Nuphos Desktop on this computer is out of date/)
+          .getByText(/couldn’t reply:.*Nuphos Desktop on E2E laptop is out of date/)
           .waitFor()
         await page
           .getByText(/The downloaded update is ready. Quit and reopen Nuphos/)
@@ -84,6 +84,30 @@ export const outdatedTurnScenarios: Scenario[] = [
           .waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-bot-error.png') })
         await backOnFixture(page, 'after-behind')
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
+    name: 'an old Desktop without a staged update points to Settings Updates',
+    expected: new RegExp(RESTORE_FAILED),
+    run: async (page, stack) => {
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.123.0',
+        app: { version: '0.123.0' },
+        restoreFails: true,
+      })
+
+      try {
+        await newTask(page)
+        await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
+        await page.getByRole('menu').getByText(LAPTOP).first().click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await send(page, 'How to get the update')
+        await page.getByText(OUTDATED_FLOOR_LINE).waitFor()
+        await page.screenshot({ path: join(artifacts, 'not-ready-turn-error.png') })
+        await backOnFixture(page, 'after-not-ready')
       } finally {
         goOffline()
       }
