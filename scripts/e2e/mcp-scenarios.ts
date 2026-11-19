@@ -73,16 +73,20 @@ function notifications(reader: ReadableStreamDefaultReader<Uint8Array>) {
   return async () => {
     for (;;) {
       const boundary = buffer.indexOf('\n\n')
+
       if (boundary >= 0) {
         const frame = buffer.slice(0, boundary)
+
         buffer = buffer.slice(boundary + 2)
         const data = /^data: (.+)$/m.exec(frame)?.[1]
         const id = /^id: (.+)$/m.exec(frame)?.[1]
+
         if (data && id)
           return { id, body: JSON.parse(data) as { params: { status: string; answer?: string } } }
         continue
       }
       const next = await reader.read()
+
       must(!next.done, 'the subscription to stay open until the notification')
       buffer += decoder.decode(next.value, { stream: true })
     }
@@ -104,12 +108,15 @@ export const mcpScenarios: Scenario[] = [
           },
           signal: AbortSignal.timeout(30_000),
         })
+
         must(response.ok && response.body !== null, 'the authenticated SSE subscription')
+
         return response.body.getReader()
       }
       const reader = await open()
       const next = notifications(reader)
       let completed = await next()
+
       must(completed.body.params.status === 'completed', 'a stored result on initial subscription')
       try {
         await tool('nuphos_ask', {
@@ -130,6 +137,7 @@ export const mcpScenarios: Scenario[] = [
       }
       const resumed = await open(completed.id)
       const changed = notifications(resumed)
+
       try {
         await tool('nuphos_ask', {
           team_id: stack.teamId,
@@ -138,6 +146,7 @@ export const mcpScenarios: Scenario[] = [
           prompt: prompt('E2E_DELIVERY:mcp-notify-third'),
         })
         let event = await changed()
+
         must(event.id !== completed.id, 'Last-Event-ID to suppress unchanged state')
         while (!event.body.params.answer?.includes('ACK E2E_DELIVERY:mcp-notify-third'))
           event = await changed()
