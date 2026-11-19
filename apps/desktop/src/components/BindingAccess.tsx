@@ -152,7 +152,7 @@ export function BindingAccessSection({
       </div>
       <p className="mb-3 text-[12px] text-tertiary">
         {t(
-          "Control which team members can use this {resource}, including from their agents. Admins can also use it once it is shared, but never a member's private one.",
+          "Control which team members can use this {resource}, including from their Bots and tasks. Admins can also use it once it is shared, but never a member's private one.",
           { resource: config.resourceLabel },
         )}
       </p>
@@ -189,7 +189,7 @@ export function BindingAccessSection({
             <AllowListSelect
               title={t('Access')}
               subtitle={t(
-                'Members allowed to use this {resource}. Their agents can use it only when they also select it for that agent.',
+                'Members allowed to use this {resource}. Their Bots and tasks can use it only when they also select it for that Bot or task.',
                 { resource: config.resourceLabel },
               )}
               allowList={memberAllowList}

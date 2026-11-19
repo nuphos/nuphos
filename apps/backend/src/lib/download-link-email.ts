@@ -3,6 +3,7 @@ import { MongoServerError } from 'mongodb'
 import { db } from '@/lib/db'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 
 import type { Collection, ObjectId } from 'mongodb'
 
@@ -79,7 +80,7 @@ export async function sendDownloadLinkEmail(email: string): Promise<void> {
     await sends()
       .deleteOne({ email })
       .catch(() => {})
-    console.error('download-link-email: failed to send', err)
+    logError('download_link_email.send_failed', err)
     throw new AppError(
       502,
       'download_email_send_failed',

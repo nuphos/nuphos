@@ -10,6 +10,7 @@ import { getLiveTurn } from '@/lib/agent/live-turn'
 import { queuedAnswers } from '@/lib/agent/pending-queue'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { hasActiveAgentRunForSession } from '@/routes/agent'
+import { toolAuthorizations } from '@/routes/mcp/tool-authorizations'
 import { partsToText } from '@/routes/mcp/transcript'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -48,7 +49,9 @@ export async function nuphosCheck(
   // Active-run lookup keys on the conversation owner (the creator).
   const running = await hasActiveAgentRunForSession(conversation.userId, sessionId)
   const live = running ? await getLiveTurn(conversation.userId, sessionId) : null
-  const requests = await openRequests(conversation)
+  // A tool call waits for approval only while its turn runs.
+  const approvals = running ? await toolAuthorizations(sessionId, ctx.userId, live) : []
+  const requests = [...(await openRequests(conversation)), ...approvals]
   const page =
     typeof args.from_index === 'number'
       ? await getConversationTranscriptForAgent(ctx.userId, {
@@ -76,6 +79,8 @@ export async function nuphosCheck(
     ...(page ? { transcript: { lines: page.lines, next_index: page.nextIndex } } : {}),
   }
 
+  // Its turn holds on a tool call until the caller approves or denies it.
+  if (approvals.length) return toolResult({ status: 'waiting_for_input', ...details })
   if (running) {
     return toolResult({
       status: 'running',

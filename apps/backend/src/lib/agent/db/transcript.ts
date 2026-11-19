@@ -43,6 +43,7 @@ function conversationShell(data: ConversationTranscriptSync) {
     agentRuntime: data.agentRuntime,
     runtimeId: data.runtimeId,
     runtimeLabel: data.runtimeLabel,
+    parentSessionId: data.parentSessionId,
   })
 }
 

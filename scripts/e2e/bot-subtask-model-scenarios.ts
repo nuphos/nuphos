@@ -17,46 +17,58 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
       const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E unlisted kid' }).first()
       const behind = join(artifacts, 'behind')
-      // The Bot's controls hide while its row is hovered, so each is clicked where it is.
-      const toggle = async (control: string) => {
-        await page.mouse.move(120, 600)
-        await page.waitForTimeout(1_000)
-        await bots.locator(control).first().dispatchEvent('click')
-      }
+      // The sub-Task answers only once this exists: the sidebar lists a sub-Task while it runs,
+      // and a fixture turn is shorter than the session list's 4 s poll.
+      const release = join(artifacts, 'release')
+      const light = () =>
+        page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
 
       await page.getByRole('tab', { name: 'Bots' }).click()
       await bot.click()
       // The sub-Task's session runs a model the agent's own list never offers.
       writeFileSync(behind, 'fixture-unlisted')
+      rmSync(release, { force: true })
       try {
         await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-handoff')
+        // A running sub-Task is listed under the Bot once its tree is open. Opened from there,
+        // it stays listed when it finishes, since it is the open chat.
+        const tree = bots.locator('[aria-label="Show sub-agents"], [aria-label="Hide sub-agents"]')
+
+        await tree.first().waitFor()
+        if ((await tree.first().getAttribute('aria-label')) === 'Show sub-agents')
+          await tree.first().dispatchEvent('click')
+        await kid.click()
+        writeFileSync(release, '')
         await until('the sub-Task to reply', async () =>
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
         )
-      } finally {
-        rmSync(behind, { force: true })
-      }
-      // A finished sub-Task is listed once the Bot's done count is opened, which gives the Bot
-      // sub-agents to show, and then they are shown.
-      await toggle('[title$=" done"]')
-      if (!(await kid.count())) await toggle('[aria-label="Show sub-agents"]')
-      await kid.click()
-      await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
-      await page.waitForTimeout(3_000)
-      await page.evaluate(() => {
-        document.documentElement.classList.remove('dark')
-        document.documentElement.classList.add('light')
-      })
-      await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
-      const chip = page.getByRole('button', { name: /^Model settings/ }).last()
-      const label = (await chip.getAttribute('aria-label')) ?? ''
+        await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
+        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
 
-      if (!label.startsWith('Model settings: fixture-unlisted'))
-        throw new Error(`The sub-Task's chip reads "${label}"`)
-      // Back in the Bot's chat, its done group closed again, where the channel scenarios carry on.
+        // Opened while it ran, its chip names the model once the app reads it after the turn.
+        await until("the sub-Task's chip to name its model", async () =>
+          (await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted'),
+        )
+        await light()
+        await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
+      } finally {
+        // Kept until the chip names the model: the app reads it again once the sub-Task ends.
+        rmSync(behind, { force: true })
+        rmSync(release, { force: true })
+      }
+      // Back in the Bot's chat, where the channel scenarios carry on. The finished sub-Task
+      // leaves the sidebar with no count in its place, so the Bot's name has the row's width.
       await bot.click()
-      await toggle('[title$=" done"]')
       await kid.waitFor({ state: 'detached' })
+      await page.mouse.move(600, 400)
+      await page.waitForTimeout(3_000)
+      await light()
+      await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
+      if (await bots.locator('[title$=" done"]').count())
+        throw new Error("The Bot's row still shows a done count")
     },
   },
 ]

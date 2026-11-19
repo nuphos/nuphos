@@ -3372,6 +3372,52 @@
         }
       }
     },
+    "Answered in Inbox" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respondido en la bandeja de entrada"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dijawab di Kotak Masuk"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受信トレイで回答"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "받은 편지함에서 답변함"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอบในกล่องข้อความ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在收件箱回答"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在收件匣回答"
+          }
+        }
+      }
+    },
     "Answered “%@”" : {
       "localizations" : {
         "es" : {
@@ -21597,48 +21643,48 @@
         }
       }
     },
-    "Replying to %@ " : {
+    "Replying to %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Respondiendo a %@ "
+            "value" : "Respondiendo a %@"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Membalas %@ "
+            "value" : "Membalas %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ への返信 "
+            "value" : "%@ への返信"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@에게 답장 "
+            "value" : "%@에게 답장"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ตอบกลับ %@ "
+            "value" : "ตอบกลับ %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回复 %@ "
+            "value" : "回复 %@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回覆 %@ "
+            "value" : "回覆 %@"
           }
         }
       }
@@ -26525,52 +26571,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已延後"
-          }
-        }
-      }
-    },
-    "Start a task from the bar below." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inicia una tarea desde la barra de abajo."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mulai tugas dari bilah di bawah."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下のバーからタスクを開始してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아래 입력창에서 태스크를 시작하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เริ่มงานจากแถบด้านล่าง"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从下方的输入栏开始一个任务。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從下方的輸入列開始一個任務。"
           }
         }
       }

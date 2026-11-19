@@ -257,7 +257,7 @@ struct AgentPage: View {
             ContentUnavailableView {
                 Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
-                Text(store.search.isEmpty ? "Start a task from the bar below." : "No tasks match your search.")
+                if !store.search.isEmpty { Text("No tasks match your search.") }
             }
         case .loaded:
             EmptyView()
@@ -590,9 +590,11 @@ struct NewChatComposer: View {
             pickDevice: { device in
                 if !store.credentialSelection.contains(device) { store.credentialSelection.toggle(device) }
             },
-            search: { query in
-                await store.loadCredentialOptions()
-                return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+            sessions: store.mentionableSessions(teamId: draftTeam, excluding: nil),
+            refresh: {
+                async let devices: () = store.loadCredentialOptions()
+                await store.loadMentionableSessions(teamId: draftTeam)
+                await devices
             }
         ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, focusRequest: focusRequest, onSend: { submission in
             do {

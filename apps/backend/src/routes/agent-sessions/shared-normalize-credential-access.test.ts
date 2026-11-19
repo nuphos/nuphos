@@ -35,7 +35,7 @@ describe('normalizeCredentialAccess', () => {
       notionIntegrationIds: { id: 'n-1' },
       gcpServiceAccountIds: 'sa-1',
       awsRoleIds: ['role-1', null, 3, 'role-2'],
-      personalCredentialIds: ['github', 'gmail', null],
+      personalCredentialIds: ['github', 'gmail', 'slack', null],
     })
 
     expect(access.cloudflareAccountIds).toEqual([])
@@ -43,7 +43,7 @@ describe('normalizeCredentialAccess', () => {
     expect(access.notionIntegrationIds).toEqual([])
     expect(access.gcpServiceAccountIds).toEqual([])
     expect(access.awsRoleIds).toEqual(['role-1', 'role-2'])
-    expect(access.personalCredentialIds).toEqual(['github'])
+    expect(access.personalCredentialIds).toEqual(['github', 'gmail'])
   })
 
   test('leaves well-formed lists unchanged', () => {

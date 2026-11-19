@@ -2,8 +2,8 @@ import { t } from '../../i18n/index.ts'
 
 import type { BoxUsage } from '../../api/device-types'
 
-/** The cloud computer, as an option next to a computer of your own. */
-export const CLOUD_COMPUTER_DESCRIPTION = t(
+/** A computer rented from Nuphos, as an option next to a computer of your own. */
+export const RENTED_COMPUTER_DESCRIPTION = t(
   'Nuphos runs it for you, with Claude Code, Codex, OpenCode and more.',
 )
 

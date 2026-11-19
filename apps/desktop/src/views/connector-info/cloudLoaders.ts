@@ -169,7 +169,7 @@ export const cloudLoaders: ConnectorInfoLoaders = {
           ? [
               {
                 label: t('Type'),
-                value: t('Retired connection (remove and reconnect to use with the agent)'),
+                value: t('Retired connection (remove and reconnect to use with Bots and tasks)'),
               },
             ]
           : []),

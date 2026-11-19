@@ -11,11 +11,11 @@ import {
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
-import { chatName, isChannel, postText } from './db/channels'
+import { replyQuote } from './channel-reply'
+import { chatName, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
-import { parseMessageMetadata } from './message-metadata'
 import { notePost } from './mentions'
 import { listPendingUserMessages } from './pending-queue'
 
@@ -30,32 +30,6 @@ import type { MessageMetadata } from './message-metadata'
 export const CHANNEL_AGENT_TURN_BUDGET = 10
 
 type Post = { id: string; text: string; metadata: MessageMetadata; files?: object[] }
-
-// Enough of the original to recognize it; the reply is about it, not a copy of it.
-const REPLY_QUOTE_LENGTH = 200
-
-/**
- * What a reply quotes: a snapshot of the post `messageId` in this channel, so
- * the quote stays when the original goes. None for a post the channel lacks.
- */
-export async function replyQuote(
-  channel: Pick<AgentConversation, 'sessionId' | 'userId'>,
-  messageId: unknown,
-): Promise<MessageMetadata['replyTo']> {
-  if (typeof messageId !== 'string' || !messageId || messageId.length > 100) return undefined
-  const original = await agentMessages().findOne({
-    sessionId: channel.sessionId,
-    userId: channel.userId,
-    messageId,
-  })
-  const sender = parseMessageMetadata(original?.metadata)?.sender
-
-  if (!original || !sender) return undefined
-  // A post of files alone is quoted as its file.
-  const text = Array.from(postText(original.parts).trim()).slice(0, REPLY_QUOTE_LENGTH).join('')
-
-  return { id: messageId, authorName: sender.displayName, text: text || 'File' }
-}
 
 /**
  * Records a message, with its `files` parts. A person's post wakes the channel's
@@ -157,10 +131,14 @@ export async function postAsAgent(
   agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
   text: string,
   files: object[] = [],
+  /** The index of the one post it answers, which it then quotes. */
+  replyTo?: number,
 ): Promise<void> {
   const channel = await getConversationBySessionId(channelId)
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
+  const quote = await replyQuote(channel, replyTo)
+
   await postChannelMessage(
     channel,
     {
@@ -177,6 +155,7 @@ export async function postAsAgent(
         source: 'agent.thread',
         sourceSessionId: agent.sessionId,
         sentAt: new Date().toISOString(),
+        ...(quote ? { replyTo: quote } : {}),
       },
       files,
     },

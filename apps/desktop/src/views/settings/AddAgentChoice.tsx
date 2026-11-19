@@ -3,7 +3,7 @@ import { Box, Laptop } from 'lucide-react'
 
 import { t } from '../../i18n'
 
-import { CLOUD_COMPUTER_DESCRIPTION } from './boxCreatePresentation'
+import { RENTED_COMPUTER_DESCRIPTION } from './boxCreatePresentation'
 import { StepActions } from './StepActions'
 
 import type { ReactNode } from 'react'
@@ -46,7 +46,7 @@ export function Choice({
   )
 }
 
-/** Add computer's first step: a Nuphos cloud computer or your own. */
+/** Add computer's first step: a computer rented from Nuphos or your own. */
 export function AddAgentChoices({
   boxAvailable,
   footer,
@@ -66,8 +66,8 @@ export function AddAgentChoices({
       {boxAvailable && (
         <Choice
           icon={<Box className="h-4 w-4" />}
-          title={t('Nuphos cloud computer')}
-          description={CLOUD_COMPUTER_DESCRIPTION}
+          title={t('Rent a computer from Nuphos')}
+          description={RENTED_COMPUTER_DESCRIPTION}
           onClick={onCloud}
         />
       )}
