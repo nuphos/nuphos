@@ -101,6 +101,7 @@ export const installScenarios: Scenario[] = [
       await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).waitFor()
       await shot(page, 'local-0-new-runtime')
       await page.keyboard.press('Escape')
+      await page.getByText('Back to app', { exact: true }).click()
       await page
         .getByRole('button', { name: /^Search/ })
         .first()
