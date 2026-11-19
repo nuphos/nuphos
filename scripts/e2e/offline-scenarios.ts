@@ -126,6 +126,43 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'disk-banner.png') })
+        // #3567, from #3568: the banner floats over the transcript's end, which keeps its last
+        // message clear of it. A short, narrow window makes the transcript scroll and the reason
+        // wrap, so the banner has something to cover.
+        const last = page.getByText(`moved this task from E2E fixture agent to`).last()
+        const size = page.viewportSize()
+
+        await page.setViewportSize({ width: 720, height: 420 })
+        try {
+          await page.evaluate(() => {
+            document.documentElement.classList.remove('dark')
+            document.documentElement.classList.add('light')
+          })
+          await page.waitForTimeout(500)
+          const message = await last.boundingBox()
+          const top = (await banner.boundingBox())?.y ?? Number.NaN
+          const scroll = await last.evaluate((node) => {
+            const scroller = node.closest('.overflow-auto')!
+
+            return {
+              overflows: scroller.scrollHeight > scroller.clientHeight,
+              fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
+            }
+          })
+          const bottom = message ? message.y + message.height : Number.NaN
+
+          await page.screenshot({ path: join(artifacts, 'disk-banner-task-light.png') })
+          if (!scroll.overflows)
+            throw new Error('The transcript does not scroll; the check shows nothing')
+          if (Number.isNaN(top) || Number.isNaN(bottom) || bottom > top + 1)
+            throw new Error(
+              `The last message ends at ${String(bottom)} px, under the banner at ${String(top)} px`,
+            )
+          if (scroll.fromBottom > 2)
+            throw new Error(`The transcript is ${String(scroll.fromBottom)} px from its end`)
+        } finally {
+          if (size) await page.setViewportSize(size)
+        }
         await banner.getByRole('button', { name: 'Free space' }).click()
         await page.getByText('Disk almost full: 7 GB free').waitFor()
         // The cards fade in; the picture is taken once they have.
