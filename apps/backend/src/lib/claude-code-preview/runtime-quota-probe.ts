@@ -116,7 +116,7 @@ async function lookup() {
       // Max 20x is now called Ultra, but Claude Code still stores "max" for it; only the
       // rate limit tier tells it from Max 5x (as Desktop's agent-cli.ts reads it).
       if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType)
-        plan = oauth.rateLimitTier === 'default_claude_max_20x' ? 'ultra' : oauth.subscriptionType;
+        plan = oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x' ? 'ultra' : oauth.subscriptionType;
     }
     const config = await read(join(homedir(), '.claude.json'));
     const account = config && config.oauthAccount && config.oauthAccount.accountUuid;

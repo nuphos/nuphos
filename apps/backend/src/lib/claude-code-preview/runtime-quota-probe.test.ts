@@ -78,6 +78,7 @@ test('a Max 20x tier reads as Ultra, the name Anthropic gave that plan', () => {
   expect(planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_5x' })).toBe('max')
   expect(planOf({ subscriptionType: 'max' })).toBe('max')
   expect(planOf({ subscriptionType: 'pro' })).toBe('pro')
+  expect(planOf({ subscriptionType: 'team', rateLimitTier: 'default_claude_max_20x' })).toBe('team')
 })
 
 test('a lapsed one-year token is not used: the ordinary login beside it is', () => {

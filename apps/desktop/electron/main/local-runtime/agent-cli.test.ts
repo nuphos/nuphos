@@ -169,6 +169,10 @@ test(
     )
     assert.equal(await planOf({ subscriptionType: 'max' }), 'max')
     assert.equal(await planOf({ subscriptionType: 'pro' }), 'pro')
+    assert.equal(
+      await planOf({ subscriptionType: 'team', rateLimitTier: 'default_claude_max_20x' }),
+      'team',
+    )
   },
 )
 
