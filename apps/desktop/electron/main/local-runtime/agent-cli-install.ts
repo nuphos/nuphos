@@ -32,7 +32,8 @@ const NPM_PACKAGE = {
   codex: '@openai/codex',
   pi: '@earendil-works/pi-coding-agent',
   opencode: 'opencode-ai',
-  dsh: '@deepseek-ai/dsh',
+  // Every release so far is a prerelease, which a bare name never matches.
+  dsh: '@deepseek-ai/dsh@latest',
 }
 
 /** The vendors whose own script installs their CLI: macOS and Linux, then Windows. */

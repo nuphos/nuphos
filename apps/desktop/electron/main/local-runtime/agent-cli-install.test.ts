@@ -29,7 +29,7 @@ test(
       assert.deepEqual(installCommand('dsh', { PATH: dir })?.args, [
         'install',
         '-g',
-        '@deepseek-ai/dsh',
+        '@deepseek-ai/dsh@latest',
       ])
       // Without Node.js there is nothing to install Pi with.
       assert.equal(installCommand('pi', { PATH: path.join(dir, 'none') }), null)
