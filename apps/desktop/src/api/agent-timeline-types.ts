@@ -3,10 +3,11 @@ import type { AgentProvider } from '../types/runtime.ts'
 export type AgentTimelinePerson = { id: string; name: string; avatarURL: string }
 export type AgentTimelineRuntime = { label: string; provider?: AgentProvider }
 
+/** A setting's change, each value as the runtime names it; an absent value is the default. */
 export type AgentTimelineSetting = {
   setting: 'model' | 'effort' | 'fast'
-  from?: string
-  to?: string
+  from?: { value: string; name?: string }
+  to?: { value: string; name?: string }
 }
 
 /** Who joined, left or moved the session; `text` is the whole line, plain. */

@@ -76,7 +76,7 @@ test('a person’s change names the setting as the picker does, and the line car
     kind: 'settings_changed',
     by: { type: 'person', id: 'yuan', name: 'Yuanlin', avatarURL: 'a.png' },
     form: 'changed',
-    settings: [{ setting: 'model', from: 'GPT-6.2-Sol', to: 'GPT-6.2-Astra' }],
+    settings: [{ setting: 'model', from: sol, to: astra }],
     via: 'picker',
     client: 'desktop',
   })
@@ -102,8 +102,8 @@ test('consecutive changes by one actor with no message between are one net chang
   expect(line).toMatchObject({
     at: at(3).toISOString(),
     settings: [
-      { setting: 'model', from: 'GPT-6.2-Sol', to: 'GPT-6.2-Nova' },
-      { setting: 'effort', from: 'Low', to: 'High' },
+      { setting: 'model', from: sol, to: { value: 'gpt-6.2-nova', name: 'GPT-6.2-Nova' } },
+      { setting: 'effort', from: low, to: high },
     ],
   })
   // A message between them keeps them apart.
@@ -150,8 +150,8 @@ test('what the new agent picks right after a move goes on the move line', () => 
   ])
   expect(lines[0]).toMatchObject({
     picks: [
-      { setting: 'model', to: 'GPT-6.2-Sol' },
-      { setting: 'effort', to: 'Low' },
+      { setting: 'model', to: sol },
+      { setting: 'effort', to: low },
     ],
     via: 'runtime_move',
   })
@@ -273,5 +273,25 @@ test('the API lists every record oldest first, with moves recorded before the hi
       effort: { to: low },
       text: 'The agent set Low',
     },
+  ])
+})
+
+test('values read as the picker shows them, and its "Default" is no model to come from', () => {
+  expect(
+    texts(
+      [
+        placed,
+        pick(1, {
+          model: { from: { value: 'default', name: 'Default (recommended)' }, to: astra },
+        }),
+        pick(3, {
+          effort: { from: { value: 'low', name: 'low' }, to: { value: 'high', name: 'high' } },
+        }),
+      ],
+      [2],
+    ),
+  ).toEqual([
+    'Yuanlin changed the model to GPT-6.2-Astra',
+    'Yuanlin changed effort from Low to High',
   ])
 })

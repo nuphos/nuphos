@@ -10,8 +10,24 @@ export type LineActor =
   | { type: 'task'; sessionId: string; title: string; provider?: OpenAbProvider }
   | { type: 'runtime'; label: string; provider?: OpenAbProvider }
   | { type: 'nuphos' }
-/** A setting as the picker names it; an absent value is the agent's default. */
-export type Shown = { setting: Setting; from?: string; to?: string }
+/** A value as the runtime names it. */
+export type Choice = { value: string; name?: string }
+/** A setting's change; an absent value is the agent's default. */
+export type Shown = { setting: Setting; from?: Choice; to?: Choice }
+
+// Effort levels as the picker shows them; a level it does not know keeps the runtime's name.
+const EFFORT: Record<string, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra High',
+  max: 'Max',
+}
+
+/** A value as the picker shows it. */
+export const label = (setting: Setting, choice?: Choice) =>
+  choice &&
+  ((setting === 'effort' ? EFFORT[choice.value] : undefined) ?? choice.name ?? choice.value)
 
 const LABEL = { model: 'the model', effort: 'effort', fast: 'fast mode' }
 const and = (parts: string[]) => new Intl.ListFormat('en', { type: 'conjunction' }).format(parts)
@@ -24,24 +40,30 @@ function actorName(actor: LineActor) {
   return actor.type === 'runtime' ? actor.label : 'Nuphos'
 }
 
-const fastTurned = (to?: string) => (to === 'on' || to === 'off' ? to : undefined)
+const fastTurned = (to?: Choice) =>
+  to?.value === 'on' || to?.value === 'off' ? to.value : undefined
 
 function changed(settings: Shown[]) {
   if (settings.length === 1) {
     const [{ setting, from, to }] = settings as [Shown]
 
-    if (setting === 'fast' && fastTurned(to)) return `turned fast mode ${to}`
+    if (setting === 'fast' && fastTurned(to)) return `turned fast mode ${fastTurned(to)}`
+    const was = label(setting, from)
 
-    return ['changed', LABEL[setting], ...(from ? ['from', from] : []), 'to', to ?? 'Default'].join(
-      ' ',
-    )
+    return [
+      'changed',
+      LABEL[setting],
+      ...(was ? ['from', was] : []),
+      'to',
+      label(setting, to) ?? 'Default',
+    ].join(' ')
   }
 
   return `changed ${and(
     settings.map(({ setting, to }) =>
       setting === 'fast' && fastTurned(to)
-        ? `fast mode ${to}`
-        : `${LABEL[setting]} to ${to ?? 'Default'}`,
+        ? `fast mode ${fastTurned(to)}`
+        : `${LABEL[setting]} to ${label(setting, to) ?? 'Default'}`,
     ),
   )}`
 }

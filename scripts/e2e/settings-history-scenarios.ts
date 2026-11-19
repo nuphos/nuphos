@@ -102,7 +102,7 @@ export const settingsHistoryScenarios: Scenario[] = [
         await page.getByRole('slider').press('End')
         await page.waitForTimeout(500)
         await page.keyboard.press('Escape')
-        await line(page, /changed the model to\s*fixture-large\s*and effort to\s*high/).waitFor()
+        await line(page, /changed the model to\s*fixture-large\s*and effort to\s*High/).waitFor()
 
         await send(page, 'Next, fast mode E2E_DELIVERY:retune-fast')
         await page.getByText('ACK E2E_DELIVERY:retune-fast', { exact: true }).waitFor()

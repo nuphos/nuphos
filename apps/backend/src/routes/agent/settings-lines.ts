@@ -1,7 +1,7 @@
 import { isOpenAbProvider, runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 
 import { serializeTimelineEvents } from './conversation-timeline'
-import { sentenceOf } from './settings-sentence'
+import { label, sentenceOf } from './settings-sentence'
 
 import type { ConversationOwner } from './conversation-view'
 import type { LineActor, Setting, Shown } from './settings-sentence'
@@ -39,7 +39,6 @@ type Line = {
   actingFor?: string
 }
 
-const shown = (value?: SettingValue) => value && (value.name ?? value.value)
 const diffsOf = (change: SettingsChange) =>
   new Map(PICKED.flatMap((kind) => (change[kind] ? [[kind, change[kind]] as const] : [])))
 
@@ -92,18 +91,21 @@ function lineOf(
   }
 }
 
+// Claude Code's "Default" stands for a model and is not one: a change from it names no `from`.
 const settingsOf = (diffs: Map<Setting, Diff>): Shown[] =>
   [...diffs].map(([setting, { from, to }]) => ({
     setting,
-    ...(from ? { from: shown(from) } : {}),
-    ...(to ? { to: shown(to) } : {}),
+    ...(from && from.value !== 'default' ? { from } : {}),
+    ...(to ? { to } : {}),
   }))
 
 // What an agent filled in, as its chip names it: fast mode only when on.
 const picked = (diffs: Map<Setting, Diff>) =>
-  settingsOf(diffs).filter(({ setting, to }) => (setting === 'fast' ? to === 'on' : to))
+  settingsOf(diffs).filter(({ setting, to }) => (setting === 'fast' ? to?.value === 'on' : to))
 const setValues = (diffs: Map<Setting, Diff>) =>
-  picked(diffs).map(({ setting, to }) => (setting === 'fast' ? 'fast mode on' : (to ?? '')))
+  picked(diffs).map(({ setting, to }) =>
+    setting === 'fast' ? 'fast mode on' : (label(setting, to) ?? ''),
+  )
 
 /** Each change with the kind of agent that ran the conversation when it happened. */
 export function withProviders(changes: readonly SettingsChange[]) {

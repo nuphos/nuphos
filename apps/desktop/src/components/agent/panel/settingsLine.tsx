@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 
 import { locale, t } from '../../../i18n'
+import { effortLabel, modelChoiceLabel } from '../../../lib/configLabels'
 
 import { AgentProviderIcon } from './icons'
 import { fill } from './timelineFill'
@@ -12,7 +13,7 @@ import type { ReactNode } from 'react'
 
 /** A model, effort or speed, as the picker names it. */
 function Value({ children }: { children: ReactNode }) {
-  return <span className="shrink-0 font-medium text-secondary">{children}</span>
+  return <span className="font-medium text-secondary">{children}</span>
 }
 
 function Actor({ by }: { by: NonNullable<AgentTimelineEvent['by']> }) {
@@ -32,17 +33,48 @@ function Actor({ by }: { by: NonNullable<AgentTimelineEvent['by']> }) {
   )
 }
 
-const shownValue = ({ setting, to }: AgentTimelineSetting) =>
-  setting === 'fast' && to === 'on' ? t('fast mode on') : (to ?? t('Default'))
+/** A value as the picker shows it; none is the runtime's default. */
+function valueLabel({ setting }: AgentTimelineSetting, choice?: AgentTimelineSetting['to']) {
+  if (!choice) return t('Default')
+  const name = choice.name ?? choice.value
 
-/** What the new agent picked right after a move, on the move's line. */
+  if (setting === 'effort') return effortLabel({ value: choice.value, name })
+
+  return setting === 'model' ? modelChoiceLabel({ name }) : choice.value
+}
+
+const shownValue = (setting: AgentTimelineSetting) =>
+  setting.setting === 'fast' && setting.to?.value === 'on'
+    ? t('fast mode on')
+    : valueLabel(setting, setting.to)
+
+/** What the new agent picked right after a move, at the end of the move's line. */
 export function Picks({ picks = [] }: { picks?: AgentTimelineSetting[] }) {
-  return picks.map((pick) => (
-    <Fragment key={pick.setting}>
-      <span aria-hidden>·</span>
-      <Value>{shownValue(pick)}</Value>
-    </Fragment>
-  ))
+  if (!picks.length) return null
+
+  return (
+    <span className="min-w-0 truncate">
+      {picks.map((pick, index) => (
+        <Fragment key={pick.setting}>
+          {index ? ' · ' : '· '}
+          <span className="font-medium text-secondary">{shownValue(pick)}</span>
+        </Fragment>
+      ))}
+    </span>
+  )
+}
+
+/** The sentence around its actor. What follows the actor ends in "…" when the line runs out. */
+function withActor(template: string, actor: ReactNode, nodes: Record<string, ReactNode>) {
+  const [before = '', after = ''] = template.split('{actor}')
+
+  return (
+    <>
+      {before.trim() ? <span className="shrink-0">{fill(before, nodes)}</span> : null}
+      {actor}
+      <span className="min-w-0 truncate">{fill(after, nodes)}</span>
+    </>
+  )
 }
 
 /** Parts joined the way the language lists them: "A and B", "A, B, and C". */
@@ -64,7 +96,7 @@ function fastSentence(to?: string) {
 }
 
 function oneChange({ setting, from, to }: AgentTimelineSetting) {
-  if (setting === 'fast') return fastSentence(to)
+  if (setting === 'fast') return fastSentence(to?.value)
   if (setting === 'model')
     return from
       ? t('{actor} changed the model from {from} to {to}')
@@ -75,13 +107,14 @@ function oneChange({ setting, from, to }: AgentTimelineSetting) {
     : t('{actor} changed effort to {to}')
 }
 
-function newValue({ setting, to }: AgentTimelineSetting) {
-  const value = <Value>{to ?? t('Default')}</Value>
+function newValue(change: AgentTimelineSetting) {
+  const { setting, to } = change
+  const value = <Value>{valueLabel(change, to)}</Value>
 
   if (setting === 'model') return fill(t('the model to {to}'), { to: value })
   if (setting === 'effort') return fill(t('effort to {to}'), { to: value })
-  if (to === 'on') return fill(t('fast mode on'), {})
-  if (to === 'off') return fill(t('fast mode off'), {})
+  if (to?.value === 'on') return fill(t('fast mode on'), {})
+  if (to?.value === 'off') return fill(t('fast mode off'), {})
 
   return fill(t('fast mode to {to}'), { to: value })
 }
@@ -93,11 +126,10 @@ function settingsSentence(
   actor: ReactNode,
 ) {
   if (event.form === 'set')
-    return fill(t('{actor} set {values}'), {
-      actor,
+    return withActor(t('{actor} set {values}'), actor, {
       values: settings.map((setting, index) => (
         <Fragment key={setting.setting}>
-          {index ? <span aria-hidden>·</span> : null}
+          {index ? ' · ' : null}
           <Value>{shownValue(setting)}</Value>
         </Fragment>
       )),
@@ -105,17 +137,13 @@ function settingsSentence(
   const [only] = settings
 
   if (settings.length !== 1)
-    return fill(t('{actor} changed {changes}'), {
-      actor,
-      // One run of text, so the list's commas sit against their words.
-      changes: <span>{list(settings.map(newValue))}</span>,
+    return withActor(t('{actor} changed {changes}'), actor, {
+      changes: list(settings.map(newValue)),
     })
-  const value = (text?: string) => <Value>{text ?? t('Default')}</Value>
 
-  return fill(oneChange(only), {
-    actor,
-    from: value(only.from),
-    to: value(only.to),
+  return withActor(oneChange(only), actor, {
+    from: <Value>{valueLabel(only, only.from)}</Value>,
+    to: <Value>{valueLabel(only, only.to)}</Value>,
   })
 }
 
@@ -133,8 +161,11 @@ const CLIENT: Record<string, string> = {
 function settingsTitle(event: AgentTimelineEvent, time: string) {
   const label = { model: t('Model'), effort: t('Effort'), fast: t('Fast mode') }
   const settings = (event.settings ?? []).map(
-    ({ setting, from, to }) =>
-      `${label[setting]}: ${[from, to ?? t('Default')].filter(Boolean).join(' → ')}`,
+    (change) =>
+      `${label[change.setting]}: ${[
+        ...(change.from ? [valueLabel(change, change.from)] : []),
+        valueLabel(change, change.to),
+      ].join(' → ')}`,
   )
   const source = event.client
     ? (CLIENT[event.client] ?? event.client)
