@@ -108,7 +108,7 @@ const ITEM_META: Record<AddIntegrationKey, { name: string; description: string }
   resend: { name: 'Resend', description: t('Send transactional email.') },
   instabox: {
     name: 'instabox',
-    description: t('Computers for your agents, billed to your instabox account.'),
+    description: t('Cloud computers for your agents, billed to your instabox account.'),
   },
   slack: { name: 'Slack', description: t('Chat with the agent from Slack channels.') },
   discord: { name: 'Discord', description: t('Mention the agent in Discord channels.') },
