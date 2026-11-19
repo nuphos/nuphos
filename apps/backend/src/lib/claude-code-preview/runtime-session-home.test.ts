@@ -64,6 +64,18 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     rmSync(root, { recursive: true, force: true })
   })
 
+  test("as a computer's own job, takes the session id on stdin", () => {
+    const run = Bun.spawnSync([process.execPath, '-e', RECLAIM_SESSION_HOME_PROGRAM], {
+      env: { HOME: join(root, 'home') },
+      stdin: Buffer.from(JSON.stringify({ sessionId: 'archived' })),
+    })
+
+    expect(run.exitCode).toBe(0)
+    expect(JSON.parse(run.stdout.toString()).result).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
+    expect(existsSync(home('other'))).toBe(true)
+  })
+
   test('removes only the archived home, keeping a symlink target', () => {
     mkdirSync(join(root, 'outside'))
     writeFileSync(join(root, 'outside', 'kept'), '')
@@ -277,8 +289,9 @@ describe('reclaimSessionHomes', () => {
   const { acquire, runtimeJobs } = controlRegistry
   // What the reclaim program reports, the jobs it was sent, and computers offline.
   let report = '{"result":"removed"}'
-  let jobs: { runtimeId: string; stdin: string }[] = []
+  let jobs: { runtimeId: string; job: string; stdin: string }[] = []
   let offline: string[] = []
+  let offered = ['panel']
   let memory = portabilityDb()
   let state = 'dormant'
   let onProbe = () => {}
@@ -342,10 +355,11 @@ describe('reclaimSessionHomes', () => {
     report = '{"result":"removed"}'
     jobs = []
     offline = []
-    controlRegistry.runtimeJobs = () => ['panel']
+    offered = ['panel']
+    controlRegistry.runtimeJobs = () => offered
     controlRegistry.acquire = (async (_teamId: string, endpoint: { runtimeId: string }) => ({
-      runJob: async (request: { stdin: string }) => {
-        jobs.push({ runtimeId: endpoint.runtimeId, stdin: request.stdin })
+      runJob: async (request: { job: string; stdin: string }) => {
+        jobs.push({ runtimeId: endpoint.runtimeId, job: request.job, stdin: request.stdin })
 
         return { exitCode: 0, stdout: report }
       },
@@ -367,6 +381,30 @@ describe('reclaimSessionHomes', () => {
       script: '',
       params: { sessionId: 'conversation' },
     })
+  })
+
+  test("a computer's own job gets only the session id, and is used over panel", async () => {
+    offered = ['attachments', 'session-homes']
+    const row = conversation({})
+
+    expect(await reclaimSessionHomes(now)).toBe(1)
+    expect(row.sessionHomeReclaimedAt).toEqual(now)
+    expect(jobs).toEqual([
+      {
+        runtimeId: LOCAL,
+        job: 'session-homes',
+        stdin: JSON.stringify({ sessionId: 'conversation' }),
+      },
+    ])
+  })
+
+  test('retries on a computer that offers neither job', async () => {
+    offered = ['attachments']
+    const row = conversation({})
+
+    expect(await reclaimSessionHomes(now)).toBe(0)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+    expect(jobs).toEqual([])
   })
 
   test('reclaims only the conversations it is given', async () => {

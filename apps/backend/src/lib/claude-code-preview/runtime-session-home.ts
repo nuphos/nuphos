@@ -163,21 +163,25 @@ async function runReclaimJob(
   sessionId: string,
 ): Promise<boolean> {
   const client = await controlRegistry.acquire(teamId, endpoint)
+  const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+  // A computer's own fixed job takes only the session id; `panel`, which runs the
+  // text it is sent, is for the runtime image and older computers that have it.
+  const request = jobs.includes('session-homes')
+    ? { job: 'session-homes', stdin: JSON.stringify({ sessionId }) }
+    : jobs.includes('panel')
+      ? {
+          job: 'panel',
+          stdin: JSON.stringify({
+            runner: RECLAIM_SESSION_HOME_PROGRAM,
+            script: '',
+            params: { sessionId },
+          }),
+        }
+      : null
 
-  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('panel')) return false
+  if (!request) return false
   const result = await client.runJob(
-    {
-      jobId: randomUUID(),
-      job: 'panel',
-      env: {},
-      stdin: JSON.stringify({
-        runner: RECLAIM_SESSION_HOME_PROGRAM,
-        script: '',
-        params: { sessionId },
-      }),
-      timeoutMs: 60_000,
-      maxStdoutBytes: 1024,
-    },
+    { jobId: randomUUID(), env: {}, timeoutMs: 60_000, maxStdoutBytes: 1024, ...request },
     65_000,
   )
 
