@@ -55,13 +55,7 @@ export async function toolAuthorizations(sessionId: string, userId: string, live
 
 const DECISIONS: Record<string, 'approved' | 'rejected'> = {
   approve: 'approved',
-  approved: 'approved',
-  allow: 'approved',
-  yes: 'approved',
   deny: 'rejected',
-  denied: 'rejected',
-  reject: 'rejected',
-  no: 'rejected',
 }
 
 /**

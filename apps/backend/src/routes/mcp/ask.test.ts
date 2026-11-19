@@ -403,11 +403,13 @@ describe('nuphos_ask request_id on a tool authorization', () => {
     expect(events.map((e) => e.data?.decision)).toEqual(['approved', 'rejected'])
   })
 
-  test('another answer is refused and leaves it pending', async () => {
+  test('any answer but approve or deny is refused and leaves it pending', async () => {
     waiting(ME)
-    const result = await nuphosAsk({ ...answer, request_id: 'w1', prompt: 'sure, go ahead' }, ctx)
+    for (const prompt of ['sure, go ahead', 'yes']) {
+      const result = await nuphosAsk({ ...answer, request_id: 'w1', prompt }, ctx)
 
-    expect(result.isError).toBe(true)
+      expect(result.isError).toBe(true)
+    }
     expect(runtimeRequests.records.get('s1:w1')?.decision).toBeNull()
   })
 
