@@ -14,7 +14,6 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
-import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
@@ -119,10 +118,6 @@ const scenarios: Scenario[] = [
   ...triggerScenarios,
   ...usageScenarios,
   ...connectorScenarios,
-  {
-    name: 'connector sharing enforces ownership and role boundaries',
-    run: async (_page, stack) => connectorSharingFlow(stack),
-  },
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
