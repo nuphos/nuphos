@@ -1,6 +1,7 @@
 // A team's vCPU limit, applied where a Box starts: the vCPUs of its running Boxes,
 // as instabox reports them, must stay within it. The limit is the team document's
 // `boxVcpuLimit`, written by a separate billing service, else the deployment default.
+// A team on the default may also have a free allowance (box-free).
 
 import { randomUUID } from 'node:crypto'
 
@@ -11,6 +12,7 @@ import { config } from '@/config'
 import { AppError } from '@/lib/errors'
 import { teams } from '@/lib/identity/shared'
 
+import { assertFreeAllowance } from './box-free'
 import { accountSizes, boxConnection } from './box-instabox-account'
 import { QUICK_TIMEOUT_MS, connection, unavailable } from './box-instabox-client'
 import { assertWithinLimit, isRunning, runningVcpus } from './box-vcpu'
@@ -67,7 +69,7 @@ export async function boxSize(vcpus?: number, box?: BoxAccountRef): Promise<BoxS
     throw new AppError(
       400,
       'box_size',
-      `A cloud computer comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
+      `A computer from Nuphos comes with ${sizes.map((s) => String(s.vcpus)).join(' or ')} vCPU`,
     )
 
   return size
@@ -82,7 +84,7 @@ export async function teamBoxUsage(teamId: string) {
 
 async function checkWithinLimit(
   teamId: string,
-  limit: number,
+  { limit, own }: { limit: number; own: boolean },
   starting: { vcpus: number } | { sandboxId: string },
 ) {
   const { machines, usedVcpus } = await teamBoxUsage(teamId)
@@ -92,14 +94,21 @@ async function checkWithinLimit(
       ? starting.vcpus
       : machines.find((m) => m.sandboxId === starting.sandboxId && !isRunning(m.state))?.vcpus
 
-  if (vcpus !== undefined) assertWithinLimit(teamId, limit, usedVcpus, vcpus)
+  if (vcpus === undefined) return
+  if (!own)
+    await assertFreeAllowance(
+      teamId,
+      machines.filter((m) => m.state !== 'deleted').length,
+      'vcpus' in starting,
+    )
+  assertWithinLimit(teamId, limit, usedVcpus, vcpus)
 }
 
 /** Refuses, with the 402 a start would give, resuming a Box the team's limit does not allow now. */
 export async function assertCanResume(teamId: string, sandboxId: string): Promise<void> {
-  const { limit } = await teamVcpuLimit(teamId)
+  const { limit, own } = await teamVcpuLimit(teamId)
 
-  if (limit !== undefined) await checkWithinLimit(teamId, limit, { sandboxId })
+  if (limit !== undefined) await checkWithinLimit(teamId, { limit, own }, { sandboxId })
 }
 
 /** How long a start may hold the team's start lease if it never releases it. */
@@ -135,7 +144,7 @@ export async function startWithinLimit<T>(
   starting: { vcpus: number } | { sandboxId: string },
   start: () => Promise<T>,
 ): Promise<T> {
-  const { limit } = await teamVcpuLimit(teamId)
+  const { limit, own } = await teamVcpuLimit(teamId)
 
   if (limit === undefined) return start()
   const token = await acquireStartLease(teamId)
@@ -147,7 +156,7 @@ export async function startWithinLimit<T>(
       'Another computer in this team is starting. Try again in a moment.',
     )
   try {
-    await checkWithinLimit(teamId, limit, starting)
+    await checkWithinLimit(teamId, { limit, own }, starting)
 
     return await start()
   } finally {

@@ -1,4 +1,4 @@
-// #3427: the model chip opens one picker, the effort card, whether or not the Task has started.
+// #3427: the model chip opens one picker, with the effort slider, whether or not the Task has started.
 import { agentEvents } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickAgent, send } from './ui.ts'
@@ -6,7 +6,7 @@ import { newTask, pickAgent, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-/** Opens the model chip, captures the whole window in light theme, and says whether the effort card opened. */
+/** Opens the model chip, captures the whole window in light theme, and says whether the effort slider shows. */
 async function openChip(page: Page, shot: string) {
   await page.getByRole('button', { name: /^Model settings/ }).click()
   const effortCard = await page
@@ -26,7 +26,7 @@ async function openChip(page: Page, shot: string) {
 // A Task whose effort was never picked used to get a bare model list once it started.
 export const effortCardScenarios: Scenario[] = [
   {
-    name: 'a Task opens the same effort card before it starts and during its first reply',
+    name: 'a Task opens the same picker, with effort, before it starts and during its first reply',
     run: async (page, stack) => {
       const stopOffering = stack.offerDefaultStandIn()
       const theme = await page.evaluate(() => {
@@ -48,7 +48,7 @@ export const effortCardScenarios: Scenario[] = [
         await newTask(page)
         await pickAgent(page, 'E2E fixture agent')
         if (!(await openChip(page, 'effort-card-new-task')))
-          throw new Error('A new Task opened a model list, not the effort card')
+          throw new Error('A new Task opened the picker without its effort slider')
         await send(page, 'Hold on E2E_HOLD E2E_DELIVERY:effort-held')
         await until('the held turn to start', async () =>
           agentEvents(stack).includes('start E2E_DELIVERY:effort-held'),
@@ -59,7 +59,7 @@ export const effortCardScenarios: Scenario[] = [
         await until('the held turn to be cancelled', async () =>
           agentEvents(stack).includes('cancelled E2E_DELIVERY:effort-held'),
         )
-        if (!started) throw new Error('A started Task opened a model list, not the effort card')
+        if (!started) throw new Error('A started Task opened the picker without its effort slider')
       } finally {
         stopOffering()
         await page.evaluate((previous) => {

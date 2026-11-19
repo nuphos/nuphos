@@ -127,7 +127,7 @@ final class AgentStore {
     private var botOwners: [String: String] { ConversationNesting.botOwners(conversations + bots) }
 
     /// What Tasks lists, by latest activity: no Bot, and nothing a Bot dispatched
-    /// at any depth, which Bots lists under the Bot instead (#2341).
+    /// at any depth, which opens from the Bot's page instead (#2341).
     var listedConversations: [AgentConversation] {
         let owners = botOwners
         return conversations.filter { !$0.isBot && owners[$0.sessionId] == nil }
@@ -236,9 +236,7 @@ final class AgentStore {
     // MARK: - Threads
 
     private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
-    /// Rows whose fold was flipped by hand, per team. A Tasks row is open
-    /// until folded. A Bots row, keyed `bots:<id>` as on Desktop, is folded
-    /// until opened, and then stays open.
+    /// Tasks rows folded by hand, per team. A row is open until folded.
     private var foldedThreads: [String: Set<String>] =
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
@@ -248,15 +246,11 @@ final class AgentStore {
         ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    /// The Bots rows: each chat or Bot, with what a Bot dispatched under it.
-    var nestedBots: [NestedConversation] {
-        let rows = ConversationNesting.botRows(botsList, threads: conversations, owners: botOwners)
-        return ConversationNesting.nest(rows, folded: Set(rows.map(\.sessionId).filter { isFolded($0, onBots: true) }))
-    }
+    /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
+    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
 
-    func isFolded(_ sessionId: String, onBots: Bool = false) -> Bool {
-        let flipped = foldedThreads[selectedTeam?.id ?? ""]?.contains(onBots ? "bots:\(sessionId)" : sessionId) == true
-        return flipped != onBots
+    func isFolded(_ sessionId: String) -> Bool {
+        foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
     }
 
     // MARK: - Pins
@@ -307,9 +301,8 @@ final class AgentStore {
         rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
     }
 
-    func toggleFolded(_ sessionId: String, onBots: Bool = false) {
-        let key = onBots ? "bots:\(sessionId)" : sessionId
-        updateFolds { if $0.remove(key) == nil { $0.insert(key) } }
+    func toggleFolded(_ sessionId: String) {
+        updateFolds { if $0.remove(sessionId) == nil { $0.insert(sessionId) } }
     }
 
     private func updateFolds(_ change: (inout Set<String>) -> Void) {
@@ -411,6 +404,12 @@ final class AgentStore {
         selectedTeam == nil || !runtimesLoaded || newConversationRuntime == nil
     }
 
+    /// The workspace has a runtime to start a task on. New Task then asks for one
+    /// ("Choose runtime") if the remembered one is unavailable.
+    var canStartTask: Bool {
+        selectedTeam != nil && runtimesLoaded && RuntimeInstance.defaultPick(runtimes) != nil
+    }
+
     func selectRuntime(_ runtime: RuntimeInstance) {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
@@ -435,17 +434,25 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
+    /// Boxes, and the viewer is a team administrator.
+    private(set) var canCreateBox = false
+    /// The team's devices have loaded at least once.
+    private(set) var agentDevicesLoaded = false
 
-    func loadAgentDevices() async {
+    /// `metrics`: asks every online host to sample, which only a meters view needs.
+    func loadAgentDevices(metrics: Bool = true) async {
         guard let team = selectedTeam else { return }
-        struct Envelope: Decodable { let devices: [AgentDevice] }
+        struct Envelope: Decodable { let devices: [AgentDevice]; let boxAvailable: Bool?; let canCreateBox: Bool? }
         do {
-            let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
+            let query = (metrics ? [URLQueryItem(name: "metrics", value: "true")] : []) + [URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
             let result = try JSONDecoder().decode(Envelope.self, from: data)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
+            agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
@@ -507,7 +514,8 @@ final class AgentStore {
             newModelConfig = config
             newModelError = config.options.isEmpty ? "No models available. Try again." : nil
         } catch {
-            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id,
+                  !Task.isCancelled else { return }
             newModelError = error.localizedDescription
         }
     }
@@ -535,6 +543,8 @@ final class AgentStore {
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        canCreateBox = false
+        agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
@@ -561,10 +571,27 @@ final class AgentStore {
 
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
-    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
-        guard loadsHistory else { return [] }
-        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, search: query) else { return [] }
-        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    /// The viewer's own Bots and Tasks, every page, listed before an `@` so typing only filters them.
+    private var mentionable: (teamId: String, rows: [AgentConversation])?
+
+    /// What an `@` offers in `teamId`, but `excluded`; nil until listed once.
+    func mentionableSessions(teamId: String, excluding excluded: String?) -> [AgentConversation]? {
+        guard let mentionable, mentionable.teamId == teamId else { return nil }
+        return mentionable.rows.filter { $0.sessionId != excluded }
+    }
+
+    /// Lists them again, in the background of a composer that has appeared.
+    func loadMentionableSessions(teamId: String) async {
+        var rows: [AgentConversation] = []
+        var cursor: String?
+        var seen: Set<String> = []
+        while loadsHistory {
+            guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, cursor: cursor, limit: 100) else { return }
+            rows += page.conversations
+            guard page.hasMore, let next = page.nextCursor, seen.insert(next).inserted else { break }
+            cursor = next
+        }
+        mentionable = (teamId, rows)
     }
 
     // MARK: - Composer settings (IAM + permission mode)
@@ -594,6 +621,7 @@ final class AgentStore {
             credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
             publishSharingContext()
         } catch {
+            guard !Task.isCancelled else { return }
             credentials.finish(load, with: .failure(error))
         }
     }
@@ -632,6 +660,7 @@ final class AgentStore {
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
+        let shown = teamsPhase
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -649,6 +678,8 @@ final class AgentStore {
                 await reload()
             }
         } catch {
+            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
+            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -716,6 +747,7 @@ final class AgentStore {
         loadedPageCursors = []
         refreshPageIndex = 0
         let generation = loadGeneration
+        let shown = phase
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
@@ -736,6 +768,8 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
+            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
                 return

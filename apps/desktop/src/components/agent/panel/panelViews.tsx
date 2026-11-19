@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo, useRef } from 'react'
+import { useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -7,7 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
-import { dismissQuestion } from '../../../views/inbox/dismissQuestion'
+import { cardAsides } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
@@ -19,7 +19,6 @@ import { hidingRetracted, sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
-import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
@@ -78,7 +77,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
-  const composerRef = useRef<HTMLDivElement>(null)
+  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
   const { agentMenu, turnSwitch } = useTurnFailureActions(c, runtimeControl)
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
@@ -136,16 +135,15 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // Only the owner decides who has access, so only they are offered an invite
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
+  // Undefined until the task's own mode is known, never a default before it.
   const bypassControl =
     activeTab && ownsPermissionMode(activeTab)
-      ? {
-          active: bypassBySession[activeTab.sessionId] ?? false,
-          onSelect: selectBypassMode,
-        }
+      ? { active: bypassBySession[activeTab.sessionId], onSelect: selectBypassMode }
       : undefined
 
   return activeTab && !switchingConversation ? (
-    <ConversationReveal sessionId={activeTab.sessionId}>
+    // Keyed: nothing one chat's views hold carries into the next.
+    <div key={activeTab.sessionId} className="flex min-h-0 flex-1">
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
@@ -172,8 +170,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
                   // Offered only on a card that can be answered, so `answer` already gates it.
-                  skip: (card) =>
-                    dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions)),
+                  ...cardAsides(teamId, activeTab, questions),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -194,6 +191,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       isTeamAdmin={isTeamAdmin}
                       currentUrl={url}
                       sidebar={isSidebarMode}
+                      composer={composer}
                       onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
                       onMessageFeedback={handleMessageFeedback}
                       // Only show docking where a sidebar host exists.
@@ -212,7 +210,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 </TurnSwitchAgentContext.Provider>
               </ConnectCardContext.Provider>
             </div>
-            <div ref={composerRef} className="col-start-1 row-start-2 z-10">
+            <div ref={setComposer} className="col-start-1 row-start-2 z-10">
               <ChatColumn sidebar={isSidebarMode}>
                 {waitingMessages(activeTab).length > 0 && (
                   <QueuedStrip
@@ -290,7 +288,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
-    </ConversationReveal>
+    </div>
   ) : (
     <ConversationPlaceholder
       unavailable={c.openingConversation?.unavailable === true}

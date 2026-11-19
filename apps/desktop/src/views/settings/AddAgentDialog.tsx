@@ -25,7 +25,7 @@ type Step = 'choose' | 'box'
 
 const TITLE: Record<Step, string> = {
   choose: t('Add computer'),
-  box: t('Nuphos cloud computer'),
+  box: t('Rent a computer from Nuphos'),
 }
 
 /** The one place to add a computer (and so its runtimes), from the Runtimes page or the composer's agent picker. */
@@ -33,12 +33,18 @@ export function AddAgentDialog({
   teamId,
   onClose,
   onAdded,
+  onBoxCreated,
+  onBack,
 }: {
   teamId: string
   onClose: () => void
   onAdded?: (runtimeId: string) => void
+  /** Opens on the cloud computer and, once one is made, closes and hands off here. */
+  onBoxCreated?: () => void
+  /** Where Back from the cloud computer goes when the dialog opened on it. */
+  onBack?: () => void
 }) {
-  const [step, setStep] = useState<Step>('choose')
+  const [step, setStep] = useState<Step>(onBoxCreated ? 'box' : 'choose')
   const devices = useAgentDevices(() => 0, teamId, { teamId }).list
   const deploymentBoxes = devices?.boxAvailable === true
   const instaboxAccounts = useInstaboxAccounts(teamId)
@@ -134,8 +140,15 @@ export function AddAgentDialog({
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard
                       }}
-                      onBack={() => go('choose')}
+                      onBack={onBack ?? (() => go('choose'))}
                       onChosen={setSigningIn}
+                      onCreated={
+                        onBoxCreated &&
+                        (() => {
+                          onClose()
+                          onBoxCreated()
+                        })
+                      }
                     />
                   )}
                 </div>

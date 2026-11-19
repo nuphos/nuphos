@@ -4,9 +4,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { choiceModeScenarios } from './choice-mode-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
-import { staleQuestionScenarios } from './stale-question-scenarios.ts'
+import { inboxScenarios } from './inbox-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { secretScenarios } from './secret-scenarios.ts'
+import { staleQuestionScenarios } from './stale-question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -50,7 +53,7 @@ const watchInboxRows = (page: Page) =>
   })
 
 /** Saves the window's frames to `<artifacts>/<name>/` until the returned stop is called. */
-async function screencast(page: Page, name: string) {
+export async function screencast(page: Page, name: string) {
   const dir = `${artifacts}/${name}`
   const cdp = await page.context().newCDPSession(page)
   let frame = 0
@@ -64,7 +67,7 @@ async function screencast(page: Page, name: string) {
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
 
   // A reload may have ended the screencast already.
-  return () => cdp.send('Page.stopScreencast').catch(() => undefined)
+  return () => cdp.send('Page.stopScreencast').catch(() => {})
 }
 
 export const questionScenarios: Scenario[] = [
@@ -182,6 +185,10 @@ export const questionScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:snooze')
       await page.getByText('ACK E2E_DELIVERY:snooze').waitFor()
+      // Counted once the asking turn is over, so only a wake could add to it.
+      await until('the asking turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:snooze'),
+      )
       const { sessionId, request } = await asked()
 
       must(Boolean(request), 'the question to be listed')
@@ -285,4 +292,7 @@ export const questionScenarios: Scenario[] = [
   },
   ...decisionTitleScenarios,
   ...staleQuestionScenarios,
+  ...inboxScenarios,
+  ...choiceModeScenarios,
+  ...secretScenarios,
 ]

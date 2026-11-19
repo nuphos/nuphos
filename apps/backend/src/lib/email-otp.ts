@@ -12,7 +12,7 @@ import { consumePairQuota } from '@/lib/download-handoff-rate-limit'
 import { escapeHtml, InvalidRecipientError, isEmailConfigured, sendEmail } from '@/lib/email'
 import { AppError } from '@/lib/errors'
 import { signInWithVerifiedEmail } from '@/lib/identity'
-import { logEvent } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 import { signInDevice, signInPlace } from '@/lib/request-origin'
 import { redisEnabled } from '@/lib/redis'
 
@@ -137,7 +137,7 @@ export async function requestEmailOtp(
       .deleteOne({ email: normalized, codeHash })
       .catch(() => {})
     if (err instanceof InvalidRecipientError) throw invalidEmail()
-    console.error('email-otp: failed to send code', err)
+    logError('email_otp.send_failed', err)
     throw new AppError(502, 'otp_send_failed', 'Failed to send the sign-in code — try again')
   }
 }

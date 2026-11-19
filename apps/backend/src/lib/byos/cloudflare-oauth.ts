@@ -50,15 +50,21 @@ export function getCloudflareOAuthScopes(): string {
   return DEFAULT_SCOPES
 }
 
+// Always requested, whatever the caller selected: `offline_access` for a refresh
+// token, `analytics.read` so incident triage can query zone GraphQL Analytics
+// (edge 5xx, WebSocket). Adding it here also covers Desktop builds that send
+// their own subset.
+export const CLOUDFLARE_REQUIRED_SCOPES = ['offline_access', 'analytics.read']
+
 /**
  * Build the `scope` query value from a caller-selected list, falling back to the
- * server default. `offline_access` is always included so we get a refresh token.
+ * server default, plus CLOUDFLARE_REQUIRED_SCOPES.
  */
 export function resolveCloudflareScopeParam(selected?: string[]): string {
   const base = selected && selected.length > 0 ? selected : DEFAULT_SCOPES.split(/\s+/)
   const set = new Set(base.map((s) => s.trim()).filter((s) => s && !UNOFFERED_SCOPE.test(s)))
 
-  set.add('offline_access')
+  for (const s of CLOUDFLARE_REQUIRED_SCOPES) set.add(s)
 
   return Array.from(set).join(' ')
 }

@@ -191,7 +191,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text(stringResource(R.string.try_again)) }
                 }
                 // Nothing posted yet: say what kind of place this is, as on iOS.
-                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, Modifier.align(Alignment.CenterStart))
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, bot = botFace != null, modifier = Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -210,14 +210,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
 }
 
-/** A chat with no posts yet: its icon, its name and how a chat works, the same words as iOS. */
+/** A chat with no posts yet: its icon, its name and how it works, in Desktop's words: a Bot's own chat introduces the Bot. */
 @Composable
-private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, modifier: Modifier = Modifier) {
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, bot: Boolean, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChatIcon(faces, title, 44.dp)
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text(stringResource(R.string.chats_empty_chat_body),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val lines = if (bot) listOf(stringResource(R.string.chats_empty_bot_body, title), stringResource(R.string.chats_empty_bot_start, title))
+            else listOf(stringResource(R.string.chats_empty_chat_body))
+        lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -454,9 +455,8 @@ private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
 /** An agent could not reply: what happened and why, when its usage returns, and the fix. */
 @Composable
 private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
-    val resets = event.resetsAt?.takeIf { event.cause == "usage_limit" && it.isAfter(java.time.Instant.now()) }?.let {
-        stringResource(R.string.chats_usage_returns, java.time.format.DateTimeFormatter.ofPattern("EEE h:mm a").withZone(java.time.ZoneId.systemDefault()).format(it))
-    }
+    val resets = ai.nuphos.android.ui.agent.resetsInText(ai.nuphos.android.ui.agent.ResetsIn.of(event.resetsAt.takeIf { event.cause == "usage_limit" }))
+        ?.let { stringResource(R.string.chats_usage_resets, it) }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
         .padding(horizontal = 14.dp, vertical = 10.dp).testTag("channel-reply-failed"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -564,8 +564,8 @@ private fun ChannelComposer(session: ChannelSession) {
         canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
         // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
         mentions = if (store.selectedTeam?.id != session.teamId) null else remember(store, session.teamId, session.botId) {
-            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) { query ->
-                store.mentionableSessions(session.teamId, query)
+            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) {
+                store.mentionableSessions(session.teamId)
             }
         },
         draft = draft,

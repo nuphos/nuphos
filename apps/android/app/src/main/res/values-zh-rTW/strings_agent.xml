@@ -94,7 +94,7 @@
     <string name="agent_window_percent_left">%1$s：剩餘 %2$s%%</string>
     <string name="agent_resets_in_minutes">%1$d 分鐘後重設</string>
     <string name="agent_resets_in_hours">%1$d 小時 %2$d 分鐘後重設</string>
-    <string name="agent_resets_at">%1$s 重設</string>
+    <string name="agent_resets_in_days">%1$d 天 %2$d 小時後重設</string>
     <string name="agent_usage_unavailable">無法取得用量</string>
     <string name="agent_sign_in">登入</string>
     <string name="agent_runtime_unavailable">執行環境無法使用</string>

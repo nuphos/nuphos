@@ -98,7 +98,7 @@ export function SidebarSlackPromo({
                 <span>Slack{connectAfter}</span>
               </div>
               <p className="mt-0.5 text-[11.5px] leading-snug text-white/75">
-                {t('Chat with the agent and get updates right in your Slack workspace.')}
+                {t('Chat with Nuphos and get updates right in your Slack workspace.')}
               </p>
               <button
                 type="button"

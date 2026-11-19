@@ -7,7 +7,14 @@ import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 
 /** An open question a Bot's chat shows: one request and the conversation that asked it. */
-data class BotQuestion(val sessionId: String, val title: String, val request: InputRequest) {
+data class BotQuestion(
+    val sessionId: String,
+    val title: String,
+    val request: InputRequest,
+    val sourceBot: AgentConversation? = null,
+) {
+    val sourceId: String get() = sourceBot?.sessionId ?: sessionId
+    val sourceTitle: String get() = sourceBot?.displayTitle ?: title
     val id: String get() = "$sessionId:${request.id}"
 
     /** The conversation that asked, opened in the app like any Nuphos link. */
@@ -91,10 +98,6 @@ data class BotQuestion(val sessionId: String, val title: String, val request: In
             return "\n\n---\n\n" + list.joinToString("\n\n")
         }
 
-        /** One question's answer as it reads: what was typed, else the picked options. */
-        fun answerText(picked: List<String>, typed: String): String =
-            typed.trim().ifEmpty { picked.joinToString(", ") }
-
         /** Desktop's `formAnswer`: one question's picks or typed text, or one entry per question. */
         fun formAnswer(questions: List<DecisionQuestion>, picked: List<List<String>>, typed: List<String>): JsonValue {
             fun one(index: Int): JsonValue {
@@ -132,9 +135,34 @@ object BotQuestions {
     fun open(rows: List<AgentConversation>): List<BotQuestion> = open(rows, includeOnboarding = false)
 
     private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
-        return rows.distinctBy { it.sessionId }
+        val conversations = rows.distinctBy { it.sessionId }.associateBy { it.sessionId }
+        fun sourceBot(row: AgentConversation): AgentConversation? {
+            val visited = mutableSetOf<String>()
+            var current: AgentConversation? = row
+            while (current != null && visited.add(current.sessionId)) {
+                if (current.isBot) return current
+                current = current.parentSessionId?.let(conversations::get)
+                    ?.takeIf { it.teamId == row.teamId }
+            }
+            return null
+        }
+
+        return conversations.values
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row ->
+                val requests = row.inputRequests.orEmpty().filter {
+                    includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference"
+                }
+                val bot = if (requests.isEmpty()) null else sourceBot(row)
+                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot) }
+            }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
+
+    /** Newest groups first, oldest question first within each group. */
+    fun grouped(questions: List<BotQuestion>): List<List<BotQuestion>> =
+        questions.groupBy { it.sourceId }.values.sortedWith(
+            compareByDescending<List<BotQuestion>> { it.last().request.askedAt.orEmpty() }
+                .thenByDescending { it.first().sourceId },
+        )
 }

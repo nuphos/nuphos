@@ -8,7 +8,7 @@ import type { TextStreamBuffer } from './streamBuffer.ts'
 test('buffered text registers a single completion behind its drain', () => {
   let firstCalls = 0
   let secondCalls = 0
-  const entry: TextStreamBuffer = { text: 'replayed response', timer: null }
+  const entry: TextStreamBuffer = { text: 'replayed response', received: 0, timer: null }
 
   assert.equal(
     registerTextDrainCompletion(entry, () => {
@@ -34,7 +34,7 @@ test('an empty or absent buffer does not defer completion', () => {
     false,
   )
   assert.equal(
-    registerTextDrainCompletion({ text: '', timer: null }, () => null),
+    registerTextDrainCompletion({ text: '', received: 0, timer: null }, () => null),
     false,
   )
 })
