@@ -107,6 +107,7 @@ useSlackApi({
 })
 
 const { routeSlackToExternalChat } = await import('@/routes/slack/external-chat')
+const { postAsAgent } = await import('@/lib/agent/channel-chat')
 
 let events = 0
 const envelope = (event: Partial<SlackMessageEvent>, eventId?: string): SlackEventEnvelope => ({
@@ -228,6 +229,14 @@ describe('a Slack channel that is an external chat', () => {
 
     expect(await agentMessages().countDocuments({})).toBe(0)
     expect(woken).toEqual([])
+  })
+
+  test('a post on the record, even naming a teammate, notifies no one in Nuphos', async () => {
+    await routeSlackToExternalChat(envelope({ user: 'UNEW', text: 'Ping @Mei' }))
+    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Ask @Mei.')
+
+    expect(await agentMessages().countDocuments({ sessionId: 'chat' })).toBe(2)
+    expect((await chat()).mentions ?? {}).toEqual({})
   })
 
   test('a mapping that names an ordinary Nuphos chat posts nothing there', async () => {

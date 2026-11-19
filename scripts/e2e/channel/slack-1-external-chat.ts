@@ -76,7 +76,7 @@ export default {
         teamId: args.teamId, kind: 'channel', external: 'slack', agentSessionIds: [bot.sessionId],
         title: '#e2e', firstMessage: '', messageCount: 0, createdAt: new Date(), lastActiveAt: new Date() })
       await db.collection('slack_channel_mappings').insertOne({ slackWorkspaceId: args.workspace,
-        slackChannelId: args.channel, teamId: args.teamId, externalChatId: args.chatId, enabled: true,
+        slackChannelId: args.channel, teamId: args.teamId, externalChatId: chatId, enabled: true,
         createdBy: 'e2e', createdAt: new Date(), updatedAt: new Date() })
       const done = await db.collection('team_byos_bindings').updateOne(
         { _id: new ObjectId(args.teamId) },
