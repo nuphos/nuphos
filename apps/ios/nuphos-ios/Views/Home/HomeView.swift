@@ -143,7 +143,7 @@ struct HomeView: View {
             .sheet(isPresented: $showProfile) {
                 ProfileSheet(user: user)
             }
-            .sheet(item: $workspacePage) { destination in
+            .sheet(item: workspaceSheet) { destination in
                 NavigationStack {
                     workspaceContent(destination)
                         .navigationTitle(destination == .runtimes ? Text("Computers & runtimes") : Text("Connectors"))
@@ -404,6 +404,12 @@ struct HomeView: View {
         case .runtimes: RuntimesPage()
         default: ConnectorsPage()
         }
+    }
+
+    /// The workspace sheet is handed the store, so it waits for one: opened from the
+    /// toolbar there always is, but `-page` asks for it before the store is built.
+    private var workspaceSheet: Binding<HomePage?> {
+        Binding(get: { store == nil ? nil : workspacePage }, set: { workspacePage = $0 })
     }
 
     private static var initialWorkspacePage: HomePage? {

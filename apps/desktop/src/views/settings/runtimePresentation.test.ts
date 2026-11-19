@@ -33,7 +33,7 @@ test('removing an online computer’s agent keeps the immediate wording', () => 
   for (const online of [true, undefined]) {
     assert.equal(
       runtimeRemovalDescription(added(online)),
-      'This removes the agent and its sign-in from MacBook Air. Your conversation history stays in Nuphos.',
+      'This removes the runtime and its sign-in from MacBook Air. Your conversation history stays in Nuphos.',
     )
   }
 })

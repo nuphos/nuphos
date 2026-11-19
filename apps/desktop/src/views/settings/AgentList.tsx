@@ -72,9 +72,7 @@ function AgentUsageTable({
 function AgentListPlaceholder({ loading, filtered }: { loading: boolean; filtered: boolean }) {
   if (loading) return <AgentUsageSkeleton />
   // Anyone may add their own computer, so no one is sent to an administrator.
-  const hint = filtered
-    ? t('No matching runtimes.')
-    : t('Add your first runtime to start an agent.')
+  const hint = filtered ? t('No matching runtimes.') : t('Add your first runtime to start a task.')
 
   return (
     <p className="rounded-xl border border-dashed border-line-control p-8 text-center text-sm text-tertiary">

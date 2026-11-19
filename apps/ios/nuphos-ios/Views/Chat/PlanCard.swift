@@ -148,7 +148,7 @@ struct PlanCard: View {
                 error = nil
                 guard p.isActive else { return }
             } catch {
-                if plan == nil { self.error = error.localizedDescription }
+                if plan == nil, !Task.isCancelled { self.error = error.localizedDescription }
             }
             try? await Task.sleep(for: .milliseconds(1500))
         }
