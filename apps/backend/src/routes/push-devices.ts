@@ -6,6 +6,7 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
+import { computerSubscriptions } from '@/lib/push/computer-subscriptions'
 import { pushDeviceStore } from '@/lib/push/devices'
 import { liveActivityDeps, registerLiveActivityToken } from '@/lib/push/live-activities'
 import { zv } from '@/lib/validate'
@@ -146,9 +147,33 @@ async function readConversation(userId: string, teamId: string, sessionId: strin
   return { title: conversation.title, runtimeState }
 }
 
+export function createComputerSubscriptionRoutes(
+  store: Pick<typeof computerSubscriptions, 'list' | 'set'>,
+) {
+  const routes = new Hono<{ Variables: AuthVariables }>()
+
+  routes.get('/computer-subscriptions', async (c) =>
+    c.json({ deviceIds: await store.list(c.get('userId')) }),
+  )
+  routes.put(
+    '/computer-subscriptions/:deviceId',
+    zv('param', z.object({ deviceId })),
+    zv('json', z.object({ enabled: z.boolean() })),
+    async (c) => {
+      // Subscribing grants no access: presence recipients still require ownership or a live share.
+      await store.set(c.get('userId'), c.req.valid('param').deviceId, c.req.valid('json').enabled)
+
+      return c.json({ ok: true })
+    },
+  )
+
+  return routes
+}
+
 export const pushRoutes = new Hono<{ Variables: AuthVariables }>()
 
 pushRoutes.use('*', requireAuth)
+pushRoutes.route('/', createComputerSubscriptionRoutes(computerSubscriptions))
 pushRoutes.route('/', createPushDeviceRoutes(pushDeviceStore))
 pushRoutes.route(
   '/',
