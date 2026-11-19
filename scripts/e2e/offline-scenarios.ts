@@ -122,7 +122,9 @@ export const offlineScenarios: Scenario[] = [
   },
   {
     // #3181: a disk about to fill was only a gauge, until a turn failed on it.
-    name: 'a conversation on a computer whose disk is almost full says so, and leads to the computer',
+    // #3848: Free space is offered only where it clears caches in place, on a running Box the
+    // viewer manages; a person's own computer has nothing to clear from here.
+    name: 'a conversation on a computer whose disk is almost full says so, without a button that only navigates',
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, { diskPercent: 93 })
 
@@ -177,11 +179,8 @@ export const offlineScenarios: Scenario[] = [
         } finally {
           if (size) await page.setViewportSize(size)
         }
-        await banner.getByRole('button', { name: 'Free space' }).click()
-        await page.getByText('Disk almost full: 7 GB free').waitFor()
-        // The cards fade in; the picture is taken once they have.
-        await page.waitForTimeout(1_500)
-        await page.screenshot({ path: join(artifacts, 'disk-computer.png') })
+        if ((await banner.getByRole('button', { name: 'Free space' }).count()) > 0)
+          throw new Error('The banner offers Free space on a computer it cannot clear')
       } finally {
         goOffline()
       }
