@@ -65,6 +65,9 @@ export const architectureDiagrams = (): Collection<ArchitectureDiagram> =>
 // records carry `expiresAt` with a Mongo TTL index, so stale metadata is
 // reaped independently of the S3 lifecycle rule — and entirely independently
 // of the agent sandbox lifecycle (no transfer ever extends a sandbox lease).
+// A group an artifact cites is pinned instead: its objects move under the
+// `pinned/` prefix the lifecycle rule does not cover and `expiresAt` is
+// removed, leaving the records to the artifact reference lifecycle.
 
 export type FileTransferDirection = 'upload' | 'download'
 // upload   = user → store (agent later pulls into a sandbox/cluster)
@@ -100,8 +103,15 @@ export type FileTransferGroup = {
   // The hourly admission this group took (file-transfer/admission.ts), and when
   // it was given back because the file never arrived. Absent on older groups.
   admission?: { key: string; bytes: number; releasedAt?: Date }
+  // Number of artifact references (file_transfer_refs). The last conversation
+  // to release its refs deletes the group and its pinned objects.
+  refCount?: number
+  // Set when an artifact reference pins the group: the objects were copied
+  // under `pinned/` and `expiresAt` was removed. Absent on chat-only groups.
+  pinnedAt?: Date
   createdAt: Date
-  expiresAt: Date
+  // Absent on a pinned group; the Mongo TTL index ignores documents without it.
+  expiresAt?: Date
 }
 
 export type FileTransferItem = {
@@ -123,7 +133,22 @@ export type FileTransferItem = {
   status: FileTransferItemStatus
   createdAt: Date
   finalizedAt?: Date
-  expiresAt: Date
+  // Set with the group's pin; objectKey then points under `pinned/`.
+  pinnedAt?: Date
+  // Absent on a pinned item; the Mongo TTL index ignores documents without it.
+  expiresAt?: Date
+}
+
+// One artifact's citation of a transfer group. A group is retained while any
+// conversation still cites it, and released when the last one is deleted.
+export type FileTransferRef = {
+  _id: ObjectId
+  teamId: ObjectId
+  groupId: ObjectId
+  // The conversation (sessionId) and artifact that cited the group.
+  sessionId: string
+  artifactId: string
+  createdAt: Date
 }
 
 export const fileTransferGroups = (): Collection<FileTransferGroup> =>
@@ -131,6 +156,9 @@ export const fileTransferGroups = (): Collection<FileTransferGroup> =>
 
 export const fileTransferItems = (): Collection<FileTransferItem> =>
   db().collection<FileTransferItem>('file_transfer_items')
+
+export const fileTransferRefs = (): Collection<FileTransferRef> =>
+  db().collection<FileTransferRef>('file_transfer_refs')
 
 // Shared operational counters, independent of subscription or payment state.
 export type FileTransferAdmission = {
