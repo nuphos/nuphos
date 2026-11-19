@@ -191,3 +191,23 @@ test('a bot that leaves because its Task asked ends the meeting without waking t
   expect(turn).not.toHaveBeenCalled()
   await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
 })
+
+test('a bot Recall gives up on is logged with its code and sub_code, even without a Task', async () => {
+  const { warn } = console
+  const lines: string[] = []
+
+  // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
+  console.warn = (line: unknown) => lines.push(String(line))
+  await handleRecallEvent('delivery-1', ended('bot_errored', 'bot.fatal'))
+  // eslint-disable-next-line no-console
+  console.warn = warn
+
+  expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
+    event: 'recall.failed',
+    path: 'bot.fatal',
+    code: 'call_ended',
+    sub_code: 'bot_errored',
+    bot_id: 'recall-bot',
+    account_level: false,
+  })
+})

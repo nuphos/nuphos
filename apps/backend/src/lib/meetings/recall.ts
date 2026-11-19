@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logEvent } from '@/lib/observability'
 
 import type { MeetingsConfig } from '@/config/meetings'
 
@@ -18,6 +19,34 @@ export function recallConfig(): Recall {
   return recall
 }
 
+// Recall answers 401 for a bad API key and 402 when the account is out of credit: no bot joins
+// any call until someone fixes the account.
+const ACCOUNT_STATUSES = new Set([401, 402])
+
+function recallCode(body: string): string | undefined {
+  try {
+    const { code } = JSON.parse(body) as { code?: unknown }
+
+    return typeof code === 'string' ? code : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** One log line per Recall failure, for alerting: a failed call or a bot Recall gave up on. */
+export function logRecallFailure(failure: {
+  path?: string
+  status?: number
+  code?: string | null
+  sub_code?: string | null
+  bot_id?: string
+}): void {
+  logEvent('warn', 'recall.failed', {
+    ...failure,
+    account_level: failure.status !== undefined && ACCOUNT_STATUSES.has(failure.status),
+  })
+}
+
 async function recallFetch(path: string, body: object): Promise<unknown> {
   const recall = recallConfig()
   const response = await fetch(`https://${recall.region}.recall.ai/api/v1${path}`, {
@@ -26,8 +55,12 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
     body: JSON.stringify(body),
   })
 
-  if (!response.ok)
-    throw new AppError(502, 'recall_error', `Recall.ai ${path} failed: ${await response.text()}`)
+  if (!response.ok) {
+    const text = await response.text()
+
+    logRecallFailure({ path, status: response.status, code: recallCode(text) })
+    throw new AppError(502, 'recall_error', `Recall.ai ${path} failed: ${text}`)
+  }
 
   return response.json()
 }

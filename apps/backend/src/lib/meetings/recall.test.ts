@@ -69,3 +69,34 @@ describe('leaveMeeting', () => {
     await expect(leaveMeeting('bot')).rejects.toThrow('bad_request')
   })
 })
+
+describe('Recall failures', () => {
+  test('an account out of credit logs an account-level recall.failed', async () => {
+    const { warn } = console
+    const lines: string[] = []
+
+    // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
+    console.warn = (line: unknown) => lines.push(String(line))
+
+    // Recall documents 402 as "Insufficient credit balance", with no code of its own.
+    answer(402, { detail: 'Insufficient credit balance' })
+
+    await expect(
+      createMeetingBot({
+        meetingUrl: 'https://meet.google.com/a',
+        botName: 'B',
+        face: 'j',
+        webhookUrl: 'https://w',
+      }),
+    ).rejects.toThrow('Insufficient credit balance')
+    // eslint-disable-next-line no-console
+    console.warn = warn
+    expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
+      level: 'warn',
+      event: 'recall.failed',
+      path: '/bot/',
+      status: 402,
+      account_level: true,
+    })
+  })
+})

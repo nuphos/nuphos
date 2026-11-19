@@ -11,7 +11,13 @@ import { authorizeThreadActor, createAgentThread } from '@/lib/agent/thread-brid
 import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
-import { createMeetingBot, leaveMeeting, recallConfig, sendMeetingChat } from './recall'
+import {
+  createMeetingBot,
+  leaveMeeting,
+  logRecallFailure,
+  recallConfig,
+  sendMeetingChat,
+} from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { ThreadActor } from '@/lib/agent/thread-bridge'
@@ -181,8 +187,17 @@ export function eventText(event: RecallEvent, botName: string): string | undefin
   return text ? `[chat] ${text}` : undefined
 }
 
+/** Recall gave up on the bot or on its speech recognition. */
+function logFailedEvent({ event, data }: RecallEvent): void {
+  if (event !== 'bot.fatal' && event !== 'transcript.failed') return
+  const { code, sub_code } = data.data
+
+  logRecallFailure({ path: event, code, sub_code, bot_id: data.bot.id })
+}
+
 /** One Recall delivery becomes one message to the meeting's Task; a redelivery is stored once. */
 export async function handleRecallEvent(deliveryId: string, event: RecallEvent): Promise<void> {
+  logFailedEvent(event)
   const live = { 'meeting.botId': event.data.bot.id, 'meeting.endedAt': { $exists: false } }
   const ended = CALL_ENDED.has(event.event)
   // The first of a bot's end events ends its meeting, so the Task hears of it once.
