@@ -1,27 +1,27 @@
 // Real Codex on Windows, signing in the owner's home and an agent's home that links to it
-// (#2653). Run with `node --experimental-test-module-mocks --test` and LINK_MODULE naming the
+// (#2653). Run with `node --test` and LINK_MODULE naming the
 // module to check: main's agent-home (hardLinkFrom) or this branch's owner-file-link
 // (linkOwnerFile). EXPECT=shared asserts that a newer login made in the agent reaches the owner
 // and nothing older is linked back; EXPECT=swapped-back asserts the bug, as main shows it.
 import assert from 'node:assert/strict'
 import { execSync } from 'node:child_process'
-import * as fs from 'node:fs'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { mock, test } from 'node:test'
+import { test } from 'node:test'
 
 let symlinksAllowed = true
 
-mock.module('node:fs', {
-  namedExports: {
-    ...fs,
-    symlinkSync: (...args: Parameters<typeof fs.symlinkSync>) => {
-      if (!symlinksAllowed) throw Object.assign(new Error('EPERM'), { code: 'EPERM' })
-      fs.symlinkSync(...args)
-    },
-  },
-})
+const symlinkSync = fs.symlinkSync
+
+fs.symlinkSync = (...args: Parameters<typeof fs.symlinkSync>) => {
+  if (!symlinksAllowed) throw Object.assign(new Error('EPERM'), { code: 'EPERM' })
+  symlinkSync(...args)
+}
+// The `import { symlinkSync } from 'node:fs'` in the code under test sees the replacement.
+syncBuiltinESMExports()
 type Link = (ownerHome: string, home: string, file: string) => void
 const linkModule = (await import(
   pathToFileURL(path.resolve(process.env.LINK_MODULE ?? '')).href

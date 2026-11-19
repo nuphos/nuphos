@@ -43,6 +43,6 @@ jobs:
       - name: Before (main) links the owner's older login back over the agent's
         run: |
           git show origin/main:apps/desktop/electron/main/local-runtime/agent-home.ts > agent-home.main.ts
-          LINK_MODULE=agent-home.main.ts EXPECT=swapped-back node --experimental-test-module-mocks --test ../../../scripts/windows-codex-login-link.ts
+          LINK_MODULE=agent-home.main.ts EXPECT=swapped-back node --test ../../../scripts/windows-codex-login-link.ts
       - name: After (this branch) the newer login reaches the owner and stays
-        run: LINK_MODULE=owner-file-link.ts EXPECT=shared node --experimental-test-module-mocks --test ../../../scripts/windows-codex-login-link.ts
+        run: LINK_MODULE=owner-file-link.ts EXPECT=shared node --test ../../../scripts/windows-codex-login-link.ts

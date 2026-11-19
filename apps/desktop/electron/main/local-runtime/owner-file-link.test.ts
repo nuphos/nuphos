@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict'
-import * as fs from 'node:fs'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
-import { mock, test } from 'node:test'
+import { test } from 'node:test'
 
 // Most Windows computers may not create a file symlink (no Developer Mode); the hard link stays.
 let symlinksAllowed = true
 
-mock.module('node:fs', {
-  namedExports: {
-    ...fs,
-    symlinkSync: (...args: Parameters<typeof fs.symlinkSync>) => {
-      if (!symlinksAllowed) throw Object.assign(new Error('EPERM'), { code: 'EPERM' })
-      fs.symlinkSync(...args)
-    },
-  },
-})
+const symlinkSync = fs.symlinkSync
+
+fs.symlinkSync = (...args: Parameters<typeof fs.symlinkSync>) => {
+  if (!symlinksAllowed) throw Object.assign(new Error('EPERM'), { code: 'EPERM' })
+  symlinkSync(...args)
+}
+// The `import { symlinkSync } from 'node:fs'` in the code under test sees the replacement.
+syncBuiltinESMExports()
 const { linkOwnerFile } = await import('./owner-file-link.ts')
 
 function homes(t: { after: (fn: () => void) => void }) {
