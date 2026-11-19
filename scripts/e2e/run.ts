@@ -44,6 +44,7 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
+import { stepUpScenarios } from './step-up-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -131,6 +132,8 @@ const scenarios: Scenario[] = [
   ...triggerScenarios,
   ...usageScenarios,
   ...connectorScenarios,
+  // Turns two-factor authentication on for this account, and off again.
+  ...stepUpScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
