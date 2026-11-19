@@ -58,8 +58,11 @@ function measure(frame: HTMLElement): Geometry {
   const edge = anchor
     ? floatingEdge(anchor, pane?.getBoundingClientRect(), window.innerWidth)
     : { right: window.innerWidth - box.right + EDGE }
-  // A bar the composer holds above itself (a reply's) is where the composer starts.
-  const composer = pane?.querySelector<HTMLElement>('[data-above-composer]') ?? composerOf(pane)
+  // An open bar the composer holds above itself (a reply's, a status) is where the composer starts.
+  const bar = [...(pane?.querySelectorAll<HTMLElement>('[data-composer-overlay]') ?? [])].find(
+    (overlay) => !overlay.closest('[inert]'),
+  )
+  const composer = bar ?? composerOf(pane)
   const bottom = composer ? composer.getBoundingClientRect().top - EDGE : box.bottom - EDGE
 
   return { width: box.width, top, edge, maxHeight: Math.max(bottom - top, 160) }

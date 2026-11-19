@@ -219,7 +219,7 @@ const scenario: Scenario = {
       await setBotDetails(page, true)
       await checkFloating(page)
       const panel = await details(page).boundingBox()
-      const bar = await page.locator('[data-above-composer]').boundingBox()
+      const bar = await page.locator('[data-composer-overlay]').boundingBox()
 
       if (!panel || !bar || panel.y + panel.height > bar.y)
         throw new Error(
