@@ -352,10 +352,10 @@ struct HomeView: View {
     @ViewBuilder
     private var homeActions: some View {
             Menu {
-                Button { showNewBot = true } label: {
+                // The sheet lives on the Bots page, where the new Bot is listed (#3947).
+                Button { page = .chats; showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }

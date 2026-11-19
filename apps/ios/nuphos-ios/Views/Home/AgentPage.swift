@@ -59,7 +59,7 @@ struct AgentPage: View {
             .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
-                NewBotSheet { title, avatar in
+                NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
                     await openBotChat(bot)
                 }
@@ -277,8 +277,18 @@ struct AgentPage: View {
                         NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
                     } else if conversation.isBot {
                         // A Bot with no 1:1 chat yet: the list stays while it is made.
+                        // A Button, not a link: picking a link would show the chat before it exists, and
+                        // hide the list that reports a failure (#1738). It ends with the links' chevron (#3614).
                         Button { Task { await openBotChat(conversation.sessionId) } } label: {
-                            treeRow(item) { ChannelRow(channel: conversation) }.contentShape(Rectangle())
+                            HStack(spacing: 0) {
+                                treeRow(item) { ChannelRow(channel: conversation) }
+                                Image(systemName: "chevron.forward")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.leading, 11)
+                                    .opacity(store.creatingBot ? 0 : 1)
+                            }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(store.creatingBot)

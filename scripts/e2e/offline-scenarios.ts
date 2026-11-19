@@ -2,7 +2,8 @@
 import { join } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
-import { LAPTOP, laptopOnline } from './laptop-fixture.ts'
+import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
+import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
 
@@ -147,10 +148,13 @@ export const offlineScenarios: Scenario[] = [
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     // Its Update opens the computer card's own confirmation where the user is, not the page.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and updates it in place',
+    // The turn there fails on purpose.
+    expected: new RegExp(RESTORE_FAILED),
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
         client: 'nuphos-desktop/0.119.0',
         app: { version: '0.119.0', update: { version: '0.131.0', ready: true } },
+        restoreFails: true,
       })
 
       try {
@@ -167,6 +171,10 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
+        // #3562: a turn that fails there says why, also where no banner shows (Slack, channels).
+        await send(page, 'On the old laptop')
+        await page.getByText(OUTDATED_LINE).waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
         const confirm = page.getByRole('alertdialog', { name: `Update ${LAPTOP}?` })
 
@@ -182,6 +190,7 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
         if (await page.getByText('Nuphos on this computer is out of date').isVisible())
           throw new Error('The banner Update left the conversation for the computer page')
+        await backOnFixture(page, 'after-outdated')
       } finally {
         goOffline()
       }
