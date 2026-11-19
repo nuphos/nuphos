@@ -14,9 +14,6 @@ import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 
-export const MANAGED_RUNTIME_RETIRED =
-  'Nuphos-hosted agents have been retired. Move this conversation to a computer from Nuphos or your own computer to continue.'
-
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
   purpose: 'transport' | 'control' = 'transport',
@@ -54,17 +51,9 @@ export async function listRuntimeInstances(
           id: runtime.id,
           provider,
           label: runtime.label ?? `${runtimeLabel(provider)} · ${runtime.id.slice(0, 6)}`,
-          // Nuphos-hosted runtimes are retired (#2401) and cannot be enabled again.
-          status: runtime.hostedBy ? ('disabled' as const) : runtime.status,
-          ...(runtime.hostedBy
-            ? {
-                kind: 'managed' as const,
-                image: runtime.deploymentImage,
-              }
-            : {
-                kind: 'external' as const,
-                ...(runtime.connection ? { connection: runtime.connection } : {}),
-              }),
+          status: runtime.status,
+          kind: 'external' as const,
+          ...(runtime.connection ? { connection: runtime.connection } : {}),
           createdAt: runtime.createdAt,
         }),
       )
@@ -109,9 +98,7 @@ export async function withRuntimeReadiness(
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 
   return instances.map((instance) =>
-    (instance.kind === 'managed' || instance.kind === 'external') &&
-    instance.status === 'active' &&
-    !reachable.has(instance.id)
+    instance.kind === 'external' && instance.status === 'active' && !reachable.has(instance.id)
       ? { ...instance, notReady: true as const }
       : instance,
   )
