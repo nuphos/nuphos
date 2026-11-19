@@ -43,11 +43,6 @@ enum SessionMention {
         }
     }
 
-    /// The sessions whose title or first message answers the query, newest first, as desktop matches them.
-    static func sessions(_ rows: [AgentConversation], matching query: String) -> [AgentConversation] {
-        Array(rows.filter { matches($0.title, query) || matches($0.firstMessage, query) }.prefix(5))
-    }
-
     /// Whether a device's label answers the query, as desktop matches it.
     static func matches(_ label: String, _ query: String) -> Bool {
         query.isEmpty || label.localizedCaseInsensitiveContains(query)
@@ -60,8 +55,5 @@ struct MentionSource {
     var devices: [CredentialCatalog.Item] = []
     /// Turns a mentioned device on for the session.
     var pickDevice: @MainActor (CredentialCatalog.Item) -> Void = { _ in }
-    /// Every Bot and Task it may offer, listed before the `@`; nil until then.
-    var sessions: [AgentConversation]?
-    /// Lists the sessions (and devices) again, in the background as the composer appears.
-    var refresh: @MainActor () async -> Void = {}
+    let search: @MainActor (String) async -> [AgentConversation]
 }

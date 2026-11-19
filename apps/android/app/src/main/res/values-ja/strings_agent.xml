@@ -94,7 +94,7 @@
     <string name="agent_window_percent_left">%1$s：残り %2$s%%</string>
     <string name="agent_resets_in_minutes">%1$d 分後にリセット</string>
     <string name="agent_resets_in_hours">%1$d 時間 %2$d 分後にリセット</string>
-    <string name="agent_resets_in_days">%1$d 日 %2$d 時間後にリセット</string>
+    <string name="agent_resets_at">%1$sにリセット</string>
     <string name="agent_usage_unavailable">使用量を取得できません</string>
     <string name="agent_sign_in">サインイン</string>
     <string name="agent_runtime_unavailable">ランタイムを利用できません</string>

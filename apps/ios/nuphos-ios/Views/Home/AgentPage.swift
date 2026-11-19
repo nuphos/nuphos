@@ -590,11 +590,9 @@ struct NewChatComposer: View {
             pickDevice: { device in
                 if !store.credentialSelection.contains(device) { store.credentialSelection.toggle(device) }
             },
-            sessions: store.mentionableSessions(teamId: draftTeam, excluding: nil),
-            refresh: {
-                async let devices: () = store.loadCredentialOptions()
-                await store.loadMentionableSessions(teamId: draftTeam)
-                await devices
+            search: { query in
+                await store.loadCredentialOptions()
+                return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
             }
         ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, focusRequest: focusRequest, onSend: { submission in
             do {

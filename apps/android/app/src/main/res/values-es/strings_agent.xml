@@ -97,7 +97,7 @@
     <string name="agent_window_percent_left">%1$s: queda un %2$s %%</string>
     <string name="agent_resets_in_minutes">se restablece en %1$d min</string>
     <string name="agent_resets_in_hours">se restablece en %1$d h %2$d min</string>
-    <string name="agent_resets_in_days">se restablece en %1$d d %2$d h</string>
+    <string name="agent_resets_at">se restablece el %1$s</string>
     <string name="agent_usage_unavailable">Uso no disponible</string>
     <string name="agent_sign_in">Iniciar sesión</string>
     <string name="agent_runtime_unavailable">Entorno de ejecución no disponible</string>

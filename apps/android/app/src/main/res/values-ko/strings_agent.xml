@@ -94,7 +94,7 @@
     <string name="agent_window_percent_left">%1$s: %2$s%% 남음</string>
     <string name="agent_resets_in_minutes">%1$d분 후 초기화</string>
     <string name="agent_resets_in_hours">%1$d시간 %2$d분 후 초기화</string>
-    <string name="agent_resets_in_days">%1$d일 %2$d시간 후 초기화</string>
+    <string name="agent_resets_at">%1$s 초기화</string>
     <string name="agent_usage_unavailable">사용량을 확인할 수 없음</string>
     <string name="agent_sign_in">로그인</string>
     <string name="agent_runtime_unavailable">런타임을 사용할 수 없음</string>

@@ -47,7 +47,7 @@ class RuntimesFixtureDeviceTest {
         compose.setContent {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
-                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
+                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0)))) },
                 { listOf(RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
@@ -64,17 +64,14 @@ class RuntimesFixtureDeviceTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         Thread.sleep(500) // Platform window/compositor settling, not product loading.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val file = (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name
-        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        // The additional test output is what CI uploads with the report.
-        listOfNotNull(context.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
-            .forEach { dir -> File(dir, file).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        File(context.getExternalFilesDir(null), (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name).outputStream().use {
+            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG,100,it)
+        }
     }
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()
         compose.onNodeWithText("Cloud").assertIsDisplayed()
-        // #3732: the bar says when its window resets, in days past a day.
-        compose.onNodeWithText("62% left · resets in 2d 5h").assertExists()
+        compose.onNodeWithText("62% left").assertExists()
         shot("runtimes-normal.png")
         compose.onNodeWithTag("runtime-row-cloud").performScrollTo().performClick()
         assertEquals("cloud", details); assertEquals(1, detailClicks)

@@ -94,7 +94,7 @@
     <string name="agent_window_percent_left">%1$s: เหลือ %2$s%%</string>
     <string name="agent_resets_in_minutes">รีเซ็ตในอีก %1$d นาที</string>
     <string name="agent_resets_in_hours">รีเซ็ตในอีก %1$d ชม. %2$d นาที</string>
-    <string name="agent_resets_in_days">รีเซ็ตในอีก %1$d วัน %2$d ชม.</string>
+    <string name="agent_resets_at">รีเซ็ต %1$s</string>
     <string name="agent_usage_unavailable">ไม่มีข้อมูลการใช้งาน</string>
     <string name="agent_sign_in">ลงชื่อเข้าใช้</string>
     <string name="agent_runtime_unavailable">รันไทม์ไม่พร้อมใช้งาน</string>

@@ -79,11 +79,22 @@ test('a Task shared with you is left from its menu after a confirmation, only fo
   const items = menuFor({ isOwner: false })
 
   assert.ok(items.some((item) => item.label === 'Leave task'))
-  assert.ok(!items.some((item) => item.label.startsWith('Archive')))
   calls.length = 0
   items.find((item) => item.key === 'leave')?.onSelect()
   // Leaving may lose access, so it asks first instead of leaving at once.
   assert.deepEqual(calls, ['confirm leave chat-a'])
+})
+
+test('a Task shared with you is archived from its menu too, for you alone, at once', () => {
+  const items = menuFor({ isOwner: false })
+
+  assert.deepEqual(
+    items.slice(-2).map((item) => item.label),
+    ['Leave task', 'Archive Task'],
+  )
+  calls.length = 0
+  items.find((item) => item.key === 'archive')?.onSelect()
+  assert.deepEqual(calls, ['archive chat-a'])
 })
 
 test('a Task and a Bot keep Archive', () => {
