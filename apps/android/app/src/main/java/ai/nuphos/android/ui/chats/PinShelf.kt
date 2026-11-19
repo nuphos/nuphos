@@ -67,7 +67,7 @@ internal fun BotPreviewMenu(expanded: Boolean, onDismissRequest: () -> Unit, con
     Popup(popupPositionProvider = position, onDismissRequest = onDismissRequest,
         properties = PopupProperties(focusable = true)) {
         Surface(shape = MaterialTheme.shapes.extraSmall, tonalElevation = 3.dp, shadowElevation = 8.dp) {
-            Column(Modifier.width(minOf(288.dp, (LocalConfiguration.current.screenWidthDp - 32).coerceAtLeast(1).dp))
+            Column(Modifier.width(minOf(320.dp, (LocalConfiguration.current.screenWidthDp - 32).coerceAtLeast(1).dp))
                 .verticalScroll(rememberScrollState()).padding(vertical = 8.dp), content = content)
         }
     }
