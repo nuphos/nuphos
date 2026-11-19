@@ -3,16 +3,14 @@ import { CloudLogo } from '../../CloudLogo'
 import { MenuCheckboxItem } from '../../ui/menu'
 
 import { CredentialSectionGroup } from './CredentialSectionGroup'
-import { isGoogle, nameOf } from '../../../views/settings/personalCredentials'
+import { GOOGLE_PROVIDERS, isGoogle } from '../../../types'
+import { nameOf } from '../../../views/settings/personalCredentials'
 
 import { personalIdentityRow, setPersonalIdentity, setPersonalOnly } from './personalIdentity'
 
 import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
 import type { useCredentialSections } from './credentialSelectorButtonHooks'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
-
-// Google grants have no team binding: their only row is the member's own.
-const GOOGLE_PROVIDERS = ['gmail', 'google-drive', 'google-calendar'] as const
 
 export function CredentialSelectorSectionList({
   sections,

@@ -1,3 +1,5 @@
+import { NAMES } from '@/lib/personal-credentials/exchange'
+
 import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 
 type SetupScript = {
@@ -46,14 +48,6 @@ export function vendedAccountHint(provider: string, id: string): string | undefi
   return setupHint(provider, [id, script.extraArgs].filter(Boolean).join(' '), script)
 }
 
-const PERSONAL_NAMES: Record<PersonalCredentialProvider, string> = {
-  github: 'GitHub',
-  linear: 'Linear',
-  gmail: 'Gmail',
-  'google-drive': 'Google Drive',
-  'google-calendar': 'Google Calendar',
-}
-
 function personalSetupHint(provider: PersonalCredentialProvider): string {
   if (provider === 'github') return setupHint('github', 'personal')
   if (provider === 'linear') {
@@ -69,7 +63,7 @@ export function personalCredentialDetails(c: {
   login: string
 }) {
   return {
-    label: `${c.login} (your own ${PERSONAL_NAMES[c.provider]})`,
+    label: `${c.login} (your own ${NAMES[c.provider]})`,
     credentialPath: `personal-credentials/${c.provider}/token`,
     hint: personalSetupHint(c.provider),
   }

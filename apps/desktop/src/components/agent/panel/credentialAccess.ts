@@ -1,4 +1,5 @@
 import { pruneSelectionToAvailable } from '../../../lib/credentialSelection.ts'
+import { isGoogle } from '../../../types/personal-credentials.ts'
 
 import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants.ts'
 import { usableDeviceIds } from './credentialSections.ts'
@@ -195,7 +196,8 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
 }
 
 // What a conversation starts with when the user hasn't chosen: everything they
-// may use, minus Resend. Mirrors `allCredentialAccessFromOptions` in the
+// may use, minus Resend, plus the member's own Google grants (never their own
+// GitHub / Linear). Mirrors `allCredentialAccessFromOptions` in the
 // backend's agent.ts — sending mail is irreversible and leaves the system, so a
 // Resend binding is enabled for a conversation on purpose or not at all. Keep
 // the two in step.
@@ -208,6 +210,9 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
     resendIntegrationIds: [],
     trelloIntegrationIds: [],
     deviceIds: usableDeviceIds(options.devices),
+    personalCredentialIds: options.personalCredentials
+      .map((credential) => credential.provider)
+      .filter(isGoogle),
   }
 }
 

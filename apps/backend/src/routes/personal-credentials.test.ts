@@ -422,6 +422,11 @@ const turn = (actor: string, humanTurn: boolean, teamId = TEAM) =>
     humanTurn,
   })
 
+// conv-1's selection, as the conversation document stores it.
+let conversation: { userId: string; credentialAccess?: Doc } | null = null
+
+useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
+
 describe('Google token handout', () => {
   const handout = new Hono()
 
@@ -442,6 +447,20 @@ describe('Google token handout', () => {
       googleGrant('owner', 'gmail', 'owner-mail'),
       googleGrant('teammate', 'gmail', 'teammate-mail'),
     )
+    conversation = {
+      userId: 'owner',
+      credentialAccess: { personalCredentialIds: ['gmail', 'google-drive'] },
+    }
+  })
+
+  test('nothing without the conversation’s selection', async () => {
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: ['github'] } }
+    const res = await fetchToken('gmail', await turn('owner', true))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
+    conversation = { userId: 'owner' }
+    expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
   })
 
   test('the owner’s own and automated turns get the owner’s token', async () => {
@@ -491,11 +510,6 @@ describe('Google token handout', () => {
     expect((await fetchToken('dropbox', await turn('owner', true))).status).toBe(404)
   })
 })
-
-// conv-1's selection, as the conversation document stores it.
-let conversation: { userId: string; credentialAccess?: Doc } | null = null
-
-useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
 
 describe('GitHub and Linear handout without a team binding', () => {
   const handout = new Hono()

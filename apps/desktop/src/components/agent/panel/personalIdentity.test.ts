@@ -154,16 +154,25 @@ describe('own credential without a team binding', () => {
     }
   })
 
-  test("a new chat's default selection never includes the member's own credential", () => {
+  // The one exception (#3743): the member's own Google grants come ticked, as they did before
+  // the selector offered them. Their own GitHub / Linear never do.
+  test("a new chat's default selection includes the member's own Google credentials only", () => {
     const loaded = {
       ...EMPTY_CREDENTIAL_OPTIONS,
       githubInstallations: [
         { installationId: 'i1', accountLogin: 'acme', accountType: 'Organization' },
       ],
-      personalCredentials: own,
+      personalCredentials: [
+        ...own,
+        { provider: 'gmail' as const, login: 'fong@example.com' },
+        { provider: 'google-calendar' as const, login: 'fong@example.com' },
+      ],
     } as AgentCredentialOptions
 
-    assert.deepEqual(defaultCredentialAccess(loaded).personalCredentialIds ?? [], [])
+    assert.deepEqual(defaultCredentialAccess(loaded).personalCredentialIds, [
+      'gmail',
+      'google-calendar',
+    ])
   })
 
   test('ticking adds the provider and unticking removes only it', () => {

@@ -28,10 +28,21 @@ function inDatabase(stack: Stack, script: string, ...args: string[]): string {
     .trim()
 }
 
+/** The newest conversation's own Personal Credential selection, as the turn's listing reads it. */
+const selected = (stack: Stack, userId: string) =>
+  inDatabase(
+    stack,
+    `const conversation = await db.collection('agent_conversations')
+      .find({ userId: process.argv[2] }).sort({ updatedAt: -1 }).limit(1).next()
+    console.log(JSON.stringify(conversation?.credentialAccess?.personalCredentialIds ?? null))`,
+    userId,
+  )
+
 export const personalCredentialScenarios: Scenario[] = [
   {
-    // Google Personal Credentials were never offered, so a member could neither see nor tick them.
-    name: 'a connected Google Personal Credential is a row in the composer selector, and ticking it selects it',
+    // #3743: Google Personal Credentials were never offered, so a member could neither see nor
+    // untick them. A new chat starts with them ticked; GitHub / Linear still start unticked.
+    name: 'a new chat starts with the Google Personal Credential ticked, and unticking it is saved',
     run: async (page, stack) => {
       const owner = client(stack.apiUrl, stack.token)
       const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
@@ -52,28 +63,28 @@ export const personalCredentialScenarios: Scenario[] = [
       )
 
       try {
+        // Options already loaded predate the grant.
+        await page.reload()
         await newTask(page)
         await send(page, 'Personal credential E2E_DELIVERY:personal-google')
         await page.getByText('ACK E2E_DELIVERY:personal-google').waitFor()
+        await until('the new chat to hold the Google credential', async () =>
+          selected(stack, userId).includes('"google-calendar"'),
+        )
         await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
         const row = page.getByRole('menuitemcheckbox', {
           name: `Google Calendar · You (${login}) · Personal`,
         })
 
         await row.waitFor()
+        must((await row.getAttribute('aria-checked')) === 'true', 'the row to start ticked')
         await page.screenshot({ path: `${artifacts}/personal-google-row-light.png` })
-        must((await row.getAttribute('aria-checked')) === 'false', 'the row to start unticked')
         await row.click()
-        await until('the tick to be saved on the conversation', async () =>
-          inDatabase(
-            stack,
-            `const conversation = await db.collection('agent_conversations')
-              .find({ userId: process.argv[2] }).sort({ updatedAt: -1 }).limit(1).next()
-            console.log(JSON.stringify(conversation?.credentialAccess?.personalCredentialIds ?? []))`,
-            userId,
-          ).includes('"google-calendar"'),
+        await until(
+          'the untick to be saved on the conversation',
+          async () => selected(stack, userId) === '[]',
         )
-        await page.screenshot({ path: `${artifacts}/personal-google-ticked-light.png` })
+        await page.screenshot({ path: `${artifacts}/personal-google-unticked-light.png` })
         await page.keyboard.press('Escape')
       } finally {
         inDatabase(

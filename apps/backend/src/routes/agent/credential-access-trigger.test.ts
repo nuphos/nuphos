@@ -33,7 +33,11 @@ const options: AgentCredentialOptions = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [{ integrationId: 'mail', label: 'Mail', permission: 'full_access' }],
-  personalCredentials: [],
+  personalCredentials: [
+    { provider: 'github', login: 'octocat' },
+    { provider: 'gmail', login: 'me@example.com' },
+    { provider: 'google-calendar', login: 'me@example.com' },
+  ],
   devices: [
     { deviceId: 'mac', label: 'Mac', platform: 'darwin', available: true },
     { deviceId: 'old-mac', label: 'Mac', platform: 'darwin', available: false },
@@ -66,5 +70,16 @@ describe('resolveTriggerCredentialAccess', () => {
     // Offline or long-gone registrations are not defaulted in.
     expect(access.deviceIds).toEqual(['mac'])
     expect(access.updatedBy).toBe('principal')
+  })
+
+  test('ticks the member’s own Google credentials, never their own GitHub or Linear', async () => {
+    const { allCredentialAccessFromOptions } = await import('./credential-access')
+
+    for (const access of [
+      await resolveTriggerCredentialAccess('team-1', 'principal'),
+      allCredentialAccessFromOptions(options, 'principal'),
+    ]) {
+      expect(access.personalCredentialIds).toEqual(['gmail', 'google-calendar'])
+    }
   })
 })
