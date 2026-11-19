@@ -42,8 +42,11 @@ useIdentity({
   authenticateToken: (async (token: string) =>
     token === 'session-token'
       ? { user: USER, cacheHit: false, provider: 'nuphos' as const, sessionId: SESSION_ID }
-      : null) as unknown as typeof identityActual.authenticateToken,
+      : token === 'run-token'
+        ? { user: USER, cacheHit: false, provider: 'nuphos' as const, agentRun: true }
+        : null) as unknown as typeof identityActual.authenticateToken,
   getNuphosUserById: async (id: string) => (id === USER_ID ? USER : null),
+  getNuphosUserForCredential: async (id: string) => (id === USER_ID ? USER : null),
   signInWithGoogleCode: (async () => USER) as unknown as typeof identityActual.signInWithGoogleCode,
 })
 const revoked: string[] = []
@@ -386,6 +389,40 @@ describe('step-up', () => {
 
     await post('/auth/mfa/reauth', { code: codeAt(secret, step(1)) }, 'session-token')
     expect((await mint()).status).toBe(200)
+  })
+
+  test('CLI tokens and agent runs are never asked for a code', async () => {
+    await enroll()
+    signedIn(60)
+    const { requireAuth } = await import('@/middleware/auth')
+    const { mintCliToken } = await import('@/lib/identity/cli-tokens')
+    const guarded = new Hono()
+
+    guarded.onError(errorHandler)
+    guarded.post('/teams/:teamId/aws-accounts', requireAuth, (c) => c.json({ ok: true }))
+    const connect = (token: string) =>
+      guarded.request('/teams/64b7f0c2a1b2c3d4e5f60719/aws-accounts', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      })
+    const { token: cliToken, principal } = await mintCliToken({
+      kind: 'personal',
+      userId: USER_ID,
+      name: 'laptop',
+    })
+    const tokens = collection('cli_tokens')
+    const find = tokens.findOne.bind(tokens)
+
+    // The fake collection's copies lose the ObjectId class the token's id needs.
+    tokens.findOne = async (filter) => ({
+      ...(await find(filter)),
+      _id: new ObjectId(principal.id),
+    })
+
+    // The same route asks the old session for a code.
+    expect((await connect('session-token')).status).toBe(403)
+    expect((await connect(cliToken)).status).toBe(200)
+    expect((await connect('run-token')).status).toBe(200)
   })
 
   test('with MFA, an old session must enter a code, which renews it', async () => {
