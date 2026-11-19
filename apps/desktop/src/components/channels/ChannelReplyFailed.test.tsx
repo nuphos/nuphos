@@ -1,35 +1,55 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { mock, test } from 'bun:test'
 
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { ChannelReplyFailed } from './ChannelReplyFailed'
-
 import type { AgentTimelineEvent } from '../../api'
 
+// The sign-in fixes read the workspace's agents; this line's own fixes are under test.
+mock.module('./ChannelReplyFix', () => ({ ChannelReplyFix: () => null }))
+
+const { ChannelReplyFailed } = await import('./ChannelReplyFailed')
+
 const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+const event = {
+  kind: 'agent_reply_failed',
+  at: '2026-11-19T15:12:26Z',
+  text: 'Ada couldn’t reply: its Claude Code account must be verified with Anthropic.',
+  agentId: 'bot-ada',
+  cause: 'usage_limit',
+  verifyUrl: portal,
+} as AgentTimelineEvent
 
-test('a Claude account held for verification links where its holder verifies it', () => {
-  const event = {
-    kind: 'agent_reply_failed',
-    at: '2026-11-19T15:12:26Z',
-    text: `Ada couldn’t reply: its Claude Code account must be verified with Anthropic (Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}).`,
-    agentId: 'bot-ada',
-    cause: 'usage_limit',
-  } as AgentTimelineEvent
-
-  const html = renderToStaticMarkup(
+const render = (owned: string[]) =>
+  renderToStaticMarkup(
     <ChannelReplyFailed
       event={event}
       channelId="channel"
       teamId="team"
-      actionable={false}
-      ownedAgents={new Set()}
+      actionable
+      ownedAgents={new Set(owned)}
       onOpenSession={() => undefined}
     />,
   )
 
-  assert.match(html, /must be verified with Anthropic/u)
-  assert.ok(html.includes(`<a href="${portal.replace('&', '&amp;')}" target="_blank"`), html)
-  assert.ok(html.includes(`>${portal}</a>).`), html)
+test('a Claude account held for verification offers its owner the portal, then the other fixes', () => {
+  const html = render(['bot-ada'])
+  const order = ['Verify with Anthropic', 'Switch runtime', 'Retry'].map((label) =>
+    html.indexOf(label),
+  )
+
+  assert.ok(html.includes(`href="${portal}"`), html)
+  assert.ok(html.includes('target="_blank"'), html)
+  assert.ok(
+    order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1]!)),
+    html,
+  )
+})
+
+test('someone who does not own the agent gets the line and Retry only', () => {
+  const html = render([])
+
+  assert.ok(!html.includes('Verify with Anthropic'), html)
+  assert.ok(!html.includes('Switch runtime'), html)
+  assert.ok(html.includes('Retry'), html)
 })

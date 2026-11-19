@@ -399,7 +399,8 @@ describe('waking a channel’s agents', () => {
     ).toMatchObject({
       agentId: 'agent-a',
       cause: 'usage_limit',
-      reason: `its account must be verified with Anthropic (Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}).`,
+      reason: 'its account must be verified with Anthropic.',
+      verifyUrl: portal,
     })
   })
 

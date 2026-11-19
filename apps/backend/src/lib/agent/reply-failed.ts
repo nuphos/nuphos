@@ -13,10 +13,17 @@ import { agentConversations } from './db/shared'
 import type { AgentConversation } from './db'
 import type { ReplyFailedCause } from './db/timeline-events'
 
-/** Anthropic holds an account's replies until its holder verifies it, at the portal the notice links. */
+/**
+ * Anthropic holds an account's replies until its holder verifies it: where, from the notice.
+ * Only Anthropic's portal is taken, so a client never opens another address it names.
+ */
 const VERIFICATION_HOLD =
-  /^(?:API Error: )?(Your account can['’]t receive replies from Claude\b.*)/u
-const heldFor = (error: unknown) => VERIFICATION_HOLD.exec(claudeNotice(error) ?? '')?.[1]
+  /^(?:API Error: )?Your account can['’]t receive replies from Claude\b.*?(https:\/\/portal\.anthropic\.com\/\S*)?$/u
+const verifyUrlFor = (error: unknown) => {
+  const held = VERIFICATION_HOLD.exec(claudeNotice(error) ?? '')
+
+  return held && (held[1] ?? 'https://portal.anthropic.com/')
+}
 
 /** How a Pi turn the model provider refused reads after `Internal error: ` (acp-shim.mjs). */
 const PROVIDER_REFUSED = 'The model provider refused the request:'
@@ -34,10 +41,9 @@ function replyFailedReason(
   const label = agent?.agentRuntime ? `${runtimeLabel(agent.agentRuntime)} ` : ''
   // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
   const notice = resetsAt ? undefined : claudeNotice(error)
-  const held = heldFor(error)
 
-  if (cause === 'usage_limit' && held)
-    return `its ${label}account must be verified with Anthropic (${held}).`
+  if (cause === 'usage_limit' && verifyUrlFor(error))
+    return `its ${label}account must be verified with Anthropic.`
   if (cause === 'usage_limit')
     return notice
       ? `its ${label}account hit its usage limit (${notice}).`
@@ -71,10 +77,11 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
     userSetupFailure(error) === 'agent_cli_unstartable' ? 'cli' : turnFailureCause(error)
   const resetsAt =
     // A held account comes back when its holder verifies it, not when its usage resets.
-    cause === 'usage_limit' && agent && !heldFor(error)
+    cause === 'usage_limit' && agent && !verifyUrlFor(error)
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = replyFailedReason(agent, cause, error, resetsAt)
+  const verifyUrl = cause === 'usage_limit' ? verifyUrlFor(error) : null
 
   await agentConversations()
     .updateOne(
@@ -89,6 +96,7 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
+          ...(verifyUrl ? { verifyUrl } : {}),
         }),
       },
     )

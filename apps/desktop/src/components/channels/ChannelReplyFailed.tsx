@@ -5,6 +5,7 @@ import { t } from '../../i18n'
 import { formatResetsIn } from '../../lib/runtimeQuota'
 import { requestAgentMenu } from '../agent/panel/agentMenuRequest'
 import { FailureRow } from '../agent/panel/FailureRow'
+import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { ChannelReplyFix } from './ChannelReplyFix'
@@ -18,28 +19,14 @@ type ReplyFailedEvent = AgentTimelineEvent & {
   agentId?: string
   cause?: ReplyFailedCause
   resetsAt?: string
-}
-
-/** A web address in the server's line, such as where a provider asks the account holder to act. */
-const WEB_URL = /(https:\/\/[^\s()]+[^\s().,])/u
-
-/** The line with its web addresses as links, which open in the browser. */
-function withLinks(text: string) {
-  return text.split(WEB_URL).map((piece, index) =>
-    index % 2 ? (
-      <a key={index} href={piece} target="_blank" rel="noreferrer" className="underline">
-        {piece}
-      </a>
-    ) : (
-      piece
-    ),
-  )
+  /** Where the account's holder verifies it, when its provider holds it until they do. */
+  verifyUrl?: string
 }
 
 /**
  * An agent could not reply: what happened and why (the server's line), when its
- * usage returns, and the fix. Only the latest line offers it; Switch runtime only
- * to the agent's owner, the one who can move it.
+ * usage returns, and the fix. Only the latest line offers it; Switch runtime, and
+ * Verify for an account its provider holds, only to the agent's owner.
  */
 export function ChannelReplyFailed({
   event,
@@ -63,11 +50,9 @@ export function ChannelReplyFailed({
   const [retrying, setRetrying] = useState(false)
   const agentId = event.agentId
   const resets = event.cause === 'usage_limit' ? formatResetsIn(event.resetsAt) : null
-  const canSwitch =
-    actionable &&
-    ownedAgents.has(agentId ?? '') &&
-    event.cause !== undefined &&
-    event.cause !== 'other'
+  const owns = actionable && ownedAgents.has(agentId ?? '')
+  const canSwitch = owns && event.cause !== undefined && event.cause !== 'other'
+  const verifyUrl = owns ? event.verifyUrl : undefined
   const retry = () => {
     if (!agentId) return
     setRetrying(true)
@@ -85,22 +70,33 @@ export function ChannelReplyFailed({
   return (
     <FailureRow
       fix={
-        actionable &&
-        agentId && (
-          <ChannelReplyFix
-            teamId={teamId}
-            agentId={agentId}
-            cause={event.cause}
-            fixes={fixes}
-            onFixed={retry}
-          />
+        verifyUrl ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            nativeButton={false}
+            render={<a href={verifyUrl} target="_blank" rel="noopener noreferrer" />}
+          >
+            {t('Verify with Anthropic')}
+          </Button>
+        ) : (
+          actionable &&
+          agentId && (
+            <ChannelReplyFix
+              teamId={teamId}
+              agentId={agentId}
+              cause={event.cause}
+              fixes={fixes}
+              onFixed={retry}
+            />
+          )
         )
       }
       onSwitchAgent={canSwitch && agentId ? switchAgent : undefined}
       onRetry={actionable && agentId ? retry : undefined}
       retrying={retrying}
     >
-      {withLinks(event.text)}
+      {event.text}
       {resets && <> {t('Usage {resets}.', { resets })}</>}
     </FailureRow>
   )

@@ -133,7 +133,11 @@ export const botOnboardingScenarios: Scenario[] = [
         )
 
         await line.waitFor()
-        assert.equal(await line.getByRole('link', { name: portal }).getAttribute('href'), portal)
+        // The line names no address: Verify with Anthropic opens the portal Anthropic named.
+        assert.equal(await page.getByText(portal).count(), 0)
+        const verify = page.getByRole('button', { name: 'Verify with Anthropic', exact: true })
+
+        assert.equal(await verify.getAttribute('href'), portal)
         await page.getByRole('button', { name: 'Switch runtime', exact: true }).waitFor()
         await page.screenshot({ path: `${artifacts}/onboarding-verification-light.png` })
       } finally {
