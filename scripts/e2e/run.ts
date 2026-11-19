@@ -5,7 +5,6 @@ import { rmSync } from 'node:fs'
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
-import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
@@ -101,7 +100,6 @@ const scenarios: Scenario[] = [
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...teammateBotScenarios,
-  ...avatarBackgroundScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
