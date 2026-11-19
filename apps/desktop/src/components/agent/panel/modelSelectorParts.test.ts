@@ -42,11 +42,22 @@ test('concrete and unlisted current models retain their acknowledged names', () 
   assert.equal(modelName({ ...model, currentValue: 'new-model' }), 'new-model')
 })
 
-test('a runtime whose settings work now is not told to send a message first', () => {
-  // Grok lists effort and no model: that effort applies when the session starts,
-  // so asking for a message first would be wrong. With nothing to set, it stands.
-  assert.notEqual(modelHint('dormant', false, false, false), undefined)
-  assert.equal(modelHint('dormant', false, false, true), undefined)
-  // A model is something to set, whether or not it also offers effort.
-  assert.equal(modelHint('dormant', true, false, false), undefined)
+// #3807: an empty model list said "send a message to start"; it now says why there is none.
+test('a picker with nothing to set says why, and nothing without a reason', () => {
+  assert.equal(
+    modelHint('dormant', false, false, false, 'unreported'),
+    'This computer hasn’t reported its models yet. Try again in a moment.',
+  )
+  assert.equal(
+    modelHint('ready', false, false, false, 'signed-out'),
+    'This runtime is signed out on its computer. Sign in there to choose a model.',
+  )
+  assert.equal(
+    modelHint('dormant', false, false, false, 'undiscovered'),
+    'Couldn’t load this runtime’s models. Make sure it’s signed in and up to date, then try again.',
+  )
+  assert.equal(modelHint('dormant', false, false, false), undefined, 'no reason, no hint')
+  // Grok lists effort and no model: that effort applies when the session starts.
+  assert.equal(modelHint('dormant', false, false, true, 'unreported'), undefined)
+  assert.equal(modelHint('dormant', true, false, false, 'unreported'), undefined)
 })
