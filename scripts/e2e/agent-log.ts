@@ -4,13 +4,13 @@ import { readFileSync } from 'node:fs'
 import type { Stack } from './stack.ts'
 
 type AgentEntry = {
-  /** The runtime it ran on: `first` or `second`. */
+  /** The runtime it ran on: `first`, `second` or `codex`. */
   agent: string
   sessionId: string
   event: string
   marker?: string
   /** The model settings a new session was created with. */
-  defaults?: { model?: string; fast?: string }
+  defaults?: { model?: string; effort?: string; fast?: string }
   /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean
