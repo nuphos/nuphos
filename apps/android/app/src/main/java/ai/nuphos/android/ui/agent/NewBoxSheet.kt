@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -30,10 +34,11 @@ internal fun ConnectComputerFlow(onDismiss: () -> Unit) {
     val token = auth.token ?: return
     val team = agents.selectedTeam ?: return
     val generation = auth.generation
+    val consent = AiAccess.revision
     val workspace = agents.workspaceRevision
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    key(account, token, generation, team, workspace) {
+    key(account, token, generation, consent, team, workspace) {
         val access = remember { AiAccess.bind(token) }
         val current = remember { { auth.user?.id == account && auth.token == token && auth.generation == generation &&
             auth.aiAllowed && access() && agents.workspaceRevision == workspace && agents.selectedTeam == team } }
@@ -92,8 +97,16 @@ internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit, onAdd: (() -
             if (!creatingBox) {
                 Text(stringResource(R.string.box_connect), style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(R.string.box_guide_body))
-                if (store.loaded && store.inventory.offered) OutlinedButton(onClick = { creatingBox = true }, modifier = Modifier.fillMaxWidth().testTag("new-box")) {
-                    Column { Text(stringResource(R.string.box_title)); Text(stringResource(R.string.box_description), style = MaterialTheme.typography.bodySmall) }
+                if (store.loaded && store.inventory.offered) Surface(onClick = { creatingBox = true }, shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth().testTag("new-box")) {
+                    Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(Icons.Outlined.Inventory2, null, Modifier.size(20.dp))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.box_title), style = MaterialTheme.typography.titleSmall)
+                            Text(stringResource(R.string.box_description), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(20.dp))
+                    }
                 }
                 Text(stringResource(R.string.box_step1)); Text(stringResource(R.string.box_step2)); Text(stringResource(R.string.box_step3))
                 val uri = androidx.compose.ui.platform.LocalUriHandler.current
@@ -102,7 +115,7 @@ internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit, onAdd: (() -
                 NewBox.Phase.Idle -> {
                     Text(stringResource(R.string.box_body))
                     OutlinedTextField(store.name, { store.name = it }, enabled = !store.busy && !store.uncertain,
-                        label = { Text(stringResource(R.string.new_runtime_name)) }, placeholder = { Text(store.placeholder) }, singleLine = true,
+                        label = { Text(stringResource(R.string.box_name)) }, placeholder = { Text(store.placeholder) }, singleLine = true,
                         modifier = Modifier.fillMaxWidth().testTag("box-name"))
                     Text(stringResource(R.string.box_name_help, store.placeholder))
                     Button(onClick = store::create, enabled = store.canCreate, modifier = Modifier.testTag("box-create")) {
@@ -140,8 +153,9 @@ internal fun BoxResumeButton(device: RuntimeDevice, onResumed: () -> Unit) {
     val token = auth.token ?: return
     val team = agents.selectedTeam ?: return
     val generation = auth.generation
+    val consent = AiAccess.revision
     val workspace = agents.workspaceRevision
-    val access = remember(token, generation, workspace, team) { AiAccess.bind(token) }
+    val access = remember(token, generation, consent, workspace, team) { AiAccess.bind(token) }
     val scope = rememberCoroutineScope()
     var busy by remember(device.id) { mutableStateOf(false) }
     var error by remember(device.id) { mutableStateOf<String?>(null) }

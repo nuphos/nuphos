@@ -27,4 +27,5 @@
     <string name="box_resume_failed">Could not resume computer. Try again.</string>
     <string name="box_uncertain">The request may have succeeded. Check Computers &amp; runtimes before creating another computer.</string>
     <string name="box_visit">Visit Nuphos</string>
+    <string name="box_name">Name</string>
 </resources>

@@ -27,4 +27,5 @@
     <string name="box_resume_failed">無法恢復電腦。請再試一次。</string>
     <string name="box_uncertain">請求可能已成功。再次建立電腦前，請先查看「電腦與執行環境」。</string>
     <string name="box_visit">前往 Nuphos</string>
+    <string name="box_name">名稱</string>
 </resources>

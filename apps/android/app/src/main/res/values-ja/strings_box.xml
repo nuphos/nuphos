@@ -27,4 +27,5 @@
     <string name="box_resume_failed">コンピューターを再開できませんでした。もう一度お試しください。</string>
     <string name="box_uncertain">リクエストが成功した可能性があります。別のコンピューターを作成する前に、コンピューターとランタイムを確認してください。</string>
     <string name="box_visit">Nuphos を開く</string>
+    <string name="box_name">名前</string>
 </resources>

@@ -27,4 +27,5 @@
     <string name="box_resume_failed">No se pudo reanudar el ordenador. Inténtalo de nuevo.</string>
     <string name="box_uncertain">La solicitud puede haberse completado. Revisa los ordenadores y entornos antes de crear otro.</string>
     <string name="box_visit">Visitar Nuphos</string>
+    <string name="box_name">Nombre</string>
 </resources>

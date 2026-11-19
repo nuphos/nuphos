@@ -27,4 +27,5 @@
     <string name="box_resume_failed">เปิดใช้งานคอมพิวเตอร์ต่อไม่ได้ โปรดลองอีกครั้ง</string>
     <string name="box_uncertain">คำขออาจสำเร็จแล้ว ตรวจสอบคอมพิวเตอร์และรันไทม์ก่อนสร้างคอมพิวเตอร์อีกเครื่อง</string>
     <string name="box_visit">ไปที่ Nuphos</string>
+    <string name="box_name">ชื่อ</string>
 </resources>
