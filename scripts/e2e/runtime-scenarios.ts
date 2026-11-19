@@ -127,7 +127,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-move')
       await page.getByText('ACK E2E_DELIVERY:before-move').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
@@ -140,7 +139,6 @@ export const runtimeScenarios: Scenario[] = [
       // #3709: the Task starts a new session there with no model picked, so its list,
       // once read from that agent, checks the model that session runs: its default.
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await until('the second agent’s models, its default current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
@@ -172,7 +170,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-kept')
       await page.getByText('ACK E2E_DELIVERY:before-kept').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()

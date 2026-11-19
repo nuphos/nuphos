@@ -47,7 +47,7 @@ test('a size instabox does not offer is refused', async () => {
   await expect(boxSize(16)).rejects.toMatchObject({
     status: 400,
     code: 'box_size',
-    message: 'A cloud computer comes with 4 or 8 vCPU',
+    message: 'A computer from Nuphos comes with 4 or 8 vCPU',
   })
 })
 

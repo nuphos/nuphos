@@ -256,6 +256,7 @@ export function AgentStatusBanner({
   return (
     <>
       <div
+        data-composer-overlay=""
         role="status"
         aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.

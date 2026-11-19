@@ -8,8 +8,8 @@
 
 Nuphos is an open source (Apache-2.0) alternative to xAI's Grok Bot. It gives
 you always-on Bots that run on the Claude Code or Codex subscription you
-already pay for, on a managed cloud computer or a machine you own, in chats
-your whole team can join.
+already pay for, on a computer Nuphos runs for you or a machine you own, in
+chats your whole team can join.
 
 What sets Nuphos apart is the team. Your teammates work with a Bot in the same
 live session, see the same tool calls, and steer it together. Nuphos is not
@@ -18,14 +18,14 @@ affiliated with xAI.
 ## Features
 
 - **Bots that keep working.** Give a Bot a name and a face and chat with it
-  one-on-one. On a cloud computer or a server you keep running, its turn
+  one-on-one. On a computer from Nuphos or a server you keep running, its turn
   continues after you close your laptop, and you can pick it up from the iOS
   app.
 - **Use the subscription you already pay for.** Claude Code and Codex each run
   behind an [ACP](https://agentclientprotocol.com) adapter and sign in with
   your own Claude or ChatGPT account, so there is no extra model charge on
   top. OpenCode, Grok Build and Antigravity runtimes are available too.
-- **Run it where you want.** A runtime can be a cloud computer Nuphos manages,
+- **Run it where you want.** A runtime can be a computer Nuphos runs for you,
   a remote machine you own, or your laptop. Move a conversation between them
   and it keeps going.
 - **A session is a room with your teammates.** Invite someone into a running
