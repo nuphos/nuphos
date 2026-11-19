@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Nuphos 电脑</string>
+    <string name="box_setup">设置运行环境</string>
+    <string name="box_connect">连接电脑</string>
+    <string name="box_guide_body">Bot 和任务需要运行环境才能工作。请使用 Nuphos Desktop 连接电脑，或请工作区管理员共享运行环境。</string>
+    <string name="box_description">由 Nuphos 为你运行的 Linux 电脑，内置 Claude Code、Codex、OpenCode 等 agent。使用你自己的账号登录。</string>
+    <string name="box_step1">1. 在电脑上打开 Nuphos。</string>
+    <string name="box_step2">2. 登录并选择此工作区。</string>
+    <string name="box_step3">3. 连接电脑并添加运行环境。</string>
+    <string name="box_body">内置 Claude Code、Codex、OpenCode 等 agent 的 Linux 电脑。运行中的电脑会计入套餐的 vCPU 额度，已暂停的则不计入。</string>
+    <string name="box_name_help">留空则命名为 %1$s。</string>
+    <string name="box_create">创建电脑</string>
+    <string name="box_creating">正在创建…</string>
+    <string name="box_starting">正在启动电脑及其运行环境，通常需要 10 到 30 秒…</string>
+    <string name="box_ready">你的电脑已在运行。请选择要登录的运行环境。</string>
+    <string name="box_failed">电脑无法启动。请在“运行环境”页面中将其删除后重试。</string>
+    <string name="box_timeout">电脑在 5 分钟后仍未启动。请在“运行环境”页面中将其删除后重试。</string>
+    <string name="box_plan">请在电脑上的 Nuphos 中选择套餐。</string>
+    <string name="box_state_starting">正在启动</string>
+    <string name="box_state_connecting">正在连接</string>
+    <string name="box_state_paused">已暂停</string>
+    <string name="box_state_error">未启动</string>
+    <string name="box_resume">恢复</string>
+    <string name="box_create_failed">无法创建电脑</string>
+    <string name="box_refresh_failed">无法刷新电脑。请重试。</string>
+    <string name="box_resume_failed">无法恢复电脑。请重试。</string>
+    <string name="box_uncertain">请求可能已成功。再次创建电脑前，请先查看“电脑与运行环境”。</string>
+    <string name="box_visit">前往 Nuphos</string>
+    <string name="box_name">名称</string>
+    <string name="box_not_available">此工作区目前无法创建 Nuphos 电脑。</string>
+</resources>

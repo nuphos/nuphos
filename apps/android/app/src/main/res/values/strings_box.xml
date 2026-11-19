@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Nuphos computer</string>
+    <string name="box_setup">Runtime setup</string>
+    <string name="box_connect">Connect a computer</string>
+    <string name="box_guide_body">Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.</string>
+    <string name="box_description">A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account.</string>
+    <string name="box_step1">1. Open Nuphos on your computer.</string>
+    <string name="box_step2">2. Sign in and choose this workspace.</string>
+    <string name="box_step3">3. Connect your computer and add a runtime.</string>
+    <string name="box_body">A Linux computer with Claude Code, Codex, OpenCode and other agents on it. Running computers count against your plan\'s vCPU; paused ones do not.</string>
+    <string name="box_name_help">Leave it empty to call it %1$s.</string>
+    <string name="box_create">Create computer</string>
+    <string name="box_creating">Creating…</string>
+    <string name="box_starting">Starting the computer and its runtimes, usually 10 to 30 seconds…</string>
+    <string name="box_ready">Your computer is running. Choose a runtime to sign in.</string>
+    <string name="box_failed">The computer could not start. Delete it on the Runtimes page and try again.</string>
+    <string name="box_timeout">The computer has not started after 5 minutes. Delete it on the Runtimes page and try again.</string>
+    <string name="box_plan">Choose a plan in Nuphos on your computer.</string>
+    <string name="box_state_starting">Starting</string>
+    <string name="box_state_connecting">Connecting</string>
+    <string name="box_state_paused">Paused</string>
+    <string name="box_state_error">Didn\'t start</string>
+    <string name="box_resume">Resume</string>
+    <string name="box_create_failed">Could not create computer</string>
+    <string name="box_refresh_failed">Could not refresh computers. Try again.</string>
+    <string name="box_resume_failed">Could not resume computer. Try again.</string>
+    <string name="box_uncertain">The request may have succeeded. Check Computers &amp; runtimes before creating another computer.</string>
+    <string name="box_visit">Visit Nuphos</string>
+    <string name="box_name">Name</string>
+    <string name="box_not_available">Creating a Nuphos computer is no longer available for this workspace.</string>
+</resources>

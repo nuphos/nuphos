@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">คอมพิวเตอร์ของ Nuphos</string>
+    <string name="box_setup">ตั้งค่ารันไทม์</string>
+    <string name="box_connect">เชื่อมต่อคอมพิวเตอร์</string>
+    <string name="box_guide_body">Bot และงานต้องใช้รันไทม์ เชื่อมต่อคอมพิวเตอร์ด้วย Nuphos Desktop หรือขอให้ผู้ดูแลเวิร์กสเปซแชร์รันไทม์</string>
+    <string name="box_description">คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง</string>
+    <string name="box_step1">1. เปิด Nuphos บนคอมพิวเตอร์</string>
+    <string name="box_step2">2. ลงชื่อเข้าใช้และเลือกเวิร์กสเปซนี้</string>
+    <string name="box_step3">3. เชื่อมต่อคอมพิวเตอร์และเพิ่มรันไทม์</string>
+    <string name="box_body">คอมพิวเตอร์ Linux ที่มี Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ</string>
+    <string name="box_name_help">เว้นว่างไว้เพื่อใช้ชื่อ %1$s</string>
+    <string name="box_create">สร้างคอมพิวเตอร์</string>
+    <string name="box_creating">กำลังสร้าง…</string>
+    <string name="box_starting">กำลังเริ่มคอมพิวเตอร์และรันไทม์ โดยปกติใช้เวลา 10 ถึง 30 วินาที…</string>
+    <string name="box_ready">คอมพิวเตอร์ของคุณทำงานแล้ว เลือกรันไทม์เพื่อลงชื่อเข้าใช้</string>
+    <string name="box_failed">คอมพิวเตอร์เริ่มทำงานไม่ได้ ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง</string>
+    <string name="box_timeout">คอมพิวเตอร์ยังไม่เริ่มทำงานหลังผ่านไป 5 นาที ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง</string>
+    <string name="box_plan">เลือกแพ็กเกจใน Nuphos บนคอมพิวเตอร์ของคุณ</string>
+    <string name="box_state_starting">กำลังเริ่ม</string>
+    <string name="box_state_connecting">กำลังเชื่อมต่อ</string>
+    <string name="box_state_paused">หยุดชั่วคราว</string>
+    <string name="box_state_error">เริ่มไม่สำเร็จ</string>
+    <string name="box_resume">เริ่มต่อ</string>
+    <string name="box_create_failed">ไม่สามารถสร้างคอมพิวเตอร์</string>
+    <string name="box_refresh_failed">รีเฟรชคอมพิวเตอร์ไม่ได้ โปรดลองอีกครั้ง</string>
+    <string name="box_resume_failed">เปิดใช้งานคอมพิวเตอร์ต่อไม่ได้ โปรดลองอีกครั้ง</string>
+    <string name="box_uncertain">คำขออาจสำเร็จแล้ว ตรวจสอบคอมพิวเตอร์และรันไทม์ก่อนสร้างคอมพิวเตอร์อีกเครื่อง</string>
+    <string name="box_visit">ไปที่ Nuphos</string>
+    <string name="box_name">ชื่อ</string>
+    <string name="box_not_available">พื้นที่ทำงานนี้ไม่สามารถสร้างคอมพิวเตอร์ Nuphos ได้ในขณะนี้</string>
+</resources>
