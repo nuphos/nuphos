@@ -57,7 +57,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   }
   const requireBoxes = () => {
     if (!deps.box)
-      throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
+      throw new AppError(503, 'box_unavailable', 'Computers from Nuphos are off on this deployment')
 
     return deps.box
   }
@@ -117,9 +117,14 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     const { label, teamId: requestedTeamId, vcpus, access: requested } = c.req.valid('json')
     const teamId = readTeamIdCandidate(c, requestedTeamId)
 
-    if (!teamId) throw new AppError(400, 'team_required', 'A cloud computer is made in a team')
+    if (!teamId)
+      throw new AppError(400, 'team_required', 'A computer from Nuphos is made in a team')
     if ((await deps.access.role(c.get('userId'), teamId)) !== 'ADMINISTRATOR')
-      throw new AppError(403, 'forbidden', 'Only team administrators can create a cloud computer')
+      throw new AppError(
+        403,
+        'forbidden',
+        'Only team administrators can create a computer from Nuphos',
+      )
     // Stored with the Box itself, so a Box is never made without the access asked for.
     const shared = requested && memberAccess(await deps.teamMembers(teamId), requested)
     const device = await box.create(
@@ -238,10 +243,12 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
 
     // Close the Box's tunnel cleanly before its machine goes, not by a dropped socket.
     if (await deps.revokeCredential(userId, deviceId)) await deps.disconnect(userId, deviceId)
-    await requireBoxes().destroy(userId, deviceId)
+    const killed = await requireBoxes().destroy(userId, deviceId)
+
     await deps.deleteDevice(userId, deviceId)
 
-    return c.json({ ok: true })
+    // Deleted either way; the owner hears when its machine may still run at the provider.
+    return c.json({ ok: true, ...(killed ? {} : { machineLeft: true }) })
   })
 
   return routes

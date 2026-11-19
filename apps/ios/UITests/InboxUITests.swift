@@ -6,6 +6,8 @@ import XCTest
 final class InboxUITests: XCTestCase {
     private let pending = "GET /agent/conversations?pendingDecision=true"
     private var live: URL!
+    /// What the app sent, one JSON line per request with a body (`NUPHOS_PREVIEW_REQUESTS`).
+    private var sent: URL!
     private var responses: [String: Any] = [:]
     private var app: XCUIApplication!
 
@@ -15,6 +17,8 @@ final class InboxUITests: XCTestCase {
             .deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
         live = fixture.deletingLastPathComponent().appending(path: "inbox-live-\(UUID().uuidString).json")
+        // Outside the repository: the app may still send something after the test removes it.
+        sent = FileManager.default.temporaryDirectory.appending(path: "inbox-sent-\(UUID().uuidString).jsonl")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
         // An answer goes to the answer API; no message is sent.
@@ -32,6 +36,46 @@ final class InboxUITests: XCTestCase {
 
     override func tearDown() {
         try? FileManager.default.removeItem(at: live)
+        try? FileManager.default.removeItem(at: sent)
+    }
+
+    /// An answer given in the Inbox says so (#3548), so the chat can say "Answered in Inbox".
+    func testAnInboxAnswerSaysItWasGivenInTheInbox() throws {
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
+        openQuestion("Roll out 1.4 to production?")
+        XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "The question did not open")
+        app.buttons["Ship it"].tap()
+        let body = try answerBody(session: "agent-ops", request: "q-deploy")
+        XCTAssertEqual(body["choices"] as? [String], ["Ship it"])
+        XCTAssertEqual(body["answeredIn"] as? String, "inbox", "The Inbox's answer does not say it was given in the Inbox")
+    }
+
+    /// An answer given on the card in a Bot's chat does not claim the Inbox.
+    func testAChatCardAnswerDoesNotSayInbox() throws {
+        let ask = (deploy["inputRequests"] as? [[String: Any]])?.first ?? [:]
+        try openBotChat(listing: [InboxUITests.row("bot-release", "Release Lead", ask)])
+        app.buttons["Ship it"].firstMatch.tap()
+        let body = try answerBody(session: "bot-release", request: "q-deploy")
+        XCTAssertEqual(body["choices"] as? [String], ["Ship it"])
+        XCTAssertNil(body["answeredIn"], "An answer in the chat says it was given in the Inbox")
+    }
+
+    /// The body of the answer the app sent for a question, once it has gone (the Inbox holds one five seconds).
+    private func answerBody(session: String, request: String) throws -> [String: Any] {
+        let key = "POST /agent/conversations/\(session)/decisions/\(request)/answer"
+        var body: [String: Any]?
+        let found = NSPredicate { _, _ in
+            let lines = (try? String(contentsOf: self.sent, encoding: .utf8))?.split(separator: "\n") ?? []
+            body = lines.lazy.compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
+                .first { $0["request"] as? String == key }?["body"] as? [String: Any]
+            return body != nil
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: found, object: nil)], timeout: 15),
+                       .completed, "No answer was sent to \(key)")
+        return try XCTUnwrap(body)
     }
 
     /// The list groups the questions by who asked, one line each; a question opens on its own,
@@ -658,7 +702,7 @@ final class InboxUITests: XCTestCase {
     private func launch(page: String? = nil) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? [])
-        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path, "NUPHOS_PREVIEW_REQUESTS": sent.path]
         app.launch()
         return app
     }

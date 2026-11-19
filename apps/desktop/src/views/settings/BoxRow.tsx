@@ -21,6 +21,7 @@ import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
+import { deleteBox } from './boxDelete'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
@@ -125,7 +126,7 @@ export function BoxRow({
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      await hostUpdate.request(team)
+      await hostUpdate.request(deviceId, team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -234,7 +235,7 @@ export function BoxRow({
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            confirm={hostUpdate.confirm(updateVersion)}
+            confirm={hostUpdate.confirm(updateVersion, device.label)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}
@@ -285,7 +286,7 @@ export function BoxRow({
         destructive
         confirmLabel={remove.confirm}
         onConfirm={() =>
-          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+          act(remove.error, cloud ? deleteBox(device.label) : api.deviceRemove, remove.fallback)
         }
         onClose={() => setConfirmDelete(false)}
       />

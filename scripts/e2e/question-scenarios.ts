@@ -8,6 +8,7 @@ import { choiceModeScenarios } from './choice-mode-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { inboxScenarios } from './inbox-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { secretScenarios } from './secret-scenarios.ts'
 import { staleQuestionScenarios } from './stale-question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
@@ -293,4 +294,5 @@ export const questionScenarios: Scenario[] = [
   ...staleQuestionScenarios,
   ...inboxScenarios,
   ...choiceModeScenarios,
+  ...secretScenarios,
 ]

@@ -50,8 +50,8 @@ function awaitPicture(host: HTMLElement, shown: () => void, failed: () => void):
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? t('You have the Mac’s screen; the agent can still use it too.')
-    : t('You have the desktop; the agent’s input tools wait until you hand it back.')
+    ? t('You have the Mac’s screen; Nuphos can still use it too.')
+    : t('You have the desktop; Nuphos’s input tools wait until you hand it back.')
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
@@ -145,12 +145,12 @@ export function SessionDesktopView({
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? t('Select an agent to see its desktop.')
+          ? t('Select a runtime to see its desktop.')
           : phase.kind !== 'connected'
             ? undefined
             : holding
               ? holdingStatus(display)
-              : t('Watching the agent’s desktop.')
+              : t('Watching the runtime’s desktop.')
       }
       action={
         <button

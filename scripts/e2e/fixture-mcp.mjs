@@ -76,6 +76,26 @@ export async function callNamed({ log, sessionId, text }) {
   log({ sessionId, event: 'called', name, result: message.result ?? message.error })
 }
 
+/** E2E_PERSONAL_TOKEN:<provider>: fetches the owner's own credential as an agent's setup script does, and logs the answer. */
+export async function personalToken({ log, sessionId, marker, text }) {
+  const provider = /E2E_PERSONAL_TOKEN:([a-z-]+)/.exec(text)?.[1]
+  const server = tools.get(sessionId)
+  // The handout sits under the same /teams/:teamId as the tools server, for the same token.
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const response = await fetch(`${team}/personal-credentials/${provider}/token`, {
+    headers: Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+  })
+  const body = await response.json().catch(() => ({}))
+
+  log({
+    sessionId,
+    marker,
+    event: 'personal-token',
+    name: provider,
+    result: { status: response.status, code: body.error?.code },
+  })
+}
+
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
   // #3409 hands off a second one, which its scenario tells apart by name.
