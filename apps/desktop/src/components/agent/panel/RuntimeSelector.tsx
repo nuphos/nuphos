@@ -49,6 +49,8 @@ export type RuntimeControl = {
   selectDisabled?: boolean
   /** The runtime this conversation is bound to is disabled or gone. */
   unavailable?: boolean
+  /** A group chat's: no runtime of its own, only a member Bot whose computer is offline (#3308). */
+  offlineAgent?: string
   loading?: boolean
   error?: string | null
   onSettings?: () => void

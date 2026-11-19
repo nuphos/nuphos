@@ -85,6 +85,12 @@ export function signalGroup(child: ChildProcess, signal: NodeJS.Signals | 0): bo
   }
 }
 
+/** Stops the process group, runs `whileFrozen`, then lets it go on, so whatever it serves waits. */
+export async function frozen(child: ChildProcess, whileFrozen: () => Promise<void>): Promise<void> {
+  signalGroup(child, 'SIGSTOP')
+  await whileFrozen().finally(() => signalGroup(child, 'SIGCONT'))
+}
+
 export async function stop(child: ChildProcess): Promise<void> {
   if (!child.pid || !signalGroup(child, 'SIGTERM')) return
   const deadline = Date.now() + 5_000

@@ -1,13 +1,14 @@
 import { t } from '../../i18n'
 import { openQuestion } from '../../views/inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from '../../views/inbox/inboxSelection'
-import { QuestionRail } from '../../views/inbox/QuestionRail'
+import { snoozeQuestion } from '../../views/inbox/dismissQuestion'
+import { QuestionRail, SnoozedRail } from '../../views/inbox/QuestionRail'
 import { useInboxQuestions } from '../../views/inbox/useInboxQuestions'
 import { SIDEBAR_GROUP_TITLE_CLASS } from '../SidebarNavItem'
 
 import type { UIEventHandler } from 'react'
 
-/** The sidebar's Inbox page: the open questions, one opening in the Inbox beside it. */
+/** The sidebar's Inbox page: the open questions, one opening in the Inbox beside it, and those snoozed below. */
 export function SidebarInboxPage({
   teamId,
   onOpenInbox,
@@ -18,6 +19,7 @@ export function SidebarInboxPage({
   onScroll: UIEventHandler<HTMLElement>
 }) {
   const rows = useInboxQuestions(teamId)
+  const snoozed = useInboxQuestions(teamId, undefined, true)
   const selected = useInboxSelection(teamId)
   const open = rows ? openQuestion(rows, selected) : undefined
 
@@ -44,6 +46,12 @@ export function SidebarInboxPage({
             }}
           />
         )}
+        <SnoozedRail
+          rows={snoozed ?? []}
+          onUnsnooze={(row) =>
+            void snoozeQuestion(teamId, row.conversation.sessionId, row.request.id, null)
+          }
+        />
       </nav>
     </div>
   )
