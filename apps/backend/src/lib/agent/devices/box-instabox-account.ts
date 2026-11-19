@@ -108,6 +108,8 @@ export async function accountSizes({
     return sizes
   } catch (error) {
     if (!known || error instanceof AppError) throw error
+    // Tried for the next 10 minutes too, so an outage costs one create a wait, not every one.
+    known.readAt = Date.now()
 
     return known.sizes
   }

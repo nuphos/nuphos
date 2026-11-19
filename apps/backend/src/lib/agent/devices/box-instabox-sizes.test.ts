@@ -116,3 +116,16 @@ test('a key instabox refuses is refused, even if it worked before', async () => 
     code: 'invalid_instabox_api_key',
   })
 })
+
+test('while instabox stays down, only one create waits on it every 10 minutes', async () => {
+  const fetched = spyOn(globalThis, 'fetch')
+    .mockResolvedValueOnce(me())
+    .mockRejectedValue(new DOMException('The operation timed out.', 'TimeoutError'))
+
+  spies.push(fetched)
+  await accountSizes({ apiKey: 'k9' })
+  setSystemTime(Date.now() + 60 * 60_000)
+  await accountSizes({ apiKey: 'k9' })
+  expect(await accountSizes({ apiKey: 'k9' })).toHaveLength(2)
+  expect(fetched).toHaveBeenCalledTimes(2)
+})
