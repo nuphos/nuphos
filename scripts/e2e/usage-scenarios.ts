@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 import { api, joinTeam } from './dashboard-scenarios.ts'
 import { until } from './processes.ts'
+import { teamActivityScenarios } from './team-activity-scenarios.ts'
 import { newTask, openComputers, send } from './ui.ts'
 import { captureFilterMenu, checkNamesByRole, computersAndPrivate, shot } from './usage-checks.ts'
 import {
@@ -231,4 +232,6 @@ export const usageScenarios: Scenario[] = [
       }
     },
   },
+  // Who sees the team's activity and stats is read from the same members' numbers.
+  ...teamActivityScenarios,
 ]

@@ -1,5 +1,6 @@
 package ai.nuphos.android
 
+import ai.nuphos.android.data.ComputerPresence
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.model.ChatPart
@@ -171,13 +172,24 @@ class ChatRowTest {
         assertTrue(rows.indexOf(hint) > rows.indexOfFirst { it is ChatRow.Activity })
     }
     @Test fun anOfflineComputerIsSaidBeforeSending() {
-        val hint = ChatRow.rows(listOf(message()), runtimeOffline = true).filterIsInstance<ChatRow.Hint>().single()
+        val hint = ChatRow.rows(listOf(message()), presence = ComputerPresence.Offline).filterIsInstance<ChatRow.Hint>().single()
         assertEquals("runtime-offline", hint.id)
         assertEquals("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.", hint.text)
         assertTrue(hint.isError)
         // A turn still running, or an error that already says why, is not talked over.
-        assertTrue(ChatRow.rows(listOf(message()), isStreaming = true, runtimeOffline = true).none { it is ChatRow.Hint })
-        assertEquals(listOf("error"), ChatRow.rows(listOf(message()), error = "Refused", runtimeOffline = true).filterIsInstance<ChatRow.Hint>().map { it.id })
+        assertTrue(ChatRow.rows(listOf(message()), isStreaming = true, presence = ComputerPresence.Offline).none { it is ChatRow.Hint })
+        assertEquals(listOf("error"), ChatRow.rows(listOf(message()), error = "Refused", presence = ComputerPresence.Offline).filterIsInstance<ChatRow.Hint>().map { it.id })
         assertTrue(ChatRow.rows(listOf(message())).none { it is ChatRow.Hint })
+    }
+    @Test fun aPausedBoxSaysSendingResumesIt() {
+        val hint = ChatRow.rows(listOf(message()), presence = ComputerPresence.Paused("Work Box")).filterIsInstance<ChatRow.Hint>().single()
+        assertEquals("runtime-paused", hint.id)
+        assertEquals("Work Box is paused. It resumes when you send.", hint.text)
+        assertFalse(hint.isError)
+        assertTrue(ChatRow.rows(listOf(message()), isStreaming = true, presence = ComputerPresence.Paused("Work Box")).none { it is ChatRow.Hint })
+    }
+    @Test fun aQueuedSendHidesTheComputerHintWhileItsComputerWakes() {
+        assertTrue(ChatRow.rows(listOf(message()), presence = ComputerPresence.Paused("Work Box"), sendQueued = true).none { it is ChatRow.Hint })
+        assertTrue(ChatRow.rows(listOf(message()), presence = ComputerPresence.Offline, sendQueued = true).none { it is ChatRow.Hint })
     }
 }

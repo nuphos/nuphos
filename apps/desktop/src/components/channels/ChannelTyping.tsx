@@ -1,6 +1,6 @@
 import { t } from '../../i18n'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
-import { runtimeTurnActive, runtimeTypingIn } from '../../lib/runtimeExecution'
+import { chatTyping } from '../../lib/runtimeExecution'
 import { AgentAvatar } from '../agent/AgentAvatar'
 
 import type { ChannelAgent } from '../../api'
@@ -26,10 +26,7 @@ export function Typing({
     <div className="-mt-3">
       {agents.map((agent) => {
         const snapshot = states.get(agent.sessionId)
-        const open = String(
-          runtimeTypingIn(snapshot, channelId) ||
-            (agent.sessionId === botId && runtimeTurnActive(snapshot)),
-        )
+        const open = String(chatTyping(snapshot, channelId, agent.sessionId === botId))
         const transitionDelay = open === 'true' ? '800ms' : '0ms'
 
         return (
