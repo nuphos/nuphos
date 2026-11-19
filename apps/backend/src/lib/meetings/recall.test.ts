@@ -70,20 +70,21 @@ describe('leaveMeeting', () => {
   })
 })
 
-function captureWarnings(): { lines: () => Record<string, unknown>[]; restore: () => void } {
-  const { warn } = console
-  const lines: string[] = []
+const { warn } = console
+let logged: string[] = []
 
-  // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
-  console.warn = (line: unknown) => lines.push(String(line))
+afterEach(() => {
+  // eslint-disable-next-line no-console -- restored even when a test throws
+  console.warn = warn
+})
 
-  return {
-    lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
-    restore: () => {
-      // eslint-disable-next-line no-console
-      console.warn = warn
-    },
-  }
+/** logEvent writes its record to console.warn; this collects what the test logs. */
+function captureWarnings(): { lines: () => Record<string, unknown>[] } {
+  logged = []
+  // eslint-disable-next-line no-console
+  console.warn = (line: unknown) => logged.push(String(line))
+
+  return { lines: () => logged.map((line) => JSON.parse(line) as Record<string, unknown>) }
 }
 
 const sendBot = () =>
@@ -101,7 +102,6 @@ describe('a refused request logs meeting_bot.failed', () => {
     // Recall documents 402 as "Insufficient credit balance", with no code of its own.
     answer(402, { detail: 'Insufficient credit balance' })
     await expect(sendBot()).rejects.toThrow('Insufficient credit balance')
-    warnings.restore()
     expect(warnings.lines()).toEqual([
       expect.objectContaining({
         event: 'meeting_bot.failed',
@@ -118,7 +118,6 @@ describe('a refused request logs meeting_bot.failed', () => {
 
     answer(418, { code: 'brand_new_failure', detail: '?' })
     await expect(sendBot()).rejects.toThrow('brand_new_failure')
-    warnings.restore()
     expect(warnings.lines()).toEqual([
       expect.objectContaining({
         event: 'meeting_bot.failed',
@@ -135,7 +134,6 @@ describe('a refused request logs meeting_bot.failed', () => {
 
     answer(400, { code: 'cannot_command_unstarted_bot', detail: 'Cannot send a command…' })
     await leaveMeeting('bot')
-    warnings.restore()
     expect(warnings.lines()).toEqual([])
   })
 })

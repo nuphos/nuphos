@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import * as turns from '@/lib/agent/conversation-turn'
 import { agentConversations } from '@/lib/agent/db/shared'
@@ -199,27 +199,27 @@ test('a bot that leaves because its Task asked ends the meeting without waking t
   await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
 })
 
-function captureWarnings(): { lines: () => Record<string, unknown>[]; restore: () => void } {
-  const { warn } = console
-  const lines: string[] = []
+const { warn } = console
+let logged: string[] = []
 
-  // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
-  console.warn = (line: unknown) => lines.push(String(line))
+afterEach(() => {
+  // eslint-disable-next-line no-console -- restored even when a test throws
+  console.warn = warn
+})
 
-  return {
-    lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
-    restore: () => {
-      // eslint-disable-next-line no-console
-      console.warn = warn
-    },
-  }
+/** logEvent writes its record to console.warn; this collects what the test logs. */
+function captureWarnings(): { lines: () => Record<string, unknown>[] } {
+  logged = []
+  // eslint-disable-next-line no-console
+  console.warn = (line: unknown) => logged.push(String(line))
+
+  return { lines: () => logged.map((line) => JSON.parse(line) as Record<string, unknown>) }
 }
 
 test('a bot Recall gives up on logs meeting_bot.failed, even without a Task', async () => {
   const warnings = captureWarnings()
 
   await handleRecallEvent('delivery-1', ended('bot_errored', 'bot.fatal'))
-  warnings.restore()
   expect(warnings.lines()).toEqual([
     expect.objectContaining({
       event: 'meeting_bot.failed',
@@ -247,7 +247,6 @@ test('a bot no webhook ever says is in its call logs join_timeout once', async (
   await reportJoinTimeouts(10 * MINUTE, sent + 20 * MINUTE)
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 15 * MINUTE)
-  warnings.restore()
   expect(warnings.lines()).toEqual([
     expect.objectContaining({
       event: 'meeting_bot.failed',
@@ -274,6 +273,5 @@ test('a bot that got into its call is not a join_timeout', async () => {
   const warnings = captureWarnings()
 
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
-  warnings.restore()
   expect(warnings.lines()).toEqual([])
 })
