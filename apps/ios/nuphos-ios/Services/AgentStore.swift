@@ -404,6 +404,12 @@ final class AgentStore {
         selectedTeam == nil || !runtimesLoaded || newConversationRuntime == nil
     }
 
+    /// The workspace has a runtime to start a task on. New Task then asks for one
+    /// ("Choose runtime") if the remembered one is unavailable.
+    var canStartTask: Bool {
+        selectedTeam != nil && runtimesLoaded && RuntimeInstance.defaultPick(runtimes) != nil
+    }
+
     func selectRuntime(_ runtime: RuntimeInstance) {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
@@ -565,10 +571,27 @@ final class AgentStore {
 
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
-    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
-        guard loadsHistory else { return [] }
-        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, search: query) else { return [] }
-        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    /// The viewer's own Bots and Tasks, every page, listed before an `@` so typing only filters them.
+    private var mentionable: (teamId: String, rows: [AgentConversation])?
+
+    /// What an `@` offers in `teamId`, but `excluded`; nil until listed once.
+    func mentionableSessions(teamId: String, excluding excluded: String?) -> [AgentConversation]? {
+        guard let mentionable, mentionable.teamId == teamId else { return nil }
+        return mentionable.rows.filter { $0.sessionId != excluded }
+    }
+
+    /// Lists them again, in the background of a composer that has appeared.
+    func loadMentionableSessions(teamId: String) async {
+        var rows: [AgentConversation] = []
+        var cursor: String?
+        var seen: Set<String> = []
+        while loadsHistory {
+            guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, cursor: cursor, limit: 100) else { return }
+            rows += page.conversations
+            guard page.hasMore, let next = page.nextCursor, seen.insert(next).inserted else { break }
+            cursor = next
+        }
+        mentionable = (teamId, rows)
     }
 
     // MARK: - Composer settings (IAM + permission mode)

@@ -14,9 +14,34 @@ let member = true
 let owner = 'viewer'
 let storedTeam = teamId
 let calls = 0
-const conversation = () => ({ sessionId: 'config-auth-test', userId: owner, teamId: storedTeam })
+let changer: unknown
+const settingsHistory = [
+  {
+    at: new Date('2026-11-18T03:22:39Z'),
+    actorId: 'viewer',
+    via: 'picker',
+    client: 'desktop',
+    model: { to: { value: 'gpt-6.2-sol' } },
+  },
+  {
+    at: new Date('2026-11-18T03:30:25Z'),
+    actorId: 'system',
+    via: 'session_start',
+    effort: { to: { value: 'low' } },
+  },
+]
+const conversation = () => ({
+  sessionId: 'config-auth-test',
+  userId: owner,
+  teamId: storedTeam,
+  settingsHistory,
+})
 
-useIdentity({ getTeamMembership: () => Promise.resolve(member ? { role: 'MEMBER' } : null) })
+useIdentity({
+  getTeamMembership: () => Promise.resolve(member ? { role: 'MEMBER' } : null),
+  getTeamMembers: () =>
+    Promise.resolve([{ id: 'viewer', name: 'Viewer', email: '', avatarURL: '' }]),
+})
 useAgentDb({
   getReadableConversation: (_id, _user, requestedTeam) =>
     Promise.resolve(requestedTeam === storedTeam ? conversation() : null),
@@ -24,8 +49,9 @@ useAgentDb({
 })
 useAgentRunStore({ getActiveAgentRunForSession: () => Promise.resolve(null) })
 useSessionConfig({
-  conversationSessionConfig: () => {
+  conversationSessionConfig: (_conversation, _selection, _viewer, by) => {
     calls++
+    changer = by
 
     return Promise.resolve({ status: 'ready', options: [] })
   },
@@ -55,7 +81,10 @@ const request = (method = 'GET', suffix = `?teamId=${teamId}`, value: unknown = 
     method,
     ...(method === 'PATCH'
       ? {
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-atlas-client': 'nuphos-desktop/0.129.0',
+          },
           body: JSON.stringify({ configId: 'model', value }),
         }
       : {}),
@@ -88,4 +117,35 @@ test('rejects invalid values before accessing the runtime and permits an owner s
   expect(calls).toBe(0)
   expect((await request('PATCH')).status).toBe(200)
   expect(calls).toBe(1)
+})
+
+test('a pick records who made it and from which app', async () => {
+  expect((await request('PATCH')).status).toBe(200)
+  expect(changer).toEqual({ actorId: 'viewer', via: 'picker', client: 'desktop' })
+})
+
+test('anyone who can read the conversation reads its settings history, oldest first', async () => {
+  owner = 'teammate'
+  const response = await agent.request(
+    `/conversations/config-auth-test/settings-history?teamId=${teamId}`,
+  )
+
+  expect(response.status).toBe(200)
+  expect(await response.json()).toMatchObject({
+    changes: [
+      {
+        at: '2026-11-18T03:22:39.000Z',
+        actor: { type: 'user', userId: 'viewer', name: 'Viewer' },
+        via: 'picker',
+        client: 'desktop',
+        model: { to: { value: 'gpt-6.2-sol' } },
+      },
+      { actor: { type: 'system' }, via: 'session_start', effort: { to: { value: 'low' } } },
+    ],
+  })
+  storedTeam = 'bbbbbbbbbbbbbbbbbbbbbbbb'
+  expect(
+    (await agent.request(`/conversations/config-auth-test/settings-history?teamId=${teamId}`))
+      .status,
+  ).toBe(404)
 })

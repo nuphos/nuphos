@@ -355,7 +355,7 @@ struct HomeView: View {
                 Button { showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.runtimesLoaded != true)
+                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }
@@ -363,7 +363,7 @@ struct HomeView: View {
                 LucideIcon("plus", size: 16).frame(width: 36, height: 44)
             }
             .accessibilityLabel("Create")
-            .disabled(store?.selectedRuntimeUnavailable != false)
+            .disabled(store?.canStartTask != true)
             Button { workspacePage = .runtimes } label: {
                 LucideIcon("monitor", size: 16).frame(width: 36, height: 44)
             }

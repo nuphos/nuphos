@@ -36,6 +36,7 @@ export function PersonFace({
       <AgentAvatar
         agentId={person.id}
         avatar={person.agent.avatar}
+        avatarBackground={person.agent.avatarBackground}
         provider={person.agent.provider}
         size={size}
       />

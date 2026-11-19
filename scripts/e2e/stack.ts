@@ -141,7 +141,7 @@ function signInCode(address: string): string | undefined {
 export async function startStack(
   options: { botOnboarding?: boolean; boxes?: boolean } = {},
 ): Promise<Stack> {
-  const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
+  const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
   // Cloud computers too: only what a scenario puts in this instabox exists.
   const fakes = { ...(await startStorage(storagePort)), ...(await startInstaboxStub()) }
@@ -226,11 +226,11 @@ export async function startStack(
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
       // GitLab: a scenario serves the instance on this computer and answers its redirect.
       GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
-      GITLAB_TOKEN_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      GITLAB_TOKEN_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWdpdGxhYi1rZXktbm90LXByb2R1Y3Q=',
       OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
-      SONARQUBE_BYOK_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
+      // Seals two-factor secrets (sealers.mfa).
+      LINODE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWxpbm9kZS1rZXktbm90LXByb2R1Y3Q=',
+      SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
       ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
@@ -264,12 +264,12 @@ export async function startStack(
   token = (await post('/auth/email/verify-code', { email, code: signInCode(email) })).token
   const teamId = (await post('/teams', { name: 'E2E' })).team.id
 
-  // A second runtime, for work an agent delegates to another agent.
-  startAgentHost('second', secondRuntimePort)
-  for (const [port, label] of [
-    [runtimePort, 'E2E fixture agent'],
-    [secondRuntimePort, 'E2E second agent'],
+  for (const [port, label, provider, agent] of [
+    [runtimePort, 'E2E fixture agent', 'claude-code', ''],
+    [secondPort, 'E2E second agent', 'claude-code', 'second'], // for work an agent delegates
+    [codex, 'E2E Codex agent', 'codex', 'codex'], // for a Task that moves across providers
   ] as const) {
+    if (agent) startAgentHost(agent, port)
     await until(`OpenAB on ${String(port)} to listen`, async () =>
       fetch(`http://127.0.0.1:${String(port)}/`),
     )
@@ -277,7 +277,7 @@ export async function startStack(
       url: `ws://127.0.0.1:${String(port)}/acp`,
       authKey: AUTH_KEY,
       controlKey: CONTROL_KEY,
-      provider: 'claude-code',
+      provider,
       label,
     })
   }

@@ -7,6 +7,7 @@ import * as composioClient from '@/lib/composio'
 import { mintPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
 import { AppError } from '@/lib/errors'
 import { composioToolProvider } from '@/lib/personal-credentials/composio'
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -380,9 +381,29 @@ describe('connecting through Composio', () => {
   })
 })
 
+// The conversation's selection, as its document stores it.
+let selected: string[] = []
+
+useAgentDb({
+  getConversationBySessionId: (async () => ({
+    userId: 'owner',
+    credentialAccess: { personalCredentialIds: selected },
+  })) as never,
+})
+
 describe('agents running tools through Composio', () => {
   beforeEach(() => {
     saved.push(connection('owner', 'gmail', 'ca_owner'))
+    selected = ['gmail', 'google-drive', 'google-calendar']
+  })
+
+  test('nothing runs without the conversation’s selection', async () => {
+    selected = ['google-calendar']
+    const res = await execute(await turn('owner', true), { tool: 'GMAIL_FETCH_EMAILS' })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
+    expect(requests).toHaveLength(0)
   })
 
   test('the token handout points the agent at execute instead of handing out a token', async () => {

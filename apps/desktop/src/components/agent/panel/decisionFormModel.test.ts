@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
-  answerText,
+  clickOptions,
   formAnswer,
   formQuestions,
   ownBody,
@@ -12,8 +12,10 @@ import {
 const regions = { question: 'Which regions?', options: ['us', 'eu', 'ap'], multiSelect: true }
 const keep = { question: 'Keep the old cluster?', options: ['Keep', 'Delete'], multiSelect: false }
 
-test('one single-choice question keeps its buttons; a multi-select or several questions are a form', () => {
-  assert.equal(formQuestions({ question: 'Ship?', options: ['Yes', 'No'] }), null)
+test('a card answers its own questions, or the one it asks, single- or multi-select alike', () => {
+  assert.deepEqual(formQuestions({ question: 'Ship?', options: ['Yes', 'No'] }), [
+    { question: 'Ship?', options: ['Yes', 'No'], multiSelect: false },
+  ])
   assert.deepEqual(
     formQuestions({ question: 'Which regions?', options: ['us', 'eu', 'ap'], multiSelect: true }),
     [regions],
@@ -25,8 +27,6 @@ test('one single-choice question keeps its buttons; a multi-select or several qu
 })
 
 test('a form answers its picks, or what was typed in their place, per question', () => {
-  assert.equal(answerText(['us', 'eu'], ''), 'us, eu')
-  assert.equal(answerText(['us'], '  only Tokyo '), 'only Tokyo')
   assert.deepEqual(formAnswer([regions], [['us', 'eu']], ['']), { choices: ['us', 'eu'] })
   assert.deepEqual(formAnswer([regions], [['us']], [' only Tokyo ']), { text: 'only Tokyo' })
   assert.deepEqual(formAnswer([regions, keep], [['us'], []], ['', 'Keep it a week']), {
@@ -49,4 +49,16 @@ test('a card with questions drops only the list the backend wrote out, never a `
 
   assert.equal(ownBody(own, [regions, keep]), own)
   assert.equal(ownBody(`${own}${writtenQuestions([regions, keep])}`, [regions, keep]), own)
+})
+
+test('only one question with one answer is answered by a click, read from the question itself', () => {
+  assert.deepEqual(
+    clickOptions([{ question: 'Ship?', options: ['Yes', 'No'], multiSelect: false }]),
+    ['Yes', 'No'],
+  )
+  // A one-entry `questions` card with its own multiSelect, the top level saying nothing of it.
+  const card = { question: 'q', options: ['a', 'b'], questions: [{ ...regions }] }
+
+  assert.equal(clickOptions(formQuestions(card)), undefined)
+  assert.equal(clickOptions([regions, keep]), undefined)
 })

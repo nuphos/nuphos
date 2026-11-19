@@ -200,9 +200,11 @@ struct ChannelView: View {
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
                 // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
-                mentions: MentionSource(teamId: channel.teamId, search: { query in
-                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
-                }),
+                mentions: MentionSource(
+                    teamId: channel.teamId,
+                    sessions: store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId),
+                    refresh: { await store.loadMentionableSessions(teamId: channel.teamId) }
+                ),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
@@ -283,6 +285,20 @@ struct ChannelView: View {
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .answeredInInbox(let post):
+                let mine = post.isMine(viewerId: channel.viewerId)
+                HStack(spacing: 4) {
+                    LucideIcon("inbox", size: 10)
+                    Text("Answered in Inbox")
+                }
+                .font(.caption2)
+                .foregroundStyle(Theme.faint)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+                // Tucked under the answer it follows, inside that row's bottom spacing.
+                .padding(.top, -8)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("channel.answeredInInbox")
             case .record(let text):
                 Text(text)
                     .font(Theme.Text.caption)
@@ -423,14 +439,13 @@ private struct ChannelPostRow: View {
             if mine { Spacer(minLength: 48) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if first, !mine { header }
-                if let reply = post.replyTo { quote(reply) }
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
                                  files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
-                if !post.text.isEmpty { bubble }
+                if !post.text.isEmpty || post.replyTo != nil { bubble }
                 if !post.downloads.isEmpty {
                     TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
                 }
@@ -457,20 +472,25 @@ private struct ChannelPostRow: View {
         }
     }
 
-    /// The post this one answers; tapping it goes there.
+    /// The post this one answers, at the top of its bubble; tapping it goes there.
     private func quote(_ reply: ChannelReply) -> some View {
         Button { onQuote(reply) } label: {
-            (Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
-                + Text(" " + reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .padding(.leading, 8)
-                .overlay(alignment: .leading) { Capsule().fill(Theme.hairline).frame(width: 2) }
-                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: 240, alignment: .leading)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, -4)
         .accessibilityLabel("Replying to \(reply.authorName): \(reply.text)")
+        .accessibilityIdentifier("channel.quote")
     }
 
     private var header: some View {
@@ -495,13 +515,20 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+        VStack(alignment: .leading, spacing: 6) {
+            if let reply = post.replyTo { quote(reply) }
+            if !post.text.isEmpty {
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+            }
+        }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.sunken,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("channel.bubble")
     }
 
     /// The photos and files of a post still on its way, from the device.
@@ -622,7 +649,8 @@ struct TypingDots: View {
     }
 }
 
-/// What the next message answers, above the composer; × cancels.
+/// What the next message answers, above the composer: who, then the quote on up
+/// to two lines, as the sent reply will show it; × cancels.
 struct ReplyChip: View {
     let reply: ChannelReply
     let onCancel: () -> Void
@@ -630,11 +658,15 @@ struct ReplyChip: View {
     var body: some View {
         HStack(spacing: 8) {
             LucideIcon("undo-2").font(.system(size: 12)).foregroundStyle(Theme.muted)
-            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
-                + Text(reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Replying to \(reply.authorName)").foregroundStyle(Theme.body).fontWeight(.medium)
+                    .lineLimit(1)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("channel.replyChip.text")
+            }
+            .font(Theme.Text.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onCancel) {
                 LucideIcon("circle-x").font(.system(size: 17)).foregroundStyle(Theme.muted)
             }

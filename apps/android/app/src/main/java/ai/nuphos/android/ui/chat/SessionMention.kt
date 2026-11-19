@@ -7,7 +7,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 data class SessionMentionSource(
     val teamId: String,
     val excludedSessionId: String? = null,
-    val search: suspend (String) -> List<AgentConversation>,
+    /** Every Bot and Task it may offer, listed before an `@` so typing only filters them. */
+    val list: suspend () -> List<AgentConversation>,
 )
 
 object SessionMention {
@@ -27,9 +28,10 @@ object SessionMention {
     fun insert(text: String, link: String): String =
         if (query(text) == null) text else text.substring(0, text.lastIndexOf('@')) + link + " "
 
-    fun results(rows: List<AgentConversation>, source: SessionMentionSource): List<AgentConversation> =
+    fun results(rows: List<AgentConversation>, source: SessionMentionSource, query: String): List<AgentConversation> =
         rows.filter {
-            it.sessionId != source.excludedSessionId &&
+            (it.title.contains(query, ignoreCase = true) || it.firstMessage.contains(query, ignoreCase = true)) &&
+                it.sessionId != source.excludedSessionId &&
                 (it.teamId == null || it.teamId == source.teamId) &&
                 it.isOwner != false && !it.isArchived &&
                 it.sessionId.matches(Regex("[A-Za-z0-9][A-Za-z0-9_-]{0,127}"))

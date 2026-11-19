@@ -455,9 +455,8 @@ private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
 /** An agent could not reply: what happened and why, when its usage returns, and the fix. */
 @Composable
 private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
-    val resets = event.resetsAt?.takeIf { event.cause == "usage_limit" && it.isAfter(java.time.Instant.now()) }?.let {
-        stringResource(R.string.chats_usage_returns, java.time.format.DateTimeFormatter.ofPattern("EEE h:mm a").withZone(java.time.ZoneId.systemDefault()).format(it))
-    }
+    val resets = ai.nuphos.android.ui.agent.resetsInText(ai.nuphos.android.ui.agent.ResetsIn.of(event.resetsAt.takeIf { event.cause == "usage_limit" }))
+        ?.let { stringResource(R.string.chats_usage_resets, it) }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
         .padding(horizontal = 14.dp, vertical = 10.dp).testTag("channel-reply-failed"), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -565,8 +564,8 @@ private fun ChannelComposer(session: ChannelSession) {
         canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
         // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
         mentions = if (store.selectedTeam?.id != session.teamId) null else remember(store, session.teamId, session.botId) {
-            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) { query ->
-                store.mentionableSessions(session.teamId, query)
+            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) {
+                store.mentionableSessions(session.teamId)
             }
         },
         draft = draft,

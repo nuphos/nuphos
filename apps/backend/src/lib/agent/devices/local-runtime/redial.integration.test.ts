@@ -46,7 +46,7 @@ async function proxyTo(port: number) {
     pairs.add(pair)
     client.on('data', (chunk) => upstream.write(chunk))
     upstream.on('data', (chunk) => {
-      if (!pair.silent) client.write(chunk)
+      if (!pair.silent && !client.destroyed) client.write(chunk)
     })
     const end = () => {
       pairs.delete(pair)
@@ -65,6 +65,13 @@ async function proxyTo(port: number) {
     port: (server.address() as { port: number }).port,
     silenceOpenConnections: () => {
       for (const pair of pairs) pair.silent = true
+    },
+    /** Resets the computer's side of open connections; the backend's side hears nothing. */
+    resetOpenConnections: () => {
+      for (const pair of pairs) {
+        pairs.delete(pair)
+        pair.client.removeAllListeners('close').destroy()
+      }
     },
   }
 }
@@ -95,7 +102,8 @@ function echoRuntime(): SocketLike {
   return socket
 }
 
-test('a computer whose path goes silent redials, and a turn reattaching across it never fails', async () => {
+/** A backend holding the computer's tunnels behind a proxy, and the computer dialing through it. */
+async function startComputer() {
   const bus = createLocalTunnelBus()
   const presence = createMemoryPresenceStore()
   const tunnels: string[] = [] // each backend tunnel's opening and how it ended, in order
@@ -147,8 +155,18 @@ test('a computer whose path goes silent redials, and a turn reattaching across i
   const warnings = spyOn(console, 'warn')
 
   cleanup.push(() => warnings.mockRestore())
-  await eventually(() => tunnels.includes('open 1'))
   await eventually(() => opened === 1 && tunnels.length === 1)
+  await eventually(async () => (await presence.get(owner.userId, owner.deviceId)) !== null)
+  const failures = () =>
+    warnings.mock.calls
+      .map(([line]) => String(line))
+      .filter((line) => line.includes('agent.local_runtime.stream_failed'))
+
+  return { bus, presence, tunnels, proxy, failures }
+}
+
+test('a computer whose path goes silent redials, and a turn reattaching across it never fails', async () => {
+  const { bus, presence, tunnels, proxy, failures } = await startComputer()
 
   // A turn's stream, reopened soon after it closes, as a session reattaches.
   const turn = { socket: undefined as ReturnType<typeof openLocalRuntimeSocket> | undefined }
@@ -172,7 +190,6 @@ test('a computer whose path goes silent redials, and a turn reattaching across i
     })
   }
 
-  await eventually(async () => (await presence.get(owner.userId, owner.deviceId)) !== null)
   reopen()
   await eventually(() => turn.socket?.readyState === 1)
   turn.socket?.send('before')
@@ -192,9 +209,31 @@ test('a computer whose path goes silent redials, and a turn reattaching across i
   await eventually(() => replies.includes('echo:after'))
   reattaching = false
   expect(closes.length).toBeGreaterThan(0)
-  const failures = warnings.mock.calls
-    .map(([line]) => String(line))
-    .filter((line) => line.includes('agent.local_runtime.stream_failed'))
+  expect(failures()).toEqual([])
+}, 40_000)
 
-  expect(failures).toEqual([])
+// #3648: a reset path. The computer's socket dies at once and it redials within a second, while
+// the backend still holds the old tunnel, so a turn started in that second opens on a dead one.
+test('a turn started while a reset tunnel redials opens on the new one, and nothing fails', async () => {
+  const { bus, presence, tunnels, proxy, failures } = await startComputer()
+
+  proxy.resetOpenConnections()
+  const socket = openLocalRuntimeSocket(
+    localRuntimeUrl(owner, 't1'),
+    ['openab.bearer.transport', 'acp.v1'],
+    { bus, presence, livenessMs: 60_000, closeRetryMs: 5 },
+  )
+  const replies: string[] = []
+  const closes: string[] = []
+
+  socket.addEventListener('message', (event) => replies.push(String(event.data)))
+  socket.addEventListener('close', (event) => closes.push(event.reason ?? ''))
+  await eventually(() => tunnels.includes('close 1 4000') || closes.length > 0)
+  expect(tunnels.slice(0, 3)).toEqual(['open 1', 'open 2', 'close 1 4000'])
+
+  await eventually(() => socket.readyState === 1 || closes.length > 0)
+  expect(closes).toEqual([])
+  socket.send('hi')
+  await eventually(() => replies.includes('echo:hi'))
+  expect(failures()).toEqual([])
 }, 40_000)
