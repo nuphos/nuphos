@@ -2,7 +2,7 @@ import { Ban, HardDrive, Hourglass, KeyRound, Pause, RefreshCw, WifiOff } from '
 
 import { t } from '../../../i18n'
 
-import { diskFullCopy, outdatedCopy, pausedCopy, reachabilityCopy } from './agentBannerCopy'
+import { reachabilityCopy } from './agentBannerCopy'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGoneText } from './runtimeControlSignOut'
 
@@ -79,13 +79,4 @@ export function bannerCopy(
   return reachability === 'waiting'
     ? { text: shareApprovalText('pending', computer), action: null }
     : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
-}
-
-export function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): BannerCopy {
-  if (!notice) return { text: '', action: null }
-  if (notice.kind === 'disk') return diskFullCopy(notice, onSettings)
-
-  return notice.kind === 'paused'
-    ? pausedCopy(notice.label)
-    : outdatedCopy(notice.label, onSettings)
 }
