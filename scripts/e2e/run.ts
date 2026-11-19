@@ -20,6 +20,7 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
@@ -135,6 +136,7 @@ const scenarios: Scenario[] = [
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
