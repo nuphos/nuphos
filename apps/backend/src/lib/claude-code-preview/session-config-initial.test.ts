@@ -126,10 +126,11 @@ test('a running Task queues its own pick for the next turn, leaving this reply o
   expect(model).toMatchObject({ model: 'astra', effort: 'high' })
 })
 
+// As the picker does since #3711: never a model alone, but the effort it will start on with it.
 test('an unstarted Task starts on its own pick', async () => {
   await queueOwnSessionConfig(conversation(), { model: 'astra' }, 'owner')
 
-  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
+  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra', effort: 'low' } } }])
 })
 
 test('a model its agent does not offer is refused with the choices, and nothing is saved', async () => {
