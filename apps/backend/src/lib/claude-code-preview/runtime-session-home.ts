@@ -148,7 +148,9 @@ async function controlEndpoint(
 
   // The computer's owner can always use it; one removed or offline is retried later.
   if (local)
-    return resolveLocalRuntimeEndpoint(teamId, runtimeId, local.userId, 'control').catch(() => {})
+    return resolveLocalRuntimeEndpoint(teamId, runtimeId, local.userId, 'control').catch(
+      () => undefined,
+    )
 
   return runtimeId === `development-${provider}`
     ? developmentRuntimeEndpoint(provider, 'control')
@@ -207,17 +209,12 @@ function reclaimed(stdout: string, sessionId: string): boolean {
 }
 
 /**
- * Hourly, and for just-archived conversations at once: reclaimable conversations
- * whose home is not reclaimed since they became reclaimable. One that is still
- * running is retried on the next sweep.
+ * Hourly: reclaimable conversations whose home is not reclaimed since they
+ * became reclaimable. One that is still running is retried on the next sweep.
  */
-export async function reclaimSessionHomes(
-  now = new Date(),
-  sessionIds?: string[],
-): Promise<number> {
-  const filter = reclaimableFilter(now, new Date(now.getTime() - RETRY_WINDOW_MS))
+export async function reclaimSessionHomes(now = new Date()): Promise<number> {
   const candidates = (await agentConversations()
-    .find(sessionIds ? { ...filter, sessionId: { $in: sessionIds } } : filter, {
+    .find(reclaimableFilter(now, new Date(now.getTime() - RETRY_WINDOW_MS)), {
       projection: {
         sessionId: 1,
         archivedAt: 1,

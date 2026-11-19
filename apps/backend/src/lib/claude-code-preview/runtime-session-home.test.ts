@@ -428,15 +428,6 @@ describe('reclaimSessionHomes', () => {
     expect(jobs).toEqual([])
   })
 
-  test('reclaims only the conversations it is given', async () => {
-    conversation({ sessionId: 'first' })
-    const second = conversation({ sessionId: 'second' })
-
-    expect(await reclaimSessionHomes(now, ['second'])).toBe(1)
-    expect(second.sessionHomeReclaimedAt).toEqual(now)
-    expect(jobs).toHaveLength(1)
-  })
-
   test('retries while a process still uses the home', async () => {
     report = '{"result":"in_use"}'
     const row = conversation({})
