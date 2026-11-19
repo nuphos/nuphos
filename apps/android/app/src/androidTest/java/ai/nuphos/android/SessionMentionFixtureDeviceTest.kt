@@ -98,8 +98,8 @@ class SessionMentionFixtureDeviceTest {
     @Test fun selectionCancelEmailMultilineAndThemesNeverSend() {
         var dark by mutableStateOf(false)
         val calls = CopyOnWriteArrayList<String>()
-        val source = SessionMentionSource(team, "current") { query ->
-            calls += query
+        val source = SessionMentionSource(team, "current") {
+            calls += "list"
             listOf(AgentConversation("current", title = "Current chat"),
                 AgentConversation("other", teamId = "wrong", title = "Other team"),
                 AgentConversation("synthetic-session", teamId = team, title = "Synthetic project notes")) +
@@ -119,7 +119,7 @@ class SessionMentionFixtureDeviceTest {
             }
         }
         field().performClick().performTextInput("context\n@project")
-        compose.waitUntil(5000) { calls.contains("project") }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Synthetic project notes").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Synthetic project notes").assertIsDisplayed()
         compose.onNodeWithText("Current chat").assertDoesNotExist()
         compose.onNodeWithText("Other team").assertDoesNotExist()
@@ -144,21 +144,20 @@ class SessionMentionFixtureDeviceTest {
         compose.onNodeWithContentDescription("Dismiss task mentions").assertDoesNotExist()
         assertEquals(dismissedCalls, calls.size)
         field().performTextInput(" @again")
-        compose.waitUntil(5000) { calls.contains("again") }
         compose.onNodeWithContentDescription("Dismiss task mentions").assertIsDisplayed()
         assertEquals(0, sends)
     }
 
-    @Test fun lateResponseErrorsEmptyAndTeamChangesCannotInsertStaleResults() {
+    @Test fun failedEmptyLateAndTeamChangedListingsCannotInsertStaleResults() {
         var teamId by mutableStateOf(team)
-        val calls = CopyOnWriteArrayList<String>()
+        var mode by mutableStateOf("error")
+        val other = "507f1f77bcf86cd799439012"
         compose.setContent {
-            val source = remember(teamId) {
-                SessionMentionSource(teamId) { query ->
-                    calls += "$teamId:$query"
-                    when (query) {
+            val source = remember(teamId, mode) {
+                SessionMentionSource(teamId) {
+                    when (mode) {
                         "slow" -> withContext(NonCancellable) { delay(800); listOf(AgentConversation("late", title = "Stale result")) }
-                        "error" -> error("Synthetic search failure")
+                        "error" -> error("Synthetic list failure")
                         "empty" -> emptyList()
                         else -> listOf(AgentConversation("fresh", title = "Fresh $teamId"))
                     }
@@ -170,29 +169,22 @@ class SessionMentionFixtureDeviceTest {
                 }
             }
         }
-        field().performClick().performTextInput("@slow")
-        compose.waitUntil(5000) { calls.any { it.endsWith(":slow") } }
-        snap("synthetic-mention-loading")
-        field().performTextReplacement("@empty")
-        compose.waitUntil(5000) { calls.any { it.endsWith(":empty") } }
-        compose.onNodeWithText("No matching tasks").assertIsDisplayed()
+        field().performClick().performTextInput("@")
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Could not search tasks. You can keep typing.").fetchSemanticsNodes().isNotEmpty() }
+        snap("synthetic-mention-error")
+        compose.runOnIdle { mode = "empty" }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("No matching tasks").fetchSemanticsNodes().isNotEmpty() }
         snap("synthetic-mention-empty")
-        // Wait beyond the deliberately non-cooperative old request.
-        compose.waitUntil(5000) { compose.onAllNodesWithText("Searching tasks…").fetchSemanticsNodes().isEmpty() }
+        compose.runOnIdle { mode = "slow" }
+        compose.onNodeWithText("Searching tasks…").assertIsDisplayed()
+        snap("synthetic-mention-loading")
+        // Another workspace before the late listing answers: its rows never show here.
+        compose.runOnIdle { teamId = other; mode = "fresh" }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Fresh $other").fetchSemanticsNodes().isNotEmpty() }
         Thread.sleep(900)
         compose.onNodeWithText("Stale result").assertDoesNotExist()
-        field().performTextReplacement("@error")
-        compose.waitUntil(5000) { calls.any { it.endsWith(":error") } }
-        compose.onNodeWithText("Could not search tasks. You can keep typing.").assertIsDisplayed()
-        snap("synthetic-mention-error")
-        field().performTextReplacement("@next")
-        compose.waitUntil(5000) { calls.any { it.endsWith(":next") } }
-        compose.onNodeWithText("Fresh $team").assertIsDisplayed()
-        compose.runOnIdle { teamId = "507f1f77bcf86cd799439012" }
-        compose.onNodeWithText("Fresh $team").assertDoesNotExist()
-        compose.waitUntil(5000) { calls.contains("507f1f77bcf86cd799439012:next") }
-        compose.onNodeWithText("Fresh 507f1f77bcf86cd799439012").performClick()
-        field().assertTextEquals("@Fresh 507f1f77bcf86cd799439012 ")
+        compose.onNodeWithText("Fresh $other").performClick()
+        field().assertTextEquals("@Fresh $other ")
         assertEquals(0, sends)
     }
 }
