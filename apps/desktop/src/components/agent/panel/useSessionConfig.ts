@@ -6,6 +6,7 @@ import { newChatChoiceKey, saveNewChatChoice, sentChatChoice } from './newChatCh
 import { namesNoModel, refreshLocalModels } from './refreshLocalModels'
 import { SessionConfigSync } from './sessionConfigSync'
 import { announceSettingsChanged, onSettingsChanged } from './sessionSettingsChanged'
+import { announceTimelineChange } from './timelineEvents'
 
 import type { SessionConfigSelection } from '../../../api/session-config-types'
 
@@ -29,6 +30,8 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
         write: (selection) =>
           api.agentSetSessionConfig(sessionId!, teamId!, selection).then((data) => {
             announceSettingsChanged(sessionId!)
+            // The change's line in the transcript (#3699) shows now, not on the next poll.
+            announceTimelineChange(sessionId!)
 
             return data
           }),

@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
-import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useSessionConfig } from '@/lib/test/doubles/session-config'
 
-import { clearPendingUserMessages } from './pending-messages'
 import { getSessionBypass, setSessionBypass } from './auto-mode/store'
 import { threadReadGrants } from './db/access'
+import { clearPendingUserMessages } from './pending-messages'
 import {
   authorizeThreadDelivery,
   createAgentThread,
@@ -32,6 +32,8 @@ const access = {
   updatedBy: 'owner',
 } as AgentCredentialAccess
 const actor = { userId: 'owner', teamId: 'team', sessionId: 'source', locale: 'zh-TW' }
+// Who each settings change says made it.
+const changers: unknown[] = []
 let source: AgentConversation
 let target: AgentConversation
 let member = true
@@ -60,6 +62,7 @@ beforeEach(() => {
   events.length = 0
   moves.length = 0
   picks.length = 0
+  changers.length = 0
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       claims.push(args)
@@ -121,8 +124,9 @@ useDb({
   }),
 })
 useConversationRuntimeMove({
-  moveConversationRuntime: async (conversation, runtimeId, userId) => {
+  moveConversationRuntime: async (conversation, runtimeId, userId, options) => {
     moves.push({ sessionId: conversation.sessionId, runtimeId, userId })
+    changers.push(options?.by)
 
     return { runtimeId, runtimeLabel: 'Other', agentRuntime: 'codex' }
   },
@@ -176,7 +180,8 @@ const picks: { sessionId: string; configId: string; value: string }[] = []
 const offered = { model: ['claude-fable-5-1', 'default'], effort: ['high', 'low'] }
 
 useSessionConfig({
-  conversationSessionConfig: async (conversation, selection) => {
+  conversationSessionConfig: async (conversation, selection, _viewer, by) => {
+    if (selection) changers.push(by)
     const options = Object.entries(offered).map(([kind, values]) => ({
       id: kind,
       name: kind,
@@ -457,7 +462,7 @@ describe('conversation-scoped thread tools', () => {
       openabSessionId: 'live',
       runtimeUrl: 'http://runtime',
       runtimeDefaults: { model: 'claude-fable-5-1' },
-    } as never
+    }
     await createAgentThread(actor, 'Work', 'Task')
     expect(picks.map((pick) => pick.value)).toEqual(['claude-fable-5-1'])
   })
@@ -533,6 +538,20 @@ describe('conversation-scoped thread tools', () => {
     } finally {
       delete speeds.fast
     }
+  })
+
+  test('update_thread and create_thread name the calling agent and the person it acts for', async () => {
+    const { threadId } = await createAgentThread(actor, 'Work', 'Task', {
+      model: 'claude-fable-5-1',
+    })
+
+    expect(changers).toEqual([{ actorId: 'owner', agentSessionId: 'source', via: 'create_thread' }])
+    changers.length = 0
+    await updateThread(actor, threadId, { runtimeId: 'runtime-2', effort: 'high' })
+    expect(changers).toEqual([
+      { actorId: 'owner', agentSessionId: 'source', via: 'update_thread' },
+      { actorId: 'owner', agentSessionId: 'source', via: 'update_thread' },
+    ])
   })
 
   test('refuses a model the agent does not offer, naming the choices', async () => {

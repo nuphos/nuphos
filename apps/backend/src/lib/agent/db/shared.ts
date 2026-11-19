@@ -5,6 +5,7 @@ import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
@@ -90,6 +91,10 @@ export type AgentConversation = ConversationTaskState & {
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
