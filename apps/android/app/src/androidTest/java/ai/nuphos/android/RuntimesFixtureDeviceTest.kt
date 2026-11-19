@@ -47,7 +47,7 @@ class RuntimesFixtureDeviceTest {
         compose.setContent {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
-                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0)))) },
+                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
                 { listOf(RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
@@ -71,7 +71,8 @@ class RuntimesFixtureDeviceTest {
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()
         compose.onNodeWithText("Cloud").assertIsDisplayed()
-        compose.onNodeWithText("62% left").assertExists()
+        // #3732: the bar says when its window resets, in days past a day.
+        compose.onNodeWithText("62% left · resets in 2d 5h").assertExists()
         shot("runtimes-normal.png")
         compose.onNodeWithTag("runtime-row-cloud").performScrollTo().performClick()
         assertEquals("cloud", details); assertEquals(1, detailClicks)

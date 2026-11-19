@@ -4,6 +4,8 @@ import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.Modifier
@@ -21,8 +23,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import androidx.compose.ui.text.intl.Locale
 
 /** One team snapshot, refreshed only while this screen is resumed. Errors never gate chat. */
@@ -101,6 +101,32 @@ internal fun rememberComputerPresence(token: String?, teamId: String?, runtimeId
     }
 }
 
+/** How long until a usage window resets: "resets in 2d 5h", "resets in 3h 20m" or
+ *  "resets in 12m" once [text] names it. Null when the reset is unknown or past.
+ *  Every usage bar and usage-limit notice says it this way, as on Desktop and iOS. */
+internal data class ResetsIn(val days: Long, val hours: Long, val minutes: Long) {
+    fun text(resources: android.content.res.Resources): String = when {
+        days > 0 -> resources.getString(R.string.agent_resets_in_days, days.toInt(), hours.toInt())
+        hours > 0 -> resources.getString(R.string.agent_resets_in_hours, hours.toInt(), minutes.toInt())
+        else -> resources.getString(R.string.agent_resets_in_minutes, minutes.toInt())
+    }
+
+    companion object {
+        fun of(at: Instant?, now: Instant = Instant.now()): ResetsIn? {
+            val millis = at?.let { java.time.Duration.between(now, it).toMillis() } ?: return null
+            if (millis <= 0) return null
+            val total = (millis + 59_999) / 60_000
+            return ResetsIn(total / 1440, total % 1440 / 60, total % 60)
+        }
+
+        fun of(raw: String?, now: Instant = Instant.now()): ResetsIn? =
+            of(raw?.let { runCatching { Instant.parse(it) }.getOrNull() }, now)
+    }
+}
+
+@Composable
+internal fun resetsInText(at: ResetsIn?): String? = at?.text(androidx.compose.ui.platform.LocalContext.current.resources)
+
 @Composable
 fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
     val locale = java.util.Locale.forLanguageTag(Locale.current.toLanguageTag())
@@ -108,15 +134,15 @@ fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
         if (quota?.available != true || quota.windows.isEmpty()) {
             Text(stringResource(R.string.agent_usage_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else (if (compact) listOf(quota.windows.maxBy { it.usedPercent }) else quota.windows).forEach { window ->
-            val reset = window.resetsAt?.let { raw -> runCatching {
-                DateTimeFormatter.ofPattern("MMM d, HH:mm", locale).withZone(ZoneId.systemDefault()).format(Instant.parse(raw))
-            }.getOrNull() }
+            val reset = resetsInText(ResetsIn.of(window.resetsAt))
             val left = (100.0 - window.usedPercent).coerceIn(0.0, 100.0)
-            ContinuousUsageBar(progress = (left / 100.0).toFloat())
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                ContinuousUsageBar(progress = (left / 100.0).toFloat(), modifier = Modifier.weight(1f))
+                reset?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
             val percent = String.format(locale, "%.0f", left)
-            Text((if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent)) +
-                (reset?.let { " · " + stringResource(R.string.agent_resets_at, it) } ?: ""), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
