@@ -559,10 +559,18 @@ final class AgentStore {
     private var isShareEntry = false
     let unread: ConversationUnread
     let observations: RuntimeObservations
+
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
+
+    /// What a conversation is doing, as its row and a Bot's details show it.
+    func indicator(for row: AgentConversation, team: String) -> ConversationIndicator {
+        let unread = unread.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
+    }
 
     /// The title of one of the viewer's Bots or tasks the store has loaded.
     func title(ofSession sessionId: String) -> String? {
