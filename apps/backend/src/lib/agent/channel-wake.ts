@@ -14,7 +14,6 @@ import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
 import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
-import { noReplyFailedYet } from './db/timeline-events'
 import { agentConversations } from './db/shared'
 import {
   listPendingUserMessages,
@@ -276,11 +275,10 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = replyFailedReason(agent, cause, error, resetsAt)
-  const atMessage = (await getConversationBySessionId(channelId).catch(() => null))?.messageCount
 
   await agentConversations()
     .updateOne(
-      { sessionId: channelId, ...noReplyFailedYet(agentId, atMessage) },
+      { sessionId: channelId },
       {
         $push: pushTimelineEvent({
           kind: 'agent_reply_failed',
@@ -291,7 +289,6 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
-          ...(atMessage === undefined ? {} : { atMessage }),
         }),
       },
     )
