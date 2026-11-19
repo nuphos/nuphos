@@ -123,13 +123,13 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     '/agent-runtimes/:runtimeId/model-config',
     zv('query', sessionConfigPickSchema),
     async (c) => {
-      const { options } = await offeredSessionConfig(
+      const { options, reason } = await offeredSessionConfig(
         (model) =>
           runtimeModelCatalog(c.get('teamId'), c.req.param('runtimeId'), model, c.get('userId')),
         c.req.valid('query'),
       )
 
-      return c.json({ status: 'dormant', options })
+      return c.json({ status: 'dormant', options, ...(reason ? { reason } : {}) })
     },
   )
   teamScoped.get(

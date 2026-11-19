@@ -169,7 +169,11 @@ export function boxJoinToken(): Promise<{
 }> {
   return call('POST', '/agent/devices/join-tokens', { expiresInSec: 3600 }, { retry: false })
 }
-export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
+/** Deletes a Box; `machineLeft` when instabox could not stop its machine, which may still run. */
+export function deleteBox(
+  deviceId: string,
+  teamId: string,
+): Promise<{ ok: true; machineLeft?: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
 }
 

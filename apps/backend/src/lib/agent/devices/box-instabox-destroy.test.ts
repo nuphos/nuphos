@@ -38,7 +38,7 @@ test('a machine instabox will not kill never keeps its computer from being delet
   )
 
   try {
-    await expect(destroyBox('u1', 'd1')).resolves.toBeUndefined()
+    await expect(destroyBox('u1', 'd1')).resolves.toBe(false)
     expect(kill).toHaveBeenCalledTimes(1)
   } finally {
     kill.mockRestore()
