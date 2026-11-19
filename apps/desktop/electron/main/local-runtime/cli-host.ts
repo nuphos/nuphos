@@ -110,8 +110,10 @@ const currentToken = () => cliSessionToken(readCliConfig(), launch)
 // API calls go out with the session, read as above.
 setTokenSource(() => Promise.resolve(currentToken()))
 
+// e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
+const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
 // A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
-const desktopPool = enableDesktopPool(bundleRoot, dataDir)
+const desktopPool = e2eMacScreenHost ? null : enableDesktopPool(bundleRoot, dataDir)
 const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
 
 if (desktopPool) console.log('Each session gets its own desktop on this computer.')
@@ -216,9 +218,13 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 // A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
-const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
+const macScreen = enableMacScreen(
+  dataDir,
+  () => tunnel?.sendStatus(),
+  e2eMacScreenHost ? 'darwin' : process.platform,
+)
 const macScreenHost = {
-  binary: () => path.join(bundleRoot, 'mac-screen-host'),
+  binary: () => e2eMacScreenHost ?? path.join(bundleRoot, 'mac-screen-host'),
   handOver: (human: boolean) =>
     console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
   owner: () => owner,
