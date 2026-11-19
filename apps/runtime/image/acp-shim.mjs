@@ -20,6 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
+import { openCodeRefusal } from './opencode-session.mjs'
 import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
@@ -85,6 +86,13 @@ export const PROVIDERS = {
     instruct: null,
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
+    // A refused turn never ends on its own: see opencode-session.mjs.
+    refusal: (env, sessionId, since) =>
+      openCodeRefusal(
+        env.XDG_DATA_HOME || join(env.HOME || homedir(), '.local', 'share'),
+        sessionId,
+        since,
+      ),
   },
   hermes: {
     command: ['hermes', 'acp'],
@@ -196,6 +204,21 @@ export function sessionState(sessionId, state) {
   }
 }
 
+/** Says in the conversation why the provider turned the turn down. */
+function refusal(sessionId, why) {
+  return {
+    jsonrpc: '2.0',
+    method: 'session/update',
+    params: {
+      sessionId,
+      update: {
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: `The model provider refused the request: ${why}` },
+      },
+    },
+  }
+}
+
 function toolUpdate(sessionId, toolCallId, status, meta) {
   return {
     jsonrpc: '2.0',
@@ -226,6 +249,10 @@ export function runShim({
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
   settleMs = 1000,
+  // How often an open turn checks whether its provider refused it (spec.refusal), once
+  // the agent has sent nothing for the session for `refusalQuietMs`.
+  refusalPollMs = 1500,
+  refusalQuietMs = 15_000,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -246,6 +273,10 @@ export function runShim({
   const tasks = new Map()
   const internal = new Map()
   const transforms = new Map()
+  // Prompts ended because their provider refused them; the agent's answer to the cancel closes them.
+  const refused = new Set()
+  // When the agent last sent anything for each session.
+  const heard = new Map()
   let initialize
   let agent
   let agentEnvironment
@@ -300,24 +331,17 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
+    if (sessionId) heard.set(sessionId, Date.now())
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
       const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
-      if (failure)
-        write({
-          jsonrpc: '2.0',
-          method: 'session/update',
-          params: {
-            sessionId: promptSession,
-            update: {
-              sessionUpdate: 'agent_message_chunk',
-              content: { type: 'text', text: `The model provider refused the request: ${failure}` },
-            },
-          },
-        })
+      if (failure) write(refusal(promptSession, failure))
+      // Cancelled by this process, not by the person: the turn ended with the refusal.
+      if (refused.delete(message.id) && message.result)
+        message = { ...message, result: { ...message.result, stopReason: 'end_turn' } }
       forward(message)
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
@@ -384,6 +408,28 @@ export function runShim({
     forward(message)
   }
   const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
+  const watchRefusal = (id, sessionId) => {
+    // The clock the agent's log shares; a second's slack for the prompt reaching it first.
+    const since = Date.now() - 1000
+    heard.set(sessionId, Date.now())
+    const timer = setInterval(() => {
+      if (prompts.get(id) !== sessionId) return clearInterval(timer)
+      // A turn the agent is still answering is not refused.
+      if (Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      let why
+      try {
+        why = spec.refusal(agentEnvironment, sessionId, since)
+      } catch {
+        // Whatever cannot be read leaves the turn as it is.
+      }
+      if (!why) return
+      clearInterval(timer)
+      refused.add(id)
+      write(refusal(sessionId, why))
+      send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
+    }, refusalPollMs)
+    timer.unref?.()
+  }
   const request = (method, params) =>
     new Promise((resolve, reject) => {
       const id = `nuphos-shim-${String(++nextId)}`
@@ -484,6 +530,7 @@ export function runShim({
   const sendPrompt = (message) => {
     const sessionId = message.params.sessionId
     prompts.set(message.id, sessionId)
+    if (spec.refusal) watchRefusal(message.id, sessionId)
     write(sessionState(sessionId, 'active'))
     const text = pendingInstructions.get(sessionId)
     pendingInstructions.delete(sessionId)

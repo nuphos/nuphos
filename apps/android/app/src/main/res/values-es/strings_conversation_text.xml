@@ -59,6 +59,7 @@
     <string name="convtext_runtime_disabled">El entorno de ejecución de esta tarea está desactivado. Cambia a otro entorno de ejecución para continuar.</string>
     <string name="convtext_runtime_not_found">Este entorno de ejecución ya no está disponible en este espacio de trabajo. Cambia a otro entorno de ejecución para continuar.</string>
     <string name="convtext_runtime_offline">El ordenador que ejecuta este entorno de ejecución está sin conexión. Abre Nuphos en él o cambia a otro entorno de ejecución.</string>
+    <string name="convtext_runtime_paused">%1$s está en pausa. Se reanudará cuando envíes un mensaje.</string>
     <string name="convtext_ask_owner">Pregunta al propietario</string>
     <string name="convtext_ask_admin">Pregunta a un administrador</string>
     <string name="convtext_server_status">Nuphos devolvió el estado %1$d.</string>

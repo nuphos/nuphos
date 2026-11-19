@@ -252,7 +252,7 @@ struct DockPanel: View {
             dock = try await session.dock()
             loadError = nil
         } catch {
-            if dock == nil { loadError = error.localizedDescription }
+            if dock == nil, !Task.isCancelled { loadError = error.localizedDescription }
         }
         self.favorites = await favorites ?? self.favorites
         if let connectors, connectors.inventory == nil { await connectors.load(teamId: session.teamId) }

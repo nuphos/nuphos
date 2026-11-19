@@ -363,7 +363,7 @@ final class AuthSession {
             guard generation == expected, self.token == token else { return }
             aiConsentVersion = result.version
             aiConsentAccepted = result.accepted && result.version == AccountAPI.aiConsentVersion
-        } catch { if generation == expected { aiConsentError = error.localizedDescription } }
+        } catch { if generation == expected, !Task.isCancelled { aiConsentError = error.localizedDescription } }
     }
 
     func setAIConsent(accepted: Bool) async throws {

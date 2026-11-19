@@ -33,7 +33,7 @@ export function RuntimeFallbackPicker({
       <PanelHeading
         title={t('Fallback')}
         hint={t(
-          'When this agent is low on usage, offline, or fails a turn, its conversations move to the agent chosen here, then on to that agent’s fallback. The conversation history always moves; files in this agent’s working directory may stay behind.',
+          'When this runtime is low on usage, offline, or fails a turn, its conversations move to the runtime chosen here, then on to that runtime’s fallback. The conversation history always moves; files in this runtime’s working directory may stay behind.',
         )}
       />
       <RuntimeSelector

@@ -62,6 +62,8 @@ export type TriggerRunParams = {
   runtimeId?: string
   /** The model and effort a new conversation starts with, already checked against its agent. */
   initialSessionConfig?: RuntimeDefaults
+  /** The Bot a new conversation starts under, already checked against the caller: its credentials and mode apply. */
+  parentSessionId?: string
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
@@ -109,6 +111,9 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const runtimeModelId = chatRuntime.runtime
 
   await restoreArchivedForTurn(existingConversation, params.origin ?? 'user')
+  // A conversation opened over MCP starts with the app's default selection, as a
+  // new chat does; a Task under a Bot uses the Bot's instead.
+  const mcpFirstTurn = source === 'mcp' && !existingConversation && !params.parentSessionId
 
   const chatSpan = startTraceSpan({
     name: 'turn',
@@ -180,6 +185,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       agentRuntime: chatRuntime.runtime,
       runtimeId: chatRuntime.runtimeId,
       runtimeLabel: chatRuntime.runtimeLabel,
+      ...(params.parentSessionId ? { parentSessionId: params.parentSessionId } : {}),
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {
@@ -201,7 +207,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       isNewConversationPromise,
       ensurePreviewChannelCredentialsSafe({
         selectAllCredentials: channelDefaults,
-        channelOriginated: channelDefaults || Boolean(params.slackReply ?? params.larkReply),
+        channelOriginated:
+          channelDefaults || mcpFirstTurn || Boolean(params.slackReply ?? params.larkReply),
         sessionId,
         teamId,
         actorUserId: userId,
