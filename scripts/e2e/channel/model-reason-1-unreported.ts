@@ -18,8 +18,9 @@ export default {
   name: 'a Bot moved to a computer that has not reported its models says so in its model menu',
   run: async (page, stack) => {
     const computer = 'E2E unreported computer'
+    const deviceId = randomUUID()
     // Its Claude Code is signed in and has reported no model list.
-    const disconnect = await computerWithUsage(stack, computer, randomUUID())
+    const disconnect = await computerWithUsage(stack, computer, deviceId)
 
     try {
       await page.getByRole('tab', { name: 'Bots' }).click()
@@ -36,6 +37,11 @@ export default {
       await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
     } finally {
       disconnect()
+      // Gone again, so the runtime lists later scenarios open are as long as before this one.
+      await fetch(`${stack.apiUrl}/agent/devices/${deviceId}`, {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${stack.token}` },
+      })
     }
   },
 } satisfies Scenario
