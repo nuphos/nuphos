@@ -146,3 +146,16 @@ test('an update hint names the host and preserves the known sentence without raw
   )
   expect(withOutdatedHint(undefined, new Error(`private diagnostic\n\n${hint}`))).toBe(hint)
 })
+
+test('an update hint inserts a host label literally, on one short line', async () => {
+  const hint = await hostUpdateHint(
+    { client: 'nuphos-desktop/0.123.0' },
+    ` $& Mac\n${'x'.repeat(200)}`,
+  )
+
+  expect(hint).toStartWith('Nuphos Desktop on $& Mac x')
+  expect(hint).not.toContain('\n')
+  expect(hint).toContain(`${'x'.repeat(73)} is out of date.`)
+  expect(hint).not.toContain(`${'x'.repeat(74)} is out of date.`)
+  expect(withOutdatedHint(undefined, new Error(`raw\n\n${hint}`))).toBe(hint)
+})

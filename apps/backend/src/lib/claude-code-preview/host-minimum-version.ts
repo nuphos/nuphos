@@ -75,6 +75,8 @@ export const DESKTOP_UPDATE_READY_HINT =
 export const DESKTOP_OUTDATED_HINT =
   'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
 
+const HOST_LABEL_MAX = 80
+
 /** Only claim a download is ready when the Desktop has reported it staged. */
 export async function hostUpdateHint(
   presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
@@ -90,9 +92,10 @@ export async function hostUpdateHint(
       ? DESKTOP_UPDATE_READY_HINT
       : DESKTOP_OUTDATED_HINT
 
-  return label
-    ? hint.replace('the computer running this agent', label.replace(/[\r\n]/gu, ' '))
-    : hint
+  // The label is user-set and travels into a Bot's reason: one short line, inserted literally.
+  const host = label?.replace(/\s+/gu, ' ').trim().slice(0, HOST_LABEL_MAX)
+
+  return host ? hint.replace('the computer running this agent', () => host) : hint
 }
 
 /** Preserve only the known product sentence, never the underlying runtime error. */
@@ -100,7 +103,9 @@ export function outdatedHint(error: unknown): string | undefined {
   if (!(error instanceof Error)) return
 
   if (error.message.endsWith(OUTDATED_HOST_HINT)) return OUTDATED_HOST_HINT
-  const hint = error.message.match(/Nuphos Desktop on [^\n]+ is out of date\. [^\n]+$/u)?.[0]
+  const hint = error.message.match(
+    /Nuphos Desktop on [^\n]{1,120} is out of date\. [^\n]{1,200}$/u,
+  )?.[0]
 
   return hint &&
     [DESKTOP_UPDATE_READY_HINT, DESKTOP_OUTDATED_HINT].some((known) =>
