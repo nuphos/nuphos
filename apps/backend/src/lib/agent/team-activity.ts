@@ -22,7 +22,8 @@ export type TeamActivity = {
   /** ISO start of the first slot; slots follow back to back. */
   start: string
   /** The sessions the slots refer to, with the agent each ran on. */
-  sessions: { id: string; title: string; runtime: string | null }[]
+  /** `title` is null when it is not the viewer's to see. */
+  sessions: { id: string; title: string | null; runtime: string | null }[]
   /** Every current member, busiest first. */
   members: MemberActivity[]
 }
@@ -126,22 +127,15 @@ async function scanTeamActivity(
   }
 }
 
-/** One member's own row of the team's activity, listing only the sessions it refers to. */
-export function ownActivity(activity: TeamActivity, userId: string): TeamActivity {
-  const members = activity.members.filter((member) => member.id === userId)
-  // Only indexes that name a session, so a missing one cannot shift the rest.
-  const used = [...new Set(members.flatMap((member) => member.slots.flat()))]
-    .filter((index) => activity.sessions[index] !== undefined)
-    .sort((a, b) => a - b)
+/**
+ * The team's activity as a member who is not an administrator sees it: every
+ * row, but only their own sessions keep a title.
+ */
+export function withOwnTitles(activity: TeamActivity, userId: string): TeamActivity {
+  const own = new Set(activity.members.find((m) => m.id === userId)?.slots.flat())
 
   return {
     ...activity,
-    sessions: used.flatMap((index) => activity.sessions[index] ?? []),
-    members: members.map((member) => ({
-      ...member,
-      slots: member.slots.map((slot) =>
-        slot.flatMap((index) => (used.includes(index) ? [used.indexOf(index)] : [])),
-      ),
-    })),
+    sessions: activity.sessions.map((s, i) => (own.has(i) ? s : { ...s, title: null })),
   }
 }

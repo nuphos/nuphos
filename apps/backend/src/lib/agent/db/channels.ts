@@ -7,7 +7,7 @@ import { fenceUntrusted } from '../untrusted-content'
 import { canReply, readableConversationScope } from './access'
 import { chatName } from './archive'
 import { assertBot } from './bot-membership'
-import { readNote } from './channel-notes'
+import { fromOwner, readNote } from './channel-notes'
 import { markChannelRead } from './channel-cursor'
 import { agentConversations, agentMessages } from './shared'
 
@@ -117,19 +117,6 @@ function channelUploadIds(parts: readonly unknown[] | undefined): string[] {
 const READ_PAGE = 50
 
 /**
- * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
- */
-function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
-  return (
-    metadata?.source === 'nuphos' &&
-    metadata.sender.type === 'user' &&
-    !metadata.sender.onBehalfOf &&
-    metadata.sender.id === ownerId
-  )
-}
-
-/**
  * What the agent has not read yet, oldest first, and moves its cursor past it.
  * `peek` leaves the cursor for the caller to move to `upTo` once the posts are
  * delivered; `upTo` stops before the first message with files, so channel_read
@@ -159,6 +146,8 @@ export async function readChannelMessages(
       index: { $gt: after },
       // Its own posts are not news to it, and must not push others' off the page.
       'metadata.sender.id': { $ne: agentSessionId },
+      // Nor is an answer to a question card: the agent that asked was given it as it was given.
+      'metadata.requestId': { $exists: false },
     })
     .sort({ index: 1 })
     .limit(READ_PAGE + 1)

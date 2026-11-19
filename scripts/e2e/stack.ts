@@ -138,7 +138,9 @@ function signInCode(address: string): string | undefined {
     .findLast(Boolean)
 }
 
-export async function startStack(options: { botOnboarding?: boolean } = {}): Promise<Stack> {
+export async function startStack(
+  options: { botOnboarding?: boolean; boxes?: boolean } = {},
+): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondRuntimePort, storagePort] = await freePorts(5)
   const mongoUri = startMongo(mongoPort)
   // Cloud computers too: only what a scenario puts in this instabox exists.
@@ -231,6 +233,7 @@ export async function startStack(options: { botOnboarding?: boolean } = {}): Pro
         '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
       ...fakes,
     },
   })

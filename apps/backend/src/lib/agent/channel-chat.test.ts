@@ -121,6 +121,13 @@ const person: MessageMetadata = {
   sentAt: new Date().toISOString(),
 }
 
+// What Nuphos records when a person answers a question card: theirs, but not news to anyone.
+const cardAnswer: MessageMetadata = {
+  ...person,
+  replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+  requestId: 'q1',
+}
+
 function agentSpeaker(sessionId: string): MessageMetadata {
   return {
     version: 1,
@@ -366,6 +373,60 @@ describe('waking a channel’s agents', () => {
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
     })
+  })
+
+  test("an agent the model provider refused says the provider's words", async () => {
+    const refused =
+      'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: ${refused}`,
+            -32603,
+            {
+              code: -32603,
+              message: `Internal error: ${refused}`,
+            },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
+  test("an agent's other internal error leaves its words out of the chat", async () => {
+    const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`**Internal Error** (code: -32603)\n${internal}`, -32603, {
+            code: -32603,
+            message: internal,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.find(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
+    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -747,6 +808,14 @@ describe('reading a channel', () => {
       replyTo: `<channel-message>\nOwner: deploy ${'x'.repeat(193)}\n</channel-message>`,
     })
     expect(read.note).toContain('replyTo')
+  })
+
+  test('an answer to a question card is never read: the agent that asked has it', async () => {
+    await say('us-east', cardAnswer)
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner', true)).messages).toEqual(
+      [],
+    )
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner')).messages).toEqual([])
   })
 
   test('starts at the latest page, then returns only what is new', async () => {
@@ -1188,6 +1257,14 @@ describe('an agent whose computer is offline', () => {
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 0 } },
     )
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for an answer to a question card when its computer is back', async () => {
+    await say('us-east', cardAnswer)
+    await catchUp()
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
