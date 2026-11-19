@@ -288,8 +288,10 @@ describe('an added agent whose CLI is missing', () => {
 
     expect(error).toMatchObject({ status: 409, code: 'runtime_not_installed' })
     expect(error?.message).toBe(
-      'OpenCode is not installed on the computer running this agent. Install it there as https://opencode.ai/docs describes, then try again.',
+      'OpenCode is not installed on the computer running this agent. Update Nuphos on that computer so it installs OpenCode, then try again.',
     )
+    // No shell command to paste: a computer whose Nuphos is up to date installs it on add.
+    expect(error?.message).not.toMatch(/`|curl|npm/u)
   })
 
   test('says nothing when the CLI is there or the agent is not reported', async () => {
