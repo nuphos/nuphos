@@ -9,12 +9,13 @@ import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 
 /**
- * The oldest Nuphos a computer may run: the first Desktop and CLI that bundle runtime 0.1.62,
- * which opens a new session when its agent lost one. On the runtime before it (0.1.57) the first
- * message of every new conversation fails with "Session not found". Raise both together
- * whenever an older host can no longer run a conversation.
+ * The oldest Nuphos a computer should run. Below it, its card and chats say it is out of date
+ * and how to update; nothing refuses its turns. Desktop 0.127.0 is the first that installs a
+ * downloaded update by itself while idle, so an older one stays behind until someone restarts
+ * it (#3829). CLI 0.20.0 is the first that bundles runtime 0.1.62; before it, the first message
+ * of every new conversation fails with "Session not found".
  */
-export const MINIMUM_HOST_VERSION = { desktop: '0.124.0', cli: '0.20.0' } as const
+export const MINIMUM_HOST_VERSION = { desktop: '0.127.0', cli: '0.20.0' } as const
 
 export type OutdatedHost = keyof typeof MINIMUM_HOST_VERSION
 

@@ -16,9 +16,9 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
-  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { replyQuote } from './channel-reply'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
@@ -373,6 +373,60 @@ describe('waking a channel’s agents', () => {
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
     })
+  })
+
+  test("an agent the model provider refused says the provider's words", async () => {
+    const refused =
+      'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: ${refused}`,
+            -32603,
+            {
+              code: -32603,
+              message: `Internal error: ${refused}`,
+            },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
+  test("an agent's other internal error leaves its words out of the chat", async () => {
+    const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`**Internal Error** (code: -32603)\n${internal}`, -32603, {
+            code: -32603,
+            message: internal,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.find(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
+    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {

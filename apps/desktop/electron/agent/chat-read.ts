@@ -15,7 +15,13 @@ import {
 
 import type { ChatStreamCtx } from './chat-shared.ts'
 
-const NON_RETRYABLE_ERROR_CODES = new Set(['runtime_usage_exhausted', 'runtime_disk_full'])
+// An unresumable stream is gone for good: the catch-up poll shows its stored transcript, or
+// re-attaches if the run is still active (#3713).
+const NON_RETRYABLE_ERROR_CODES = new Set([
+  'runtime_usage_exhausted',
+  'runtime_disk_full',
+  'stream_unresumable',
+])
 
 export type ChatReadResult =
   | { kind: 'stop' }
@@ -133,7 +139,7 @@ export async function consumeChatStream(
             return
           }
           needsFreshRetry = true
-          // Only credits, a reset or freed disk bring the runtime back; resending would fail the same way.
+          // Resending would fail the same way.
           if (NON_RETRYABLE_ERROR_CODES.has(String(data.errorCode))) retryForbidden = true
           freshRetryReason = formatAgentSseError(data, {
             phase: 'sse_error_frame',

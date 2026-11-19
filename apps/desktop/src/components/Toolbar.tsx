@@ -156,8 +156,8 @@ export function Toolbar({
                     ? 'bg-state-selected text-main'
                     : 'text-secondary hover:text-main hover:bg-state-hover',
                 )}
-                title={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
-                aria-label={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
+                title={agentSidebarOpen ? t('Hide Nuphos') : t('Ask Nuphos')}
+                aria-label={agentSidebarOpen ? t('Hide Nuphos') : t('Ask Nuphos')}
                 aria-pressed={agentSidebarOpen}
               >
                 {/* The sidebar toggle beside the traffic lights, mirrored:

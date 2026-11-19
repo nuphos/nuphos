@@ -126,7 +126,8 @@ export function complianceSections(provider: 'secureframe' | 'vanta'): Section[]
 export function teamSections(
   rootIntegrations: Item[] = [],
   rootIntegrationsLoading = false,
-  agentSessionItems: Item[] = [],
+  /** Undefined while the first listing loads. */
+  agentSessionItems?: Item[],
 ): Section[] {
   const connectorGroups = groupByConnectorCategory(rootIntegrations)
   // While the integrations load there is nothing to group yet; a title-less
@@ -146,7 +147,7 @@ export function teamSections(
       })),
     },
     // Split into Chats and Tasks by withChatSections.
-    { title: 'Agents', items: agentSessionItems },
+    { title: 'Agents', items: agentSessionItems ?? [], loading: !agentSessionItems },
     ...loadingPlaceholder,
     ...connectorGroups.map(({ category, items }) => ({
       title: category.label,

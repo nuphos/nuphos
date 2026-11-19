@@ -462,12 +462,12 @@ class AgentStore(
         rowActionError = null
         try {
             val validTitle = requireNotNull(ConversationActions.validTitle(title)) { "Title must contain 1–120 characters." }
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true))) { "Only the owner can rename this agent." }
             ConversationActions.rename(token, team, current.sessionId, validTitle)
             if (!valid()) return false
-            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(confirmed.title == validTitle) { "The updated title could not be confirmed. Refresh and try again." }
             conversations = conversations.map { if (it.sessionId == current.sessionId && (it.teamId ?: team) == team) it.copy(title = confirmed.title) else it }
@@ -499,7 +499,7 @@ class AgentStore(
         rowActionSessionId = current.sessionId
         rowActionError = null
         try {
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
             require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
@@ -899,13 +899,20 @@ class AgentStore(
         return catalog.allItems.filter { it.provider.optionsKey == "devices" }
     }
 
-    /** Same bounded scope=mine search as iOS, independent of history filters. */
-    suspend fun mentionableSessions(teamId: String, query: String): List<AgentConversation> {
+    /** The viewer's own Bots and Tasks in `teamId`, every page, for the composer's `@` to filter. */
+    suspend fun mentionableSessions(teamId: String): List<AgentConversation> {
+        val rows = mutableListOf<AgentConversation>()
+        val seen = mutableSetOf<String>()
+        var cursor: String? = null
+        do {
+            if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+            val page = NuphosApi.conversations(token = token, teamId = teamId, cursor = cursor, limit = 100,
+                scope = ConversationScope.Mine)
+            rows += page.conversations
+            cursor = page.nextCursor?.takeIf { page.hasMore && seen.add(it) }
+        } while (cursor != null)
         if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        val page = NuphosApi.conversations(token = token, teamId = teamId, limit = 6,
-            scope = ConversationScope.Mine, search = query)
-        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        return page.conversations
+        return rows
     }
 
     suspend fun reload() {

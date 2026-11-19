@@ -9,9 +9,12 @@ export function WorkspaceBotsStart({
   teamId,
   onOpen,
   visible = true,
+  loaded = true,
   firstBot = false,
 }: {
   visible?: boolean
+  /** Whether the team's Bots are listed yet: until then the intro can't say if it is the first. */
+  loaded?: boolean
   firstBot?: boolean
   teamId: string
   onOpen: (sessionId: string) => void
@@ -35,7 +38,7 @@ export function WorkspaceBotsStart({
           <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end pt-10">
             <NewChatButton
               firstBot={firstBot}
-              visible={visible}
+              visible={visible && loaded}
               teamId={teamId}
               onCreated={onOpen}
               empty

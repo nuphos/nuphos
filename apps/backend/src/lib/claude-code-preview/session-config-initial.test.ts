@@ -23,11 +23,13 @@ const catalog = {
   },
 }
 const writes: unknown[] = []
+let stored: AgentConversation | undefined
 
 useRuntimeModels({ runtimeModelCatalog: () => Promise.resolve(catalog) })
 useDb({
   db: () => ({
     collection: () => ({
+      findOne: () => Promise.resolve(stored),
       updateOne: (_query: unknown, update: unknown) => {
         writes.push(update)
 
@@ -39,8 +41,8 @@ useDb({
 beforeEach(() => {
   writes.length = 0
 })
-const conversation = (moved = false) =>
-  ({
+function conversation(moved = false) {
+  stored = {
     sessionId: 'fixture',
     teamId: 'team',
     userId: 'owner',
@@ -56,25 +58,42 @@ const conversation = (moved = false) =>
           },
         }
       : {}),
-  }) as AgentConversation
+  } as AgentConversation
+
+  return stored
+}
 
 test('catalog reads never erase unsupported saved settings before attachment', async () => {
   for (const moved of [false, true]) {
     const state = await conversationSessionConfig(conversation(moved), undefined, 'owner')
 
-    expect(state.options[0]?.currentValue).toBe(moved ? '' : 'sol')
+    // What the session will run on, named: the model and the effort it starts with.
+    expect(state.options.map((option) => option.currentValue)).toEqual(['sol', 'low'])
   }
   expect(writes).toEqual([])
 })
-test('an explicit valid choice on a moved conversation is persisted', async () => {
+test('a model chosen on a moved conversation is saved together with its effort', async () => {
   const state = await conversationSessionConfig(
     conversation(true),
     { configId: 'model', value: 'astra' },
     'owner',
   )
 
-  expect(state.options[0]?.currentValue).toBe('astra')
-  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
+  expect(state.options.map((option) => option.currentValue)).toEqual(['astra', 'low'])
+  // The model is saved with the effort it runs on, never alone, and the record says what changed.
+  expect(writes).toMatchObject([
+    {
+      $set: { initialSessionConfig: { model: 'astra', effort: 'low' } },
+      $push: {
+        settingsHistory: {
+          actorId: 'owner',
+          via: 'picker',
+          model: { from: { value: 'retired' }, to: { value: 'astra' } },
+          effort: { from: { value: 'retired-effort' }, to: { value: 'low' } },
+        },
+      },
+    },
+  ])
 })
 test('an unsupported explicit choice is refused without deleting the saved settings', async () => {
   await expect(
