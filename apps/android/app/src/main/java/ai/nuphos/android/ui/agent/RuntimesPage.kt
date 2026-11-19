@@ -195,7 +195,7 @@ private fun InventoryMeter(title: String, percent: Double, modifier: Modifier) {
 private fun RuntimeInventoryQuota(quota: ai.nuphos.android.data.RuntimeQuota?, needsSignIn: Boolean) {
     val tightest = quota?.takeIf { it.available }?.windows?.maxByOrNull { it.usedPercent }
     if (tightest != null) {
-        val left = kotlin.math.round(100 - tightest.usedPercent).toInt().coerceIn(0, 100)
+        val left = tightest.leftPercent
         val tint = if (left == 0) MaterialTheme.colorScheme.error else if (left <= 20) androidx.compose.ui.graphics.Color(0xFFAF601A) else MaterialTheme.colorScheme.onSurface
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(3.dp), itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Box(Modifier.width(44.dp)) { ContinuousUsageBar(left / 100f, color = tint, trackColor = MaterialTheme.colorScheme.outlineVariant) }
