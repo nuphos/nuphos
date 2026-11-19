@@ -21,7 +21,7 @@ const binding = {
   createdAt: new Date(),
 }
 
-useModels({
+const installModels = useModels({
   teamByosBindings: () => ({ findOne: () => Promise.resolve({ larkApps: [binding] }) }),
 })
 
@@ -29,6 +29,7 @@ const app = new Hono<{ Variables: TeamAuthVariables }>()
 
 app.use('*', async (c, next) => {
   c.set('teamId', new ObjectId().toHexString())
+  c.set('teamRole', 'ADMINISTRATOR')
   await next()
 })
 app.onError((error, c) =>
@@ -63,4 +64,28 @@ describe('Lark event URLs belong to the configured backend', () => {
       )
     })
   }
+})
+
+test('connecting requires a public backend before reading or writing credentials', async () => {
+  config.agent.publicBackendUrl = undefined
+  config.agent.backendUrl = undefined
+  installModels({
+    teamByosBindings: () => {
+      throw new Error('Credentials must not be read or changed')
+    },
+  })
+  const response = await app.request('/installations', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      appId: 'cli_synthetic',
+      appSecret: 'synthetic',
+      encryptKey: 'synthetic',
+    }),
+  })
+
+  expect(response.status).toBe(503)
+  expect(((await response.json()) as { error: string }).error).toBe(
+    'public_backend_url_unconfigured',
+  )
 })
