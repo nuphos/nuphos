@@ -2,6 +2,7 @@
 // #3401: an agent that cannot reach its model API is told what to check, not EPROTO.
 import { writeFileSync, rmSync } from 'node:fs'
 
+import { botCliLocalScenarios } from './bot-cli-local-scenarios.ts'
 import { artifacts } from './processes.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
@@ -97,4 +98,5 @@ export const providerUnreachableScenarios: Scenario[] = [
       }
     },
   },
+  ...botCliLocalScenarios,
 ]
