@@ -17,6 +17,9 @@ export const botSubtaskModelScenarios: Scenario[] = [
       const bot = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first()
       const kid = bots.locator('[data-sidebar-row]').filter({ hasText: 'E2E unlisted kid' }).first()
       const behind = join(artifacts, 'behind')
+      // The sub-Task answers only once this exists: the sidebar lists a sub-Task while it runs,
+      // and a fixture turn is shorter than the session list's 4 s poll.
+      const release = join(artifacts, 'release')
       const light = () =>
         page.evaluate(() => {
           document.documentElement.classList.remove('dark')
@@ -27,6 +30,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
       await bot.click()
       // The sub-Task's session runs a model the agent's own list never offers.
       writeFileSync(behind, 'fixture-unlisted')
+      rmSync(release, { force: true })
       try {
         await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-handoff')
         // A running sub-Task is listed under the Bot once its tree is open. Opened from there,
@@ -37,11 +41,13 @@ export const botSubtaskModelScenarios: Scenario[] = [
         if ((await tree.first().getAttribute('aria-label')) === 'Show sub-agents')
           await tree.first().dispatchEvent('click')
         await kid.click()
+        writeFileSync(release, '')
         await until('the sub-Task to reply', async () =>
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
         )
       } finally {
         rmSync(behind, { force: true })
+        rmSync(release, { force: true })
       }
       await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
       await page.waitForTimeout(3_000)
