@@ -1,13 +1,11 @@
 // #3567: a banner above the composer (a computer's disk almost full) covered the Bot chat's newest
 // post. The chat keeps room for it: at its end, the newest post stays whole above the banner.
-import { agentLog } from '../agent-log.ts'
 import { computerWithUsage, pickRuntime } from '../channel-helpers.ts'
 import { artifacts, until } from '../processes.ts'
 
 import type { Scenario } from '../ui.ts'
 import type { Page } from 'playwright-core'
 
-const TALL = 'every line of this note wraps, so the post is several lines tall. '.repeat(4)
 const COMPUTER = 'E2E full-disk computer'
 
 /** The chat in front, scrolled to its end: its distance from it, newest post's end, banner's top. */
@@ -34,29 +32,15 @@ const layout = (page: Page) =>
 const scenario: Scenario = {
   name: "a banner above the composer leaves the Bot chat's newest post whole above it",
   run: async (page, stack) => {
-    const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
-
-    if (!channelId) throw new Error('The Bot has not answered in its chat yet')
     await page.getByRole('tab', { name: 'Bots' }).click()
     await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
     await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
-    // As in the offline banner's scenario: the Bot moves while idle, to a computer whose disk is
-    // almost full, so its banner opens over the chat's end. Then a tall post becomes the newest.
+    // As in the offline banner's scenario, the idle Bot moves to a computer whose disk is almost
+    // full; its banner opens over the chat's end. Nothing is posted: a turn there would never end.
     const forget = await computerWithUsage(stack, COMPUTER, undefined, 92)
 
     try {
       await pickRuntime(page, COMPUTER, /^Claude Code/)
-      const posted = await fetch(
-        `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
-        {
-          method: 'POST',
-          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, text: `Banner check: ${TALL}` }),
-        },
-      )
-
-      if (!posted.ok) throw new Error(`Posting failed: ${String(posted.status)}`)
-      await page.getByText('Banner check:').last().waitFor()
       await page
         .getByText(/disk is almost full/)
         .first()
