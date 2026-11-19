@@ -1,3 +1,4 @@
+import { conversationSettingsApiOperations } from './conversation-settings'
 import { credentialApiOperations } from './credentials'
 import { databaseConnectionApiOperations } from './database-connections'
 import { feedbackApiOperations } from './feedback'
@@ -7,6 +8,7 @@ import { zeaburProviderApiOperations } from './zeabur-providers'
 
 export const atlasApiOperations = [
   ...credentialApiOperations,
+  ...conversationSettingsApiOperations,
   ...zeaburProviderApiOperations,
   ...planApiOperations,
   ...databaseConnectionApiOperations,

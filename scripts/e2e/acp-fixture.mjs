@@ -2,6 +2,7 @@
 // No network tools, GitHub credentials, or real inference are used.
 import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
@@ -11,8 +12,16 @@ import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
+import {
+  call,
+  callNamed,
+  personalToken,
+  reporting,
+  setToolsServer,
+  subtask,
+} from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -134,6 +143,8 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
+    await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
@@ -171,10 +182,13 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
-  // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
+  if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
+  // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
+  // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
-    while (!existsSync(process.env.E2E_RELEASE))
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    const release = process.env.E2E_RELEASE ?? join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))

@@ -11,18 +11,16 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { before, mock, test } from 'node:test'
+import { before, test } from 'node:test'
 
 import type * as Recording from './browser-recording.ts'
-import type { WebContents } from 'electron'
+import type { RecordedTab } from './browser-recording.ts'
 
 const temp = mkdtempSync(join(tmpdir(), 'har-test-'))
 let recording: typeof Recording
+const output = { dir: join(temp, 'har'), creator: { name: 'Nuphos Desktop', version: '1.0.0' } }
 
 before(async () => {
-  mock.module('electron', {
-    namedExports: { app: { getPath: () => temp, getVersion: () => '1.0.0' } },
-  })
   recording = await import('./browser-recording.ts')
 })
 
@@ -48,7 +46,7 @@ function tab(bodies: Record<string, string> = {}) {
         : Promise.resolve({ body, base64Encoded: false })
     },
   })
-  const contents = { id: 7, debugger: debug } as unknown as WebContents
+  const contents = { id: 7, debugger: debug } as unknown as RecordedTab
   const send = (method: string, params: Record<string, unknown>) =>
     debug.emit('message', {}, method, params)
 
@@ -97,7 +95,7 @@ test('record_stop writes the requests, wire headers and bodies seen since record
   })
   send('Network.loadingFailed', { requestId: 'r2', timestamp: 11.1, errorText: 'net::ERR_FAILED' })
 
-  const result = await recording.stopRecording(contents)
+  const result = await recording.stopRecording(contents, output)
 
   assert.equal(debug.attached, false)
   // The HAR holds live cookies, so only this user may read it.
@@ -149,7 +147,7 @@ test('a redirect keeps each hop as its own entry', async () => {
     redirectResponse: { status: 301, headers: { Location: 'https://a.test/' }, mimeType: '' },
   })
 
-  const { summary } = await recording.stopRecording(contents)
+  const { summary } = await recording.stopRecording(contents, output)
 
   assert.deepEqual(summary, ['GET 301 http://a.test/', 'GET - https://a.test/'])
 })
@@ -157,7 +155,7 @@ test('a redirect keeps each hop as its own entry', async () => {
 test('record_stop without record_start, or a second record_start, fails', async () => {
   const { contents } = tab()
 
-  await assert.rejects(recording.stopRecording(contents), /not recording/)
+  await assert.rejects(recording.stopRecording(contents, output), /not recording/)
   await recording.startRecording(contents)
   await assert.rejects(recording.startRecording(contents), /already recording/)
 })
@@ -174,7 +172,7 @@ test('record_stop deletes HARs older than a day', async () => {
   const { contents } = tab()
 
   await recording.startRecording(contents)
-  await recording.stopRecording(contents)
+  await recording.stopRecording(contents, output)
   assert.equal(existsSync(old), false)
   assert.equal(existsSync(recent), true)
 })

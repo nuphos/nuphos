@@ -77,7 +77,7 @@ export function ChannelPane({
   const unsent = useRef<{ key: string; id: string } | null>(null)
   const [sending, setSending] = useState<AgentPersistedMessage[]>([])
   const [replying, setReplying] = useState<AgentMessageReply | null>(null)
-  const composerRef = useRef<HTMLDivElement>(null)
+  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const dropRef = useRef<((dt: DataTransfer) => void) | null>(null)
   const title = chat ? chat.title || t('New Group Chat') : ''
@@ -111,7 +111,7 @@ export function ChannelPane({
 
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
-  const stickToBottom = useStickToBottom(scrollRef)
+  const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
@@ -121,7 +121,7 @@ export function ChannelPane({
 
   function focusComposer() {
     requestAnimationFrame(() =>
-      composerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
+      composer?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus(),
     )
   }
 
@@ -226,7 +226,7 @@ export function ChannelPane({
       </div>
       <HeaderEdge
         ref={scrollRef}
-        className={`min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable ${replying ? 'pb-12' : 'pb-4'}`}
+        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
       >
         {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
@@ -269,7 +269,7 @@ export function ChannelPane({
         {/* Inset past the faces on both sides, so the reply bar and the composer
             line up with the bubbles: a face and its gap (2.375rem) on each side. */}
         <div
-          ref={composerRef}
+          ref={setComposer}
           className="relative px-[2.375rem]"
           onKeyDown={(event) => {
             if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)

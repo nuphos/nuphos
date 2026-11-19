@@ -9,14 +9,10 @@ import { Button } from '../../components/ui/button'
 import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { isGoogle } from '../../types'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
-import {
-  PERSONAL_CREDENTIALS_CHANGED,
-  credentialFor,
-  isGoogle,
-  nameOf,
-} from './personalCredentials'
+import { PERSONAL_CREDENTIALS_CHANGED, credentialFor, nameOf } from './personalCredentials'
 import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
 import { SectionHeader } from './shared'
 import { useAdminName } from './useAdminName'

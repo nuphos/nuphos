@@ -71,9 +71,10 @@ export async function reopenUndeliveredAnswer(
 
 /**
  * A turn whose runtime connection dropped is left to the runtime, which keeps
- * running it through a network blip and reports back as usual. When the runtime
- * itself restarted (an OOMKill, an update), the session reattaches with no turn
- * running (`dormant` or `interrupted`) and the turn is gone.
+ * running it through a network blip and reports back as usual. The runtime
+ * clears `lastOutcome` when it takes a prompt and sets it when the prompt ends,
+ * so a runtime back on the air that is not running the turn and has no outcome
+ * restarted under it (an OOMKill, an update): the turn is gone.
  */
 export async function runtimeRestarted(data: {
   teamId?: string
@@ -83,11 +84,17 @@ export async function runtimeRestarted(data: {
 
   // False also means superseded or shutting down; only a session back on the air says anything.
   if (!session?.reattached || !(await session.reattached)) return false
-  const { state } = await session.client.getSessionExecutionState(session.openabSessionId)
+  const { state, lastOutcome } = await session.client.getSessionExecutionState(
+    session.openabSessionId,
+  )
 
-  logEvent('info', 'agent.chat.lost_turn_checked', { session_id: data.targetSessionId, state })
+  logEvent('info', 'agent.chat.lost_turn_checked', {
+    session_id: data.targetSessionId,
+    state,
+    outcome: Boolean(lastOutcome),
+  })
 
-  return state === 'dormant' || state === 'interrupted'
+  return (state === 'idle' || state === 'dormant' || state === 'interrupted') && !lastOutcome
 }
 
 /** A person's turn in the app that its runtime's restart cut off: the conversation says so. */

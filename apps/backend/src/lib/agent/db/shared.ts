@@ -5,10 +5,12 @@ import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
@@ -65,6 +67,8 @@ export type AgentConversation = ConversationTaskState & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
+  avatarBackground?: string
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
@@ -75,6 +79,8 @@ export type AgentConversation = ConversationTaskState & {
   // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
+  // Someone else in a shared Task archives it for themselves alone, by user id.
+  memberArchivedAt?: Record<string, Date>
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
@@ -89,6 +95,10 @@ export type AgentConversation = ConversationTaskState & {
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
@@ -212,7 +222,7 @@ export type AgentCredentialAccess = {
   // Optional for docs older than device selection; devices are user-owned, never team-shared.
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
-  personalCredentialIds?: ('github' | 'linear')[] // the owner's own, with no team binding
+  personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
 }

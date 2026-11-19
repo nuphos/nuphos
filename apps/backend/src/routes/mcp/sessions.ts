@@ -92,10 +92,19 @@ export async function nuphosUpdateSession(
   let pick: Awaited<ReturnType<typeof setThreadModel>>
 
   try {
-    pick = await setThreadModel(sessionId, ctx.userId, {
-      ...(model ? { model } : {}),
-      ...(effort ? { effort } : {}),
-    })
+    pick = await setThreadModel(
+      sessionId,
+      ctx.userId,
+      {
+        ...(model ? { model } : {}),
+        ...(effort ? { effort } : {}),
+      },
+      {
+        actorId: ctx.userId,
+        via: 'mcp_update',
+        ...(ctx.client?.name ? { client: ctx.client.name.slice(0, 80) } : {}),
+      },
+    )
   } catch (err) {
     return toolError(err instanceof Error ? err.message : String(err))
   }

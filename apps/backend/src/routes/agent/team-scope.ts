@@ -5,6 +5,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { tokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isTeamIdShape } from '@/lib/team-id'
+import { PERSONAL_CREDENTIAL_PROVIDERS as PERSONAL_PROVIDERS } from '@/models/personal-credentials'
 
 import type { AgentCredentialSelection } from './types'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -241,19 +242,19 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       'cloudflareAccountIds',
     ),
     instaboxAccountIds: normalizeOptionalObjectIdList(raw.instaboxAccountIds, 'instaboxAccountIds'),
-    teamIdentity: normalizeProviders(raw.teamIdentity, 'teamIdentity'),
-    personalCredentialIds: normalizeProviders(raw.personalCredentialIds, 'personalCredentialIds'),
+    teamIdentity: normalizeProviders(raw, 'teamIdentity', ['github', 'linear'] as const),
+    personalCredentialIds: normalizeProviders(raw, 'personalCredentialIds', PERSONAL_PROVIDERS),
   }
 }
 
-const PERSONAL_PROVIDERS = new Set(['github', 'linear'])
+function normalizeProviders<P extends string>(
+  raw: Record<string, unknown>,
+  field: string,
+  known: readonly P[],
+) {
+  if (raw[field] == null) return undefined
 
-function normalizeProviders(value: unknown, field: string): ('github' | 'linear')[] | undefined {
-  if (value == null) return undefined
-
-  return normalizeStringList(value, field).filter((provider): provider is 'github' | 'linear' =>
-    PERSONAL_PROVIDERS.has(provider),
-  )
+  return normalizeStringList(raw[field], field).filter((id): id is P => known.includes(id as P))
 }
 
 function normalizeOptionalObjectIdList(value: unknown, field: string): string[] | undefined {

@@ -12,6 +12,7 @@ import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
+import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
@@ -20,6 +21,7 @@ import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
+import { deleteBox } from './boxDelete'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
@@ -86,6 +88,7 @@ export function BoxRow({
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
+  const computerSettings = useComputerSettings(device, teamId, changed)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
@@ -127,7 +130,7 @@ export function BoxRow({
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      await hostUpdate.request(team)
+      await hostUpdate.request(deviceId, team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -198,6 +201,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
+              {computerSettings.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -236,7 +240,7 @@ export function BoxRow({
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            confirm={hostUpdate.confirm(updateVersion)}
+            confirm={hostUpdate.confirm(updateVersion, device.label)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}
@@ -271,6 +275,7 @@ export function BoxRow({
           }}
         />
       )}
+      {computerSettings.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}
@@ -286,7 +291,7 @@ export function BoxRow({
         destructive
         confirmLabel={remove.confirm}
         onConfirm={() =>
-          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+          act(remove.error, cloud ? deleteBox(device.label) : api.deviceRemove, remove.fallback)
         }
         onClose={() => setConfirmDelete(false)}
       />

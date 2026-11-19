@@ -6,15 +6,18 @@ import { join, resolve } from 'node:path'
 import { backendLines, backendLog } from './backend-log.ts'
 import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
+import { openComputers } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const NOTICE = 'Paused by the provider (host out of memory). It resumes when you use it.'
+const KILL_REFUSED =
+  "Its machine on instabox couldn't be stopped and may still be running. Check your team's instabox account."
 
 /** Writes or removes a Box row as the backend keeps it: only the database can make one here. */
-function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
+export function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {
   const script = `
     import { MongoClient } from 'mongodb'
     const row = JSON.parse(process.argv[2])
@@ -30,7 +33,7 @@ function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: strin
   })
 }
 
-async function me(stack: Stack): Promise<string> {
+export async function me(stack: Stack): Promise<string> {
   const response = await fetch(`${stack.apiUrl}/auth/me`, {
     headers: { authorization: `Bearer ${stack.token}` },
   })
@@ -105,6 +108,49 @@ export const boxScenarios: Scenario[] = [
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'box-evicted-notice.png') })
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        boxRow(stack.mongoUri, { remove: deviceId })
+        instaboxMachines.delete(sandboxId)
+      }
+    },
+  },
+  {
+    // #3733: a Box whose machine instabox would not kill could never be deleted.
+    name: 'a Box instabox will not kill is still deleted, and its owner hears it may still run',
+    // The refused kill is logged, as it should be.
+    expected: /"event":"agent\.box\.kill_failed"/,
+    run: async (page, stack) => {
+      const deviceId = randomUUID()
+      const sandboxId = `m_e2e_${deviceId.slice(0, 8)}`
+      const label = `E2E Box ${deviceId.slice(0, 8)}`
+      const userId = await me(stack)
+
+      instaboxMachines.set(sandboxId, { id: sandboxId, state: 'running', operations: [] })
+      boxRow(stack.mongoUri, {
+        userId,
+        deviceId,
+        label,
+        platform: 'linux',
+        allowLocalExec: true,
+        box: { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: userId },
+        access: [{ teamId: stack.teamId, everyone: false, userIds: [], managerIds: [] }],
+      })
+      try {
+        const from = backendLines()
+
+        await openComputers(page)
+        const card = page.getByText(label, { exact: true })
+
+        await card.first().waitFor()
+        await page.getByRole('button', { name: `Manage ${label}` }).click()
+        await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+        await page.getByRole('alertdialog').getByRole('button', { name: 'Delete computer' }).click()
+        await card.first().waitFor({ state: 'detached' })
+        await page.getByText(KILL_REFUSED).waitFor()
+        await page.screenshot({ path: join(artifacts, 'box-delete-kill-refused.png') })
+        if (!backendLog(from).some((line) => line.includes('"event":"agent.box.kill_failed"')))
+          throw new Error('The refused kill was not logged')
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
         boxRow(stack.mongoUri, { remove: deviceId })
