@@ -105,8 +105,8 @@ function watch({
   const chipTexts = () =>
     Object.fromEntries(
       Object.entries(CHIPS).map(([chip, selector]) => {
-        const shown = [...document.querySelectorAll(selector)].find(
-          (element) => element.getBoundingClientRect().width > 0 && !element.closest('aside'),
+        const shown = [...document.querySelectorAll(selector)].find((element) =>
+          element.checkVisibility({ visibilityProperty: true }),
         )
 
         return [chip, shown ? (shown.textContent ?? '').trim() : null]
