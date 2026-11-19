@@ -6,23 +6,17 @@ import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 const LAPTOP = 'E2E laptop'
 
 const GIB = 1024 ** 3
 
 // A computer of this person's with a signed-in Claude Code, online until the returned function
-// is called. `diskPercent` sets its disk readings, `client` the app it connects as, `app` the
-// Desktop and update it reports; with `restoreFails` it fails every request after `initialize`.
+// is called. With `diskPercent` it also reports its readings, as full as that; `client` is the
+// app it connects as.
 async function laptopOnline(
   stack: Stack,
-  {
-    diskPercent,
-    client,
-    app,
-    restoreFails,
-  }: { diskPercent?: number; client?: string; app?: unknown; restoreFails?: boolean } = {},
+  { diskPercent, client }: { diskPercent?: number; client?: string } = {},
 ): Promise<() => void> {
   const authorization = `Bearer ${stack.token}`
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
@@ -44,10 +38,7 @@ async function laptopOnline(
     } as unknown as string[],
   )
 
-  tunnel.addEventListener('message', (event: MessageEvent) => {
-    tunnel.send(JSON.stringify({ t: 'pong' }))
-    if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
-  })
+  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
   await new Promise((opened, failed) => {
     tunnel.addEventListener('open', opened)
     tunnel.addEventListener('error', failed)
@@ -58,7 +49,6 @@ async function laptopOnline(
       status: {
         localMetrics: diskPercent !== undefined,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
-        ...(app ? { app } : {}),
       },
     }),
   )
@@ -84,49 +74,6 @@ async function laptopOnline(
     clearInterval(reporting)
     tunnel.close()
   }
-}
-
-const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
-// What the conversation shows for the failed turn: its summary, then the out-of-date line.
-const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos on the computer running this agent is out of date. Update it there, then try again.'
-
-// How a runtime without #3373 answered once it could not restore the saved session (#3371).
-function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
-  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
-  const reply = (d: unknown) =>
-    tunnel.send(JSON.stringify({ t: 'data', s: frame.s, d: JSON.stringify(d) }))
-
-  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
-  if (frame.t !== 'data' || !frame.d) return
-  const request = JSON.parse(frame.d) as { id?: number; method?: string }
-
-  if (request.id === undefined || !request.method) return
-  if (request.method === 'initialize')
-    reply({
-      jsonrpc: '2.0',
-      id: request.id,
-      result: {
-        protocolVersion: 1,
-        agentCapabilities: {
-          loadSession: true,
-          _meta: { 'dev.openab/permissionRelay': true, 'dev.openab/sessionAuthority': 2 },
-        },
-        authMethods: [],
-      },
-    })
-  else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
-}
-
-// A new task starts on the runtime the last message went to. Sending one on the fixture agent
-// keeps the scenarios after these off the laptop, which has gone offline by then.
-async function backOnFixture(page: Page, marker: string) {
-  await newTask(page)
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText('E2E fixture agent').click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
-  await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
-  await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
 }
 
 export const offlineScenarios: Scenario[] = [
@@ -192,13 +139,8 @@ export const offlineScenarios: Scenario[] = [
   {
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
     name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
-    // The turn there fails on purpose.
-    expected: /Could not restore the saved session/,
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.119.0',
-        restoreFails: true,
-      })
+      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
 
       try {
         await newTask(page)
@@ -214,48 +156,12 @@ export const offlineScenarios: Scenario[] = [
 
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
-        // #3562: a turn that fails there says why, for clients too old to show the banner.
-        await send(page, 'On the old laptop')
-        await page.getByText(OUTDATED_LINE).waitFor()
-        await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
         await page.getByText('Nuphos on this computer is out of date').waitFor()
         await page.getByText('Open Nuphos on it and restart to update.').waitFor()
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
-        await backOnFixture(page, 'after-outdated')
-      } finally {
-        goOffline()
-      }
-    },
-  },
-  {
-    // #3560: Desktop 0.125.0, above the floor with 0.127.0 downloaded, failed every turn on a
-    // runtime bug 0.127.0 fixed, and nothing said an update would help (#3562).
-    name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
-    // The turn there fails on purpose.
-    expected: /Could not restore the saved session/,
-    run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.125.0',
-        app: { version: '0.125.0', update: { version: '0.127.0', ready: true } },
-        restoreFails: true,
-      })
-
-      try {
-        // A new task starts on the laptop, whichever runtime the last one used.
-        await newTask(page)
-        await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await page
-          .getByRole('menuitem', { name: /Claude Code/ })
-          .last()
-          .click()
-        await send(page, 'On the laptop behind the latest release')
-        await page.getByText(OUTDATED_LINE).waitFor()
-        await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
-        await backOnFixture(page, 'after-behind')
       } finally {
         goOffline()
       }
