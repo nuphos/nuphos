@@ -72,11 +72,26 @@ export function RuntimeUsageBar({ quota, chip = false }: { quota?: RuntimeQuota;
   )
 }
 
+/** The widest a reset reads, under a day and past one. */
+const WIDEST_MINUTES = [23 * 60 + 59, 29 * 1440 + 23 * 60]
+
 /** When a usage window resets, as it sits on the right of every usage bar. */
 export function ResetsIn({ resetsAt }: { resetsAt: string | null | undefined }) {
   const reset = formatResetsIn(resetsAt)
+  // Every reset takes the room of the widest, so bars stacked above one another
+  // end at the same x and the text never moves a bar as it ticks.
+  const widest = WIDEST_MINUTES.map((minutes) =>
+    formatResetsIn(new Date(minutes * 60_000).toISOString(), new Date(0)),
+  )
 
   return reset ? (
-    <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-tertiary">{reset}</span>
+    <span className="grid shrink-0 justify-items-end whitespace-nowrap text-xs tabular-nums text-tertiary">
+      {widest.map((text) => (
+        <span key={text} aria-hidden className="invisible [grid-area:1/1]">
+          {text}
+        </span>
+      ))}
+      <span className="[grid-area:1/1]">{reset}</span>
+    </span>
   ) : null
 }
