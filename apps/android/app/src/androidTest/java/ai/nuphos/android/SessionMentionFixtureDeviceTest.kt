@@ -48,6 +48,8 @@ class SessionMentionFixtureDeviceTest {
     private fun field() = compose.onNodeWithContentDescription("Ask Nuphos anything")
     private fun snap(name: String) {
         compose.waitForIdle()
+        // Idle is the semantics tree; the window may still show the frame before it.
+        Thread.sleep(300)
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: error("No screenshot")
         // The run's additional output, so the captures land in the CI artifact.
         val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
@@ -174,6 +176,7 @@ class SessionMentionFixtureDeviceTest {
         }
         field().performClick().performTextInput("@")
         compose.waitUntil(5000) { compose.onAllNodesWithText("Could not search tasks. You can keep typing.").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Could not search tasks. You can keep typing.").assertIsDisplayed()
         snap("synthetic-mention-error")
         compose.runOnIdle { mode = "empty" }
         compose.waitUntil(5000) { compose.onAllNodesWithText("No matching tasks").fetchSemanticsNodes().isNotEmpty() }
