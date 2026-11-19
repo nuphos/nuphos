@@ -4,6 +4,7 @@ import { Binary } from 'mongodb'
 
 import { config } from '@/config'
 import { db } from '@/lib/db'
+import { purgeConversationFileTransferRefs } from '@/lib/file-transfer/artifact-refs'
 import { logError } from '@/lib/observability'
 
 import type { Document } from 'mongodb'
@@ -199,4 +200,7 @@ export async function purgeConversationTraces(sessionId: string): Promise<void> 
     db().collection('agent_trace_payloads').deleteMany({ sessionId }),
     db().collection('agent_trace_events').deleteMany({ sessionId }),
   ])
+  // Artifact media pins exist only for this conversation's artifacts; release
+  // them with the conversation so a deleted chat leaves no retained objects.
+  await purgeConversationFileTransferRefs(sessionId)
 }
