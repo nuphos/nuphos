@@ -30,6 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,7 +41,7 @@ import java.time.Instant
 /**
  * An open question in a Bot's chat or a Task (#2879), as Desktop #2887 and iOS #2886 draw it: who asked,
  * when it was another Bot or Task; the question as the heading; its body cut at four lines behind a
- * full-width Show more; full-width options, the first one primary; then Other… and Skip side by side.
+ * full-width Show more; full-width options, the first one primary; then Other… and Dismiss side by side.
  * Other… swaps that row for the answer field. A multi-select or several questions keep their form.
  */
 @Composable
@@ -59,7 +61,7 @@ internal fun ChatQuestionCard(
         Surface(shape = RoundedCornerShape(14.dp), color = card, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)) {
                 if (showsFrom) Source(question, onOpen)
-                Text(question.request.question, Modifier.testTag("bot-question-heading"),
+                Text(question.request.question, Modifier.semantics { heading() }.testTag("bot-question-heading"),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 22.sp), fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface)
                 question.ownBody?.let { Spacer(Modifier.height(4.dp)); Body(question.id, it, card, onLink) }
@@ -67,13 +69,13 @@ internal fun ChatQuestionCard(
                 val replies = cardReplies(question)
                 val form = question.form
                 val secret = question.secretPart
-                val skip = onDismiss?.let { { it(null) } }
+                val dismiss = onDismiss?.let { { it(null) } }
                 when {
                     form != null -> {
                         QuestionOptions(question.id, form, pick = true, question.typed, answersInPlace = false, onAnswer, onForm) {}
-                        skip?.let { Spacer(Modifier.height(8.dp)); AsideRow(other = null, skip = it) }
+                        dismiss?.let { Spacer(Modifier.height(8.dp)); AsideRow(other = null, dismiss = it) }
                     }
-                    replies != null && secret == null -> Answers(question, replies.map { it.first }, onAnswer, skip)
+                    replies != null && secret == null -> Answers(question, replies.map { it.first }, onAnswer, dismiss)
                     else -> {
                         if (secret != null) AskedSecretCard(question, secret)
                         else {
@@ -83,7 +85,7 @@ internal fun ChatQuestionCard(
                                 Text(own?.let { stringResource(R.string.chats_question_use_own, it) } ?: stringResource(R.string.chats_question_choose_credentials))
                             }
                         }
-                        skip?.let { Spacer(Modifier.height(8.dp)); AsideRow(other = null, skip = it) }
+                        dismiss?.let { Spacer(Modifier.height(8.dp)); AsideRow(other = null, dismiss = it) }
                     }
                 }
             }
@@ -130,9 +132,9 @@ private fun Body(id: String, text: String, card: Color, onLink: ((String) -> Uni
     }
 }
 
-/** Full-width options, the first one primary; then Other… and Skip, or the answer field once Other… is tapped. */
+/** Full-width options, the first one primary; then Other… and Dismiss, or the answer field once Other… is tapped. */
 @Composable
-private fun Answers(question: BotQuestion, options: List<String>, onAnswer: (String) -> Unit, skip: (() -> Unit)?) {
+private fun Answers(question: BotQuestion, options: List<String>, onAnswer: (String) -> Unit, dismiss: (() -> Unit)?) {
     var open by rememberSaveable(question.id) { mutableStateOf(false) }
     var words by rememberSaveable(question.id) { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,19 +149,19 @@ private fun Answers(question: BotQuestion, options: List<String>, onAnswer: (Str
             }
         }
         if (open) AnswerField(words, { words = it }) { onAnswer(words.trim()) }
-        else if (question.typed || skip != null) AsideRow(
+        else if (question.typed || dismiss != null) AsideRow(
             other = if (question.typed) stringResource(if (options.isEmpty()) R.string.chats_question_reply else R.string.chats_question_other) to { open = true } else null,
-            skip = skip,
+            dismiss = dismiss,
         )
     }
 }
 
-/** Other… and Skip: two outlined halves, 44dp high. */
+/** Other… and Dismiss: two outlined halves, 44dp high. */
 @Composable
-private fun AsideRow(other: Pair<String, () -> Unit>?, skip: (() -> Unit)?) {
+private fun AsideRow(other: Pair<String, () -> Unit>?, dismiss: (() -> Unit)?) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         other?.let { (label, onClick) -> Aside(label, Modifier.weight(1f).testTag("bot-question-other"), onClick) }
-        skip?.let { Aside(stringResource(R.string.chats_question_skip), Modifier.weight(1f).testTag("bot-question-dismiss"), it) }
+        dismiss?.let { Aside(stringResource(R.string.chats_question_dismiss), Modifier.weight(1f).testTag("bot-question-dismiss"), it) }
     }
 }
 

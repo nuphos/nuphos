@@ -30,7 +30,7 @@ import java.io.File
 /**
  * #2879: in a chat, a question card leads with the question, names who asked when another Bot or Task
  * did, cuts a long body at four lines behind a full-width Show more, and answers with full-width
- * options and two half-width buttons, Other… and Skip. Synthetic questions only.
+ * options and two half-width buttons, Other… and Dismiss. Synthetic questions only.
  */
 @RunWith(AndroidJUnit4::class)
 class QuestionCardV2FixtureDeviceTest {
@@ -67,7 +67,7 @@ class QuestionCardV2FixtureDeviceTest {
         capture("question-card-v2")
     }
 
-    @Test fun optionsAreFullWidthAndOtherAndSkipShareARow() {
+    @Test fun optionsAreFullWidthAndOtherAndDismissShareARow() {
         show()
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val card = bounds("bot-question")
@@ -78,9 +78,9 @@ class QuestionCardV2FixtureDeviceTest {
             assertTrue("Option $i is full width", option.width >= card.width - 40 * density)
         }
         val other = bounds("bot-question-other")
-        val skip = bounds("bot-question-dismiss")
-        assertEquals("Other and Skip share a row", other.top, skip.top, 1f)
-        assertEquals("Other and Skip are the same width", other.width, skip.width, 2f)
+        val dismiss = bounds("bot-question-dismiss")
+        assertEquals("Other and Dismiss share a row", other.top, dismiss.top, 1f)
+        assertEquals("Other and Dismiss are the same width", other.width, dismiss.width, 2f)
         assertTrue("Other is about half", other.width < card.width / 2)
         assertTrue("Other is 44dp high", other.height >= 44 * density - 1)
     }
@@ -97,7 +97,7 @@ class QuestionCardV2FixtureDeviceTest {
         assertTrue("The body opens", bounds("bot-question-body").height > cut)
     }
 
-    @Test fun skipClosesIt() {
+    @Test fun dismissClosesIt() {
         var dismissed = false
         show(onDismiss = { dismissed = true })
         compose.onNodeWithTag("bot-question-dismiss").performClick()
