@@ -167,8 +167,8 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
  * chat's last lines, inset past the faces twice as before (the composer's
  * wrapper pads by one face, which `absolute` does not count). Its tint sits on
  * the sheet's own color, so the chat passing under it does not show through.
- * While it shows, the chat keeps its height as bottom room (`pb-12`, not
- * `pb-4`), so at the bottom the newest post stays whole above it.
+ * While it shows, the chat keeps its height as bottom room (`data-composer-overlay`),
+ * so at the bottom the newest post stays whole above it.
  */
 export function ReplyingBanner({
   reply,
@@ -178,7 +178,10 @@ export function ReplyingBanner({
   onCancel: () => void
 }) {
   return (
-    <div className="absolute inset-x-[4.75rem] bottom-full flex items-center gap-2 rounded-xl py-1 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]">
+    <div
+      data-composer-overlay=""
+      className="absolute inset-x-[4.75rem] bottom-full flex items-center gap-2 rounded-xl py-1 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
+    >
       <CornerUpLeft className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
       <div className="min-w-0 flex-1 truncate text-tertiary">
         <span className="font-medium text-secondary">

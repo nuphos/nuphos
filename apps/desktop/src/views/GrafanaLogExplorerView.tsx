@@ -184,10 +184,10 @@ export function GrafanaLogExplorerView({ target, datasource, onBack, onOpenAgent
               size="sm"
               onClick={askAgent}
               disabled={!expr}
-              title={t('Prefill the agent with this query context')}
+              title={t('Start a task with this query context')}
             >
               <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.8} />
-              {t('Ask Agent')}
+              {t('Ask in a task')}
             </Button>
           )}
           <Button size="sm" onClick={() => void runQuery()} disabled={loading || !expr}>

@@ -190,7 +190,8 @@ struct DesktopScreen: View {
                 .frame(height: 36)
                 .background(Capsule().fill(desktop.controlling ? Color.white.opacity(0.12) : Theme.brand))
         }
-        .foregroundStyle(.white)
+        // The brand is ink, near-white here: its label takes the surface, as a primary button's does.
+        .foregroundStyle(desktop.controlling ? Color.white : Theme.surface)
         .disabled(desktop.phase != .live)
     }
 
@@ -243,7 +244,8 @@ struct DesktopScreen: View {
                 HStack(spacing: 12) {
                     Button("Close", action: close)
                         .buttonStyle(.bordered)
-                    Button("Try again") { desktop.retry() }
+                    // Close's shape and size; Take over's ink fill and surface label.
+                    Button { desktop.retry() } label: { Text("Try again").foregroundStyle(Theme.surface) }
                         .buttonStyle(.borderedProminent)
                         .tint(Theme.brand)
                 }
@@ -278,7 +280,7 @@ private struct DesktopKeyCap: View {
                 .frame(height: 40)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(latched ? Theme.brand : Color.white.opacity(0.12)))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(latched ? Theme.surface : Color.white)
         .buttonStyle(.plain)
     }
 }

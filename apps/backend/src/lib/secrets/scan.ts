@@ -48,12 +48,14 @@ const KIND_ORDER = [
   'nuphos-token',
   'github-token',
   'slack-token',
+  'instabox-api-key',
   'api-key',
   'url-credentials',
   'bearer-token',
   'basic-auth',
   'secret-assignment',
   'secret-flag',
+  'secret-phrase',
 ]
 
 function kindRank(kind: string): number {
@@ -164,6 +166,11 @@ export async function findSecrets(
       })
     }
   }
+
+  return mergeFindings(findings)
+}
+
+function mergeFindings(findings: SecretFinding[]): SecretFinding[] {
   findings.sort((a, b) => a.range[0] - b.range[0])
   const merged: SecretFinding[] = []
 
@@ -214,6 +221,15 @@ export async function redactSecrets(text: string): Promise<RedactionResult> {
     matches,
     redactedCount: findings.length,
   }
+}
+
+/**
+ * `redactSecrets` without the secretlint preset, for a caller that cannot
+ * await: every structured log line. The Nuphos rule is one linear pass and
+ * already covers the key shapes, assignments, auth headers and entropy sweep.
+ */
+export function redactSecretsSync(text: string): string {
+  return replaceFindings(text, mergeFindings(findNuphosSecrets(text, PROFILES.everything)))
 }
 
 /** Replaces only well-known token shapes; leaves everything else readable. */

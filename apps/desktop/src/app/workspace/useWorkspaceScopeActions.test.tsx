@@ -7,7 +7,7 @@ import type { AgentPromptSeed } from '../../app/workspaceTabState'
 
 const TEAM = '0123456789abcdef01234567'
 
-// #3012: "Set up with agent" opens a new task with its prompt; from the Bots page
+// #3012: "Set up in a task" opens a new task with its prompt; from the Bots page
 // (the default) that task's composer was hidden, so the setup never sent.
 test('a chat opened with a prompt switches the sidebar to Tasks, where it sends', async () => {
   const { Window } = await import('happy-dom')

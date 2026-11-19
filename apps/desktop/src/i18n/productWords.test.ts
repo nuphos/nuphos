@@ -10,56 +10,27 @@ const SRC = join(import.meta.dirname, '..')
 const AWS_TERMS = new Set(['views/ecs/EcsInfrastructureView.tsx'])
 // Not reworded yet (#3250). Each batch removes its entries; the list ends empty.
 const NOT_YET = [
-  'components/BindingAccess.tsx',
-  'components/SidebarSlackPromo.tsx',
   'components/Toolbar.tsx',
   'components/sidebar/',
   'dashboards/',
   'design/',
   'lib/shortcutsCatalog.ts',
-  'lib/workspaceRowLink.tsx',
   'views/AgentMemoriesView.tsx',
   'views/ArchitectureView.tsx',
   'views/AuditLogView.tsx',
-  'views/BindAsanaDialog.tsx',
-  'views/BindDatabaseDialog.tsx',
-  'views/BindGithubDialog.tsx',
-  'views/BindJiraDialog.tsx',
-  'views/BindLinearDialog.tsx',
-  'views/BindOnpremClusterDialog.tsx',
-  'views/BindPlaudDialog.tsx',
-  'views/BindPosthogDialog.tsx',
-  'views/BindSentryDialog.tsx',
   'views/DesignsView.tsx',
   'views/DesktopPanes.tsx',
-  'views/GrafanaLogExplorerView.tsx',
   'views/InboxView.tsx',
-  'views/LarkSettingsView.tsx',
   'views/PlansView.tsx',
   'views/RuntimeFilesError.tsx',
   'views/RuntimeFilesView.tsx',
-  'views/SlackSettingsView.tsx',
-  'views/TailscalePrivateNetworkPanel.tsx',
   'views/TeamSkillsView.tsx',
   'views/TerminalView.tsx',
-  'views/addIntegrationCatalog.ts',
   'views/audit/',
-  'views/bind-account/',
-  'views/bind-onprem/',
-  'views/cloud/',
-  'views/connector-info/',
-  'views/database-connection/',
   'views/detail/',
-  'views/gcp-dashboard/',
-  'views/iam/',
-  'views/lark-settings/',
-  'views/members/',
   'views/memories/',
-  'views/mongo/',
-  'views/monitoring/',
   'views/plans/',
   'views/skills/',
-  'views/slack-settings/',
   'views/stats/',
   'views/triggers/',
 ]
@@ -104,4 +75,34 @@ test('no locale shows a bare "Agent" except for AWS', () => {
   )
 
   assert.deepEqual(bare, [])
+})
+
+// Every machine is a computer; there is no "cloud computer" (or cloud machine) beside it.
+const CLOUD_COMPUTER = [
+  /cloud[ -]?(?:computer|machine)/iu,
+  /(?:computer|machine)s? in the cloud/iu,
+  /雲端電腦|雲電腦|云电脑|云端电脑|雲端 ?Linux/u,
+  /クラウドコンピュータ|クラウド上の(?:Linux )?(?:マシン|コンピュータ)/u,
+  /클라우드 컴퓨터/u,
+  /(?:computadora|ordenador|máquina)\w* (?:Linux )?en la nube/iu,
+  /komputer cloud|(?:mesin|komputer) (?:Linux )?di cloud/iu,
+  /คอมพิวเตอร์คลาวด์|บนคลาวด์ที่มี/u,
+]
+const saysCloudComputer = (text: string) => CLOUD_COMPUTER.some((pattern) => pattern.test(text))
+
+test('no text or translation calls a computer a cloud computer', () => {
+  const found = [
+    ...sources.flatMap((path) =>
+      keys(path)
+        .filter((key) => saysCloudComputer(key))
+        .map((key) => `${path}: ${key}`),
+    ),
+    ...Object.entries(MESSAGES).flatMap(([code, messages]) =>
+      Object.entries(messages)
+        .filter(([key, value]) => saysCloudComputer(key) || saysCloudComputer(value))
+        .map(([key]) => `${code}: ${key}`),
+    ),
+  ]
+
+  assert.deepEqual(found, [])
 })
