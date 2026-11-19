@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
@@ -68,6 +69,35 @@ export function MarkdownImage({
   )
 }
 
+/** A reply file that could not be shown, for a reason a retry may fix. */
+function Unavailable({
+  previewable,
+  onRetry,
+  onDownload,
+}: {
+  previewable: boolean
+  onRetry: () => void
+  onDownload: () => void
+}) {
+  return (
+    <span role="status">
+      {previewable ? t('Preview unavailable') : t('Image unavailable or expired.')}{' '}
+      <button type="button" onClick={onRetry}>
+        {t('Retry')}
+      </button>
+      {previewable && (
+        <button type="button" className="ml-1" onClick={onDownload}>
+          {t('Download')}
+        </button>
+      )}
+    </span>
+  )
+}
+
+/** Past its lifetime the backend deletes a group: no retry brings it back. */
+const failureOf = (failure: unknown) =>
+  parseAtlasError(failure).code === 'transfer_not_found' ? 'gone' : 'error'
+
 /** Resolve a persisted group reference with the viewer's own credentials. */
 export function ReplyImage({
   groupId,
@@ -79,7 +109,7 @@ export function ReplyImage({
   alt?: string
 }) {
   const [group, setGroup] = useState<FileTransferGroup | null>(null)
-  const [error, setError] = useState(false)
+  const [failure, setFailure] = useState<'gone' | 'error' | null>(null)
   const [attempt, setAttempt] = useState(0)
   const [preview, setPreview] = useState<number | null>(null)
   const [now, setNow] = useState(Date.now)
@@ -92,8 +122,8 @@ export function ReplyImage({
       (result) => {
         if (active) setGroup(result)
       },
-      () => {
-        if (active) setError(true)
+      (reason: unknown) => {
+        if (active) setFailure(failureOf(reason))
       },
     )
 
@@ -114,7 +144,7 @@ export function ReplyImage({
 
   const retry = () => {
     setGroup(null)
-    setError(false)
+    setFailure(null)
     setAttempt((n) => n + 1)
   }
   const file = group?.files.find((item) => item.status === 'ready' && item.downloadUrl)
@@ -128,20 +158,11 @@ export function ReplyImage({
       .catch(() => toast.error(t('Could not download image')))
   }
 
-  if (!teamId || error || (group && !file))
-    return (
-      <span role="status">
-        {kind !== null ? t('Preview unavailable') : t('Image unavailable or expired.')}{' '}
-        <button type="button" onClick={retry}>
-          {t('Retry')}
-        </button>
-        {kind !== null && (
-          <button type="button" className="ml-1" onClick={download}>
-            {t('Download')}
-          </button>
-        )}
-      </span>
-    )
+  const expired = <span role="status">{t('File expired — no longer available.')}</span>
+
+  if (failure === 'gone') return expired
+  if (!teamId || failure || (group && !file))
+    return <Unavailable previewable={kind !== null} onRetry={retry} onDownload={download} />
   if (!group || !file || !url)
     return (
       <span
@@ -150,8 +171,7 @@ export function ReplyImage({
         className={`my-2 ${MEDIA_FRAME}`}
       />
     )
-  if (Date.parse(group.expiresAt) <= now)
-    return <span role="status">{t('Image expired — files are no longer available.')}</span>
+  if (Date.parse(group.expiresAt) <= now) return expired
 
   return (
     <span className="my-2 block">
@@ -160,7 +180,7 @@ export function ReplyImage({
         kind={kind}
         alt={alt}
         onOpen={() => setPreview(0)}
-        onError={() => setError(true)}
+        onError={() => setFailure('error')}
       />
       <span className="block text-xs text-tertiary">
         {t('Available until {time}.', { time: new Date(group.expiresAt).toLocaleString() })}{' '}
