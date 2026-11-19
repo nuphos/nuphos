@@ -29,6 +29,7 @@ const slackUsers: Record<string, { team_id: string; email: string; name: string 
   UEXT: { team_id: 'TOTHER', email: 'owner@example.com', name: 'Outsider' },
   UNEW: { team_id: 'T1', email: 'stranger@example.com', name: 'Stranger' },
   ULINKED: { team_id: 'T1', email: 'someone-else@example.com', name: 'Linked' },
+  UMEI: { team_id: 'T1', email: 'mei@example.com', name: 'Mei in Slack' },
 }
 // Slack accounts linked to Nuphos members, by Slack user id.
 const links: Record<string, { nuphosUserId: string; createdBy: string }> = {
@@ -63,7 +64,11 @@ useAgentDb({
 })
 useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
-  getTeamMembers: async () => [{ id: 'owner', name: 'Owner', email: 'owner@example.com' }] as never,
+  getTeamMembers: async () =>
+    [
+      { id: 'owner', name: 'Owner', email: 'owner@example.com' },
+      { id: 'mei', name: 'Mei', email: 'mei@example.com' },
+    ] as never,
 })
 useSlackInstallations({
   resolveSlackBotForWorkspace: async () => ({
@@ -167,6 +172,13 @@ describe('a Slack channel connected to a group chat', () => {
     await routeSlackToGroupChat(envelope({ user: 'ULINKED' }))
 
     expect(await lastRead()).toMatchObject({ sender: { id: 'owner', fromOwner: true } })
+  })
+
+  test("a teammate's Slack post is attributed to them, without adding them to the chat", async () => {
+    await routeSlackToGroupChat(envelope({ user: 'UMEI' }))
+
+    expect(await lastRead()).toMatchObject({ sender: { type: 'user', id: 'mei', name: 'Mei' } })
+    expect((await chat()).participantIds ?? []).not.toContain('mei')
   })
 
   test('a Slack Connect outsider whose email matches is only data, and still wakes the Bot', async () => {

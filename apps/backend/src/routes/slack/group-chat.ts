@@ -2,7 +2,6 @@ import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { replyQuote } from '@/lib/agent/channel-reply'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { isChannel } from '@/lib/agent/db/channels'
-import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackChannelMapping, getSlackUserMapping, markSlackEvent } from '@/lib/slack/agent-bot'
@@ -68,18 +67,14 @@ async function postFromSlack(
   const rootId = event.thread_ts && event.thread_ts !== ts ? event.thread_ts : undefined
   const replyTo = rootId && (await replyQuote(chat, slackPostId(slackChannelId, rootId)))
   const text = await resolveSlackMentionNames(bot.botToken, slackWorkspaceId, raw)
-  const posted = await postChannelMessage(chat, {
+
+  // Attributed to a teammate it may be, but posting from Slack adds no one to the chat.
+  return await postChannelMessage(chat, {
     // Slack's own id for the message, so a redelivery is the same post.
     id: slackPostId(slackChannelId, ts),
     text,
     metadata: replyTo ? { ...metadata, replyTo } : metadata,
   })
-
-  // Speaking in a chat is joining it, as it is in the app.
-  if (posted && !metadata.unattested && metadata.sender.id !== chat.userId)
-    await addConversationParticipants(chat.sessionId, [metadata.sender.id])
-
-  return posted
 }
 
 /** A person's words, with what they need to become a post: never this app's, another bot's, an edit or a join. */
