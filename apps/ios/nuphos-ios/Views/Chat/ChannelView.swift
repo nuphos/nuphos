@@ -8,6 +8,7 @@ struct ChannelView: View {
 
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var sizeClass
     /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
     var openTask: (String, String) -> Void = { _, _ in }
     @State private var canOpenTask = false
@@ -55,7 +56,6 @@ struct ChannelView: View {
             open(task.sessionId, title: task.displayTitle)
         }
         .environment(store)
-        .inspectorColumnWidth(min: 300, ideal: 340, max: 400)
     }
 
     /// Opens a Task over this chat, so Back returns here.
@@ -86,13 +86,21 @@ struct ChannelView: View {
     }
 
     var body: some View {
-        transcript
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.chatCanvas)
-            // Before the title and toolbar: wrapped by the inspector, they would leave
-            // the navigation bar on iPad.
-            .agentSummary(isPresented: $detailsOpen) {
-                if let botSession { details(of: botSession) }
+        // Wide, the Bot's details sit beside the live chat, closed by their ✕;
+        // compact, they come up as a sheet.
+        HStack(spacing: 0) {
+            transcript
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.chatCanvas)
+            if sizeClass == .regular, detailsOpen, let botSession {
+                Divider()
+                details(of: botSession).frame(width: 340)
+            }
+        }
+            .sheet(isPresented: Binding(get: { sizeClass != .regular && detailsOpen }, set: { detailsOpen = $0 })) {
+                if let botSession {
+                    details(of: botSession).presentationDetents([.large]).presentationDragIndicator(.visible)
+                }
             }
             .navigationTitle(channel.title)
             #if os(iOS)

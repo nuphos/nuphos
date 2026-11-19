@@ -110,8 +110,11 @@ struct AgentSummaryPanel: View {
                 }
                 SummaryCard("Triggers") {
                     if triggers.isEmpty {
-                        Text("Ask the agent to schedule recurring work in this task.")
-                            .foregroundStyle(Theme.body)
+                        Group {
+                            if isBotDetails { Text("Ask here to schedule recurring work.") }
+                            else { Text("Ask the agent to schedule recurring work in this task.") }
+                        }
+                        .foregroundStyle(Theme.body)
                     } else {
                         ForEach(triggers) { trigger in
                             Button { showTriggers = true } label: {

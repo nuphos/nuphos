@@ -126,6 +126,9 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         XCTAssertTrue(name.label.hasSuffix("1 needs input · 1 running"), "No state under the Bot's name: \(name.label)")
         XCTAssertFalse(app.navigationBars.buttons["bot-task-entry"].exists, "The header still has its own Task button")
+        // Once the chat and its agents have loaded, so the header and posts show the Bot's face.
+        _ = app.buttons["Release Lead"].waitForExistence(timeout: 5)
+        sleep(2)
         shot("4-bot-state")
 
         name.tap()
