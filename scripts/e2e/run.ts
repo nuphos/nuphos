@@ -61,7 +61,7 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors', exact: true }).click()
       await page.getByRole('button', { name: 'Add AWS' }).click()
-      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByRole('button', { name: /Set up in a task/ }).click()
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
       await until('the setup prompt to reach the agent', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),

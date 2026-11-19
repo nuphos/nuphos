@@ -103,7 +103,8 @@ export async function subtask({ log, sessionId, marker }) {
   const message = await call(sessionId, 'create_thread', {
     label: 'Hand off',
     title: `E2E ${kid.replace('-', ' ')}`,
-    prompt: `Reply E2E_DELIVERY:${kid}`,
+    // #3409's waits for its scenario's release, so it is still running when the sidebar lists it.
+    prompt: `Reply ${kid === 'unlisted-kid' ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
   })
 
   log({

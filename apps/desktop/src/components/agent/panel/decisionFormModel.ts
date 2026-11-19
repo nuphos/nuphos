@@ -11,16 +11,23 @@ export type DecisionFormInput = {
   questions?: DecisionQuestion[]
 }
 
-/**
- * The questions a card answers as a form, or null for one single-choice
- * question, which keeps its one-click options.
- */
-export function formQuestions(card: DecisionFormInput): DecisionQuestion[] | null {
+/** The questions a card answers: its own `questions`, or the one it asks. */
+export function formQuestions(card: DecisionFormInput): DecisionQuestion[] {
   if (card.questions?.length) return card.questions
-  if (card.multiSelect && card.options.length > 0)
-    return [{ question: card.question, options: card.options, multiSelect: true }]
 
-  return null
+  return [
+    { question: card.question, options: card.options, multiSelect: card.multiSelect === true },
+  ]
+}
+
+/**
+ * The options a click answers, which keys choose: those of one question with one answer, read
+ * from the question itself; none for a multi-select or several questions, which Send answers.
+ */
+export function clickOptions(questions: readonly DecisionQuestion[]): string[] | undefined {
+  const [first] = questions
+
+  return questions.length === 1 && first && !first.multiSelect ? first.options : undefined
 }
 
 /** Text on one line, as the written-out list has it. */
@@ -56,11 +63,6 @@ export function ownBody(
   return written && body?.endsWith(written)
     ? body.slice(0, -written.length).trim() || undefined
     : body
-}
-
-/** One question's answer in words: its picked options, or what was typed in their place. */
-export function answerText(picked: readonly string[], typed: string): string {
-  return typed.trim() || picked.join(', ')
 }
 
 /** What a form answers: one question's picks or typed text, or one entry per question. */

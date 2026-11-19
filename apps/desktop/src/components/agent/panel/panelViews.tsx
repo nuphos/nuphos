@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { useMemo, useRef } from 'react'
+import { useMemo, useState } from 'react'
 
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
@@ -77,7 +77,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
   const questions = c.openQuestions
-  const composerRef = useRef<HTMLDivElement>(null)
+  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
   const { agentMenu, turnSwitch } = useTurnFailureActions(c, runtimeControl)
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
@@ -193,6 +193,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       isTeamAdmin={isTeamAdmin}
                       currentUrl={url}
                       sidebar={isSidebarMode}
+                      composer={composer}
                       onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
                       onMessageFeedback={handleMessageFeedback}
                       // Only show docking where a sidebar host exists.
@@ -211,7 +212,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                 </TurnSwitchAgentContext.Provider>
               </ConnectCardContext.Provider>
             </div>
-            <div ref={composerRef} className="col-start-1 row-start-2 z-10">
+            <div ref={setComposer} className="col-start-1 row-start-2 z-10">
               <ChatColumn sidebar={isSidebarMode}>
                 {waitingMessages(activeTab).length > 0 && (
                   <QueuedStrip

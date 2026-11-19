@@ -15,10 +15,10 @@ export function RetiredBindingNotice({ principal }: { principal: 'role' | 'servi
         <div className="text-[12px] text-secondary leading-relaxed">
           {principal === 'role'
             ? t(
-                'This legacy role connection is retired and cannot be used by the agent. Remove it and connect a regular role if you need access to this cloud account.',
+                'This legacy role connection is retired and cannot be used by Bots and tasks. Remove it and connect a regular role if you need access to this cloud account.',
               )
             : t(
-                'This legacy service account connection is retired and cannot be used by the agent. Remove it and connect a regular service account if you need access to this cloud account.',
+                'This legacy service account connection is retired and cannot be used by Bots and tasks. Remove it and connect a regular service account if you need access to this cloud account.',
               )}
         </div>
       </div>
