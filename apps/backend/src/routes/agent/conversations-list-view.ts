@@ -53,21 +53,18 @@ export function restingRuntimeState(
   return stored ?? (liveRun ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
 }
 
-/** A live run as a list row shows it, with the channels it answers. */
+/** A live run on this replica as a list row shows it, with the channels it answers. */
 async function withChannels(
   conversation: ListedConversation,
-  run: ConversationActiveRun | null,
-): Promise<(ConversationActiveRun & { channelIds: string[] }) | null> {
-  if (!run) return null
-
-  try {
-    return {
-      streamId: run.streamId,
-      startedAt: run.startedAt ?? null,
-      channelIds: await runChannels({ ...conversation, streamId: run.streamId }),
-    }
-  } catch {
-    return null
+  run: ConversationActiveRun & { channelIds: string[] },
+): Promise<ConversationActiveRun & { channelIds: string[] }> {
+  return {
+    streamId: run.streamId,
+    startedAt: run.startedAt ?? null,
+    // A post steered in on another replica is only in the shared store; without it, the run's own.
+    channelIds: await runChannels({ ...conversation, streamId: run.streamId }).catch(
+      () => run.channelIds,
+    ),
   }
 }
 
