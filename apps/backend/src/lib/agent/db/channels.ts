@@ -20,6 +20,11 @@ export { chatName }
 export type ChannelFields = {
   /** Absent is an ordinary agent conversation. */
   kind?: 'channel'
+  /**
+   * A Slack channel's hidden record (#3702): the Bots talk in Slack, and no
+   * person ever sees it in Nuphos, so no listing returns it.
+   */
+  external?: 'slack'
   /** Started as a group chat: never a Bot's 1:1 chat, even with only one Bot in it. */
   group?: true
   agentSessionIds?: string[]

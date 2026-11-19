@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireGcpMemberAccess,
   requireGcpProject,
@@ -32,13 +33,7 @@ gcpProjectScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const serviceAccountId = c.get('gcpBinding').id
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { gcpServiceAccounts: { id: serviceAccountId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'gcpServiceAccounts', { id: serviceAccountId })
 
     return c.body(null, 204)
   },
