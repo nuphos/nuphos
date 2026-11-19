@@ -76,7 +76,22 @@ export function dupCaseScenarios(proxy: NetProxy): Scenario[] {
         await second.waitForLoadState()
         await second.getByRole('tabpanel', { name: 'Tasks' }).getByText('Dup two windows first').first().click({ timeout: 30_000 })
         await second.waitForTimeout(3000)
-        await send(second, b.prompt)
+        await second.screenshot({ path: `${artifacts}/dup2w-window2-opened.png` })
+        // The window's own composer: other panes it keeps mounted are inert.
+        const focused = await second.evaluate(() => {
+          const box = [...document.querySelectorAll<HTMLElement>('[aria-label="Message"]')].find(
+            (element) => !element.closest('[inert]') && element.checkVisibility(),
+          )
+
+          box?.focus()
+
+          return Boolean(box)
+        })
+
+        note(`two-windows: window2 has a live composer: ${String(focused)}`)
+        if (!focused) return
+        await second.keyboard.type(b.prompt)
+        await second.keyboard.press('Enter')
         const ackB = await ack(second, b.marker)
         await page.waitForTimeout(5000)
         await report(`after window2 sent (acked=${String(ackB)})`, [page, second])
