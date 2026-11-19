@@ -11,6 +11,7 @@ import {
   tokenUsageSplit,
   tokenUsageWindow,
   toggleFilter,
+  usageCacheCutoff,
 } from './tokenUsagePresentation.ts'
 
 import type { TeamUsageRow } from '../../types/usage'
@@ -161,4 +162,8 @@ test('other members’ private conversations show as one row, by that name', () 
   const [line] = tokenUsageLines([row({ conversation: OTHERS_PRIVATE }, 5)], 'conversation', names)
 
   assert.equal(line?.label, 'Other members’ private conversations')
+})
+
+test('the cutoff for cached tokens reads as a date and time in 2026', () => {
+  assert.match(usageCacheCutoff(), /2026/)
 })
