@@ -127,7 +127,8 @@ export function useSidebarChats({
   onBotArchiveSelect?: (key: string) => void
 }) {
   const client = useQueryClient()
-  const agentSessions = useAgentSessions(teamId).data ?? NONE
+  const listing = useAgentSessions(teamId)
+  const agentSessions = listing.data ?? NONE
   const refresh = useCallback(
     () => void client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) }),
     [client, teamId],
@@ -224,7 +225,15 @@ export function useSidebarChats({
 
   const newChatActive = chatShown && !agentSessionId
 
-  return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
+  return {
+    agentSessions,
+    // Nothing until a listing arrives: one still loading, or failed and polled again, is not empty.
+    chatItems: listing.data && chatItems,
+    newChatActive,
+    archiveChat,
+    unlinkChat,
+    archivingIds,
+  }
 }
 
 const NONE: AgentConversation[] = []

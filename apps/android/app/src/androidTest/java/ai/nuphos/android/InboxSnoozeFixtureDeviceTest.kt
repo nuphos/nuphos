@@ -75,26 +75,28 @@ class InboxSnoozeFixtureDeviceTest {
                 }
             }
         }
-        compose.onNodeWithText("Ship release 4.2 to production?").assertIsDisplayed()
+        compose.onNodeWithText("Ship release 4.2 to production?").assertIsDisplayed().performClick()
         capture("1-inbox-question")
-        compose.onAllNodesWithTag("bot-question-snooze")[0].performClick()
+        compose.onNodeWithTag("bot-question-snooze").performClick()
         compose.onNodeWithText("Tomorrow, 9:00").assertIsDisplayed()
         capture("2-snooze-menu")
         compose.onNodeWithText("Tomorrow, 9:00").performClick()
         compose.waitUntil(5_000) { source.snoozed.isNotEmpty() }
         assertEquals("q-ship", source.snoozed.single().first)
-        compose.onNodeWithTag("inbox-snoozed").assertIsDisplayed()
+        compose.onNodeWithTag("inbox-detail").assertIsDisplayed()
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").performTextInput("We deploy the docs from CI now.")
         capture("3-dismiss-reason")
         compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Back").performClick()
         capture("4-snoozed-section")
         compose.onNodeWithTag("inbox-unsnooze").performClick()
         compose.waitUntil(5_000) { source.snoozed.size == 2 }
         assertEquals(null, source.snoozed.last().second)
         compose.onNodeWithTag("inbox-snoozed").assertDoesNotExist()
         // The reason typed before Cancel is still there.
-        compose.onAllNodesWithTag("bot-question-dismiss")[1].performClick()
+        compose.onNodeWithText("Which region should the docs site deploy to?").performClick()
+        compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").assertTextContains("We deploy the docs from CI now.")
         // The test clock would otherwise skip the Undo window while waiting for idle.
         // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468):
@@ -128,7 +130,7 @@ class InboxSnoozeFixtureDeviceTest {
             }
         }
         // The masked field itself is SecretQuestionFixtureDeviceTest's; here, the card's own Snooze and Dismiss.
-        compose.onNodeWithText("The rollout needs a deploy token.").assertIsDisplayed()
+        compose.onNodeWithText("The rollout needs a deploy token.").assertIsDisplayed().performClick()
         compose.onNodeWithTag("bot-question-snooze").assertIsDisplayed()
         capture("7-inbox-secret")
         compose.onNodeWithTag("bot-question-dismiss").performClick()

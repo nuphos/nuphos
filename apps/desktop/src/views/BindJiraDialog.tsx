@@ -75,7 +75,7 @@ export function BindJiraDialog({ open, teamId, onClose, onBound }: Props) {
       onClose={close}
       title={t('Connect {name}', { name: 'Jira' })}
       description={t(
-        'Authorize Nuphos to read and create issues in your Jira site so the agent can open, comment on, and transition tickets.',
+        'Authorize Nuphos to read and create issues in your Jira site so it can open, comment on, and transition tickets.',
       )}
       width={460}
     >

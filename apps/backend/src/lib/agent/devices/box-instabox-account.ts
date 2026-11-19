@@ -80,7 +80,15 @@ async function readMe(apiUrl: string, apiKey: string, retried = false): Promise<
   return readMe(apiUrl, apiKey, true)
 }
 
-/** The sizes an instabox key may start, smallest first: its account's `allowedSpecs`. */
+/** How long sizes read from an account are used before being read again. */
+const SIZES_FRESH_MS = 10 * 60_000
+const knownSizes = new Map<string, { sizes: BoxSize[]; readAt: number }>()
+
+/**
+ * The sizes an instabox key may start, smallest first: its account's `allowedSpecs`. They change
+ * only with the account's plan, so a create uses those read in the last 10 minutes, and the last
+ * known ones when reading them again fails. A key instabox refuses is refused.
+ */
 export async function accountSizes({
   apiKey,
   apiUrl = DEFAULT_API_URL,
@@ -88,6 +96,26 @@ export async function accountSizes({
   apiKey: string
   apiUrl?: string
 }): Promise<BoxSize[]> {
+  const key = `${apiUrl}\n${apiKey}`
+  const known = knownSizes.get(key)
+
+  if (known && Date.now() - known.readAt < SIZES_FRESH_MS) return known.sizes
+  try {
+    const sizes = await readSizes(apiUrl, apiKey)
+
+    knownSizes.set(key, { sizes, readAt: Date.now() })
+
+    return sizes
+  } catch (error) {
+    if (!known || error instanceof AppError) throw error
+    // Tried for the next 10 minutes too, so an outage costs one create a wait, not every one.
+    known.readAt = Date.now()
+
+    return known.sizes
+  }
+}
+
+async function readSizes(apiUrl: string, apiKey: string): Promise<BoxSize[]> {
   const response = await readMe(apiUrl, apiKey)
 
   if (response.status === 401 || response.status === 403)

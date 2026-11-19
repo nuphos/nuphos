@@ -47,7 +47,7 @@ export function TestResultPanel({ testResult }: { testResult: DatabaseConnection
       </div>
       {writeCapable && (
         <div className="mt-1.5 text-tertiary">
-          The credential can write, but Agent access is still limited to the selected metadata or
+          The credential can write, but Bots and tasks are still limited to the selected metadata or
           read-only gateway policy.
         </div>
       )}
