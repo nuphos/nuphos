@@ -95,7 +95,7 @@ export function PersonalConnectors({
                         </Tooltip>
                         <span className="sr-only">{t('Connected:')} </span>
                         <OverflowMarquee
-                          text={t('Connected as {login}', { login: credential.login })}
+                          text={`${t('Only me')} · ${t('Connected as {login}', { login: credential.login })}`}
                           className="min-w-0"
                         />
                       </span>

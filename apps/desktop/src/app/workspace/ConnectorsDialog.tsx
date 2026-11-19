@@ -95,13 +95,11 @@ function TeamConnectorsDialog({
       open={open}
       onClose={close}
       title={detail?.name ?? t('Connectors')}
-      // The body's own heading names it on screen; the title stays for screen readers.
-      titleHidden
       width={920}
       fillHeight
       focusFirstControl={false}
       headerInset="wide"
-      headerDivider={false}
+      headerDivider
       headerLeading={
         detail ? (
           <button
