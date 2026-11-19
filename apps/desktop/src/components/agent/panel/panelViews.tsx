@@ -193,6 +193,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       isTeamAdmin={isTeamAdmin}
                       currentUrl={url}
                       sidebar={isSidebarMode}
+                      composerRef={composerRef}
                       onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
                       onMessageFeedback={handleMessageFeedback}
                       // Only show docking where a sidebar host exists.

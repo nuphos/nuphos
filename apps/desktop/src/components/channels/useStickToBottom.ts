@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 
+import { useComposerOverlay } from '../agent/panel/composerOverlay'
 import { AUTO_SCROLL_BOTTOM_THRESHOLD } from '../agent/panel/model'
 
 import { stillStuck } from './followBottom'
@@ -13,12 +14,24 @@ import type { RefObject } from 'react'
  * threshold a conversation uses. Only the reader scrolling up lets go
  * (stillStuck). Returns a jump back.
  *
+ * Its end keeps room for the bars floating above `composer` (a status banner,
+ * the reply bar), so the newest post stays whole above them.
+ *
  * While it follows, the bottom is the anchor, so the browser's scroll anchoring
  * is off: when a full chat drops its oldest post as a reply lands, anchoring
  * would move the view up by that post, which reads as the reader leaving.
  */
-export function useStickToBottom(ref: RefObject<HTMLDivElement | null>) {
+export function useStickToBottom(
+  ref: RefObject<HTMLDivElement | null>,
+  composer: RefObject<HTMLElement | null>,
+) {
   const stuck = useRef(true)
+  const room = useComposerOverlay(composer)
+
+  // The scroller's box shrinks by it, so a reader at the bottom stays there.
+  useLayoutEffect(() => {
+    if (ref.current) ref.current.style.paddingBottom = `calc(1rem + ${String(room)}px)`
+  }, [ref, room])
 
   useEffect(() => {
     const scroller = ref.current
