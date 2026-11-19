@@ -350,6 +350,7 @@
   "Annotations": "คำอธิบายประกอบ",
   "Another runtime on this computer already has this name.": "มีรันไทม์อื่นบนคอมพิวเตอร์นี้ใช้ชื่อนี้แล้ว",
   "Answer in the secure card below. Never paste a secret in a message.": "ตอบในการ์ดที่ปลอดภัยด้านล่าง อย่าวางข้อมูลลับลงในข้อความ",
+  "Answered in Inbox": "ตอบในกล่องข้อความ",
   "Answered {answered} from the Inbox": "ตอบเมื่อ {answered} จากกล่องข้อความ",
   "Answered “{answer}”": "ตอบแล้ว “{answer}”",
   "Answered: {answer}": "ตอบแล้ว: {answer}",

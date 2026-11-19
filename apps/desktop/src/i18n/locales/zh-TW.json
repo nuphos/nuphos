@@ -350,6 +350,7 @@
   "Annotations": "註解",
   "Another runtime on this computer already has this name.": "此電腦上已有其他執行環境使用這個名稱。",
   "Answer in the secure card below. Never paste a secret in a message.": "請在下方的安全卡片中回答，切勿把密鑰貼到訊息裡。",
+  "Answered in Inbox": "已在收件匣回答",
   "Answered {answered} from the Inbox": "{answered} 於收件匣回答",
   "Answered “{answer}”": "已回答「{answer}」",
   "Answered: {answer}": "已回答：{answer}",
