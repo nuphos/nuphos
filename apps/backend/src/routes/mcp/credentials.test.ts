@@ -34,10 +34,12 @@ const options = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
-  personalCredentials: [{ provider: 'github', label: 'me' }],
+  personalCredentials: [{ provider: 'github', login: 'me' }],
   devices: [{ deviceId: 'mac', label: 'Mac', platform: 'darwin', available: false }],
   ...emptyConnectorCredentialOptions(),
-  githubInstallations: [{ installationId: '123', accountLogin: 'example' }],
+  githubInstallations: [
+    { installationId: '123', accountLogin: 'example', accountType: 'Organization' },
+  ],
 } as AgentCredentialOptions
 
 // The stored conversation. The tool reads a snapshot; the picker can edit the
@@ -130,12 +132,12 @@ test('updates GitHub selection and identity through the shared credential resolv
     personalCredentialIds: ['github'],
     teamIdentity: ['github'],
   })
-  const payload = JSON.parse(result.content[0].text)
-
-  expect(payload.enabled_for_session).toMatchObject({
-    github_installation_ids: ['123'],
-    personal_credential_ids: ['github'],
-    team_identity: ['github'],
+  expect(result.structuredContent).toMatchObject({
+    enabled_for_session: {
+      github_installation_ids: ['123'],
+      personal_credential_ids: ['github'],
+      team_identity: ['github'],
+    },
   })
 })
 
