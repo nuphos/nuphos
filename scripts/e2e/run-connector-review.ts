@@ -23,7 +23,7 @@ try {
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${artifacts}/real-shared-connections.png` })
   await dialog.getByRole('button', { name: 'Back', exact: true }).click()
-  await dialog.getByRole('button', { name: 'Open GitHub', exact: true }).click()
+  await dialog.getByRole('button', { name: /^(Open|Add) GitHub$/ }).click()
   await page
     .getByText('Commits, PRs', { exact: false })
     .waitFor({ timeout: 1000 })
@@ -31,7 +31,10 @@ try {
   await page.waitForTimeout(1200)
   await page.screenshot({ path: `${artifacts}/real-service-detail.png` })
   await page.getByRole('dialog').getByRole('button', { name: 'Close modal', exact: true }).click()
-  console.log('OTHER_DIALOG_CANDIDATES', await page.getByRole('button').allTextContents())
+  await page.getByRole('button', { name: 'New Bot', exact: true }).first().click()
+  await page.getByRole('textbox', { name: 'Bot name' }).waitFor()
+  await page.waitForTimeout(700)
+  await page.screenshot({ path: `${artifacts}/real-other-modal.png` })
   console.log('PASS real Electron app captures')
 } finally {
   await desktop?.close()
