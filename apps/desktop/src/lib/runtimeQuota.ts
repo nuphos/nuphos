@@ -61,33 +61,30 @@ export function quotaSummary(quota: RuntimeQuota | undefined): string | null {
   return t('{percent}% left', { percent: quotaLeftPercent(worst) })
 }
 
-function formatClock(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
-}
+/** "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nothing when the
+ *  reset is unknown or already past. Every usage bar and usage-limit notice uses it. */
+export function formatResetsIn(
+  resetsAt: string | null | undefined,
+  now: Date = new Date(),
+): string | null {
+  const ms = Date.parse(resetsAt ?? '') - now.getTime()
 
-function formatWeekday(date: Date): string {
-  return date.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })
-}
+  // NaN, for an unknown or unreadable time, fails this as well as a past one.
+  if (Number.isNaN(ms) || ms <= 0) return null
+  const total = Math.ceil(ms / 60_000)
+  const days = Math.floor(total / 1440)
+  const hours = Math.floor((total % 1440) / 60)
+  const minutes = total % 60
+  let time = t('{minutes}m', { minutes })
 
-export function formatResetsAt(resetsAt: string | null, now: Date): string | null {
-  if (!resetsAt) return null
-  const at = new Date(resetsAt)
+  if (days > 0) time = t('{days}d {hours}h', { days, hours })
+  else if (hours > 0) time = t('{hours}h {minutes}m', { hours, minutes })
 
-  if (Number.isNaN(at.getTime())) return null
-  const deltaMinutes = Math.round((at.getTime() - now.getTime()) / 60_000)
-
-  if (deltaMinutes <= 0) return t('resets now')
-  if (deltaMinutes >= 24 * 60) return t('resets {when}', { when: formatWeekday(at) })
-  const hours = Math.floor(deltaMinutes / 60)
-  const minutes = deltaMinutes % 60
-  const relative =
-    hours > 0 ? t('{hours}h {minutes}m', { hours, minutes }) : t('{minutes}m', { minutes })
-
-  return t('resets in {time} ({clock})', { time: relative, clock: formatClock(at) })
+  return t('resets in {time}', { time })
 }
 
 export function quotaWindowLine(window: RuntimeQuotaWindow, now: Date): string {
-  const reset = formatResetsAt(window.resetsAt, now)
+  const reset = formatResetsIn(window.resetsAt, now)
   const left = t('{name}: {percent}% left', {
     name: window.label,
     percent: quotaLeftPercent(window),

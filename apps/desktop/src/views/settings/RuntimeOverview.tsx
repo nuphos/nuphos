@@ -1,7 +1,7 @@
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { t } from '../../i18n'
 import {
-  formatResetsAt,
+  formatResetsIn,
   quotaLeftPercent,
   quotaNote,
   quotaWindowTone,
@@ -24,7 +24,7 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
       {note && <PanelStat label={t('Usage')}>{note}</PanelStat>}
       {quota?.available &&
         quota.windows.map((window) => {
-          const reset = formatResetsAt(window.resetsAt, new Date())
+          const reset = formatResetsIn(window.resetsAt)
           const left = quotaLeftPercent(window)
           const tone = quotaWindowTone(window)
 

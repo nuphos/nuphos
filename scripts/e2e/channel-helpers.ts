@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { pickInSubmenu } from './ui.ts'
+import { openComputers, pickInSubmenu } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
@@ -35,10 +35,11 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
     host.addEventListener('open', opened)
     host.addEventListener('error', failed)
   })
-  const resetsAt = new Date(Date.now() + 3 * 3_600_000).toISOString()
+  const at = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString()
+  // Under a day and over one, so both forms of "resets in" show (#3732).
   const usage = {
-    five_hour: { utilization: 35, resets_at: resetsAt },
-    seven_day: { utilization: 20, resets_at: resetsAt },
+    five_hour: { utilization: 35, resets_at: at(3) },
+    seven_day: { utilization: 20, resets_at: at(2 * 24 + 5.5) },
   }
 
   host.send(
@@ -86,6 +87,28 @@ export async function shootRuntimeLine(page: Page, name: string) {
   await page.locator('.composer-surface:visible').last().screenshot({ path })
 
   return (await bar.count()) > 0
+}
+
+/** #3732: the Computers page's agent row and the agent's own page each say when
+ *  the usage resets, in days past a day and in hours under one. */
+export async function shootUsageResets(page: Page, computer: string) {
+  await openComputers(page)
+  const row = page.getByRole('button', { name: /Claude Code/ }).filter({ hasText: computer })
+
+  await row.first().waitFor({ timeout: 30_000 })
+  for (const time of [/^resets in 2d 5h$/u, /^resets in (2h 5\dm|3h 0m)$/u])
+    await row.first().getByText(time).first().waitFor({ timeout: 30_000 })
+  await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
+  await row.first().click()
+  const card = page.locator('section[aria-label]').filter({ hasText: computer }).first()
+
+  await card
+    .getByText(/^resets in 2d 5h$/u)
+    .first()
+    .waitFor({ timeout: 30_000 })
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: `${artifacts}/usage-resets-agent-light.png` })
+  await page.getByText('Back to app', { exact: true }).click()
 }
 
 export type ListedConversation = {
