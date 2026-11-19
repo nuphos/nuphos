@@ -46,7 +46,7 @@ import { answeringIds } from './decision-reply'
 import { serializeMessageDoc } from './errors'
 import { agent } from './router'
 import { getLocalActiveAgentRun } from './run-registry'
-import { settingsAgents, settingsTimelineLines, settingsUserIds } from './settings-history-view'
+import { conversationSettingsLines, settingsUserIds } from './settings-history-view'
 import { normalizeOptionalTeamId, readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 agent.get('/conversations', async (c) => {
@@ -206,10 +206,7 @@ agent.get('/conversations/:sessionId', async (c) => {
     ...timelineEventUserIds(result.conversation.timelineEvents),
     ...settingsUserIds(result.conversation.settingsHistory),
   ])
-  const settingsLines = settingsTimelineLines(result.conversation.settingsHistory, {
-    owners: ownerById,
-    agents: await settingsAgents(result.conversation.settingsHistory),
-  })
+  const settingsLines = await conversationSettingsLines(result.conversation, ownerById)
   let slackThreadLookupFailed = false
   const slackThreadRecord = await getSlackAgentThreadBySessionId(sessionId).catch(
     (err: unknown) => {

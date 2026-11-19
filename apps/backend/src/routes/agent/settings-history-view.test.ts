@@ -1,22 +1,131 @@
 import { expect, test } from 'bun:test'
 
-import { serializeSettingsHistory, settingsTimelineLines } from './settings-history-view'
+import { serializeSettingsHistory } from './settings-history-view'
+import { settingsTimelineLines } from './settings-lines'
 
 import type { SettingsChange } from '@/lib/agent/db/settings-history'
 
 const at = (minute: number) => new Date(Date.UTC(2026, 10, 18, 3, minute))
 const lookup = {
   owners: new Map([['yuan', { id: 'yuan', name: 'Yuanlin', email: '', avatarURL: 'a.png' }]]),
-  agents: new Map([['eh', { sessionId: 'eh', title: 'Engineering Head' }]]),
+  agents: new Map([
+    [
+      'notes',
+      {
+        sessionId: 'notes',
+        title: 'Release notes for the November desktop and mobile apps',
+        provider: 'codex' as const,
+      },
+    ],
+  ]),
 }
 const sol = { value: 'gpt-6.2-sol', name: 'GPT-6.2-Sol' }
 const astra = { value: 'gpt-6.2-astra', name: 'GPT-6.2-Astra' }
 const low = { value: 'low', name: 'Low' }
-const medium = { value: 'medium', name: 'Medium' }
-const history: SettingsChange[] = [
-  { at: at(0), actorId: 'system', via: 'placement', runtime: { to: { id: 'cc', label: 'Box' } } },
-  {
-    at: at(22),
+const high = { value: 'high', name: 'High' }
+const on = { value: 'on' }
+const off = { value: 'off' }
+const placed: SettingsChange = {
+  at: at(0),
+  actorId: 'system',
+  via: 'placement',
+  runtime: { to: { id: 'cc', label: 'Box', provider: 'claude-code' } },
+}
+const pick = (minute: number, change: Partial<SettingsChange>): SettingsChange => ({
+  at: at(minute),
+  actorId: 'yuan',
+  via: 'picker',
+  client: 'desktop',
+  ...change,
+})
+const texts = (changes: SettingsChange[], times: number[] = []) =>
+  settingsTimelineLines(changes, lookup, times.map(at)).map((line) => line.text)
+
+test('a new Task shows nothing for what its agent filled in', () => {
+  expect(
+    texts([
+      placed,
+      { at: at(1), actorId: 'system', via: 'session_start', effort: { to: low } },
+      {
+        at: at(2),
+        actorId: 'system',
+        via: 'runtime_reported',
+        model: { to: sol },
+        fast: { to: off },
+      },
+    ]),
+  ).toEqual([])
+})
+
+test('a person’s change names the setting as the picker does, and the line carries the rest', () => {
+  const lines = settingsTimelineLines(
+    [
+      placed,
+      pick(1, { model: { from: sol, to: astra } }),
+      pick(5, { fast: { from: off, to: on } }),
+    ],
+    lookup,
+    [at(3)],
+  )
+
+  expect(lines.map((line) => line.text)).toEqual([
+    'Yuanlin changed the model from GPT-6.2-Sol to GPT-6.2-Astra',
+    'Yuanlin turned fast mode on',
+  ])
+  expect(lines[0]).toMatchObject({
+    kind: 'settings_changed',
+    by: { type: 'person', id: 'yuan', name: 'Yuanlin', avatarURL: 'a.png' },
+    form: 'changed',
+    settings: [{ setting: 'model', from: 'GPT-6.2-Sol', to: 'GPT-6.2-Astra' }],
+    via: 'picker',
+    client: 'desktop',
+  })
+})
+
+test('one save of several settings is one line with the new values', () => {
+  expect(
+    texts([placed, pick(1, { model: { from: sol, to: astra }, effort: { from: low, to: high } })]),
+  ).toEqual(['Yuanlin changed the model to GPT-6.2-Astra and effort to High'])
+})
+
+test('consecutive changes by one actor with no message between are one net change', () => {
+  const changes = [
+    placed,
+    pick(1, { model: { from: sol, to: astra } }),
+    pick(2, { effort: { from: low, to: high } }),
+    pick(3, { model: { from: astra, to: { value: 'gpt-6.2-nova', name: 'GPT-6.2-Nova' } } }),
+  ]
+  const [line] = settingsTimelineLines(changes, lookup)
+
+  expect(line?.text).toBe('Yuanlin changed the model to GPT-6.2-Nova and effort to High')
+  // The tooltip gets the whole change of each setting.
+  expect(line).toMatchObject({
+    at: at(3).toISOString(),
+    settings: [
+      { setting: 'model', from: 'GPT-6.2-Sol', to: 'GPT-6.2-Nova' },
+      { setting: 'effort', from: 'Low', to: 'High' },
+    ],
+  })
+  // A message between them keeps them apart.
+  expect(texts(changes, [2])).toEqual([
+    'Yuanlin changed the model from GPT-6.2-Sol to GPT-6.2-Astra',
+    'Yuanlin changed the model to GPT-6.2-Nova and effort to High',
+  ])
+})
+
+test('changes that undo each other show nothing', () => {
+  expect(
+    texts([
+      placed,
+      pick(1, { model: { from: sol, to: astra } }),
+      pick(2, { model: { from: astra, to: sol } }),
+    ]),
+  ).toEqual([])
+})
+
+test('what the new agent picks right after a move goes on the move line', () => {
+  const moved: SettingsChange = {
+    at: at(10),
     actorId: 'yuan',
     via: 'runtime_move',
     client: 'desktop',
@@ -25,85 +134,104 @@ const history: SettingsChange[] = [
       to: { id: 'mini', label: 'Mac Mini', provider: 'codex' },
     },
     model: { from: { value: 'opus' } },
-  },
-  { at: at(23), actorId: 'yuan', via: 'picker', client: 'desktop', model: { to: sol } },
-  { at: at(30), actorId: 'system', via: 'session_start', effort: { to: low } },
-  {
-    at: at(40),
-    actorId: 'yuan',
-    agentSessionId: 'eh',
-    via: 'update_thread',
-    model: { from: sol, to: astra },
-    effort: { from: low, to: medium },
-  },
-  {
-    at: at(50),
+  }
+  const filled: SettingsChange = {
+    at: at(11),
     actorId: 'system',
-    via: 'runtime_reported',
-    fast: { from: { value: 'on' }, to: { value: 'off' } },
-  },
-]
-
-test('each change is a line between the messages, naming who, what and from where', () => {
-  const lines = settingsTimelineLines(history, lookup)
+    via: 'session_start',
+    model: { to: sol },
+    effort: { to: low },
+    fast: { to: off },
+  }
+  const lines = settingsTimelineLines([placed, moved, filled], lookup)
 
   expect(lines.map((line) => [line.kind, line.text])).toEqual([
-    ['runtime_moved', 'Yuanlin moved this session from Box to Mac Mini'],
-    [
-      'settings_changed',
-      'Yuanlin changed the model back to the agent’s default (was opus) · Desktop',
-    ],
-    ['settings_changed', 'Yuanlin changed the model to GPT-6.2-Sol · Desktop'],
-    ['settings_changed', 'The session started with effort Low'],
-    [
-      'settings_changed',
-      'Engineering Head (for Yuanlin) changed the model from GPT-6.2-Sol to GPT-6.2-Astra, effort from Low to Medium · update_thread',
-    ],
-    ['settings_changed', 'The agent changed its fast mode from on to off'],
+    ['runtime_moved', 'Yuanlin moved this session from Box to Mac Mini · GPT-6.2-Sol · Low'],
   ])
-  // A session that names its settings only after its first turn reads as having started on them.
-  const [first] = settingsTimelineLines(
-    [{ at: at(5), actorId: 'system', via: 'runtime_reported', model: { to: sol } }],
-    lookup,
-  )
-
-  expect(first?.text).toBe('The session started with model GPT-6.2-Sol')
-  // What a client needs to draw the line its own way.
-  expect(lines[2]).toMatchObject({
-    via: 'picker',
-    client: 'desktop',
-    actor: { id: 'yuan', name: 'Yuanlin', avatarURL: 'a.png' },
-    model: { to: sol },
+  expect(lines[0]).toMatchObject({
+    picks: [
+      { setting: 'model', to: 'GPT-6.2-Sol' },
+      { setting: 'effort', to: 'Low' },
+    ],
+    via: 'runtime_move',
   })
-  expect(lines[3]).not.toHaveProperty('actor')
-  expect(lines[4]).toMatchObject({ agentSessionId: 'eh', via: 'update_thread' })
+  // After another change, the agent's picks are a line of their own, fast mode only when on.
+  expect(
+    texts([
+      placed,
+      moved,
+      pick(11, { effort: { to: high } }),
+      { ...filled, at: at(12), fast: { to: on } },
+    ]),
+  ).toEqual([
+    'Yuanlin moved this session from Box to Mac Mini',
+    'Yuanlin changed effort to High',
+    'Codex set GPT-6.2-Sol · Low · fast mode on',
+  ])
 })
 
-test('a fallback move says why, and a change no one asked for says when', () => {
-  const lines = settingsTimelineLines(
+test('a Task’s change names the Task, cut short, and the person it acted for', () => {
+  const [line] = settingsTimelineLines(
     [
+      placed,
       {
-        at: at(0),
-        actorId: 'system',
-        via: 'runtime_fallback',
-        reason: 'quota',
-        runtime: { from: { id: 'a', label: 'Box' }, to: { id: 'b', label: 'Mini' } },
-        effort: { from: low },
+        at: at(1),
+        actorId: 'yuan',
+        agentSessionId: 'notes',
+        via: 'update_thread',
+        model: { from: sol, to: astra },
       },
     ],
     lookup,
   )
 
+  expect(line).toMatchObject({
+    text: 'Release notes for the November desktop… (a Task) changed the model from GPT-6.2-Sol to GPT-6.2-Astra',
+    by: {
+      type: 'task',
+      sessionId: 'notes',
+      title: 'Release notes for the November desktop and mobile apps',
+      provider: 'codex',
+    },
+    actingFor: 'Yuanlin',
+    via: 'update_thread',
+  })
+})
+
+test('a fallback move keeps its line, and the agent’s own change names the agent', () => {
+  const lines = settingsTimelineLines(
+    [
+      placed,
+      {
+        at: at(1),
+        actorId: 'system',
+        via: 'runtime_fallback',
+        reason: 'quota',
+        runtime: {
+          from: { id: 'a', label: 'Box', provider: 'claude-code' },
+          to: { id: 'b', label: 'Mini', provider: 'codex' },
+        },
+        effort: { from: low },
+      },
+      { at: at(5), actorId: 'system', via: 'runtime_reported', fast: { from: on, to: off } },
+    ],
+    lookup,
+    [at(3)],
+  )
+
   expect(lines.map((line) => line.text)).toEqual([
     'Box was low on usage, so this session moved to Mini',
-    'Effort back to the agent’s default (was Low) after a fallback move',
+    'Codex turned fast mode off',
   ])
 })
 
 test('the API lists every record oldest first, with moves recorded before the history began', () => {
   const changes = serializeSettingsHistory(
     {
-      settingsHistory: history.slice(2, 4),
+      settingsHistory: [
+        pick(23, { model: { to: sol } }),
+        { at: at(30), actorId: 'system', via: 'session_start', effort: { to: low } },
+      ],
       timelineEvents: [
         {
           kind: 'runtime_moved',
@@ -136,26 +264,14 @@ test('the API lists every record oldest first, with moves recorded before the hi
       via: 'picker',
       client: 'desktop',
       model: { to: sol },
-      text: 'Yuanlin changed the model to GPT-6.2-Sol · Desktop',
+      text: 'Yuanlin changed the model to GPT-6.2-Sol',
     },
     {
       at: at(30).toISOString(),
       actor: { type: 'system' },
       via: 'session_start',
       effort: { to: low },
-      text: 'The session started with effort Low',
+      text: 'The agent set Low',
     },
   ])
-})
-
-test('an agent’s change names the agent and the person it acted for', () => {
-  const [change] = serializeSettingsHistory({ settingsHistory: [history[4]!] }, lookup)
-
-  expect(change?.actor).toEqual({
-    type: 'agent',
-    userId: 'yuan',
-    name: 'Yuanlin',
-    agentSessionId: 'eh',
-    agentTitle: 'Engineering Head',
-  })
 })
