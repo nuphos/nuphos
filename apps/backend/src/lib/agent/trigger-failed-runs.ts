@@ -59,7 +59,7 @@ async function recordFailedFire(
   if (!trigger || (trigger.failedRunCount ?? 0) < PAUSE_AFTER_FAILED_RUNS) return
   const notice = `Paused after ${PAUSE_AFTER_FAILED_RUNS} runs in a row failed. ${reason} Then turn the Trigger back on.`
 
-  if (!(await pauseTrigger(trigger, notice, new Date(), deps.triggers))) return
+  if (!(await pauseTrigger(trigger, notice, new Date(), deps.triggers, 'failed_runs'))) return
   logEvent('warn', 'agent.trigger.paused_after_failures', {
     trigger_id: triggerId,
     team_id: trigger.teamId,

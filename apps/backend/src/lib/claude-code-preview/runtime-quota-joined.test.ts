@@ -13,7 +13,7 @@ const claude: RuntimeInstance = {
   provider: 'claude-code',
   label: 'Claude',
   status: 'active',
-  kind: 'managed',
+  kind: 'external',
   createdAt: usageAt,
 }
 

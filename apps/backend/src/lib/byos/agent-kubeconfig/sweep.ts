@@ -143,10 +143,18 @@ export async function addRelayedContexts(opts: {
  * this account — the account holds no clusters, and none can appear until
  * someone enables the API.
  */
-function kubernetesServiceDisabled(err: unknown): boolean {
-  if (err instanceof AppError) return err.code === 'gcp_api_disabled'
+function kubernetesUnavailableReason(err: unknown): string | null {
+  const reason = (err as { reason?: unknown } | null | undefined)?.reason
 
-  return (err as { reason?: unknown } | null | undefined)?.reason === 'SERVICE_DISABLED'
+  if (
+    reason === 'BILLING_DISABLED' ||
+    (err instanceof AppError && err.code === 'gcp_billing_disabled')
+  )
+    return 'billing_disabled'
+  if (reason === 'SERVICE_DISABLED' || (err instanceof AppError && err.code === 'gcp_api_disabled'))
+    return 'service_disabled'
+
+  return null
 }
 
 /**
@@ -160,8 +168,10 @@ export function reportSweepFailure(
 ): void {
   const properties = { provider: ctx.provider, team_id: ctx.teamId, account: ctx.account }
 
-  if (kubernetesServiceDisabled(err)) {
-    logEvent('info', 'agent.kubeconfig.no_clusters', { ...properties, reason: 'service_disabled' })
+  const reason = ctx.provider === 'gcp' ? kubernetesUnavailableReason(err) : null
+
+  if (reason) {
+    logEvent('info', 'agent.kubeconfig.no_clusters', { ...properties, reason })
 
     return
   }

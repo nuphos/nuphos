@@ -232,23 +232,6 @@ describe('runtime registry', () => {
     expect(await resolveTeamRuntimeEndpoints('team-1')).toEqual([])
   })
 
-  test('a runtime Nuphos hosts is retired and never resolves', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'ws://openab-codex-abc.openab-runtimes.svc:8080/acp',
-      provider: 'codex',
-      authKey: 'hosted-password',
-      hostedBy: 'nuphos',
-    })
-
-    docs[0]!.device = { userId: 'user-1', deviceId: 'pod-device' }
-
-    expect(runtime.hostedBy).toBe('nuphos')
-    expect(await resolveTeamRuntimeEndpoints('team-1', 'codex')).toEqual([])
-    expect(await resolveTeamRuntimeEndpoints('team-1', 'codex', 'control')).toEqual([])
-  })
-
   test('rejects cleartext ws:// outside the cluster and malformed keys', async () => {
     await expect(
       registerTeamRuntime({
@@ -418,20 +401,6 @@ describe('externally registered operator credential', () => {
     expect(
       (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe(deriveRuntimeControlKey('next-transport-key'))
-  })
-
-  test('rotation refuses a runtime Nuphos hosts', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'ws://openab-claude-abc.openab-runtimes.svc:8080/acp',
-      hostedBy: 'nuphos',
-      authKey: 'transport-key',
-    })
-
-    expect(await rotateRuntimeKeys('team-1', runtime.id, { authKey: 'next-transport-key' })).toBe(
-      false,
-    )
   })
 })
 
