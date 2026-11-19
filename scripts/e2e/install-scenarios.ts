@@ -12,6 +12,18 @@ import { newTask, openComputers, pickAgent, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
+/** Settings › Local runtime, through ⌘K, where this computer's own agents are. */
+async function openLocalRuntime(page: Page) {
+  await page
+    .getByRole('button', { name: /^Search/ })
+    .first()
+    .click()
+  await page.keyboard.type('User settings')
+  await page.getByRole('option', { name: 'User settings' }).first().click()
+  await page.getByRole('searchbox', { name: 'Search settings' }).fill('Local runtime')
+  await page.keyboard.press('Enter')
+}
+
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */
@@ -140,8 +152,7 @@ export const installScenarios: Scenario[] = [
         writeFileSync(join(app, version, 'claude'), script, { mode: 0o755 })
       }
 
-      await openComputers(page)
-      await page.getByRole('button', { name: 'Set up' }).first().click()
+      await openLocalRuntime(page)
       // The Claude Code card: its name and its own Check again, and not the Codex card beside it.
       const card = page
         .locator('div')
@@ -172,8 +183,7 @@ export const installScenarios: Scenario[] = [
 
       // Nothing left: the card says so, and Install brings it back.
       rmSync(join(homedir(), '.config', 'Claude'), { recursive: true })
-      await openComputers(page)
-      await page.getByRole('button', { name: 'Set up' }).first().click()
+      await openLocalRuntime(page)
       await card.getByRole('button', { name: 'Check again' }).click()
       await card.getByText('Not installed', { exact: true }).waitFor({ timeout: 60_000 })
       await shot(page, 'local-4-deleted')
