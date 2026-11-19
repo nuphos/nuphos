@@ -1,7 +1,7 @@
 // The backend's push of which conversations changed (#3523): a Bot chat on screen reads
 // again as soon as it changes, instead of on a 4 s poll.
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 
 import { queryKeys } from '../../lib/query/keys.ts'
 
@@ -16,6 +16,16 @@ const connected = new Set<string>()
 /** Whether a team's chats hear of their changes now, so they need no poll. */
 export const pushed = (teamId: string) => connected.has(teamId)
 
+const watchers = new Set<() => void>()
+const watch = (changed: () => void) => {
+  watchers.add(changed)
+
+  return () => watchers.delete(changed)
+}
+
+/** `pushed`, re-rendering when it changes. */
+export const usePushed = (teamId: string) => useSyncExternalStore(watch, () => pushed(teamId))
+
 type Cached = { agents?: { sessionId: string }[] } | undefined
 
 /**
@@ -26,6 +36,7 @@ type Cached = { agents?: { sessionId: string }[] } | undefined
 export function applyChange(client: QueryClient, { teamId, sessionId, connected: up }: Change) {
   if (up === true) connected.add(teamId)
   if (up === false) connected.delete(teamId)
+  if (up !== undefined) for (const changed of watchers) changed()
   void client.invalidateQueries({
     queryKey: [...queryKeys.team(teamId), 'channel'],
     predicate: ({ queryKey, state }) =>

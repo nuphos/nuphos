@@ -6,7 +6,7 @@ import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
 import { useChatSwitchShown } from '../../lib/chatSwitchTiming.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
-import { pushed, useAgentChanges } from './agentChanges.ts'
+import { pushed, useAgentChanges, usePushed } from './agentChanges.ts'
 import { channelRevision } from './channelRevision.ts'
 import { listedConversation } from './channelShared.ts'
 
@@ -58,20 +58,27 @@ export function prefetchChannel(client: QueryClient, teamId: string, channelId: 
     .catch(() => {})
 }
 
-/** The three most recent Bot chats, loaded once the sidebar lists them, so they open from memory. */
+/**
+ * The three most recent Bot chats, loaded once the sidebar lists them and the team's push is up,
+ * so they open from memory and stay current: one loaded before the push could miss a change.
+ * Following starts here, as the app opens, not with the first chat.
+ */
 export function usePrefetchRecentChannels(teamId: string, listed: AgentConversation[] | undefined) {
   const client = useQueryClient()
   const loaded = listed !== undefined
 
+  useAgentChanges(teamId)
+  const up = usePushed(teamId)
+
   useEffect(() => {
-    if (!loaded) return
+    if (!loaded || !up) return
     const recent = (client.getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId)) ?? [])
       .filter((row) => row.kind === 'channel')
       .sort((a, b) => Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt))
       .slice(0, 3)
 
     for (const row of recent) prefetchChannel(client, teamId, row.sessionId)
-  }, [client, teamId, loaded])
+  }, [client, teamId, loaded, up])
 }
 
 /** After a post or an agent change, from any pane showing the channel: fetch it all now. */
