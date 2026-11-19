@@ -56,7 +56,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage visibility', () => {
 
     return {
       members: series.days.flatMap((day) => day.members.map((m) => m.userId)).sort(byText),
-      titles: series.sessionsByRange['7d'].map((s) => s.title).sort(byText),
+      titles: series.sessionsByRange['7d'].map((s) => s.title ?? '(hidden)').sort(byText),
     }
   }
 
@@ -68,11 +68,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage visibility', () => {
   })
 
   test.each(['EDITOR', 'VIEWER'] as const)(
-    '%s sees only their own usage and no one else’s conversation titles',
+    '%s sees the whole team’s usage, but no one else’s conversation titles',
     async (teamRole) => {
       expect(await seen(MEMBER, teamRole)).toEqual({
-        members: [MEMBER],
-        titles: ["The member's chat"],
+        members: [ADMIN, MEMBER].sort(byText),
+        titles: ['(hidden)', "The member's chat"].sort(byText),
       })
     },
   )

@@ -59,6 +59,11 @@ final class DockPanelUITests: XCTestCase {
         let address = app.textFields["browser-address"]
         XCTAssertTrue(address.waitForExistence(timeout: 5), "The page did not open on the phone")
         XCTAssertEqual(address.value as? String, "https://example.com/signup")
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: 5), "The browser share button needs an accessibility label")
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "browser-share-button"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
         XCTAssertTrue(app.otherElements["browser-signed-out"].exists || app.staticTexts["Uses this iPhone's sign-ins, not your Mac's."].exists)
         // No takeover: the live view is only in the menu.
         XCTAssertFalse(app.buttons["Hand back"].exists)

@@ -67,8 +67,6 @@ export type Item = {
   botNested?: boolean
   /** Replaces the preview line while a Bot works (its live status). */
   previewNode?: ReactNode
-  /** The name shimmers while a Bot works. */
-  labelShimmer?: boolean
   /** Runs on a click before the row navigates (which copy of a twice-listed row was opened). */
   onPress?: () => void
   /** A Bot's face, shown where Bots are listed; elsewhere its row shows its Runtime. */

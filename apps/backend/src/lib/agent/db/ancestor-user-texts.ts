@@ -1,3 +1,4 @@
+import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getUserMessageTexts } from '@/routes/agent/transcript-text'
 
 import { agentConversations, agentMessages } from './shared'
@@ -46,4 +47,19 @@ export async function ancestorUserTexts(sessionId: string): Promise<string[]> {
   }
 
   return []
+}
+
+/**
+ * The language a turn's user-facing words are in: what people typed in this
+ * conversation (`typed`, newest first), or, in a sub-agent thread that only
+ * hears agents, in its nearest ancestor.
+ */
+export async function turnLanguage(
+  sessionId: string,
+  typed: string[],
+  locale: string,
+): Promise<string> {
+  const texts = typed.length > 0 ? typed : await ancestorUserTexts(sessionId).catch(() => [])
+
+  return inferUserFacingLanguage(texts, locale)
 }

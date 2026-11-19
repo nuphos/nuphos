@@ -18,8 +18,19 @@ useTokenRevocation({
 
 type Doc = Record<string, unknown>
 
+type Question = { id: string; about?: string[] }
+
+const questions = (doc: Doc) => (doc.inputRequests ?? []) as Question[]
+const isAbout = (question: Question, ids: unknown[]) =>
+  Boolean(question.about?.some((ref) => ids.includes(ref)))
+const onlyAbout = (question: Question, ids: unknown[]) =>
+  Boolean(question.about?.length) && Boolean(question.about?.every((ref) => ids.includes(ref)))
+
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, value]) => {
+    if (key === 'inputRequests.about') {
+      return questions(doc).some((question) => isAbout(question, (value as { $in: unknown[] }).$in))
+    }
     const actual = doc[key] ?? null
 
     if (value instanceof Date) return actual instanceof Date && actual.getTime() === value.getTime()
@@ -33,6 +44,12 @@ function matches(doc: Doc, filter: Doc): boolean {
     // A scalar matches an array holding it, as in Mongo.
     return Array.isArray(actual) ? actual.includes(value) : actual === value
   })
+}
+
+type Update = {
+  $set?: Doc
+  $unset?: Doc
+  $pull?: { inputRequests: { about: { $not: { $elemMatch: { $nin: unknown[] } } } } }
 }
 
 class FakeConversations {
@@ -51,11 +68,14 @@ class FakeConversations {
   find(filter: Doc) {
     return { toArray: async () => this.docs.filter((doc) => matches(doc, filter)) }
   }
-  private apply(doc: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  private apply(doc: Doc, update: Update) {
     Object.assign(doc, update.$set)
     for (const key of Object.keys(update.$unset ?? {})) delete doc[key]
+    const tree = update.$pull?.inputRequests.about.$not.$elemMatch.$nin
+
+    if (tree) doc.inputRequests = questions(doc).filter((question) => !onlyAbout(question, tree))
   }
-  async updateOne(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  async updateOne(filter: Doc, update: Update) {
     this.failIf('updateOne')
     const doc = this.docs.find((d) => matches(d, filter))
 
@@ -63,7 +83,7 @@ class FakeConversations {
 
     return { modifiedCount: doc ? 1 : 0 }
   }
-  async updateMany(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  async updateMany(filter: Doc, update: Update) {
     this.failIf('updateMany')
     for (const doc of this.docs.filter((d) => matches(d, filter))) this.apply(doc, update)
   }
@@ -94,6 +114,32 @@ describe('setConversationArchived', () => {
     expect(archived('unrelated')).toBe(false)
     // A thread never outlives its parent: every token the tree was issued is revoked.
     expect(revokedSessions.at(-1)?.toSorted()).toEqual(['child', 'grandchild', 'root'])
+  })
+
+  // #3470: a question about a thread that was archived waits on nothing.
+  test('withdraws the questions asked about a conversation it archives', async () => {
+    const root = conversations.docs[0]!
+
+    root.inputRequests = [
+      { id: 'about-child', about: ['child'] },
+      { id: 'about-pr', about: ['pr-1'] },
+      { id: 'about-both', about: ['grandchild', 'pr-1'] },
+      { id: 'plain' },
+    ]
+    conversations.docs.push({
+      sessionId: 'teammate-root',
+      userId: 'v',
+      teamId: 't',
+      inputRequests: [{ id: 'theirs', about: ['child'] }],
+    })
+    await setConversationArchived('child', true)
+
+    expect(questions(root).map((question) => question.id)).toEqual([
+      'about-pr',
+      'about-both',
+      'plain',
+    ])
+    expect(questions(conversations.docs.at(-1)!).map((question) => question.id)).toEqual(['theirs'])
   })
 
   test("leaves a teammate's conversation alone", async () => {
