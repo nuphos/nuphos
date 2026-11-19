@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
@@ -177,7 +179,7 @@ test('the last known sign-in shows at once after a restart, then the fresh probe
 
 test('a signed-out CLI still runs, so its team can sign it in through it', async () => {
   const { controller, status, stream } = harness({
-    codex: { installed: true, path: '/bin/codex', loggedIn: false },
+    codex: { installed: true, path: process.execPath, loggedIn: false },
   })
 
   await controller.setUser('alice')
@@ -259,12 +261,90 @@ test('a stream asking for an agent whose CLI was missing looks for it again', as
   assert.deepEqual(envReads, [true])
 
   // Installed since: the next ask starts it, and the one after is served by it.
-  delete cli.codex
+  cli.codex = { installed: true, path: process.execPath, loggedIn: true }
   assert.equal(stream('codex'), null)
   await new Promise((resolve) => setImmediate(resolve))
   assert.deepEqual(events, [started('codex')])
   assert.ok(stream('codex'))
   assert.equal(envReads.filter(Boolean).length, 2)
+})
+
+/** A CLI file the way the Claude app keeps its copy: under a folder named for its version. */
+function claudeAppCli(root: string, version: string): string {
+  const file = path.join(root, version, 'claude')
+
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, '')
+  chmodSync(file, 0o755)
+
+  return file
+}
+
+test('an agent whose CLI file is gone looks for it again and runs the copy that replaced it', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events, stream } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  assert.ok(stream('claude-code'))
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, [])
+
+  // The Claude app updates: the version the agent runs is deleted, a newer one takes its place.
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  const replacement = claudeAppCli(root, '2.1.328')
+
+  cli['claude-code'] = { installed: true, path: replacement, loggedIn: true }
+  assert.equal(stream('claude-code'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['stop', started('claude-code')])
+  assert.ok(stream('claude-code'))
+  const now = controller.state().agents['claude-code'].cli
+
+  assert.equal(now?.installed && now.path, replacement)
+})
+
+test('an agent whose CLI file is gone with nothing to replace it says it is not installed', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events, stream } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  cli['claude-code'] = { installed: false }
+  assert.equal(stream('claude-code'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['stop'])
+  assert.deepEqual(controller.state().agents['claude-code'].cli, { installed: false })
+})
+
+test('Check restarts an agent whose CLI moved, so a reinstall takes effect at once', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+
+  // Nothing moved: the running agents are left alone.
+  await controller.refresh()
+  assert.deepEqual(events, [])
+
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  cli['claude-code'] = { installed: true, path: claudeAppCli(root, 'local'), loggedIn: true }
+  await controller.refresh()
+  assert.deepEqual(events, ['stop', started('claude-code')])
 })
 
 test('a bundle staged while the app runs starts the agents without a restart', async () => {

@@ -1,6 +1,7 @@
 // Adding Claude Code to a computer that does not have it installs it, then signs it in (#3244).
 // The installer is fixture-install.sh, so no vendor's CLI is downloaded.
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
@@ -113,6 +114,41 @@ export const installScenarios: Scenario[] = [
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
       await shot(page, 'local-3-signed-in')
       await page.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.getByText('Back to app', { exact: true }).click()
+    },
+  },
+  {
+    // #3804: the CLI the running agent was started with is deleted, as the Claude app's update
+    // deletes its old copy. Only the fixture is deleted, never a developer's own Claude Code.
+    name: "this computer's Claude Code deleted under its running agent shows as not installed, and Install brings it back",
+    run: async (page) => {
+      const cli = join(homedir(), '.local', 'bin', 'claude')
+
+      if (!readFileSync(cli, 'utf8').includes('fixture-install.sh')) {
+        console.log(`SKIP ${cli} is not the fixture`)
+
+        return
+      }
+      await openComputers(page)
+      await page.getByRole('button', { name: 'Set up' }).first().click()
+      // The Claude Code card: its name and its own Check again, and not the Codex card beside it.
+      const card = page
+        .locator('div')
+        .filter({ has: page.getByText('Claude Code', { exact: true }) })
+        .filter({ has: page.getByRole('button', { name: 'Check again' }) })
+        .last()
+      const ready = card.getByText('Ready for your Bots and tasks')
+
+      await ready.waitFor({ timeout: 60_000 })
+      rmSync(cli)
+      await card.getByRole('button', { name: 'Check again' }).click()
+      // It says so, instead of a running agent that only fails once asked for a turn.
+      await card.getByText('Not installed', { exact: true }).waitFor({ timeout: 60_000 })
+      await shot(page, 'local-4-deleted')
+      await card.getByRole('button', { name: 'Install Claude Code' }).click()
+      await page.getByText('Claude Code installed').waitFor({ timeout: 60_000 })
+      await ready.waitFor({ timeout: 60_000 })
+      await shot(page, 'local-5-reinstalled')
       await page.getByText('Back to app', { exact: true }).click()
     },
   },

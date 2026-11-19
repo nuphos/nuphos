@@ -1,3 +1,4 @@
+import { executable } from './agent-cli-apps.ts'
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { discoverModels } from './agent-models.ts'
 import {
@@ -16,7 +17,7 @@ import { startOpenab } from './openab-start.ts'
 import { AGENT_HOME_UNAVAILABLE, INSTALL_HINT } from './providers.ts'
 import { createUsageSampler } from './usage-sampler.ts'
 
-import type { LocalAgentProvider } from './agent-cli.ts'
+import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type {
   Agent,
   LocalAgentRun,
@@ -122,13 +123,17 @@ export class LocalRuntimeController {
 
     if (!userId) return this.state()
     const env = await this.deps.userEnv()
+    const moved = new Set<LocalAgentProvider>()
 
     await Promise.all(
       providers.map(async (provider) => {
         const agentHome = prepareHomeFor(this.deps, provider, userId, env)
         const cli = await this.deps.probeCli(provider, env, agentHome)
 
-        if (userId === this.userId) this.agents[provider].cli = cli
+        if (userId !== this.userId) return
+        // A running agent keeps the CLI it started with, so one found elsewhere needs a restart.
+        if (cliPath(this.agents[provider].cli) !== cliPath(cli)) moved.add(provider)
+        this.agents[provider].cli = cli
       }),
     )
     if (userId !== this.userId) return this.state()
@@ -137,7 +142,7 @@ export class LocalRuntimeController {
     this.changed()
     await Promise.all(
       providers
-        .filter((provider) => restart || !this.agents[provider].process)
+        .filter((provider) => restart || !this.agents[provider].process || moved.has(provider))
         .map((provider) => this.launch(provider)),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
@@ -191,18 +196,20 @@ export class LocalRuntimeController {
     return this.agents[provider].runtime
   }
   /**
-   * The running agent, for a stream that asks for it. One whose CLI was missing is looked
-   * for again: it may have been installed since, and nothing else would notice until a restart.
+   * The running agent, for a stream that asks for it. One whose CLI is missing, or whose CLI
+   * file is gone (the Claude app deletes its old copy when it updates), is looked for again:
+   * nothing else would notice until a restart.
    */
   runtimeForStream(provider: LocalAgentProvider) {
     const agent = this.agents[provider]
+    const path = cliPath(agent.cli)
 
-    if (!agent.runtime && agent.cli?.installed === false)
-      agent.recheck ??= this.launch(provider, true).finally(() => {
-        agent.recheck = undefined
-      })
+    if (agent.cli?.installed !== false && (!path || executable(path))) return agent.runtime
+    agent.recheck ??= this.launch(provider, true).finally(() => {
+      agent.recheck = undefined
+    })
 
-    return agent.runtime
+    return null
   }
   status() {
     return tunnelStatusOf(this.agents, this.deps.backendUrl)
@@ -291,4 +298,8 @@ export class LocalRuntimeController {
       scheduleAgentRestart(agent, run, () => this.startProcess(run))
     })
   }
+}
+
+function cliPath(cli: AgentCliStatus | null): string | undefined {
+  return cli?.installed ? cli.path : undefined
 }
