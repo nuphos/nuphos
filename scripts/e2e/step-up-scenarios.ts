@@ -233,7 +233,11 @@ export const stepUpScenarios: Scenario[] = [
 
       signedInAgo(stack.mongoUri, stack.email, 11)
       // The scenario before leaves its error toast up; it would cover these shots.
-      for (const dismiss of await page.getByLabel('Dismiss').all()) await dismiss.click()
+      const toasts = page.getByRole('region', { name: 'Notifications' })
+
+      for (const dismiss of await toasts.getByLabel('Dismiss', { exact: true }).all()) {
+        await dismiss.click()
+      }
       // The newest Cloudflare authorization the backend has started.
       const started = stack.cloudflareState()
 
