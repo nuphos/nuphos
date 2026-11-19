@@ -12,6 +12,7 @@ import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
+import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
@@ -153,6 +154,7 @@ const scenarios: Scenario[] = [
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   ...terminalScenarios,
+  ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
