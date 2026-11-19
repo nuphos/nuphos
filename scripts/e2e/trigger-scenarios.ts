@@ -154,6 +154,8 @@ export const triggerScenarios: Scenario[] = [
   {
     // #3703: a delivery within a minute of the one before got 200 rate_limited and was dropped.
     name: 'webhook alerts seconds apart all reach the Task, the later ones together after the running turn',
+    // The minIntervalSeconds part expects its second delivery to be refused.
+    expected: /"path":"\/webhooks\/[^"]+","status":429/u,
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Home of the webhook E2E_DELIVERY:hook-home')
