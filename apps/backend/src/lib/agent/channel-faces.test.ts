@@ -61,6 +61,19 @@ describe('channelFacesField', () => {
       } as never)
   })
 
+  test("a Bot's face carries the background it sits on", async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'a1' },
+      { $set: { avatarBackground: 'mint' } },
+    )
+
+    expect((await channelFacesField(channel, 'me', people)).faces).toContainEqual({
+      id: 'a1',
+      name: 'Writer',
+      agent: { avatar: 'a1-pick', avatarBackground: 'mint', provider: 'codex' },
+    })
+  })
+
   test('shows three others, whoever spoke last first, never the viewer', async () => {
     // The test store ignores sort, so posts go in newest first.
     await post(2, 'user', 'me')

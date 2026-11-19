@@ -9,6 +9,7 @@ import { newTask, pickInSubmenu, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 
 const MATE_LAPTOP = 'E2E teammate laptop'
+const BOX = 'E2E disk Box'
 
 export const offlineScenarios: Scenario[] = [
   {
@@ -42,7 +43,9 @@ export const offlineScenarios: Scenario[] = [
   },
   {
     // #3181: a disk about to fill was only a gauge, until a turn failed on it.
-    name: 'a conversation on a computer whose disk is almost full says so, and leads to the computer',
+    // #3848: Free space is offered only where it clears caches in place, on a running Box the
+    // viewer manages; a person's own computer has nothing to clear from here.
+    name: 'a conversation on a computer whose disk is almost full says so, without a button that only navigates',
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, { diskPercent: 93 })
 
@@ -97,11 +100,44 @@ export const offlineScenarios: Scenario[] = [
         } finally {
           if (size) await page.setViewportSize(size)
         }
+        if ((await banner.getByRole('button', { name: 'Free space' }).count()) > 0)
+          throw new Error('The banner offers Free space on a computer it cannot clear')
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
+    // #3848: on a running Box the viewer manages, Free space opens its card's Clear caches
+    // where the conversation is, instead of leading to the Computers page.
+    name: 'a conversation on a Box whose disk is almost full clears its caches in place',
+    run: async (page, stack) => {
+      const goOffline = await laptopOnline(stack, { diskPercent: 93, box: BOX })
+
+      try {
+        await newTask(page)
+        await send(page, 'On the fixture E2E_DELIVERY:before-box-disk')
+        await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menu').getByText(BOX).first().click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        const banner = page.getByRole('status').filter({
+          hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
+        })
+
         await banner.getByRole('button', { name: 'Free space' }).click()
-        await page.getByText('Disk almost full: 7 GB free').waitFor()
-        // The cards fade in; the picture is taken once they have.
-        await page.waitForTimeout(1_500)
-        await page.screenshot({ path: join(artifacts, 'disk-computer.png') })
+        const confirm = page.getByRole('alertdialog', { name: `Clear caches on ${BOX}?` })
+
+        await confirm
+          .getByText('Workspaces, sign-ins, Docker images and volumes are kept.')
+          .waitFor()
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'disk-box-confirm.png') })
+        await confirm.getByRole('button', { name: 'Cancel' }).click()
+        await confirm.waitFor({ state: 'hidden' })
+        // Still in the conversation: nothing navigated away to the computer's page.
+        await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
       } finally {
         goOffline()
       }
