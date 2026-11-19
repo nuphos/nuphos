@@ -11,11 +11,14 @@ export async function laptopOnline(
     diskPercent,
     client,
     app,
+    restoreFails,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
     client?: string
     app?: { version: string; update: { version: string; ready: boolean } }
+    /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
+    restoreFails?: boolean
     owner?: { token: string; deviceId: string; label: string }
   } = {},
 ): Promise<() => void> {
@@ -39,7 +42,10 @@ export async function laptopOnline(
     } as unknown as string[],
   )
 
-  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
+  tunnel.addEventListener('message', (event: MessageEvent) => {
+    tunnel.send(JSON.stringify({ t: 'pong' }))
+    if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
+  })
   await new Promise((opened, failed) => {
     tunnel.addEventListener('open', opened)
     tunnel.addEventListener('error', failed)
@@ -76,4 +82,33 @@ export async function laptopOnline(
     clearInterval(reporting)
     tunnel.close()
   }
+}
+
+export const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+
+// How a runtime without #3373 answered once it could not restore the saved session (#3371).
+function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
+  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
+  const reply = (d: unknown) =>
+    tunnel.send(JSON.stringify({ t: 'data', s: frame.s, d: JSON.stringify(d) }))
+
+  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
+  if (frame.t !== 'data' || !frame.d) return
+  const request = JSON.parse(frame.d) as { id?: number; method?: string }
+
+  if (request.id === undefined || !request.method) return
+  if (request.method === 'initialize')
+    reply({
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          _meta: { 'dev.openab/permissionRelay': true, 'dev.openab/sessionAuthority': 2 },
+        },
+        authMethods: [],
+      },
+    })
+  else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
 }

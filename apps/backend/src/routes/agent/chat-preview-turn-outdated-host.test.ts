@@ -24,8 +24,8 @@ const desktop = (app: App) => ({
   client: `nuphos-desktop/${app.version}`,
   status: { agents: {}, app },
 })
-// #3560: Desktop 0.125.0 with 0.127.0 downloaded and waiting for a restart.
-const behind = desktop({ version: '0.125.0', update: { version: '0.127.0', ready: true } })
+// #3560: a Desktop above the floor (0.127.0) with a newer release downloaded, waiting for a restart.
+const behind = desktop({ version: '0.127.0', update: { version: '0.131.0', ready: true } })
 let presence: object = behind
 let fail: (() => Error) | null = () => new Error(restoreFailed)
 let finished = 0
