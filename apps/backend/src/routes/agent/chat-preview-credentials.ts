@@ -26,10 +26,11 @@ type PreviewChannelCredentialArgs = {
   acceptedTurn: Promise<unknown>
 }
 
+// Resolved at call time, so a test double installed after this module loads still applies.
 const defaultDependencies: PreviewCredentialDependencies = {
-  getConversation,
-  getCredentialOptions: getAgentCredentialOptions,
-  updateCredentialAccess: updateConversationCredentialAccess,
+  getConversation: (...args) => getConversation(...args),
+  getCredentialOptions: (...args) => getAgentCredentialOptions(...args),
+  updateCredentialAccess: (...args) => updateConversationCredentialAccess(...args),
 }
 
 /**

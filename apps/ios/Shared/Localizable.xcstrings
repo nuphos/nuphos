@@ -26529,52 +26529,6 @@
         }
       }
     },
-    "Start a task from the bar below." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inicia una tarea desde la barra de abajo."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mulai tugas dari bilah di bawah."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下のバーからタスクを開始してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아래 입력창에서 태스크를 시작하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เริ่มงานจากแถบด้านล่าง"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从下方的输入栏开始一个任务。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從下方的輸入列開始一個任務。"
-          }
-        }
-      }
-    },
     "Started" : {
       "localizations" : {
         "es" : {
