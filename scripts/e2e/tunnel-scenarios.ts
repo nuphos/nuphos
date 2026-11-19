@@ -181,6 +181,12 @@ export const tunnelScenarios: Scenario[] = [
         // It used to answer "An agent is working on this computer" and leave the turn running.
         await until('the computer to restart into its update', async () => computer.restarts() > 0)
         await page.getByText(`${UPDATED} is back`).waitFor({ timeout: 120_000 })
+        // Back as soon as it reported in again, though it restarted between two readings.
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await card.screenshot({ path: join(artifacts, 'computer-update-back-light.png') })
         await page.getByText('Back to app', { exact: true }).click()
 
         // The turn the restart ended stops running and says it was cut off; the Task carries on.
