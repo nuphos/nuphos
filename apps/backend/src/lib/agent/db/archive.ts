@@ -157,6 +157,20 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
   await agentConversations().updateOne({ sessionId }, restore())
 }
 
+/** A shared Task out of one member's lists, or back; it stays as it is for everyone else. */
+export async function setMemberArchived(
+  sessionId: string,
+  userId: string,
+  archived: boolean,
+): Promise<void> {
+  const field = `memberArchivedAt.${userId}`
+
+  await agentConversations().updateOne(
+    { sessionId },
+    archived ? { $set: { [field]: new Date() } } : { $unset: { [field]: '' } },
+  )
+}
+
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
 export async function descendantSessionIds(
   rootId: string,

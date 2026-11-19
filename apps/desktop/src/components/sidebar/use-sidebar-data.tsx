@@ -208,7 +208,7 @@ export function useSidebarChats({
         await api.agentUnlinkConversationParent(sessionId, teamId)
         refresh()
       } catch (err) {
-        toast.apiError(t('Could not unlink agent'), err)
+        toast.apiError(t('Could not unlink the sub-task'), err)
       }
     },
     [teamId, refresh],

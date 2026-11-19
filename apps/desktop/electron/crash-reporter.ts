@@ -6,7 +6,7 @@
 //
 // One setting, "Send crash reports and usage data" (default on, saved on this
 // computer), gates crash reports and both PostHog clients. Usage data stops at
-// once; Crashpad's own upload consent follows at the next launch.
+// once, including Crashpad uploads. Re-enabling uploads requires a restart.
 // Usage data goes to Nuphos's own analytics, so it is only sent while the
 // backend is Nuphos Cloud. Crash reports go to the backend itself.
 // Electron itself adds ver, _version, platform and
@@ -44,12 +44,9 @@ function readSendDiagnostics(): boolean {
 function applySendDiagnostics(send: boolean): void {
   sendDiagnostics = send
   setMainAnalyticsEnabled(sendsUsage())
-  // Crashpad reads upload consent and its backend only at start (a runtime
-  // setUploadToServer never reaches it), and skips every report while consent
-  // is off. After a mid-session switch off, or a move to another backend, flag
-  // crashes so the backend that still receives them drops them unstored.
-  if (crashpadApi)
-    crashReporter.addExtraParameter('upload_off', send && apiUrl() === crashpadApi ? '0' : '1')
+  // Crashpad's destination is fixed at launch. Disable uploads for the rest of
+  // this process after an endpoint change or opt-out; restart restores consent.
+  if (crashpadApi && (!send || apiUrl() !== crashpadApi)) crashReporter.setUploadToServer(false)
 }
 
 /** Applies the setting now, and tells the renderers whether usage data is still sent. */

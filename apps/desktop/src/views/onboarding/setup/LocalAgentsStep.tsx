@@ -7,7 +7,7 @@ import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
-import { CLOUD_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
+import { RENTED_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { InstallButton } from '../../settings/LocalAgentCard'
 import { useAgentDevices } from '../../settings/useAgentDevices'
@@ -210,7 +210,7 @@ export function LocalAgentsStep({
 
 /**
  * The same account cards, usable in-place without the onboarding screen. With a team its
- * admins may make a cloud computer there instead; `onCloud` closes what the cards sit in.
+ * admins may rent a computer from Nuphos there instead; `onCloud` closes what the cards sit in.
  */
 export function LocalAgentSetupCards({
   teamId,
@@ -252,9 +252,9 @@ export function LocalAgentSetupCards({
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[13.5px] font-medium text-main">
-              {t('Nuphos cloud computer')}
+              {t('Rent a computer from Nuphos')}
             </span>
-            <span className="block text-[12px] text-tertiary">{CLOUD_COMPUTER_DESCRIPTION}</span>
+            <span className="block text-[12px] text-tertiary">{RENTED_COMPUTER_DESCRIPTION}</span>
           </span>
         </button>
       )}
