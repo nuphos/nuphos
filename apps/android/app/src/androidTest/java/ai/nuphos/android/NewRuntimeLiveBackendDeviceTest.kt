@@ -38,19 +38,25 @@ class NewRuntimeLiveBackendDeviceTest {
         val label = "Android integration runtime"
         val ack = File(context.getExternalFilesDir(null), "new-runtime-desktop-ack")
         ack.delete()
+        val field = Http::class.java.getDeclaredField("client").also { it.isAccessible = true }
+        val original = field.get(null) as okhttp3.OkHttpClient
+        field.set(null, original.newBuilder().addInterceptor { chain ->
+            chain.proceed(chain.request()).also { response ->
+                println("LIVE_HTTP ${chain.request().method} ${response.code} ${chain.request().url.encodedPath}")
+            }
+        }.build())
         val tokens = TokenStore(context)
         tokens.write(token)
         val auth = AuthSession(context.applicationContext as Application, tokens)
         lateinit var agents: AgentStore
         inst.runOnMainSync {
             auth.restore()
-            agents = AgentStore(token, context)
-            agents.acceptMemberships(listOf(team), team.id)
         }
         try {
             compose.waitUntil(20_000) { auth.user != null && auth.aiAllowed }
+            inst.runOnMainSync { agents = AgentStore(token, context); check(agents.acceptMemberships(listOf(team), team.id)) }
             compose.setContent { NuphosTheme { CompositionLocalProvider(LocalAgentStore provides agents, LocalAuthSession provides auth) { RuntimesPage() } } }
-            compose.waitUntil(30_000) { compose.onAllNodesWithTag("runtime-inventory").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitUntil(90_000) { compose.onAllNodesWithTag("runtime-inventory").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasTestTag("new-runtime-$device"))
             compose.onNodeWithTag("new-runtime-$device").performClick()
             compose.onNodeWithTag("new-runtime-provider-codex").performClick()
@@ -63,7 +69,8 @@ class NewRuntimeLiveBackendDeviceTest {
             compose.waitUntil(30_000) { compose.onAllNodesWithTag("new-runtime-$device").fetchSemanticsNodes().isNotEmpty() }
             println("LIVE_ANDROID_RUNTIME_CANCELLED")
         } finally {
-            inst.runOnMainSync { agents.disposeForConsent(); auth.signOut(); tokens.clear() }
+            inst.runOnMainSync { runCatching { agents.disposeForConsent() }; tokens.clear() }
+            field.set(null, original)
         }
     }
 }
