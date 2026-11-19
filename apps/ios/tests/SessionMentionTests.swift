@@ -5,6 +5,7 @@ enum SessionMentionTests {
         startsAtALineStartOrAfterWhitespace()
         replacesTheQueryWithTheLink()
         matchesDeviceLabels()
+        filtersListedSessions()
         sendsPickedNamesAsLinks()
         showsKnownLinksByName()
         print("Session mention passed")
@@ -29,6 +30,18 @@ enum SessionMentionTests {
         precondition(SessionMention.matches("Ann's MacBook Pro", "macbook"))
         precondition(SessionMention.matches("build-box", ""))
         precondition(!SessionMention.matches("build-box", "mac"))
+    }
+
+    /// An `@` filters the sessions listed before it: by title or first message, newest first, five at most.
+    private static func filtersListedSessions() {
+        let row = { (id: String, title: String, first: String) in
+            try! JSONDecoder().decode(AgentConversation.self, from: Data(#"{"sessionId":"\#(id)","title":"\#(title)","firstMessage":"\#(first)"}"#.utf8))
+        }
+        let rows = [row("a", "Deploy agent", ""), row("b", "", "deploy the docs"), row("c", "Review", "")]
+            + (1...6).map { row("x\($0)", "Deploy \($0)", "") }
+        precondition(SessionMention.sessions(rows, matching: "DEPLOY").map(\.sessionId) == ["a", "b", "x1", "x2", "x3"])
+        precondition(SessionMention.sessions(rows, matching: "review").map(\.sessionId) == ["c"])
+        precondition(SessionMention.sessions(rows, matching: "").count == 5)
     }
 
     private static func sendsPickedNamesAsLinks() {

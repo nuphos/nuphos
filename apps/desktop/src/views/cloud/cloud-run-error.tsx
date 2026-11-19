@@ -103,12 +103,12 @@ export function CloudRunErrorBlock({
             onClick={onFixInChat}
             title={
               apiDisabled
-                ? t('Ask the Nuphos agent to enable the API')
-                : t('Ask the Nuphos agent to grant the missing role')
+                ? t('Ask Nuphos to enable the API')
+                : t('Ask Nuphos to grant the missing role')
             }
           >
             <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
-            {t('Fix with Agent')}
+            {t('Fix in a task')}
           </Button>
         )}
         <button

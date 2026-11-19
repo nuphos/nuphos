@@ -63,6 +63,7 @@ function Harness() {
         renameChat: ignore,
         archiveChat: () => Promise.resolve(),
         confirmArchiveBot: ignore,
+        confirmLeaveTask: ignore,
         unlinkChat: () => Promise.resolve(),
       }),
   )
