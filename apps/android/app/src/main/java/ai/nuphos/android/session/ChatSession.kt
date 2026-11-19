@@ -351,6 +351,7 @@ class ChatSession(
                 if (!hasAiAccess) return@launch
                 AgentChatApi.setBypass(token, sessionId, mode == PermissionMode.Bypass)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 permissionMode = previous
                 showError(e)
             }
@@ -425,6 +426,7 @@ class ChatSession(
                 if (hasAiAccess) permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
             draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
             loadError = e.message
@@ -493,7 +495,7 @@ class ChatSession(
         }
         if (uploadDraft != null) { error = Words(R.string.convtext_retry_attachments_first); return false }
         val pending = try { preparedTransfer?.takeIf { it.attachmentIds == submission.attachments.map { a -> a.id } } ?: transfers.retain(submission.attachments) }
-            catch (e: Exception) { error = e.message; return false }
+            catch (e: Exception) { if (e is CancellationException) throw e; error = e.message; return false }
         uploadDraft = submission
         retainedTransfer = pending
         beginUpload()
@@ -658,6 +660,7 @@ class ChatSession(
                 }
                 startTurn(TurnOptions(streamId = newId(), continueAfterInterruption = true, resumeReason = "approval-decision"))
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 submissionPending = false
                 replySubmissionPending = false
                 replaceTool(mi, pi, part)
@@ -731,6 +734,7 @@ class ChatSession(
                     }
                 }
                 catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     cancelRequested = false
                     showError(e)
                     // The reader asked for this and may be far up the transcript: show them why it didn't happen.
@@ -1002,6 +1006,7 @@ class ChatSession(
                 if (queued.firstOrNull() == text) queued = queued.drop(1)
                 addSteering(id, text, assistantId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 if (!hasAiAccess) return@launch
                 if (RuntimeApi.definitelyRejected(e)) {
                     steeringRetryRequired = true
@@ -1568,6 +1573,7 @@ class ChatSession(
                 AgentChatApi.putTranscript(token, teamId, sessionId, title, wire, if (transcriptFullResend) null else transcriptRebasedTo)
             }.onSuccess { lastSyncedSignature = sig }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.d(TAG, "transcript sync failed: $e")
         }
     }

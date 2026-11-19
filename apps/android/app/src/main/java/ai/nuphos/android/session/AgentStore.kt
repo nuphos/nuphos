@@ -1,5 +1,6 @@
 package ai.nuphos.android.session
 
+import kotlinx.coroutines.CancellationException
 import ai.nuphos.android.R
 import kotlinx.coroutines.ensureActive
 
@@ -824,6 +825,7 @@ class AgentStore(
                 reload()
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (disposed || !hasAiAccess() || request != membershipRequest) return
             if (e is NuphosApi.Failure.Unauthorized) onExpired()
             teamsPhase = Phase.Failed

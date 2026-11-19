@@ -276,6 +276,7 @@ class AuthSession(
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 if (matches(expected, current) && request == consentRequest) consentError = e.message ?: app.getString(R.string.shell_auth_consent_save_failed)
             } finally {
                 if (generation == expected && request == consentRequest) consentBusy = false
@@ -297,6 +298,7 @@ class AuthSession(
             if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             false
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (matches(expected, current)) profileError = e.message ?: app.getString(R.string.shell_auth_photo_failed)
             false
         }
@@ -315,6 +317,7 @@ class AuthSession(
             if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             false
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (matches(expected, current)) profileError = if (e is NuphosApi.Failure.Http && e.code == 409)
                 app.getString(R.string.shell_auth_username_taken) else e.message ?: app.getString(R.string.shell_auth_profile_failed)
             false

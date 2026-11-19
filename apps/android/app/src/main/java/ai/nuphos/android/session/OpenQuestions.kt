@@ -259,6 +259,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
         try {
             source.dismiss(question.sessionId, question.request.id, dismissReason(reason))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             answered = answered - question.id
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))
         }
