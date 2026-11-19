@@ -84,7 +84,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         refreshKey={refreshKey}
         onCount={onCount}
         onLoading={onLoading}
-        onOpenSettingsSection={ctx.onOpenSettingsSection}
       />,
     )
   }

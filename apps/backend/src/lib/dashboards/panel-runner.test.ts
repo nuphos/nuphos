@@ -15,6 +15,11 @@ beforeAll(() => {
     port: 0,
     fetch(request) {
       authorizationHeaders.push(request.headers.get('authorization'))
+      // `/gone/<code>` answers as a route whose integration is not bound, with that code.
+      const gone = /\/gone\/([a-z_]+)$/.exec(new URL(request.url).pathname)?.[1]
+
+      if (gone)
+        return Response.json({ error: { code: gone, message: 'No such binding' } }, { status: 404 })
 
       return Response.json({ value: 42 })
     },
@@ -105,5 +110,36 @@ describe('panel runner Nuphos client', () => {
     expect(result.stdout).not.toContain('test-token')
     expect(result.stdout).not.toContain('hardcoded-secret')
     expect(result.stdout).toContain('[REDACTED]')
+  })
+})
+
+describe('panel runner not-connected answers', () => {
+  const envelope = (stdout: string) =>
+    JSON.parse(stdout.split('__PANEL_ERROR__')[1]?.split('\n')[0] ?? '{}') as {
+      message: string
+      notConnected?: string
+    }
+
+  for (const [code, name] of [
+    ['grafana_instance_not_bound', 'Grafana instance'],
+    ['github_installation_not_bound', 'GitHub installation'],
+    ['uptime_kuma_instance_not_bound', 'Uptime Kuma instance'],
+    ['account_not_bound', 'AWS account'],
+  ] as const) {
+    test(`names the integration of a ${code} answer`, async () => {
+      const result = await runPanel(`await nuphos.get('/teams/${TEAM_ID}/gone/${code}')`)
+
+      expect(result.exitCode).toBe(1)
+      expect(envelope(result.stdout).notConnected).toBe(name)
+      // The full answer stays in the diagnostic for the error log.
+      expect(envelope(result.stdout).message).toContain(`404 {"error":{"code":"${code}"`)
+    })
+  }
+
+  test('leaves any other failure unnamed', async () => {
+    const result = await runPanel(`await nuphos.get('/teams/${TEAM_ID}/gone/not_found')`)
+
+    expect(result.exitCode).toBe(1)
+    expect(envelope(result.stdout).notConnected).toBeUndefined()
   })
 })
