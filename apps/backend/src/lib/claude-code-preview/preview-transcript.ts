@@ -5,6 +5,7 @@
 import { getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
+import { OUTDATED_HOST_HINT } from './host-minimum-version'
 import { OpenAbConnectionLostError, claudeNotice, turnFailureCause } from './openab-acp-errors'
 import { plainTurnFailure, userSetupFailure } from './plain-failure'
 import { runtimeFailure } from './runtime-failure'
@@ -56,7 +57,12 @@ export function classifyPreviewInterruption(
   error: unknown,
   aborted: boolean,
 ): PreviewTurnInterruption {
-  const interruption = interruptionOf(error, aborted)
+  const found = interruptionOf(error, aborted)
+  // The line noteOutdated added to the error is the one part of it the summary keeps.
+  const interruption =
+    error instanceof Error && error.message.endsWith(OUTDATED_HOST_HINT)
+      ? { ...found, message: `${found.message} ${OUTDATED_HOST_HINT}` }
+      : found
   const cause = aborted
     ? 'other'
     : userSetupFailure(error) === 'agent_cli_unstartable'
