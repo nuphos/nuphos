@@ -93,6 +93,7 @@ export const installScenarios: Scenario[] = [
     name: 'this computer without Claude Code installs it from its settings, then signs it in',
     run: async (page) => {
       // #3848: its card adds a runtime with the same + as any other computer, not a link away.
+      await page.setViewportSize({ width: 1280, height: 880 })
       await openComputers(page)
       await page
         .getByRole('button', { name: /^New runtime on / })
