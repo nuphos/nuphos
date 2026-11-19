@@ -81,6 +81,8 @@ export type Item = {
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */
   managedChat?: boolean
+  /** Such an agent the viewer only takes part in, so they leave it instead. */
+  leavable?: boolean
   /** Why the row carries its dot, for attention navigation. */
   dot?: RowDot
   /** A task's project folder. */

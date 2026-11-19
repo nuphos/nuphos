@@ -72,8 +72,19 @@ test('a group chat is left from its menu, by a member and by its owner', () => {
   }
 })
 
+test('a Task shared with you is left from its menu, only for you', () => {
+  const items = menuFor({ isOwner: false })
+
+  assert.ok(items.some((item) => item.label === 'Leave task'))
+  assert.ok(!items.some((item) => item.label.startsWith('Archive')))
+  calls.length = 0
+  items.find((item) => item.key === 'leave')?.onSelect()
+  assert.deepEqual(calls, ['leave chat-a team-a me'])
+})
+
 test('a Task and a Bot keep Archive', () => {
   assert.ok(labels({ isOwner: true }).includes('Archive Task'))
   assert.ok(labels({ avatar: '05-rembrandt', isOwner: true }).includes('Archive Bot'))
   assert.ok(!labels({ isOwner: true }).includes('Leave chat'))
+  assert.ok(!labels({ isOwner: true }).includes('Leave task'))
 })

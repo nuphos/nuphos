@@ -178,15 +178,19 @@ export function SidebarItemContextMenu({
             ]
           : []),
         // A group chat is left, by its owner too; it outlives whoever leaves it.
-        ...(noun === 'chat'
+        // So is someone else's Task: Archive would hide it for everyone.
+        ...(noun === 'chat' || (noun === 'task' && menu.item.leavable)
           ? [
               {
                 key: 'leave',
-                label: t('Leave chat'),
+                label: noun === 'chat' ? t('Leave chat') : t('Leave task'),
                 icon: LogOut,
                 onSelect: () =>
                   void leaveSession(sessionId, teamId, viewerId).catch((err: unknown) =>
-                    toast.apiError(t('Could not leave chat'), err),
+                    toast.apiError(
+                      noun === 'chat' ? t('Could not leave chat') : t('Could not leave task'),
+                      err,
+                    ),
                   ),
               },
             ]
