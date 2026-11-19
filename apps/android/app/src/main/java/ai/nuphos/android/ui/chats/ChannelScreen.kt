@@ -565,8 +565,8 @@ private fun ChannelComposer(session: ChannelSession) {
         canSubmit = auth.aiAllowed && store.selectedTeam?.id == session.teamId,
         // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
         mentions = if (store.selectedTeam?.id != session.teamId) null else remember(store, session.teamId, session.botId) {
-            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) { query ->
-                store.mentionableSessions(session.teamId, query)
+            ai.nuphos.android.ui.chat.SessionMentionSource(session.teamId, session.botId) {
+                store.mentionableSessions(session.teamId)
             }
         },
         draft = draft,

@@ -61,6 +61,8 @@ const TOKEN_SHAPES: Shape[] = [
   { kind: 'nuphos-token', pattern: /\bnu[ps]_[A-Za-z0-9_-]{20,}/dg },
   { kind: 'github-token', pattern: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/dg },
   { kind: 'slack-token', pattern: /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/dg },
+  // InstaBox API keys: `ibk_` and 52 characters (InstaBox's malformed_key docs).
+  { kind: 'instabox-api-key', pattern: /\bibk_[A-Za-z0-9]{52}\b/dg },
   // OpenAI-compatible keys without the marker the preset's openai rule requires.
   // Trailing -/_ segments belong to the key; stopping at the first one would
   // leave a suffix too short for the entropy sweep to catch.

@@ -75,7 +75,7 @@ export function AgentUsageRow({
               : STATUS_DOT.off,
           )}
         />
-        {agentRunsOn(instance, thisComputer?.deviceId, quota)}
+        {agentRunsOn(instance, thisComputer, quota)}
       </span>
       <span className="min-w-0 space-y-1">
         {windows.length === 0 ? (

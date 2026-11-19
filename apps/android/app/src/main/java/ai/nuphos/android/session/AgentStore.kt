@@ -899,13 +899,20 @@ class AgentStore(
         return catalog.allItems.filter { it.provider.optionsKey == "devices" }
     }
 
-    /** Same bounded scope=mine search as iOS, independent of history filters. */
-    suspend fun mentionableSessions(teamId: String, query: String): List<AgentConversation> {
+    /** The viewer's own Bots and Tasks in `teamId`, every page, for the composer's `@` to filter. */
+    suspend fun mentionableSessions(teamId: String): List<AgentConversation> {
+        val rows = mutableListOf<AgentConversation>()
+        val seen = mutableSetOf<String>()
+        var cursor: String? = null
+        do {
+            if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+            val page = NuphosApi.conversations(token = token, teamId = teamId, cursor = cursor, limit = 100,
+                scope = ConversationScope.Mine)
+            rows += page.conversations
+            cursor = page.nextCursor?.takeIf { page.hasMore && seen.add(it) }
+        } while (cursor != null)
         if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        val page = NuphosApi.conversations(token = token, teamId = teamId, limit = 6,
-            scope = ConversationScope.Mine, search = query)
-        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        return page.conversations
+        return rows
     }
 
     suspend fun reload() {
