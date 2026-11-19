@@ -21,7 +21,7 @@ disabled. Runtime sessions, credentials and computers must be reconnected.
 One team's portable settings and default layout, current and former membership
 attribution, team instructions, team memories/playbooks, UTF-8 skill source,
 conversation text and sender attribution, Bot/group-chat relationships, Plans,
-dashboard/panel source, diagrams, designs, and conversation-owned triggers.
+team dashboards and their panel source, diagrams, designs, and conversation-owned triggers.
 Triggers retain only their owning conversation reference (`targetSessionId`),
 without source user ownership, creator, or execution-principal fields, and remain disabled.
 On import, the stored Trigger `userId` is derived from its remapped Task owner
@@ -46,6 +46,11 @@ forms, sign-in sessions, runtime attachments, execution approvals, pending work,
 workspace archives, file binaries, tool payloads, traces, journal chains,
 personal knowledge, billing or telemetry. `not-migrated.json` lists reconnect
 categories, connector references and unavailable items. It creates no bindings.
+
+Personal dashboards belong to their creator and are not exported, along with
+their panels and any home pins of those panels. They are not listed in
+`not-migrated.json`. To bring one into the new team, its creator moves it to
+Team before the export.
 
 Scripts and conversation text are user-authored content. They may contain pasted
 secrets; the export does not promise to find or redact them. Keep the ZIP private.

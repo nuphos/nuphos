@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
+import ai.nuphos.android.model.ChannelPostJump
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -87,6 +88,7 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.AgentAvatar
 import ai.nuphos.android.ui.components.MarkdownText
+import ai.nuphos.android.ui.components.containsMarkdownTable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -189,7 +191,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text(stringResource(R.string.try_again)) }
                 }
                 // Nothing posted yet: say what kind of place this is, as on iOS.
-                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, Modifier.align(Alignment.CenterStart))
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, bot = botFace != null, modifier = Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -208,14 +210,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
 }
 
-/** A chat with no posts yet: its icon, its name and how a chat works, the same words as iOS. */
+/** A chat with no posts yet: its icon, its name and how it works, in Desktop's words: a Bot's own chat introduces the Bot. */
 @Composable
-private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, modifier: Modifier = Modifier) {
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, bot: Boolean, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChatIcon(faces, title, 44.dp)
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        Text(stringResource(R.string.chats_empty_chat_body),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val lines = if (bot) listOf(stringResource(R.string.chats_empty_bot_body, title), stringResource(R.string.chats_empty_bot_start, title))
+            else listOf(stringResource(R.string.chats_empty_chat_body))
+        lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -225,6 +228,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 downloads: TransferDownloads = remember { TransferDownloads() }, onSwitchAgent: ((String) -> Unit)? = null) {
     val state = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val connect = rememberQuestionConnect(session.open, allowed)
     val typing = (items.lastOrNull() as? ChannelItem.Typing)?.agents.orEmpty()
     val reversed = items.filterNot { it is ChannelItem.Typing }.asReversed()
     val atLatest by remember { derivedStateOf { state.firstVisibleItemIndex == 0 && state.firstVisibleItemScrollOffset < 48 } }
@@ -258,6 +262,12 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
             if (flashed == reply.id) flashed = null
         }
     }
+    // Opened from a wake-up's line: once loaded, go to the post it named. A post no longer
+    // loaded leaves the transcript at its newest post.
+    LaunchedEffect(session.loaded, reversed.size) {
+        if (!session.loaded) return@LaunchedEffect
+        ChannelPostJump.pending.remove(session.channelId)?.let { id -> jump(ChannelReply(id, "", "")) }
+    }
     // Your own send returns the transcript to the end.
     LaunchedEffect(session.lastSubmittedKey) { if (session.lastSubmittedKey != null && reversed.isNotEmpty()) state.scrollToItem(0) }
     val scrollToLatest = stringResource(R.string.chats_scroll_to_latest)
@@ -276,6 +286,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             flashed = flashed == item.post.id, onQuote = jump)
                         is ChannelItem.Time -> TimeDivider(item.at)
                         is ChannelItem.Paused -> PausedLine(item.text)
+                        is ChannelItem.Record -> RecordLine(item.text)
                         is ChannelItem.ReplyFailed -> {
                             val agentId = item.event.agentId
                             // Only an agent's owner can move it, and only when the agent itself was the cause.
@@ -293,7 +304,8 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.
                                 showsFrom = question.sessionId != session.botId, onLink = onLink,
-                                failure = session.answerFailure(question))
+                                failure = session.answerFailure(question), onConnect = { connect(question) },
+                                onDismiss = { if (allowed()) session.dismiss(question, scope) })
                         }
                     }
                 }
@@ -369,8 +381,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     modifier = Modifier.padding(bottom = 4.dp).clip(RoundedCornerShape(8.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(horizontal = 8.dp, vertical = 4.dp))
             }
-            // A bubble is as wide as its words, up to the column's width.
-            if (post.text.isNotEmpty()) Surface(modifier = Modifier.width(IntrinsicSize.Max), shape = RoundedCornerShape(18.dp),
+            // A bubble is as wide as its words, up to the column's width. A table takes the column's width:
+            // its renderer can't answer the intrinsic measurement that sizing to the words needs.
+            if (post.text.isNotEmpty()) Surface(
+                modifier = if (remember(post.text) { containsMarkdownTable(post.text) }) Modifier else Modifier.width(IntrinsicSize.Max),
+                shape = RoundedCornerShape(18.dp),
                 color = when {
                     flashed -> MaterialTheme.colorScheme.tertiaryContainer
                     mine -> MaterialTheme.colorScheme.primaryContainer
@@ -426,6 +441,13 @@ private fun PausedLine(text: String) {
         Icon(Icons.Outlined.Pause, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.tertiary)
         Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** A record Nuphos left in the chat, muted, as Desktop and iOS show it. */
+@Composable
+private fun RecordLine(text: String) {
+    Text(text, Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).testTag("channel-record"),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")

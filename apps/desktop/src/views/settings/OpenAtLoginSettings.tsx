@@ -7,7 +7,7 @@ import { t } from '../../i18n'
 
 import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 
-import type { LoginItemState } from '../../api/device-types'
+import type { LoginItemState } from '../../api/window-app'
 
 /** Opens Nuphos at login, so this computer's local runtime comes back after a restart. */
 export function OpenAtLoginSettings() {

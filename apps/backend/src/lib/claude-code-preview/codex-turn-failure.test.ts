@@ -127,3 +127,18 @@ test('a Claude sign-in failure is one line: the streamed notice gives way to the
   ).toEqual([])
   expect(classifyPreviewInterruption(error, false).message).toContain('Sign the agent in again')
 })
+
+test('a Codex usage-limit notice is split off the streamed answer too', () => {
+  const error = new OpenAbRpcError(
+    '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+    -32603,
+    { code: -32603, message: 'Internal error' },
+  )
+
+  expect(
+    withoutFailureNotice(
+      'Checking now. You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      error,
+    ),
+  ).toBe('Checking now. ')
+})

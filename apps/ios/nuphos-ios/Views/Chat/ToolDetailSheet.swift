@@ -21,19 +21,19 @@ struct ToolDetailSheet: View {
                     if part.isProviderIntegrationRequest { integrationActions }
 
                     if isCommand, let command = part.input?["command"]?.stringValue {
-                        section("Command") { code(command) }
+                        section(String(localized: "Command")) { code(command) }
                         if let out = part.output {
                             let stdout = out["stdout"]?.stringValue ?? ""
                             let stderr = out["stderr"]?.stringValue ?? ""
                             let exit = out["exitCode"]?.numberValue.map { Int($0) }
-                            if !stdout.isEmpty { section("Output") { code(stdout) } }
-                            if !stderr.isEmpty { section("Errors") { code(stderr, tint: .red) } }
-                            if let exit { section("Exit code") { Text("\(exit)").font(Theme.Text.mono(.footnote)) } }
-                            if stdout.isEmpty, stderr.isEmpty, exit == nil { section("Result") { code(out.prettyPrinted) } }
+                            if !stdout.isEmpty { section(String(localized: "Output")) { code(stdout) } }
+                            if !stderr.isEmpty { section(String(localized: "Errors")) { code(stderr, tint: .red) } }
+                            if let exit { section(String(localized: "Exit code")) { Text("\(exit)").font(Theme.Text.mono(.footnote)) } }
+                            if stdout.isEmpty, stderr.isEmpty, exit == nil { section(String(localized: "Result")) { code(out.prettyPrinted) } }
                         }
                     } else {
-                        if let input = part.input { section("Parameters") { code(input.prettyPrinted) } }
-                        if let output = part.output { section("Result") { code(output.prettyPrinted) } }
+                        if let input = part.input { section(String(localized: "Parameters")) { code(input.prettyPrinted) } }
+                        if let output = part.output { section(String(localized: "Result")) { code(output.prettyPrinted) } }
                     }
                     if let error = part.errorText { section("Error") { code(error, tint: .red) } }
                 }
@@ -51,7 +51,7 @@ struct ToolDetailSheet: View {
         .sheet(isPresented: $choosingCredentials) {
             CredentialPickerSheet(selection: Binding(
                 get: { session.credentialAccess ?? CredentialSelection() },
-                set: { session.setCredentials($0) }))
+                set: { session.setCredentials($0) }), providers: part.integrationProviders)
         }
         .sheet(isPresented: $showingConnectors) {
             NavigationStack {
@@ -96,7 +96,7 @@ struct ToolDetailSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .raisedCard()
     }
 
     private var header: some View {
@@ -122,6 +122,6 @@ struct ToolDetailSheet: View {
                 .padding(12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }

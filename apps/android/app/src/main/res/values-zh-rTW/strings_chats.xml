@@ -3,14 +3,12 @@
     <string name="chats_question_credentials_and">%1$s 和 %2$s</string>
     <string name="chats_question_use_own">使用你自己的 %1$s</string>
     <string name="chats_question_choose_credentials">選擇憑證</string>
-    <string name="chats_question_answer_in_task">在任務中回答</string>
     <string name="chats_question_other">其他…</string>
     <string name="chats_question_reply">回覆…</string>
     <string name="chats_question_send_failed">無法傳送訊息 · %1$s</string>
     <string name="chats_show_less">收合</string>
     <string name="chats_show_more">顯示更多</string>
     <string name="chats_question_your_answer">你的回答</string>
-    <string name="chats_question_or_type_answer">或輸入你自己的回答</string>
     <string name="chats_question_send_answer">送出回答</string>
     <string name="chats_question_heading_approval">需要核准</string>
     <string name="chats_question_heading_preference">由你選擇</string>
@@ -53,4 +51,12 @@
     <string name="chats_message_placeholder">傳訊息到 %1$s</string>
     <string name="chats_replying_to">回覆 %1$s</string>
     <string name="chats_cancel_reply">取消回覆</string>
+    <string name="chats_question_snooze">稍後提醒</string>
+    <string name="chats_question_dismiss">關閉</string>
+    <string name="chats_question_snooze_hour">1 小時</string>
+    <string name="chats_question_snooze_tomorrow">明天 9:00</string>
+    <string name="chats_question_snooze_monday">下週一 9:00</string>
+    <string name="chats_question_dismiss_reason">理由（選填）</string>
+    <string name="chats_empty_bot_body">這裡是你和 %1$s 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。</string>
+    <string name="chats_empty_bot_start">你也可以先告訴 %1$s，你想做些什麼。</string>
 </resources>

@@ -6,17 +6,19 @@ struct CredentialPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
+    /// An integration question's providers: only the credentials that answer it are offered.
+    var providers: [String]? = nil
 
-    private var title: String { scope == .devices ? "Computers" : "Credentials" }
+    private var title: String { scope == .devices ? String(localized: "Computers") : String(localized: "Credentials") }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
-    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
+    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope).answering(providers) }
 
     var body: some View {
         NavigationStack {
             Group {
                 if let catalog {
                     if catalog.isEmpty {
-                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
+                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No credentials connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
                     } else {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
@@ -33,7 +35,7 @@ struct CredentialPickerSheet: View {
                                                     }
                                                 }
                                                 Spacer()
-                                                Image(systemName: selection.contains(item) ? "checkmark.circle.fill" : "circle")
+                                                LucideIcon(systemName: selection.contains(item) ? "checkmark.circle.fill" : "circle")
                                                     .font(.system(size: 20))
                                                     .foregroundStyle(selection.contains(item) ? Theme.heading : Theme.muted)
                                             }
@@ -43,7 +45,7 @@ struct CredentialPickerSheet: View {
                                 } header: {
                                     HStack(spacing: 8) {
                                         if let symbol = section.provider.symbol {
-                                            Image(systemName: symbol).font(.system(size: 13))
+                                            LucideIcon(systemName: symbol).font(.system(size: 13))
                                         } else {
                                             BrandLogo(name: section.provider.logo, size: 16)
                                         }
@@ -57,7 +59,7 @@ struct CredentialPickerSheet: View {
                     }
                 } else if let error = store.credentialCatalogError {
                     ContentUnavailableView {
-                        Label("Couldn't load \(title)", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load \(title)", image: "lucide-wifi-off")
                     } description: {
                         Text(error)
                     } actions: {
@@ -150,7 +152,7 @@ struct ComposerControls: View {
     /// Credentials, computers and permission mode: what a conversation with no Bot above it picks.
     @ViewBuilder private var ownSelection: some View {
         Button { showPicker = true } label: {
-            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
+            ComposerChip(systemImage: "person.badge.key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose Credentials")
@@ -207,8 +209,8 @@ struct ComposerControls: View {
 
     private var runtimeTitle: String {
         guard let runtime = store.newConversationRuntime else {
-            if store.selectedRuntimeUnavailable { return "Choose runtime" }
-            return store.runtimesLoaded ? "Runtime" : "Runtime…"
+            if store.selectedRuntimeUnavailable { return String(localized: "Choose runtime") }
+            return store.runtimesLoaded ? String(localized: "Runtime") : String(localized: "Runtime…")
         }
         return SelectorBox.agentName(runtime)
     }
@@ -220,7 +222,7 @@ struct ComposerControls: View {
             return SelectorBox.agentName(runtime)
         }
         // Gone from the list: the chip still opens the picker, which is how the conversation moves.
-        return session.runtimeDisplayName ?? "Choose runtime"
+        return session.runtimeDisplayName ?? String(localized: "Choose runtime")
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
@@ -229,12 +231,12 @@ struct ComposerControls: View {
 
     private var deviceTitle: String {
         let n = selection.count(in: .devices)
-        return n == 0 ? "Computers" : "Computers · \(n)"
+        return n == 0 ? String(localized: "Computers") : String(localized: "Computers · \(n)")
     }
 
     private var credentialsTitle: String {
         let n = selection.count(in: .credentials)
-        return n == 0 ? "Credentials" : "Credentials · \(n)"
+        return n == 0 ? String(localized: "Credentials") : String(localized: "Credentials · \(n)")
     }
 }
 
@@ -257,7 +259,7 @@ struct PermissionModeSheet: View {
                             }
                             Spacer()
                             if option == mode {
-                                Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
+                                LucideIcon("check").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                             }
                         }
                         .padding(.vertical, 4)

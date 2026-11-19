@@ -40,6 +40,7 @@ let refreshes: unknown[] = []
 let claimWins = true
 let pullStatus = 200
 let pullFetches = 0
+let fetched: string[] = []
 let warnings: string[] = []
 
 useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'MEMBER' }) })
@@ -74,6 +75,11 @@ function githubResponse(url: string) {
   if (url.includes('/check-runs')) return Response.json({ check_runs: [] })
   if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 0 })
   if (url.includes('/reviews')) return Response.json([])
+  fetched.push(url)
+  if (pullStatus === 200 && url.endsWith('/issues/56'))
+    return Response.json({ number: 56, title: 'Issue', state: 'open' })
+  if (pullStatus === 200 && url.endsWith('/repos/org/repo'))
+    return Response.json({ id: 34, full_name: 'org/repo' })
   pullFetches++
   if (pullStatus !== 200) return new Response('{}', { status: pullStatus })
 
@@ -94,6 +100,7 @@ beforeEach(() => {
   claimWins = true
   pullStatus = 200
   pullFetches = 0
+  fetched = []
   conversation = {
     sessionId: 'session',
     userId: 'owner',
@@ -189,12 +196,21 @@ test('a deselected installation is not contacted', async () => {
   expect(pullFetches).toBe(0)
   expect(warnings).toEqual([])
 })
+test('a linked issue is rechecked as an issue, without asking for a pull request', async () => {
+  conversation.linkedResources = [
+    pull('9', { kind: 'issue', url: 'https://github.com/org/repo/issues/56' }),
+  ]
+  await recheckLinkedResources(conversation, now)
+  expect(fetched.some((url) => url.includes('/pulls/'))).toBe(false)
+  expect(fetched.some((url) => url.endsWith('/issues/56'))).toBe(true)
+})
 test('a failed lookup is logged and does not reach the caller', async () => {
   pullStatus = 404
   await recheckLinkedResources(conversation, now)
-  expect(pullFetches).toBe(1)
+  // A 404 for the pull request is looked up again as an issue (and its repository), which fails too.
+  expect(pullFetches).toBe(3)
   expect(refreshes).toEqual([])
-  expect(warnings).toEqual(['linked_resource.recheck_failed'])
+  expect(warnings).toEqual(['github.resource.lookup_failed', 'linked_resource.recheck_failed'])
 })
 test('only a few checks run at once', async () => {
   conversation.linkedResources = Array.from({ length: MAX_RUNNING_RECHECKS + 2 }, (_, index) =>

@@ -39,10 +39,18 @@ export function usePanelQueueWatchdogs({
   const stopTab = useCallback(
     (tab: Tab) => {
       setPhase(tab.id, 'stopping')
-      void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).catch((error: unknown) => {
-        setPhase(tab.id, null)
-        toast.apiError(t('Could not send the stop request to the agent'), error)
-      })
+      void api.agentCancelRuntime(tab.sessionId, teamIdRef.current).then(
+        ({ status }) => {
+          // The runtime never heard the Stop, so it will not end the turn: say so.
+          if (status !== 'runtime_unreachable') return
+          setPhase(tab.id, null)
+          toast.info(t("The runtime didn't respond; the turn was stopped here."))
+        },
+        (error: unknown) => {
+          setPhase(tab.id, null)
+          toast.apiError(t('Could not send the stop request'), error)
+        },
+      )
     },
     [setPhase, teamIdRef],
   )
@@ -116,7 +124,7 @@ export function usePanelQueueWatchdogs({
         if (parseAtlasError(error).code === 'message_answered') {
           // Output arrived first: Esc still stops the turn, as it does once the agent answers.
           stopTab(tab)
-          toast.info(t('The agent had already started, so your message stays and the turn stops'))
+          toast.info(t('The turn had already started, so your message stays and the turn stops'))
         } else {
           setPhase(tab.id, null)
           toast.apiError(t('Could not take back the message'), error)

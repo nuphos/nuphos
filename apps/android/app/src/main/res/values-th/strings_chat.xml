@@ -5,6 +5,8 @@
     <string name="chat_event_expand">ขยายเหตุการณ์</string>
     <string name="chat_channel_new_messages">ข้อความใหม่ใน #%1$s</string>
     <string name="chat_open_channel">เปิดช่อง</string>
+    <string name="chat_channel_sent_file">ส่งไฟล์แล้ว</string>
+    <string name="chat_channel_more_posts">+%1$d เพิ่มเติม</string>
     <string name="chat_answered_by">%1$s ตอบแล้ว</string>
     <string name="chat_question_collapse">ยุบคำถาม</string>
     <string name="chat_question_expand">ขยายคำถาม</string>
@@ -188,4 +190,15 @@
     <string name="chat_share_access_reply">ทีมดูและตอบกลับได้</string>
     <string name="chat_share_can_reply">ตอบกลับได้</string>
     <string name="chat_share_can_view">ดูได้</string>
+    <string name="chat_summary_title">สรุปงาน</string>
+    <string name="chat_summary_close">ปิดสรุป</string>
+    <string name="chat_summary_question">คำถาม</string>
+    <string name="chat_summary_close_question">ปิดคำถาม</string>
+    <string name="chat_summary_needs_input">ต้องการคำตอบจากคุณ</string>
+    <string name="chat_summary_no_questions">ไม่มีคำถามที่รอคุณอยู่</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">คำสั่ง</string>
+    <string name="chat_summary_running">กำลังทำงาน</string>
+    <string name="chat_summary_open">สรุปเอเจนต์</string>
+    <string name="chat_summary_output_truncated">ซ่อนผลลัพธ์ก่อนหน้านี้</string>
 </resources>

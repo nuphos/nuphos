@@ -41,11 +41,14 @@ export function ModelSelector({
   control,
   disabled,
   hero = false,
+  disabledHint,
 }: {
   control: ModelControl
   disabled: boolean
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Why the picker is disabled, when it is not just waiting for the task. */
+  disabledHint?: string
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
@@ -100,19 +103,19 @@ export function ModelSelector({
       }
       if (!chip?.isConnected || !ownsShortcut(chip)) return
       event.preventDefault()
-      setView(effort ? 'effort' : 'models')
       setOpen(true)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [effort, open, setOpen])
+  }, [open, setOpen])
 
-  // Effort is a popover, since a slider is not a menu item; the model list is a
-  // menu. Both hang off the chip, and one open flag shows whichever view is on.
-  const showModels = view === 'models' || !effort
-  const modelsOpen = control.open && showModels && Boolean(model)
+  // Every opening starts on the card; the model list is one step further.
+  if (!control.open && view !== 'effort') setView('effort')
+  // The card is a popover, since a slider is not a menu item; the model list is a
+  // menu one step further. Both hang off the chip, and one open flag shows whichever view is on.
+  const modelsOpen = control.open && view === 'models' && Boolean(model)
   const effortOpen = control.open && !modelsOpen
 
   // A runtime that exposes no model controls gets no picker at all.
@@ -134,9 +137,10 @@ export function ModelSelector({
       failure && model && t('Showing last synced settings.'),
       control.queued ? t('Selected for the next reply.') : hint,
       disabled &&
-        !busy &&
-        status === 'ready' &&
-        t('Available when this agent is ready for your next message.'),
+        (disabledHint ??
+          (!busy &&
+            status === 'ready' &&
+            t('Available when this task is ready for your next message.'))),
     ].filter((line): line is string => Boolean(line)),
     error: failure ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,
@@ -152,10 +156,7 @@ export function ModelSelector({
     <>
       <Popover.Root
         open={effortOpen}
-        onOpenChange={(next) => {
-          if (next) setView(effort ? 'effort' : 'models')
-          control.setOpen(next)
-        }}
+        onOpenChange={control.setOpen}
         // Arrow keys move the effort slider as soon as it shows.
         onOpenChangeComplete={(shown) => {
           if (shown) sliderRef.current?.focus()
@@ -209,14 +210,15 @@ export function ModelSelector({
               }
               style={{ transformOrigin: 'bottom center' }}
             >
-              {!showModels && effort && (
+              {/* While the settings load, the footer says so on its own. */}
+              {Boolean(options?.length) && (
                 <ModelEffortPanel
                   effort={effort}
                   fast={fast}
                   // A runtime with no model list (Grok Build) names none; the chip's own
                   // "Model settings" would be unhelpful inside the panel.
                   modelName={model ? name : t('Reasoning')}
-                  resetValue={effortResetValue(effort.options)}
+                  resetValue={effort && effortResetValue(effort.options)}
                   blocked={blocked && !saving}
                   saving={saving}
                   sliderRef={sliderRef}
@@ -237,7 +239,7 @@ export function ModelSelector({
           // effort; neither is the user closing it.
           if (details.reason === 'trigger-hover' || details.reason === 'sibling-open') return
           // Escape from the model list steps back to effort; a second one closes.
-          if (!next && details.reason === 'escape-key' && effort) setView('effort')
+          if (!next && details.reason === 'escape-key') setView('effort')
           else control.setOpen(next)
         }}
         // Start on the current model, so ↑/↓ move from where the user is.
@@ -259,7 +261,7 @@ export function ModelSelector({
               model={model}
               blocked={blocked}
               onSelect={pickModel}
-              onBack={effort ? () => setView('effort') : undefined}
+              onBack={() => setView('effort')}
               footer={<ModelMenuFooter {...footer} />}
             />
           )}

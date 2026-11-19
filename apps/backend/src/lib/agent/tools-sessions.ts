@@ -1,17 +1,19 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { getSessionBypass } from './auto-mode/store'
+import { BOT_AVATARS } from './bot-avatars'
+import { createBot } from './bots'
 import {
   getConversations,
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
   updateBotSelf,
 } from './db'
-import { getSessionBypass } from './auto-mode/store'
-import { BOT_AVATARS } from './bot-avatars'
-import { createBot } from './bots'
 import { getLiveTurn } from './live-turn'
 import { renameConversationTool } from './tools-rename'
+import { createCoordinationTools } from './tools-coordination'
+import { conversationSummary } from './tools-session-summary'
 import { withLabel } from './tools-skilled/labeling'
 
 const LIST_DESCRIPTION =
@@ -41,38 +43,11 @@ const CREATE_BOT_DESCRIPTION =
   'The Bot belongs to that person and is their 1:1 chat with it; it starts idle on their default agent, in your own permission mode. ' +
   'Pass instructions in the second person, drafted from what they asked for. Returns its session_id.'
 
-function conversationSummary(
-  c: {
-    sessionId: string
-    title: string
-    createdAt: Date
-    lastActiveAt: Date
-    messageCount: number
-    archivedAt?: Date
-    userId: string
-    parentSessionId?: string
-  },
-  viewerUserId: string,
-  currentSessionId: string,
-) {
-  return {
-    session_id: c.sessionId,
-    title: c.title,
-    created_at: c.createdAt.toISOString(),
-    last_active_at: c.lastActiveAt.toISOString(),
-    message_count: c.messageCount,
-    ...(c.parentSessionId ? { parent_session_id: c.parentSessionId } : {}),
-    ...(c.archivedAt ? { archived: true } : {}),
-    ...(c.userId === viewerUserId ? {} : { owner: 'teammate' }),
-    ...(c.sessionId === currentSessionId ? { is_current_conversation: true } : {}),
-  }
-}
-
 export function createSessionTools(
   userId: string,
   conversationId: string,
   teamId: string | null | undefined,
-) {
+): Record<string, ReturnType<typeof withLabel>> {
   if (!teamId) return {}
 
   const listShape = {
@@ -198,6 +173,12 @@ export function createSessionTools(
   )
 
   const updateSelfShape = {
+    onboardingComplete: z
+      .literal(true)
+      .optional()
+      .describe(
+        'Finish initial setup only after the person confirms your ongoing responsibilities. Include complete standing instructions. Answer or withdraw remaining setup questions first.',
+      ),
     name: z.string().trim().min(1).max(120).optional().describe('Your new name, 1–120 characters.'),
     avatar: z.enum(BOT_AVATARS).optional().describe('Your new face, by name.'),
     instructions: z
@@ -211,18 +192,23 @@ export function createSessionTools(
     tool({
       description: UPDATE_SELF_DESCRIPTION,
       inputSchema: z.object(updateSelfShape),
-      execute: async ({ name, avatar, instructions }) => {
+      execute: async ({ name, avatar, instructions, onboardingComplete }) => {
+        if (onboardingComplete && !instructions?.trim())
+          return {
+            error: 'Include the confirmed responsibilities in instructions to finish onboarding.',
+          }
         const update = {
           ...(name === undefined ? {} : { title: name }),
           ...(avatar === undefined ? {} : { avatar }),
           ...(instructions === undefined ? {} : { instructions }),
+          ...(onboardingComplete ? { botOnboarding: 'completed' as const } : {}),
         }
 
         if (Object.keys(update).length === 0) return { error: 'Pass at least one field to change.' }
         if (!(await updateBotSelf(conversationId, userId, teamId, update))) {
           return {
             error:
-              'This conversation is not a Bot owned by the person you are working for, so it cannot change itself.',
+              'The Bot could not be updated. It must belong to this person and team; finishing onboarding also requires active setup with no unanswered preference questions.',
           }
         }
 
@@ -271,6 +257,7 @@ export function createSessionTools(
   )
 
   return {
+    ...createCoordinationTools(userId, conversationId, teamId),
     list_recent_conversations,
     read_conversation,
     rename_conversation: renameConversationTool(userId, conversationId, teamId),

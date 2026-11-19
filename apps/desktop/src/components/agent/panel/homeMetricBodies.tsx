@@ -42,7 +42,7 @@ export function SessionsBody({ stats, onOpenConversation }: MetricBodyProps) {
         </div>
         <div>
           <BigNumber value={current.subAgents} />
-          <div className="mt-1 text-[11px] text-tertiary">{t('sub-agents')}</div>
+          <div className="mt-1 text-[11px] text-tertiary">{t('sub-tasks')}</div>
         </div>
       </div>
       <div className="mt-auto min-w-0 text-[11.5px] leading-4">
@@ -50,8 +50,8 @@ export function SessionsBody({ stats, onOpenConversation }: MetricBodyProps) {
           <>
             <div className="truncate text-tertiary">
               {fanOut.count === 1
-                ? t('Biggest fan-out: 1 sub-agent from')
-                : t('Biggest fan-out: {n} sub-agents from', { n: fanOut.count })}
+                ? t('Biggest fan-out: 1 sub-task from')
+                : t('Biggest fan-out: {n} sub-tasks from', { n: fanOut.count })}
             </div>
             {/* The session gets a line of its own, so its title is never cut to a letter. */}
             <div className="truncate">
@@ -86,8 +86,8 @@ export function PullRequestsBody({ stats }: MetricBodyProps) {
       </BigNumber>
       <Caption>
         {current.prsOpened === 1
-          ? t('1 linked to an agent')
-          : t('{n} linked to agents', { n: current.prsOpened })}
+          ? t('1 linked to a task')
+          : t('{n} linked to tasks', { n: current.prsOpened })}
       </Caption>
       {overnight > 0 && (
         <div className="mt-auto flex items-center gap-1.5 text-[11.5px] text-secondary">

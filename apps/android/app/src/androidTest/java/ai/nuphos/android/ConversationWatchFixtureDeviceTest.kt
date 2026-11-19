@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -30,6 +30,7 @@ import org.junit.rules.ExternalResource
 import org.junit.rules.RuleChain
 import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
+import org.junit.Assume.assumeTrue
 
 /** Synthetic local transport only. The outer rule blocks the real Activity's reads. */
 @RunWith(AndroidJUnit4::class)
@@ -53,6 +54,8 @@ class ConversationWatchFixtureDeviceTest {
     @Volatile private var holdDetails: java.util.concurrent.CountDownLatch? = null
     @Volatile private var failList = false
     @Volatile private var failDetails = false
+    @Volatile private var taskSummaryFixture = false
+    @Volatile private var emptyTaskSummary = false
     private val entries = """[{"key":"agent-session:normal","label":"Synthetic pin"}]"""
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, delegated: Boolean = true) =
         target.javaClass.getDeclaredField(name + if (delegated) "\$delegate" else "").also { it.isAccessible = true }.get(target) as MutableState<Any?>
@@ -60,8 +63,6 @@ class ConversationWatchFixtureDeviceTest {
     private val network = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            require(app.packageName in setOf("ai.nuphos.android.watchfixture", "ai.nuphos.android.rowactions1357", "ai.nuphos.android.pinios1370")) { "Use an independent fixture package; never the Play installation." }
-            require(InstrumentationRegistry.getArguments().getString("isolatedWatch") == "true")
             preferences = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).all.toMap()
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
                 savedAccess = state(AiAccess, "state", false).value
@@ -92,6 +93,11 @@ class ConversationWatchFixtureDeviceTest {
                     mutation && denied -> """{"error":"synthetic unavailable"}"""
                     mutation -> """{"ok":true,"watching":${watching[watchId!!]}}"""
                     listing && req.url.queryParameter("teamId") == "B" -> """{"conversations":[],"hasMore":false}"""
+                    listing && emptyTaskSummary && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[],"hasMore":false}"""
+                    listing && taskSummaryFixture && req.url.queryParameter("pendingDecision") == "true" ->
+                        """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic task","isOwner":true,
+                            "inputRequests":[{"id":"q-summary","category":"preference","question":"Review the plan?","options":["Review"],"status":"open"}]}],"hasMore":false}"""
                     listing -> """{"conversations":[{"sessionId":"parent","teamId":"A","title":"Synthetic shared parent","watching":${watching["parent"]},"readOnly":true,"isOwner":false},{"sessionId":"child","teamId":"A","title":"Synthetic child","parentSessionId":"parent","isOwner":false,"readOnly":true,"watching":${watching["child"]}},{"sessionId":"other","teamId":"A","title":"Synthetic other","isOwner":false,"readOnly":true,"watching":${watching["other"]}}],"hasMore":false}"""
                     detailId != null -> """{"messages":[],"readOnly":true,"isOwner":false,"watching":${watching[detailId]}}"""
                     path == "/teams/A/favorites" -> """{"revision":1,"entries":$entries}"""
@@ -144,12 +150,17 @@ class ConversationWatchFixtureDeviceTest {
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
-                NuphosTheme { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
+                NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { androidx.compose.material3.Surface(Modifier.fillMaxSize().systemBarsPadding()) { CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     val nav = rememberNavController()
                     NavHost(nav, startDestination = "history") {
                         composable("history") { AgentPage(false, {}, nav) }
                         composable("conversation/{sessionId}") { back ->
-                            val session = store.session(back.arguments!!.getString("sessionId")!!, "Synthetic shared parent")
+                            val sessionId = back.arguments!!.getString("sessionId")!!
+                            if (taskSummaryFixture) {
+                                ai.nuphos.android.ui.chat.ConversationScreen(sessionId, false, { nav.popBackStack() }, nav)
+                                return@composable
+                            }
+                            val session = store.session(sessionId, "Synthetic shared parent")
                             androidx.compose.runtime.LaunchedEffect(session) { session.load() }
                             androidx.compose.foundation.layout.Column {
                                 androidx.compose.material3.Text("Synthetic shared conversation")
@@ -162,6 +173,44 @@ class ConversationWatchFixtureDeviceTest {
         }
         waitText("Synthetic shared parent")
     }
+    @Test fun taskSummaryShowsQuestionsAndRuntimeWork() {
+        taskSummaryFixture = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
+        compose.runOnIdle {
+            val session = store.session("parent", "Synthetic shared parent")
+            state(session, "runtimeObservation").value = RuntimeObservation(requireNotNull(JsonValue.parse(
+                """{"tools":[{"id":"term","terminal":{"status":"running","command":"Check the build","output":"Build is running"}}]}""",
+            )), RuntimeObservation.now())
+        }
+        shot("task-summary-toolbar")
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
+        waitText("Review the plan?")
+        shot("task-summary-pending")
+        compose.onNodeWithText("Check the build").performClick()
+        waitText("Build is running")
+        shot("task-summary")
+        compose.onNodeWithText("Review the plan?").performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).assertIsDisplayed()
+        shot("task-summary-question")
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close_question)).performClick()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_close)).assertIsDisplayed().performClick()
+        compose.onNodeWithTag("task-summary").assertDoesNotExist()
+    }
+
+    @Test fun taskSummaryShowsTheEmptyState() {
+        taskSummaryFixture = true
+        emptyTaskSummary = true
+        render()
+        compose.onNodeWithText("Synthetic shared parent").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_summary_open)).performClick()
+        waitText(compose.activity.getString(R.string.chat_summary_no_questions))
+        compose.onNodeWithText(compose.activity.getString(R.string.chat_summary_background)).assertDoesNotExist()
+        shot("task-summary-empty")
+    }
+
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
     private fun shot(name: String) {

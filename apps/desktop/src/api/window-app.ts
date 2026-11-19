@@ -15,7 +15,6 @@ import type {
   LocalSkillInfo,
   PastedAttachmentPayload,
 } from './app-types.ts'
-import type { LoginItemState } from './device-types.ts'
 import type {
   GithubSkillCandidate,
   GithubSkillPreview,
@@ -46,6 +45,9 @@ import type {
   UserInfo,
 } from '../types/team.ts'
 import type { SocialOption } from '../types/app-misc.ts'
+
+/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
+export type LoginItemState = { supported: boolean; openAtLogin: boolean }
 
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
@@ -162,6 +164,7 @@ export type WindowAppApi = {
   designsApplyOps(teamId: string, designId: string, ops: DesignOp[]): Promise<Design>
   designsDelete(teamId: string, designId: string): Promise<void>
   dashboardsList(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
+  dashboardsFormerMembers(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
   dashboardsCreate(
     teamId: string,
     input: import('../dashboards/schema').CreateDashboardInput,

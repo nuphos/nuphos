@@ -16,7 +16,7 @@ struct ReasoningTile: View {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "brain")
+                    LucideIcon("brain")
                         .font(Theme.Text.micro.weight(.semibold))
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(title(now: context.date))
@@ -29,7 +29,7 @@ struct ReasoningTile: View {
                             .lineLimit(1)
                             .foregroundStyle(Theme.muted.opacity(0.8))
                     }
-                    Image(systemName: "chevron.right")
+                    LucideIcon("chevron-right")
                         .font(Theme.Text.micro.weight(.bold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                         .opacity(expanded ? 0.6 : 0.35)
@@ -59,8 +59,8 @@ struct ReasoningTile: View {
 
     private func title(now: Date) -> String {
         let seconds = part.startedAt.map { Int((part.endedAt ?? now).timeIntervalSince($0)) } ?? 0
-        if isThinking { return seconds > 0 ? "Thinking \(seconds)s" : "Thinking" }
-        return seconds > 0 ? "Thought for \(seconds)s" : "Thought"
+        if isThinking { return seconds > 0 ? String(localized: "Thinking \(seconds)s") : String(localized: "Thinking") }
+        return seconds > 0 ? String(localized: "Thought for \(seconds)s") : String(localized: "Thought")
     }
 }
 

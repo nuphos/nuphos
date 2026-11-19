@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Expand event</string>
     <string name="chat_channel_new_messages">New messages in #%1$s</string>
     <string name="chat_open_channel">Open channel</string>
+    <string name="chat_channel_sent_file">Sent a file</string>
+    <string name="chat_channel_more_posts">+%1$d more</string>
     <string name="chat_answered_by">%1$s answered</string>
     <string name="chat_question_collapse">Collapse question</string>
     <string name="chat_question_expand">Expand question</string>
@@ -195,4 +197,15 @@
     <string name="chat_share_access_reply">Team can view and reply</string>
     <string name="chat_share_can_reply">Can reply</string>
     <string name="chat_share_can_view">Can view</string>
+    <string name="chat_summary_title">Task summary</string>
+    <string name="chat_summary_close">Close summary</string>
+    <string name="chat_summary_question">Question</string>
+    <string name="chat_summary_close_question">Close question</string>
+    <string name="chat_summary_needs_input">Needs your input</string>
+    <string name="chat_summary_no_questions">No questions waiting for you.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Command</string>
+    <string name="chat_summary_running">Running</string>
+    <string name="chat_summary_open">Agent summary</string>
+    <string name="chat_summary_output_truncated">Earlier output is hidden.</string>
 </resources>

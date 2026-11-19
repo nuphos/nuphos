@@ -65,7 +65,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import ai.nuphos.android.data.AgentChatApi
-import ai.nuphos.android.session.ShareApprovalWait
 import ai.nuphos.android.session.ConversationReads
 import ai.nuphos.android.session.AiAccess
 import androidx.compose.runtime.key
@@ -74,6 +73,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -197,8 +197,6 @@ fun ConversationScreen(
     LaunchedEffect(session, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { session.pollWhileIdle() }
     }
-    // A teammate's computer that asks its owner first: say so until they answer.
-    LaunchedEffect(session, session.runtimeId, session.queuedSends) { session.watchShareApproval() }
 
     // Initial entry, foreground and manual refresh work even during an active turn.
     // Turn completion is a separate event, never a resource polling loop.
@@ -237,12 +235,31 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session)
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
     if (showTriggers && auth.token != null) {
         ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+    }
+    var showSummary by remember(session, selectedTeamId) { mutableStateOf(false) }
+    val summaryToken = auth.token
+    val summaryAllowed = session.readAllowed && (!fresh || !session.isNew) && !newChat && auth.aiAllowed && selectedTeamId == session.teamId &&
+        summaryToken != null && conversation?.isBot != true && ai.nuphos.android.model.BotFaces.face(sessionId) == null
+    if (showSummary && summaryAllowed && summaryToken != null) {
+        TaskSummarySheet(
+            session = session,
+            token = summaryToken,
+            childIds = store.conversations.filter {
+                it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
+            }.mapTo(mutableSetOf()) { it.sessionId },
+            allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
+            onOpen = { child ->
+                showSummary = false
+                nav.navigate("conversation/${android.net.Uri.encode(child)}")
+            },
+            onDismiss = { showSummary = false },
+        )
     }
     val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
@@ -277,6 +294,11 @@ fun ConversationScreen(
                     else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
                 },
                 actions = {
+                    if (summaryAllowed) {
+                        IconButton(onClick = { showSummary = true }) {
+                            Icon(painterResource(R.drawable.ic_task_summary), stringResource(R.string.chat_summary_open))
+                        }
+                    }
                     ConversationMenu(session, store, onBack, onChooseRuntime = { showAgent = true })
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = chatCanvas),
@@ -354,24 +376,6 @@ fun ConversationScreen(
                     }
                     .onSizeChanged { bottomInset = with(density) { (it.height.toDp() - COMPOSER_TOP_MARGIN).coerceAtLeast(0.dp) } }) {
                     Column(Modifier.fillMaxWidth().background(chatCanvas)) {
-                        session.shareApproval?.let { wait ->
-                            Surface(
-                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ) {
-                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        wait.message(session.runtimeDeviceLabel ?: "this computer"),
-                                        Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    // Declined: the conversation moves on to another runtime.
-                                    if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
-                                }
-                            }
-                        }
                         if (session.runtimeRecoveryRequired) {
                             Text(stringResource(R.string.chat_delivery_check_needed), modifier = Modifier.padding(horizontal = 16.dp))
                             TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text(stringResource(R.string.chat_check_delivery)) }
@@ -668,7 +672,7 @@ private fun ChatRowView(
                 LocalAgentStore.current.teams.firstOrNull { it.id == session.teamId }?.isAdministrator == true) else null
             val ask = session.signInAsk?.takeIf { askLabel != null && it.runtimeId == runtimeId }
             if (ask != null) Text(ask.status, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
-            val switch = onSwitchRuntime?.takeIf { block != null }
+            val switch = onSwitchRuntime?.takeIf { block != null || row.id == "runtime-offline" }
             if ((askLabel != null && ask?.asked != true) || switch != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (askLabel != null && runtimeId != null && ask?.asked != true) {
                     val scope = rememberCoroutineScope()

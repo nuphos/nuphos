@@ -12,7 +12,7 @@ struct TerminalScreen: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button(action: close) {
-                    Image(systemName: "xmark")
+                    LucideIcon("x")
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color.white.opacity(0.12)))
@@ -35,7 +35,7 @@ struct TerminalScreen: View {
 
     private var title: String {
         if case .live(let label) = terminal.phase { return label }
-        return "Terminal"
+        return String(localized: "Terminal")
     }
 
     @ViewBuilder
@@ -56,7 +56,7 @@ struct TerminalScreen: View {
 
     private func notice(_ message: String, retry: String) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: "terminal")
+            LucideIcon("terminal")
                 .font(.system(size: 34, weight: .light))
             Text(message)
                 .font(Theme.Text.secondary)

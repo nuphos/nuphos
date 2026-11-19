@@ -2,7 +2,7 @@ import { eventEmittedAt } from './sessionContinuity.ts'
 import { normalizeAgentError, uid } from './stall.ts'
 import { appendTextDelta } from './streamText.ts'
 import { applyToolOutputDelta } from './toolOutputDelta.ts'
-import { updateCurrentAssistantParts } from './turnBoundaries.ts'
+import { replyId, updateCurrentAssistantParts } from './turnBoundaries.ts'
 
 import type { Tab } from './model.ts'
 import type { MemoryIngestPart, MemoryProvenancePart, Part } from './parts.ts'
@@ -220,7 +220,7 @@ export function appendMemoryIngestPart(
     // A delayed post-stream result must never drift onto a newer turn if its
     // original assistant message has since disappeared.
     if (targetMessageId) return tab
-    assistant = { id: uid(), role: 'assistant', parts: [] }
+    assistant = { id: replyId(tab, uid), role: 'assistant', parts: [] }
     messages.push(assistant)
     assistantIndex = messages.length - 1
   }
@@ -254,10 +254,14 @@ export function appendMemoryIngestPart(
 
 // ADR-0007 #2: attach/replace the provenance footer on the current answer.
 export function appendMemoryProvenancePart(tab: Tab, part: MemoryProvenancePart): Tab {
-  const messages = updateCurrentAssistantParts(tab.messages, uid, (parts) => [
-    ...parts.filter((p) => !(p.type === 'memory-provenance' && p.id === part.id)),
-    part,
-  ])
+  const messages = updateCurrentAssistantParts(
+    tab.messages,
+    () => replyId(tab, uid),
+    (parts) => [
+      ...parts.filter((p) => !(p.type === 'memory-provenance' && p.id === part.id)),
+      part,
+    ],
+  )
 
   return { ...tab, connected: true, messages }
 }

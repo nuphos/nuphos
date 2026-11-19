@@ -14,6 +14,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import ai.nuphos.android.data.AgentRuntimeApi
+import ai.nuphos.android.data.ComputerPresence
 import ai.nuphos.android.data.RuntimeQuota
 import ai.nuphos.android.session.AiAccess
 import kotlinx.coroutines.CancellationException
@@ -65,6 +66,38 @@ internal fun rememberRuntimeDevices(token: String?, teamId: String?): List<ai.nu
             }
         }
         devices
+    }
+}
+
+/** How the computer this runtime lives on stands right now. A runtime with no computer is never asked again. */
+@Composable
+internal fun rememberComputerPresence(token: String?, teamId: String?, runtimeId: String?): ComputerPresence {
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val revision = AiAccess.revision
+    return key(token, teamId, runtimeId, revision, lifecycle) {
+        val presence by produceState<ComputerPresence>(ComputerPresence.Online) {
+            if (token == null || teamId == null || runtimeId == null) return@produceState
+            val allowed = AiAccess.bind(token)
+            // Kept across a failed read, so one dropped request never turns a paused Box offline.
+            var devices = emptyList<ai.nuphos.android.data.RuntimeDevice>()
+            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (isActive && allowed()) {
+                    try {
+                        val api = AgentRuntimeApi(token, teamId)
+                        val host = api.catalog().firstOrNull { it.id == runtimeId }?.local
+                        // Only an offline Box can be paused; a computer known not to be a Box is not asked again.
+                        if (host?.online == false && devices.none { it.id == host.deviceId && it.box == null }) {
+                            // A failed devices read keeps the last list; the catalog alone still says offline.
+                            try { devices = api.devices(metrics = false) } catch (error: Exception) { if (error is CancellationException) throw error }
+                        }
+                        if (allowed()) value = ComputerPresence.of(host, devices)
+                        if (host == null) return@repeatOnLifecycle
+                    } catch (error: Exception) { if (error is CancellationException) throw error }
+                    delay(15_000)
+                }
+            }
+        }
+        presence
     }
 }
 

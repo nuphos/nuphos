@@ -9,7 +9,7 @@ import { SessionParticipants } from '../../components/agent/SessionParticipants'
 import { SessionTitlebarResources } from '../../components/agent/SessionTitlebarResources'
 import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
 import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
-import { useComposerReplyTarget } from '../../components/agent/summary/useComposerReplyTarget'
+import { useOpenQuestions } from '../../components/agent/summary/useOpenQuestions'
 import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { HeaderEdge } from '../../components/ui/header-edge'
 import { setChatSummaryDocked } from '../../lib/chatSummaryPanel'
@@ -32,11 +32,13 @@ import type { UserInfo } from '../../types'
 
 export function WorkspaceAgentPane({
   ws,
+  teamId,
   user,
   workspaceExpanded = false,
   foreground = true,
 }: {
   ws: WorkspaceController
+  teamId: string
   user: UserInfo
   workspaceExpanded?: boolean
   foreground?: boolean
@@ -59,7 +61,6 @@ export function WorkspaceAgentPane({
     firstRunDevForced,
     openSettingsSection,
     pendingChatPrompt,
-    scope,
     setAgentSidebarPendingImport,
     setAuditChatLocate,
     selectedSessionId,
@@ -77,9 +78,8 @@ export function WorkspaceAgentPane({
   const savedSessionId = currentHeading.saved ? selectedSessionId : null
   // The titlebar menu's Rename opens the same inline editor as clicking the title.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
-  const teamId = scope?.teamId
   const inputQueue = useSessionInputRequests(savedSessionId, teamId)
-  const { replyTarget, openQuestions } = useComposerReplyTarget(savedSessionId, teamId, inputQueue)
+  const openQuestions = useOpenQuestions(savedSessionId, inputQueue)
   const unbound =
     firstRunDevForced || (accounts !== undefined && !hasCloudOnboardingBinding(accounts))
   // Workspace context is consumed only when dispatching the next turn. Keep it
@@ -126,7 +126,6 @@ export function WorkspaceAgentPane({
   const transcriptRef = useRef<HTMLDivElement>(null)
   const [titlebarRef, { compact, tight }] = useTitlebarFit()
 
-  if (!teamId) return null
   const mayRename = currentHeading.canRename === true
 
   return (
@@ -151,14 +150,14 @@ export function WorkspaceAgentPane({
             // The viewport-anchored dock toggle (see `.workspace-dock-toggle`)
             // sits over this header only while the dock is closed; once it is
             // open the toggle rides the dock's own tab strip instead.
-            dockOpen ? 'pr-3' : 'pr-12',
+            dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
           )}
         >
           <CornerSidebarToggle />
           {/* Drag area sits beside Share (no no-drag hole); it clips so chips never cover Share. */}
           <div
             key={`heading-${selectedSessionId ?? 'home'}`}
-            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
+            className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
           >
             {selectedSessionId && (
               // A Task is its runtime here, even a Bot's: the face belongs to its chat.
@@ -258,8 +257,6 @@ export function WorkspaceAgentPane({
               newChatDraftId={paneId}
               sessionId={selectedSessionId}
               sessionReadOnly={selectedSessionReadOnly}
-              decisionReplyTo={replyTarget?.chosen ?? undefined}
-              replyTarget={replyTarget}
               openQuestions={openQuestions}
               onSessionChange={handleSessionChange}
               onOpenNuphosLink={stableOpenNuphosLinkFromChat}
@@ -284,7 +281,6 @@ export function WorkspaceAgentPane({
               onOpenLink={stableOpenSessionResource}
               onOpenSession={handleSessionChange}
               onOpenRequest={handleOpenRequest}
-              onChooseReply={replyTarget?.onChoose}
               requests={inputQueue.requests}
               requestsLoaded={inputQueue.loaded}
               requestsFailed={inputQueue.failed}

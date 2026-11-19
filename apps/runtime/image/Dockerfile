@@ -45,7 +45,7 @@ RUN chmod -R a+rX /opt/nuphos-runtime \
 COPY --chmod=755 sync-skills.sh /usr/local/bin/nuphos-sync-skills
 COPY --chmod=755 seed-codex-auth.sh /usr/local/bin/nuphos-seed-codex-auth
 COPY reply-image-stream.mjs reply-images.mjs runtime-defaults.mjs mcp-bridge-config.mjs session-home.mjs \
-     process-death.mjs acp-shim.mjs hermes-session.mjs pi-session.mjs native-question.mjs /opt/
+     process-death.mjs acp-shim.mjs hermes-session.mjs opencode-session.mjs pi-session.mjs native-question.mjs /opt/
 # Sourced via BASH_ENV, so it is read, never executed.
 COPY --chmod=644 runtime-guard.sh /opt/nuphos-runtime/runtime-guard.sh
 COPY codex-login.mjs claude-login.mjs mcp-http-bridge.mjs panel-job.mjs /opt/nuphos-runtime/
@@ -94,7 +94,7 @@ FROM common AS codex
 COPY codex-acp/package.json codex-acp/package-lock.json \
      codex-acp/patch-adapter.mjs codex-acp/session-config.mjs codex-acp/steering.mjs \
      codex-acp/restore-history.mjs codex-acp/process-death.mjs codex-acp/ask-user-input.mjs \
-     codex-acp/ultrafast.mjs \
+     codex-acp/ultrafast.mjs codex-acp/turn-usage.mjs \
      /opt/nuphos-codex-acp/
 RUN cd /opt/nuphos-codex-acp \
  && npm ci --omit=dev --ignore-scripts --cache /tmp/npm-cache \

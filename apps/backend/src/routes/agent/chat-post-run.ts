@@ -6,6 +6,7 @@
 
 import { agentConversations } from '@/lib/agent/db'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
+import { noteLostTurn } from '@/lib/agent/undelivered-send'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
@@ -198,7 +199,7 @@ export function launchAcceptedChatTurn(args: {
           },
           { $set: { workspace: { kind: 'folder', path: body.workspace.path, runtimeId } } },
         )
-      await runClaudeCodePreviewChatTurn({
+      const outcome = await runClaudeCodePreviewChatTurn({
         run,
         sessionId,
         teamId,
@@ -215,13 +216,17 @@ export function launchAcceptedChatTurn(args: {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
-        onTurnUsage: (usage) => {
+        onTurnUsage: (report) => {
           recordRuntimeTurnUsage({
             sessionId,
             userId: run.userId,
             teamId,
             provider: chatRuntime.endpoint.provider ?? 'claude-code',
-            usage,
+            ...report,
+            actorUserId: chatCtx.userId,
+            turnSource: 'app',
+            runtimeId: chatRuntime.endpoint.runtimeId,
+            deviceId: chatRuntime.endpoint.local?.deviceId,
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
@@ -244,6 +249,10 @@ export function launchAcceptedChatTurn(args: {
             }
           : {}),
       })
+
+      // Not awaited: it waits for the computer to come back, which may be never.
+      if (outcome === 'connection-lost')
+        void noteLostTurn({ userId: run.userId, teamId, targetSessionId: sessionId })
       chatSpan.end()
     } catch (err) {
       pumpError = err

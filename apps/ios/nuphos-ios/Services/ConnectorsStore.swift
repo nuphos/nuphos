@@ -33,6 +33,8 @@ final class ConnectorsStore {
             loadedTeamId = teamId
             phase = .loaded
         } catch {
+            // Cancelled: the page's next appearance loads it again (#3620).
+            guard !Task.isCancelled else { return }
             phase = .failed(error.localizedDescription)
         }
     }
@@ -74,13 +76,13 @@ final class ConnectorsStore {
             // A redirect carrying someone else's state is not a completion of
             // *this* flow — don't report it as one.
             guard query["state"] == pending.state else {
-                throw ConnectorOAuth.Failure.provider("The provider came back with a mismatched request. Please try again.")
+                throw ConnectorOAuth.Failure.provider(String(localized: "The provider came back with a mismatched request. Please try again."))
             }
             // A backend that stages grants sends a one-time code instead of
             // binding; confirming it is what creates the binding.
             if query["deferred"] == "1" {
                 guard let code = query["code"], !code.isEmpty else {
-                    throw ConnectorOAuth.Failure.provider("The provider came back without a confirmation code. Please try again.")
+                    throw ConnectorOAuth.Failure.provider(String(localized: "The provider came back without a confirmation code. Please try again."))
                 }
                 try await ConnectorsAPI.completeOAuth(token: token, teamId: teamId, state: pending.state, code: code)
             }
@@ -102,29 +104,29 @@ final class ConnectorsStore {
         let state = Self.freshState()
 
         guard var components = URLComponents(url: issued, resolvingAgainstBaseURL: false) else {
-            throw ConnectorOAuth.Failure.provider("Could not build the GitHub install URL.")
+            throw ConnectorOAuth.Failure.provider(String(localized: "Could not build the GitHub install URL."))
         }
         var items = components.queryItems?.filter { $0.name != "state" } ?? []
         items.append(URLQueryItem(name: "state", value: state))
         components.queryItems = items
         guard let url = components.url else {
-            throw ConnectorOAuth.Failure.provider("Could not build the GitHub install URL.")
+            throw ConnectorOAuth.Failure.provider(String(localized: "Could not build the GitHub install URL."))
         }
 
         let query = try await ConnectorOAuth().run(url: url, expectedHost: "github-callback")
 
         guard query["state"] == state else {
-            throw ConnectorOAuth.Failure.provider("GitHub came back with a mismatched request. Please try again.")
+            throw ConnectorOAuth.Failure.provider(String(localized: "GitHub came back with a mismatched request. Please try again."))
         }
         let action = query["setup_action"] ?? "install"
         guard action == "install" || action == "update" else {
-            throw ConnectorOAuth.Failure.provider("Unexpected GitHub setup action: \(action).")
+            throw ConnectorOAuth.Failure.provider(String(localized: "Unexpected GitHub setup action: \(action)."))
         }
         guard let raw = query["installation_id"],
               raw.allSatisfy(\.isASCII), raw.allSatisfy(\.isNumber),
               let installationId = Int(raw), installationId > 0
         else {
-            throw ConnectorOAuth.Failure.provider("GitHub did not return an installation.")
+            throw ConnectorOAuth.Failure.provider(String(localized: "GitHub did not return an installation."))
         }
         try await ConnectorsAPI.bindGithubInstallation(token: token, teamId: teamId, installationId: installationId)
     }

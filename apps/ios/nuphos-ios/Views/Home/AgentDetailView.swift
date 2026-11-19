@@ -47,7 +47,7 @@ struct AgentDetailView: View {
                         }
                     }
                 } else {
-                    Text(quota?.reason ?? "Unavailable").foregroundStyle(.secondary)
+                    Text(quota?.reason ?? String(localized: "Unavailable")).foregroundStyle(Theme.body)
                 }
             }
             Section {
@@ -65,7 +65,7 @@ struct AgentDetailView: View {
                 Button("Remove Runtime", role: .destructive) { confirmRemoval = true }
             }
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .disabled(busy)

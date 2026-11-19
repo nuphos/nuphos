@@ -47,7 +47,7 @@ export async function listAgentTriggers(
 }
 
 export async function getAgentTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger> {
-  return callJson<AgentTrigger>(
+  return callJsonForRenderer<AgentTrigger>(
     'GET',
     `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
   )

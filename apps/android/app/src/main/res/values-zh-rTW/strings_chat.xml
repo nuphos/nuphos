@@ -5,6 +5,8 @@
     <string name="chat_event_expand">展開事件</string>
     <string name="chat_channel_new_messages">#%1$s 有新訊息</string>
     <string name="chat_open_channel">開啟頻道</string>
+    <string name="chat_channel_sent_file">傳送了檔案</string>
+    <string name="chat_channel_more_posts">還有 %1$d 則</string>
     <string name="chat_answered_by">%1$s 已回答</string>
     <string name="chat_question_collapse">收合問題</string>
     <string name="chat_question_expand">展開問題</string>
@@ -188,4 +190,15 @@
     <string name="chat_share_access_reply">團隊可檢視及回覆</string>
     <string name="chat_share_can_reply">可回覆</string>
     <string name="chat_share_can_view">可檢視</string>
+    <string name="chat_summary_title">任務摘要</string>
+    <string name="chat_summary_close">關閉摘要</string>
+    <string name="chat_summary_question">問題</string>
+    <string name="chat_summary_close_question">關閉問題</string>
+    <string name="chat_summary_needs_input">需要你的回覆</string>
+    <string name="chat_summary_no_questions">沒有等待你回覆的問題。</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">指令</string>
+    <string name="chat_summary_running">執行中</string>
+    <string name="chat_summary_open">Agent 摘要</string>
+    <string name="chat_summary_output_truncated">已隱藏較早的輸出。</string>
 </resources>

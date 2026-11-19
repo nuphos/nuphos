@@ -152,8 +152,13 @@ function buildApp(box: BoxDeps | null = null) {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
-      computerDesktopRuntimeId: async ({ userId, deviceId }, viewer) =>
-        onlineNow && userId === viewer ? `local_${userId}_${deviceId}` : undefined,
+      ownComputer: async ({ userId, deviceId }, viewer) =>
+        onlineNow && userId === viewer
+          ? {
+              desktopRuntimeId: `local_${userId}_${deviceId}`,
+              app: { version: '0.120.0', update: { version: '0.121.0', ready: true } },
+            }
+          : {},
       boxDesktops: async (owner, deviceId, viewer, team) => [
         { display: 2, sessionId: `${owner}:${deviceId}:${viewer}:${String(team)}`, title: 'Fix' },
       ],
@@ -504,8 +509,24 @@ describe('agent device routes', () => {
       available: () => true,
       state: async (device, online) =>
         !device.box?.sandboxId ? 'creating' : online ? 'running' : machineState,
+      // instabox paused `evicted` on its own, its host out of memory.
+      pausedBy: async (device) => (device.deviceId === 'evicted' ? 'memory_pressure' : undefined),
     }
   }
+
+  test('a Box instabox paused on its own says why; one its owner paused does not', async () => {
+    machineState = 'paused'
+    devices[key('user-1', 'evicted')] = boxDevice('user-1', 'evicted')
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const body = (await (
+      await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')
+    ).json()) as { devices: { deviceId: string; box?: Record<string, unknown> }[] }
+    const boxOf = (id: string) => body.devices.find((device) => device.deviceId === id)?.box
+
+    expect(boxOf('evicted')).toMatchObject({ state: 'paused', pausedBy: 'memory_pressure' })
+    expect(boxOf('b1')).toMatchObject({ state: 'paused' })
+    expect(boxOf('b1')).not.toHaveProperty('pausedBy')
+  })
 
   test('PUT /agent/devices never rewrites a Box row, even for its creator', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
@@ -571,16 +592,19 @@ describe('agent device routes', () => {
     ])
   })
 
-  test('GET /devices tells the viewer where their own computer opens its screen', async () => {
+  test('GET /devices tells the viewer where their own computer opens its screen, and its update', async () => {
     registerDevice('user-1', 'mac')
     const list = async () =>
       (await (await buildApp().request('/agent/devices')).json()) as {
-        devices: { desktopRuntimeId?: string }[]
+        devices: { desktopRuntimeId?: string; app?: unknown }[]
       }
 
-    expect((await list()).devices[0]?.desktopRuntimeId).toBeUndefined()
+    expect((await list()).devices[0]).not.toContainKeys(['desktopRuntimeId', 'app'])
     onlineNow = true
-    expect((await list()).devices[0]?.desktopRuntimeId).toBe('local_user-1_mac')
+    expect((await list()).devices[0]).toMatchObject({
+      desktopRuntimeId: 'local_user-1_mac',
+      app: { version: '0.120.0', update: { version: '0.121.0', ready: true } },
+    })
   })
 
   test('an unnamed Box counts up from the highest "Computer N" the caller has', () => {

@@ -66,6 +66,8 @@ export type SessionResource = {
   draft?: boolean
   /** When a linked pull request was merged, as GitHub reports it. */
   mergedAt?: string
+  /** A GitHub issue rather than a pull request; absent for pull requests. */
+  kind?: 'issue'
   linkedAt: string
   /** When a read last checked the provider for changes webhooks may have missed. */
   checkedAt?: string
@@ -166,7 +168,12 @@ export async function refreshSessionResource(
   conversation: AgentConversation,
   resource: SessionResource,
 ) {
-  const fresh = await resolveResource(conversation, conversation.userId, lookupInput(resource))
+  const fresh = await resolveResource(
+    conversation,
+    conversation.userId,
+    lookupInput(resource),
+    resource,
+  )
 
   return writeFreshResource(conversation.sessionId, resource, fresh)
 }

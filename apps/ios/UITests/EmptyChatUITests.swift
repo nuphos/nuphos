@@ -20,13 +20,13 @@ final class EmptyChatUITests: XCTestCase {
         live = fixture.deletingLastPathComponent().appending(path: "empty-chat-live-\(UUID().uuidString).json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         // A Task named by its first message, a group, and a Bot's chat with a long name: no posts in any.
-        try edit("GET /agent/conversations") { $0.append(Self.task(avatar: nil)) }
+        try edit("GET /agent/conversations") { $0 += [Self.task(avatar: nil), Self.bot("bot-long")] }
         try edit("GET /agent/conversations?kind=channel") {
             $0.append(Self.chat("chat-group", title: "design-review", faces: []))
-            $0.append(Self.chat("chat-long", title: Self.long, faces: [Self.face("bot-plain")]))
+            $0.append(Self.chat("chat-long", title: Self.long, faces: [Self.face("bot-long")]))
         }
         serve(chat: "chat-group", title: "design-review", agent: nil)
-        serve(chat: "chat-long", title: Self.long, agent: "bot-plain")
+        serve(chat: "chat-long", title: Self.long, agent: "bot-long")
         // "Make this a Bot" waits long enough for the test to put the Bot and its chat in the listings.
         responses["POST /agent/conversations/task-long/bot"] = ["status": 200, "body": [:], "delayMs": 1500]
         serve(chat: "chat-made", title: Self.long, agent: "task-long")
@@ -54,7 +54,7 @@ final class EmptyChatUITests: XCTestCase {
         try expectEmptyChat(named: Self.long, shot: "made-a-bot")
         // Back returns to the list the Bot was made from.
         app.navigationBars.buttons["BackButton"].tap()
-        XCTAssertTrue(app.buttons["Switch page"].firstMatch.waitForExistence(timeout: 5), "Back did not return to the list")
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 5), "Back did not return to the list")
     }
 
     // With the keyboard up there is less room. A simulator with a hardware keyboard shows none: skipped, not passed.
@@ -97,14 +97,13 @@ final class EmptyChatUITests: XCTestCase {
         try expectEmptyChat(named: title, shot: "\(name)-reopened")
     }
 
-    /// As reported: from the Task row's swipe actions. The long press menu holds the same ones.
+    /// From the Task row's long press menu, which since #3343 holds every action but Archive.
     private func makeABot() throws {
         launch(page: "agent")
         let row = app.staticTexts[Self.long].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), "The Task is not listed")
-        row.swipeLeft()
+        row.press(forDuration: 1)
         let make = app.buttons["Make this a Bot"].firstMatch
-        if !make.waitForExistence(timeout: 3) { row.press(forDuration: 1) }
         XCTAssertTrue(make.waitForExistence(timeout: 5), "No Make this a Bot among the row's actions")
         make.tap()
         try edit("GET /agent/conversations") { $0 = $0.filter { $0["sessionId"] as? String != "task-long" } + [Self.task(avatar: "02-leonardo")] }
@@ -163,6 +162,14 @@ final class EmptyChatUITests: XCTestCase {
             "isOwner": true, "readOnly": false, "agentRuntime": "claude-code",
         ]
         row["avatar"] = avatar
+        return row
+    }
+
+    /// A Bot with the long name. The list names a Bot's 1:1 chat after its Bot.
+    private static func bot(_ id: String) -> [String: Any] {
+        var row = task(avatar: "02-leonardo")
+        row["sessionId"] = id
+        row["title"] = long
         return row
     }
 

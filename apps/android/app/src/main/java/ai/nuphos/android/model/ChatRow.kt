@@ -1,6 +1,7 @@
 package ai.nuphos.android.model
 
 import ai.nuphos.android.R
+import ai.nuphos.android.data.ComputerPresence
 import ai.nuphos.android.session.ChatSession
 import java.time.Instant
 
@@ -33,7 +34,8 @@ sealed class ChatRow {
     companion object {
         private val hiddenTools = setOf("skill")
 
-        fun rows(session: ChatSession): List<ChatRow> = rows(
+        /** `presence`: how the conversation's computer stands right now. */
+        fun rows(session: ChatSession, presence: ComputerPresence = ComputerPresence.Online): List<ChatRow> = rows(
             messages = session.messages,
             isStreaming = session.isStreaming,
             phaseLabel = session.phaseLabel,
@@ -44,8 +46,11 @@ sealed class ChatRow {
             stoppedByUser = session.stoppedByUser,
             downloads = if (session.canReadDownloads) session.downloads else emptyList(),
             timeline = session.timelineEvents,
+            waiting = session.waitingAnswers,
             hasEarlier = session.baseIndex > 0,
             localSender = session::localSender,
+            presence = presence,
+            sendQueued = session.serverQueue.items.isNotEmpty(),
         )
 
         internal fun rows(
@@ -59,8 +64,13 @@ sealed class ChatRow {
             stoppedByUser: Boolean = false,
             downloads: List<ai.nuphos.android.data.TransferDownloadGroup> = emptyList(),
             timeline: List<AgentConversationDetail.TimelineEvent> = emptyList(),
+            /** What each answered question's answer still waits for, by request id. */
+            waiting: Map<String, String> = emptyMap(),
             hasEarlier: Boolean = false,
             localSender: (String) -> MessageAttribution? = { null },
+            presence: ComputerPresence = ComputerPresence.Online,
+            /** A send waits in the server queue: its computer is already being woken or waited for. */
+            sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
             val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
@@ -92,7 +102,11 @@ sealed class ChatRow {
                         }
                         val answered = if (sender?.id == AnsweredQuestion.SENDER && sender.isEvent) AnsweredQuestion.all(message, text, messages) else null
                         if (answered != null) {
-                            rows += answered.mapIndexed { at, question -> Answered("answered.${message.id}.$at", question) }
+                            // Its answer has not reached the agent yet: the last line says what it waits for.
+                            val note = AnsweredQuestion.Notice.parse(text.trim())?.requestId?.let(waiting::get)
+                            rows += answered.mapIndexed { at, question ->
+                                Answered("answered.${message.id}.$at", if (at == answered.lastIndex) question.copy(waiting = note) else question)
+                            }
                         } else if (text.isNotEmpty() || images.isNotEmpty() || display.uploads.isNotEmpty()) {
                             val user = User("user.${message.id}", message.id, text, images, display.uploads, sender)
                             rows += if (sender?.isEvent == true) Event("event.${message.id}", user) else user
@@ -116,7 +130,15 @@ sealed class ChatRow {
             if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
             else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
             if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
-            error?.takeIf { !stoppedByUser }?.let { rows += Hint("error", it, true) }
+            val shownError = error?.takeIf { !stoppedByUser }
+            if (shownError != null) rows += Hint("error", shownError, true)
+            else if (!isStreaming && !runtimeTurnActive && !sendQueued) when (presence) {
+                // Said before the message goes, with the way on: another runtime.
+                ComputerPresence.Offline -> rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
+                // Sending resumes a paused Box, so nothing points away from it.
+                is ComputerPresence.Paused -> rows += Hint("runtime-paused", Words(R.string.convtext_runtime_paused, presence.label), false)
+                ComputerPresence.Online -> Unit
+            }
             rows += Bottom
             return rows
         }

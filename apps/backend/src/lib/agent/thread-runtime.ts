@@ -5,10 +5,13 @@ import {
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
-import { pickOf } from '@/lib/claude-code-preview/session-config-options'
+import { pickOf, storedPick } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
 
 import { getConversationBySessionId } from './db'
+import { liveAttachment } from './db/shared'
+
+import type { AgentConversation } from './db'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
@@ -75,6 +78,8 @@ export async function threadRuntimes(
       ready: !instance.notReady,
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
+      // Up front, so an agent sees it before moving to an account that ran out too.
+      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
       ...(models[i]?.length ? { models: models[i] } : {}),
     })),
   }
@@ -95,6 +100,13 @@ export async function assertThreadRuntime(
 }
 
 export type ThreadModelPick = { model?: string; effort?: string; fast?: string }
+
+/** The model, effort and fast mode a conversation runs with: what a thread it starts begins on. */
+export function currentPick(conversation: AgentConversation): ThreadModelPick {
+  const attachment = liveAttachment(conversation)
+
+  return attachment ? storedPick(attachment) : (conversation.initialSessionConfig ?? {})
+}
 
 /**
  * Sets a thread's model, effort and fast mode as the conversation's model picker

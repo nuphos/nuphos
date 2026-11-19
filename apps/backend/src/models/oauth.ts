@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 
-import type { EncryptedEnvelope } from '@/models/common'
+import type { BindingAccess, BindingShareChoice, EncryptedEnvelope } from '@/models/common'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type GitlabPendingOAuth = {
@@ -8,6 +8,7 @@ export type GitlabPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   hostUrl: string
   clientId: string
   // null when the binding will use the server-default gitlab.com OAuth app.
@@ -24,6 +25,7 @@ export type CloudflarePendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records once expiresAt passes.
   expiresAt: Date
 }
@@ -33,17 +35,22 @@ export const cloudflarePendingOAuth = (): Collection<CloudflarePendingOAuth> =>
 
 /**
  * Result of a completed Cloudflare OAuth callback, keyed by the same `state`
- * token the desktop holds. The desktop polls this so the bind completes even
- * when the `nuphos://` deep link is captured by another app instance. Holds
- * only non-sensitive metadata (never tokens); a Mongo TTL index reaps it.
+ * token the desktop holds. The desktop polls this so the bind completes, or
+ * fails with Cloudflare's reason, even when the `nuphos://` deep link is
+ * captured by another app instance. Holds only non-sensitive metadata (never
+ * tokens); a Mongo TTL index reaps it.
  */
 export type CloudflareOAuthResult = {
   _id: string
   teamId: ObjectId
-  bindingId: ObjectId
-  accountId: string
-  accountName: string | null
   expiresAt: Date
+  // Set on a bind.
+  bindingId?: ObjectId
+  accountId?: string
+  accountName?: string | null
+  // Set when Cloudflare rejected the attempt instead.
+  error?: string
+  errorDescription?: string
 }
 
 export const cloudflareOAuthResult = (): Collection<CloudflareOAuthResult> =>
@@ -53,6 +60,7 @@ export type LinearPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -65,6 +73,7 @@ export type JiraPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -77,6 +86,7 @@ export type AsanaPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -89,6 +99,7 @@ export type SentryPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   // Mongo TTL index removes expired pending records 10 min after expiresAt.
   expiresAt: Date
 }
@@ -115,6 +126,7 @@ export type PosthogPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   label: string
   region: 'us' | 'eu'
   clientId: string
@@ -133,6 +145,7 @@ export type PlaudPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   clientId: string
   redirectUri: string
   encryptedCodeVerifier: EncryptedEnvelope
@@ -151,6 +164,7 @@ export type TrelloPendingOAuth = {
   _id: string
   teamId: ObjectId
   requesterUserId: string
+  share?: BindingShareChoice
   composioAccountId: string
   expiresAt: Date
 }
@@ -165,6 +179,8 @@ export type ConnectorOAuthReady = {
   teamId: ObjectId
   requesterUserId: string
   binding: Record<string, unknown>
+  /** The new binding's member list, decided when the provider called back. */
+  access?: BindingAccess
   expiresAt: Date
 }
 

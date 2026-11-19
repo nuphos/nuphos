@@ -9,14 +9,12 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { openConversationSession } from './open-conversation-session'
-import { OpenAbRpcError } from './openab-acp-errors'
+import { agentHostAway } from './openab-acp-connect'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
+import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
-import {
-  assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
-} from './runtime-portability-store'
+import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import {
   previewSessionPrincipalChanged,
@@ -105,7 +103,6 @@ export async function runClaudeCodePreviewPrompt(args: {
     throw new Error('Conversation id is invalid.')
   }
   await assertConversationRuntimeAvailable(args.conversationId)
-  await assertRuntimeNotDeleting(args.teamId, args.endpoint.runtimeId, args.endpoint.url)
   const currentAttachment = await getConversationPreviewAttachment(args.conversationId, args.teamId)
 
   if (currentAttachment && !sameRuntimeUrl(currentAttachment.runtimeUrl, args.endpoint.url))
@@ -139,7 +136,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      throw await RuntimeStateProbeError.from(cause)
+      throw agentHostAway(cause) ? cause : await RuntimeStateProbeError.from(cause)
     })
   const observed = await observe()
 
@@ -279,11 +276,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         attachments,
         lead,
       )
-      .catch((error: unknown) => {
-        // The runtime's own busy rejection: another turn won the race since the check above.
-        throw error instanceof OpenAbRpcError && error.code === -32001
-          ? refusal(error.message)
-          : error
+      .catch(async (error: unknown) => {
+        throw await promptFailure(error, session, nextContext.runtime.defaults)
       })
       .finally(() => {
         text.flush()

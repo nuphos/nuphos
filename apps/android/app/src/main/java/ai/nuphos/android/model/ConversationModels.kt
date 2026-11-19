@@ -71,6 +71,7 @@ data class AgentConversation(
     val lastMessage: JsonValue? = null,
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
     val inputRequests: List<InputRequest>? = null,
+    val botOnboarding: String? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -154,11 +155,22 @@ data class InputRequest(
     /** An integration question's providers (any access answers it), or the exact credentials it names. */
     val providers: List<String>? = null,
     val credentials: List<CredentialRef>? = null,
+    /** A secret only the user can type, in its masked card in the conversation that asked. */
+    val secretName: String? = null,
+    /** A web form's details asked together in that card, and the site they are entered on. */
+    val fields: List<FormField>? = null,
+    val site: String? = null,
     /** Any number of [options] may be picked. */
     val multiSelect: Boolean? = null,
     /** Related questions answered together; [question] is their headline. */
     val questions: List<DecisionQuestion>? = null,
+    /** ISO time its owner snoozed it until: out of their Inbox till then, still open where it was asked. */
+    val snoozedUntil: String? = null,
 )
+
+/** One input of a card that asks for a web form's details: its file name and what the person reads. */
+@Serializable
+data class FormField(val name: String, val label: String)
 
 /** One of the questions a several-question card answers together. */
 @Serializable
@@ -214,6 +226,8 @@ data class AgentConversationDetail(
     /** A Task under a Bot: the conversation whose credentials, computers and permission mode it uses. */
     val credentialSource: JsonValue? = null,
     val timelineEvents: List<TimelineEvent> = emptyList(),
+    /** Answered questions whose agent has not run the answer yet, with the line their row shows. */
+    val waitingAnswers: List<WaitingAnswer> = emptyList(),
     val promptSuggestion: String? = null,
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
     val kind: String? = null,
@@ -227,6 +241,9 @@ data class AgentConversationDetail(
 
     /** The Bot this chat is the 1:1 of, as the list row's `botId` decides it. */
     val botId: String? get() = faces.takeIf { group != true }?.botFace?.id
+
+    @Serializable
+    data class WaitingAnswer(val requestId: String, val note: String)
 
     @Serializable
     data class TimelineEvent(

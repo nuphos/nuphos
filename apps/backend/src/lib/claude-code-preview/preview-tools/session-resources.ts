@@ -7,6 +7,7 @@ import {
   unlinkSessionResource,
 } from '@/lib/agent/session-resources'
 import { sessionResources } from '@/lib/agent/session-thread-resources'
+import { AppError } from '@/lib/errors'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 
 import { toolInputJsonSchema } from './ai-sdk-adapter'
@@ -18,13 +19,23 @@ const bind = z.object({ label, resource: sessionResourceInput }).strict()
 const list = z.object({ label }).strict()
 const unlink = z.object({ label, resourceId: z.string().trim().min(1).max(300) }).strict()
 
+// A refusal such as a GitHub rate limit is the answer the agent needs, so it gets
+// the reason instead of the dispatcher's bare "Internal error". Other failures
+// stay generic: their messages can carry internal details.
+function answer(work: Promise<unknown>) {
+  return work.then(toolResult, (error: unknown) => {
+    if (error instanceof AppError) return toolError(error.message)
+    throw error
+  })
+}
+
 export function sessionResourceToolModule(): PreviewToolModule {
   return {
     definitions: [
       {
         name: 'bind_session_resource',
         description:
-          'Link a GitHub PR, GitLab merge request or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events automatically wake this same conversation with its existing permissions, and restore it if archived. GitLab merge requests and Linear issues are linked for navigation only; their state is rechecked while the conversation is open. Linking the same resource again keeps one link and refreshes its title and state. Only the conversation owner or a manager can bind.',
+          'Link a GitHub PR or issue, GitLab merge request or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events, and new comments on a GitHub issue from people who can push to its repository, automatically wake this same conversation with its existing permissions, and restore it if archived. GitLab merge requests and Linear issues are linked for navigation only; their state is rechecked while the conversation is open. Linking the same resource again keeps one link and refreshes its title and state. Only the conversation owner or a manager can bind.',
         inputSchema: toolInputJsonSchema(bind),
       },
       {
@@ -46,21 +57,25 @@ export function sessionResourceToolModule(): PreviewToolModule {
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(await bindSessionResource(ctx, parsed.data.resource))
+        return answer(bindSessionResource(ctx, parsed.data.resource))
       },
       list_session_resources: async (args) => {
         const parsed = list.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult({ resources: await sessionResources(await resourceConversation(ctx)) })
+        return answer(
+          resourceConversation(ctx).then(async (conversation) => ({
+            resources: await sessionResources(conversation),
+          })),
+        )
       },
       unlink_session_resource: async (args) => {
         const parsed = unlink.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
 
-        return toolResult(await unlinkSessionResource(ctx, parsed.data.resourceId))
+        return answer(unlinkSessionResource(ctx, parsed.data.resourceId))
       },
     }),
   }

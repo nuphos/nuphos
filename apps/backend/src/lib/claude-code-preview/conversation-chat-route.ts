@@ -175,7 +175,7 @@ async function resolveChatRuntime(
       runtimeLabel,
     }
   }
-  const registered = await resolveTeamRuntimeEndpoints(teamId, undefined, runtime, purpose)
+  const registered = await resolveTeamRuntimeEndpoints(teamId, runtime, purpose)
   const endpoints = selectedId
     ? registered.filter((endpoint) => endpoint.runtimeId === selectedId)
     : registered

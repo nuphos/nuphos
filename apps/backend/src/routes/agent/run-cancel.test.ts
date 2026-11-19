@@ -1,6 +1,8 @@
 import { describe, expect, spyOn, test } from 'bun:test'
 
 import * as runStore from '@/lib/agent/run-store'
+import * as decisions from '@/lib/claude-code-preview/decision-waiter'
+import { OpenAbConnectError } from '@/lib/claude-code-preview/openab-acp-connect'
 import * as runtime from '@/lib/claude-code-preview/session-execution-state'
 import * as recall from '@/lib/meetings/recall'
 
@@ -67,6 +69,31 @@ describe('stopConversationTurn', () => {
       expect(left).toHaveBeenCalledWith('recall-bot')
     } finally {
       for (const spy of [...spies, left]) spy.mockRestore()
+    }
+  })
+
+  test('a runtime that does not answer still stops the turn here, with the reason', async () => {
+    const cancel = spyOn(runtime, 'cancelConversationRuntime')
+    const spies = [
+      cancel,
+      spyOn(runStore, 'getActiveAgentRunForSession').mockResolvedValue(null as never),
+    ]
+    const abandoned = spyOn(decisions, 'abandonPendingPreviewWaits').mockResolvedValue(0)
+    const task = { userId: 'user-1', sessionId: 'session-1' } as AgentConversation
+
+    try {
+      cancel.mockRejectedValue(new OpenAbConnectError('OpenAB ACP connection timed out'))
+      expect(await stopConversationTurn(task)).toBe('runtime_unreachable')
+      expect(abandoned).toHaveBeenCalledWith({
+        userId: 'user-1',
+        sessionId: 'session-1',
+        reason: 'turn_cancelled',
+      })
+      // Any other failure is still a failure.
+      cancel.mockRejectedValue(new Error('Conversation runtime changed'))
+      await expect(stopConversationTurn(task)).rejects.toThrow('Conversation runtime changed')
+    } finally {
+      for (const spy of [...spies, abandoned]) spy.mockRestore()
     }
   })
 })

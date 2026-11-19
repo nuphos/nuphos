@@ -248,7 +248,7 @@ beforeEach(() => {
   }
 })
 
-describe.each(['github', 'linear', 'gmail', 'google-drive'])(
+describe.each(['github', 'linear', 'gmail', 'google-drive', 'google-calendar'])(
   '%s Personal Credential OAuth',
   (provider) => {
     test('the starter claims the staged grant with the callback code', async () => {
@@ -302,10 +302,14 @@ describe.each(['github', 'linear', 'gmail', 'google-drive'])(
 )
 
 describe('Google Personal Credentials', () => {
-  test('each provider asks Google for its own scope with offline access', async () => {
+  test('each provider asks Google for its own scopes with offline access', async () => {
     for (const [provider, scope] of [
-      ['gmail', 'https://www.googleapis.com/auth/gmail.modify'],
+      [
+        'gmail',
+        'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/contacts.readonly',
+      ],
       ['google-drive', 'https://www.googleapis.com/auth/drive'],
+      ['google-calendar', 'https://www.googleapis.com/auth/calendar.events'],
     ] as const) {
       const res = await requestStart(provider, 'alice')
       const url = new URL(((await res.json()) as { authorizeUrl: string }).authorizeUrl)

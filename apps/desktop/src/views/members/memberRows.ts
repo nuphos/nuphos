@@ -24,6 +24,24 @@ export function roleClass(role: TeamRole): string {
   }
 }
 
+/** What each role may do, as the invite and role menus explain it. */
+export function roleDetail(role: TeamRole): string {
+  switch (role) {
+    case 'ADMINISTRATOR':
+      return t('Everything an Editor can do, plus members, roles and team settings.')
+    case 'EDITOR':
+      return t(
+        'Works with agents and adds or changes the team’s connections, dashboards and pages.',
+      )
+    case 'VIEWER':
+      return t(
+        'Sees the team’s pages, but can’t change its connections, dashboards or settings, or use its cloud credentials.',
+      )
+  }
+}
+
+export const INVITE_ROLES: readonly TeamRole[] = ['EDITOR', 'VIEWER', 'ADMINISTRATOR']
+
 export function formatDate(value: string): string {
   const date = new Date(value)
 

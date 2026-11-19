@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type VantaIntegration = {
   id: string
@@ -78,11 +81,12 @@ export async function bindVantaIntegration(
   label: string,
   clientId: string,
   clientSecret: string,
+  share?: BindingShare,
 ): Promise<VantaIntegration> {
   return call<VantaIntegration>(
     'POST',
     `/teams/${teamId}/vanta-integrations`,
-    { label, clientId, clientSecret },
+    withShare({ label, clientId, clientSecret }, share),
     { retry: false },
   )
 }
@@ -110,11 +114,12 @@ export async function bindSecureframeIntegration(
   region: 'us' | 'uk',
   apiKey: string,
   apiSecret: string,
+  share?: BindingShare,
 ): Promise<SecureframeIntegration> {
   return call<SecureframeIntegration>(
     'POST',
     `/teams/${teamId}/secureframe-integrations`,
-    { label, region, apiKey, apiSecret },
+    withShare({ label, region, apiKey, apiSecret }, share),
     { retry: false },
   )
 }
@@ -193,11 +198,12 @@ export async function bindNotionIntegration(
   teamId: string,
   label: string,
   token: string,
+  share?: BindingShare,
 ): Promise<NotionIntegration> {
   return call<NotionIntegration>(
     'POST',
     `/teams/${teamId}/notion-integrations`,
-    { label, token },
+    withShare({ label, token }, share),
     { retry: false },
   )
 }

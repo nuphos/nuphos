@@ -20,11 +20,11 @@ import './agent/routes-devices'
 import './agent/routes-device-runtime'
 
 import { agent } from './agent/router'
+import { channelRoutes } from './agent/routes-channels'
 import { conversationParticipantsRoutes } from './agent/routes-conversation-participants'
 import { createDeviceAccessAuditRoutes } from './agent/routes-devices-access-audit'
 import { createBoxTerminalRoutes } from './agent/routes-devices-box-terminal'
 import { createDeviceShareRoutes } from './agent/routes-devices-share'
-import { channelRoutes } from './agent/routes-channels'
 import { sessionConfigRoutes } from './agent/routes-session-config'
 
 agent.route('/', conversationParticipantsRoutes)

@@ -123,7 +123,7 @@ export async function hydrateStoredPrefix(
  * the whole current turn. The stored prefix is not read back: the turn plan
  * rebuilds the transcript from the store anyway, so reading it here as well
  * cost a full transcript read on every send. Only its count is checked, so a
- * client ahead of the store still gets 409 and rebases.
+ * send from a client ahead of the store still gets 409 and rebases.
  */
 export async function acceptClientTail(
   body: AgentChatBody,
@@ -138,7 +138,9 @@ export async function acceptClientTail(
   const baseIndex = body.baseIndex ?? 0
   const messages = body.messages
 
-  if (baseIndex > 0) {
+  // A resume only attaches to a running stream and never reads the tail, so a
+  // tail ahead of the store (an answer shown before its turn is stored) is fine.
+  if (baseIndex > 0 && !body.resume) {
     if (!conversationForResume) {
       throw new AppError(409, 'transcript_out_of_sync', 'Conversation not found for baseIndex')
     }

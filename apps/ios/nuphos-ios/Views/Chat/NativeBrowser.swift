@@ -65,7 +65,7 @@ struct NativeBrowser: View {
                 .onSubmit { if let target = DockDestination.addressOrSearch(address) { page.load(target) } }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.chatSurface))
+                .background(RoundedRectangle(cornerRadius: 10).fill(Theme.sunken))
                 .accessibilityIdentifier("browser-address")
             Button("Reload", systemImage: page.loading ? "xmark" : "arrow.clockwise") {
                 if page.loading { page.view.stopLoading() } else { page.view.reload() }
@@ -78,45 +78,45 @@ struct NativeBrowser: View {
 
     private var signedOutBanner: some View {
         HStack(spacing: 8) {
-            Image(systemName: "person.crop.circle.badge.questionmark").foregroundStyle(Theme.muted)
+            LucideIcon("user-round-search").foregroundStyle(Theme.muted)
             Text("Uses this iPhone's sign-ins, not your Mac's.")
                 .font(Theme.Text.label)
                 .foregroundStyle(Theme.body)
             Spacer(minLength: 4)
             if tabId != nil { Button("Show on Mac") { showOnMac() }.font(Theme.Text.label) }
-            Button("Hide", systemImage: "xmark") { bannerHidden = true }
+            DesignButton("Hide", image: "lucide-x") { bannerHidden = true }
                 .labelStyle(.iconOnly)
                 .font(Theme.Text.label)
                 .foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .accessibilityIdentifier("browser-signed-out")
     }
 
     /// A Mac-only page comes through the Mac request by request; its dev server's live updates don't.
     private var liveReloadBanner: some View {
         HStack(spacing: 8) {
-            Image(systemName: "macbook").foregroundStyle(Theme.muted)
+            LucideIcon("laptop").foregroundStyle(Theme.muted)
             Text("Loaded from your Mac. Live reload doesn't update here; reload to see changes.")
                 .font(Theme.Text.label)
                 .foregroundStyle(Theme.body)
             Spacer(minLength: 4)
-            Button("Hide", systemImage: "xmark") { bannerHidden = true }
+            DesignButton("Hide", image: "lucide-x") { bannerHidden = true }
                 .labelStyle(.iconOnly)
                 .font(Theme.Text.label)
                 .foregroundStyle(Theme.muted)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
         .accessibilityIdentifier("browser-live-reload")
     }
 
     private func macPageFailure(_ reason: String) -> some View {
         ContentUnavailableView {
-            Label("Couldn't load this page from your Mac", systemImage: "macbook")
+            Label("Couldn't load this page from your Mac", image: "lucide-laptop")
         } description: {
             Text(reason)
         } actions: {
@@ -130,26 +130,27 @@ struct NativeBrowser: View {
 
     private var toolbar: some View {
         HStack {
-            Button("Back", systemImage: "chevron.backward") { page.view.goBack() }.disabled(!page.canGoBack)
+            DesignButton("Back", image: "lucide-chevron-left") { page.view.goBack() }.disabled(!page.canGoBack)
             Spacer()
-            Button("Forward", systemImage: "chevron.forward") { page.view.goForward() }.disabled(!page.canGoForward)
+            DesignButton("Forward", image: "lucide-chevron-right") { page.view.goForward() }.disabled(!page.canGoForward)
             Spacer()
             if let current = page.current {
-                ShareLink(item: current) { Image(systemName: "square.and.arrow.up") }
+                ShareLink(item: current) { LucideIcon("share") }
+                .accessibilityLabel("Share")
             } else {
-                Image(systemName: "square.and.arrow.up").foregroundStyle(Theme.muted)
+                LucideIcon("share").foregroundStyle(Theme.muted)
             }
             Spacer()
             Menu {
                 if let tabId {
-                    Button("Show on Mac", systemImage: "macbook") { showOnMac() }
-                    Button("Live view on Mac", systemImage: "rectangle.on.rectangle") { liveView(tabId) }
-                    Button("Close tab", systemImage: "xmark.square", role: .destructive) { closeTab(tabId) }
+                    DesignButton("Show on Mac", image: "lucide-laptop") { showOnMac() }
+                    DesignButton("Live view on Mac", image: "lucide-panels-top-left") { liveView(tabId) }
+                    DesignButton("Close tab", image: "lucide-square-x", role: .destructive) { closeTab(tabId) }
                 } else {
                     Text("Not in your Mac's dock")
                 }
             } label: {
-                Image(systemName: "ellipsis.circle")
+                LucideIcon("circle-ellipsis")
             }
             .accessibilityIdentifier("browser-menu")
         }
@@ -157,7 +158,7 @@ struct NativeBrowser: View {
         .font(.title3)
         .padding(.horizontal, 24)
         .padding(.vertical, 10)
-        .background(Theme.chatSurface)
+        .background(Theme.canvas)
     }
 
     private func showOnMac() {
@@ -239,6 +240,8 @@ final class WebPage: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        // A navigation that the next load replaced was cancelled, not failed (#3620).
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         failure = error.localizedDescription
     }
 

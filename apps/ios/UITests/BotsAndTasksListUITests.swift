@@ -58,30 +58,26 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertTrue(lead.waitForExistence(timeout: 10), "The Bot's chat is not named after the Bot")
         XCTAssertFalse(app.staticTexts["release-lead-old"].exists, "The Bot's chat kept its own name")
         XCTAssertTrue(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question is not on the Bot's chat")
-        XCTAssertTrue(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn does not show on the Bot's chat")
+        // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
+        XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
+        XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
         XCTAssertTrue(app.staticTexts["New Group Chat"].exists, "An untitled group chat is not named as one")
         XCTAssertFalse(app.staticTexts["Triage Bot"].exists, "A Bot in a chat still has a row of its own")
         XCTAssertTrue(app.staticTexts["Helper Bot"].exists, "A Bot opened by a Task is not listed as a Bot")
-
-        // Folded at rest: a Bot's threads show only once opened by hand.
-        XCTAssertFalse(app.staticTexts["Check the CI flake"].exists, "A Bot's threads are open at rest")
         shot("1-bots")
-        app.buttons["Show 2 sub-agents"].firstMatch.tap()
-        for _ in 0..<4 where app.buttons["Show 1 sub-agents"].firstMatch.exists {
-            app.buttons["Show 1 sub-agents"].firstMatch.tap()
-        }
+    }
 
-        // What each Bot dispatched, nested under it, deeper threads under theirs.
-        for (thread, below) in [("Check the CI flake", lead), ("Fix broken links", app.staticTexts["Docs Bot"].firstMatch),
-                                ("Collect crash logs", app.staticTexts["Helper Bot"].firstMatch)] {
-            let row = app.staticTexts[thread].firstMatch
-            XCTAssertTrue(row.exists, "\(thread) is not under its Bot")
-            XCTAssertGreaterThan(row.frame.minY, below.frame.minY)
-            XCTAssertGreaterThan(row.frame.minX, below.frame.minX, "\(thread) is not nested")
+    /// A Bot row ends with its time, unread dot and chevron: no control expands
+    /// what the Bot dispatched into the list (#3592). Those open from the Bot's page.
+    func testBotRowsHaveNoExpandControl() throws {
+        launch(page: "chats")
+        XCTAssertTrue(app.staticTexts["Release Lead"].firstMatch.waitForExistence(timeout: 10), "Bots did not load")
+        let expand = app.buttons.matching(NSPredicate(format: "label ENDSWITH 'sub-agents'"))
+        XCTAssertEqual(expand.count, 0, "A Bot row has a control that expands its Tasks")
+        for thread in ["Check the CI flake", "Rerun the iOS job", "Fix broken links", "Collect crash logs"] {
+            XCTAssertFalse(app.staticTexts[thread].exists, "\(thread) is listed under Bots")
         }
-        let rerun = app.staticTexts["Rerun the iOS job"].firstMatch
-        XCTAssertGreaterThan(rerun.frame.minX, app.staticTexts["Check the CI flake"].firstMatch.frame.minX, "A deeper thread lost its parent")
-        shot("2-bots-opened")
+        shot("2-bots-flat")
     }
 
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
@@ -100,9 +96,44 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("3-tasks")
     }
 
+    /// What the Inbox opens, as a notification does, lands over the list that has it (#2964): Tasks
+    /// lists no Bot nor what one dispatched, so those go back to Bots, never to a Tasks page without them.
+    func testWhatTheInboxOpensReturnsToItsList() throws {
+        var responses = try JSONSerialization.jsonObject(with: Data(contentsOf: live)) as! [String: Any]
+        let pending = [Self.row("bot-lead", "Release Lead", at: "09:00", avatar: "05-rembrandt", question: "Ship 2.4 today?"),
+                       Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
+                       Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?")]
+        responses["GET /agent/conversations?pendingDecision=true"] = Self.page(pending)
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+
+        for (question, list) in [("Ship 2.4 today?", "Bots"), ("Retry the flaky iOS job?", "Bots"), ("Scale the staging pool?", "Tasks")] {
+            launch(page: "inbox")
+            // The home tabs show over a list and leave the screen when a chat is open on top of it.
+            let menu = app.buttons.matching(NSPredicate(format: "label == 'Tasks' AND identifier != 'BackButton'")).firstMatch
+            let row = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", question)).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 10), "\(question) is not in the Inbox")
+            row.tap()
+            let source = app.buttons["inbox.source"].firstMatch
+            XCTAssertTrue(source.waitForExistence(timeout: 5), "\(question) has no source to open")
+            source.tap()
+            // Opened over the list: the tabs leave the screen.
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: menu)
+            waitForExpectations(timeout: 10)
+            sleep(1)
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(menu.waitForExistence(timeout: 5), "No list after going back from \(question)")
+            shot("back-from-\(list)-\(question.prefix(5))")
+            let tab = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != 'BackButton'", list)).firstMatch
+            XCTAssertTrue(tab.isSelected, "\(question) did not go back to \(list)")
+            app.terminate()
+        }
+    }
+
+    /// Starts from no stored folds, so earlier runs leave nothing behind.
     private func launch(page: String) {
         app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page]
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page, "-nuphos.agent.foldedThreads", "{}"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
     }

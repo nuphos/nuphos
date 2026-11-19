@@ -19,7 +19,12 @@ const noop = () => {}
 /* eslint-disable @typescript-eslint/no-extraneous-class -- Constructor-only mocks for Desktop startup. */
 const boundaries: Record<string, Record<string, unknown>> = {
   electron: {
-    app: { getPath: () => '/tmp', getAppPath: () => '/tmp', isPackaged: false },
+    app: {
+      getPath: () => '/tmp',
+      getAppPath: () => '/tmp',
+      getVersion: () => '0.0.0',
+      isPackaged: false,
+    },
     BrowserWindow: {},
     powerMonitor: {},
     shell: {},
@@ -40,7 +45,11 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
   '../app-paths.ts': { leftAloneDir: null },
-  '../device-controller.ts': { syncDeviceRegistration: noop },
+  '../device-controller.ts': {
+    // The socket a test installs as the global one.
+    dialDeviceTunnel: (url: string) => new WebSocket(url),
+    syncDeviceRegistration: noop,
+  },
   '../device-identity.ts': { readDeviceIdentity: () => ({ deviceId: 'test-device' }) },
   '../device-metrics.ts': {
     readDeviceMetrics: async () => {
@@ -50,6 +59,12 @@ const boundaries: Record<string, Record<string, unknown>> = {
     },
   },
   '../env.ts': { isDev: false },
+  '../updater.ts': {
+    getUpdaterState: () => ({ kind: 'idle' }),
+    installUpdate: noop,
+    readyUpdate: () => null,
+    watchUpdater: noop,
+  },
   './agent-cli.ts': {
     LOCAL_AGENT_PROVIDERS: [],
     findAgentCli: noop,

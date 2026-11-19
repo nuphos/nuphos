@@ -270,3 +270,22 @@ test('isAccountGone matches a request that outlived its account, and nothing els
   assert.equal(isAccountGone(new Error('Not signed in; run `nuphos login`')), false)
   assert.equal(isAccountGone(new Error('Conversation not found')), false)
 })
+
+test('a deleted Trigger is not reported: its card shows it as removed', async () => {
+  const { api } = await import('./api.ts')
+  const { setFrontendErrorReporter } = await import('./lib/frontendErrorReporter.ts')
+  const notFound = new Error(sentinel({ message: 'Trigger not found', code: 'not_found' }))
+  const reported: string[] = []
+
+  setFrontendErrorReporter((report) => reported.push(String(report.apiOperation)))
+  ;(globalThis as { window?: unknown }).window = {
+    api: {
+      agentGetTrigger: () => Promise.reject(notFound),
+      agentGetConversation: () => Promise.reject(notFound),
+    },
+  }
+  await api.agentGetTrigger('t-1').catch(() => undefined)
+  await api.agentGetConversation('c-1').catch(() => undefined)
+
+  assert.deepEqual(reported, ['agentGetConversation'])
+})

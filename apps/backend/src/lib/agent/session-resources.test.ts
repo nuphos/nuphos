@@ -2,12 +2,15 @@ import { beforeEach, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
 import { invalidateInstallationToken } from '@/lib/byos/github'
+import { sessionResourceToolModule } from '@/lib/claude-code-preview/preview-tools/session-resources'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useByosAccount } from '@/lib/test/doubles/byos-account'
+import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useGithubAppAuth } from '@/lib/test/doubles/github-app-auth'
 import { useGithubHttp } from '@/lib/test/doubles/github-http'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
+import { executeResourceTurn } from './resource-turn'
 import { authorizedResourceTurn } from './resource-webhook'
 import { resourceCredentialAllowed } from './session-resource-lookup'
 import {
@@ -39,6 +42,9 @@ let updates: unknown[] = []
 let lookupCount = 0
 let merged = false
 let draft = false
+/** What GitHub answers for the pull request itself, when a test overrides it. */
+let pullFailure: Response | undefined
+let turns: unknown[][] = []
 
 useIdentity({ getTeamMembership: async () => (membership ? { role: 'MEMBER' } : null) })
 useByosAccount({
@@ -54,6 +60,11 @@ useAgentDb({
     },
   }),
 })
+useConversationTurn({
+  executeConversationTurn: async (...args: unknown[]) => {
+    turns.push(args)
+  },
+})
 useGithubAppAuth({ generateAppJwt: () => 'test-jwt' })
 useGithubHttp({
   githubFetch: async (url) => {
@@ -65,6 +76,11 @@ useGithubHttp({
       return Response.json({ check_runs: [{ conclusion: 'success' }, { conclusion: 'failure' }] })
     if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
     if (url.includes('/reviews')) return Response.json([])
+    if (url.endsWith('/pulls/78')) return new Response('Not Found', { status: 404 })
+    if (url.endsWith('/issues/78'))
+      return Response.json({ number: 78, title: 'Verified issue', state: 'open' })
+    if (url.endsWith('/repos/org/repo')) return Response.json({ id: 34, full_name: 'org/repo' })
+    if (pullFailure) return pullFailure
 
     return Response.json({
       number: 56,
@@ -84,6 +100,8 @@ beforeEach(() => {
   lookupCount = 0
   merged = false
   draft = false
+  pullFailure = undefined
+  turns = []
   membership = true
   connected = true
   updates = []
@@ -192,6 +210,24 @@ test('binding resolves provider-owned identity instead of trusting a caller titl
   // The token and the PR, then its check runs, status and reviews (the PR is not fetched twice).
   expect(lookupCount).toBe(5)
 })
+test('a GitHub issue links as an issue, with no pull request health', async () => {
+  conversation.linkedResources = []
+  const linked = await bindSessionResource(actor, {
+    provider: 'github',
+    installationId: 12,
+    repository: 'org/repo',
+    number: 78,
+  })
+
+  expect(linked).toMatchObject({
+    key: 'github/12/34/78',
+    kind: 'issue',
+    title: 'Verified issue',
+    state: 'open',
+    url: 'https://github.com/org/repo/issues/78',
+  })
+  expect(linked).not.toHaveProperty('health')
+})
 test('linking an already linked resource refreshes it in place', async () => {
   const linked = await bindSessionResource(actor, {
     provider: 'github',
@@ -267,5 +303,70 @@ test('unselected installations are rejected before contacting GitHub', async () 
       number: 56,
     }),
   ).rejects.toThrow('Select an accessible integration')
+  expect(lookupCount).toBe(0)
+})
+
+const pullInput = {
+  provider: 'github',
+  installationId: 12,
+  repository: 'org/repo',
+  number: 56,
+} as const
+// A reset at 11:41 UTC.
+const resetAt = '1795002060'
+
+test('a spent GitHub quota names the reset time instead of a bare status', async () => {
+  pullFailure = new Response('{"message":"API rate limit exceeded"}', {
+    status: 403,
+    headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': resetAt },
+  })
+  await expect(bindSessionResource(actor, pullInput)).rejects.toMatchObject({
+    status: 429,
+    code: 'github_rate_limited',
+    message: expect.stringContaining('retry after 11:41 UTC'),
+  })
+})
+test('a secondary GitHub rate limit names the wait it asks for', async () => {
+  pullFailure = new Response('{}', { status: 403, headers: { 'retry-after': '60' } })
+  await expect(bindSessionResource(actor, pullInput)).rejects.toMatchObject({
+    code: 'github_rate_limited',
+    message: expect.stringContaining('retry after 60 seconds'),
+  })
+})
+test('a GitHub denial with quota left names the repository the installation cannot read', async () => {
+  pullFailure = new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '42' } })
+  await expect(bindSessionResource(actor, pullInput)).rejects.toMatchObject({
+    status: 403,
+    message: expect.stringContaining('no access to org/repo'),
+  })
+  pullFailure = new Response('{}', { status: 404 })
+  await expect(bindSessionResource(actor, pullInput)).rejects.toMatchObject({
+    status: 404,
+    message: expect.stringContaining('org/repo#56'),
+  })
+})
+test('the bind tool returns the lookup failure to the agent, not an internal error', async () => {
+  pullFailure = new Response('{}', {
+    status: 403,
+    headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': resetAt },
+  })
+  const tools = sessionResourceToolModule().handlers(actor as never)
+  const result = (await tools.bind_session_resource!({
+    label: 'Link PR',
+    resource: pullInput,
+  })) as {
+    isError?: boolean
+    content: { text: string }[]
+  }
+
+  expect(result.isError).toBe(true)
+  expect(result.content[0]!.text).toContain('retry after 11:41 UTC')
+})
+test('a GitHub event still wakes the conversation when GitHub cannot be read', async () => {
+  pullFailure = new Response('{}', { status: 403, headers: { 'x-ratelimit-remaining': '0' } })
+  await executeResourceTurn(delivery)
+
+  expect(turns).toHaveLength(1)
+  // The webhook already stored what changed; the wakeup reads nothing more from GitHub.
   expect(lookupCount).toBe(0)
 })

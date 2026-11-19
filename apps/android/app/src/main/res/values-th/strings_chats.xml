@@ -3,14 +3,12 @@
     <string name="chats_question_credentials_and">%1$s และ %2$s</string>
     <string name="chats_question_use_own">ใช้ %1$s ของคุณเอง</string>
     <string name="chats_question_choose_credentials">เลือกข้อมูลรับรอง</string>
-    <string name="chats_question_answer_in_task">ตอบในงาน</string>
     <string name="chats_question_other">อื่นๆ…</string>
     <string name="chats_question_reply">ตอบกลับ…</string>
     <string name="chats_question_send_failed">ส่งข้อความไม่สำเร็จ · %1$s</string>
     <string name="chats_show_less">แสดงน้อยลง</string>
     <string name="chats_show_more">แสดงเพิ่มเติม</string>
     <string name="chats_question_your_answer">คำตอบของคุณ</string>
-    <string name="chats_question_or_type_answer">หรือพิมพ์คำตอบของคุณเอง</string>
     <string name="chats_question_send_answer">ส่งคำตอบ</string>
     <string name="chats_question_heading_approval">ต้องการการอนุมัติ</string>
     <string name="chats_question_heading_preference">ตัวเลือกของคุณ</string>
@@ -53,4 +51,12 @@
     <string name="chats_message_placeholder">ส่งข้อความถึง %1$s</string>
     <string name="chats_replying_to">กำลังตอบกลับ %1$s</string>
     <string name="chats_cancel_reply">ยกเลิกการตอบกลับ</string>
+    <string name="chats_question_snooze">เลื่อนเตือน</string>
+    <string name="chats_question_dismiss">ปิด</string>
+    <string name="chats_question_snooze_hour">1 ชั่วโมง</string>
+    <string name="chats_question_snooze_tomorrow">พรุ่งนี้ 9:00</string>
+    <string name="chats_question_snooze_monday">วันจันทร์หน้า 9:00</string>
+    <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
+    <string name="chats_empty_bot_body">นี่คือการสนทนาของคุณกับ %1$s บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน</string>
+    <string name="chats_empty_bot_start">เริ่มด้วยการบอก %1$s ว่าคุณอยากทำอะไร</string>
 </resources>

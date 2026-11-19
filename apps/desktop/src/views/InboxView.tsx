@@ -10,14 +10,14 @@ import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
 import { openQuestion } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
-import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
+import { snoozeQuestion } from './inbox/dismissQuestion'
 import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
 import { useInboxQuestions } from './inbox/useInboxQuestions'
-import { useShareApprovals } from './inbox/useShareApprovals'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { DecisionAnswer } from '../api/agent-chat-types'
+import type { HeldReply } from './inbox/useInbox'
 
 type Props = {
   teamId: string
@@ -34,7 +34,8 @@ type Props = {
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
  * Answering it opens the next, and wakes the agent that asked once its Undo
- * window passes, or at once when the viewer leaves; ↑ ↓ or Skip move between them. Its Bot or Task opens from the question's source line.
+ * window passes, or at once when the viewer leaves; a dismissal waits out the same window.
+ * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -48,7 +49,6 @@ export function InboxView({
   const { isActive } = useWorkspaceTab()
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
-  const shareApprovals = useShareApprovals(teamId)
   // An invite is only announced, never listed.
   const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
   const needle = query.trim().toLowerCase()
@@ -60,16 +60,21 @@ export function InboxView({
       ),
   )
   const open = rows ? openQuestion(rows, selected) : undefined
+  const openId = open?.request.id
   const at = open && rows ? rows.indexOf(open) : -1
 
+  // What opens stays open: a question listed later never takes its place.
+  useEffect(() => {
+    if (openId) selectInboxQuestion(teamId, openId)
+  }, [teamId, openId])
   useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
   const move = useCallback(
     (row: InboxQuestion | undefined) => {
-      if (row && rows) selectInboxQuestion(teamId, { id: row.request.id, index: rows.indexOf(row) })
+      if (row) selectInboxQuestion(teamId, row.request.id)
     },
-    [teamId, rows],
+    [teamId],
   )
 
   // ↑ and ↓ open the question above or below, unless a field has the caret.
@@ -102,17 +107,24 @@ export function InboxView({
     return sendHeldAnswer
   }, [isActive])
 
-  const answer = (row: InboxQuestion, reply: DecisionAnswer) => {
+  const answer = (row: InboxQuestion, reply: HeldReply) => {
     // The answered question leaves the list, and the one that takes its place opens.
-    const selection = { id: row.request.id, index: at }
+    const dismissed = 'dismissed' in reply
 
-    selectInboxQuestion(teamId, selection)
-    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply)
+    move(rows?.at(at + 1) ?? rows?.at(at - 1))
+    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
+      toast.error(
+        dismissed ? t('Could not dismiss question') : t('Could not send your answer'),
+        reason,
+      ),
+    )
 
     toast.success(
-      t('Answered “{answer}”', {
-        answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
-      }),
+      dismissed
+        ? t('Dismissed')
+        : t('Answered “{answer}”', {
+            answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
+          }),
       undefined,
       {
         timeoutMs: ANSWER_UNDO_MS,
@@ -121,20 +133,23 @@ export function InboxView({
           label: t('Undo'),
           // Once sent, the answer stays: the question is not opened again.
           onClick: () => {
-            if (undo()) selectInboxQuestion(teamId, selection)
+            if (undo()) selectInboxQuestion(teamId, row.request.id)
           },
         },
       },
     )
   }
 
-  const caughtUp =
-    all?.length === 0 && shareApprovals.approvals.length === 0 && mentions.length === 0
+  const caughtUp = all?.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
-      <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
+      <ChannelMentions
+        mentions={mentions}
+        onOpen={(sessionId) =>
+          openListed(teamId, { sessionId, kind: 'channel' }, onOpenConversation)
+        }
+      />
       {caughtUp && (
         <EmptyState
           icon={Inbox}
@@ -149,11 +164,17 @@ export function InboxView({
           key={open.request.id}
           teamId={teamId}
           conversation={open.conversation}
+          bot={open.bot}
           request={open.request}
           keys={isActive}
           onAnswer={(reply) => answer(open, reply)}
-          onSkip={rows && rows.length > 1 ? () => move(rows.at(at + 1) ?? rows[0]) : undefined}
-          onOpenConversation={() => onOpenConversation(open.conversation.sessionId)}
+          onSnooze={(until) => {
+            // The snoozed question leaves the list, and its neighbour opens, as after an answer.
+            move(rows?.at(at + 1) ?? rows?.at(at - 1))
+            void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until)
+          }}
+          onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
+          onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
           onOpenLink={onOpenLink}
         />
       )}

@@ -6,6 +6,7 @@ import path from 'node:path'
 
 import { antigravityStatus } from '../../../../runtime/image/antigravity-status.mjs'
 
+import { readAccountKey } from './agent-account.ts'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
@@ -33,6 +34,8 @@ export type AgentCliStatus =
       /** The host of the user's own model provider, which stands in for a sign-in. */
       customProvider?: string
       plan?: string
+      /** Which account's quota it spends, hashed (agent-account.ts); absent when unknown. */
+      accountKey?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
       bundled?: true
     }
@@ -85,12 +88,12 @@ async function loginOf(
 ): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
   if (!runtimeEnv || !agentHome) return { loggedIn: null }
   if (provider === 'antigravity') return { loggedIn: await antigravityStatus(file, runtimeEnv) }
+  if (provider === 'opencode')
+    return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
+      loggedIn: true,
+    }))
   const fromHome = await homeLogin(provider, agentHome)
 
-  if (fromHome === false && provider === 'opencode')
-    return run(file, OPENCODE_AUTH_LIST, runtimeEnv).then(parseOpenCodeAuthList, () => ({
-      loggedIn: false,
-    }))
   if (fromHome !== undefined) return { loggedIn: fromHome }
   if (provider === 'claude-code') return claudeLogin(runtimeEnv)
 
@@ -200,9 +203,10 @@ export async function probeAgentCli(
   const runtimeEnv = agentHome
     ? agentCliEnv({ provider, env, agentHome, cliPath: file })
     : undefined
-  const [version, auth] = await Promise.all([
+  const [version, auth, accountKey] = await Promise.all([
     run(file, ['--version'], env).then(versionOf, () => {}),
     loginOf(provider, file, runtimeEnv, agentHome),
+    runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
@@ -214,6 +218,8 @@ export async function probeAgentCli(
     path: file,
     ...(version ? { version } : {}),
     ...auth,
+    // A key or a signed-out agent spends no account's quota.
+    ...(accountKey && auth.loggedIn && !('apiKey' in auth) ? { accountKey } : {}),
     ...(bundled ? { bundled } : {}),
   }
 }

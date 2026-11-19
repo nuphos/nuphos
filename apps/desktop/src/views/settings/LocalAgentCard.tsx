@@ -99,7 +99,7 @@ function statusLine(agent: LocalAgentState): { label: string; tone: RuntimeStatu
     }
   if (agent.cli?.installed && agent.cli.loggedIn !== true)
     return { label: t('Sign in to connect this runtime'), tone: 'off' }
-  if (agent.online) return { label: t('Ready for your agents'), tone: 'online' }
+  if (agent.online) return { label: t('Ready for your Bots and tasks'), tone: 'online' }
   if (agent.cli?.installed === false) return { label: t('Not installed'), tone: 'off' }
   if (agent.error) return { label: agent.error, tone: 'error' }
 
@@ -177,7 +177,9 @@ function CliStatus({ provider, cli }: { provider: CliLoginProvider; cli: AgentCl
                 ? t('Could not read the {name} sign-in. Check again or sign in.', {
                     name: agent.name,
                   })
-                : t('Connect {name} to run your agents on this computer.', { name: agent.name })}
+                : t('Connect {name} to run your Bots and tasks on this computer.', {
+                    name: agent.name,
+                  })}
         {cli.loggedIn && !cli.customProvider && cli.account && <span> {cli.account}</span>}
         {cli.plan && <span> · {cli.plan}</span>}
         {cli.version && <span> · v{cli.version}</span>}
@@ -252,7 +254,7 @@ export function LocalAgentCard({
           <div className="text-[13px] font-medium text-main">{name}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              "Once {name} is installed and signed in, your own agents in any of your teams can run it here while Nuphos is open — including shell commands with your user's access. Nobody else can use it.",
+              "Once {name} is installed and signed in, your own Bots and tasks in any of your teams can run it here while Nuphos is open — including shell commands with your user's access. Teammates you share this computer with can run it too, on your sign-in.",
               { name },
             )}{' '}
             {connectors}

@@ -1,8 +1,8 @@
 import PhotosUI
 import SwiftUI
 
-/// The account sheet behind the avatar in the home toolbar: the user record
-/// from `/auth/me`, field by field, with a way out.
+/// Account and app preferences behind the home avatar. Account options own
+/// profile editing and sign-out; workspace switching stays in the toolbar.
 struct ProfileSheet: View {
     @Environment(AuthSession.self) private var session
     @Environment(\.dismiss) private var dismiss
@@ -10,11 +10,10 @@ struct ProfileSheet: View {
     @Environment(AgentStore.self) private var store: AgentStore?
     let user: NuphosUser
     private var currentUser: NuphosUser { session.user ?? user }
-    @State private var editing = false
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
     @AppStorage(PushNotifications.computerAlertsKey) private var computerAlerts = true
 
-    @State private var confirmSignOut = false
+    @State private var editing = false
     @State private var showAppIcons = false
     @State private var privacyError: String?
     @AppStorage(Whisper.promptKey) private var whisperPrompt = Whisper.defaultPrompt
@@ -22,38 +21,23 @@ struct ProfileSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    header
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 16, trailing: 0))
+                Section("Signed-in accounts") {
+                    SavedAccountsView(allowAdding: true, editProfile: { editing = true })
                 }
+                .listRowBackground(Theme.surface)
 
-                if let store, !store.teams.isEmpty {
-                    Section("Team") {
+                if store != nil {
+                    Section("Integrations") {
                         NavigationLink {
-                            TeamPickerView(store: store)
+                            ConnectorsPage().navigationTitle("Connectors")
                         } label: {
-                            if let team = store.selectedTeam {
-                                TeamSelectionLabel(team: team)
-                            } else {
-                                Label("Choose team", systemImage: "person.3")
-                                    .frame(minHeight: 44)
-                            }
+                            Label { Text("Connectors") } icon: { LucideIcon("blocks") }
                         }
                     }
                     .listRowBackground(Theme.surface)
                 }
 
-                Section("Signed-in accounts") { SavedAccountsView(allowAdding: true) }
-                    .listRowBackground(Theme.surface)
-
                 Section("Account") {
-                    Button("Edit profile") { editing = true }
-                    InfoRow(label: "Name", value: currentUser.name)
-                    InfoRow(label: "Username", value: currentUser.username, monospaced: true)
-                    InfoRow(label: "Email", value: currentUser.email)
-                    InfoRow(label: "User ID", value: currentUser.id, monospaced: true)
-                    InfoRow(label: "Avatar URL", value: currentUser.avatarURL, monospaced: true)
                     NavigationLink("Signed-in devices") {
                         SignedInDevicesView {
                             dismiss()
@@ -80,7 +64,7 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Voice input")
                 } footer: {
-                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.")
+                    Text("The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper.", comment: "Legal text")
                 }
                 .listRowBackground(Theme.surface)
                 #endif
@@ -119,21 +103,39 @@ struct ProfileSheet: View {
                     } else {
                         Text("AI data sharing is off. Close Account to read the notice.")
                     }
-                    NavigationLink("Delete account") { AccountDeletionView(user: user) }
                     if let privacyError { Text(privacyError).foregroundStyle(.red) }
                 }
                 .listRowBackground(Theme.surface)
 
-                Section {
-                    Button(role: .destructive) {
-                        confirmSignOut = true
+                Section("Danger zone") {
+                    NavigationLink {
+                        AccountDeletionView(user: currentUser)
                     } label: {
-                        Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                        Label { Text("Delete account") } icon: { LucideIcon("trash-2") }
+                            .foregroundStyle(.red)
                     }
                 }
                 .listRowBackground(Theme.surface)
+
+                Section {
+                    VStack(spacing: 6) {
+                        Image("NuphosMark").resizable().scaledToFit()
+                            .frame(width: 36, height: 36)
+                            .accessibilityLabel("Nuphos logo")
+                        Text("Nuphos").font(.headline)
+                        Text(verbatim: versionLabel)
+                            .font(.caption)
+                            .accessibilityIdentifier("account.version")
+                    }
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                }
             }
-            .scrollContentBackground(.hidden)
+            .listRowSeparator(.hidden)
+        .scrollContentBackground(.hidden)
             .background(Theme.canvas)
             #if os(iOS)
             .navigationDestination(isPresented: $showAppIcons) { AppIconPicker() }
@@ -143,70 +145,33 @@ struct ProfileSheet: View {
             #endif
             .sheet(isPresented: $editing) { EditProfileSheet(user: currentUser) }
             .refreshable { await session.refreshUser() }
-            .navigationTitle("Account")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            .navigationTitle("Account")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { dismiss() } label: { LucideIcon("x") }
+                        .accessibilityLabel("Close account")
                 }
             }
-            .confirmationDialog("Sign out of Nuphos?", isPresented: $confirmSignOut, titleVisibility: .visible) {
-                Button("Sign out", role: .destructive) {
-                    dismiss()
-                    session.signOut()
-                }
-                Button("Cancel", role: .cancel) {}
-            }
+
         }
         .tint(Theme.heading)
     }
 
-    private var header: some View {
-        VStack(spacing: 14) {
-            AvatarView(user: currentUser, size: 84)
-            VStack(spacing: 4) {
-                Text(currentUser.displayName)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.heading)
-                if !currentUser.username.isEmpty {
-                    Text("@\(currentUser.username)")
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Theme.brandText)
-                }
-                Text(currentUser.email)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Theme.body)
-            }
-            .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
+    private var versionLabel: String {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let version = info["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info["CFBundleVersion"] as? String ?? "—"
+        #if DEBUG
+        return "\(version) (\(build)) · Local"
+        #else
+        return "\(version) (\(build))"
+        #endif
     }
-}
 
-private struct InfoRow: View {
-    let label: String
-    let value: String
-    var monospaced = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.muted)
-                .textCase(.uppercase)
-                .kerning(0.4)
-            Text(value.isEmpty ? "—" : value)
-                .font(monospaced ? .system(size: 14, design: .monospaced) : .system(size: 15))
-                .foregroundStyle(value.isEmpty ? Theme.muted : Theme.heading)
-                .textSelection(.enabled)
-                .lineLimit(3)
-        }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .combine)
-    }
 }
 
 #Preview {
@@ -255,7 +220,7 @@ private struct EditProfileSheet: View {
                     Task {
                         guard let data = try? await item.loadTransferable(type: Data.self),
                               let image = ImageAttachment.avatar(from: data) else {
-                            error = "This image could not be read."
+                            error = String(localized: "This image could not be read.")
                             return
                         }
                         setAvatar(image)
@@ -263,8 +228,11 @@ private struct EditProfileSheet: View {
                 }
                 if let error { Text(error).foregroundStyle(.red) }
             }
+            .scrollContentBackground(.hidden)
+            .background(Theme.canvas)
             .disabled(saving)
             .navigationTitle("Edit profile")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(saving) }
                 ToolbarItem(placement: .confirmationAction) {

@@ -53,7 +53,7 @@ export function ChannelReplyFix({
     return (
       <span className="text-[12px] text-tertiary">
         {route.name
-          ? t('Ask {name} to sign this agent in.', { name: route.name })
+          ? t('Ask {name} to sign this runtime in.', { name: route.name })
           : t('Ask a workspace administrator to reconnect this runtime.')}
       </span>
     )

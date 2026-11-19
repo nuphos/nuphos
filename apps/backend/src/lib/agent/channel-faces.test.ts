@@ -61,7 +61,7 @@ describe('channelFacesField', () => {
       } as never)
   })
 
-  test('shows two others, whoever spoke last first, never the viewer', async () => {
+  test('shows three others, whoever spoke last first, never the viewer', async () => {
     // The test store ignores sort, so posts go in newest first.
     await post(2, 'user', 'me')
     await post(1, 'agent', 'a2')
@@ -70,6 +70,7 @@ describe('channelFacesField', () => {
     expect((await channelFacesField(channel, 'me', people)).faces).toEqual([
       { id: 'a2', name: 'Reviewer', agent: { avatar: 'a2-pick', provider: 'codex' } },
       { id: 'bob', name: 'Bob' },
+      { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
     ])
   })
 
@@ -77,6 +78,7 @@ describe('channelFacesField', () => {
     expect((await channelFacesField(channel, 'ann', people)).faces).toEqual([
       { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
       { id: 'a2', name: 'Reviewer', agent: { avatar: 'a2-pick', provider: 'codex' } },
+      { id: 'me', name: 'Me', avatarURL: 'https://a/me.png' },
     ])
   })
 
@@ -143,6 +145,7 @@ describe('a single Bot keeps its chat identity when people reply', () => {
     expect((await channelFacesField(shared, 'me', people)).faces).toEqual([
       { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
       { id: 'bob', name: 'Bob' },
+      { id: 'ann', name: 'Ann', avatarURL: 'https://a/ann.png' },
     ])
     expect((await channelFacesField({ ...shared, title: '' }, 'me', people)).title).toBe(
       'Ann, Bob, Writer',
@@ -168,6 +171,7 @@ describe('a single Bot keeps its chat identity when people reply', () => {
     ).toEqual([
       { id: 'a1', name: 'Writer', agent: { avatar: 'a1-pick', provider: 'codex' } },
       { id: 'me', name: 'Me', avatarURL: 'https://a/me.png' },
+      { id: 'bob', name: 'Bob' },
     ])
   })
 

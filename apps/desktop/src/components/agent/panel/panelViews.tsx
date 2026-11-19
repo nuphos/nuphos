@@ -7,7 +7,7 @@ import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
-import { dismissQuestion } from '../../../views/inbox/dismissQuestion'
+import { cardAsides } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
 import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
@@ -19,7 +19,6 @@ import { hidingRetracted, sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
 import { Conversation } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
-import { ConversationReveal } from './ConversationReveal'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
@@ -29,10 +28,10 @@ import { canStopTurn, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
-import { ReplyTargetChip } from './ReplyTargetChip'
 import { serverHasConversation } from './sessionActions'
-import { TurnSwitchAgentContext, turnSwitchAgent } from './turnFailureActions'
+import { TurnSwitchAgentContext } from './turnFailureActions'
 import { TurnRetryContext, useFailedTurnRetry } from './turnRetryContext'
+import { useTurnFailureActions } from './useTurnFailureActions'
 import { useViewOnlyNotice } from './useViewOnlyNotice'
 
 import type { PanelViewCtx } from './ctx'
@@ -77,8 +76,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
   const { runtimeControl, queuedApproval } = useQueuedShareApproval(conversationControl, activeTab)
   const readOnlyNotice = useViewOnlyNotice(c)
-  const questions = c.openQuestions ?? c.replyTarget?.questions
+  const questions = c.openQuestions
   const composerRef = useRef<HTMLDivElement>(null)
+  const { agentMenu, turnSwitch } = useTurnFailureActions(c, runtimeControl)
   // A card answers while its conversation has an open question, whatever the composer replies to.
   const canReply = activeTab !== null && !activeTab.readOnly && Boolean(questions?.length)
   // The fork needs the chat stored on the server; each message is then gated on its author.
@@ -144,7 +144,8 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       : undefined
 
   return activeTab && !switchingConversation ? (
-    <ConversationReveal sessionId={activeTab.sessionId}>
+    // Keyed: nothing one chat's views hold carries into the next.
+    <div key={activeTab.sessionId} className="flex min-h-0 flex-1">
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
@@ -171,8 +172,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
                   // Offered only on a card that can be answered, so `answer` already gates it.
-                  skip: (card) =>
-                    dismissQuestion(teamId, activeTab.sessionId, cardReplyId(card, questions)),
+                  ...cardAsides(teamId, activeTab, questions),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
                     activeTab.readOnly || activeTab.foreign
@@ -184,7 +184,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   onLinkClick: onOpenNuphosLink,
                 }}
               >
-                <TurnSwitchAgentContext.Provider value={turnSwitchAgent(activeTab)}>
+                <TurnSwitchAgentContext.Provider value={turnSwitch}>
                   <TurnRetryContext.Provider value={turnRetry}>
                     <Conversation
                       tab={shownTab ?? activeTab}
@@ -226,7 +226,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   <DelayedPanelReveal>
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       autoFocus={focusComposerOnOpen}
@@ -238,6 +238,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}
@@ -251,12 +252,9 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   </DelayedPanelReveal>
                 ) : (
                   <>
-                    {c.replyTarget?.sessionId === activeTab.sessionId && !activeTab.readOnly && (
-                      <ReplyTargetChip target={c.replyTarget} />
-                    )}
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, c.decisionReplyTo, mentions, mode)
+                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       promptSuggestion={
@@ -273,6 +271,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       slackThread={activeTab.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
+                      agentMenu={agentMenu}
                       modelSession={modelSession}
                       bypassControl={bypassControl}
                       pendingSeed={pendingPromptReady}
@@ -290,7 +289,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
           </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
-    </ConversationReveal>
+    </div>
   ) : (
     <ConversationPlaceholder
       unavailable={c.openingConversation?.unavailable === true}

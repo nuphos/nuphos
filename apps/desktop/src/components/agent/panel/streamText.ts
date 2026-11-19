@@ -3,6 +3,7 @@ import { textDeltaInsertionIndex } from '../../../lib/agentMessagePartOrder'
 import { STREAM_CHUNK_SIZES, STREAM_DELAY_MS } from './constants'
 import { isHiddenMemoryIngestPart } from './parts'
 import { uid } from './stall'
+import { replyId } from './turnBoundaries'
 import { t } from '../../../i18n/index.ts'
 
 import type { Message, Tab } from './model'
@@ -40,7 +41,7 @@ export function foldTextDeltaIntoTab(tab: Tab, delta: string): Tab {
   if (last?.role === 'assistant') {
     assistant = last
   } else {
-    assistant = { id: uid(), role: 'assistant', parts: [] }
+    assistant = { id: replyId(tab, uid), role: 'assistant', parts: [] }
     msgs.push(assistant)
   }
   const nextParts = appendTextDelta(assistant.parts, delta)

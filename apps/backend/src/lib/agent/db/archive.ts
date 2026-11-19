@@ -36,11 +36,17 @@ const ARCHIVABLE = {
 } as const
 
 /** A Bot's 1:1 chat: a channel whose only other member is one agent, not a group chat. */
-export const isBotChat = (channel: Archivable) =>
+export const isBotChat = (
+  channel: Pick<Archivable, 'kind' | 'group' | 'agentSessionIds' | 'participantIds' | 'userId'>,
+) =>
   channel.kind === 'channel' &&
   !channel.group &&
   channel.agentSessionIds?.length === 1 &&
   conversationParticipantIds(channel).length === 1
+
+/** A chat's own name. A Bot's 1:1 chat has none: it is called by its Bot. */
+export const chatName = (chat: Parameters<typeof isBotChat>[0] & { title?: string }) =>
+  isBotChat(chat) ? '' : (chat.title ?? '')
 
 /** What one archive or restore moved: the conversation, or a Bot with its chats. */
 export type ArchiveUnit = { sessionIds: string[]; botSessionId?: string }
@@ -123,6 +129,20 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
     )
     // A thread never outlives its parent: tokens issued so far stop working.
     await revokeSessionTokens([sessionId, ...descendants], 'archived')
+    // A question only about threads now archived waits on nothing: it leaves the Inbox.
+    // One that is also about something else (a PR) stays for that.
+    const tree = [sessionId, ...descendants]
+
+    await agentConversations().updateMany(
+      { userId: conversation.userId, 'inputRequests.about': { $in: tree } },
+      {
+        $pull: {
+          inputRequests: {
+            about: { $exists: true, $ne: [], $not: { $elemMatch: { $nin: tree } } },
+          },
+        },
+      },
+    )
 
     return
   }

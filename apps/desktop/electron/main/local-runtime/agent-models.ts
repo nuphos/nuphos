@@ -4,8 +4,16 @@ import type { Agent, LocalAgentRun, LocalRuntimeControllerDeps } from './control
 export const MODEL_RETRY_MS = [60_000, 120_000, 300_000, 600_000]
 /** A good list is read again this often while the agent runs. */
 export const MODEL_REFRESH_MS = 30 * 60_000
+/** A signed-out CLI is checked for a sign-in this often before its models are read. */
+export const MODEL_SIGNED_OUT_MS = 60_000
 /** An opened model picker reads again at most this often. */
 export const MODEL_ON_DEMAND_MS = 60_000
+/**
+ * How long an agent waits before its first read, when it is not at once. A Hermes read starts
+ * a gateway daemon of its own, and a conversation's daemon does not start until it is ready:
+ * read at once, it holds back the conversation started just after the agent was added.
+ */
+export const MODEL_FIRST_READ_MS: Partial<Record<string, number>> = { hermes: 60_000 }
 
 type Reader = { live: () => boolean; read: () => Promise<boolean | undefined> }
 
@@ -66,7 +74,16 @@ export function discoverModels(
 
     return inFlight
   }
+  // Each read starts the CLI, and one signed out cannot list models: wait for its sign-in.
+  const signedOut = () => agent.cli?.installed === true && agent.cli.loggedIn === false
   const cycle = (failures: number) => {
+    if (signedOut()) {
+      setTimeout(() => {
+        if (live()) cycle(failures)
+      }, MODEL_SIGNED_OUT_MS).unref()
+
+      return
+    }
     void read().then((changed) => {
       if (!live()) return
       // The last good list stays reported while a failed read is tried again.
@@ -85,9 +102,16 @@ export function discoverModels(
   readers.add({
     live,
     read: () =>
-      inFlight ?? (Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
+      inFlight ??
+      (signedOut() || Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
   })
-  cycle(0)
+  const first = MODEL_FIRST_READ_MS[run.provider]
+
+  if (first)
+    setTimeout(() => {
+      if (live()) cycle(0)
+    }, first).unref()
+  else cycle(0)
 }
 
 /**

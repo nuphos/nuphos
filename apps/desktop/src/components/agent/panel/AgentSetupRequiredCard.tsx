@@ -104,12 +104,12 @@ export function AgentSetupRequiredCard({
       </div>
       <p className="text-[13px] leading-relaxed text-secondary">
         {ask === 'asked' && signInRequest
-          ? t('{name} asked you to sign this agent in. Their message runs once you do.', {
+          ? t('{name} asked you to sign this runtime in. Their message runs once you do.', {
               name: signInRequest.requesterName,
             })
           : route.kind === 'none'
             ? message
-            : t('This agent needs to be signed in again before it can answer.')}
+            : t('This runtime needs to be signed in again before it can answer.')}
       </p>
       {route.kind === 'cli' && (
         <AgentSignInButton
@@ -146,7 +146,7 @@ export function AgentSetupRequiredCard({
       {route.kind === 'ask' && ask !== 'requester' && !canAsk && (
         <p className="text-[13px] leading-relaxed text-secondary">
           {route.name
-            ? t('Ask {name} to sign this agent in, then resend your message.', {
+            ? t('Ask {name} to sign this runtime in, then resend your message.', {
                 name: route.name,
               })
             : t('Ask a workspace administrator to reconnect this runtime.')}

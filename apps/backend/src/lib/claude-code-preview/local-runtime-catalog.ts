@@ -48,7 +48,6 @@ export type LocalRuntimeSummary = {
   instanceId?: string
   /** The team member who added this agent through Nuphos; absent for older and default agents. */
   addedBy?: { userId: string; at: string }
-  agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
@@ -59,6 +58,8 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
+  /** Which account's quota the agent spends, hashed by that computer; see runtime-quota-shape. */
+  accountKey?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
   box?: Pick<AgentDeviceBox, 'provider'>
   /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
@@ -155,7 +156,6 @@ export async function listOwnLocalRuntimes(
               deviceId: device.deviceId,
               deviceLabel: device.label,
               ...(label ? { agentLabel: label } : {}),
-              agentInstances: presence?.status?.agentInstances === true,
               ...(presence?.status?.desktopOpen === true ? { desktopOpen: true as const } : {}),
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(shared ? { shared: { level: 'full' as const } } : {}),
@@ -165,6 +165,7 @@ export async function listOwnLocalRuntimes(
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
+              ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,

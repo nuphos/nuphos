@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Luaskan peristiwa</string>
     <string name="chat_channel_new_messages">Pesan baru di #%1$s</string>
     <string name="chat_open_channel">Buka saluran</string>
+    <string name="chat_channel_sent_file">Mengirim file</string>
+    <string name="chat_channel_more_posts">+%1$d lagi</string>
     <string name="chat_answered_by">%1$s menjawab</string>
     <string name="chat_question_collapse">Ciutkan pertanyaan</string>
     <string name="chat_question_expand">Luaskan pertanyaan</string>
@@ -188,4 +190,15 @@
     <string name="chat_share_access_reply">Tim dapat melihat dan membalas</string>
     <string name="chat_share_can_reply">Dapat membalas</string>
     <string name="chat_share_can_view">Dapat melihat</string>
+    <string name="chat_summary_title">Ringkasan tugas</string>
+    <string name="chat_summary_close">Tutup ringkasan</string>
+    <string name="chat_summary_question">Pertanyaan</string>
+    <string name="chat_summary_close_question">Tutup pertanyaan</string>
+    <string name="chat_summary_needs_input">Perlu masukan Anda</string>
+    <string name="chat_summary_no_questions">Tidak ada pertanyaan yang menunggu Anda.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Perintah</string>
+    <string name="chat_summary_running">Berjalan</string>
+    <string name="chat_summary_open">Ringkasan agen</string>
+    <string name="chat_summary_output_truncated">Keluaran sebelumnya disembunyikan.</string>
 </resources>

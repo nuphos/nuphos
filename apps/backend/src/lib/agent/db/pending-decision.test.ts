@@ -5,9 +5,11 @@ import { useDb } from '@/lib/test/doubles/db'
 import { getConversations } from './conversations-list'
 import {
   addInputRequest,
+  attentionInputRequests,
   openInputRequests,
   reopenInputRequest,
   resolveInputRequest,
+  updateInputRequest,
 } from './pending-decision'
 
 import type { InputRequest } from './pending-decision'
@@ -161,6 +163,17 @@ describe('input requests', () => {
     })
   })
 
+  // #3470: a card rewritten in place says when, so an old question's new premise is visible.
+  test('correcting a question stamps when it was last edited', async () => {
+    const before = Date.now()
+
+    expect(await updateInputRequest('s1', 'u1', 'nuphos-1', { question: 'Merge #469?' })).toBe(true)
+    const set = updates.at(-1)?.update.$set as Doc
+
+    expect(set['inputRequests.$.question']).toBe('Merge #469?')
+    expect((set['inputRequests.$.updatedAt'] as Date).getTime()).toBeGreaterThanOrEqual(before)
+  })
+
   test('open requests are the open ones, oldest first', () => {
     const newer = { ...request, id: 'nuphos-2', askedAt: new Date('2026-10-20T00:00:00Z') }
     const older = { ...request, id: 'nuphos-1' }
@@ -188,6 +201,10 @@ describe('input requests', () => {
       $or: [
         {
           'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
           userId: '642802f4c38340345aa2384d',
         },
         {
@@ -211,7 +228,13 @@ describe('input requests', () => {
     expect(and[0]).toHaveProperty('$or')
     expect(and[1]).toEqual({
       $or: [
-        { 'inputRequests.status': 'open' },
+        {
+          'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
+        },
         {
           'signInRequest.askedUserIds': '642802f4c38340345aa2384d',
           'signInRequest.askedAt': { $gt: expect.any(Date) },
@@ -234,10 +257,39 @@ describe('input requests', () => {
       $or: [
         {
           'inputRequests.status': 'open',
+          $or: [
+            { botOnboarding: { $nin: ['pending', 'active'] } },
+            { inputRequests: { $elemMatch: { status: 'open', category: { $ne: 'preference' } } } },
+          ],
           userId: 'member-1',
         },
         { userId: 'member-1', 'signInRequest.askedUserIds': '642802f4c38340345aa2384d' },
       ],
     })
   })
+})
+
+test('chat listings opt into onboarding without removing the pending-question filter', async () => {
+  await getConversations('owner', {
+    teamId: 'team',
+    pendingDecision: true,
+    includeOnboarding: true,
+  })
+  expect((lastQuery as { $and: unknown[] }).$and).toContainEqual({
+    $or: [
+      { 'inputRequests.status': 'open', userId: 'owner' },
+      {
+        'signInRequest.askedUserIds': 'owner',
+        'signInRequest.askedAt': { $gt: expect.any(Date) },
+        $expr: { $eq: ['$signInRequest.runtimeId', '$runtimeId'] },
+      },
+    ],
+  })
+})
+
+test('an introduced Bot keeps its open preference questions as attention', () => {
+  const inputRequests = [{ id: 'q', status: 'open', category: 'preference' } as InputRequest]
+
+  expect(attentionInputRequests({ botOnboarding: 'started', inputRequests })).toEqual(inputRequests)
+  expect(attentionInputRequests({ botOnboarding: 'active', inputRequests })).toEqual([])
 })

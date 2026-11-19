@@ -380,19 +380,66 @@
   }
 
   /* A link is the same white as the text around it; the underline marks it. */
-  .user-message-bubble a:not(.atlas-mention) {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip) {
     color: inherit;
     text-decoration-line: underline;
     text-decoration-color: rgba(255, 255, 255, 0.45);
     text-underline-offset: 2px;
   }
 
-  .user-message-bubble a:not(.atlas-mention):hover {
+  .user-message-bubble a:not(.atlas-mention, .chat-resource-chip):hover {
     text-decoration-color: currentColor;
+  }
+
+  /* Resource chips are controls, not underlined prose links. Their border and
+     fill need contrast against the dark outgoing bubble in either theme. */
+  .user-message-bubble .chat-resource-chip {
+    --color-line-control: 44, 44, 44;
+    --color-state-selected: rgba(255, 255, 255, 0.08);
+    --color-state-hover: rgba(255, 255, 255, 0.16);
   }
 
   html.light .user-message-bubble {
     background-color: #000000;
+  }
+
+  /* The theme's own text and control colors under a second name, resolved on
+     <html> so they follow the theme. A bubble that pins --color-text-* to
+     white can hand the theme's values back with them. */
+  html {
+    --theme-text-primary: var(--color-text-primary);
+    --theme-text-secondary: var(--color-text-secondary);
+    --theme-text-tertiary: var(--color-text-tertiary);
+    --theme-line-control: var(--color-line-control);
+    --theme-state-selected: var(--color-state-selected);
+    --theme-state-hover: var(--color-state-hover);
+  }
+
+  /* Your post in a chat. It keeps .user-message-bubble, so chips, mentions and
+     its selectors work as in a conversation, and overrides only the fill and
+     the tokens that fill pins: a bubble a shade apart from an agent's
+     (state.selected), the text color at a step beyond its alpha, with the
+     theme's own text on it. One rule for both themes, a neutral warm gray;
+     blue is kept for links and data. The text stays at WCAG AA
+     (chatBubble.test.ts). `html` lifts it past `html.light .user-message-bubble`. */
+  html .user-message-bubble.chat-bubble-mine {
+    --color-text-base: var(--theme-text-primary);
+    --color-text-primary: var(--theme-text-primary);
+    --color-text-secondary: var(--theme-text-secondary);
+    --color-text-tertiary: var(--theme-text-tertiary);
+    color: rgb(var(--color-text-primary));
+    background-color: rgba(var(--color-text-primary), 0.21);
+  }
+
+  html .user-message-bubble.chat-bubble-mine a:not(.atlas-mention, .chat-resource-chip) {
+    text-decoration-color: rgba(var(--color-text-primary), 0.45);
+  }
+
+  /* A resource chip on the light fill takes the theme's controls back. */
+  html .user-message-bubble.chat-bubble-mine .chat-resource-chip {
+    --color-line-control: var(--theme-line-control);
+    --color-state-selected: var(--theme-state-selected);
+    --color-state-hover: var(--theme-state-hover);
   }
 
   .resource-meter {
@@ -1006,37 +1053,35 @@
     margin-left: calc(28px + 54px / var(--zoom-factor, 1));
   }
 
-  /* Reserve room on the trailing edge of the tab strip for the Windows and
-     Linux caption buttons (minimize/maximize/close) that the native title-bar
-     overlay draws over the top-right of the window. macOS keeps the normal
-     inset because its traffic lights sit on the leading edge. */
-  .titlebar-caption-pad {
-    padding-right: 0.75rem;
-  }
-  html.platform-windows .titlebar-caption-pad,
-  html.platform-linux .titlebar-caption-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1));
+  /* The room the Windows and Linux caption buttons (minimize/maximize/close)
+     take: the native title-bar overlay draws them over the top-right of the
+     window and reports where they start, already in zoomed CSS px, so the
+     reserve follows the real buttons at any display scale, page zoom or button
+     layout. It is 0 on macOS, whose traffic lights sit on the leading edge. */
+  :root {
+    --caption-reserve: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
   }
 
   /* The workspace-dock toggle is viewport-anchored so opening the dock never
-     pushes it left. The tab strip stops 4px short of it, so the dock's own
-     trailing controls sit beside it. */
+     pushes it left. Whatever runs under it, the dock's tab strip or a header
+     while the dock is closed, pads its right end by --dock-toggle-pad and so
+     stops 4px short of it. */
+  :root {
+    --dock-toggle-pad: calc(2.5rem + 4px);
+  }
+  html.platform-windows,
+  html.platform-linux {
+    --dock-toggle-pad: calc(var(--caption-reserve) + 2.5rem + 4px);
+  }
   .workspace-dock-toggle {
     position: fixed;
     z-index: 40;
     top: calc(8px + var(--sheet-inset));
     right: calc(0.75rem + var(--sheet-inset));
   }
-  .workspace-dock-toggle-pad {
-    padding-right: calc(2.5rem + 4px);
-  }
   html.platform-windows .workspace-dock-toggle,
   html.platform-linux .workspace-dock-toggle {
-    right: calc(138px / var(--zoom-factor, 1) + 0.75rem + var(--sheet-inset));
-  }
-  html.platform-windows .workspace-dock-toggle-pad,
-  html.platform-linux .workspace-dock-toggle-pad {
-    padding-right: calc(138px / var(--zoom-factor, 1) + 2.5rem + 4px);
+    right: calc(var(--caption-reserve) + 0.75rem + var(--sheet-inset));
   }
 
   [data-base-ui-inert] {
@@ -1156,50 +1201,6 @@
   @media (prefers-reduced-motion: reduce) {
     .t-toast {
       transition: none !important;
-    }
-  }
-
-  /* transitions.dev shimmer text, in the theme's own grays. */
-  .t-shimmer {
-    --shimmer-base: rgb(var(--color-text-tertiary));
-    --shimmer-highlight: rgb(var(--color-text-primary));
-    position: relative;
-    display: inline-block;
-    color: var(--shimmer-base);
-  }
-  .t-shimmer::before {
-    content: attr(data-text);
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background-image: linear-gradient(
-      90deg,
-      transparent 0%,
-      transparent 40%,
-      var(--shimmer-highlight) 50%,
-      transparent 60%,
-      transparent 100%
-    );
-    background-size: var(--shimmer-band) 100%;
-    background-repeat: no-repeat;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    animation: t-shimmer var(--shimmer-dur) var(--shimmer-ease) infinite;
-  }
-  @keyframes t-shimmer {
-    0% {
-      background-position: 100% 0;
-    }
-    100% {
-      background-position: 0% 0;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .t-shimmer::before {
-      animation: none !important;
     }
   }
 
@@ -2270,7 +2271,7 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   }
 }
 
-/* Session heading changes use the text-swap motion tokens without delaying navigation. */
+/* A Task's linked resource chips fade in as they appear in its title bar. */
 .t-session-heading {
   animation: t-session-heading-enter var(--text-swap-dur) var(--text-swap-ease) both;
 }

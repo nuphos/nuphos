@@ -46,7 +46,7 @@ struct ConnectorsPage: View {
             list
         } else if case .failed(let message) = connectors.phase {
             ContentUnavailableView {
-                Label("Couldn't load connectors", systemImage: "wifi.exclamationmark")
+                Label("Couldn't load connectors", image: "lucide-wifi-off")
             } description: {
                 Text(message)
             } actions: {
@@ -70,7 +70,7 @@ struct ConnectorsPage: View {
             // A scroll view, so the empty state can be pulled to refresh.
             ScrollView {
                 ContentUnavailableView {
-                    Label("No connectors yet", systemImage: "app.connected.to.app.below.fill")
+                    Label("No connectors yet", image: "lucide-blocks")
                 } description: {
                     Text(canConnect
                          ? "Connect a cloud account or an integration to let the agent work in it."
@@ -101,7 +101,7 @@ struct ConnectorsPage: View {
                         Button {
                             adding = true
                         } label: {
-                            Label("Add connector", systemImage: "plus")
+                            Label("Add connector", image: "lucide-plus")
                                 .font(.system(size: 15))
                                 .foregroundStyle(Theme.brandText)
                         }

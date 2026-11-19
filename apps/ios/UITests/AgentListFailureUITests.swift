@@ -145,11 +145,12 @@ final class AgentListFailureUITests: XCTestCase {
 
     private func switchWorkspace(among names: [String]) {
         app.buttons["Account"].firstMatch.tap()
-        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Workspace")).firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No workspace picker")
-        let shown = picker.label + ((picker.value as? String) ?? "")
+        // The Account sheet's Team section links to the team picker, labelled with the current team.
+        let picker = app.buttons.matching(NSPredicate(format: "label IN %@", names)).firstMatch
+        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No team picker")
+        let shown = picker.label
         picker.tap()
-        let next = app.buttons[names.first { !shown.contains($0) } ?? names[0]].firstMatch
+        let next = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", names.first { $0 != shown } ?? names[0])).firstMatch
         XCTAssertTrue(next.waitForExistence(timeout: 5), "No other workspace")
         next.tap()
         sleep(1)
@@ -172,16 +173,19 @@ final class AgentListFailureUITests: XCTestCase {
         app.staticTexts[title].firstMatch
     }
 
+    // Since #3343 a row's swipe only archives; its other actions are in the long press menu.
     private func unwatch() throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         let item = app.buttons["Unwatch"].firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 3), "No Unwatch on the row")
         item.tap()
     }
 
     private func assertMenu(shows title: String) throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         XCTAssertTrue(app.buttons[title].firstMatch.waitForExistence(timeout: 5), "The row does not offer \(title)")
+        // Away from the menu, which closes it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).tap()
     }
 
     private func originalList() throws -> [String: Any] {
