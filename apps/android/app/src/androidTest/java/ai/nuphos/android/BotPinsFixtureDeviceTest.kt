@@ -117,6 +117,19 @@ class BotPinsFixtureDeviceTest {
         image.recycle()
     }
 
+    private fun assertPreviewInset() {
+        val node = compose.onNodeWithTag("bot-conversation-preview").fetchSemanticsNode()
+        val coordinates = node.layoutInfo.coordinates
+        val origin = coordinates.localToScreen(androidx.compose.ui.geometry.Offset.Zero)
+        val bounds = androidx.compose.ui.geometry.Rect(origin, androidx.compose.ui.geometry.Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat()))
+        val density = instDensity()
+        val width = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.widthPixels
+        assertTrue("Left inset: $bounds", bounds.left >= 16 * density - 1)
+        assertTrue("Right inset: $bounds", bounds.right <= width - 16 * density + 1)
+    }
+
+    private fun instDensity() = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+
     @Test fun shelfPreviewAndPinUnpinKeepActivityOrderAndLegacyFavorites() {
         fun row(id: String) = compose.onNodeWithTag("chat-row:$id")
         fun assertOrder() = assertTrue(row("newer").fetchSemanticsNode().positionInRoot.y < row("older").fetchSemanticsNode().positionInRoot.y)
@@ -125,12 +138,14 @@ class BotPinsFixtureDeviceTest {
         compose.onNodeWithTag("pinned-bot:older").performTouchInput { longClick() }
         compose.onNodeWithTag("bot-conversation-preview").assertExists()
         assertTrue(writes.isEmpty()) // Long press did not mark read or start a turn.
+        assertPreviewInset()
         shot("02-unpin-preview")
         compose.onNodeWithTag("pin-action:older").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("pinned-bots-shelf").fetchSemanticsNodes().isEmpty() }
         compose.waitUntil(5_000) { !store.savingPins }
         assertOrder()
         row("newer").performTouchInput { longClick() }
+        assertPreviewInset()
         shot("03-pin-menu")
         compose.onNodeWithTag("pin-action:newer").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("pinned-bot:newer").fetchSemanticsNodes().isNotEmpty() }

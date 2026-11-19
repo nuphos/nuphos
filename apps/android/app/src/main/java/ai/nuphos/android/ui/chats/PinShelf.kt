@@ -3,6 +3,17 @@ package ai.nuphos.android.ui.chats
 import ai.nuphos.android.R
 import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.ui.components.AgentAvatar
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -37,11 +48,36 @@ internal fun PinAction(row: AgentConversation, pinned: Boolean, enabled: Boolean
         modifier = Modifier.testTag("pin-action:${row.sessionId}"), onClick = onClick)
 }
 
+/** Constrain both shelf and list previews to the list's horizontal inset. */
+@Composable
+internal fun BotPreviewMenu(expanded: Boolean, onDismissRequest: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    if (!expanded) return
+    val inset = with(LocalDensity.current) { 16.dp.roundToPx() }
+    val position = remember(inset) { object : PopupPositionProvider {
+        override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize,
+            layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
+            val x = (if (layoutDirection == LayoutDirection.Ltr) anchorBounds.left else anchorBounds.right - popupContentSize.width)
+                .coerceIn(inset, (windowSize.width - popupContentSize.width - inset).coerceAtLeast(inset))
+            val y = (if (anchorBounds.bottom + popupContentSize.height <= windowSize.height - inset)
+                anchorBounds.bottom else anchorBounds.top - popupContentSize.height)
+                .coerceIn(inset, (windowSize.height - popupContentSize.height - inset).coerceAtLeast(inset))
+            return IntOffset(x, y)
+        }
+    } }
+    Popup(popupPositionProvider = position, onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = true)) {
+        Surface(shape = MaterialTheme.shapes.extraSmall, tonalElevation = 3.dp, shadowElevation = 8.dp) {
+            Column(Modifier.width(minOf(288.dp, (LocalConfiguration.current.screenWidthDp - 32).coerceAtLeast(1).dp))
+                .verticalScroll(rememberScrollState()).padding(vertical = 8.dp), content = content)
+        }
+    }
+}
+
 /** A snapshot only: rendering a context preview never opens, polls or marks a chat read. */
 @Composable
 internal fun BotConversationPreview(row: AgentConversation) {
     val title = if (row.isChannel) row.displayTitleForChat else row.displayTitle
-    Column(Modifier.width(288.dp).testTag("bot-conversation-preview")) {
+    Column(Modifier.fillMaxWidth().testTag("bot-conversation-preview")) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (row.isChannel) ChatIcon(row.faces.orEmpty(), title, 36.dp)
@@ -95,7 +131,7 @@ internal fun PinShelf(rows: List<AgentConversation>, status: (AgentConversation)
                     Text(title, style = MaterialTheme.typography.labelSmall, maxLines = 2,
                         overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                 }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                BotPreviewMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     BotConversationPreview(row)
                     PinAction(row, pinned = true, enabled = enabled) { menu = false; onUnpin(row) }
                 }

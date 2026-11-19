@@ -182,7 +182,7 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
     val typingLabel = stringResource(R.string.chats_is_typing, title)
     val unreadLabel = stringResource(R.string.chats_unread_posts)
     val openingLabel = stringResource(R.string.chats_opening)
-    Box { DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+    Box { BotPreviewMenu(expanded = menu, onDismissRequest = { menu = false }) {
         BotConversationPreview(chat)
         PinAction(chat, pinned, pinEnabled) { menu = false; onPin() }
         if (onArchiveBot != null)
