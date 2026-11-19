@@ -211,6 +211,10 @@ function check(baseline: Record<string, number> | null) {
       fail(
         `${String(watch.washFrames)} frames had faded text in the pane, faintest ${String(watch.washedText)}`,
       )
+    if (watch.chipFrames > 0)
+      fail(
+        `${String(watch.chipFrames)} frames showed a composer chip before its value: ${String(watch.chipText)}`,
+      )
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)

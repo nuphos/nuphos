@@ -154,6 +154,9 @@ export function ModelSelector({
       : (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
   }
 
+  // Shown once the task's own settings are known, never a placeholder before them.
+  if (loading && !slow && !error && !data) return null
+
   // One menu: the models, with effort and fast pinned under them. A runtime
   // without effort opens straight on its models; one without a model list
   // (Grok Build) on its effort.
@@ -200,7 +203,6 @@ export function ModelSelector({
           {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
           <ModelChipLabel
             name={name}
-            loading={loading && !slow && !error && !data}
             level={level}
             levels={effortLevels}
             fast={fast?.currentValue}
