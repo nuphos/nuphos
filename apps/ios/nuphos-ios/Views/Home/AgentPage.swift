@@ -257,7 +257,7 @@ struct AgentPage: View {
             ContentUnavailableView {
                 Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
-                Text(store.search.isEmpty ? "Start a task from the bar below." : "No tasks match your search.")
+                if !store.search.isEmpty { Text("No tasks match your search.") }
             }
         case .loaded:
             EmptyView()
