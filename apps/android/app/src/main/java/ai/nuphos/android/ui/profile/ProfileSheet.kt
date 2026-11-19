@@ -101,16 +101,17 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             }) else null,
             appearanceSettings = {
                 val app = voiceContext.applicationContext as NuphosApplication
+                val avatarsLabel = stringResource(R.string.account_bot_avatars)
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.account_bot_avatars))
+                        Text(avatarsLabel)
                         Text(stringResource(R.string.account_bot_avatars_help),
                             style = MaterialTheme.typography.bodySmall)
                     }
                     Switch(checked = app.botAvatarsEnabled, onCheckedChange = app::updateBotAvatars,
                         modifier = Modifier.testTag("account-bot-avatars").semantics {
-                            contentDescription = voiceContext.getString(R.string.account_bot_avatars)
+                            contentDescription = avatarsLabel
                         })
                 }
             },
