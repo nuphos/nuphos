@@ -67,7 +67,7 @@ struct AnsweredLine: View {
             .frame(height: 24)
             .frame(maxWidth: 180)
             .fixedSize(horizontal: true, vertical: false)
-            .background(Theme.chatSurface, in: Capsule())
+            .background(Theme.sunken, in: Capsule())
             .layoutPriority(1)
     }
 
@@ -116,7 +116,7 @@ struct AnsweredLine: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .raisedCard()
         .accessibilityIdentifier("answered.card")
     }
 

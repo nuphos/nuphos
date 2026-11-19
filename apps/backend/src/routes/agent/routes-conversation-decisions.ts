@@ -23,6 +23,7 @@ const answerBody = z
       .array(z.object({ choices: choices.optional(), text: text.optional() }).strict())
       .max(4)
       .optional(),
+    answeredIn: z.literal('inbox').optional(),
   })
   .strict()
   .refine((answer) => answer.choices?.length || answer.text || answer.questions?.length)
@@ -133,7 +134,7 @@ agent.post('/conversations/:sessionId/decisions/:requestId/answer', async (c) =>
     conversation,
     requestId,
     answer: answer.data,
-    actor: { id: userId, displayName: sender.displayName },
+    actor: { id: userId, displayName: sender.displayName, avatarURL: sender.avatarURL },
     teamId: conversation.teamId,
   })
   logEvent('info', 'agent.pending_decision.answered', {

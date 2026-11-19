@@ -35,7 +35,7 @@ export async function runtimeTerminalTarget(teamId: string, userId: string, sess
       ? await resolveLocalRuntimeEndpoint(teamId, runtime.id, userId, 'control')
       : runtime.kind === 'development'
         ? developmentRuntimeEndpoint(runtime.provider, 'control')
-        : (await resolveTeamRuntimeEndpoints(teamId, undefined, runtime.provider, 'control')).find(
+        : (await resolveTeamRuntimeEndpoints(teamId, runtime.provider, 'control')).find(
             (item) => item.runtimeId === runtime.id,
           )
 

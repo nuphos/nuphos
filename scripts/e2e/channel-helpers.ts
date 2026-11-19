@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
+import { pickInSubmenu } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
@@ -66,7 +67,9 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
-  await page.getByRole('menuitem', { name: item }).last().click()
+  await pickInSubmenu(page, page.getByRole('menuitem', { name: item }).last())
+  // A Bot's move takes a moment; until it lands the composer still names the old runtime.
+  await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
 }
 
 /** Shoots the composer in light; whether its runtime line shows the usage bar. */
