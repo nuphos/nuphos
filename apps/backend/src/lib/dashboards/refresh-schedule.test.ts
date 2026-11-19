@@ -53,10 +53,10 @@ beforeEach(() => {
 describe('nextScheduledRefresh', () => {
   const after = new Date('2026-09-23T10:00:00Z')
 
-  test('fires at 09:00 UTC on the cadence boundary', () => {
-    expect(nextScheduledRefresh('daily', after).toISOString()).toBe('2026-09-24T09:00:00.000Z')
-    expect(nextScheduledRefresh('weekly', after).toISOString()).toBe('2026-09-28T09:00:00.000Z')
-    expect(nextScheduledRefresh('monthly', after).toISOString()).toBe('2026-10-01T09:00:00.000Z')
+  test('fires at 00:00 UTC, when every rolling range starts its new day', () => {
+    expect(nextScheduledRefresh('daily', after).toISOString()).toBe('2026-09-24T00:00:00.000Z')
+    expect(nextScheduledRefresh('weekly', after).toISOString()).toBe('2026-09-28T00:00:00.000Z')
+    expect(nextScheduledRefresh('monthly', after).toISOString()).toBe('2026-10-01T00:00:00.000Z')
   })
 })
 
@@ -74,7 +74,7 @@ describe('dashboardCadenceUpdate', () => {
   test('arms a new cadence at its next slot and clears a removed one', () => {
     expect(dashboardCadenceUpdate({ cadence: 'daily' }, 'weekly', now).set).toEqual({
       cadence: 'weekly',
-      nextRefreshAt: new Date('2026-09-28T09:00:00Z'),
+      nextRefreshAt: new Date('2026-09-28T00:00:00Z'),
     })
     expect(dashboardCadenceUpdate({ cadence: 'daily' }, null, now).unset).toEqual({
       cadence: '',
@@ -102,8 +102,8 @@ describe('migratePanelCadencesToDashboards', () => {
       .map((call) => [(call.args[0] as Doc)._id, (call.args[1] as { $set: Doc }).$set])
 
     expect(scheduled).toEqual([
-      [daily, { cadence: 'daily', nextRefreshAt: new Date('2026-09-24T09:00:00Z') }],
-      [weekly, { cadence: 'weekly', nextRefreshAt: new Date('2026-09-28T09:00:00Z') }],
+      [daily, { cadence: 'daily', nextRefreshAt: new Date('2026-09-24T00:00:00Z') }],
+      [weekly, { cadence: 'weekly', nextRefreshAt: new Date('2026-09-28T00:00:00Z') }],
     ])
     expect(
       calls.find((call) => call.collection === 'cost_panels' && call.op === 'updateMany')?.args[1],
@@ -137,7 +137,7 @@ describe('runDueDashboardRefreshes', () => {
 
     expect(firstClaim[0]).toEqual({ cadence: 'daily', nextRefreshAt: { $lte: now } })
     expect(firstClaim[1].$set).toEqual({
-      nextRefreshAt: new Date('2026-09-24T09:00:00Z'),
+      nextRefreshAt: new Date('2026-09-24T00:00:00Z'),
       lastScheduledRefreshAt: now,
     })
     expect(await runDueDashboardRefreshes(now)).toBe(0)

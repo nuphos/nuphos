@@ -71,6 +71,31 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
+    // #3702: a Bot answers one post with replyTo, and its answer quotes that post.
+    name: "a Bot's answer to one post quotes it",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      const response = await fetch(
+        `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
+        {
+          method: 'POST',
+          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            teamId: stack.teamId,
+            text: 'Which regions are down? E2E_REPLY_TO E2E_DELIVERY:reply',
+          }),
+        },
+      )
+
+      if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
+      await page.getByText('POSTED E2E_DELIVERY:reply', { exact: true }).waitFor()
+      // The quote above the answer is a button titled with the post it answers.
+      await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
+    },
+  },
+  {
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
