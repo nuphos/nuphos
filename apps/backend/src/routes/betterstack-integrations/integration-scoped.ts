@@ -9,6 +9,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireBetterStackMemberAccess,
   requireCanDisconnect,
   requireTeamRole,
@@ -147,13 +148,9 @@ export function registerBetterStackIntegrationRoutes(
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const integrationId = new ObjectId(c.get('betterStackIntegrationId'))
-      const result = await teamByosBindings().updateOne(
-        { _id: teamId, 'betterStackIntegrations.id': integrationId },
-        {
-          $pull: { betterStackIntegrations: { id: integrationId } },
-          $set: { updatedAt: new Date() },
-        },
-      )
+      const result = await disconnectBinding(c, teamId, 'betterStackIntegrations', {
+        id: integrationId,
+      })
 
       if (result.matchedCount === 0) {
         throw new AppError(

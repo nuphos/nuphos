@@ -92,10 +92,18 @@ test('opening with a run still confirms it against the runtime', async () => {
 })
 
 test('polls without the flag keep reading runtime state', async () => {
+  probed = { state: 'idle', schemaVersion: 2 }
   const body = (await (await open('')).json()) as Record<string, unknown>
 
   expect(probes).toBe(1)
-  expect((body.runtimeState as { state: string }).state).toBe('active')
+  expect((body.runtimeState as { state: string }).state).toBe('idle')
+})
+
+test('a runtime still saying active after its run ended answers like the list: ready', async () => {
+  const body = (await (await open('')).json()) as Record<string, unknown>
+
+  expect(probes).toBe(1)
+  expect((body.runtimeState as { state: string }).state).toBe('dormant')
 })
 
 test('a status poll with messages=omit reads no messages', async () => {

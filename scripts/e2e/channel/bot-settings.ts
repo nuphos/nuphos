@@ -14,7 +14,8 @@ const composer = (page: Page) =>
 /** The composer's permission mode and model, as its two chips read. */
 async function composerSettings(page: Page) {
   const modeChip = composer(page).getByRole('button', { name: 'Authorization mode' })
-  const mode = await modeChip.textContent()
+  // What it shows: the other mode's label stays in the chip, unseen, to keep its width.
+  const mode = await modeChip.innerText()
   const chip = composer(page).getByRole('button', { name: /^Model settings/ })
   const model = await chip.getAttribute('aria-label')
 
