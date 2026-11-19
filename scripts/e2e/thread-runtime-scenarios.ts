@@ -20,7 +20,12 @@ export const threadRuntimeScenarios: Scenario[] = [
       const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
         method: 'PUT',
         headers: { ...auth, 'content-type': 'application/json' },
-        body: JSON.stringify({ deviceId, label: 'E2E own Mac', platform: 'darwin' }),
+        body: JSON.stringify({
+          deviceId,
+          label: 'E2E own Mac',
+          platform: 'darwin',
+          allowLocalExec: true,
+        }),
       })
 
       if (!registered.ok) throw new Error(`Registering answered ${String(registered.status)}`)
