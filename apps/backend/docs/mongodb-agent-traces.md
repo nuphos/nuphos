@@ -58,8 +58,10 @@ already stamped records, existing history or in-flight events. TTL deletion is
 asynchronous and must not be treated as atomic multi-document removal.
 
 The maintenance deletion helper waits up to five seconds for the session's
-in-flight local writes before deleting both collections. A timeout fails the
-purge rather than reporting success while a write could recreate records.
+in-flight local writes before deleting both collections, then releases the
+session's artifact file-transfer references (deleting media pinned by an
+artifact when no other conversation still cites it). A timeout fails the purge
+rather than reporting success while a write could recreate records.
 Stop active turns on **all replicas** first: new or remote in-flight writes can
 otherwise recreate data. The HTTP conversation DELETE route remains disabled.
 Transcript edits do not rewrite this append-only copy.
