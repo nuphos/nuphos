@@ -30,6 +30,8 @@ struct AgentSetupView: View {
     @State private var busy = false
     /// A just-created agent is still starting; sign-in needs it to answer first.
     @State private var agentStarting = false
+    /// The wait and sign-in start, which must not outlive the view: Cancel removes a just-added runtime.
+    @State private var starting: Task<Void, Never>?
     @State private var copied = false
     @State private var error: String?
 
@@ -71,6 +73,7 @@ struct AgentSetupView: View {
             }
         }
         .interactiveDismissDisabled(busy || login?.pending == true)
+        .onDisappear { starting?.cancel() }
         .task(id: login?.attemptId) {
             guard let token = auth.token, login?.pending == true else { return }
             while !Task.isCancelled, login?.pending == true {
@@ -309,18 +312,26 @@ struct AgentSetupView: View {
         guard let token = auth.token else { return }
         struct Status: Decodable { let online: Bool }
         busy = true; error = nil
-        Task {
+        starting = Task {
             defer { busy = false; agentStarting = false }
             do {
                 // Like Desktop: wait (up to ~3 minutes) until the agent answers, then sign in.
                 // `wake` resumes a paused Box, which would otherwise never answer.
                 for _ in 0..<90 {
-                    let status: Status? = try? await WorkspaceAPI.request(path(runtime) + "/status", query: [URLQueryItem(name: "wake", value: "1")], token: token)
-                    if status?.online == true { break }
+                    do {
+                        let status: Status = try await WorkspaceAPI.request(path(runtime) + "/status", query: [URLQueryItem(name: "wake", value: "1")], token: token)
+                        if status.online { break }
+                    } catch AgentChatAPI.Conflict.runtimeLoginRequired {
+                        // A just-added runtime answers this way until its first sign-in: it is ready for it (#3959).
+                        break
+                    } catch AgentChatAPI.Conflict.runtimeNotFound {
+                        throw AgentChatAPI.Conflict.runtimeNotFound
+                    } catch {}
                     agentStarting = true
                     try await Task.sleep(for: .seconds(2))
                 }
                 login = try await WorkspaceAPI.request(path(runtime) + "/login", token: token, method: "POST")
+            } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
         }
     }
