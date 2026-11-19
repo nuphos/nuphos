@@ -65,9 +65,9 @@ test('a Bot Task exposes its summary without changing the underlying conversatio
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   let returned = false
-  const ws = { dockOpen: false, stableOpenSessionResource: none } as never
+  const ws = { dockOpen: false, stableOpenSessionResource: none }
   const props = {
-    ws,
+    ws: ws as never,
     user: { id: 'me', name: 'Me' } as never,
     teamId: 'team',
     sessionId: 'bot',
@@ -90,6 +90,18 @@ test('a Bot Task exposes its summary without changing the underlying conversatio
     const toggle = container.querySelector<HTMLButtonElement>('[aria-label="Toggle task summary"]')
 
     assert.ok(toggle, 'Bot Task has the ordinary Task summary control')
+    const header = container.querySelector('header')
+
+    assert.ok(
+      header?.classList.contains('pr-[var(--dock-toggle-pad)]'),
+      'a closed dock leaves room for its viewport-anchored toggle',
+    )
+    ws.dockOpen = true
+    await act(render)
+    assert.ok(header?.classList.contains('pr-3'), 'an open dock carries its toggle itself')
+    assert.ok(!header?.classList.contains('pr-[var(--dock-toggle-pad)]'))
+    ws.dockOpen = false
+    await act(render)
     assert.equal(container.querySelector('aside'), null)
     await act(() => toggle.click())
     assert.equal(container.querySelector('aside')?.textContent, 'bot')

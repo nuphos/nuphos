@@ -67,6 +67,18 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     if (error.code !== 'EEXIST')
       process.stderr.write(`nuphos: could not share the pnpm store: ${error.message}\n`)
   }
+  // Gradle has no setting for its caches alone, and gradle.properties beside them can
+  // hold repository credentials, so only caches/ is linked. Gradle locks inside it.
+  try {
+    const gradleCaches = nuphosJoin(runtimeHome, '.gradle', 'caches')
+    nuphosMkdir(gradleCaches, { recursive: true, mode: 0o700 })
+    nuphosMkdir(nuphosJoin(home, '.gradle'), { recursive: true, mode: 0o700 })
+    nuphosSymlink(gradleCaches, nuphosJoin(home, '.gradle', 'caches'), 'junction')
+  } catch (error) {
+    // Already linked, or caches this home made before they were shared.
+    if (error.code !== 'EEXIST')
+      process.stderr.write(`nuphos: could not share the Gradle caches: ${error.message}\n`)
+  }
   return {
     HOME: home,
     USERPROFILE: home,
@@ -83,6 +95,7 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
     PLAYWRIGHT_BROWSERS_PATH: nuphosJoin(runtimeHome, '.cache', 'ms-playwright', 'browsers'),
     PIP_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'pip'),
     UV_CACHE_DIR: nuphosJoin(runtimeHome, '.cache', 'uv'),
+    npm_config_cache: nuphosJoin(runtimeHome, '.npm'),
     pnpm_config_store_dir: pnpmStore,
     XDG_DATA_HOME: nuphosJoin(home, '.local', 'share'),
     XDG_STATE_HOME: nuphosJoin(home, '.local', 'state'),
