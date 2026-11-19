@@ -447,7 +447,6 @@ struct ConversationView: View {
                 ),
                 voiceTeamId: session.teamId,
                 temporaryDirectory: temporaryDirectory,
-                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !summaryOpening && !dockOpen,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {
