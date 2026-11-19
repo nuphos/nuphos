@@ -14,7 +14,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const NOTICE = 'Paused by the provider (host out of memory). It resumes when you use it.'
 const KILL_REFUSED =
-  "instabox could not stop its machine, so it may still be running there. Check the team's instabox account."
+  "Its machine on instabox couldn't be stopped and may still be running. Check your team's instabox account."
 
 /** Writes or removes a Box row as the backend keeps it: only the database can make one here. */
 function boxRow(mongoUri: string, row: Record<string, unknown> | { remove: string }) {

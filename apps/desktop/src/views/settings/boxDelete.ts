@@ -11,7 +11,7 @@ export const deleteBox = async (device: AgentDevice, teamId: string) => {
     toast.info(
       t('{name} was deleted', { name: device.label }),
       t(
-        "instabox could not stop its machine, so it may still be running there. Check the team's instabox account.",
+        "Its machine on instabox couldn't be stopped and may still be running. Check your team's instabox account.",
       ),
     )
 }
