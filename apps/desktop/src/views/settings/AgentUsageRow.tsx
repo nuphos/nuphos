@@ -105,7 +105,10 @@ export function AgentUsageRow({
               >
                 {percent(window.usedPercent)}
               </span>
-              <ResetsIn resetsAt={window.resetsAt} />
+              {/* Too narrow for the reset beside the details panel, which shows it. */}
+              <span className="hidden @3xl:contents">
+                <ResetsIn resetsAt={window.resetsAt} />
+              </span>
             </span>
           ))
         )}
