@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { parseAtlasError } from '../../api/errors'
 import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
@@ -9,12 +8,14 @@ import { Button } from '../../components/ui/button'
 import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { isGoogle } from '../../types'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
+import { needsTeamGoogleClient } from './personalConnectorOpens'
 import {
   PERSONAL_CREDENTIALS_CHANGED,
+  connectPersonalCredential,
   credentialFor,
-  isGoogle,
   nameOf,
 } from './personalCredentials'
 import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
@@ -33,7 +34,7 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     provider: 'github',
     name: 'GitHub',
     description: t(
-      'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Agents scoped to one repository keep using nuphos[bot].',
+      'Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].',
     ),
   },
   {
@@ -46,18 +47,18 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
   {
     provider: 'gmail',
     name: 'Gmail',
-    description: t('Let the agent read, label, draft and send mail in your own inbox.'),
+    description: t('Let your Bots and tasks read, label, draft and send mail in your own inbox.'),
   },
   {
     provider: 'google-drive',
     name: 'Google Drive',
-    description: t('Let the agent find, read and save files in your own Google Drive.'),
+    description: t('Let your Bots and tasks find, read and save files in your own Google Drive.'),
   },
   {
     provider: 'google-calendar',
     name: 'Google Calendar',
     description: t(
-      'Let the agent check your schedule and create or update events in your own Google Calendar.',
+      'Let your Bots and tasks check your schedule and create or update events in your own Google Calendar.',
     ),
   },
 ]
@@ -115,21 +116,7 @@ export function PersonalCredentialsSection({
   async function connect(provider: PersonalCredentialProvider) {
     setBusy(provider)
     try {
-      const { authorizeUrl } = await api.atlasStartPersonalCredential(
-        provider,
-        isGoogle(provider) ? team?.id : undefined,
-      )
-
-      await api.appOpenExternal(authorizeUrl)
-    } catch (err) {
-      if (parseAtlasError(err).code === 'personal_credential_not_configured') {
-        toast.error(
-          t('Could not connect {name}', { name: nameOf(provider) }),
-          t('Not configured on this server yet'),
-        )
-      } else {
-        toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
-      }
+      await connectPersonalCredential(provider, team?.id)
     } finally {
       setBusy(null)
     }
@@ -152,7 +139,7 @@ export function PersonalCredentialsSection({
     <div>
       <SectionHeader
         title={t('Personal Credentials')}
-        description={t('Connect your own accounts so the agent acts as you.')}
+        description={t('Connect your own accounts so your Bots and tasks act as you.')}
       />
       {!credentials && loadFailed && (
         <p className="text-[12.5px] text-tertiary">
@@ -175,9 +162,9 @@ export function PersonalCredentialsSection({
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
               const credential = credentialFor(credentials, provider, team?.id)
-              const noTeamClient = isGoogle(provider) && googleClient?.clientId === null
-              const needsTeamClient = noTeamClient && !googleClient.composio
-              const viaComposio = noTeamClient && googleClient.composio
+              const needsTeamClient = needsTeamGoogleClient(provider, googleClient)
+              const viaComposio =
+                isGoogle(provider) && googleClient?.clientId === null && googleClient.composio
 
               return (
                 <div
@@ -265,7 +252,7 @@ export function PersonalCredentialsSection({
         </SkeletonReveal>
       )}
       <p className="mt-4 text-[12px] text-tertiary">
-        {t('Used when you send a message, and for automated runs in agents you own.')}
+        {t('Used when you send a message, and for automated runs in Bots and tasks you own.')}
       </p>
       <ConfirmDialog
         open={disconnecting !== null}
@@ -276,7 +263,7 @@ export function PersonalCredentialsSection({
                 'Your messages will use the team’s credentials again. The grant is also revoked at the provider.',
               )
             : t(
-                'The agent will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.',
+                'Your Bots and tasks will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.',
               )
         }
         confirmLabel={t('Disconnect')}

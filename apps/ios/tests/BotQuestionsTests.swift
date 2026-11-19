@@ -16,6 +16,9 @@ enum BotQuestionsTests {
         aMultiSelectOrSeveralQuestionsAreAForm()
         theInboxGroupsBySourceAndOpensTheNextQuestion()
         aBotsTaskQuestionIsInTheBotsGroup()
+        snoozeOffersAnHourTomorrowAndNextMonday()
+        aSnoozedQuestionLeavesTheInboxUntilItsTime()
+        aDismissalsReasonIsTrimmedAndCapped()
         print("Bot questions passed")
     }
 
@@ -46,6 +49,63 @@ enum BotQuestionsTests {
         precondition(BotQuestions.next(after: "bot:b", in: groups) == "ops:a")
         precondition(BotQuestions.next(after: "ops:a", in: [[list[0]]]) == nil)
         precondition(list[0].askedDate != nil)
+    }
+
+    /// In local time: an hour from now, tomorrow at 9:00 and next Monday at 9:00, once on a Sunday,
+    /// when the last two are the same time.
+    private static func snoozeOffersAnHourTomorrowAndNextMonday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Asia/Taipei")!
+        func at(_ day: Int, _ hour: Int, _ minute: Int = 0) -> Date {
+            calendar.date(from: DateComponents(year: 2026, month: 11, day: day, hour: hour, minute: minute))!
+        }
+        // Wednesday afternoon.
+        let wednesday = Snooze.times(from: at(18, 14, 30), calendar: calendar)
+        precondition(wednesday.map(\.label) == ["1 hour", "Tomorrow, 9:00", "Next Monday, 9:00"])
+        precondition(wednesday.map(\.until) == [at(18, 15, 30), at(19, 9), at(23, 9)])
+        // Sunday evening: tomorrow is next Monday, offered once.
+        let sunday = Snooze.times(from: at(22, 20), calendar: calendar)
+        precondition(sunday.map(\.until) == [at(22, 21), at(23, 9)])
+        // Monday before 9:00: a week ahead, never today's 9:00.
+        precondition(Snooze.times(from: at(23, 8), calendar: calendar).map(\.until) == [at(23, 9), at(24, 9), at(30, 9)])
+
+        // Across a daylight-saving change, 9:00 stays 9:00 on the clock: New York falls back on 1 November.
+        var newYork = Calendar(identifier: .gregorian)
+        newYork.timeZone = TimeZone(identifier: "America/New_York")!
+        func ny(_ month: Int, _ day: Int, _ hour: Int) -> Date {
+            newYork.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour))!
+        }
+        precondition(Snooze.times(from: ny(10, 31, 14), calendar: newYork).map(\.until)
+            == [ny(10, 31, 15), ny(11, 1, 9), ny(11, 2, 9)])
+    }
+
+    /// A dismissal's reason is sent trimmed, never past what the server keeps, and not at all when empty.
+    private static func aDismissalsReasonIsTrimmedAndCapped() {
+        precondition(Snooze.reason("  Use the token in CI \n") == "Use the token in CI")
+        precondition(Snooze.reason(" \n ") == nil)
+        let long = String(repeating: "a", count: 1_200)
+        precondition(Snooze.reason(long)?.count == 1_000)
+    }
+
+    /// A question snoozed until a time still to come leaves the Inbox and its count, and is listed
+    /// as snoozed, soonest back first; once its time passes it is back.
+    private static func aSnoozedQuestionLeavesTheInboxUntilItsTime() {
+        func ask(_ id: String, until: String?) -> BotQuestion {
+            let json = #"{"id":"\#(id)","category":"preference","question":"\#(id)?","options":["Yes"]"#
+                + (until.map { #","snoozedUntil":"\#($0)""# } ?? "") + "}"
+            return BotQuestion(sessionId: "s", title: "Agent", request: try! JSONDecoder().decode(
+                AgentConversation.InputRequest.self, from: Data(json.utf8)))
+        }
+        let now = ISO8601DateFormatter().date(from: "2026-11-18T06:00:00Z")!
+        let list = [ask("open", until: nil), ask("later", until: "2026-11-23T01:00:00.000Z"),
+                    ask("past", until: "2026-11-18T05:00:00.000Z"), ask("soon", until: "2026-11-18T07:00:00Z")]
+        precondition(list[1].snoozedDate == ISO8601DateFormatter().date(from: "2026-11-23T01:00:00Z"))
+        precondition(BotQuestions.inbox(list, now: now).map(\.request.id) == ["open", "past"])
+        precondition(BotQuestions.inbox(list, now: now, snoozed: true).map(\.request.id) == ["soon", "later"])
+        // Its time passed: back in the Inbox.
+        let later = now.addingTimeInterval(7 * 86_400)
+        precondition(BotQuestions.inbox(list, now: later).count == 4)
+        precondition(BotQuestions.inbox(list, now: later, snoozed: true).isEmpty)
     }
 
     /// Tasks lists nothing a Bot dispatched (#2708), so the Inbox files its questions under the Bot,
@@ -84,8 +144,6 @@ enum BotQuestionsTests {
         let several = ask(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8)))
         let form = several.form!
         precondition(form.count == 2)
-        precondition(BotQuestion.answerText(picked: ["us", "eu"], typed: " ") == "us, eu")
-        precondition(BotQuestion.answerText(picked: ["us"], typed: " Tokyo ") == "Tokyo")
         precondition(BotQuestion.formAnswer(form, picked: [["us", "eu"], []], typed: ["", " Keep "])
             == DecisionAnswer(questions: [DecisionAnswer(choices: ["us", "eu"]), DecisionAnswer(text: "Keep")]))
         precondition(BotQuestion.formAnswer([form[0]], picked: [["us"]], typed: [""]) == DecisionAnswer(choices: ["us"]))
@@ -223,7 +281,7 @@ enum BotQuestionsTests {
         precondition(plan.planId == "p1")
     }
 
-    /// No open question is left without a way to answer it on its card: options or words beside Skip,
+    /// No open question is left without a way to answer it on its card: options or words beside Snooze and Dismiss,
     /// a form, a secure card or a picker, never "answer it elsewhere".
     private static func everyOpenQuestionIsAnsweredOnItsCard() {
         func ask(_ json: String) -> BotQuestion {

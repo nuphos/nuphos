@@ -6,6 +6,7 @@ import { parseSecretFields, SECRET_NAME } from './secretCardModel.ts'
 import type { DecisionQuestion } from './decisionFormModel.ts'
 import type { SecretField } from './secretCardModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
+import type { PersonalCredentialProvider } from '../../../types'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 
 // The connectors an integration `request_user_decision` may list in `providers`,
@@ -225,7 +226,7 @@ export function connectBlock(
  * never by a team binding or identity; `available` once they have connected it.
  */
 export function personalConnectStatus(
-  provider: 'github' | 'linear',
+  provider: PersonalCredentialProvider,
   selected: AgentCredentialSelection,
   own: readonly { provider: string }[],
 ): ConnectRowStatus {

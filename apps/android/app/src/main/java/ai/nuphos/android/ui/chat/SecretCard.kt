@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.chat
 
+import kotlinx.coroutines.CancellationException
 import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.model.ChatPart
@@ -107,6 +108,7 @@ internal fun SecretCard(part: ChatPart.Tool, reply: String?, session: ChatSessio
                 values = List(count) { "" }
                 sent = true
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 failure = resources.getString(R.string.composer_secret_save_failed, e.message ?: resources.getString(R.string.composer_unknown_error))
             } finally {
                 saving = false

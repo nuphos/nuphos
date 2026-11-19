@@ -16,11 +16,20 @@ export const PAUSE_AFTER_FAILED_RUNS = 3
 /**
  * Why a turn failed, in plain words, when the cause cannot pass with time: a
  * conversation too long for the model, a model the endpoint does not serve, an
- * agent CLI that cannot start, or a signed-out agent. Undefined for anything
+ * agent CLI that cannot start, a signed-out agent, an agent that is gone, or a
+ * Box its team's plan will not start. Undefined for anything
  * else, such as a usage limit.
  */
 function lastingFailure(error: unknown): string | undefined {
   const setup = userSetupFailure(error)
+
+  // The team's plan will not start its Box, until it changes or its hours come back; or the
+  // conversation's agent is gone, and only moving it to another agent helps.
+  if (
+    error instanceof AppError &&
+    (error.code === 'box_vcpu_limit' || error.code === 'runtime_not_found')
+  )
+    return error.message
 
   if (setup) return USER_SETUP_MESSAGE[setup]
   for (let cause = error; cause instanceof Error; cause = cause.cause)
@@ -50,7 +59,7 @@ async function recordFailedFire(
   if (!trigger || (trigger.failedRunCount ?? 0) < PAUSE_AFTER_FAILED_RUNS) return
   const notice = `Paused after ${PAUSE_AFTER_FAILED_RUNS} runs in a row failed. ${reason} Then turn the Trigger back on.`
 
-  if (!(await pauseTrigger(trigger, notice, new Date(), deps.triggers))) return
+  if (!(await pauseTrigger(trigger, notice, new Date(), deps.triggers, 'failed_runs'))) return
   logEvent('warn', 'agent.trigger.paused_after_failures', {
     trigger_id: triggerId,
     team_id: trigger.teamId,

@@ -6,6 +6,9 @@ struct AgentSummaryPanel: View {
     @Bindable var session: ChatSession
     let close: () -> Void
     let archive: () -> Void
+    /// Shown first: a Bot's details lead with the Bot's card, and are laid out
+    /// as Desktop's Bot details (#2983).
+    var lead: AnyView?
     let openSession: (AgentConversation) -> Void
     @Environment(AgentStore.self) private var store
     @Environment(\.horizontalSizeClass) private var sizeClass
@@ -16,10 +19,9 @@ struct AgentSummaryPanel: View {
     @State private var showTriggers = false
     @State private var selectedQuestion: BotQuestion?
 
-    private var children: [AgentConversation] {
-        store.conversations.filter { $0.parentSessionId == session.sessionId }
-            .sorted { $0.lastActiveAt > $1.lastActiveAt }
-    }
+    private var children: [AgentConversation] { store.tasks(under: session.sessionId, team: session.teamId) }
+    private var isBotDetails: Bool { lead != nil }
+    private var title: LocalizedStringKey { isBotDetails ? "Bot details" : "Task summary" }
     private var pending: [BotQuestion] {
         let ids = Set([session.sessionId] + children.map(\.sessionId))
         return questions?.list.filter { ids.contains($0.sessionId) } ?? []
@@ -39,6 +41,8 @@ struct AgentSummaryPanel: View {
         NavigationStack {
             ScrollView {
               VStack(alignment: .leading, spacing: 16) {
+                if let lead { lead }
+                if !isBotDetails || !pending.isEmpty {
                 SummaryCard("Needs your input") {
                     if pending.isEmpty {
                         Text("No questions waiting for you.").foregroundStyle(Theme.body)
@@ -50,7 +54,8 @@ struct AgentSummaryPanel: View {
                         }
                     }
                 }
-                if !session.isBot {
+                }
+                if !session.isBot && !isBotDetails {
                   SummaryCard("Task actions") {
                     Button(action: archive) {
                         Label { Text("Archive") } icon: { LucideIcon("archive") }
@@ -82,13 +87,15 @@ struct AgentSummaryPanel: View {
                     }
                 }
                 if !children.isEmpty {
-                    SummaryCard("Sub-agents") {
+                    SummaryCard(isBotDetails ? "Sub-tasks" : "Sub-agents") {
                         ForEach(children) { child in
                             Button { openSession(child) } label: {
-                                summaryRow(child.displayTitle,
-                                           subtitle: child.isWaiting ? "Needs your input" : child.activeRun != nil ? "Running" : "Idle",
-                                           icon: "layers")
-                            }.buttonStyle(.plain)
+                                if isBotDetails {
+                                    BotTaskRow(task: child, state: store.indicator(for: child, team: session.teamId))
+                                } else {
+                                    summaryRow(child.displayTitle, subtitle: state(child), icon: "layers")
+                                }
+                            }.buttonStyle(.plain).accessibilityIdentifier("summary.task")
                         }
                     }
                 }
@@ -103,13 +110,16 @@ struct AgentSummaryPanel: View {
                 }
                 SummaryCard("Triggers") {
                     if triggers.isEmpty {
-                        Text("Ask the agent to schedule recurring work in this task.")
-                            .foregroundStyle(Theme.body)
+                        Group {
+                            if isBotDetails { Text("Ask here to schedule recurring work.") }
+                            else { Text("Ask the agent to schedule recurring work in this task.") }
+                        }
+                        .foregroundStyle(Theme.body)
                     } else {
                         ForEach(triggers) { trigger in
                             Button { showTriggers = true } label: {
                                 summaryRow(trigger.name, subtitle: trigger.enabled ? trigger.schedule : "Paused", icon: "clock")
-                            }.buttonStyle(.plain)
+                            }.buttonStyle(.plain).disabled(!session.canManage)
                         }
                     }
                 }
@@ -125,7 +135,7 @@ struct AgentSummaryPanel: View {
                 }
                 if loading {
                     Group { ProgressView().frame(maxWidth: .infinity) }
-                } else if !hasContent && questions?.loaded == true && !triggersFailed {
+                } else if !isBotDetails && !hasContent && questions?.loaded == true && !triggersFailed {
                     Group {
                         ContentUnavailableView {
                             Label { Text("Nothing here yet") } icon: { LucideIcon("layers", size: 32) }
@@ -139,7 +149,7 @@ struct AgentSummaryPanel: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 if sizeClass == .regular {
                     HStack {
-                        Text("Task summary").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.heading)
+                        Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.heading)
                         Spacer()
                         Button(action: close) { LucideIcon("x").frame(width: 44, height: 44) }
                             .accessibilityLabel("Close summary")
@@ -151,13 +161,17 @@ struct AgentSummaryPanel: View {
             .foregroundStyle(Theme.body)
             .tint(Theme.heading)
             .accessibilityIdentifier("agent-summary-list")
-            .navigationTitle("Task summary")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 if sizeClass != .regular {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(action: close) { LucideIcon("x") }.accessibilityLabel("Close summary")
+                    if isBotDetails {
+                        ToolbarItem(placement: .confirmationAction) { Button("Done", action: close) }
+                    } else {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(action: close) { LucideIcon("x") }.accessibilityLabel("Close summary")
+                        }
                     }
                 }
             }
@@ -177,7 +191,7 @@ struct AgentSummaryPanel: View {
                             onOpen: { selectedQuestion = nil; openQuestion(question) },
                             teamId: session.teamId, questions: questions,
                             onAnswer: { answer in Task { await questions.answer(question, with: answer) } },
-                            onSkip: { Task { await questions.dismiss(question) } })
+                            onDismiss: { Task { await questions.dismiss(question) } })
                             .padding()
                         }
                     }
@@ -209,6 +223,11 @@ struct AgentSummaryPanel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .multilineTextAlignment(.leading)
         .padding(.vertical, 3)
+    }
+
+    private func state(_ task: AgentConversation) -> String {
+        let state = store.indicator(for: task, team: session.teamId)
+        return state == .waiting ? String(localized: "Needs your input") : state.isRunning ? String(localized: "Running") : String(localized: "Idle")
     }
 
     private func openQuestion(_ question: BotQuestion) {
@@ -301,5 +320,33 @@ private struct AgentSummaryPresentation<Panel: View>: ViewModifier {
                 panel().presentationDetents([.large]).presentationDragIndicator(.visible)
             }
         }
+    }
+}
+
+extension ConversationIndicator {
+    var isRunning: Bool { self == .turn || self == .background }
+    /// Waiting for you, then running, then the rest.
+    fileprivate var rank: Int { self == .waiting ? 0 : isRunning ? 1 : 2 }
+}
+
+extension AgentStore {
+    /// The Tasks a conversation dispatched: waiting for you first, then running,
+    /// then the rest, newest first within each.
+    func tasks(under parent: String, team: String) -> [AgentConversation] {
+        conversations.filter { $0.parentSessionId == parent }.sorted {
+            (indicator(for: $0, team: team).rank, $1.lastActiveAt) < (indicator(for: $1, team: team).rank, $0.lastActiveAt)
+        }
+    }
+
+    /// What those Tasks are doing, as a Bot's page says it under the Bot's name:
+    /// "1 needs input · 2 running", or nil when none waits or runs.
+    func stateLine(under parent: String, team: String) -> (text: String, waiting: Bool)? {
+        let states = tasks(under: parent, team: team).map { indicator(for: $0, team: team) }
+        let waiting = states.filter { $0 == .waiting }.count
+        let running = states.filter(\.isRunning).count
+        var parts: [String] = []
+        if waiting > 0 { parts.append(String(localized: "\(waiting) needs input")) }
+        if running > 0 { parts.append(String(localized: "\(running) running")) }
+        return parts.isEmpty ? nil : (parts.joined(separator: " · "), waiting > 0)
     }
 }

@@ -33,6 +33,8 @@ final class ConnectorsStore {
             loadedTeamId = teamId
             phase = .loaded
         } catch {
+            // Cancelled: the page's next appearance loads it again (#3620).
+            guard !Task.isCancelled else { return }
             phase = .failed(error.localizedDescription)
         }
     }

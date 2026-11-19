@@ -5,13 +5,10 @@ import {
 } from '@/lib/database-credentials'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
 
 import { isValidOpenAbTransportKey } from './gate'
 import { deriveRuntimeControlKey } from './runtime-control-key'
-import { readRuntimeAuthSecret, readRuntimeControlSecret } from './runtime-credential-secret'
 
-import type { KubeClient } from './kube-client'
 import type { EncryptedEnvelope } from '@/models'
 
 const RUNTIME_SECRET_CACHE_TTL_MS = 15_000
@@ -35,7 +32,6 @@ export function claudeCodePreviewMasterKey() {
 type RuntimeCredentialDoc = {
   _id: string
   teamId: string
-  hostedBy?: 'nuphos'
   managedBy?: 'provisioner'
   authKeyEnvelope?: EncryptedEnvelope
   controlKeyEnvelope?: EncryptedEnvelope
@@ -90,7 +86,7 @@ export async function rotateRuntimeKeys(
   const authKey = keys.authKey.trim()
   const controlKey = normalizeRuntimeKeys(authKey, keys.controlKey?.trim())
   const result = await runtimeCredentials().updateOne(
-    { _id: runtimeId, teamId, managedBy: { $exists: false }, hostedBy: { $exists: false } },
+    { _id: runtimeId, teamId, managedBy: { $exists: false } },
     {
       $set: {
         authKeyEnvelope: sealRuntimeAuthKey(authKey),
@@ -115,7 +111,7 @@ export function openRuntimeAuthKey(envelope: EncryptedEnvelope): string {
 }
 
 /** Decrypts a stored envelope, or null when it was sealed under a key this
- *  process no longer holds — the caller then falls back to the Secret. */
+ *  process no longer holds. */
 export function storedAuthKey(envelope: EncryptedEnvelope | undefined): string | null {
   if (!envelope) return null
   try {
@@ -125,118 +121,39 @@ export function storedAuthKey(envelope: EncryptedEnvelope | undefined): string |
   }
 }
 
-/** Mongo owns the transport key. Callers that mint one — the provisioner, and
- *  registration — record it here before anything derives a Secret from it. */
-export async function storeRuntimeAuthKey(
-  teamId: string,
-  runtimeId: string,
-  authKey: string,
-): Promise<void> {
-  // Reconciliation replays the same key every minute; only a change is written.
-  const stored = await runtimeCredentials().findOne({ _id: runtimeId, teamId })
-
-  if (storedAuthKey(stored?.authKeyEnvelope) === authKey) return
-  await runtimeCredentials().updateOne(
-    { _id: runtimeId, teamId },
-    { $set: { authKeyEnvelope: sealRuntimeAuthKey(authKey), updatedAt: new Date() } },
-  )
-  invalidateRuntimeSecretCache(teamId, runtimeId)
-}
-
-/** The pod and its key are gone; drop the row's credential with them. */
-export async function clearRuntimeAuthKey(teamId: string, runtimeId: string): Promise<void> {
-  await runtimeCredentials().updateOne(
-    { _id: runtimeId, teamId },
-    { $set: { updatedAt: new Date() }, $unset: { authKeyEnvelope: '' } },
-  )
-  invalidateRuntimeSecretCache(teamId, runtimeId)
-}
-
-/** Read-through for runtimes registered before Mongo owned the key: the Secret
- *  still holds it, so adopt it on first touch instead of migrating in bulk. */
-async function adoptSecretAuthKey(
-  teamId: string,
-  runtimeId: string,
-  kube?: KubeClient,
-): Promise<string | null> {
-  const authKey = await readRuntimeAuthSecret(teamId, runtimeId, kube)
-
-  if (!authKey) return null
-  try {
-    await runtimeCredentials().updateOne(
-      { _id: runtimeId, teamId, authKeyEnvelope: { $exists: false } },
-      { $set: { authKeyEnvelope: sealRuntimeAuthKey(authKey), updatedAt: new Date() } },
-    )
-  } catch (err) {
-    logError('openab.runtime_credential.adopt_failed', err, {
-      team_id: teamId,
-      runtime_id: runtimeId,
-    })
-  }
-
-  return authKey
-}
-
-/** The key stored with the row, then a Secret, which is where a provisioned row
- *  and an older external one keep theirs. Only a runtime connected with nothing but
- *  its password falls through to the key its image derives from that password. */
-async function readControlKey(
-  teamId: string,
-  runtimeId: string,
-  kube?: KubeClient,
-): Promise<string | null> {
+/** The key stored with the row. Only a runtime connected with nothing but its password
+ *  falls through to the operator key its image derives from that password. */
+async function readControlKey(teamId: string, runtimeId: string): Promise<string | null> {
   const doc = await runtimeCredentials().findOne({ _id: runtimeId, teamId })
   const stored = storedAuthKey(doc?.controlKeyEnvelope)
 
   if (stored) return stored
-  const fromSecret = await readRuntimeControlSecret(teamId, runtimeId, kube)
-
-  if (fromSecret) return fromSecret
   if (!doc || doc.managedBy) return null
   const password = storedAuthKey(doc.authKeyEnvelope)
 
   return password ? deriveRuntimeControlKey(password) : null
 }
 
-async function readTransportKey(
-  teamId: string,
-  runtimeId: string,
-  kube?: KubeClient,
-): Promise<string | null> {
+async function readTransportKey(teamId: string, runtimeId: string): Promise<string | null> {
   const doc = await runtimeCredentials().findOne({ _id: runtimeId, teamId })
-  const stored = storedAuthKey(doc?.authKeyEnvelope)
 
-  return stored ?? adoptSecretAuthKey(teamId, runtimeId, kube)
+  return storedAuthKey(doc?.authKeyEnvelope)
 }
 
-function readKey(
-  teamId: string,
-  runtimeId: string,
-  purpose: 'transport' | 'control',
-  kube?: KubeClient,
-): Promise<string | null> {
-  return purpose === 'control'
-    ? readControlKey(teamId, runtimeId, kube)
-    : readTransportKey(teamId, runtimeId, kube)
-}
-
+/** Read through a short cache, so every chat turn does not add a database round trip. */
 export async function resolvedRuntimeAuthKey(
   teamId: string,
   runtimeId: string,
-  kube?: KubeClient,
   purpose: 'transport' | 'control' = 'transport',
 ): Promise<string | null> {
-  // Injected clients are used by reconciliation and tests, where callers need
-  // an immediate view. The normal chat path uses a short cache so every turn
-  // does not add a database round trip.
-  if (kube) return readKey(teamId, runtimeId, purpose, kube)
-
   const key = runtimeSecretCacheKey(teamId, runtimeId, purpose)
   const cached = runtimeSecretCache.get(key)
 
   if (cached && cached.expiresAt > Date.now()) return cached.authKey
 
-  const authKey = await readKey(teamId, runtimeId, purpose)
+  const authKey = await (purpose === 'control'
+    ? readControlKey(teamId, runtimeId)
+    : readTransportKey(teamId, runtimeId))
 
   runtimeSecretCache.set(key, { authKey, expiresAt: Date.now() + RUNTIME_SECRET_CACHE_TTL_MS })
 

@@ -190,4 +190,22 @@
     <string name="chat_share_access_reply">ทีมดูและตอบกลับได้</string>
     <string name="chat_share_can_reply">ตอบกลับได้</string>
     <string name="chat_share_can_view">ดูได้</string>
+    <string name="chat_summary_title">สรุปงาน</string>
+    <string name="chat_summary_close">ปิดสรุป</string>
+    <string name="chat_summary_question">คำถาม</string>
+    <string name="chat_summary_close_question">ปิดคำถาม</string>
+    <string name="chat_summary_needs_input">ต้องการคำตอบจากคุณ</string>
+    <string name="chat_summary_no_questions">ไม่มีคำถามที่รอคุณอยู่</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">คำสั่ง</string>
+    <string name="chat_summary_running">กำลังทำงาน</string>
+    <string name="chat_summary_open">สรุปเอเจนต์</string>
+    <string name="chat_summary_output_truncated">ซ่อนผลลัพธ์ก่อนหน้านี้</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">งานย่อย</string>
+    <string name="chat_summary_files">ไฟล์</string>
+    <string name="chat_summary_triggers">ทริกเกอร์</string>
+    <string name="chat_summary_no_triggers">ขอให้เอเจนต์ตั้งเวลาทำงานซ้ำในงานนี้</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">หยุดชั่วคราว</string>
 </resources>

@@ -1,7 +1,9 @@
 import { beforeEach, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { runtimeGone } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
+import { useDb } from '@/lib/test/doubles/db'
 
 import { systemSender } from './message-metadata'
 import { PAUSE_AFTER_FAILED_RUNS, recordFailedFires } from './trigger-failed-runs'
@@ -17,6 +19,17 @@ const _id = new ObjectId()
 const TRIGGER_ID = _id.toHexString()
 let row: AgentTrigger
 const alerts: { title: string; body: string }[] = []
+const history: Record<string, unknown>[] = []
+
+useDb({
+  withTransaction: (body: (session: never) => Promise<void>) => body({} as never),
+  db: () =>
+    ({
+      collection: () => ({
+        insertOne: async (doc: Record<string, unknown>) => history.push(doc),
+      }),
+    }) as never,
+})
 
 const matches = (filter: Record<string, unknown>) =>
   String(filter._id) === TRIGGER_ID &&
@@ -70,6 +83,7 @@ const outOfUsage = new Error('Gateway (status 402 Payment Required): out of cred
 
 beforeEach(() => {
   alerts.length = 0
+  history.length = 0
   row = {
     _id,
     userId: 'owner',
@@ -101,6 +115,17 @@ test('fires that keep failing for a lasting reason pause the Trigger and tell it
   ])
   // Resuming starts the count over.
   expect(row.failedRunCount).toBeUndefined()
+  // #3755: the pause is on the Trigger's record, with why.
+  expect(history).toMatchObject([
+    {
+      action: 'updated',
+      actorId: 'system',
+      via: 'failed_runs',
+      reason: row.executionAuthorizationError,
+      before: { enabled: true },
+      after: { enabled: false },
+    },
+  ])
 })
 
 test('a signed-out agent counts as a lasting failure', async () => {
@@ -110,6 +135,17 @@ test('a signed-out agent counts as a lasting failure', async () => {
     await recordFailedFires(signedOut, fire, deps)
   expect(row.enabled).toBe(false)
   expect(row.executionAuthorizationError).toContain('sign-in is no longer valid')
+})
+
+// #3718: failed before the turn, while resolving the agent, and never counted.
+test('an agent that is gone counts as a lasting failure', async () => {
+  for (let run = 0; run < PAUSE_AFTER_FAILED_RUNS; run++)
+    await recordFailedFires(runtimeGone(), fire, deps)
+  expect(row.enabled).toBe(false)
+  expect(row.executionAuthorizationError).toContain('Move this conversation to another agent')
+  expect(alerts).toEqual([
+    { title: 'Trigger paused', body: `Hourly report: ${row.executionAuthorizationError}` },
+  ])
 })
 
 test('a failure that passes with time never pauses the Trigger', async () => {
@@ -128,4 +164,19 @@ test('a run that succeeds resets the count', async () => {
     await recordFailedFires(tooLong, fire, deps)
   expect(row.enabled).toBe(true)
   expect(alerts).toEqual([])
+})
+
+test('a Box its plan will not start pauses the Trigger with the plan’s reason', async () => {
+  const outOfHours = new AppError(
+    402,
+    'box_vcpu_limit',
+    "Your team's free cloud computer has used its 50 hours this month.",
+  )
+
+  for (let run = 0; run < PAUSE_AFTER_FAILED_RUNS; run++)
+    await recordFailedFires(outOfHours, fire, deps)
+  expect(row.enabled).toBe(false)
+  expect(row.executionAuthorizationError).toBe(
+    "Paused after 3 runs in a row failed. Your team's free cloud computer has used its 50 hours this month. Then turn the Trigger back on.",
+  )
 })

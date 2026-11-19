@@ -12,6 +12,8 @@ enum Theme {
     static let canvas = adaptive(light: 0xF5F4F2, dark: 0x141312)
     static let surface = adaptive(light: 0xFCFBF9, dark: 0x1A1917)
     static let sunken = adaptive(light: 0xEEECE8, dark: 0x272624)
+    /// Cards that ask for an action, as the composer: lifted by a ring, not a tint.
+    static let raised = adaptive(light: 0xFFFFFE, dark: 0x242321)
     static let heading = adaptive(light: 0x1C1A17, dark: 0xF2F0EC)
     static let body = adaptive(light: 0x5C5852, dark: 0xB8B4AD)
     static let muted = adaptive(light: 0x69645D, dark: 0xA09C95)
@@ -24,9 +26,6 @@ enum Theme {
 
     // Compatibility names keep existing controls on the shared palette.
     static let chatCanvas = surface
-    /// Chips and cards inside the transcript, which `surface` cannot be
-    /// because it matches the transcript's own light-mode background.
-    static let chatSurface = adaptive(light: 0xF1F1F4, dark: 0x202024)
     static let bubble = sunken
     static let brand = heading
     static let brandText = link
@@ -38,6 +37,22 @@ enum Theme {
     static let outline = heading.opacity(0.12)
     static let hairline = heading.opacity(0.08)
     static let separator = heading.opacity(0.08)
+
+    /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
+    /// The characters are drawn for light discs, so the tints stay light in the dark.
+    private static let avatarBackgrounds: [String: Color] = [
+        "sand": adaptive(light: 0xF2E7D3, dark: 0xF2E7D3),
+        "peach": adaptive(light: 0xF8DCCB, dark: 0xF8DCCB),
+        "rose": adaptive(light: 0xF6D5DE, dark: 0xF6D5DE),
+        "lilac": adaptive(light: 0xE5DCF5, dark: 0xE5DCF5),
+        "sky": adaptive(light: 0xD6E6F7, dark: 0xD6E6F7),
+        "mint": adaptive(light: 0xD3EEDF, dark: 0xD3EEDF),
+        "sage": adaptive(light: 0xE1E9D1, dark: 0xE1E9D1),
+        "slate": adaptive(light: 0xE1E4EA, dark: 0xE1E4EA),
+    ]
+
+    /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
+    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { avatarBackgrounds[$0] } }
 
     enum Space {
         static let small: CGFloat = 8
@@ -72,6 +87,16 @@ enum Theme {
 }
 
 extension View {
+    /// A card that asks for an action (a question, a secret, a plan, a
+    /// connection): the raised surface and its ring, per the design system.
+    /// Passive fills inside the transcript (bubbles, chips) are `Theme.sunken`.
+    func raisedCard(cornerRadius: CGFloat = 14) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return background(Theme.raised, in: shape)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+    }
+
     /// The filled call-to-action. The app tints with `Theme.heading`, which
     /// is white in the dark — the color `.borderedProminent` draws its label
     /// in — so the fill takes the brand instead.
@@ -215,27 +240,5 @@ struct SetupEmptyState: View {
             Button(actionTitle, action: action).prominentButton().padding(.top, 4)
         }
         .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct RuntimeSetupGuide: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("1. Open Nuphos on your computer.")
-                        Text("2. Sign in and choose this workspace.")
-                        Text("3. Connect your computer and add a runtime.")
-                    }.font(.callout).foregroundStyle(Theme.body).padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                    Link("Visit Nuphos", destination: URL(string: "https://nuphos.ai")!).prominentButton()
-                }.padding(24)
-            }.background(Theme.canvas)
-            .navigationTitle("Runtime setup").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { LucideIcon("x") }.accessibilityLabel("Close") } }
-        }
     }
 }

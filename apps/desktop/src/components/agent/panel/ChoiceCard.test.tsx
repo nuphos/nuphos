@@ -5,6 +5,7 @@ import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
 import type { ConnectCardContextValue } from './connectCardContext'
+import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
@@ -15,7 +16,7 @@ mock.module('../MessageResponse', () => ({
 const { ChoiceCard } = await import('./ChoiceCard')
 const { ConnectCardContext } = await import('./connectCardContext')
 
-test('the card leads with its question, answers with its buttons, and is skipped inside itself', async () => {
+test('the card leads with its question, answers with its buttons, and is snoozed or dismissed with them', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -39,8 +40,8 @@ test('the card leads with its question, answers with its buttons, and is skipped
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   const answers: DecisionAnswer[] = []
-  const skipped: string[] = []
-  // Whether the server withdraws the question the card skips.
+  const dismissed: string[] = []
+  // Whether the server withdraws the question the card dismisses.
   let withdrawn = false
   const ctx: ConnectCardContextValue = {
     send: () => true,
@@ -50,11 +51,13 @@ test('the card leads with its question, answers with its buttons, and is skipped
 
       return false
     },
-    skip: (card) => {
-      skipped.push(card.toolCallId)
+    dismiss: (card) => {
+      dismissed.push(card.toolCallId)
 
       return Promise.resolve(withdrawn)
     },
+    // Only its owner snoozes a question, so a card is given this only for them.
+    snooze: () => {},
     source: createElement('span', null, 'Release notes · 5:52 PM'),
   }
   const render = (value: ConnectCardContextValue | null, canAct = true) =>
@@ -76,7 +79,7 @@ test('the card leads with its question, answers with its buttons, and is skipped
     )
   const buttons = () => [...container.querySelectorAll('button')] as unknown as HTMLButtonElement[]
   const button = (label: string) => buttons().find((item) => item.textContent === label)
-  // Async, so what an answer or a skip settles is drawn before the next assertion.
+  // Async, so what an answer or a dismiss settles is drawn before the next assertion.
   const click = (label: string) => act(async () => button(label)?.click())
 
   try {
@@ -88,16 +91,33 @@ test('the card leads with its question, answers with its buttons, and is skipped
     assert.doesNotMatch(container.querySelector('h3')?.className ?? '', /whitespace-pre-wrap/)
     assert.match(container.textContent ?? '', /^Release notes · 5:52 PMMerge the release branch\?/)
     assert.doesNotMatch(container.textContent ?? '', /Approval needed|Agent:/)
-    // The first option is the one filled button.
+    // One row of the same pill: the options, "Other…", Snooze and Dismiss, none filled.
     assert.deepEqual(
       buttons().map((item) => [item.textContent, item.className.includes('bg-action-primary')]),
       [
-        ['Merge', true],
+        ['Merge', false],
         ['Wait', false],
         ['Other…', false],
-        ['Skip', false],
+        ['Snooze', false],
+        ['Dismiss', false],
       ],
     )
+    // They are option buttons like Wait, not small text beside the row.
+    assert.equal(button('Snooze')?.className, button('Wait')?.className)
+    // Snooze and Dismiss each lead with an icon, which tells them from the answers.
+    assert.notEqual(button('Snooze')?.querySelector('svg'), null)
+    assert.notEqual(button('Dismiss')?.querySelector('svg'), null)
+    assert.equal(button('Wait')?.querySelector('svg'), null)
+    // So is "Other…": every way to deal with the question is a button of the same kind.
+    assert.equal(button('Other…')?.className, button('Wait')?.className)
+    assert.equal(button('Dismiss')?.className, button('Wait')?.className)
+    assert.equal(button('Snooze')?.parentElement, button('Wait')?.parentElement)
+    // A viewer who is not its owner is offered no Snooze.
+    await render({ ...ctx, snooze: undefined })
+    assert.equal(button('Snooze'), undefined)
+    assert.notEqual(button('Dismiss'), undefined)
+    await render(ctx)
+    assert.equal(new Set(buttons().map((item) => item.className)).size, 1, 'the row is one style')
 
     await click('Wait')
     assert.deepEqual(answers, [{ choices: ['Wait'] }])
@@ -124,25 +144,140 @@ test('the card leads with its question, answers with its buttons, and is skipped
     await click('Other…')
     assert.equal(container.querySelector('input')?.value, 'After the freeze')
 
-    // A skip the server refused leaves the card live, and claims nothing.
-    await click('Skip')
-    assert.deepEqual(skipped, ['q1'])
-    assert.notEqual(button('Skip'), undefined)
-    assert.doesNotMatch(container.textContent ?? '', /Skipped/)
+    // A dismiss the server refused leaves the card live, and claims nothing.
+    await click('Dismiss')
+    assert.deepEqual(dismissed, ['q1'])
+    assert.notEqual(button('Dismiss'), undefined)
+    assert.doesNotMatch(container.textContent ?? '', /Dismissed/)
 
     withdrawn = true
-    await click('Skip')
-    assert.deepEqual(skipped, ['q1', 'q1'])
-    // Withdrawn: it says so, and nothing on it answers or skips any more.
-    assert.match(container.textContent ?? '', /Skipped\. It carries on without an answer\./)
-    assert.equal(button('Skip'), undefined)
+    await click('Dismiss')
+    assert.deepEqual(dismissed, ['q1', 'q1'])
+    // Withdrawn: it says so, and nothing on it answers or dismisses any more.
+    assert.match(container.textContent ?? '', /Dismissed\. It carries on without an answer\./)
+    assert.equal(button('Dismiss'), undefined)
     assert.equal(button('Other…'), undefined)
     assert.equal(button('Merge')?.disabled, true)
 
     // A card that cannot be answered here offers neither, and one from this chat names no source.
     await render({ ...ctx, source: undefined }, false)
-    assert.equal(button('Skip'), undefined)
+    assert.equal(button('Dismiss'), undefined)
+    assert.equal(button('Snooze'), undefined)
     assert.match(container.textContent ?? '', /^Merge the release branch\?/)
+  } finally {
+    await act(() => root.unmount())
+    for (const [key, descriptor] of originals)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+  }
+})
+
+test('a single- and a multi-select question are one option row: multiSelect only picks any number and sends them', async () => {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    HTMLInputElement: dom.HTMLInputElement,
+    HTMLTextAreaElement: dom.HTMLTextAreaElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const originals = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const { createRoot } = await import('react-dom/client')
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const answers: DecisionAnswer[] = []
+  const ctx: ConnectCardContextValue = {
+    send: () => true,
+    answer: (answer) => {
+      answers.push(answer)
+
+      return false
+    },
+    dismiss: () => Promise.resolve(false),
+  }
+  const render = (multiSelect: boolean, questions?: DecisionQuestion[]) =>
+    act(() =>
+      root.render(
+        createElement(
+          ConnectCardContext.Provider,
+          { value: ctx },
+          createElement(ChoiceCard, {
+            key: `${String(multiSelect)}${String(questions?.length)}`,
+            toolCallId: 'q1',
+            category: 'preference',
+            question: 'Which regions first?',
+            options: ['us-east', 'eu-west', 'ap-northeast'],
+            multiSelect,
+            questions,
+            canAct: true,
+          }),
+        ),
+      ),
+    )
+  const buttons = () => [...container.querySelectorAll('button')] as unknown as HTMLButtonElement[]
+  const button = (label: string) => buttons().find((item) => item.textContent === label)
+  const click = (label: string) => act(async () => button(label)?.click())
+  const row = () => buttons().map((item) => item.textContent)
+
+  try {
+    await render(false)
+    const single = row()
+
+    // One row: the options, "Other…" and "Dismiss"; no field until "Other…" opens one.
+    assert.deepEqual(single, ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss'])
+    assert.equal(container.querySelector('input'), null)
+    await click('eu-west')
+    assert.deepEqual(answers, [{ choices: ['eu-west'] }])
+
+    await render(true)
+    // The same row of pills, with Send for the picks at its end.
+    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss', 'Send'])
+    assert.equal(container.querySelector('input'), null)
+    // Its options are checkboxes: a click picks, and only Send answers.
+    assert.deepEqual(
+      [...container.querySelectorAll('[role="checkbox"]')].map((item) => item.textContent),
+      ['us-east', 'eu-west', 'ap-northeast'],
+    )
+    assert.equal(button('Send')?.disabled, true)
+    await click('us-east')
+    await click('ap-northeast')
+    assert.equal(answers.length, 1)
+    assert.equal(button('us-east')?.getAttribute('aria-checked'), 'true')
+    assert.equal(button('eu-west')?.getAttribute('aria-checked'), 'false')
+    await click('Send')
+    assert.deepEqual(answers.at(-1), { choices: ['us-east', 'ap-northeast'] })
+
+    // One entry in `questions` with its own multiSelect, the top level saying nothing of it:
+    // its own options, as checkboxes, and a key never answers them.
+    await render(false, [
+      { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
+    ])
+    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Send'])
+    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
+    const sent = answers.length
+
+    await act(async () => {
+      dom.document.dispatchEvent(
+        new dom.KeyboardEvent('keydown', {
+          key: '1',
+          code: 'Digit1',
+          ctrlKey: true,
+          altKey: true,
+          bubbles: true,
+        }) as unknown as Event,
+      )
+    })
+    assert.equal(answers.length, sent)
   } finally {
     await act(() => root.unmount())
     for (const [key, descriptor] of originals)

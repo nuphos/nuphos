@@ -14,6 +14,7 @@ import {
   strandedToolCalls,
   turnHasText,
 } from '@/lib/agent/stuck-turn-shape'
+import { reportJoinTimeouts } from '@/lib/meetings/meetings'
 import { logError, logEvent } from '@/lib/observability'
 
 export async function scanForStuckTurns(now = Date.now()): Promise<number> {
@@ -78,10 +79,15 @@ let probeTimer: ReturnType<typeof setInterval> | undefined
  *  double-count a turn within one replica's stream. Dedupe in the alert rule if
  *  replica count starts to matter. */
 export function initStuckTurnProbe(): void {
-  const run = () =>
+  const run = () => {
     void scanForStuckTurns().catch((err: unknown) => {
       logError('agent.stuck_turn.probe_failed', err)
     })
+    // A meeting bot that never joined is also an absence, so it rides on this timer.
+    void reportJoinTimeouts(PROBE_INTERVAL_MS).catch((err: unknown) => {
+      logError('meeting_bot.join_scan_failed', err)
+    })
+  }
 
   warmupTimer = setTimeout(run, 60_000) // after boot, not during it
   probeTimer = setInterval(run, PROBE_INTERVAL_MS)

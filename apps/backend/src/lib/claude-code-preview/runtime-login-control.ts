@@ -6,7 +6,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { requireRuntimeInstance } from './runtime-catalog'
-import { loginFrameReader } from './runtime-login-exec'
+import { loginFrameReader } from './runtime-login-frames'
 import { runtimeLabel, runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
@@ -15,7 +15,6 @@ import type { RuntimeLoginDoc } from './runtime-login-store'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
 import type { LocalRuntimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import type { LocalAgentProvider } from '@/lib/agent/devices/local-runtime/protocol'
 
 const CODEX_LOGIN_FAILED =
   'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.'
@@ -39,7 +38,7 @@ async function controlEndpoint(teamId: string, runtimeId: string, userId?: strin
   if (parseLocalRuntimeId(runtimeId) && userId)
     return resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'login')
   const { provider } = await requireRuntimeInstance(teamId, runtimeId, userId)
-  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control')).find(
+  const endpoint = (await resolveTeamRuntimeEndpoints(teamId, provider, 'control')).find(
     (candidate) => candidate.runtimeId === runtimeId,
   )
 
@@ -84,10 +83,10 @@ function runtimeLoginError(error: unknown): AppError {
  * Drive the runtime's own device sign-in over the operator channel.
  *
  * The runtime installs the credential itself and reports only that it did, so the
- * frames carry a device code and nothing else. `loginFrameReader` is fed the same
- * NDJSON it parses on the exec path, so the framing, the size cap and the fixed error
- * string are the ones already proven there. The sign-in ends with the runtime's
- * `exited` frame, or when `signal` aborts it.
+ * frames carry a device code and nothing else. Each frame goes through
+ * `loginFrameReader` as one NDJSON line, so its framing, size cap and fixed error
+ * strings apply. The sign-in ends with the runtime's `exited` frame, or when `signal`
+ * aborts it.
  */
 export async function driveControlRuntimeLogin(
   client: Pick<TeamPreviewClient, 'runtimeLogin' | 'cancelRuntimeLogin' | 'onRuntimeLoginFrame'>,
@@ -191,18 +190,6 @@ async function localAgentInstalling(
   )
 }
 
-/** How each agent's vendor installs its CLI on macOS and Linux, as their own docs give it. */
-const INSTALL_HOW: Record<LocalAgentProvider, string> = {
-  'claude-code': 'with `curl -fsSL https://claude.ai/install.sh | bash`',
-  codex: 'with `npm install -g @openai/codex`',
-  grok: 'with `curl -fsSL https://x.ai/cli/install.sh | bash`',
-  antigravity: 'from https://antigravity.google',
-  opencode: 'as https://opencode.ai/docs describes',
-  dsh: 'with `npm install -g @deepseek-ai/dsh`',
-  hermes: 'with `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`',
-  pi: 'with `npm install -g @earendil-works/pi-coding-agent`',
-}
-
 /**
  * A computer that answers but cannot start the agent reads as offline to its stream; when
  * the computer reports the agent's CLI missing, that is the reason to give instead.
@@ -220,13 +207,18 @@ export async function localAgentNotInstalled(
     return new AppError(
       409,
       'runtime_install_failed',
-      `Could not install ${runtimeLabel(ref.provider)} on the computer running this agent: ${agent.cli.installError}`,
+      `Couldn't install ${runtimeLabel(ref.provider)} on this runtime's computer: ${agent.cli.installError}`,
     )
 
+  const name = runtimeLabel(ref.provider)
+
+  // Nuphos installs every agent it adds but Antigravity, which comes only as a desktop app.
   return new AppError(
     409,
     'runtime_not_installed',
-    `${runtimeLabel(ref.provider)} is not installed on the computer running this agent. Install it there ${INSTALL_HOW[ref.provider]}, then try again.`,
+    ref.provider === 'antigravity'
+      ? `${name} isn't installed on this runtime's computer. Install the ${name} app there from https://antigravity.google, then try again.`
+      : `${name} isn't installed on this runtime's computer. Update Nuphos there so it can install ${name}, then try again.`,
   )
 }
 

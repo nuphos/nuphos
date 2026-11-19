@@ -3,7 +3,6 @@ import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { runtimeLogins } from './runtime-login-store'
-import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
 import { usedUp, withSharedQuota } from './runtime-quota-shape'
@@ -14,9 +13,6 @@ import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 import type { RuntimeQuota } from './runtime-quota'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
-
-export const MANAGED_RUNTIME_RETIRED =
-  'Nuphos-hosted agents have been retired. Move this conversation to a Nuphos cloud computer or your own computer to continue.'
 
 export function developmentRuntimeEndpoint(
   provider: OpenAbProvider,
@@ -55,17 +51,9 @@ export async function listRuntimeInstances(
           id: runtime.id,
           provider,
           label: runtime.label ?? `${runtimeLabel(provider)} · ${runtime.id.slice(0, 6)}`,
-          // Nuphos-hosted runtimes are retired (#2401) and cannot be enabled again.
-          status: runtime.hostedBy ? ('disabled' as const) : runtime.status,
-          ...(runtime.hostedBy
-            ? {
-                kind: 'managed' as const,
-                image: runtime.deploymentImage,
-              }
-            : {
-                kind: 'external' as const,
-                ...(runtime.connection ? { connection: runtime.connection } : {}),
-              }),
+          status: runtime.status,
+          kind: 'external' as const,
+          ...(runtime.connection ? { connection: runtime.connection } : {}),
           createdAt: runtime.createdAt,
         }),
       )
@@ -89,27 +77,7 @@ export async function listRuntimeInstances(
     }),
   )
 
-  const instances = [
-    ...groups.flat(),
-    ...(userId ? await listOwnLocalRuntimes(teamId, userId) : []),
-  ]
-  const deletions = await runtimeDeletions()
-    .find({ teamId, completedAt: { $exists: false } })
-    .sort({ requestedAt: 1 })
-    .toArray()
-
-  return instances.map((instance) => ({
-    ...instance,
-    ...(deletions.find((job) => job._id === instance.id)
-      ? {
-          status: 'disabled' as const,
-          deletion: {
-            state: 'deleting' as const,
-            error: deletions.find((job) => job._id === instance.id)?.error,
-          },
-        }
-      : {}),
-  }))
+  return [...groups.flat(), ...(userId ? await listOwnLocalRuntimes(teamId, userId) : [])]
 }
 
 /**
@@ -125,14 +93,12 @@ export async function withRuntimeReadiness(
   instances: RuntimeInstance[],
 ): Promise<RuntimeInstance[]> {
   const endpoints = await Promise.all(
-    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, undefined, provider)),
+    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, provider)),
   )
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 
   return instances.map((instance) =>
-    (instance.kind === 'managed' || instance.kind === 'external') &&
-    instance.status === 'active' &&
-    !reachable.has(instance.id)
+    instance.kind === 'external' && instance.status === 'active' && !reachable.has(instance.id)
       ? { ...instance, notReady: true as const }
       : instance,
   )

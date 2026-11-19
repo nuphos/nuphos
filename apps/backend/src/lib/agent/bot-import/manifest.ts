@@ -87,7 +87,19 @@ const bot = z
     ...setup,
     avatar: path.optional(),
     skills: z
-      .array(z.object({ key, directory: path }).strict())
+      .array(
+        z
+          .object({
+            key,
+            directory: path,
+            version: z
+              .string()
+              .regex(/^\d+\.\d+\.\d+$/)
+              .max(64)
+              .optional(),
+          })
+          .strict(),
+      )
       .max(64)
       .default([]),
     files: z
@@ -109,17 +121,59 @@ export const botBundleSchema = z
   .object({
     format: z.literal('nuphos-bot-bundle'),
     version: z.literal(1),
-    source: z
-      .object({
-        application: z.literal('grok-bot'),
-        exportedAt: z.string().datetime({ offset: true }),
-      })
-      .strict(),
+    source: z.discriminatedUnion('application', [
+      z
+        .object({
+          application: z.literal('grok-bot'),
+          exportedAt: z.string().datetime({ offset: true }),
+        })
+        .strict(),
+      z
+        .object({
+          application: z.literal('nuphos-template'),
+          templateId: key,
+          version: z
+            .string()
+            .regex(/^\d+\.\d+\.\d+$/)
+            .max(64),
+        })
+        .strict(),
+    ]),
+    requirements: z
+      .array(
+        z
+          .object({
+            provider: key,
+            required: z.boolean(),
+            reason: z.string().trim().min(1).max(1000),
+          })
+          .strict(),
+      )
+      .max(64)
+      .optional(),
     bots: z.array(bot).min(1).max(100),
     chats: z.array(chat).max(100).default([]),
   })
   .strict()
   .superRefine((value, context) => {
+    if (value.source.application === 'nuphos-template') {
+      if (value.bots.length !== 1 || value.chats.length)
+        context.addIssue({
+          code: 'custom',
+          message: 'Templates contain exactly one Bot and no chats',
+        })
+      for (const item of value.bots) {
+        if (item.memories.length || item.files.length)
+          context.addIssue({
+            code: 'custom',
+            message: 'Templates cannot contain memories or working files',
+          })
+        if (item.skills.some((skill) => !skill.version))
+          context.addIssue({ code: 'custom', message: 'Template skills require a package version' })
+      }
+    } else if (value.requirements) {
+      context.addIssue({ code: 'custom', message: 'Requirements are only supported for templates' })
+    }
     const unique = (keys: string[], label: string) => {
       if (new Set(keys).size !== keys.length)
         context.addIssue({ code: 'custom', message: `Duplicate ${label} key` })

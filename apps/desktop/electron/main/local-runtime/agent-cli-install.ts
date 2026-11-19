@@ -14,13 +14,40 @@ const INSTALL_TIMEOUT_MS = 10 * 60_000
 
 type Command = { file: string; args: string[]; shell?: boolean }
 
-/** Nuphos installs only the CLIs it has a vendor installer for. */
-export const INSTALLABLE = ['claude-code', 'codex', 'pi'] as const
+/** Every agent Nuphos can install: all but Antigravity, which comes only as a desktop app. */
+export const INSTALLABLE = [
+  'claude-code',
+  'codex',
+  'pi',
+  'grok',
+  'hermes',
+  'opencode',
+  'dsh',
+] as const
 
 type Installable = (typeof INSTALLABLE)[number]
 
 /** The npm package each vendor installs its CLI as. */
-const NPM_PACKAGE = { codex: '@openai/codex', pi: '@earendil-works/pi-coding-agent' }
+const NPM_PACKAGE = {
+  codex: '@openai/codex',
+  pi: '@earendil-works/pi-coding-agent',
+  opencode: 'opencode-ai',
+  // Every release so far is a prerelease, which a bare name never matches.
+  dsh: '@deepseek-ai/dsh@latest',
+}
+
+/** The vendors whose own script installs their CLI: macOS and Linux, then Windows. */
+const SCRIPT = {
+  'claude-code': [
+    'curl -fsSL https://claude.ai/install.sh | bash',
+    'irm https://claude.ai/install.ps1 | iex',
+  ],
+  grok: ['curl -fsSL https://x.ai/cli/install.sh | bash', 'irm https://x.ai/cli/install.ps1 | iex'],
+  hermes: [
+    'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive',
+    '& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -NonInteractive',
+  ],
+}
 
 function onPath(name: string, env: NodeJS.ProcessEnv): string | null {
   const names = process.platform === 'win32' ? [`${name}.cmd`, `${name}.exe`] : [name]
@@ -39,7 +66,9 @@ export function installCommand(provider: Installable, env: NodeJS.ProcessEnv): C
   const standIn = envValue(env, 'NUPHOS_E2E_AGENT_INSTALLER')
 
   if (standIn) return { file: '/bin/sh', args: [standIn, provider] }
-  if (provider === 'claude-code')
+  if (provider in SCRIPT) {
+    const [posix, powershell] = SCRIPT[provider as keyof typeof SCRIPT]
+
     return windows
       ? {
           file: powershellPath(env),
@@ -49,13 +78,14 @@ export function installCommand(provider: Installable, env: NodeJS.ProcessEnv): C
             '-ExecutionPolicy',
             'Bypass',
             '-Command',
-            'irm https://claude.ai/install.ps1 | iex',
+            powershell,
           ],
         }
-      : { file: '/bin/bash', args: ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'] }
+      : { file: '/bin/bash', args: ['-c', posix] }
+  }
 
   const npm = onPath('npm', env)
-  const pkg = NPM_PACKAGE[provider]
+  const pkg = NPM_PACKAGE[provider as keyof typeof NPM_PACKAGE]
 
   // A .cmd runs only through cmd.exe, which splits an unquoted path such as C:\Program Files.
   if (npm)
@@ -88,15 +118,13 @@ export function installAgentCli(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<void> {
-  // Grok Build, OpenCode and DeepSeek Harness install on their own; Nuphos offers only these.
   const installable = (INSTALLABLE as readonly string[]).includes(provider)
   const command = installable ? installCommand(provider as Installable, env) : null
 
+  // Only the npm installs can find nothing to run: this computer has no Node.js.
   if (!command)
     return Promise.reject(
-      new Error(
-        `Install Node.js first, then run \`npm install -g ${NPM_PACKAGE[provider as keyof typeof NPM_PACKAGE] ?? NPM_PACKAGE.codex}\` in a terminal.`,
-      ),
+      new Error('Install Node.js from https://nodejs.org there, then try again.'),
     )
 
   return new Promise((resolve, reject) => {

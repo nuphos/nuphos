@@ -1,5 +1,19 @@
+import { readFileSync } from 'node:fs'
+
+import yaml from 'js-yaml'
+
+import { CLI_CONFIG_PATH } from '../../cli-config-path.ts'
+
 /** What `nuphos login` leaves in cli.yaml: the token, or the keychain item holding it. */
 export type CliConfig = { token?: string; keychainAccount?: string } | null
+
+export function readCliConfig(): CliConfig {
+  try {
+    return yaml.load(readFileSync(CLI_CONFIG_PATH, 'utf8')) as CliConfig
+  } catch {
+    return null
+  }
+}
 
 /**
  * The CLI's session: the token in cli.yaml, or the launch token while cli.yaml

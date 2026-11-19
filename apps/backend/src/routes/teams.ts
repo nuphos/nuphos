@@ -2,15 +2,18 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
+import { conversationChangesBody, onConversationChange } from '@/lib/agent/conversation-changes'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
-import { ACTIVITY_RANGES, getTeamActivity, ownActivity } from '@/lib/agent/team-activity'
+import { ACTIVITY_RANGES, getTeamActivity, withOwnTitles } from '@/lib/agent/team-activity'
+import { mergeOthersPrivate, usageNames } from '@/lib/agent/usage-names'
 import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
-import { AppError } from '@/lib/errors'
+import { getTeamMembership } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
+import { SSE_HEARTBEAT_INTERVAL_MS } from '@/routes/agent/constants'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -150,23 +153,43 @@ teamScoped.get('/usage', async (c) =>
     }),
   ),
 )
-// Team-wide activity and stats are an administrator's; anyone else sees their own.
+// Which of the team's conversations changed, as they change, for the chats on screen (#3523):
+// each member hears only of the ones they may read.
+teamScoped.get('/agent-changes', (c) => {
+  const teamId = c.get('teamId')
+  const userId = c.get('userId')
+  const body = conversationChangesBody({
+    teamId,
+    viewerId: userId,
+    subscribe: onConversationChange,
+    isMember: async () => (await getTeamMembership(userId, teamId)) !== null,
+    heartbeatMs: SSE_HEARTBEAT_INTERVAL_MS,
+  })
+
+  return new Response(body, {
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    },
+  })
+})
+// Every member sees the whole team's activity and stats; only an administrator
+// sees the titles of other members' sessions.
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) => {
   const activity = await getTeamActivity(c.get('teamId'), c.req.valid('query').range)
 
   return c.json(
-    c.get('teamRole') === 'ADMINISTRATOR' ? activity : ownActivity(activity, c.get('userId')),
+    c.get('teamRole') === 'ADMINISTRATOR' ? activity : withOwnTitles(activity, c.get('userId')),
   )
 })
-teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) => {
-  const query = c.req.valid('query')
-
-  if (query.scope === 'team' && c.get('teamRole') !== 'ADMINISTRATOR')
-    throw new AppError(403, 'forbidden', 'Only an administrator can see the whole team’s stats')
-
-  return c.json(await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...query }))
-})
-// Token usage grouped and filtered by any dimension; members see only their own.
+teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
+  c.json(
+    await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
+  ),
+)
+// The team's token usage, grouped and filtered by any dimension; names follow the viewer's role.
 teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   const { from, to, bucket, timeZone, groupBy, ...rest } = c.req.valid('query')
   // The schema spreads the dimension lists in, so their keys are lost to the type.
@@ -179,13 +202,16 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
     }),
   )
 
-  return c.json({
-    rows: await queryTeamUsage(
-      c.get('teamId'),
-      { userId: c.get('userId'), teamRole: c.get('teamRole') },
-      { from, to, bucket, timeZone, groupBy, filters },
-    ),
-  })
+  const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
+  // Other members' private conversations show as one row, never apart.
+  const rows = await mergeOthersPrivate(
+    c.get('teamId'),
+    viewer,
+    groupBy,
+    await queryTeamUsage(c.get('teamId'), { from, to, bucket, timeZone, groupBy, filters }),
+  )
+
+  return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
 teamScoped.get('/billing/usage', async (c) =>

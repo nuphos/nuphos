@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
 import {
   getConversationBySessionId,
   getConversationWithMessages,
@@ -11,11 +12,12 @@ import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { buildPendingUserMessage } from '@/lib/agent/pending-messages'
 import { AppError } from '@/lib/errors'
-import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import { getTeamMembership, signNuphosToken } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError } from '@/lib/observability'
 import { claimAgentRunOrEnqueue, runAgentForTrigger } from '@/routes/agent'
+import { startChoice } from '@/routes/mcp/ask-pick'
+import { answerToolAuthorization } from '@/routes/mcp/tool-authorizations'
 import { persistedMessageToUiMessage, readLatestAnswer } from '@/routes/mcp/transcript'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -63,7 +65,7 @@ async function answerQuestion(
       conversation,
       requestId,
       answer: { text },
-      actor: { id: ctx.userId, displayName: sender.displayName },
+      actor: { id: ctx.userId, displayName: sender.displayName, avatarURL: sender.avatarURL },
       teamId,
     })
     recordAgentEvent({
@@ -133,30 +135,18 @@ export async function nuphosAsk(
     )
   }
   const ownerUserId = existing?.userId ?? ctx.userId
-  const runtimeId = typeof args.runtime_id === 'string' ? args.runtime_id.trim() : ''
+  const start = await startChoice(args, existing, teamId, ctx.userId)
 
-  // The agent is chosen as a session starts; an existing one keeps its own.
-  if (runtimeId && existing && existing.runtimeId !== runtimeId)
-    return toolError(
-      `runtime_id only applies to a new session; ${sessionId} already runs on its own.`,
-    )
-  if (runtimeId && !existing) {
-    const refused = await requireRuntimeInstance(teamId, runtimeId, ctx.userId).then(
-      (instance) => (instance.status === 'disabled' ? 'This agent is disabled.' : null),
-      (err: unknown) => {
-        if (err instanceof AppError) return err.message
-        throw err
-      },
-    )
-
-    if (refused) return toolError(refused)
-  }
+  if ('refused' in start) return toolError(start.refused)
   const requestId = typeof args.request_id === 'string' ? args.request_id.trim() : ''
 
   if (requestId) {
-    return existing
-      ? answerQuestion(existing, teamId, requestId, prompt, ctx)
-      : toolError(`Session not found: ${sessionId}`)
+    if (!existing) return toolError(`Session not found: ${sessionId}`)
+
+    return (
+      (await answerToolAuthorization(sessionId, requestId, prompt, ctx)) ??
+      answerQuestion(existing, teamId, requestId, prompt, ctx)
+    )
   }
 
   // Fold optional structured context into the user turn. The agent takes plain
@@ -238,6 +228,17 @@ export async function nuphosAsk(
   // The claim is released however the run ends, also when it fails to start.
   const run = (async () => {
     try {
+      // Before the first prompt, so its first tool call already runs in the chosen mode.
+      if (start.fullAccess !== undefined) {
+        await initializeSessionBypass(sessionId, ctx.userId, start.fullAccess)
+        if (start.fullAccess)
+          recordAgentEvent({
+            conversationId: sessionId,
+            userId: ctx.userId,
+            event: 'auth.bypass_enabled',
+            data: { via: 'mcp', ...(ctx.client?.name ? { client: ctx.client.name } : {}) },
+          })
+      }
       await runAgentForTrigger({
         userId: ctx.userId,
         conversationOwnerUserId: ownerUserId,
@@ -248,7 +249,9 @@ export async function nuphosAsk(
         firstMessage: prompt,
         source: 'mcp',
         client: ctx.client,
-        ...(runtimeId && !existing ? { runtimeId } : {}),
+        ...(start.runtimeId ? { runtimeId: start.runtimeId } : {}),
+        ...(start.pick ? { initialSessionConfig: start.pick } : {}),
+        ...(start.bot ? { parentSessionId: start.bot.sessionId } : {}),
       })
     } finally {
       release()

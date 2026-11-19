@@ -190,4 +190,22 @@
     <string name="chat_share_access_reply">團隊可檢視及回覆</string>
     <string name="chat_share_can_reply">可回覆</string>
     <string name="chat_share_can_view">可檢視</string>
+    <string name="chat_summary_title">任務摘要</string>
+    <string name="chat_summary_close">關閉摘要</string>
+    <string name="chat_summary_question">問題</string>
+    <string name="chat_summary_close_question">關閉問題</string>
+    <string name="chat_summary_needs_input">需要你的回覆</string>
+    <string name="chat_summary_no_questions">沒有等待你回覆的問題。</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">指令</string>
+    <string name="chat_summary_running">執行中</string>
+    <string name="chat_summary_open">Agent 摘要</string>
+    <string name="chat_summary_output_truncated">已隱藏較早的輸出。</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">子任務</string>
+    <string name="chat_summary_files">檔案</string>
+    <string name="chat_summary_triggers">觸發條件</string>
+    <string name="chat_summary_no_triggers">請代理程式為這個任務安排定期工作。</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">已暫停</string>
 </resources>

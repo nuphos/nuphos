@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { revokeTeamMemberAccess } from '@/lib/agent/devices/local-share-revoke'
+import { revokeDepartedMember } from '@/lib/byos/departing-member'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
@@ -204,7 +204,7 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await removeUserFromTeam(c.get('teamId'), memberId, c.get('userId'))
 
     if (result === 'removed') {
-      await revokeTeamMemberAccess(c.get('teamId'), memberId, {
+      await revokeDepartedMember(c.get('teamId'), memberId, {
         actorUserId: c.get('userId'),
         via: 'team_removal',
       })
@@ -269,7 +269,7 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await leaveTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'left') {
-      await revokeTeamMemberAccess(c.get('teamId'), c.get('userId'), {
+      await revokeDepartedMember(c.get('teamId'), c.get('userId'), {
         actorUserId: c.get('userId'),
         via: 'team_leave',
       })

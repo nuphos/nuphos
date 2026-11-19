@@ -223,6 +223,15 @@ class UIStreamReducer(var message: ChatMessage) {
                 )
                 return Outcome.None
             }
+            "turn-interrupted" -> {
+                val part = ChatPart.Other(event)
+                val failure = ai.nuphos.android.model.ChatRow.interruption(part) ?: return Outcome.None
+                val retained = message.parts.filterNot {
+                    ai.nuphos.android.model.ChatRow.interruption(it)?.id == failure.id
+                }
+                message = message.copy(parts = retained + part)
+                return Outcome.None
+            }
             "source-document" -> {
                 message = message.copy(parts = message.parts + ChatPart.Other(event))
                 return Outcome.None

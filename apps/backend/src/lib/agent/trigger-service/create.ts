@@ -1,9 +1,12 @@
+import { ObjectId } from 'mongodb'
+
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
+import { changedBy, writeTrigger } from '../trigger-history'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
 import { validateCreateTriggerShape } from './create-validation'
@@ -17,7 +20,6 @@ import {
 
 import type { AgentTrigger } from '../trigger-db'
 import type { CreateTriggerInput, SerializedTrigger, TriggerCallerContext } from './shared'
-import type { ObjectId } from 'mongodb'
 
 /**
  * Create a trigger and (for cron) register it with the scheduler. Returns the
@@ -85,7 +87,8 @@ export async function createTrigger(
   const webhookSecret = input.triggerType === 'webhook' ? generateWebhookSecret() : undefined
   const credentials = await resolveTriggerCredentialSelection(ctx)
 
-  const doc: Omit<AgentTrigger, '_id'> = {
+  const doc: AgentTrigger & { _id: ObjectId } = {
+    _id: new ObjectId(),
     // Keep userId for backwards compatibility while making ownership and
     // execution identity explicit for all newly-created rows.
     userId: ctx.userId,
@@ -112,12 +115,14 @@ export async function createTrigger(
     updatedAt: now,
   }
 
-  let insertedId: ObjectId
+  const insertedId = doc._id
 
   try {
-    const result = await agentTriggers().insertOne(doc)
+    await writeTrigger({ after: doc, by: changedBy(ctx) }, async (session) => {
+      await agentTriggers().insertOne(doc, { session })
 
-    insertedId = result.insertedId
+      return true
+    })
   } catch (err) {
     // Lost the dedupe race to a concurrent creator — return theirs.
     if (dedupeKey && isDuplicateKeyError(err)) {
@@ -135,16 +140,22 @@ export async function createTrigger(
     } catch (err) {
       // Roll back the insert so a scheduler failure doesn't leave an enabled
       // trigger in MongoDB that the cron worker never picks up.
-      await agentTriggers()
-        .deleteOne({ _id: insertedId })
-        .catch((deleteErr: unknown) => {
-          logError('agent.trigger.rollback_delete_failed', deleteErr, { trigger_id: triggerId })
-        })
+      await writeTrigger(
+        {
+          before: doc,
+          by: { actorId: 'system', via: 'rollback' },
+          reason: 'Its schedule could not be registered',
+        },
+        async (session) =>
+          (await agentTriggers().deleteOne({ _id: insertedId }, { session })).deletedCount > 0,
+      ).catch((deleteErr: unknown) => {
+        logError('agent.trigger.rollback_delete_failed', deleteErr, { trigger_id: triggerId })
+      })
       throw err
     }
   }
 
-  return serializeTrigger({ ...doc, _id: insertedId }, true)
+  return serializeTrigger(doc, true)
 }
 
 /**

@@ -1,20 +1,23 @@
-import { diskWarning } from '../../../views/settings/boxMetricsPresentation'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 
+import { computerNotice } from './computerNotice'
+
+import type { ComputerNotice } from './computerNotice'
 import type { RuntimeControl } from './RuntimeSelector'
+import type { AgentDevice } from '../../../api'
 
-export type ComputerNotice =
-  { kind: 'outdated'; label: string } | { kind: 'disk'; label: string; percent: number }
+export type { ComputerNotice } from './computerNotice'
 
-/**
- * What is wrong with the selected agent's computer that will fail a turn on it: a Nuphos too
- * old to be supported, which fails for certain, before a disk that is almost full.
- */
+/** The selected agent's computer and its notice, read from the device list (see `computerNotice`). */
 export function useComputerNotice({
   teamId,
   value,
   options,
-}: Pick<RuntimeControl, 'teamId' | 'value' | 'options'>): ComputerNotice | null {
+}: Pick<RuntimeControl, 'teamId' | 'value' | 'options'>): {
+  notice: ComputerNotice | null
+  device: AgentDevice | undefined
+  reload: () => void
+} {
   const deviceId = options?.find((instance) => instance.id === value?.id)?.local?.deviceId
   // Neither changes within seconds, so a reading a minute old is current enough for a warning.
   const devices = useAgentDevices(() => 60_000, teamId, {
@@ -24,9 +27,5 @@ export function useComputerNotice({
   })
   const device = devices.list?.devices.find((candidate) => candidate.deviceId === deviceId)
 
-  if (!device) return null
-  if (device.outdated) return { kind: 'outdated', label: device.label }
-  const warning = diskWarning(device)
-
-  return warning ? { kind: 'disk', label: device.label, percent: warning.percent } : null
+  return { notice: computerNotice(device), device, reload: devices.reload }
 }

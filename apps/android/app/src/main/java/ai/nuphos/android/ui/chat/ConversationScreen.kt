@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -73,6 +74,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -128,7 +130,8 @@ fun ConversationScreen(
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
-        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack,
+            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
         return
     }
     val auth = LocalAuthSession.current
@@ -234,12 +237,31 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberRuntimeOffline(auth.token, session.teamId, session.runtimeId))
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
     if (showTriggers && auth.token != null) {
         ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+    }
+    var showSummary by remember(session, selectedTeamId) { mutableStateOf(false) }
+    val summaryToken = auth.token
+    val summaryAllowed = session.readAllowed && (!fresh || !session.isNew) && !newChat && auth.aiAllowed && selectedTeamId == session.teamId &&
+        summaryToken != null && conversation?.isBot != true && ai.nuphos.android.model.BotFaces.face(sessionId) == null
+    if (showSummary && summaryAllowed && summaryToken != null) {
+        TaskSummarySheet(
+            session = session,
+            token = summaryToken,
+            children = store.conversations.filter {
+                it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
+            }.sortedByDescending { it.lastActiveAt },
+            allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
+            onOpen = { child ->
+                showSummary = false
+                nav.navigate("conversation/${android.net.Uri.encode(child)}")
+            },
+            onDismiss = { showSummary = false },
+        )
     }
     val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
@@ -274,6 +296,11 @@ fun ConversationScreen(
                     else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
                 },
                 actions = {
+                    if (summaryAllowed) {
+                        IconButton(onClick = { showSummary = true }) {
+                            Icon(painterResource(R.drawable.ic_task_summary), stringResource(R.string.chat_summary_open))
+                        }
+                    }
                     ConversationMenu(session, store, onBack, onChooseRuntime = { showAgent = true })
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = chatCanvas),
@@ -496,8 +523,8 @@ fun ConversationScreen(
                         recalledFiles = recalledFiles,
                         onRecalledFilesRestored = { recalledFiles = emptyList() },
                         mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
-                            SessionMentionSource(draftTeam, sessionId) { query ->
-                                store.mentionableSessions(draftTeam, query)
+                            SessionMentionSource(draftTeam, sessionId) {
+                                store.mentionableSessions(draftTeam)
                             }
                         },
                         // Mentioning a computer selects it, and a Task under a Bot has no selection of its own.
@@ -640,6 +667,37 @@ private fun ChatRowView(
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            val auth = LocalAuthSession.current
+            val store = LocalAgentStore.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val workspace = store.workspaceRevision
+            val consent = AiAccess.revision
+            val viewer = auth.user?.id
+            val generation = auth.generation
+            val valid = { auth.aiAllowed && session.readAllowed && store.selectedTeam?.id == session.teamId &&
+                store.workspaceRevision == workspace && AiAccess.revision == consent && auth.generation == generation }
+            val report = ChatRow.failureReport(row.id, session.messages)?.takeIf { valid() }
+            val retry = session.failedTurn(viewer)?.takeIf { it.rowId == row.id && valid() }
+            var copied by remember(row.id, report) { mutableStateOf(false) }
+            if (retry != null || report != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (retry != null) OutlinedButton(onClick = { if (valid()) session.retryFailedTurn(auth.user?.id) },
+                    modifier = Modifier.testTag("failed-turn-retry:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(R.drawable.failed_turn_retry), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.failed_turn_retry))
+                }
+                if (report != null) OutlinedButton(onClick = copy@{
+                    if (!valid()) return@copy
+                    val current = ChatRow.failureReport(row.id, session.messages) ?: return@copy
+                    (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(android.content.ClipData.newPlainText(row.text, current))
+                    copied = true
+                }, modifier = Modifier.testTag("failed-turn-copy:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(if (copied) R.drawable.failed_turn_check else R.drawable.failed_turn_copy), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(if (copied) R.string.failed_turn_copied else R.string.failed_turn_copy))
+                }
+            }
             // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
             val runtimeId = session.runtimeId
             val block = session.runtimeBlock?.takeIf { row.isError }
