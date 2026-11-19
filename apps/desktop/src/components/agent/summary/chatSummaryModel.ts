@@ -229,7 +229,11 @@ export type OutputFile = {
 /** Files the agent handed over in this chat that can still be downloaded, newest first. */
 export function outputFilesOf(groups: readonly FileTransferGroup[], now: number): OutputFile[] {
   return [...groups]
-    .filter((group) => group.direction === 'download' && Date.parse(group.expiresAt) > now)
+    .filter(
+      (group) =>
+        group.direction === 'download' &&
+        (!group.expiresAt || Date.parse(group.expiresAt) > now),
+    )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .flatMap((group) =>
       group.files

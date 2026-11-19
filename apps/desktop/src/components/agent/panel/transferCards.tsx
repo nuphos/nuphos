@@ -39,11 +39,11 @@ export function DownloadFilesCard({
   // instant, otherwise the card would keep offering downloads past expiresAt
   // until some unrelated render happens (the backend would then 410).
   const [now, setNow] = useState(() => Date.now())
-  const expiresAtMs = new Date(group.expiresAt).getTime()
-  const expired = now > expiresAtMs
+  const expiresAtMs = group.expiresAt ? new Date(group.expiresAt).getTime() : null
+  const expired = expiresAtMs !== null && now > expiresAtMs
 
   useEffect(() => {
-    if (expired) return
+    if (expiresAtMs === null || expired) return
     const ms = Math.max(0, expiresAtMs - Date.now()) + 250
     const timer = setTimeout(() => setNow(Date.now()), ms)
 
