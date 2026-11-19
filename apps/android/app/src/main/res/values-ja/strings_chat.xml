@@ -201,4 +201,11 @@
     <string name="chat_summary_running">実行中</string>
     <string name="chat_summary_open">エージェントの概要</string>
     <string name="chat_summary_output_truncated">以前の出力は省略されています。</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">サブタスク</string>
+    <string name="chat_summary_files">ファイル</string>
+    <string name="chat_summary_triggers">トリガー</string>
+    <string name="chat_summary_no_triggers">このタスクの定期的な作業をエージェントに依頼できます。</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">一時停止中</string>
 </resources>

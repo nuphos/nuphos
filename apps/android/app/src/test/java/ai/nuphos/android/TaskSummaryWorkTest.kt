@@ -3,6 +3,10 @@ package ai.nuphos.android
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.ui.chat.TaskSummaryWork
 import ai.nuphos.android.ui.chat.taskSummaryBackground
+import ai.nuphos.android.ui.chat.pollTaskSummary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -41,5 +45,39 @@ class TaskSummaryWorkTest {
         val tail = "x".repeat(5_999)
         assertEquals(TaskSummaryWork("terminal", null, tail), work(tail))
         assertEquals(TaskSummaryWork("terminal", null, tail, outputTruncated = true), work("prefix😀" + tail))
+    }
+
+    @Test fun revokingConsentDuringAReadStopsTheRemainingRequests() = runTest {
+        var consent = true
+        val requests = mutableListOf<String>()
+        launch {
+            pollTaskSummary({ consent },
+                { requests += "questions"; delay(100) },
+                { requests += "resources" },
+                { requests += "downloads" },
+                { requests += "triggers" },
+            )
+        }
+        delay(50)
+        consent = false
+        delay(40_000)
+        assertEquals(listOf("questions"), requests)
+    }
+
+    @Test fun switchingTeamsBetweenPollsPreventsTheNextPoll() = runTest {
+        var selectedTeam = "A"
+        val requests = mutableListOf<String>()
+        launch {
+            pollTaskSummary({ selectedTeam == "A" },
+                { requests += "questions" },
+                { requests += "resources" },
+                { requests += "downloads" },
+                { requests += "triggers" },
+            )
+        }
+        delay(100)
+        selectedTeam = "B"
+        delay(40_000)
+        assertEquals(listOf("questions", "resources", "downloads", "triggers"), requests)
     }
 }

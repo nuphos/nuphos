@@ -13,11 +13,12 @@ import { personalSkillsScope, putSkillObjects } from '@/lib/agent/skill-store/se
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import { isOpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { isValidCronExpression } from '@/lib/cron'
-import { storeAvatar } from '@/lib/identity/avatar-upload'
 import { AppError } from '@/lib/errors'
+import { storeAvatar } from '@/lib/identity/avatar-upload'
 
 import { ImportScheduleFailure } from './batch'
 import { importedFileReferences, importBotFiles } from './files'
+import { saveTemplateOrigin } from './template-origin'
 
 import type { BotBundleArchive } from './archive'
 import type { ImportBatch, ImportItem, ImportOperations, ImportOwner } from './batch'
@@ -81,10 +82,13 @@ async function schedules(
             'files' in source
               ? importedFileReferences(routine.prompt, source.files, item.sessionId)
               : routine.prompt,
-          enabled: enabled && routine.requestedEnabled,
+          enabled:
+            batch.manifest.source.application !== 'nuphos-template' &&
+            enabled &&
+            routine.requestedEnabled,
           dedupeKey: `bot-import:${batch.id}:${item.kind}:${item.key}:${routine.key}`,
         },
-        { userId: batch.userId, teamId: batch.teamId, source: 'user' },
+        { userId: batch.userId, teamId: batch.teamId, source: 'user', via: 'bot_import' },
       )
     } catch {
       throw new ImportScheduleFailure()
@@ -176,9 +180,10 @@ export function importOperations(
       await updateBotSelf(item.sessionId, batch.userId, batch.teamId, {
         instructions: importedFileReferences(source.instructions, source.files, item.sessionId),
       })
+      await saveTemplateOrigin(batch, item)
       await saveAvatar(batch, item, source, archive)
       await skills(batch, item, source, archive)
-      await saveFacts(batch, item, source.memories)
+      if (source.memories.length) await saveFacts(batch, item, source.memories)
       await importBotFiles(batch, item, source, archive, save)
       const warnings = await schedules(batch, item, source, enable)
 

@@ -4,7 +4,7 @@ import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { newBindingAccess } from '@/lib/byos/initial-access'
 import { listGcpBindingsForProject } from '@/lib/byos/account'
 import { gcpConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { verifyGcpWifImpersonation } from '@/lib/byos/gcp-iam-http'
 import { gcpWifConfigured, gcpWifPrincipalForTeam } from '@/lib/byos/gcp-wif'
 import { AppError } from '@/lib/errors'
@@ -111,14 +111,17 @@ export function registerGcpBindingRoutes(
         { projection: { gcpServiceAccounts: 1 } },
       )
 
-      assertMayBindIdentity(
-        c,
-        (sameAccount?.gcpServiceAccounts ?? []).filter(
-          (binding) =>
-            binding.serviceAccountEmail.toLowerCase() === serviceAccountEmail.toLowerCase(),
-        ),
-        `GCP service account ${serviceAccountEmail}`,
-      )
+      const check = (bindings: GcpServiceAccountBinding[]) =>
+        assertMayBindIdentity(
+          c,
+          bindings.filter(
+            (binding) =>
+              binding.serviceAccountEmail.toLowerCase() === serviceAccountEmail.toLowerCase(),
+          ),
+          `GCP service account ${serviceAccountEmail}`,
+        )
+
+      check(sameAccount?.gcpServiceAccounts ?? [])
       // After the duplicate check (re-binding a known account adds no
       // environment) but before the credential round trips.
 
@@ -132,8 +135,10 @@ export function registerGcpBindingRoutes(
       const createdAt = new Date()
       const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-      const inserted = await appendEnvironmentBinding(
+      const inserted = await appendCheckedBinding(
         teamId,
+        'gcpServiceAccounts',
+        check,
         {
           gcpServiceAccounts: {
             $not: { $elemMatch: { projectId, serviceAccountEmail } },
