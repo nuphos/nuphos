@@ -7,6 +7,7 @@ import {
   createLocalAgentInstance,
   openLocalDesktop,
   removeLocalAgentInstance,
+  setLocalAutoInstall,
 } from './instances'
 import { createMemoryPresenceStore } from './presence'
 import { holderChannel, streamChannel } from './protocol'
@@ -229,4 +230,19 @@ test('opening a desktop surfaces the host refusal word for word', async () => {
     message: reason,
   })
   expect(requests).toEqual([{ method: 'desktop', sessionId: 'runtime:mac' }])
+})
+
+test('the card’s switch reaches the computer, and its answer comes back through the tunnel', async () => {
+  const { deps, requests } = await answering((request) => ({ ok: true, enabled: request.enabled }))
+
+  expect(await setLocalAutoInstall(target, false, { deps })).toEqual({ enabled: false })
+  expect(requests).toEqual([{ method: 'autoInstall', enabled: false }])
+})
+
+test('a computer that answers without the switch is an invalid answer', async () => {
+  const { deps } = await answering(() => ({ ok: true }))
+
+  await expect(setLocalAutoInstall(target, true, { deps })).rejects.toMatchObject({
+    code: 'agent_instance_invalid_response',
+  })
 })

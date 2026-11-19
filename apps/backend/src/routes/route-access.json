@@ -923,6 +923,7 @@
   "PUT /teams/:teamId/cloudflare-accounts/:accountId/workers/scripts/:scriptName/schedules": "admin",
   "PUT /teams/:teamId/cloudflare-accounts/:accountId/zones/:zoneId/dns-records/:recordId": "admin",
   "PUT /teams/:teamId/codex-runtimes/:runtimeId/keys": "admin",
+  "PUT /teams/:teamId/computers/:deviceId/auto-install": "member",
   "PUT /teams/:teamId/cost-dashboards/:dashboardId": "member",
   "PUT /teams/:teamId/cost-dashboards/:dashboardId/panels/:panelId": "member",
   "PUT /teams/:teamId/cost-dashboards/:dashboardId/panels/:panelId/alert": "member",

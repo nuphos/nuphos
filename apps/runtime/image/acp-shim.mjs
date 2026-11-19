@@ -338,11 +338,22 @@ export function runShim({
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
       const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
-      if (failure) write(refusal(promptSession, failure))
       // Cancelled by this process, not by the person: the turn ended with the refusal.
       if (refused.delete(message.id) && message.result)
         message = { ...message, result: { ...message.result, stopReason: 'end_turn' } }
-      forward(message)
+      // A failed turn answers as Claude Code's does, so every client shows why it failed.
+      forward(
+        failure
+          ? {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: {
+                code: -32603,
+                message: `Internal error: The model provider refused the request: ${failure}`,
+              },
+            }
+          : message,
+      )
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
       else queued.delete(promptSession)

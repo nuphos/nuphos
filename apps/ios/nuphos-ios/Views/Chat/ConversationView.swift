@@ -440,9 +440,11 @@ struct ConversationView: View {
                         var selection = session.credentialAccess ?? CredentialSelection()
                         if !selection.contains(device) { selection.toggle(device); session.setCredentials(selection) }
                     },
-                    search: { query in
-                        await store.loadCredentialOptions()
-                        return await store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId, matching: query)
+                    sessions: store.mentionableSessions(teamId: session.teamId, excluding: session.sessionId),
+                    refresh: {
+                        async let devices: () = store.loadCredentialOptions()
+                        await store.loadMentionableSessions(teamId: session.teamId)
+                        await devices
                     }
                 ),
                 voiceTeamId: session.teamId,

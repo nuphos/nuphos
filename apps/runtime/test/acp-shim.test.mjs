@@ -581,35 +581,57 @@ test('pi runs through the pi-acp adapter and gets the session MCP servers as its
   })
 })
 
-test('a pi turn the provider refused shows why, which pi-acp drops', async () => {
-  await withShim('pi', async ({ call, home, notifications }) => {
-    await call('initialize', { protocolVersion: 1 })
-    await call('session/new', session('Be Nuphos.'))
-    const { mkdir, readdir, writeFile } = await import('node:fs/promises')
-    const sessions = join(home, '.nuphos', 'session-homes')
-    const [sessionHome] = await readdir(sessions)
-    const folder = join(sessions, sessionHome, '.pi', 'agent', 'sessions', '--workspace--')
-    await mkdir(folder, { recursive: true })
-    const failed = {
-      type: 'message',
-      message: {
-        role: 'assistant',
-        content: [],
-        stopReason: 'error',
-        errorMessage: '401 invalid x-api-key',
-      },
-    }
-    await writeFile(
-      join(folder, '2026-11-15T00-00-00-000Z_s1.jsonl'),
-      `{"type":"session"}\n${JSON.stringify(failed)}\n`,
-    )
-    await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
-    const shown = notifications.filter(
-      (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
-    )
-    assert.equal(shown.length, 1)
-    assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
-  })
+// pi-acp as it answers a provider's refusal: Pi records the error in its session file
+// (here a prompt over the model's context, then the context_edit Pi adds), and pi-acp
+// ends the turn as if Pi had replied.
+const PI_REFUSED = `
+const fs = require('node:fs')
+const path = require('node:path')
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/new') return reply(m.id, { sessionId: 's1', configOptions: [] })
+  if (m.method !== 'session/prompt') return reply(m.id, {})
+  const text = m.params.prompt.at(-1).text
+  const folder = path.join(process.env.PI_CODING_AGENT_DIR, 'sessions', '--workspace--')
+  fs.mkdirSync(folder, { recursive: true })
+  const entry = (e) => JSON.stringify(e) + '\\n'
+  fs.writeFileSync(path.join(folder, '2026-11-18T00-00-00-000Z_s1.jsonl'),
+    text === 'too long'
+      ? entry({ type: 'message', message: { role: 'assistant', stopReason: 'error', errorMessage: '400: request (46055 tokens) exceeds the available context size (8192 tokens)' } }) +
+        entry({ type: 'context_edit', targetId: 'm1', replacement: [] })
+      : entry({ type: 'message', message: { role: 'assistant', stopReason: 'stop', content: [] } }))
+  reply(m.id, { stopReason: 'end_turn' })
+})
+`
+
+test("a provider's refusal fails Pi's turn with the provider's words", async () => {
+  await withShim(
+    'pi',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1, clientCapabilities: {} })
+      await call('session/new', session('Be Nuphos.'))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+
+      const refused = await prompt('too long')
+      assert.equal(refused.result, undefined)
+      assert.deepEqual(refused.error, {
+        code: -32603,
+        message:
+          'Internal error: The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)',
+      })
+      // The failure is the turn's answer, never a reply the agent seems to have written.
+      assert.equal(
+        notifications.some((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk'),
+        false,
+      )
+      assert.deepEqual((await prompt('hi')).result, { stopReason: 'end_turn' })
+    },
+    PI_REFUSED,
+  )
 })
 
 // OpenCode 1.19 stand-in: a prompt never answers on its own, as when OpenCode retries a

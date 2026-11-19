@@ -72,6 +72,18 @@ export function runtimeTypingIn(
   return runtimeTurnActive(snapshot) && snapshot?.channelIds?.includes(channelId) === true
 }
 
+/**
+ * Whether a chat shows an agent's typing dots: its turn answers this chat, or it
+ * is the chat's own Bot at work. The chat's bubble and its sidebar row both follow this.
+ */
+export function chatTyping(
+  snapshot: RuntimeExecution | undefined,
+  channelId: string,
+  isChatBot: boolean,
+): boolean {
+  return runtimeTypingIn(snapshot, channelId) || (isChatBot && runtimeTurnActive(snapshot))
+}
+
 /** The turn ended while runtime-owned background tools or tasks keep running. */
 export function runtimeBackgroundRunning(snapshot: RuntimeExecution | undefined): boolean {
   return (

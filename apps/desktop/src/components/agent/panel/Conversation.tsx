@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
+import { useChatSwitchShown } from '../../../lib/chatSwitchTiming'
 
 import { ChatColumn } from './ChatColumn'
 import { FeedbackCommentDialog } from './conversationBanners'
@@ -102,6 +103,7 @@ export function Conversation({
   })
 
   useConversationRead(tab.sessionId, visible)
+  useChatSwitchShown(tab.sessionId, 'task', visible)
   useTranscriptPageKeys(ref, lockScrollToHistory, handleUserScrollIntent)
 
   useEffect(() => {
