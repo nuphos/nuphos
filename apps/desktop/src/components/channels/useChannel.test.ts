@@ -33,8 +33,9 @@ test('a refresh from any pane of the channel fetches it all, even with nothing c
     })
 
   await load()
+  assert.deepEqual(calls.splice(0), ['full'], 'a chat with nothing on hand reads it all at once')
   await load()
-  assert.deepEqual(calls.splice(0), ['probe', 'full', 'probe'])
+  assert.deepEqual(calls.splice(0), ['probe'], 'with a copy on hand, only the probe')
   // Another pane posted: its refresh must reach the load every pane shares.
   await refreshChannel(client, 't', 'c')
   await load()

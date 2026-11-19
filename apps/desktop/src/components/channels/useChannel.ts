@@ -19,23 +19,39 @@ const TAIL = 200
 
 type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[]; revision: string }
 
-/** A cheap probe first; the messages and agents only when it shows a change. */
+/** With a copy on hand, a cheap probe first and the rest only when it shows a change. */
 export async function loadChannel(client: QueryClient, teamId: string, channelId: string) {
   const last = client.getQueryData<Channel>(queryKeys.channel(teamId, channelId))
+  const all = async () => {
+    const [detail, listed] = await Promise.all([
+      api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
+      api.agentListChannelAgents(channelId, teamId),
+    ])
+
+    return { detail, agents: listed.agents, revision: channelRevision(detail) }
+  }
+
+  if (!last) return all()
   const probe = await api.agentGetConversation(channelId, teamId, {
     tail: 1,
     messages: 'omit',
     runtimeState: 'omit',
   })
-  const revision = channelRevision(probe)
 
-  if (last?.revision === revision) return last
-  const [detail, listed] = await Promise.all([
-    api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
-    api.agentListChannelAgents(channelId, teamId),
-  ])
+  return last.revision === channelRevision(probe) ? last : all()
+}
 
-  return { detail, agents: listed.agents, revision }
+/** Loads a Bot chat before it is opened, so it opens from memory. */
+export function prefetchChannel(client: QueryClient, teamId: string, channelId: string) {
+  // A failed one is fetched again when the chat opens.
+  client
+    .query({
+      queryKey: queryKeys.channel(teamId, channelId),
+      queryFn: () => loadChannel(client, teamId, channelId),
+      gcTime: Infinity,
+      retry: false,
+    })
+    .catch(() => {})
 }
 
 /** After a post or an agent change, from any pane showing the channel: fetch it all now. */
@@ -61,17 +77,20 @@ export function channelRetryMs(state: QueryState<Channel>): number {
 
 /**
  * A channel's messages and agents, polled while it is on screen and the window is
- * visible. A failing channel backs off, longer the longer it has failed.
+ * visible. A failing channel backs off, longer the longer it has failed. A chat kept
+ * mounted behind another (`visible` false) keeps what it has and polls again once shown.
  */
-export function useChannel(teamId: string, channelId: string) {
+export function useChannel(teamId: string, channelId: string, visible = true) {
   const client = useQueryClient()
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
   const { data } = useQuery({
     queryKey: queryKeys.channel(teamId, channelId),
     queryFn: () => loadChannel(client, teamId, channelId),
-    enabled: tab ? tab.isActive : true,
+    enabled: visible && (tab ? tab.isActive : true),
     retry: false,
+    // Kept for as long as the app runs: a chat opened an hour ago opens from memory too.
+    gcTime: Infinity,
     refetchInterval: (query) => channelRetryMs(query.state),
   })
 
@@ -82,7 +101,7 @@ export function useChannel(teamId: string, channelId: string) {
 
   const detail = data?.detail ?? null
 
-  useChatSwitchShown(channelId, 'bot', detail !== null)
+  useChatSwitchShown(channelId, 'bot', visible && detail !== null)
 
   // Until the chat loads, the sidebar's row says its name and its Bot, so the header and
   // the composer open as they will stay.
