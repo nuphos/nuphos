@@ -10,6 +10,7 @@ import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -24,6 +25,10 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
+
+/** A post in the open chat's transcript. A sidebar row can preview the same words. */
+const transcriptPost = (page: Page, text: string) =>
+  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
@@ -59,7 +64,7 @@ export const channelScenarios: Scenario[] = [
       for (let n = 0; n < 51; n++) await post(`Burst ${String(n)}`)
       await post('The newest E2E_DELIVERY:newest')
       // The Bot posts only once it has read on, so any repeat is logged by now.
-      await page.getByText('POSTED E2E_DELIVERY:newest', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:newest').waitFor()
       const repeats = agentLog(stack).filter((entry) => entry.event === 'channel-repeat')
 
       if (repeats.length > 0) {
@@ -107,7 +112,7 @@ export const channelScenarios: Scenario[] = [
       )
       await row.getByText('Getting started', { exact: true }).waitFor({ state: 'hidden' })
       await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
-      await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:two').waitFor()
       // Still in its turn: the row has the work dots.
       await row.locator('.t-typing-dot').first().waitFor()
       await page.screenshot({ path: `${artifacts}/bot-row-busy-light.png` })
@@ -178,7 +183,7 @@ export const channelScenarios: Scenario[] = [
     name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
     run: async (page, stack) => {
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
-      await page.getByText('POSTED E2E_DELIVERY:inbox-bot', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-bot').waitFor()
       await page.getByRole('tab', { name: /^Inbox/ }).click()
       const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
 
