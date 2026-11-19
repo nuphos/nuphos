@@ -5,7 +5,7 @@ import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { newBindingAccess } from '@/lib/byos/initial-access'
 import { azureOidcInfo, verifyAzureBinding } from '@/lib/byos/azure'
 import { azureConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -79,16 +79,19 @@ azureAccountsRoutes.post(
       { projection: { azureAccounts: 1 } },
     )
 
-    assertMayBindIdentity(
-      c,
-      (sameApp?.azureAccounts ?? []).filter(
-        // Entra GUIDs are case-insensitive, so a different spelling is the same app.
-        (binding) =>
-          binding.tenantId.toLowerCase() === tenantId.toLowerCase() &&
-          binding.clientId.toLowerCase() === clientId.toLowerCase(),
-      ),
-      `Azure app ${clientId}`,
-    )
+    const check = (bindings: AzureAccountBinding[]) =>
+      assertMayBindIdentity(
+        c,
+        bindings.filter(
+          // Entra GUIDs are case-insensitive, so a different spelling is the same app.
+          (binding) =>
+            binding.tenantId.toLowerCase() === tenantId.toLowerCase() &&
+            binding.clientId.toLowerCase() === clientId.toLowerCase(),
+        ),
+        `Azure app ${clientId}`,
+      )
+
+    check(sameApp?.azureAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -101,8 +104,10 @@ azureAccountsRoutes.post(
     const createdAt = new Date()
     const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'azureAccounts',
+      check,
       { azureAccounts: { $not: { $elemMatch: { clientId, subscriptionId } } } },
       {
         $push: {

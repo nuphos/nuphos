@@ -123,12 +123,6 @@ export function otelConfig() {
 
     logs: {
       enabled: enabled && bool('OTEL_LOGS_ENABLED', true),
-      // Minimum level shipped to OTLP. Console mirroring is unconditional so
-      // operators don't lose visibility when the exporter is misconfigured.
-      level: (optional('OTEL_LOG_LEVEL') ?? 'info').toLowerCase(),
-      // Mirror every log record to stdout in JSON form. Defaults on so that
-      // kubectl logs / docker logs still work as a fallback.
-      console: bool('OTEL_LOG_CONSOLE', true),
     },
 
     // Print SDK diagnostics to stdout. Only enable while debugging the OTel

@@ -17,6 +17,7 @@ import { teamByosBindings } from '@/models'
 import type { TeamAuthVariables } from '@/middleware/auth/types'
 import type { BindingAccess, TeamByosBindings } from '@/models'
 import type { Context, Hono } from 'hono'
+import type { Filter } from 'mongodb'
 
 /** The team document arrays whose bindings carry an `id` and a member list. */
 export type BindingCollection = {
@@ -84,18 +85,28 @@ export function registerBindingAccessRoutes<V extends TeamAuthVariables>(
       new Date(),
       existingOwner ?? (becomesPrivate ? userId : undefined),
     )
+    const teamId = parseObjectId(team.get('teamId'), 'teamId')
+    const bindingId = typeof id === 'string' ? new ObjectId(id) : id
+    // Saved only over the list this edit was allowed against, so a stale edit
+    // can't undo a change made since, such as its owner making it private.
     const result = await teamByosBindings().updateOne(
       {
-        _id: parseObjectId(team.get('teamId'), 'teamId'),
-        [`${collection}.id`]: typeof id === 'string' ? new ObjectId(id) : id,
-      },
+        _id: teamId,
+        [collection]: {
+          $elemMatch: { id: bindingId, 'access.updatedAt': current?.updatedAt ?? null },
+        },
+      } as Filter<TeamByosBindings>,
       { $set: { [`${collection}.$.access`]: access, updatedAt: access.updatedAt } },
     )
 
-    if (result.matchedCount === 0) {
-      throw new AppError(404, 'binding_not_found', 'This binding was disconnected')
+    if (result.matchedCount > 0) return c.json(accessView(access))
+    if (await teamByosBindings().countDocuments({ _id: teamId, [`${collection}.id`]: bindingId })) {
+      throw new AppError(
+        409,
+        'binding_access_changed',
+        'Who may use this binding changed while this was being saved. Reload and try again.',
+      )
     }
-
-    return c.json(accessView(access))
+    throw new AppError(404, 'binding_not_found', 'This binding was disconnected')
   })
 }

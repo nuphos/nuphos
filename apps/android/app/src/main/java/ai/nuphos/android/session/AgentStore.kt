@@ -280,9 +280,12 @@ class AgentStore(
                     async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
                 }
                 // A failed Bots read keeps the Bots shown and still refreshes the chats.
+                // Bots shared with the viewer too, as Desktop lists them (#3852).
                 val botPage = async {
                     try {
-                        NuphosApi.conversations(token, team.id, limit = 100, search = query, bots = true).rows
+                        listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
+                            async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, bots = true).rows }
+                        }.flatMap { it.await() }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (_: Exception) {
@@ -292,7 +295,11 @@ class AgentStore(
                 chats.flatMap { it.await() } to botPage.await()
             }
             if (!current()) return
-            if (botRows != null) bots = botRows.filter { (it.teamId ?: team.id) == team.id }
+            if (botRows != null) {
+                bots = botRows.filter { (it.teamId ?: team.id) == team.id }.distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }
+                // A shared Bot is in no history here, so its face is learned from the listing.
+                BotFaces.learn(bots)
+            }
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)

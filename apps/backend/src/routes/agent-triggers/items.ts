@@ -8,7 +8,12 @@ import {
 import { getTriggerUsage } from '@/lib/agent/trigger-usage'
 import { CRON_TIME_ZONE, nextCronRuns } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
-import { jsonObjectBody, triggerActor, webhookUrlFor } from '@/routes/agent-triggers/shared'
+import {
+  jsonObjectBody,
+  triggerActor,
+  webhookUrlFor,
+  withClient,
+} from '@/routes/agent-triggers/shared'
 
 import type { TriggerType } from '@/lib/agent/trigger-db'
 import type { AuthVariables } from '@/middleware/auth'
@@ -49,7 +54,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       throw new AppError(400, 'invalid_request', 'targetSessionId is required')
     }
 
-    const actor = await triggerActor(c, body.teamId)
+    const actor = withClient(c, await triggerActor(c, body.teamId))
     const created = await createTrigger(
       {
         targetSessionId: body.targetSessionId,
@@ -93,7 +98,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
   agentTriggersRoutes.patch('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
     const body = await jsonObjectBody(c)
-    const actor = await triggerActor(c, body.teamId ?? c.req.query('teamId'))
+    const actor = withClient(c, await triggerActor(c, body.teamId ?? c.req.query('teamId')))
 
     // A Trigger belongs to the one Task it was created in.
     if (body.targetSessionId !== undefined) {
@@ -122,7 +127,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
   agentTriggersRoutes.delete('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
 
-    await deleteTrigger(triggerId, await triggerActor(c, c.req.query('teamId')))
+    await deleteTrigger(triggerId, withClient(c, await triggerActor(c, c.req.query('teamId'))))
 
     return c.json({ ok: true, deleted: true })
   })

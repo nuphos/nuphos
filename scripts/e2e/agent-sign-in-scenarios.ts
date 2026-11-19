@@ -18,7 +18,7 @@ const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 type AppComputer = { deviceId?: string; connection?: string }
 
 /** Runs `script` against the database; it reads its arguments from process.argv. */
-function inDatabase(mongoUri: string, script: string, ...args: string[]): string {
+export function inDatabase(mongoUri: string, script: string, ...args: string[]): string {
   const run = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
