@@ -85,6 +85,7 @@ export const mcpScenarios: Scenario[] = [
           { ...copy, sessionId: 'mcp-issue-binding', linkedResources: [{ ...linkedResources[0], kind: 'issue' }] },
         ])
         await client.close()`
+
       execFileSync('bun', ['-e', setup, stack.mongoUri, task], {
         cwd: new URL('../../apps/backend', import.meta.url),
         timeout: 10_000,
@@ -97,6 +98,7 @@ export const mcpScenarios: Scenario[] = [
           number: 42,
         },
       )
+
       must(result.isError !== true, `PR lookup to succeed, got ${JSON.stringify(result)}`)
       must(
         JSON.stringify(result.structuredContent?.sessions.map((session) => session.session_id)) ===
