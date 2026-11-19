@@ -6,6 +6,7 @@ import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 const LAPTOP = 'E2E laptop'
 
@@ -117,6 +118,17 @@ function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
   else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
 }
 
+// A new task starts on the runtime the last message went to. Sending one on the fixture agent
+// keeps the scenarios after these off the laptop, which has gone offline by then.
+async function backOnFixture(page: Page, marker: string) {
+  await newTask(page)
+  await page.getByRole('button', { name: /^Runtime:/ }).click()
+  await page.getByRole('menu').getByText('E2E fixture agent').click()
+  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
+  await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
+  await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
+}
+
 export const offlineScenarios: Scenario[] = [
   {
     // #3167: the banner said the computer was offline and offered only Retry.
@@ -212,6 +224,7 @@ export const offlineScenarios: Scenario[] = [
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
+        await backOnFixture(page, 'after-outdated')
       } finally {
         goOffline()
       }
@@ -242,6 +255,7 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
+        await backOnFixture(page, 'after-behind')
       } finally {
         goOffline()
       }
