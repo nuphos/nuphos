@@ -31,8 +31,7 @@ struct PlanCard: View {
             }
         }
         .padding(14)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
+        .raisedCard()
         .task(id: planId) { await poll() }
         .alert("Request changes", isPresented: $showRevise) {
             TextField("What should change?", text: $reviseReason)
@@ -149,7 +148,7 @@ struct PlanCard: View {
                 error = nil
                 guard p.isActive else { return }
             } catch {
-                if plan == nil { self.error = error.localizedDescription }
+                if plan == nil, !Task.isCancelled { self.error = error.localizedDescription }
             }
             try? await Task.sleep(for: .milliseconds(1500))
         }

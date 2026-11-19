@@ -232,6 +232,7 @@ export async function persistAcceptedConversationTurn(args: {
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
+  parentSessionId?: string
 }): Promise<{ isNew: boolean } | null> {
   const transcriptMessages = uiMessagesToTranscript(args.messages)
 
@@ -254,6 +255,7 @@ export async function persistAcceptedConversationTurn(args: {
     agentRuntime: args.agentRuntime,
     runtimeId: args.runtimeId,
     runtimeLabel: args.runtimeLabel,
+    parentSessionId: args.parentSessionId,
   })
 }
 

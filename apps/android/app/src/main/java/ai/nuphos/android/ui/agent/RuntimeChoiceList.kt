@@ -44,7 +44,7 @@ internal fun RuntimeChoiceList(
                         modifier = Modifier.semantics { stateDescription = groupState }) {
                         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box == true || group.key.startsWith("runtime:")) Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null)
+                            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box != null || group.key.startsWith("runtime:")) Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(if (group.key == "cloud") stringResource(R.string.agent_cloud) else group.title, style = MaterialTheme.typography.titleMedium)
                                 val count = pluralStringResource(R.plurals.agent_runtime_count, group.runtimes.size, group.runtimes.size)

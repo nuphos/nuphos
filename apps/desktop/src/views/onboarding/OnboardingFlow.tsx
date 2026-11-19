@@ -135,7 +135,11 @@ export function OnboardingFlow({
 
   if (setupTeamId)
     return (
-      <AgentSetupFlow workspaceCreated={workspaceCreated} onFinish={() => onFinish(setupTeamId)} />
+      <AgentSetupFlow
+        teamId={setupTeamId}
+        workspaceCreated={workspaceCreated}
+        onFinish={() => onFinish(setupTeamId)}
+      />
     )
 
   return (

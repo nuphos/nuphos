@@ -2,9 +2,14 @@ import { t } from '../../i18n/index.ts'
 
 import type { BoxUsage } from '../../api/device-types'
 
+/** The cloud computer, as an option next to a computer of your own. */
+export const CLOUD_COMPUTER_DESCRIPTION = t(
+  'Nuphos runs it for you, with Claude Code, Codex, OpenCode and more.',
+)
+
 /** What New computer says it makes. */
 export const NEW_BOX_DESCRIPTION = t(
-  "A Linux machine in the cloud with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not.",
+  "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.",
 )
 
 /** The name the backend gives an unnamed Box: "Computer N", after the highest the caller has. */

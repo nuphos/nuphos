@@ -45,7 +45,7 @@ export function BoxAccessDialog({
       open
       onClose={onClose}
       title={t('Who can use {name}', { name: device.label })}
-      description={t('People who lose access have their open agents on this computer closed.')}
+      description={t('People who lose access have their open tasks on this computer closed.')}
       width={560}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
