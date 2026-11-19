@@ -94,8 +94,8 @@ export const settingsHistoryScenarios: Scenario[] = [
         await line(page, /\(a Task\)\s*changed the model .*to\s*fixture-small/).waitFor()
 
         // The person picks a model only this agent offers and the highest effort, in one go.
+        // The chip opens on the model list, with effort pinned below it.
         await openChip(page)
-        await page.getByRole('button', { name: 'Select model' }).click()
         await page.getByRole('menuitemcheckbox', { name: 'fixture-large', exact: true }).click()
         await page.keyboard.press('Escape')
         await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
