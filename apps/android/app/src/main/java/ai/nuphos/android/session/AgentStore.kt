@@ -16,6 +16,7 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.Words
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.botsList
 import ai.nuphos.android.model.ConversationScope
@@ -79,6 +80,21 @@ class AgentStore(
     fun historyObservation(row: AgentConversation): HistoryStatus.Observation? {
         historyRevision
         return historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
+    }
+    enum class TaskState { Waiting, Running, Idle }
+    /** What a Task is doing: its runtime's word while seen lately, the run its row reported otherwise. */
+    fun taskState(row: AgentConversation, now: Double = RuntimeObservation.now()): TaskState {
+        if (row.isWaiting) return TaskState.Waiting
+        val observed = historyObservation(row)?.takeIf { it.runtime.fresh(now) }
+        val running = if (observed != null) observed.label(now) == Words(R.string.convtext_status_running)
+            else row.activeRun != null && row.activeRun != JsonValue.Null
+        return if (running) TaskState.Running else TaskState.Idle
+    }
+    /** The Tasks a session dispatched: waiting, then running, then idle, newest first within each. */
+    fun tasks(under: String, teamId: String): List<AgentConversation> {
+        val now = RuntimeObservation.now()
+        return conversations.filter { it.parentSessionId == under && (it.teamId == null || it.teamId == teamId) }
+            .sortedWith(compareBy<AgentConversation> { taskState(it, now).ordinal }.thenByDescending { it.lastActiveAt })
     }
     suspend fun markRead(teamId: String, sessionId: String, seq: Long) = ConversationReadApi.mark(token, teamId, sessionId, seq)
     fun applyRead(teamId: String, sessionId: String, seq: Long, state: ConversationReadApi.State) {
