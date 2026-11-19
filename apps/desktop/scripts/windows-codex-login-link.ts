@@ -31,7 +31,7 @@ const linkModule = (await import(
 }
 const link = linkModule.linkOwnerFile ?? linkModule.hardLinkFrom
 // The npm-installed codex.cmd, by its full path.
-const codex = `"${process.env.CODEX_BIN ?? ''}" -c cli_auth_credentials_store="file"`
+const codex = `"${process.env.CODEX_BIN ?? ''}" -c cli_auth_credentials_store=file`
 
 assert.ok(link, `no link function in ${String(process.env.LINK_MODULE)}`)
 const expectShared = process.env.EXPECT === 'shared'
@@ -41,7 +41,7 @@ function codexLogin(home: string, key: string) {
   execSync(`${codex} login --with-api-key`, {
     env: { ...process.env, CODEX_HOME: home },
     input: key,
-    stdio: ['pipe', 'ignore', 'ignore'],
+    stdio: ['pipe', 'ignore', 'inherit'],
   })
 }
 
