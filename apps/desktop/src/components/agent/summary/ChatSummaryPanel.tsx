@@ -161,9 +161,13 @@ function BotInstructionsSection({ conversation }: { conversation?: AgentConversa
   )
 }
 
-/** Esc inside the panel closes it and hands focus back to the toggle that opened it. */
+/**
+ * Esc inside the panel closes it and hands focus back to the toggle that opened it. A dialog it
+ * opened sits in a portal: its Esc bubbles here through React, but closes only the dialog.
+ */
 function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: () => void) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
+  if (!event.currentTarget.contains(event.target as Node)) return
   event.preventDefault()
   close()
   root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
