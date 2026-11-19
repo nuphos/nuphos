@@ -124,7 +124,9 @@ export const botOnboardingScenarios: Scenario[] = [
       writeFileSync(hold, '')
       try {
         await page.getByRole('tab', { name: /^Bots/ }).click()
-        await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+        // A Bot already exists here, so New Bot sits in the + menu.
+        await page.getByRole('button', { name: 'New', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'New Bot', exact: true }).click()
         await page.getByRole('textbox', { name: 'Bot name' }).fill('Verify Helper')
         await page.getByRole('button', { name: 'Create', exact: true }).click()
         const line = page.getByText(
