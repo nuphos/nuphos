@@ -168,7 +168,12 @@ export async function refreshSessionResource(
   conversation: AgentConversation,
   resource: SessionResource,
 ) {
-  const fresh = await resolveResource(conversation, conversation.userId, lookupInput(resource))
+  const fresh = await resolveResource(
+    conversation,
+    conversation.userId,
+    lookupInput(resource),
+    resource,
+  )
 
   return writeFreshResource(conversation.sessionId, resource, fresh)
 }

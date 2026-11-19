@@ -21,7 +21,6 @@ import {
   resourceStatus,
 } from './sessionResourcePresentation.ts'
 
-
 import type { SessionResource } from '../../api/session-resource-types'
 
 const resource = (overrides: Partial<SessionResource>): SessionResource => ({
