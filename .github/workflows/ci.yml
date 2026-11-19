@@ -449,7 +449,10 @@ jobs:
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
     runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    timeout-minutes: 40
+    # About 35 minutes with openab from the cache. A change to prepare.mjs or the
+    # openab source misses that cache until it lands on main, here and in the merge
+    # group, and compiling openab adds about 6 minutes.
+    timeout-minutes: 50
     permissions:
       contents: read
       attestations: read
