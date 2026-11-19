@@ -15,11 +15,12 @@ function isSecretKey(key: string): boolean {
 }
 
 // An identifier is what ties a log line to a request; the entropy sweep would
-// hide a base64 one such as S3's x-amz-id-2. The contents of a field named
-// `*_id` / `*Id` are therefore NOT scanned: never log user-controlled text or a
+// hide a base64 one such as S3's x-amz-id-2, and a request `path` whose ids run
+// together across its slashes. The contents of a field named `*_id` / `*Id` or
+// `path` are therefore NOT scanned: never log user-controlled text or a
 // credential under such a name. (A secret-looking name still wins: isSecretKey
 // runs first, so `auth_token_id` is masked whole.)
-const ID_KEY = /(?:^|[_-])id$|[a-z]Id$/
+const ID_KEY = /(?:^|[_-])id$|[a-z]Id$|^path$/
 
 // Only the head of a string survives truncation, so only the head is scanned;
 // the margin lets a token that crosses the cut be seen whole.

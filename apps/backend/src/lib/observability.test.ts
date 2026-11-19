@@ -207,3 +207,14 @@ describe('long log strings', () => {
     expect(String(line.error)).toEndWith('...')
   })
 })
+
+describe('request paths', () => {
+  test('a path made of ids stays readable, so a log line still names its route', () => {
+    const path = '/agent/conversations/fd843d8c-98f7-4290-b155-bd014bb2315c'
+    const line = captureError(() => {
+      logEvent('error', 'http.request', { path, status: 404 })
+    })
+
+    expect(line.path).toBe(path)
+  })
+})
