@@ -284,14 +284,16 @@ fun HomeRoute(
                         if (membershipsLoading) SplashScreen()
                         // A link or notification can name a chat: it opens as a chat, never as an agent.
                         else if (!fresh && agentStore.channel(id) != null)
-                            ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
-                        else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack("home", false) }, nav = nav,
+                            ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                                onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
+                        else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack() }, nav = nav,
                             newChat = wide)
                     }
                     composable("channel/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
                         if (membershipsLoading) SplashScreen()
-                        else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
+                        else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
                     }
                     composable("plan/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()

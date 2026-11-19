@@ -477,6 +477,8 @@ class ChatSession(
     /** A chat posts through its own route; this session never sends to `/agent/chat` for it. */
     var isChannel by mutableStateOf(false)
         private set
+    var isBot by mutableStateOf(false)
+        private set
     private fun markChannel() {
         isChannel = true
         readOnly = true
@@ -921,6 +923,7 @@ class ChatSession(
     }
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
+        isBot = detail.avatar != null && !detail.isChannel
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }

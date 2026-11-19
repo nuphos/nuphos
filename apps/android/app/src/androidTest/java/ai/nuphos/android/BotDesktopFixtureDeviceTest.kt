@@ -6,6 +6,10 @@ import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -44,6 +48,9 @@ class BotDesktopFixtureDeviceTest {
     private lateinit var tokens: TokenStore
     private lateinit var original: OkHttpClient
     private var savedAccess: Any? = null
+    private var historicalPosts = false
+    @Volatile private var denyBotTask = false
+    private val botReads = java.util.concurrent.atomic.AtomicInteger()
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
 
@@ -59,12 +66,15 @@ class BotDesktopFixtureDeviceTest {
     private fun chat(id: String, bot: Bot): String {
         fun post(n: String, sender: String, text: String, at: String) =
             """{"id":"$n","role":"user","metadata":{"version":1,"sender":$sender,"sentAt":"$at"${if (n == "a") ""","sourceSessionId":"${bot.id}"""" else ""}},"parts":[{"type":"text","text":"$text"}]}"""
-        val posts = listOf(
+        val posts = (if (historicalPosts) (0..39).map { index ->
+            post("history-$index", """{"type":"user","id":"viewer","displayName":"Preview User"}""",
+                "Historical post $index. A retained conversation position should survive opening the Bot Task.", "2026-11-08T09:38:00Z")
+        } else emptyList()) + listOf(
             post("u", """{"type":"user","id":"viewer","displayName":"Preview User"}""", bot.asked, "2026-11-08T09:38:00Z"),
             post("a", """{"type":"agent","id":"${bot.id}","displayName":"${bot.title}"}""", bot.answer, "2026-11-08T09:39:00Z"),
-        ).joinToString(",")
+        )
         return """{"sessionId":"$id","kind":"channel","title":"${bot.title}","isOwner":true,"transcriptUpdatedAt":"t","messageCount":2,"activitySeq":2,"readSeq":2,
-            "faces":[{"id":"${bot.id}","name":"${bot.title}","agent":{"avatar":"${bot.avatar}"}}],"messages":[$posts]}"""
+            "faces":[{"id":"${bot.id}","name":"${bot.title}","agent":{"avatar":"${bot.avatar}"}}],"messages":[${posts.joinToString(",")}]}"""
     }
     private fun bot(bot: Bot): String {
         val desktop = if (bot.desktop) ""","canOpenDesktop":true""" else ""
@@ -84,11 +94,16 @@ class BotDesktopFixtureDeviceTest {
             val path = request.url.encodedPath
             val chatId = bots.keys.firstOrNull { path.endsWith("/agent/conversations/$it") }
             val ofBot = bots.values.firstOrNull { path.endsWith("/agent/conversations/${it.id}") }
+            if (ofBot != null) {
+                botReads.incrementAndGet()
+                if (denyBotTask) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                    .code(403).message("fixture").body("""{"error":{"message":"Session access denied"}}""".toResponseBody(Http.jsonMedia)).build()
+            }
             val body = when {
                 chatId != null -> chat(chatId, bots.getValue(chatId))
                 ofBot != null -> bot(ofBot)
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
-                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"viewer"}]}""" }
+                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
@@ -129,17 +144,71 @@ class BotDesktopFixtureDeviceTest {
         Http::class.java.getDeclaredField("client").also { it.isAccessible = true }.set(null, original)
     }
 
-    private fun render(chatId: String) {
+    private fun render(chatId: String, taskNavigation: Boolean = false) {
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen(chatId, onBack = { fail("The chat closed itself") })
+                    if (!taskNavigation) ChannelScreen(chatId, onBack = { fail("The chat closed itself") })
+                    else {
+                        val nav = rememberNavController()
+                        NavHost(nav, startDestination = "chat") {
+                            composable("chat") {
+                                ChannelScreen(chatId, onBack = { fail("The retained chat closed itself") },
+                                    onOpenTask = { id -> nav.navigate("task/$id") })
+                            }
+                            composable("task/{id}") { entry ->
+                                ai.nuphos.android.ui.chat.ConversationScreen(entry.arguments!!.getString("id")!!,
+                                    fresh = false, onBack = { nav.popBackStack() }, nav = nav)
+                            }
+                        }
+                    }
                 }
             }
         }
         compose.waitUntil(5_000) { compose.onAllNodesWithText(bots.getValue(chatId).answer).fetchSemanticsNodes().isNotEmpty() }
     }
     private val button = hasContentDescription("Desktop") and hasClickAction()
+
+    @Test fun channelMembershipDoesNotExposePrivateBotTask() {
+        denyBotTask = true
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(5_000) { botReads.get() > 0 && store.session("bot-plain", "Release notes")?.loadError != null }
+        compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
+        compose.onNodeWithTag("channel-transcript").assertExists()
+    }
+
+    @Test fun botTaskReturnsToOriginalChatScrollAndDraft() {
+        historicalPosts = true
+        val app = inst.targetContext.applicationContext as NuphosApplication
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(auth.user!!.id) }
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(8_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNode(hasSetTextAction()).performTextInput("Retained Bot draft")
+        androidx.test.espresso.Espresso.closeSoftKeyboard()
+        compose.onNodeWithTag("channel-transcript").performScrollToIndex(12)
+        compose.waitForIdle()
+        fun position() = compose.onNodeWithTag("channel-transcript").fetchSemanticsNode()
+            .config[SemanticsProperties.VerticalScrollAxisRange].value()
+        val before = position()
+        assertTrue(before > 5)
+        capture("5-bot-task-entry")
+        compose.onNodeWithTag("bot-task-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
+        capture("6-bot-own-task")
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_task_actions)).performClick()
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_share)).assertDoesNotExist()
+        // This deep-link fixture did not load the Bots catalog: archive stays disabled rather than using the Task endpoint.
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_menu_archive)).assertIsNotEnabled()
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        assertEquals(before, position(), 0.05f)
+        compose.onNode(hasSetTextAction()).assertTextContains("Retained Bot draft")
+        capture("7-task-return-scroll-and-draft")
+    }
 
     @Test fun aBotWithoutADesktopHasNoButton() {
         render("chat-plain")
