@@ -5,6 +5,7 @@ import android.content.ContextWrapper
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -96,8 +97,22 @@ class BotPresenceLiveDeviceTest {
         Http::class.java.getDeclaredField("client").also { it.isAccessible = true }.set(null, original)
     }
 
+    /**
+     * Coil decodes the SVG faces off the main thread, so an idle composition can still have none drawn.
+     * Wait until each avatar's top-left quarter, where the face sits clear of the runtime badge, has ink.
+     */
+    private fun waitForFaces() = compose.waitUntil(10_000) {
+        val avatars = compose.onAllNodesWithTag("agent-identity-avatar", useUnmergedTree = true)
+        avatars.fetchSemanticsNodes().indices.all { i ->
+            val image = avatars[i].captureToImage().asAndroidBitmap()
+            val blank = image.getPixel(0, 0)
+            (0 until image.width / 2).any { x -> (0 until image.height / 2).any { y -> image.getPixel(x, y) != blank } }
+        }
+    }
+
     private fun shoot(name: String) {
         compose.waitForIdle()
+        waitForFaces()
         val dir = inst.targetContext.getExternalFilesDir("presence")!!
         java.io.File(dir, "$name-${if (dark) "dark" else "light"}.png").outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
