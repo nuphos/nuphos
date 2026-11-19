@@ -36,7 +36,7 @@ jobs:
           node-version: 24
       - name: Install Codex
         run: |
-          npm install -g @openai/codex
+          npm install -g @openai/codex@0.170.0
           echo "CODEX_BIN=$(npm prefix -g)\\codex.cmd" >> "$GITHUB_ENV"
           "$(npm prefix -g)/codex.cmd" --version
       # Real Codex saves each login by renaming a new auth.json over the old one (#2653).
