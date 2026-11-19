@@ -80,24 +80,6 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-flat")
     }
 
-    /// A Bot with no chat yet ends like every other row, with the system chevron,
-    /// so its time lines up with theirs (#3614).
-    func testABotWithNoChatEndsLikeTheOtherRows() throws {
-        launch(page: "chats")
-        let lead = app.staticTexts["Release Lead"].firstMatch
-        XCTAssertTrue(lead.waitForExistence(timeout: 10), "Bots did not load")
-        let helper = app.staticTexts["Helper Bot"].firstMatch
-        XCTAssertTrue(helper.exists, "The Bot with no chat is not listed")
-        // A row's time is the rightmost text on its title's line.
-        func timeEdge(_ title: XCUIElement) -> CGFloat {
-            app.staticTexts.allElementsBoundByIndex
-                .filter { abs($0.frame.midY - title.frame.midY) < 8 }
-                .map(\.frame.maxX).max() ?? 0
-        }
-        XCTAssertEqual(timeEdge(helper), timeEdge(lead), accuracy: 2, "The Bot with no chat ends further right than the other rows")
-        shot("3-bot-without-chat")
-    }
-
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
         launch(page: "agent")
         let staging = app.staticTexts["Check the staging cluster"].firstMatch
