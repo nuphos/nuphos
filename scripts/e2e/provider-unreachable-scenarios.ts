@@ -43,4 +43,23 @@ export const providerUnreachableScenarios: Scenario[] = [
       if (raw > 0) throw new Error(`The chat shows the raw error ${raw} times`)
     },
   },
+  {
+    // A Bot's chat, where a Bot's first and later turns fail (Bot onboarding, 2026-11-19): the
+    // line says what to do, not "couldn't reply." alone, and never the raw spawn error.
+    name: 'a Bot whose Codex install is missing its binary says in its chat to install it again',
+    expected: /Codex process has exited with code 1:.*spawn \/Users\/e2e\/[^"]*ENOENT/,
+    run: async (page) => {
+      await page.getByRole('tab', { name: /^Bots/ }).click()
+      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Broken Codex')
+      await page.getByRole('button', { name: 'Create', exact: true }).click()
+      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await send(page, 'Start Codex E2E_CODEX_BROKEN E2E_DELIVERY:bot-codex-broken')
+      await page.getByText(`couldn’t reply: ${REINSTALL}`).first().waitFor()
+      await page.screenshot({ path: `${artifacts}/bot-codex-broken.png` })
+      const raw = await page.getByText(/ENOENT|codex-darwin-arm64|process has exited/).count()
+
+      if (raw > 0) throw new Error(`The Bot chat shows the raw error ${raw} times`)
+    },
+  },
 ]
