@@ -99,24 +99,32 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("3-tasks")
     }
 
-    /// Someone else in a teammate's Task archives it for themselves from its row; a reader cannot (#3686).
-    func testTeammatesTaskIsArchivedFromItsRowByWhoeverIsInIt() throws {
-        launch(page: "agent")
-        let offsite = app.staticTexts["Plan the offsite"].firstMatch
-        XCTAssertTrue(offsite.waitForExistence(timeout: 10), "Tasks did not load")
-        // Its menu, not a swipe: a row with no swipe actions hands the swipe to the pages.
-        offsite.press(forDuration: 1.2)
-        XCTAssertTrue(app.buttons["Watch"].waitForExistence(timeout: 5), "Its menu did not open")
-        XCTAssertFalse(app.buttons["Archive"].exists, "A Task I only read offers Archive")
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
-        let review = app.staticTexts["Review the migration"].firstMatch
-        review.swipeLeft()
+    /// Someone else in a teammate's Task archives it for themselves from its row (#3686): by a swipe…
+    func testTeammatesTaskIsArchivedFromItsSwipe() throws {
+        teammatesTask("Review the migration").swipeLeft()
         XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "A Task I take part in offers no Archive")
         shot("4-teammates-task-swipe")
-        review.swipeRight()
-        review.press(forDuration: 1.2)
+    }
+
+    /// …or from its menu.
+    func testTeammatesTaskIsArchivedFromItsMenu() throws {
+        teammatesTask("Review the migration").press(forDuration: 1.2)
         XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "Its menu offers no Archive")
         shot("5-teammates-task-menu")
+    }
+
+    /// A teammate's Task I only read is not mine to archive. Its menu, as it has no swipe actions.
+    func testTeammatesTaskIOnlyReadOffersNoArchive() throws {
+        teammatesTask("Plan the offsite").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Watch"].waitForExistence(timeout: 5), "Its menu did not open")
+        XCTAssertFalse(app.buttons["Archive"].exists, "A Task I only read offers Archive")
+    }
+
+    private func teammatesTask(_ title: String) -> XCUIElement {
+        launch(page: "agent")
+        let row = app.staticTexts[title].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Tasks did not load")
+        return row
     }
 
     /// What the Inbox opens, as a notification does, lands over the list that has it (#2964): Tasks
