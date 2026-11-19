@@ -5783,6 +5783,7 @@
   "{name} is now available in {team}.": "{name} sekarang tersedia di {team}.",
   "{name} is now signed in.": "{name} sekarang sudah masuk.",
   "{name} is online and listed under Computers.": "{name} sudah online dan tercantum di Komputer.",
+  "{name} is online. Removing it disconnects it now, stops tasks running on it and removes it and its runtimes from Nuphos. Opening Nuphos on it later registers it again. Your task history stays in Nuphos.": "{name} sedang online. Menghapusnya akan memutus koneksinya sekarang, menghentikan tugas yang berjalan di dalamnya, serta menghapusnya beserta runtime-nya dari Nuphos. Membuka Nuphos di komputer itu nanti akan mendaftarkannya lagi. Riwayat tugasmu tetap ada di Nuphos.",
   "{name} is ready.": "{name} sudah siap.",
   "{name} is signed out.": "{name} belum masuk.",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} belum masuk. Minta administrator workspace untuk menghubungkan ulang runtime ini.",
