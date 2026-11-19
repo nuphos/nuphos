@@ -49,7 +49,8 @@ async function shootSettings(page: Page, file: string) {
     .getByRole('button', { name: /^Open Slack/ })
     .first()
     .click()
-  const channels = page.getByText('Connected channels', { exact: true })
+  // Not exact: once loaded, the heading also holds the channel count.
+  const channels = page.getByText('Connected channels').first()
 
   await channels.waitFor()
   await page.getByText('Mei Bot', { exact: true }).first().waitFor()
