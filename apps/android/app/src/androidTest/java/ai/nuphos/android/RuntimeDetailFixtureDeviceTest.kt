@@ -56,7 +56,11 @@ class RuntimeDetailFixtureDeviceTest {
             NuphosTheme(darkTheme = dark) {
                 Surface {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
-                        RuntimeDetailPage(detail, RuntimeQuota(item.id, true, windows = listOf(RuntimeQuota.Window("5h", 24.0, null))), {}, { signIns++ })
+                        RuntimeDetailPage(detail, RuntimeQuota(item.id, true, windows = listOf(
+                            // #3732: under a day and over one, so both forms of "resets in" show.
+                            RuntimeQuota.Window("5h", 24.0, java.time.Instant.now().plusSeconds((3 * 60 + 20) * 60L - 30).toString()),
+                            RuntimeQuota.Window("Weekly", 10.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString()),
+                        )), {}, { signIns++ })
                     }
                 }
             }
@@ -67,12 +71,16 @@ class RuntimeDetailFixtureDeviceTest {
         compose.waitForIdle()
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         android.os.SystemClock.sleep(500) // Let the platform dialog transition finish before capturing.
-        val dir = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
-        File(dir, name).outputStream().use { InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, name).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun lightDetailAndDestructiveConfirmation() {
         render(false)
         compose.onNodeWithText("5h: 76% left").assertExists()
+        compose.onNodeWithText("resets in 3h 20m").assertExists()
+        compose.onNodeWithText("resets in 2d 5h").assertExists()
         capture("agent-detail-light.png")
         click("Remove runtime"); assertEquals(0, removals)
         compose.onNodeWithText("Remove Design workspace?").assertExists()
