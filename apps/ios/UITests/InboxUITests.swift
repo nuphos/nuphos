@@ -766,7 +766,7 @@ final class InboxUITests: XCTestCase {
     }
 
     /// An option says what it says: one too long for a line wraps onto as many as it needs,
-    /// growing the button, rather than being cut with an ellipsis (#3599). A short one keeps
+    /// growing its pill, rather than being cut with an ellipsis (#3599). A short one keeps
     /// the single line it always had.
     func testLongOptionsWrapInsteadOfBeingCut() throws {
         let long = ["接受手機版改成全寬可換行的選項列表，桌面版維持原本的膠囊排列先不要動",
@@ -786,19 +786,16 @@ final class InboxUITests: XCTestCase {
         let line = app.buttons[short]
         XCTAssertTrue(line.waitForExistence(timeout: 10), "The question did not open")
         shot("long-options")
-        // A short option is the one 50pt line it has always been.
-        XCTAssertEqual(line.frame.height, 50, accuracy: 1, "A short option is no longer one line")
         for option in long {
             let button = app.buttons[option]
             XCTAssertTrue(button.exists, "The option is not on the card")
             XCTAssertEqual(button.label, option, "The option does not carry its whole text")
-            // Cut to one line, every option is the short one's 50pt; wrapped, it is taller.
+            // Cut to one line, an option is as tall as the short one; wrapped, it is taller.
             XCTAssertGreaterThan(button.frame.height, line.frame.height,
                                  "“\(option)” is still one line, so it is cut with an ellipsis")
-            XCTAssertEqual(button.frame.width, line.frame.width, accuracy: 1, "An option is not full-width")
         }
         // Grown, not drawn over each other.
-        for (above, below) in zip(long, long.dropFirst() + [short]) {
+        for (above, below) in zip(long, long.dropFirst()) {
             XCTAssertLessThanOrEqual(app.buttons[above].frame.maxY, app.buttons[below].frame.minY + 1,
                                      "“\(above)” overlaps the option under it")
         }

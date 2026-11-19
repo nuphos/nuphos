@@ -186,9 +186,6 @@ struct InboxQuestionView: View {
 }
 
 /// An action as a capsule, as a connect question's: dark when `primary`, light otherwise.
-/// An option says what the agent wrote, often a whole sentence, so one too long for a line wraps
-/// onto as many as it needs and the capsule grows with it, as the Desktop card's options do. Its
-/// corners stay `height / 2`, which is the capsule it has always been while the title fits one line.
 struct InboxOption: View {
     let title: String
     let primary: Bool
@@ -197,19 +194,16 @@ struct InboxOption: View {
     var fill = false
     let action: () -> Void
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: height / 2) }
-
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: size, weight: .semibold))
-                .multilineTextAlignment(.center)
+                .lineLimit(1)
                 .foregroundStyle(primary ? Theme.chatCanvas : Theme.heading)
                 .padding(.horizontal, 20)
-                .padding(.vertical, 10)
                 .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
-                .background(primary ? Theme.heading : Theme.control, in: shape)
-                .contentShape(shape)
+                .background(primary ? Theme.heading : Theme.control, in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
