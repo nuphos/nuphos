@@ -252,12 +252,10 @@ const sessionCount = (n: number) =>
 /** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, up to 8 Large, more Extra large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
   return sizes.map(({ vcpus, memMiB }) => {
-    // 0 Small, 1 Medium, 2 Large, 3 Extra large; also how many slabs its glyph fills, less one.
     const tier = SIZE_TIERS.findIndex((size) => vcpus <= size.upTo)
 
     return {
       vcpus,
-      tier,
       name: SIZE_TIERS[tier].name,
       spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
       use: SIZE_TIERS[tier].use,
