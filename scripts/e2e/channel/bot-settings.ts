@@ -1,6 +1,7 @@
 // #3298: the Bot chat's composer edits the Bot's own permission mode and model. The E2E Bot's
 // setup finished in a scenario before; this one opens the Bot's chat itself.
 import { artifacts } from '../processes.ts'
+import { openBotTask, setBotDetails } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
 import type { Page } from 'playwright-core'
@@ -54,7 +55,7 @@ const scenario: Scenario = {
     // From the chat: the Bot's page shows what was picked there.
     await setComposerSettings(page, true, 'fixture-large')
     // Its setup has finished, so the Bot's page opens from the chat.
-    await page.getByRole('button', { name: 'Task', exact: true }).click()
+    await openBotTask(page)
     await page.getByText('Back to conversation').waitFor()
     await composer(page)
       .getByRole('button', { name: /^Model settings: fixture-large/ })
@@ -66,6 +67,7 @@ const scenario: Scenario = {
     await setComposerSettings(page, false, 'fixture-small')
     await page.getByText('Back to conversation').click()
     await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+    await setBotDetails(page, false)
     await composer(page)
       .getByRole('button', { name: /^Model settings: fixture-small/ })
       .waitFor()
