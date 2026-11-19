@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { LocalBrowserStream } from './browser-stream.ts'
-import { Cdp, launchChromium } from './cli-chromium.ts'
+import { Cdp, helperPage, launchChromium } from './cli-chromium.ts'
 import { failed } from './cua-host.ts'
 
 import type { RecordedTab } from './browser-recording.ts'
@@ -205,7 +205,7 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
       return text(`Closed tab ${String(tab.id)}.`)
     }
     if (call.action === 'record_start') {
-      await startRecording(tab)
+      await startRecording(tab, call.video ? () => helperPage(cdp) : undefined)
 
       return text(`Recording tab ${String(tab.id)}. Use the page, then call record_stop.`)
     }

@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
+import type { Helper } from './browser-video.ts'
 import type { Readable, Writable } from 'node:stream'
 
 /** The browser's ends of its debugging pipe, and its lifetime. */
@@ -105,5 +106,32 @@ export function launchChromium(executable: string, profile: string): Browser {
       child.once('exit', () => resolve())
       child.once('error', () => resolve())
     }),
+  }
+}
+
+/** A blank page in a window of its own, so the tab it records stays in front (browser-video.ts). */
+export async function helperPage(cdp: Cdp): Promise<Helper> {
+  const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
+    url: 'about:blank',
+    newWindow: true,
+  })
+  const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', {
+    targetId,
+    flatten: true,
+  })
+
+  return {
+    evaluate: async (expression) => {
+      const { result, exceptionDetails } = await cdp.send<{
+        result: { value?: unknown }
+        exceptionDetails?: { text: string; exception?: { description?: string } }
+      }>('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
+
+      if (exceptionDetails)
+        throw new Error(exceptionDetails.exception?.description ?? exceptionDetails.text)
+
+      return result.value
+    },
+    close: () => void cdp.send('Target.closeTarget', { targetId }).catch(() => {}),
   }
 }
