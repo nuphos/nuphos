@@ -70,9 +70,9 @@ export const leaveTaskScenarios: Scenario[] = [
     run: async (page, stack) => {
       const teammate = await joinTeam(stack, 'task-owner')
       const myId = await me(stack)
-      const goOffline = await laptopOnline(stack, teammate.token, LAPTOP)
       // On the teammate's computer, which I may use.
       const usable = await sharedTask(stack, teammate.token, TASK)
+      const goOffline = await laptopOnline(stack, teammate.token, LAPTOP)
       const rejoin = randomUUID()
 
       try {
@@ -129,6 +129,14 @@ export const leaveTaskScenarios: Scenario[] = [
           `/agent/conversations/${usable}/queue/${rejoin}?teamId=${stack.teamId}`,
         ).catch((error: unknown) => {
           console.warn(`Could not take back my waiting message: ${String(error)}`)
+        })
+        // Shared, it would be another computer for me in later scenarios.
+        await rest(stack, teammate.token)(
+          'PUT',
+          `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
+          { level: 'off', everyone: false, userIds: [] },
+        ).catch((error: unknown) => {
+          console.warn(`Could not unshare the laptop: ${String(error)}`)
         })
       }
       // Nothing of mine is left waiting: dropped later, it would note so in the Task and move its
