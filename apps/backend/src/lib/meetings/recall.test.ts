@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 
-import { createMeetingBot, leaveMeeting } from './recall'
+import { createMeetingBot, leaveMeeting, meetingBotStatus } from './recall'
 
 const realFetch = globalThis.fetch
 const realMeetings = { ...config.meetings }
@@ -135,5 +135,23 @@ describe('a refused request logs meeting_bot.failed', () => {
     answer(400, { code: 'cannot_command_unstarted_bot', detail: 'Cannot send a command…' })
     await leaveMeeting('bot')
     expect(warnings.lines()).toEqual([])
+  })
+})
+
+describe('meetingBotStatus', () => {
+  test('a bot is in its call once Recall gave it any in_call status', async () => {
+    answer(200, {
+      status_changes: [
+        { code: 'joining_call', sub_code: null },
+        { code: 'in_call_recording', sub_code: null },
+        { code: 'call_ended', sub_code: 'timeout_exceeded_everyone_left' },
+      ],
+    })
+    await expect(meetingBotStatus('bot')).resolves.toMatchObject({ joined: true })
+    answer(200, { status_changes: [{ code: 'in_waiting_room', sub_code: null }] })
+    await expect(meetingBotStatus('bot')).resolves.toEqual({
+      joined: false,
+      last: { code: 'in_waiting_room', sub_code: null },
+    })
   })
 })

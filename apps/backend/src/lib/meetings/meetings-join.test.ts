@@ -26,6 +26,7 @@ useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 const created = spyOn(recall, 'createMeetingBot')
 const left = spyOn(recall, 'leaveMeeting')
 const typed = spyOn(recall, 'sendMeetingChat')
+const status = spyOn(recall, 'meetingBotStatus')
 const thread = spyOn(threads, 'createAgentThread')
 const turn = spyOn(turns, 'startConversationTurn')
 const configured = spyOn(recall, 'recallConfig').mockReturnValue({
@@ -37,7 +38,7 @@ const actor = (sessionId: string) => ({ userId: 'owner', teamId: 'team', session
 
 beforeEach(() => {
   memory = portabilityDb()
-  for (const spy of [created, left, typed, thread, turn]) spy.mockReset()
+  for (const spy of [created, left, typed, status, thread, turn]) spy.mockReset()
   created.mockResolvedValue('recall-bot')
   left.mockResolvedValue()
   typed.mockResolvedValue()
@@ -80,7 +81,8 @@ beforeEach(() => {
 })
 // Other files in the run use the real ones.
 afterAll(() => {
-  for (const spy of [created, left, typed, thread, turn, configured, member]) spy.mockRestore()
+  for (const spy of [created, left, typed, status, thread, turn, configured, member])
+    spy.mockRestore()
 })
 
 const conversation = async (sessionId: string) =>
@@ -233,45 +235,52 @@ test('a bot Recall gives up on logs meeting_bot.failed, even without a Task', as
 
 const MINUTE = 60_000
 
-test('a bot no webhook ever says is in its call logs join_timeout once', async () => {
+async function sentAt(sent: number) {
   const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
-  const sent = Date.now()
 
   await agentConversations().updateOne(
     { sessionId: threadId },
     { $set: { createdAt: new Date(sent), lastActiveAt: new Date(sent) } },
   )
+
+  return threadId
+}
+
+test('a bot that never got into its call logs join_timeout once, with no webhook needed', async () => {
+  const sent = Date.now()
+  const threadId = await sentAt(sent)
+
+  // Stuck in a state nobody has seen before: it still counts.
+  status.mockResolvedValue({ joined: false, last: { code: 'brand_new_state', sub_code: null } })
   const warnings = captureWarnings()
 
   // Still within the timeout, then in the window just past it, then in the one after.
   await reportJoinTimeouts(10 * MINUTE, sent + 20 * MINUTE)
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 15 * MINUTE)
+  expect(status).toHaveBeenCalledTimes(1)
   expect(warnings.lines()).toEqual([
     expect.objectContaining({
       event: 'meeting_bot.failed',
       reason: 'join_timeout',
+      code: 'brand_new_state',
       bot_id: 'recall-bot',
       session_id: threadId,
     }),
   ])
 })
 
-test('a bot that got into its call is not a join_timeout', async () => {
-  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+test('a bot Recall says got into its call, or whose meeting ended, is not a join_timeout', async () => {
   const sent = Date.now()
 
-  await agentConversations().updateOne(
-    { sessionId: threadId },
-    { $set: { createdAt: new Date(sent), lastActiveAt: new Date(sent) } },
-  )
-  await handleRecallEvent('delivery-1', {
-    event: 'bot.in_call_recording',
-    data: { data: { code: 'in_call_recording' }, bot: { id: 'recall-bot' } },
-  })
-  expect(turn).not.toHaveBeenCalled()
+  await sentAt(sent)
+  status.mockResolvedValue({ joined: true, last: { code: 'in_call_recording', sub_code: null } })
   const warnings = captureWarnings()
 
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_waiting_room'))
+  status.mockResolvedValue({ joined: false, last: undefined })
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  expect(status).toHaveBeenCalledTimes(1)
   expect(warnings.lines()).toEqual([])
 })

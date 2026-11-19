@@ -55,13 +55,13 @@ export function logMeetingBotFailure(
   })
 }
 
-/** `done` names the Recall error code that means the request is already done. */
-async function recallFetch(path: string, body: object, done?: string): Promise<unknown> {
+/** A GET without `body`. `done` names the Recall error code that means it is already done. */
+async function recallFetch(path: string, body?: object, done?: string): Promise<unknown> {
   const recall = recallConfig()
   const response = await fetch(`https://${recall.region}.recall.ai/api/v1${path}`, {
-    method: 'POST',
+    method: body ? 'POST' : 'GET',
     headers: { Authorization: recall.apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: body && JSON.stringify(body),
   })
 
   if (!response.ok) {
@@ -133,6 +133,19 @@ export async function sendMeetingChat(botId: string, message: string): Promise<v
 export async function leaveMeeting(botId: string): Promise<void> {
   // Recall calls a bot whose call already ended "unstarted": it is out either way.
   await recallFetch(`/bot/${botId}/leave_call/`, {}, 'cannot_command_unstarted_bot')
+}
+
+/** Whether the bot ever got into its call, and the last status Recall gave it. */
+export async function meetingBotStatus(botId: string) {
+  const bot = (await recallFetch(`/bot/${botId}/`)) as {
+    status_changes?: { code: string; sub_code?: string | null }[]
+  }
+  const changes = bot.status_changes ?? []
+
+  return {
+    joined: changes.some(({ code }) => code.startsWith('in_call')),
+    last: changes.at(-1),
+  }
 }
 
 /** Recall signs `id.timestamp.body` with the workspace secret (Standard Webhooks). */
