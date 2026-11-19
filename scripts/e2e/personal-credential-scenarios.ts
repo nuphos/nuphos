@@ -2,6 +2,7 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
+import { agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -38,16 +39,32 @@ const selected = (stack: Stack, userId: string) =>
     userId,
   )
 
+/** What the Google Calendar handout answered the turn marked `marker`, once it has. */
+async function handout(stack: Stack, marker: string): Promise<{ status: number; code?: string }> {
+  const answered = () =>
+    agentLog(stack).find((entry) => entry.event === 'personal-token' && entry.marker === marker)
+
+  await until(`the ${marker} turn to ask for its Google Calendar token`, async () =>
+    Boolean(answered()),
+  )
+
+  return answered()!.result as { status: number; code?: string }
+}
+
+const NOT_SELECTED = 'personal_credential_not_selected'
+
 export const personalCredentialScenarios: Scenario[] = [
   {
-    // #3743: Google Personal Credentials were never offered, so a member could neither see nor
-    // untick them. Like every connector, a new chat starts with them ticked.
-    name: 'a new chat starts with the Google Personal Credential ticked, and unticking it is saved',
+    // #3743: Google Personal Credentials were never offered, could not be unticked, and ignored
+    // the selection. They now follow the connector rule: ticked in a new chat, refused by a list
+    // without them, and kept by a conversation that never stored a list.
+    name: 'a Google Personal Credential follows the connector rule: default, unticked, and no list',
     run: async (page, stack) => {
       const owner = client(stack.apiUrl, stack.token)
       const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
       const userId = me.user?.id ?? me.id ?? ''
       const login = 'e2e-calendar@example.com'
+      let triggerId = ''
 
       // The Google OAuth consent can't run here, so the grant it stores is written directly.
       inDatabase(
@@ -66,11 +83,18 @@ export const personalCredentialScenarios: Scenario[] = [
         // Options already loaded predate the grant.
         await page.reload()
         await newTask(page)
-        await send(page, 'Personal credential E2E_DELIVERY:personal-google')
-        await page.getByText('ACK E2E_DELIVERY:personal-google').waitFor()
-        await until('the new chat to hold the Google credential', async () =>
-          selected(stack, userId).includes('"google-calendar"'),
+        await send(
+          page,
+          'Personal E2E_PERSONAL_TOKEN:google-calendar E2E_DELIVERY:personal-default',
         )
+        await page.getByText('ACK E2E_DELIVERY:personal-default').waitFor()
+        must(selected(stack, userId).includes('"google-calendar"'), 'a new chat to tick it')
+        // Past the gate; this stack has no Google client, which is what it reports next.
+        must(
+          (await handout(stack, 'E2E_DELIVERY:personal-default')).code !== NOT_SELECTED,
+          'a new chat to be handed it',
+        )
+
         await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
         const row = page.getByRole('menuitemcheckbox', {
           name: `Google Calendar · You (${login}) · Personal`,
@@ -86,7 +110,49 @@ export const personalCredentialScenarios: Scenario[] = [
         )
         await page.screenshot({ path: `${artifacts}/personal-google-unticked-light.png` })
         await page.keyboard.press('Escape')
+        await send(page, 'Again E2E_PERSONAL_TOKEN:google-calendar E2E_DELIVERY:personal-blocked')
+        must(
+          (await handout(stack, 'E2E_DELIVERY:personal-blocked')).code === NOT_SELECTED,
+          'a list without it to refuse it',
+        )
+
+        // A conversation with no list keeps its reach. Desktop stores one with every message, so
+        // the list is removed and a Trigger, which leaves the selection as it is, runs the turn.
+        const sessionId = inDatabase(
+          stack,
+          `const c = await db.collection('agent_conversations')
+            .find({ userId: process.argv[2] }).sort({ updatedAt: -1 }).limit(1).next()
+          console.log(c.sessionId)`,
+          userId,
+        )
+        const created = await owner('POST', '/agent/triggers', {
+          teamId: stack.teamId,
+          targetSessionId: sessionId,
+          name: 'Personal credential scope',
+          triggerType: 'cron',
+          cronExpression: '0 * * * *',
+          messageTemplate: 'Run E2E_PERSONAL_TOKEN:google-calendar E2E_DELIVERY:personal-trigger',
+        })
+
+        triggerId = (created.body as { id: string }).id
+        inDatabase(
+          stack,
+          `await db.collection('agent_conversations').updateOne({ sessionId: process.argv[2] }, {
+            $unset: { 'credentialAccess.personalCredentialIds': '' },
+          })`,
+          sessionId,
+        )
+        must(
+          (await owner('POST', `/agent/triggers/${triggerId}/test-fire?teamId=${stack.teamId}`))
+            .status < 300,
+          'the Trigger to fire',
+        )
+        must(
+          (await handout(stack, 'E2E_DELIVERY:personal-trigger')).code !== NOT_SELECTED,
+          'a conversation with no list to keep it',
+        )
       } finally {
+        if (triggerId) await owner('DELETE', `/agent/triggers/${triggerId}?teamId=${stack.teamId}`)
         inDatabase(
           stack,
           `await db.collection('personal_credentials').deleteMany({ login: process.argv[2] })`,

@@ -11,7 +11,14 @@ import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
+import {
+  call,
+  callNamed,
+  personalToken,
+  reporting,
+  setToolsServer,
+  subtask,
+} from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -171,6 +178,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
     while (!existsSync(process.env.E2E_RELEASE))
