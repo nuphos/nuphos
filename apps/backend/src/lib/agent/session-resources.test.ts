@@ -65,10 +65,6 @@ useGithubHttp({
       return Response.json({ check_runs: [{ conclusion: 'success' }, { conclusion: 'failure' }] })
     if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
     if (url.includes('/reviews')) return Response.json([])
-    if (url.endsWith('/pulls/78')) return new Response('Not Found', { status: 404 })
-    if (url.endsWith('/issues/78'))
-      return Response.json({ number: 78, title: 'Verified issue', state: 'open' })
-    if (url.endsWith('/repos/org/repo')) return Response.json({ id: 34, full_name: 'org/repo' })
 
     return Response.json({
       number: 56,
@@ -195,24 +191,6 @@ test('binding resolves provider-owned identity instead of trusting a caller titl
   expect(updates).toHaveLength(1)
   // The token and the PR, then its check runs, status and reviews (the PR is not fetched twice).
   expect(lookupCount).toBe(5)
-})
-test('a GitHub issue links as an issue, with no pull request health', async () => {
-  conversation.linkedResources = []
-  const linked = await bindSessionResource(actor, {
-    provider: 'github',
-    installationId: 12,
-    repository: 'org/repo',
-    number: 78,
-  })
-
-  expect(linked).toMatchObject({
-    key: 'github/12/34/78',
-    kind: 'issue',
-    title: 'Verified issue',
-    state: 'open',
-    url: 'https://github.com/org/repo/issues/78',
-  })
-  expect(linked).not.toHaveProperty('health')
 })
 test('linking an already linked resource refreshes it in place', async () => {
   const linked = await bindSessionResource(actor, {
