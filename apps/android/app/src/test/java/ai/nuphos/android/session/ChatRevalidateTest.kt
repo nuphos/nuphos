@@ -19,7 +19,14 @@ class ChatRevalidateTest {
             readDetail = { _, _, _ -> reads++; AgentConversationDetail(isOwner = true, messages = emptyList()) })
         session.load()
         val loadedReads = reads
-        val poll = launch { session.pollWhileIdle() }
+        // The first open has just loaded it: its poll waits 3 s.
+        val first = launch { session.pollWhileIdle() }
+
+        runCurrent()
+        assertEquals("no read right after the first load", loadedReads, reads)
+        first.cancel()
+        // Left, then back: the first read is at once, then every 3 s.
+        val back = launch { session.pollWhileIdle() }
 
         runCurrent()
         assertEquals("read once on return, before any wait", loadedReads + 1, reads)
@@ -27,6 +34,6 @@ class ChatRevalidateTest {
         assertEquals("then every 3 s", loadedReads + 1, reads)
         advanceTimeBy(2); runCurrent()
         assertEquals(loadedReads + 2, reads)
-        poll.cancel()
+        back.cancel()
     }
 }

@@ -1134,10 +1134,14 @@ class ChatSession(
         lastSyncedSignature = signature()
     }
 
+    private var shownBefore = false
+
     suspend fun pollWhileIdle() {
         if (!hasAiAccess) return
-        // Back on a chat it already had, the first read is at once, not after 3 s (#3526).
-        var wait = !loaded
+        // Back on a chat it showed before (or back in the foreground), the first read is at once,
+        // not after 3 s (#3526). A first open has just loaded it: reading again then would race that load.
+        var wait = !shownBefore
+        shownBefore = true
         while (coroutineContext.isActive && hasAiAccess) {
             if (wait) delay(3_000)
             wait = true
