@@ -145,9 +145,9 @@ export async function sessionConfigView(
   picked: RuntimeDefaults,
   catalogFor: CatalogFor,
 ): Promise<SessionConfigState> {
-  const { status, options } = await catalogState(picked, catalogFor, true)
+  const { status, options, reason } = await catalogState(picked, catalogFor, true)
 
-  return { status: status === 'dormant' ? 'ready' : status, options }
+  return { status: status === 'dormant' ? 'ready' : status, options, ...(reason ? { reason } : {}) }
 }
 
 async function catalogState(
@@ -171,7 +171,7 @@ async function initialSessionConfig(
   viewerUserId: string | undefined,
 ): Promise<SessionConfigState> {
   const stored = conversation.initialSessionConfig ?? {}
-  const { status, options, kept } = await catalogState(
+  const { status, options, kept, reason } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
   )
@@ -198,7 +198,7 @@ async function initialSessionConfig(
       { $set: { initialSessionConfig: kept } },
     )
 
-  return { status, options }
+  return { status, options, ...(reason ? { reason } : {}) }
 }
 
 // Restore a reaped agent when its owner opens a recent chat; older ones are mostly just read.
