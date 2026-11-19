@@ -8,6 +8,7 @@ import { execSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { mock, test } from 'node:test'
 
 let symlinksAllowed = true
@@ -22,7 +23,9 @@ mock.module('node:fs', {
   },
 })
 type Link = (ownerHome: string, home: string, file: string) => void
-const linkModule = (await import(path.resolve(process.env.LINK_MODULE ?? ''))) as {
+const linkModule = (await import(
+  pathToFileURL(path.resolve(process.env.LINK_MODULE ?? '')).href
+)) as {
   linkOwnerFile?: Link
   hardLinkFrom?: Link
 }

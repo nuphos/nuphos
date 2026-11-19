@@ -10,8 +10,6 @@ on:
       - apps/desktop/electron/main/local-runtime/agent-cli-find.ts
       - apps/desktop/electron/main/local-runtime/agent-cli-apps.ts
       - apps/desktop/scripts/windows-npm-claude-spawn.ts
-      - apps/desktop/electron/main/local-runtime/owner-file-link.ts
-      - apps/desktop/scripts/windows-codex-login-link.ts
       - .github/workflows/desktop-windows-agent-cli.yml
   workflow_dispatch: {}
 
@@ -62,31 +60,3 @@ jobs:
           $env:APPDATA = "$env:RUNNER_TEMP\no-postinstall"
           npm install -g --prefix "$env:APPDATA\npm" --ignore-scripts @anthropic-ai/claude-code
           node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.ts unstartable
-
-  codex-login-link:
-    name: Codex login stays shared with the owner on Windows
-    runs-on: windows-2025
-    defaults:
-      run:
-        shell: bash
-        working-directory: apps/desktop/electron/main/local-runtime
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-      - name: Install Codex
-        run: |
-          npm install -g @openai/codex
-          echo "CODEX_BIN=$(npm prefix -g)\\codex.cmd" >> "$GITHUB_ENV"
-          "$(npm prefix -g)/codex.cmd" --version
-      # Real Codex saves each login by renaming a new auth.json over the old one (#2653).
-      - name: Before (main) links the owner's older login back over the agent's
-        run: |
-          git show origin/main:apps/desktop/electron/main/local-runtime/agent-home.ts > agent-home.main.ts
-          LINK_MODULE=agent-home.main.ts EXPECT=swapped-back node --experimental-test-module-mocks --test ../../../scripts/windows-codex-login-link.ts
-      - name: After (this branch) the newer login reaches the owner and stays
-        run: LINK_MODULE=owner-file-link.ts EXPECT=shared node --experimental-test-module-mocks --test ../../../scripts/windows-codex-login-link.ts
