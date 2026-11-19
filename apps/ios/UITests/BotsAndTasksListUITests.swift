@@ -104,8 +104,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         launch(page: "agent")
         let offsite = app.staticTexts["Plan the offsite"].firstMatch
         XCTAssertTrue(offsite.waitForExistence(timeout: 10), "Tasks did not load")
-        offsite.swipeLeft()
-        XCTAssertFalse(app.buttons["Archive"].waitForExistence(timeout: 2), "A Task I only read offers Archive")
+        // Its menu, not a swipe: a row with no swipe actions hands the swipe to the pages.
+        offsite.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Watch"].waitForExistence(timeout: 5), "Its menu did not open")
+        XCTAssertFalse(app.buttons["Archive"].exists, "A Task I only read offers Archive")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
         let review = app.staticTexts["Review the migration"].firstMatch
         review.swipeLeft()
         XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "A Task I take part in offers no Archive")
@@ -181,7 +184,7 @@ final class BotsAndTasksListUITests: XCTestCase {
     }
 
     private static func teammates(_ row: [String: Any], canArchive: Bool) -> [String: Any] {
-        row.merging(["isOwner": false, "canManage": false, "canArchive": canArchive]) { $1 }
+        row.merging(["isOwner": false, "canManage": false, "canArchive": canArchive, "watching": false]) { $1 }
     }
 
     private static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {
