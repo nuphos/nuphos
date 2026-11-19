@@ -11,8 +11,24 @@ import type { Page } from 'playwright-core'
 
 const LABEL = 'Teammate laptop'
 const SAME_MAC = "Teammate's record of this Mac"
-const readings = (page: Page, label: string) =>
-  page.locator('li').filter({ hasText: label }).getByLabel('Resource usage')
+
+type Listed = { label: string; metricsStatus?: string; metrics?: unknown }
+
+/** The computers as the app lists them on its Computers page, readings included. */
+const listed = (page: Page, teamId: string) =>
+  page.evaluate(
+    async (team) =>
+      (
+        await (
+          window as unknown as {
+            api: {
+              boxListDevices: (options: object) => Promise<{ devices: Listed[] }>
+            }
+          }
+        ).api.boxListDevices({ metrics: true, teamId: team })
+      ).devices,
+    teamId,
+  )
 
 /** Signs a teammate in and has them accept an invitation to the stack's team. */
 async function teammate(stack: Stack, owner: Client): Promise<{ as: Client; token: string }> {
@@ -128,16 +144,21 @@ export const shareNoticeScenarios: Scenario[] = [
         await openComputers(page)
         await page.getByText(SAME_MAC, { exact: true }).first().waitFor()
         // This computer's own card shows what its host reports, once it has reported.
-        await until(
-          'this computer to show its readings',
-          async () => (await readings(page, 'This computer').count()) > 0,
+        await until('this computer to report its readings', async () =>
+          (await listed(page, stack.teamId)).some(
+            (device) => device.label !== SAME_MAC && device.metricsStatus === 'live',
+          ),
         )
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: `${artifacts}/same-computer-two-accounts.png` })
+        const theirs = (await listed(page, stack.teamId)).find(
+          (device) => device.label === SAME_MAC,
+        )
+
         must(
-          (await readings(page, SAME_MAC).count()) === 0,
-          "the other account's offline record to show no readings",
+          theirs?.metricsStatus !== 'live' && !theirs?.metrics,
+          `the other account's offline record to carry no readings, got ${JSON.stringify(theirs)}`,
         )
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
