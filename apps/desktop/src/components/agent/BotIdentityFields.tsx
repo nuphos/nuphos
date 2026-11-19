@@ -4,9 +4,13 @@ import { useState } from 'react'
 import { t } from '../../i18n'
 import { Button } from '../ui/button'
 
+import { botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
+
 import { AgentAvatarGrid } from './AgentAvatarGrid'
+import { AvatarBackgroundPicker } from './AvatarBackgroundPicker'
 import { BotAvatarImage } from './BotAvatarImage'
 
+import type { BotAvatarBackground } from '../../lib/botAvatarBackgrounds'
 import type { BotAvatarFile } from '../../lib/botAvatars'
 import type { ReactNode } from 'react'
 
@@ -16,6 +20,8 @@ export function BotIdentityFields({
   onNameChange,
   avatar,
   onAvatarChange,
+  background,
+  onBackgroundChange,
   photo,
   busy,
   disabled = false,
@@ -27,6 +33,9 @@ export function BotIdentityFields({
   onNameChange: (name: string) => void
   avatar?: BotAvatarFile
   onAvatarChange: (avatar: BotAvatarFile) => void
+  /** With `onBackgroundChange`, the tint the face sits on is picked here too. */
+  background?: BotAvatarBackground
+  onBackgroundChange?: (background: BotAvatarBackground) => void
   photo?: string
   busy: boolean
   disabled?: boolean
@@ -42,7 +51,15 @@ export function BotIdentityFields({
     <>
       <div className="flex items-center gap-3">
         {shown ? (
-          <BotAvatarImage file={shown} className="size-10 shrink-0 object-contain" />
+          <span className="relative size-10 shrink-0">
+            {botAvatarBackgroundColor(background) && (
+              <span
+                className="absolute inset-0 rounded-full"
+                style={{ background: botAvatarBackgroundColor(background) }}
+              />
+            )}
+            <BotAvatarImage file={shown} className="relative size-10 object-contain" />
+          </span>
         ) : (
           <img src={photo} alt="" className="size-10 shrink-0 rounded-full object-cover" />
         )}
@@ -73,6 +90,11 @@ export function BotIdentityFields({
       {children}
       <fieldset disabled={busy || identityLocked} className="m-0 min-w-0 border-0 p-0">
         <AgentAvatarGrid value={avatar} onChange={onAvatarChange} onPreview={setPreview} />
+        {onBackgroundChange && (
+          <div className="mt-3">
+            <AvatarBackgroundPicker value={background ?? 'none'} onChange={onBackgroundChange} />
+          </div>
+        )}
       </fieldset>
     </>
   )

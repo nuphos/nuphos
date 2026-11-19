@@ -10,7 +10,7 @@ import { BindAccountDialog } from '../BindAccountDialog'
 export function RetiredBindingBadge() {
   return (
     <span
-      title={t('Retired connection — remove and reconnect to use with the agent')}
+      title={t('Retired connection — remove and reconnect to use with Bots and tasks')}
       className="flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded bg-state-selected text-primary whitespace-nowrap"
     >
       {t('Retired connection')}

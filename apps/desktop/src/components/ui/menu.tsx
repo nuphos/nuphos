@@ -115,6 +115,55 @@ export const MenuContent = React.forwardRef<HTMLDivElement, MenuContentProps>(fu
   )
 })
 
+/**
+ * A menu whose list scrolls above a pinned `footer`, for a picker with
+ * controls beside its choices. It opens on `side` and never flips, so it does
+ * not jump between openings; its height is capped to the room there.
+ */
+export const MenuPanel = React.forwardRef<
+  HTMLDivElement,
+  Pick<MenuContentProps, 'side' | 'align' | 'sideOffset' | 'className' | 'finalFocus'> & {
+    children?: React.ReactNode
+    footer?: React.ReactNode
+  }
+>(function MenuPanel(
+  { children, footer, side = 'top', align = 'center', sideOffset = 8, className, finalFocus },
+  ref,
+) {
+  return (
+    <MenuPrimitive.Portal>
+      <TitlebarDragSuspender />
+      <MenuPrimitive.Positioner
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        collisionAvoidance={{ side: 'none', align: 'shift' }}
+        collisionPadding={12}
+        className="z-[1000]"
+      >
+        <MenuPrimitive.Popup
+          ref={ref}
+          finalFocus={finalFocus}
+          className={(state) =>
+            clsx(
+              't-dropdown flex max-h-[min(var(--available-height),30rem)] flex-col overflow-hidden rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
+              state.open && 'is-open',
+              state.transitionStatus === 'ending' && 'is-closing',
+              className,
+            )
+          }
+          style={(state) => ({ transformOrigin: popupOrigin(state.side) })}
+        >
+          {children && (
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-1">{children}</div>
+          )}
+          {footer}
+        </MenuPrimitive.Popup>
+      </MenuPrimitive.Positioner>
+    </MenuPrimitive.Portal>
+  )
+})
+
 type MenuItemProps = {
   children: React.ReactNode
   /** Leading icon node (e.g. a Font Awesome / Lucide element). */

@@ -20,7 +20,6 @@ import {
   startDeviceLogin,
 } from '@/lib/identity/device-login'
 import { deviceGuessQuota, redisQuota } from '@/lib/identity/device-login-quota'
-import { oidcConfigured } from '@/lib/identity/social'
 import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
@@ -31,12 +30,13 @@ import type { Quota } from '@/lib/identity/device-login-quota'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
-const HOSTED_VERIFICATION_URI = 'https://nuphos.ai/device'
+function verificationUri(): string {
+  const origin = new URL(config.auth.publicBaseUrl).origin
 
-// nuphos.ai/device approves only for Nuphos Cloud, so a server with its own OIDC provider sends
-// people to its own page instead.
-const verificationUri = () =>
-  oidcConfigured() ? `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}` : HOSTED_VERIFICATION_URI
+  return ['https://api.nuphos.ai', 'https://nuphos.ai'].includes(origin)
+    ? 'https://nuphos.ai/device'
+    : `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}`
+}
 
 const agentFields = {
   name: z.string().trim().min(1).max(64),
@@ -78,7 +78,10 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
     const body = (await c.req.json().catch(() => ({}))) as { clientName?: unknown }
     const started = await startDeviceLogin({ clientName: body.clientName, requesterIp: ip })
 
-    return c.json({ ...started, verificationUri: verificationUri() })
+    return c.json({
+      ...started,
+      verificationUri: verificationUri(),
+    })
   })
 
   routes.post('/device/token', async (c) => {

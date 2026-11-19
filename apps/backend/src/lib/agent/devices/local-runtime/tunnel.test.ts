@@ -339,6 +339,55 @@ describe('local runtime tunnel', () => {
     expect(first.frames.some((frame) => frame.t === 'open')).toBe(false)
   })
 
+  // #3648: the network reset the computer's socket, so the old tunnel no longer reaches it.
+  test('a stream the computer had not opened moves to the tunnel that took it over', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const first = await connectDesktop(bus, presence, new Set(['t1']))
+    const { events } = openStream(bus, presence, 't1')
+
+    await eventually(() => first.frames.some((frame) => frame.t === 'open'))
+    const second = await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    expect(first.closed?.code).toBe(TUNNEL_CLOSE_SUPERSEDED)
+    expect(second.frames.some((frame) => frame.t === 'open')).toBe(true)
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
+  test('a stream sent to a tunnel already gone opens on its replacement at the next check', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    // Presence still names a tunnel whose holder is gone, as in the moment after it ended.
+    await presence.claim(owner.userId, owner.deviceId, 'gone', { conn: 'gone', seenAt: Date.now() })
+    const socket = openLocalRuntimeSocket(
+      localRuntimeUrl(owner, 't1'),
+      ['openab.bearer.transport', 'acp.v1'],
+      { bus, presence, livenessMs: 10, closeRetryMs: 5 },
+    )
+    const lines = await logged('warn', async () => {
+      await tick()
+      await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+      await eventually(() => socket.readyState === 1)
+    })
+
+    expect(lines.filter((line) => line.event === 'agent.local_runtime.stream_failed')).toEqual([])
+    socket.close()
+  })
+
+  test('a stream the computer had not opened ends at once when its tunnel ends for good', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1']))
+    const { events } = openStream(bus, presence, 't1')
+
+    await eventually(() => desktop.frames.some((frame) => frame.t === 'open'))
+    desktop.tunnel.closed()
+    await eventually(() => events.some((event) => event.type === 'close'))
+    expect(events[0]?.reason).toContain('disconnected')
+  })
+
   test('counts each held computer once, however its tunnel ends', async () => {
     const bus = createLocalTunnelBus()
     const presence = createMemoryPresenceStore()

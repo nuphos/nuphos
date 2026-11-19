@@ -35,6 +35,17 @@ export function readSessionHistory(userId: string, teamId: string): SessionVisit
   return parseSessionHistory(readLocalStorage(sessionHistoryKey(userId, teamId)))
 }
 
+/** Chats this person can no longer open: asking for them again would only be refused. */
+export function forgetSessionVisits(userId: string, teamId: string, sessionIds: string[]): void {
+  if (sessionIds.length === 0) return
+  writeLocalStorage(
+    sessionHistoryKey(userId, teamId),
+    JSON.stringify(
+      readSessionHistory(userId, teamId).filter((entry) => !sessionIds.includes(entry.sessionId)),
+    ),
+  )
+}
+
 export function recordSessionVisit(userId: string, teamId: string, sessionId: string): void {
   const entries = readSessionHistory(userId, teamId)
 

@@ -144,8 +144,6 @@ enum BotQuestionsTests {
         let several = ask(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8)))
         let form = several.form!
         precondition(form.count == 2)
-        precondition(BotQuestion.answerText(picked: ["us", "eu"], typed: " ") == "us, eu")
-        precondition(BotQuestion.answerText(picked: ["us"], typed: " Tokyo ") == "Tokyo")
         precondition(BotQuestion.formAnswer(form, picked: [["us", "eu"], []], typed: ["", " Keep "])
             == DecisionAnswer(questions: [DecisionAnswer(choices: ["us", "eu"]), DecisionAnswer(text: "Keep")]))
         precondition(BotQuestion.formAnswer([form[0]], picked: [["us"]], typed: [""]) == DecisionAnswer(choices: ["us"]))

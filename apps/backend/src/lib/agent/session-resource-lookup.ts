@@ -12,6 +12,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
 import { agentConversations, credentialSource } from './db'
+import { resolveGithubIssue } from './github-issue-lookup'
 import { fetchPullHealth } from './github-pull-health'
 import { mergedAtOf } from './merged-at'
 
@@ -83,6 +84,8 @@ export async function resolveResource(
   conversation: AgentConversation,
   actorId: string,
   input: z.infer<typeof sessionResourceInput>,
+  /** What a stored link already knows: a known issue skips the pull request lookup. */
+  known: Pick<SessionResource, 'kind'> = {},
 ): Promise<ResolvedResource> {
   const integrationId = inputIntegrationId(input)
 
@@ -101,6 +104,9 @@ export async function resolveResource(
   }
   if (input.provider === 'github') {
     const { token } = await getInstallationToken(input.installationId)
+
+    if (known.kind === 'issue')
+      return resolveGithubIssue(input, integrationId, token, githubLookupError)
     const response = await githubFetch(
       `${GITHUB_API}/repos/${input.repository}/pulls/${input.number}`,
       {
@@ -108,6 +114,9 @@ export async function resolveResource(
       },
     )
 
+    // An issue's number is not a pull request's: GitHub answers 404 there.
+    if (response.status === 404)
+      return resolveGithubIssue(input, integrationId, token, githubLookupError)
     if (!response.ok) throw githubLookupError(response, input.repository, input.number)
     const pr = (await response.json()) as {
       number: number

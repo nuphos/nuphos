@@ -156,7 +156,7 @@ export function AuditLogView({
         <>
           <PageHeader
             title={t('Audit log')}
-            subtitle={t('Review agent activity and resource changes across agents')}
+            subtitle={t('Review activity and resource changes across Bots and tasks')}
           />
           <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6">
             <SearchBox
@@ -228,7 +228,7 @@ export function AuditLogView({
                       className="h-8 w-full gap-1.5 text-[13px]"
                     >
                       <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-                      {t('View agent')}
+                      {t('View task')}
                     </Button>
                   </div>
                 )}
