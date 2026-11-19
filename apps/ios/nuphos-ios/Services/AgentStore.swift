@@ -443,6 +443,8 @@ final class AgentStore {
     /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
     /// Boxes, and the viewer is a team administrator.
     private(set) var canCreateBox = false
+    /// The deployment makes Boxes, whoever the viewer is: a member is told only administrators rent one.
+    private(set) var boxAvailable = false
     /// The team's devices have loaded at least once.
     private(set) var agentDevicesLoaded = false
 
@@ -458,6 +460,7 @@ final class AgentStore {
             agentDevices = result.devices
             agentDevicesError = false
             canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
+            boxAvailable = result.boxAvailable == true
             agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -550,6 +553,7 @@ final class AgentStore {
         agentDevices = []
         agentDevicesError = false
         canCreateBox = false
+        boxAvailable = false
         agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]

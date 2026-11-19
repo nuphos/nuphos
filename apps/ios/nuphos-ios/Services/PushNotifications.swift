@@ -91,10 +91,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
-    /// Whether this phone hears when a computer goes offline or comes back; on unless turned off.
+    /// Legacy phone preference, kept for registration compatibility with older backends.
     static let computerAlertsKey = "push.computerAlerts"
     private static var computerAlerts: Bool {
-        UserDefaults.standard.object(forKey: computerAlertsKey) as? Bool ?? true
+        UserDefaults.standard.object(forKey: computerAlertsKey) as? Bool ?? false
     }
 
     /// Sends the account sheet's switch to the backend with this phone's registration.
