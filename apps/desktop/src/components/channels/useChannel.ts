@@ -43,10 +43,13 @@ export async function loadChannel(client: QueryClient, teamId: string, channelId
 
 /** Loads a Bot chat before it is opened, so it opens from memory. */
 export function prefetchChannel(client: QueryClient, teamId: string, channelId: string) {
-  // A failed one is fetched again when the chat opens.
+  const queryKey = queryKeys.channel(teamId, channelId)
+
+  // One that failed (a chat left or deleted) is read again only when it is opened.
+  if (client.getQueryState(queryKey)?.status === 'error') return
   client
     .query({
-      queryKey: queryKeys.channel(teamId, channelId),
+      queryKey,
       queryFn: () => loadChannel(client, teamId, channelId),
       gcTime: Infinity,
       retry: false,
