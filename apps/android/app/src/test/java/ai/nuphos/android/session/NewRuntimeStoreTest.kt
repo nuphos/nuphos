@@ -76,6 +76,12 @@ class NewRuntimeStoreTest {
         api.discardFailure = null; store.cancel(); advanceUntilIdle()
         assertEquals(api.ids, api.removed); assertEquals(1, done)
     }
+    @Test fun sourceInvalidatedBeforeDispatchNeverCreates() = runTest {
+        val api = Api(); var current = true
+        val store = NewRuntimeStore(api, this, host, { emptyList() }, { current }, {}, {})
+        store.choose("codex"); store.create(); current = false; store.close(); advanceUntilIdle()
+        assertTrue(api.ids.isEmpty()); assertTrue(api.removed.isEmpty()); assertNull(store.runtime)
+    }
     @Test fun accountChangeWhileCreateIsInFlightCleansUpWithoutPublishing() = runTest {
         val api = Api(); api.gate = CompletableDeferred(); var current = true
         val store = NewRuntimeStore(api, this, host, { emptyList() }, { current }, {}, {})

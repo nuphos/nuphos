@@ -74,6 +74,7 @@ class NewRuntimeStore(
             // A request may already have reached the host when the sheet's scope goes away.
             withContext(NonCancellable) {
                 try {
+                    if (closed || !current()) return@withContext
                     val made = api.create(device.id, candidate, id, label)
                     receipt = made
                     if (closed || !current()) { discard(); return@withContext }
