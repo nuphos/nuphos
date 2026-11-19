@@ -121,6 +121,13 @@ const person: MessageMetadata = {
   sentAt: new Date().toISOString(),
 }
 
+// What Nuphos records when a person answers a question card: theirs, but not news to anyone.
+const cardAnswer: MessageMetadata = {
+  ...person,
+  replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+  requestId: 'q1',
+}
+
 function agentSpeaker(sessionId: string): MessageMetadata {
   return {
     version: 1,
@@ -803,6 +810,14 @@ describe('reading a channel', () => {
     expect(read.note).toContain('replyTo')
   })
 
+  test('an answer to a question card is never read: the agent that asked has it', async () => {
+    await say('us-east', cardAnswer)
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner', true)).messages).toEqual(
+      [],
+    )
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner')).messages).toEqual([])
+  })
+
   test('starts at the latest page, then returns only what is new', async () => {
     for (let n = 0; n < 55; n++) await say(`message ${String(n)}`)
     const first = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')
@@ -1242,6 +1257,14 @@ describe('an agent whose computer is offline', () => {
       { sessionId: 'channel' },
       { $set: { 'agentReadIndex.agent-a': 0 } },
     )
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for an answer to a question card when its computer is back', async () => {
+    await say('us-east', cardAnswer)
+    await catchUp()
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
