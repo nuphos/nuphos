@@ -52,7 +52,6 @@ final class DockPanelUITests: XCTestCase {
 
     func testABrowserTabOpensNativelyOnThePhoneWithTheMacOneMenuAway() {
         let app = launch()
-        app.dismissAutoFocusedKeyboard()
         sleep(1)
         openWorkTools(app)
         let tab = app.buttons["dock-tab-tab-signup"]

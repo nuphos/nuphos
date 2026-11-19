@@ -55,7 +55,7 @@ async function existing(label: string, provider: OpenAbProvider = 'codex') {
     id,
     teamId: 'one',
     userId: 'admin',
-    url: `ws://openab-${provider}-${id.slice(0, 8)}.${config.claudeCodeRuntimeProvisioner.namespace}.svc:8080/acp`,
+    url: `ws://openab-${provider}-${id.slice(0, 8)}.openab-runtimes.svc:8080/acp`,
     provider,
     authKey: randomBytes(32).toString('hex'),
     label,
@@ -74,7 +74,7 @@ test('an existing managed runtime keeps its row but no longer resolves', async (
     const row = runtimeRows().find((doc) => doc._id === created.id)!
 
     expect(row).toMatchObject({ hostedBy: 'nuphos', provider, status: 'active' })
-    expect(await resolveTeamRuntimeEndpoints('one', undefined, provider)).toEqual([])
+    expect(await resolveTeamRuntimeEndpoints('one', provider)).toEqual([])
   }
 })
 
@@ -118,6 +118,35 @@ test('a retired managed runtime lists as disabled and refuses status, update and
     expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
   }
   expect(runtimeRows().find((doc) => doc._id === instance.id)).toMatchObject({ label: 'Work' })
+})
+
+test('deleting a retired managed runtime removes it the way an external one goes', async () => {
+  const server = app()
+  const instance = await existing('Retired')
+  const external = await registerTeamRuntime({
+    teamId: 'one',
+    userId: 'admin',
+    url: 'wss://own.example/acp',
+    authKey: randomBytes(32).toString('hex'),
+  })
+  const device = { userId: 'admin', deviceId: 'pod-device' }
+
+  runtimeRows().find((doc) => doc._id === instance.id)!.device = device
+  store.rows('agent_devices').push({ ...device })
+  store.rows('agent_device_join_tokens').push({ deviceId: device.deviceId })
+  // A teardown job the retired Kubernetes cleanup never finished.
+  store.rows('agent_runtime_deletions').push({ _id: instance.id, teamId: 'one', placements: [] })
+
+  for (const id of [instance.id, external.id]) {
+    const response = await server.request(`/agent-runtimes/${id}`, { method: 'DELETE' })
+
+    expect(response.status).toBe(204)
+  }
+  expect(runtimeRows()).toEqual([])
+  expect(store.rows('agent_runtime_deletions')).toEqual([])
+  expect(store.rows('agent_devices')).toEqual([])
+  expect(store.rows('agent_device_join_tokens')).toEqual([])
+  expect(await listRuntimeInstances('one')).toEqual([])
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
@@ -190,5 +219,5 @@ test('retired creation leaves existing runtime records and routes untouched', as
   expect(JSON.stringify(runtimeRows())).toBe(before)
   expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
-  expect(await resolveTeamRuntimeEndpoints('one', undefined, 'codex')).toEqual([])
+  expect(await resolveTeamRuntimeEndpoints('one', 'codex')).toEqual([])
 })

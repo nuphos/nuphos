@@ -103,7 +103,6 @@ useRuntimeCatalog({
   developmentRuntimeEndpoint: () => {},
 })
 useRuntimeRegistry({
-  findHostedRuntime: async () => null,
   resolveTeamRuntimeEndpoints: async () => [{ runtimeId: 'new', url: 'wss://new', authKey: 'k' }],
 })
 useAgentDb({

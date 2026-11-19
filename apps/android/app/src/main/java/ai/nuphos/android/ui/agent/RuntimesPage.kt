@@ -155,7 +155,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
 private fun RuntimeInventoryHost(group: RuntimeGroup) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.width(28.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box == true || group.key.startsWith("runtime:"))
+            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box != null || group.key.startsWith("runtime:"))
                 androidx.compose.material.icons.Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null, Modifier.size(20.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {

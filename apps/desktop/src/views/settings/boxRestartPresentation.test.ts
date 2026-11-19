@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import { BOX_METRICS_POLL_MS, BOX_OFFLINE_POLL_MS, boxPollMs } from './boxPresentation.ts'
 import {
+  appUpdateConfirm,
   appUpdateLabel,
   BOX_RESTART_MISSED_MS,
   BOX_RESTART_TIMEOUT_MS,
@@ -79,14 +80,26 @@ test('the update confirmation names the Box and promises only what the update do
   const confirm = boxUpdateConfirm('Build box', '0.4.2')
 
   assert.equal(confirm.title, 'Update Build box?')
-  assert.match(confirm.description, /restarts the runtime host on Build box/)
-  assert.match(confirm.description, /latest version available now \(expected v0\.4\.2\)/)
+  assert.match(confirm.description, /restarts Nuphos on Build box now/)
+  assert.match(confirm.description, /latest version available \(expected v0\.4\.2\)/)
   assert.match(confirm.description, /computer itself keeps running/)
-  assert.match(confirm.description, /all of its runtimes are unavailable until the host reconnects/)
   assert.match(confirm.description, /even if the install fails/)
-  assert.match(confirm.description, /replying/)
+  // It does not wait for running work, and says what happens to it.
+  assert.match(confirm.description, /A Task running on it stops where it is/)
+  assert.match(confirm.description, /Send a message to continue a stopped Task/)
+  assert.doesNotMatch(confirm.description, /\bagents?\b|runtime|does not start while/i)
   assert.doesNotMatch(boxUpdateConfirm('Build box', undefined).description, /expected/)
   assert.doesNotMatch(confirm.description, /[\u2013\u2014]/)
+})
+
+test('updating another computer says it restarts now and what happens to its Tasks', () => {
+  const confirm = appUpdateConfirm('Office mini', '0.127.0')
+
+  assert.equal(confirm.title, 'Update Office mini?')
+  assert.equal(
+    confirm.description,
+    'This restarts Nuphos on Office mini now to install v0.127.0. A Task running on it stops where it is, and its other Tasks wait until it reconnects. Send a message to continue a stopped Task.',
+  )
 })
 
 test('an update the backend reports shows for every viewer, and holds until it clears', () => {

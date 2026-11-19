@@ -76,6 +76,8 @@ final class BotRuntimeAvatarUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        // The list row types exactly while its chat does (#3522).
+        XCTAssertEqual(app.descendants(matching: .any)["Release notes is thinking"].firstMatch.waitForExistence(timeout: typing ? 10 : 1), typing)
         shot(name + "-list-36")
         row.tap()
         XCTAssertTrue(app.collectionViews["chat.transcript"].waitForExistence(timeout: 10))

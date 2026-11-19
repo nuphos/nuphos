@@ -48,7 +48,8 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
     }
 
-    func testExistingBotAndTaskFocusComposerOnOpen() throws {
+    /// Opening a Bot or a Task leaves the keyboard down until the composer is tapped (#3591).
+    func testOpeningBotOrTaskLeavesKeyboardHidden() throws {
         let app = XCUIApplication()
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
@@ -67,20 +68,23 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["design-review"].firstMatch.waitForExistence(timeout: 10))
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         app.staticTexts["design-review"].firstMatch.tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        shot("existing-bot-composer-focused")
+        XCTAssertTrue(app.otherElements["chat.empty"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 2), "Opening a Bot raised the keyboard")
+        shot("existing-bot-keyboard-hidden")
+        app.textViews.firstMatch.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Tapping the composer did not raise the keyboard")
         // A fresh entry keeps the first chat's keyboard and iPad detail selection
-        // from satisfying the Task's focus assertion.
+        // from carrying over to the Task.
         app.terminate()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent"]
         app.launch()
-        XCTAssertFalse(app.keyboards.firstMatch.exists)
         let task = app.staticTexts["Release ops"].firstMatch
         XCTAssertTrue(task.waitForExistence(timeout: 5))
         task.tap()
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textViews.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.keyboards.firstMatch.waitForExistence(timeout: 2), "Opening a Task raised the keyboard")
         XCTAssertFalse(app.staticTexts["Couldn't load this task"].exists)
-        shot("existing-task-composer-focused")
+        shot("existing-task-keyboard-hidden")
     }
 
     func testTaskDraftSurvivesTabSwitch() throws {
