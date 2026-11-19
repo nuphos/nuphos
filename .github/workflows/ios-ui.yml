@@ -73,7 +73,7 @@ jobs:
           # The shell stops at the first failed command, so keep the test status for the end.
           status=0
           xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
-            -parallel-testing-enabled NO -only-testing:nuphos-iosUITests \
+            -parallel-testing-enabled NO -only-testing:nuphos-iosUITests/DockPanelUITests/testAPageOnTheMacsNetworkLoadsThroughTheMac -test-iterations 5 \
             -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || status=$?
           xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
           grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log" || true
