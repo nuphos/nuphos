@@ -13,7 +13,7 @@ type ToolReply<T> = {
   isError?: boolean
 }
 
-function mcp(as: Client) {
+export function mcp(as: Client) {
   const rpc = async <T>(method: string, params?: unknown): Promise<T> => {
     const reply = await as('POST', '/mcp', { jsonrpc: '2.0', id: 1, method, params })
     const body = reply.body as { result: T; error?: unknown } | null
@@ -33,10 +33,10 @@ function mcp(as: Client) {
 
 type Tool = ReturnType<typeof mcp>['tool']
 
-const prompt = (marker: string) => `From MCP ${marker}`
+export const prompt = (marker: string) => `From MCP ${marker}`
 
 /** Starts a Task with `nuphos_ask` and polls `nuphos_check` until the agent acknowledges `marker`. */
-async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<string> {
+export async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<string> {
   const asked = await tool<{ session_id: string }>('nuphos_ask', {
     prompt: prompt(marker),
     team_id: teamId,
@@ -65,97 +65,7 @@ async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<s
   return sessionId
 }
 
-/** Reads SSE frames in wire order, preserving partial frames between chunks. */
-function notifications(reader: ReadableStreamDefaultReader<Uint8Array>) {
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  return async () => {
-    for (;;) {
-      const boundary = buffer.indexOf('\n\n')
-
-      if (boundary >= 0) {
-        const frame = buffer.slice(0, boundary)
-
-        buffer = buffer.slice(boundary + 2)
-        const data = /^data: (.+)$/m.exec(frame)?.[1]
-        const id = /^id: (.+)$/m.exec(frame)?.[1]
-
-        if (data && id)
-          return { id, body: JSON.parse(data) as { params: { status: string; answer?: string } } }
-        continue
-      }
-      const next = await reader.read()
-
-      must(!next.done, 'the subscription to stay open until the notification')
-      buffer += decoder.decode(next.value, { stream: true })
-    }
-  }
-}
-
 export const mcpScenarios: Scenario[] = [
-  {
-    name: 'an MCP client receives completion over SSE and reconnects without replaying unchanged state',
-    run: async (_page, stack) => {
-      const { tool } = mcp(client(stack.apiUrl, stack.token))
-      const sessionId = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-notify-first')
-      const url = `${stack.apiUrl}/mcp?session_id=${sessionId}`
-      const open = async (last?: string) => {
-        const response = await fetch(url, {
-          headers: {
-            authorization: `Bearer ${stack.token}`,
-            ...(last ? { 'Last-Event-ID': last } : {}),
-          },
-          signal: AbortSignal.timeout(30_000),
-        })
-
-        must(response.ok && response.body !== null, 'the authenticated SSE subscription')
-
-        return response.body.getReader()
-      }
-      const reader = await open()
-      const next = notifications(reader)
-      let completed = await next()
-
-      must(completed.body.params.status === 'completed', 'a stored result on initial subscription')
-      try {
-        await tool('nuphos_ask', {
-          team_id: stack.teamId,
-          session_id: sessionId,
-          wait: false,
-          prompt: prompt('E2E_DELIVERY:mcp-notify-second'),
-        })
-        do {
-          completed = await next()
-        } while (!completed.body.params.answer?.includes('ACK E2E_DELIVERY:mcp-notify-second'))
-        must(
-          completed.body.params.status === 'completed',
-          'a completion push without nuphos_check polling',
-        )
-      } finally {
-        await reader.cancel()
-      }
-      const resumed = await open(completed.id)
-      const changed = notifications(resumed)
-
-      try {
-        await tool('nuphos_ask', {
-          team_id: stack.teamId,
-          session_id: sessionId,
-          wait: false,
-          prompt: prompt('E2E_DELIVERY:mcp-notify-third'),
-        })
-        let event = await changed()
-
-        must(event.id !== completed.id, 'Last-Event-ID to suppress unchanged state')
-        while (!event.body.params.answer?.includes('ACK E2E_DELIVERY:mcp-notify-third'))
-          event = await changed()
-        must(event.body.params.status === 'completed', 'the next completed turn after reconnect')
-      } finally {
-        await resumed.cancel()
-      }
-    },
-  },
   {
     name: 'an MCP client lists the tools and teams, asks the agent, and the Task shows in the app',
     run: async (page, stack) => {
