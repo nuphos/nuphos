@@ -2,6 +2,7 @@
 // No network tools, GitHub credentials, or real inference are used.
 import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
@@ -171,10 +172,12 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
-  // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
+  // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
+  // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
-    while (!existsSync(process.env.E2E_RELEASE))
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    const release = process.env.E2E_RELEASE ?? join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))

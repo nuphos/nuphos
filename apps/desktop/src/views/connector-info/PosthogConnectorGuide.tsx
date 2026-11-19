@@ -112,9 +112,7 @@ export function PosthogConnectorGuide({
     <>
       <section className="mt-6">
         <div className="mb-2 flex items-center gap-2">
-          <h3 className="text-[12.5px] font-medium text-main">
-            {t('Projects the agent may query')}
-          </h3>
+          <h3 className="text-[12.5px] font-medium text-main">{t('Projects Nuphos may query')}</h3>
           {!editing && (
             <button
               type="button"

@@ -7,11 +7,12 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { useThisComputerBadge } from '../../hooks/useThisComputer'
+import { useThisComputerConnection } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
+import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
@@ -22,13 +23,15 @@ import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton 
 import { copyUid } from './boxCopyUid'
 import { deleteBox } from './boxDelete'
 import { openBoxPaywall } from './boxPaywallStore'
-import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
+import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
 import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
+import { removal } from './removalPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
+import { computerBadge } from './thisComputerPresentation'
 import { useComputerOwner } from './useComputerOwner'
 import { useComputerUpdate } from './useComputerUpdate'
 
@@ -73,7 +76,7 @@ export function BoxRow({
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
-  const badge = useThisComputerBadge(thisComputer) ?? BOX_BADGE[state]
+  const badge = computerBadge(state, useThisComputerConnection(thisComputer))
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
@@ -85,6 +88,7 @@ export function BoxRow({
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
+  const computerSettings = useComputerSettings(device, teamId, changed)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
@@ -197,6 +201,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
+              {computerSettings.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -270,6 +275,7 @@ export function BoxRow({
           }}
         />
       )}
+      {computerSettings.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}
