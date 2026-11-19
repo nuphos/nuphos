@@ -148,6 +148,9 @@ export const settingsHistoryScenarios: Scenario[] = [
         if (!byAgent || !byPicker)
           throw new Error(`The settings history lacks a change: ${JSON.stringify(changes)}`)
         await capture(page, 'settings-history')
+        // A new Task starts on the agent last used, and the scenarios after this one expect the first.
+        await pickAgent(page, 'E2E fixture agent')
+        await page.getByText('moved this task from E2E second agent to E2E fixture agent').waitFor()
       } finally {
         stopOffering()
         await page.evaluate((previous) => {
