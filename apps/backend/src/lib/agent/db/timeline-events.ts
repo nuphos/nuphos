@@ -4,6 +4,16 @@ import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-erro
 export type ReplyFailedCause = TurnFailureCause | 'cli'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
+/** A channel with no reply-failed line yet from `agentId` for the post at `atMessage` (#3332). */
+export const noReplyFailedYet = (agentId: string, atMessage: number | undefined) =>
+  atMessage === undefined
+    ? {}
+    : {
+        timelineEvents: {
+          $not: { $elemMatch: { kind: 'agent_reply_failed', agentId, atMessage } },
+        },
+      }
+
 /** What set, changed or took away a conversation's face. */
 export type BotChangeSource =
   | { via: 'make_bot' | 'avatar_route' | 'new_bot' | 'update_self' | 'bot_import' }

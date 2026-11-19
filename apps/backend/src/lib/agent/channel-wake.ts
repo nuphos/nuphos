@@ -14,6 +14,7 @@ import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
 import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
+import { noReplyFailedYet } from './db/timeline-events'
 import { agentConversations } from './db/shared'
 import {
   listPendingUserMessages,
@@ -279,15 +280,7 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
 
   await agentConversations()
     .updateOne(
-      // A runtime that keeps dropping fails the same wake again: one line per post (#3332).
-      atMessage === undefined
-        ? { sessionId: channelId }
-        : {
-            sessionId: channelId,
-            timelineEvents: {
-              $not: { $elemMatch: { kind: 'agent_reply_failed', agentId, atMessage } },
-            },
-          },
+      { sessionId: channelId, ...noReplyFailedYet(agentId, atMessage) },
       {
         $push: pushTimelineEvent({
           kind: 'agent_reply_failed',
