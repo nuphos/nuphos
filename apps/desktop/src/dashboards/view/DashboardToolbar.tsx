@@ -105,8 +105,9 @@ export function DashboardToolbar({
   }
 
   return (
-    <div className="flex h-[42px] items-center gap-2 border-b border-line-control/60 px-3">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+    // A dashboard in the panel beside a chat is too narrow for one row: the actions wrap below.
+    <div className="flex min-h-[42px] flex-wrap items-center gap-2 border-b border-line-control/60 px-3 py-[5px]">
+      <div className="flex flex-1 items-center gap-2">
         {dashboard && (
           <>
             <Menu>
@@ -219,7 +220,7 @@ export function DashboardToolbar({
         )}
       </div>
       {dashboard && (
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {/* Here for the same reason as the visibility menu. */}
           <DashboardHeaderControls
             teamId={teamId}
