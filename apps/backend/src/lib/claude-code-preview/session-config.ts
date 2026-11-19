@@ -163,7 +163,8 @@ async function catalogState(
   }
 }
 
-// Before attachment, choices come from the catalog and explicit picks are saved.
+// Before attachment, choices come from the catalog. A change saves the effort
+// and fast mode the session will start on with it, never a model alone.
 async function initialSessionConfig(
   conversation: AgentConversation,
   selection: SessionConfigSelection | undefined,
@@ -173,7 +174,6 @@ async function initialSessionConfig(
   const { status, options, kept } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
-    Boolean(conversation.runtimeMigration),
   )
 
   if (selection && status === 'offline')

@@ -509,8 +509,8 @@ fun NewTaskComposer(nav: NavHostController, onSubmitted: () -> Unit) {
         modelSettings = modelSettings,
         mentions = draftTeam?.let { team ->
             remember(store, team) {
-                ai.nuphos.android.ui.chat.SessionMentionSource(team) { query ->
-                    store.mentionableSessions(team, query)
+                ai.nuphos.android.ui.chat.SessionMentionSource(team) {
+                    store.mentionableSessions(team)
                 }
             }
         },
