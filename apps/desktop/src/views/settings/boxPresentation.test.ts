@@ -180,7 +180,9 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
   )
   // The edges: 2 is still Small, 6 still Medium, 7 already Large, 8 still Large, 16 Extra large.
   assert.deepEqual(
-    boxSizeChoices([2, 3, 6, 7, 8, 16].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map((c) => c.name),
+    boxSizeChoices([2, 3, 6, 7, 8, 16].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map(
+      (c) => c.name,
+    ),
     ['Small', 'Medium', 'Medium', 'Large', 'Large', 'Extra large'],
   )
   assert.equal(boxSizeChoices([{ vcpus: 16, memMiB: 32768 }])[0].sessions, 'Up to 17 tasks at once')
