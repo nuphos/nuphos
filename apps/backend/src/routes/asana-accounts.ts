@@ -17,6 +17,7 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  disconnectBinding,
   requireAsanaAccount,
   requireAsanaMemberAccess,
   requireCanDisconnect,
@@ -135,13 +136,7 @@ bindingScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('asanaBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { asanaAccounts: { id: binding.id } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'asanaAccounts', { id: binding.id })
     invalidateAsanaAccessToken(teamId, binding.id)
     // Best-effort: revoke the grant at Asana so the long-lived refresh token (and
     // any access token already handed to a sandbox) stops working. Runs AFTER the

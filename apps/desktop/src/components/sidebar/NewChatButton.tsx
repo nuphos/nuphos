@@ -20,6 +20,8 @@ import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
 
+import type { BotAvatarBackground } from '../../lib/botAvatarBackgrounds'
+
 /** "+" on Bots: a new Bot, with the face and name picked here, or a new group chat. */
 export function NewChatButton({
   teamId,
@@ -148,6 +150,7 @@ function NewBotForm({
 }) {
   // The face a new Bot would get anyway, until another is picked.
   const [avatar, setAvatar] = useState(() => derivedBotAvatar(crypto.randomUUID()))
+  const [background, setBackground] = useState<BotAvatarBackground>('none')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [coordinate, setCoordinate] = useState(false)
@@ -170,7 +173,7 @@ function NewBotForm({
 
     if (!title || creating.current || loading) return
     if (runtimeError) {
-      toast.apiError(t('Could not load agents'), runtimeError)
+      toast.apiError(t('Could not load runtimes'), runtimeError)
 
       return
     }
@@ -191,6 +194,7 @@ function NewBotForm({
           ...(coordinate ? { starter: 'coordinate' as const } : {}),
           title,
           avatar: botAvatarName(avatar),
+          ...(background === 'none' ? {} : { background }),
           ...(runtime
             ? { runtimeId: runtime.id, agentRuntime: runtime.provider, runtimeLabel: runtime.label }
             : {}),
@@ -223,6 +227,8 @@ function NewBotForm({
         onNameChange={setName}
         avatar={avatar}
         onAvatarChange={setAvatar}
+        background={background}
+        onBackgroundChange={setBackground}
         busy={busy}
         identityLocked={!!createdBot}
         disabled={loading}

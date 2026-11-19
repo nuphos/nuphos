@@ -44,30 +44,36 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
-    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
-    private(set) var bots: [AgentConversation] = []
+    /// The viewer's Bots, own and shared, listed by the server rather than found in the
+    /// loaded history. A shared one is in no history here, so its face is learned from this.
+    private(set) var bots: [AgentConversation] = [] {
+        didSet { BotFaces.shared.learn(bots) }
+    }
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
-    /// Then one's Bots, for those that have no chat yet.
+    /// Then the Bots in the same two, for those that have no chat yet: one shared
+    /// with the viewer is theirs to open too (#3852).
     func loadChannels() async {
         guard let team = selectedTeam else { return }
         let query = search
         var rows: [AgentConversation] = []
+        var botRows: [AgentConversation] = []
         for scope in ["mine", "shared"] {
             guard let page = try? await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: 100, search: query, scope: scope, channels: true
+            ), let botPage = try? await NuphosAPI.conversations(
+                token: token, teamId: team.id, limit: 100, search: query, scope: scope, bots: true
             ) else { return }
             let seen = Set(rows.map(\.sessionId))
             rows += page.conversations.filter { !seen.contains($0.sessionId) }
+            let seenBots = Set(botRows.map(\.sessionId))
+            botRows += botPage.conversations.filter { !seenBots.contains($0.sessionId) }
         }
-        guard let botPage = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, limit: 100, search: query, bots: true
-        ) else { return }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        bots = botPage.conversations
+        bots = botRows.sorted { $0.lastActiveAt > $1.lastActiveAt }
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
@@ -559,10 +565,18 @@ final class AgentStore {
     private var isShareEntry = false
     let unread: ConversationUnread
     let observations: RuntimeObservations
+
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
+
+    /// What a conversation is doing, as its row and a Bot's details show it.
+    func indicator(for row: AgentConversation, team: String) -> ConversationIndicator {
+        let unread = unread.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
+    }
 
     /// The title of one of the viewer's Bots or tasks the store has loaded.
     func title(ofSession sessionId: String) -> String? {
@@ -571,10 +585,27 @@ final class AgentStore {
 
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
-    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
-        guard loadsHistory else { return [] }
-        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, search: query) else { return [] }
-        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    /// The viewer's own Bots and Tasks, every page, listed before an `@` so typing only filters them.
+    private var mentionable: (teamId: String, rows: [AgentConversation])?
+
+    /// What an `@` offers in `teamId`, but `excluded`; nil until listed once.
+    func mentionableSessions(teamId: String, excluding excluded: String?) -> [AgentConversation]? {
+        guard let mentionable, mentionable.teamId == teamId else { return nil }
+        return mentionable.rows.filter { $0.sessionId != excluded }
+    }
+
+    /// Lists them again, in the background of a composer that has appeared.
+    func loadMentionableSessions(teamId: String) async {
+        var rows: [AgentConversation] = []
+        var cursor: String?
+        var seen: Set<String> = []
+        while loadsHistory {
+            guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, cursor: cursor, limit: 100) else { return }
+            rows += page.conversations
+            guard page.hasMore, let next = page.nextCursor, seen.insert(next).inserted else { break }
+            cursor = next
+        }
+        mentionable = (teamId, rows)
     }
 
     // MARK: - Composer settings (IAM + permission mode)

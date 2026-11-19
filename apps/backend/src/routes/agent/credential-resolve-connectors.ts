@@ -11,6 +11,7 @@ export type ConnectorCredentialAccess = Pick<
   | 'upstashAccountIds'
   | 'cloudflareAccountIds'
   | 'instaboxAccountIds'
+  | 'personalCredentialIds'
 >
 
 /**
@@ -18,11 +19,11 @@ export type ConnectorCredentialAccess = Pick<
  * the team-wide reach they had before they became selectable, while a present
  * list — empty included — keeps only what the caller can still reach.
  */
-function narrow<T>(
-  selected: string[] | undefined,
+function narrow<T, Id extends string>(
+  selected: Id[] | undefined,
   available: T[],
-  idOf: (item: T) => string,
-): string[] | undefined {
+  idOf: (item: T) => Id,
+): Id[] | undefined {
   if (selected === undefined) return undefined
   const allowed = new Set(available.map(idOf))
 
@@ -73,6 +74,12 @@ export function resolveConnectorCredentialAccess(
       selection.instaboxAccountIds,
       options.instaboxAccounts,
       (account) => account.accountId,
+    ),
+    // Only the saver's own Personal Credentials can be selected.
+    personalCredentialIds: narrow(
+      selection.personalCredentialIds,
+      options.personalCredentials,
+      (credential) => credential.provider,
     ),
   }
 }

@@ -244,51 +244,41 @@ fun ChatComposer(
     val mentionLinks = remember(draft, mentions?.teamId) { mutableStateMapOf<String, String>() }
     val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
-    var mentionRows by remember(activeMention, draft, mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>>(emptyList()) }
-    var mentionLoading by remember(activeMention, draft, mentions) { mutableStateOf(activeMention != null) }
-    var mentionFailed by remember(activeMention, draft, mentions) { mutableStateOf(false) }
-    LaunchedEffect(activeMention, mentions, draft) {
-        mentionRows = emptyList()
-        mentionFailed = false
-        mentionLoading = activeMention != null
-        val source = mentions
-        if (activeMention == null || source == null) return@LaunchedEffect
+    // What `@` offers is listed whenever the composer is focused, so every
+    // `@` opens on it at once and typing only filters it (#3739).
+    var listedSessions by remember(mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>?>(null) }
+    var mentionFailed by remember(mentions) { mutableStateOf(false) }
+    LaunchedEffect(mentions, focused) {
+        val source = mentions?.takeIf { focused } ?: return@LaunchedEffect
         try {
-            kotlinx.coroutines.delay(150)
-            val found = source.search(activeMention)
-            currentCoroutineContext().ensureActive()
-            mentionRows = SessionMention.results(found, source)
+            listedSessions = source.list()
+            mentionFailed = false
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            mentionFailed = true
-        } finally {
-            // A canceled older search must not clear a newer search's spinner.
-            if (currentCoroutineContext().isActive) mentionLoading = false
+            // A failed refresh keeps what was listed.
+            mentionFailed = listedSessions == null
         }
     }
-    var deviceRows by remember(activeMention, draft, devices) { mutableStateOf<List<ai.nuphos.android.model.CredentialCatalog.Item>>(emptyList()) }
-    var devicesLoading by remember(activeMention, draft, devices) { mutableStateOf(false) }
-    var devicesFailed by remember(activeMention, draft, devices) { mutableStateOf(false) }
+    val mentionLoading = listedSessions == null && !mentionFailed
+    val mentionRows = if (activeMention == null || mentions == null) emptyList()
+    else SessionMention.results(listedSessions.orEmpty(), mentions, activeMention)
+    var listedDevices by remember(devices, mentions?.teamId) { mutableStateOf<List<ai.nuphos.android.model.CredentialCatalog.Item>?>(null) }
+    var devicesFailed by remember(devices, mentions?.teamId) { mutableStateOf(false) }
     var devicePickFailed by remember(activeMention, draft, devices) { mutableStateOf(false) }
-    LaunchedEffect(activeMention, devices, draft) {
-        deviceRows = emptyList()
-        devicesFailed = false
-        devicesLoading = activeMention != null && devices != null
-        if (activeMention == null || devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
+    LaunchedEffect(devices, mentions?.teamId, focused) {
+        if (!focused || devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
         try {
-            kotlinx.coroutines.delay(150)
-            val found = devices.load()
-            currentCoroutineContext().ensureActive()
-            deviceRows = found
+            listedDevices = devices.load()
+            devicesFailed = false
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            devicesFailed = true
-        } finally {
-            if (currentCoroutineContext().isActive) devicesLoading = false
+            devicesFailed = listedDevices == null
         }
     }
+    val devicesLoading = listedDevices == null && !devicesFailed
+    val deviceRows = listedDevices.orEmpty()
     val attachments = remember(draft, effectiveDraftingEnabled) {
         mutableStateListOf<ComposerAttachment>().apply { if (effectiveDraftingEnabled) draft?.key?.let { addAll(incomingShares.attachments(it)) } }
     }

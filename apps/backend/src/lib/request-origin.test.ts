@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 
-import { clientIp, requestOrigin, signInDevice, signInSource } from './request-origin'
+import {
+  clientIp,
+  requestClient,
+  requestOrigin,
+  signInDevice,
+  signInSource,
+} from './request-origin'
 
 const headers = (values: Record<string, string>) => (name: string) => values[name]
 
@@ -88,4 +94,19 @@ test('origin headers that are not an address, a place name or a country code are
       }),
     ),
   ).toEqual({ ip: '203.0.113.9', city: 'São Paulo', country: 'BR' })
+})
+
+test('a request names its app by header, else a browser is the web app and anything else the API', () => {
+  const from = (headers: Record<string, string>) =>
+    requestClient((name) => headers[name.toLowerCase()])
+
+  expect([
+    from({ 'x-atlas-client': 'nuphos-desktop/0.129.0', 'user-agent': 'Mozilla/5.0' }),
+    from({ 'x-atlas-client': 'nuphos-ios/1.4' }),
+    from({ 'x-atlas-client': 'nuphos-android/1.0' }),
+    from({ 'x-atlas-client': 'nuphos-cli/0.3.0' }),
+    from({ 'user-agent': 'Mozilla/5.0 (Macintosh) Safari/605' }),
+    from({ 'user-agent': 'curl/8.7' }),
+    from({ 'x-atlas-client': 'constructor/1' }),
+  ]).toEqual(['desktop', 'ios', 'android', 'cli', 'web', 'api', 'api'])
 })

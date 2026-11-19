@@ -48,16 +48,22 @@ test('an added agent whose CLI is missing installs it, says so meanwhile, and ru
   assert.deepEqual(seen, [{ tried: true, installing: true }, { tried: true }])
 })
 
-test('an added Pi whose CLI is missing installs it too', async () => {
-  const asked: LocalAgentProvider[] = []
-  const { probe } = added((provider) => {
-    asked.push(provider)
+test('an added agent of any kind but Antigravity installs its missing CLI', async () => {
+  for (const kind of ['codex', 'pi', 'grok', 'hermes', 'opencode', 'dsh'] as const) {
+    const asked: LocalAgentProvider[] = []
+    const { probe } = added((provider) => {
+      asked.push(provider)
 
-    return Promise.resolve()
-  }, 'pi')
+      return Promise.resolve()
+    }, kind)
 
-  assert.deepEqual(await probe(), present)
-  assert.deepEqual(asked, ['pi'])
+    assert.deepEqual(await probe(), present)
+    assert.deepEqual(asked, [kind])
+  }
+  // Antigravity comes only as a desktop app, so there is nothing to run.
+  const { probe } = added(() => assert.fail('Antigravity has no installer'), 'antigravity')
+
+  assert.deepEqual(await probe(), missing)
 })
 
 test('an install that fails twice is reported and not tried again', async () => {

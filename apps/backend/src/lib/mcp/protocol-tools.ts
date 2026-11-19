@@ -1,5 +1,6 @@
-import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { MCP_SERVER_NAME } from './protocol-rpc'
+import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
+import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
 
 // ─── Tool definitions (advertised via tools/list) ───────────────────────────
 
@@ -207,65 +208,7 @@ export const TOOL_DEFINITIONS = [
       required: ['session_id'],
     },
   },
-  {
-    name: 'nuphos_list_credentials',
-    description:
-      'List the cloud credentials (AWS roles, GCP service accounts, Linode/Hetzner ' +
-      'accounts, Better Stack/Uptime Kuma/Jira/Asana/Sentry/Tailscale/Zeabur/Vanta/Secureframe/Resend integrations) ' +
-      'you can use in a team. Pass session_id to also see which of them are ' +
-      'currently enabled for that conversation. New conversations start with ALL ' +
-      'listed credentials enabled EXCEPT Resend, which sends mail and must be ' +
-      'enabled explicitly with nuphos_update_credentials; narrow the rest the same way.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        team_id: {
-          type: 'string',
-          description: 'The Nuphos team whose credentials to list. See nuphos_list_teams.',
-        },
-        session_id: {
-          type: 'string',
-          description:
-            'Optional conversation to inspect — includes which credentials are ' +
-            'currently enabled for it.',
-        },
-      },
-      required: ['team_id'],
-    },
-  },
-  {
-    name: 'nuphos_update_credentials',
-    description:
-      'Replace the set of credentials a conversation may use. FULL replacement: ' +
-      'every id list you omit (or send empty) revokes that category for the ' +
-      'session. Categories this tool has no parameter for, such as local devices, ' +
-      'stay as they are. Ids must come from nuphos_list_credentials; any id you are not ' +
-      'allowed to use is rejected with an error. Takes effect on the next ' +
-      'nuphos_ask in the session.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: { type: 'string', description: 'The conversation to update.' },
-        team_id: { type: 'string', description: 'The team the session belongs to.' },
-        aws_role_ids: { type: 'array', items: { type: 'string' } },
-        gcp_service_account_ids: { type: 'array', items: { type: 'string' } },
-        linode_account_ids: { type: 'array', items: { type: 'string' } },
-        hetzner_account_ids: { type: 'array', items: { type: 'string' } },
-        betterstack_integration_ids: { type: 'array', items: { type: 'string' } },
-        uptime_kuma_instance_ids: { type: 'array', items: { type: 'string' } },
-        linear_workspace_ids: { type: 'array', items: { type: 'string' } },
-        jira_site_ids: { type: 'array', items: { type: 'string' } },
-        asana_account_ids: { type: 'array', items: { type: 'string' } },
-        sentry_account_ids: { type: 'array', items: { type: 'string' } },
-        tailscale_client_ids: { type: 'array', items: { type: 'string' } },
-        zeabur_ids: { type: 'array', items: { type: 'string' } },
-        vanta_integration_ids: { type: 'array', items: { type: 'string' } },
-        secureframe_integration_ids: { type: 'array', items: { type: 'string' } },
-        resend_integration_ids: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['session_id', 'team_id'],
-    },
-  },
+  ...CREDENTIAL_TOOLS,
   {
     name: 'nuphos_capabilities',
     description:

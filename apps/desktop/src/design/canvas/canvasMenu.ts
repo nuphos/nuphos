@@ -36,7 +36,7 @@ export function canvasMenuItems(a: MenuArgs): ContextMenuItem[] {
   const items: ContextMenuItem[] = []
 
   if (a.canAskAgent && frames.length > 0) {
-    items.push({ key: 'ask', label: t('Ask agent to edit…'), icon: Bot, onSelect: a.onAskAgent })
+    items.push({ key: 'ask', label: t('Ask Nuphos to edit…'), icon: Bot, onSelect: a.onAskAgent })
   }
   if (frames.length === 1) {
     items.push({

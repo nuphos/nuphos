@@ -20,6 +20,7 @@ export const channelsApi = {
       locale?: string
       title?: string
       avatar?: string
+      background?: string
       runtimeId?: string
       agentRuntime?: string
       runtimeLabel?: string

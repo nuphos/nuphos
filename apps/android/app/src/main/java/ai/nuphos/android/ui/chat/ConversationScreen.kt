@@ -522,8 +522,8 @@ fun ConversationScreen(
                         recalledFiles = recalledFiles,
                         onRecalledFilesRestored = { recalledFiles = emptyList() },
                         mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
-                            SessionMentionSource(draftTeam, sessionId) { query ->
-                                store.mentionableSessions(draftTeam, query)
+                            SessionMentionSource(draftTeam, sessionId) {
+                                store.mentionableSessions(draftTeam)
                             }
                         },
                         // Mentioning a computer selects it, and a Task under a Bot has no selection of its own.

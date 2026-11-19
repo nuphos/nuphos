@@ -211,6 +211,10 @@ function check(baseline: Record<string, number> | null) {
       fail(
         `${String(watch.washFrames)} frames had faded text in the pane, faintest ${String(watch.washedText)}`,
       )
+    if (watch.chipFrames > 0)
+      fail(
+        `${String(watch.chipFrames)} frames showed a composer chip before its value: ${String(watch.chipText)}`,
+      )
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
@@ -219,16 +223,13 @@ function check(baseline: Record<string, number> | null) {
       `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
-  // A chat opened before shows on the first frame, with no request first. A Task does; a Bot
-  // chat is reported until it is rendered from a cache too (#3523).
+  // A chat opened before shows on the first frame, with no request first: a Task, and a Bot
+  // chat kept mounted (#3523).
   const pending: string[] = []
 
   for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
     if (watch.framesToContent === 1 && requests === 0) continue
-    const why = `${name}: not on the first frame without a read`
-
-    if (name.startsWith('task')) failed.push(why)
-    else pending.push(why)
+    failed.push(`${name}: not on the first frame without a read`)
   }
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
