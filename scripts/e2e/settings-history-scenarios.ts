@@ -10,6 +10,7 @@ import type { Page } from 'playwright-core'
 type Change = {
   via: string
   client?: string
+  actor: { type: string }
   model?: { from?: { value: string }; to?: { value: string } }
 }
 
@@ -128,8 +129,13 @@ export const settingsHistoryScenarios: Scenario[] = [
           { headers: { authorization: `Bearer ${stack.token}` } },
         )
         const { changes } = (await response.json()) as { changes: Change[] }
+        // A thread starts on its parent's model: when that is already fixture-small, the
+        // parent's change is the one it made opening the thread, and update_thread changes nothing.
         const byAgent = changes.find(
-          (change) => change.via === 'update_thread' && change.model?.to?.value === 'fixture-small',
+          (change) =>
+            change.actor.type === 'agent' &&
+            ['create_thread', 'update_thread'].includes(change.via) &&
+            change.model?.to?.value === 'fixture-small',
         )
         const byPicker = changes.find(
           (change) =>
