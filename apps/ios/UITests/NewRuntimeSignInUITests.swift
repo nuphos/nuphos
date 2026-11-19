@@ -64,7 +64,7 @@ final class NewRuntimeSignInUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
 
-        let add = app.buttons["new-runtime-box-1"]
+        let add = app.buttons["new-runtime-device:box-1"]
         XCTAssertTrue(add.waitForExistence(timeout: 30), "The computer offers no New runtime")
         add.tap()
         let provider = app.buttons["provider-claude-code"]
