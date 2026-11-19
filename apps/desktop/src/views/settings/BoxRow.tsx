@@ -291,11 +291,7 @@ export function BoxRow({
         destructive
         confirmLabel={remove.confirm}
         onConfirm={() =>
-          act(
-            remove.error,
-            cloud ? () => deleteBox(device, teamId) : api.deviceRemove,
-            remove.fallback,
-          )
+          act(remove.error, cloud ? deleteBox(device.label) : api.deviceRemove, remove.fallback)
         }
         onClose={() => setConfirmDelete(false)}
       />
