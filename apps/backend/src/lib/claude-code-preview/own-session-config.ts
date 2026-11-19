@@ -1,5 +1,6 @@
 import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
-import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
+import { updateConversationSettings } from '@/lib/agent/db/settings-history'
+import { liveAttachment } from '@/lib/agent/db/shared'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
@@ -12,10 +13,10 @@ import { turnDefaults } from './session-context'
 import type { OpenAbAcpClient } from './openab-acp-client'
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { SessionConfigState } from './session-config-options'
+import type { QueuedAttachment } from './session-config-record'
 import type { TeamSession } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
 import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
-import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
 /** Validate a conversation's picks for itself without writing its busy session. */
 export async function ownSessionConfigUpdate(
@@ -78,7 +79,7 @@ export async function queueOwnSessionConfig(
     value,
   ])
 
-  // A queued pick is recorded when the next prompt confirms it.
+  // Either way the chip shows the pick at once, so it is recorded now.
   if (initialSessionConfig)
     await keepFirstSessionPick(
       conversation.sessionId,
@@ -87,9 +88,10 @@ export async function queueOwnSessionConfig(
       by,
     )
   else
-    await agentConversations().updateOne(
+    await updateConversationSettings(
       { sessionId: conversation.sessionId, teamId: conversation.teamId },
       { $set: Object.fromEntries(pending) },
+      by,
     )
 
   return (
@@ -101,7 +103,7 @@ export async function queueOwnSessionConfig(
 export async function pendingTurnDefaults(
   client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
   session: TeamSession,
-  attachment: ConversationPreviewAttachment | null,
+  attachment: QueuedAttachment | null,
 ): Promise<RuntimeDefaults | undefined> {
   return turnDefaults(
     session,
@@ -126,9 +128,9 @@ export async function applyPendingSessionConfig(
   client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
   conversationId: string,
   teamId: string | undefined,
-  attachment: ConversationPreviewAttachment,
+  attachment: QueuedAttachment,
   by: SettingsChangeBy,
-): Promise<ConversationPreviewAttachment> {
+): Promise<QueuedAttachment> {
   let current = attachment
 
   for (const configId of ['model', 'effort', 'fast'] as const) {
@@ -150,12 +152,12 @@ export async function applyPendingSessionConfig(
         session_id: conversationId,
         config_id: configId,
       })
-      current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
+      current = await clearPendingSessionConfig(conversationId, teamId, current, configId, by)
       continue
     }
 
     await storeSessionConfig(conversationId, teamId, current.openabSessionId, options, by)
-    current = await clearPendingSessionConfig(conversationId, teamId, current, configId)
+    current = await clearPendingSessionConfig(conversationId, teamId, current, configId, by)
     current = { ...current, sessionConfig: options }
   }
 

@@ -137,7 +137,7 @@ test('a running Task queues its own pick for the next turn, leaving this reply o
     SELF_PICK,
   )
 
-  expect(writes).toEqual([
+  expect(writes).toMatchObject([
     {
       $set: {
         'claudeCodePreview.pendingSessionConfig.model': 'astra',

@@ -13,6 +13,8 @@ import { conversationSessionConfig, sessionConfigView } from './session-config'
 import { recordSessionConfig, settledTurn } from './session-config-record'
 import { storedPick } from './session-config-options'
 
+import type { QueuedAttachment } from './session-config-record'
+
 const TEAM = '64b000000000000000000001'
 const memory = portabilityDb()
 
@@ -95,6 +97,11 @@ const chip = async () => {
 }
 
 // A conversation's own pick, made through update_task (#3503).
+const queued = async () =>
+  (
+    (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview as
+      QueuedAttachment | undefined
+  )?.pendingSessionConfig
 const SELF_PICK = { actorId: 'owner', agentSessionId: 'chat', via: 'update_thread' } as const
 
 test('after a reply the chip shows the settings the session runs, including ones the runtime changed', async () => {
@@ -205,11 +212,19 @@ test('a conversation stores its own model picks on the session attachment', asyn
   await queueOwnSessionConfig(current!, { model: 'haiku', effort: 'low' }, SELF_PICK)
   const stored = await agentConversations().findOne({ sessionId: 'chat' })
 
-  expect(stored?.claudeCodePreview?.pendingSessionConfig).toEqual({
-    model: 'haiku',
-    effort: 'low',
-  })
+  expect((stored?.claudeCodePreview as QueuedAttachment | undefined)?.pendingSessionConfig).toEqual(
+    {
+      model: 'haiku',
+      effort: 'low',
+    },
+  )
   expect(stored).not.toHaveProperty('pendingSessionConfig')
+  // The chip shows the pick at once, so the history records it now, as the conversation's own.
+  expect(stored?.settingsHistory?.at(-1)).toMatchObject({
+    actorId: 'owner',
+    agentSessionId: 'chat',
+    via: 'update_thread',
+  })
 })
 
 test('a manual model choice supersedes only the queued pick it replaces', async () => {
@@ -240,10 +255,7 @@ test('a manual model choice supersedes only the queued pick it replaces', async 
 
     expect(writes).toEqual([['model', 'haiku']])
     expect(state.options.find((option) => option.kind === 'model')?.currentValue).toBe('haiku')
-    expect(
-      (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview
-        ?.pendingSessionConfig,
-    ).toEqual({ effort: 'low' })
+    expect(await queued()).toEqual({ effort: 'low' })
   } finally {
     connect.mockRestore()
   }
@@ -278,19 +290,12 @@ test('the next prompt confirms a queued model before its effort and clears both 
     ['effort', 'low'],
   ])
   expect(applied.pendingSessionConfig).toEqual({})
-  expect(
-    (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview
-      ?.pendingSessionConfig,
-  ).toEqual({})
+  expect(await queued()).toEqual({})
   expect(await chip()).toEqual([
     ['model', 'haiku'],
     ['effort', 'low'],
     ['fast', 'off'],
   ])
-  // The history says the conversation changed itself, through update_task.
-  expect(
-    (await agentConversations().findOne({ sessionId: 'chat' }))?.settingsHistory?.at(-1),
-  ).toMatchObject({ actorId: 'owner', agentSessionId: 'chat', via: 'update_thread' })
 })
 
 test('a queued setting the agent rejects is dropped so the prompt runs on confirmed settings', async () => {
@@ -306,8 +311,5 @@ test('a queued setting the agent rejects is dropped so the prompt runs on confir
   const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment, SELF_PICK)
 
   expect(applied.pendingSessionConfig).toEqual({})
-  expect(
-    (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview
-      ?.pendingSessionConfig,
-  ).toEqual({})
+  expect(await queued()).toEqual({})
 })

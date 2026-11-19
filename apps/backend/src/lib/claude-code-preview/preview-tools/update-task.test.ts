@@ -49,6 +49,7 @@ useRuntimeModels({
 useDb({
   db: () => ({
     collection: () => ({
+      findOne: () => Promise.resolve(self),
       updateOne: (_query: unknown, update: unknown) => {
         writes.push(update)
 
@@ -81,7 +82,9 @@ test.each([false, true])(
 
     expect(result).not.toMatchObject({ isError: true })
     expect(JSON.stringify(result)).toContain('next_turn')
-    expect(writes).toEqual([{ $set: { 'claudeCodePreview.pendingSessionConfig.model': 'luna' } }])
+    expect(writes).toMatchObject([
+      { $set: { 'claudeCodePreview.pendingSessionConfig.model': 'luna' } },
+    ])
   },
 )
 

@@ -259,6 +259,7 @@ async function applySessionConfig(
     attachment,
     options,
     selection.configId,
+    by,
   )
 
   return storedPick({ ...current, sessionConfig: options })

@@ -1,5 +1,4 @@
 import { updateConversationSettings } from '@/lib/agent/db/settings-history'
-import { agentConversations } from '@/lib/agent/db/shared'
 
 import { settledCodexStopReason } from './codex-turn-settle'
 import { parseSessionConfigOptions } from './session-config-options'
@@ -10,6 +9,11 @@ import type { SessionConfigOption } from './session-config-options'
 import type { TeamSession } from './team-openab-runtime'
 import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
+
+/** A session attachment with the model picks its conversation queued for itself; its next prompt confirms them. */
+export type QueuedAttachment = ConversationPreviewAttachment & {
+  pendingSessionConfig?: RuntimeDefaults
+}
 
 /** A session's settings as the chip reads them. Scoped to the session id, so a newer session's are never overwritten. */
 export async function storeSessionConfig(
@@ -70,15 +74,16 @@ export async function settledTurn(
 export async function clearPendingSessionConfig(
   conversationId: string,
   teamId: string | undefined,
-  attachment: ConversationPreviewAttachment,
+  attachment: QueuedAttachment,
   configId: keyof RuntimeDefaults,
-): Promise<ConversationPreviewAttachment> {
+  by: SettingsChangeBy,
+): Promise<QueuedAttachment> {
   if (attachment.pendingSessionConfig?.[configId] === undefined) return attachment
   const pendingSessionConfig = { ...attachment.pendingSessionConfig }
 
   delete pendingSessionConfig[configId]
   // Replace only the object consumed here; a newer pick stays queued for another turn.
-  await agentConversations().updateOne(
+  await updateConversationSettings(
     {
       sessionId: conversationId,
       teamId,
@@ -86,6 +91,7 @@ export async function clearPendingSessionConfig(
       'claudeCodePreview.pendingSessionConfig': attachment.pendingSessionConfig,
     },
     { $set: { 'claudeCodePreview.pendingSessionConfig': pendingSessionConfig } },
+    by,
   )
 
   return { ...attachment, pendingSessionConfig }
@@ -95,13 +101,14 @@ export async function clearPendingSessionConfig(
 export async function clearReplacedPick(
   conversationId: string,
   teamId: string | undefined,
-  attachment: ConversationPreviewAttachment,
+  attachment: QueuedAttachment,
   options: SessionConfigOption[],
   configId: string,
-): Promise<ConversationPreviewAttachment> {
+  by: SettingsChangeBy,
+): Promise<QueuedAttachment> {
   const kind = options.find((entry) => entry.id === configId || entry.kind === configId)?.kind
 
   return kind
-    ? await clearPendingSessionConfig(conversationId, teamId, attachment, kind)
+    ? await clearPendingSessionConfig(conversationId, teamId, attachment, kind, by)
     : attachment
 }
