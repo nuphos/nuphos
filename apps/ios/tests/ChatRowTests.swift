@@ -265,6 +265,12 @@ enum ChatRowTests {
         precondition(!shared.canManage)
         let owner = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"owned","isOwner":true,"readOnly":false}"#.utf8))
         precondition(owner.canManage)
+        // #3686: someone else in a Task archives it for themselves; an older server says only the owner may.
+        precondition(owner.canArchive && !shared.canArchive)
+        let archiving = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"shared","isOwner":false,"canManage":false,"canArchive":true}"#.utf8))
+        precondition(archiving.canArchive && !archiving.canManage)
+        let archivingDetail = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[],"isOwner":false,"canArchive":true}"#.utf8))
+        precondition(archivingDetail.canArchive == true && member.canArchive == nil)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
         // #1691: a conversation with a face is a Bot; a chat with one is still a chat.
