@@ -116,6 +116,17 @@ test('failed deletion never marks a mismatched object ready', async () => {
   expect(readyWrites).toBe(0)
 })
 
+test('a chat-only group keeps the existing 24-hour expiry', async () => {
+  const before = Date.now()
+  const created = await real.createTransfer({ teamId, userId: 'user' }, 'download', [
+    { fileName: 'a.txt', size: 1 },
+  ])
+  const lifetime = Date.parse(created.expiresAt) - before
+
+  expect(lifetime).toBeGreaterThan(86_400_000 - 1_000)
+  expect(lifetime).toBeLessThanOrEqual(86_400_000 + 5_000)
+})
+
 test('group ids carry no timestamp or per-process prefix a neighbour could reveal', async () => {
   const create = async () =>
     new ObjectId(
