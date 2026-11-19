@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -81,7 +82,8 @@ export async function startConversationTurn(
     message,
   })
 
-  if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
+  if (claim.mode === 'dropped')
+    throw new AppError(429, 'conversation_queue_unavailable', 'Thread message could not be queued.')
   if (claim.mode === 'queued') return queued
 
   const run = async (): Promise<string | undefined> => {
