@@ -232,6 +232,11 @@ export const stepUpScenarios: Scenario[] = [
       const authenticator = await turnOnMfa(as)
 
       signedInAgo(stack.mongoUri, stack.email, 11)
+      // The scenario before leaves its error toast up; it would cover these shots.
+      for (const dismiss of await page.getByLabel('Dismiss').all()) await dismiss.click()
+      // The newest Cloudflare authorization the backend has started.
+      const started = stack.cloudflareState()
+
       await page.getByRole('button', { name: 'Connectors' }).click()
       await page.getByLabel('Add Cloudflare').click()
       await page.getByRole('button', { name: 'Connect with Cloudflare' }).click()
@@ -239,10 +244,14 @@ export const stepUpScenarios: Scenario[] = [
 
       await prompt.waitFor()
       await page.screenshot({ path: `${artifacts}/step-up-prompt.png` })
-      // The sixth digit submits the code, and the connection goes on.
+      must(stack.cloudflareState() === started, 'no authorization to start before the code')
+      // The sixth digit submits the code, and the app sends the request again.
       await prompt.locator('input[placeholder="000000"]').fill(await authenticator.code())
       await prompt.waitFor({ state: 'detached' })
-      await page.getByText('Waiting for browser authorization…').waitFor()
+      await until(
+        'the authorization to start after the code',
+        async () => stack.cloudflareState() !== started,
+      )
       await page.screenshot({ path: `${artifacts}/step-up-continued.png` })
 
       await page.keyboard.press('Escape')
