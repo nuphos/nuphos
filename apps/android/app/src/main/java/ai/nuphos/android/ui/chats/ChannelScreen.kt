@@ -31,7 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.automirrored.outlined.Reply
 import androidx.compose.material.icons.outlined.Close
@@ -151,8 +150,6 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { bot.pollWhileIdle() }
     }
     var showTriggers by remember(session.channelId) { mutableStateOf(false) }
-    var showMembers by remember(session.channelId) { mutableStateOf(false) }
-    if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (showTriggers && botFace != null && auth.token != null) {
         ai.nuphos.android.ui.chat.ConversationTriggersSheet(auth.token!!, session.teamId, botFace.id) { showTriggers = false }
     }
@@ -173,15 +170,9 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    // A Bot's chat opens its triggers; a group chat, its members.
-                    Row(modifier = Modifier.testTag("chat-title").clickable(enabled = botFace != null || session.agents.isNotEmpty()) {
-                        if (botFace != null) showTriggers = true else showMembers = true
-                    }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(modifier = Modifier.clickable(enabled = botFace != null) { showTriggers = true }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ChatIcon(session.faces, session.title, 28.dp)
                         Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        // The arrow says the title opens the chat's Bots.
-                        if (botFace == null && session.agents.isNotEmpty()) Icon(Icons.Outlined.ExpandMore, null,
-                            Modifier.size(20.dp).testTag("chat-bots-entry"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.chats_back)) } },
@@ -222,15 +213,6 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         // Keyed by session: a new workspace, account or consent gets a new composer scope, and the
         // old one's in-flight upload is cancelled with it.
         if (session.loaded && session.loadError == null && !session.readOnly) key(session) {
-            // A Bot whose computer is offline: the strip a Task shows, with its Switch for the Bot's owner.
-            ChannelAgent.offlineStrip(session.agents, session.botId)?.let { text ->
-                val own = session.agents.any { it.sessionId == bot?.sessionId && it.ownerId == viewerId }
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).testTag("offline-strip"),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    if (own && auth.aiAllowed) ai.nuphos.android.ui.chat.SwitchRuntimeButton { switching = true }
-                }
-            }
             session.replying?.let { ReplyChip(it) { session.replying = null } }
             ChannelComposer(session)
         }
