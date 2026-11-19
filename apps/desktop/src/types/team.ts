@@ -51,23 +51,7 @@ export type MfaStatus = {
 /** A new authenticator secret, to scan or type in before confirming. */
 export type MfaSetup = { secret: string; otpauthUrl: string }
 
-export type PersonalCredentialProvider = 'github' | 'linear' | 'gmail' | 'google-drive'
-
-export type PersonalCredential = {
-  provider: PersonalCredentialProvider
-  login: string
-  workspaceName: string | null
-  /** Gmail / Google Drive: the team whose OAuth client issued the grant. */
-  teamId?: string | null
-  connectedAt: string
-}
-
-/** Outcome of a nuphos://personal-credential deep link, claimed by the main process. */
-export type PersonalCredentialDeepLinkPayload = {
-  provider: PersonalCredentialProvider
-  login?: string
-  error?: string
-}
+export * from './personal-credentials.ts'
 
 export type UpdaterState =
   | { kind: 'idle' }
@@ -288,7 +272,7 @@ export type TeamActivity = {
   range: TeamActivityRange
   slotMinutes: number
   start: string
-  sessions: { id: string; title: string; runtime: AgentProvider | null }[]
+  sessions: { id: string; title: string | null; runtime: AgentProvider | null }[]
   /** Every current member, busiest first. */
   members: {
     id: string

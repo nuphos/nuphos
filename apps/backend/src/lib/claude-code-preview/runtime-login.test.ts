@@ -5,7 +5,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { cancelRuntimeLogin, performRuntimeLogin } from './runtime-login'
 
 import type { RuntimeLoginDeps } from './runtime-login'
-import { loginFrameReader } from './runtime-login-exec'
+import { loginFrameReader } from './runtime-login-frames'
 import {
   claimRuntimeLogin,
   publicLogin,

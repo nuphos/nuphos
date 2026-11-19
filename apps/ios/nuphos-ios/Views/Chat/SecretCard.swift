@@ -144,8 +144,7 @@ struct SecretCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
+        .raisedCard()
     }
 
     /// What the card says of where the values go; for a form, only that filling it in bypasses the task.

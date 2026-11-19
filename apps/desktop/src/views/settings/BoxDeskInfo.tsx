@@ -103,18 +103,18 @@ export function DeskAgents({
       <p className="desk-note">
         {onSetUp ? (
           <>
-            {t('No agent yet')} ·{' '}
+            {t('No runtime yet')} ·{' '}
             <button type="button" className="desk-link" onClick={onSetUp}>
               {t('Set up')}
             </button>
           </>
         ) : (
-          t('No agent yet · set one up in Settings › Local runtime')
+          t('No runtime yet · set one up in Settings › Local runtime')
         )}
       </p>
     )
   if (away) return null
-  if (slots === 'starting') return <p className="desk-note">{t('Starting agents…')}</p>
+  if (slots === 'starting') return <p className="desk-note">{t('Starting runtimes…')}</p>
   const visible = agents.filter(visibleAgent)
 
   if (visible.length === 0 && (dim || (!canAdd && !ask))) return null
