@@ -55,7 +55,7 @@ struct AgentSummaryPanel: View {
                     }
                 }
                 }
-                if !session.isBot {
+                if !session.isBot && !isBotDetails {
                   SummaryCard("Task actions") {
                     Button(action: archive) {
                         Label { Text("Archive") } icon: { LucideIcon("archive") }

@@ -51,6 +51,13 @@ final class BotsAndTasksListUITests: XCTestCase {
         responses["GET /agent/conversations?bots=true"] = Self.page(bots)
         responses["GET /agent/conversations?kind=channel"] = Self.page(chats)
         responses["GET /agent/conversations?pendingDecision=true"] = Self.page([])
+        responses["GET /agent/triggers"] = ["status": 200, "body": [] as [Any]]
+        // Release Lead's chat, so its page shows a conversation under the state line.
+        var lead = try XCTUnwrap(responses["GET /agent/conversations/chat-release"] as? [String: Any])
+        var body = try XCTUnwrap(lead["body"] as? [String: Any])
+        body["sessionId"] = "chat-lead"
+        lead["body"] = body
+        responses["GET /agent/conversations/chat-lead"] = lead
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
     }
 
