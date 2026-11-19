@@ -55,12 +55,20 @@ export async function getCloudflareOauthConnection(
     }
   }
 
+  const scopes = meta.scope.split(/\s+/).filter(Boolean)
+
+  if (scopes.length > 0 && !scopes.includes('analytics.read')) {
+    warnings.push(
+      'This grant predates zone analytics access (analytics.read). Reconnect with Update scopes to enable analytics.',
+    )
+  }
+
   return {
     authType: 'oauth',
     accountId: meta.accountId,
     accountName: meta.accountName,
     clientId: meta.clientId,
-    scopes: meta.scope.split(/\s+/).filter(Boolean),
+    scopes,
     accessTokenExpiresAt: meta.accessTokenExpiresAt?.toISOString() ?? null,
     hasRefreshToken: meta.hasRefreshToken,
     connectionStatus,

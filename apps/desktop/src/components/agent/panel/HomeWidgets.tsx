@@ -81,8 +81,7 @@ export function HomeWidgets({
   }, [highlight])
   // Null until the team's size is first known on this machine.
   const members = useTeamSize(teamId)
-  // Team-wide activity and stats are an administrator's; a member's cards count themselves.
-  const hasTeammates = isTeamAdmin && (members ?? 0) > 1
+  const hasTeammates = (members ?? 0) > 1
   const teamHeight = teamCardHeight(members ?? 2)
 
   if (!home.layout) return null
@@ -125,7 +124,7 @@ export function HomeWidgets({
 
   const cards = [
     // Shown while the members load, as its skeleton, so it does not appear late.
-    settings.team && isTeamAdmin && (hasTeammates || members === null) && (
+    settings.team && (hasTeammates || members === null) && (
       <TeamActivityCard key="team" teamId={teamId} onOpenConversation={onOpenConversation} />
     ),
     // Cards of a kind this desktop does not know, saved by a newer one, are left out.

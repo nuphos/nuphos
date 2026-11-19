@@ -19,17 +19,13 @@ export type ToolbarSlotSide = 'left' | 'right'
 export type ToolbarSlotsValue = {
   left: HTMLElement | null
   right: HTMLElement | null
-  headerRight: HTMLElement | null
   setOccupied: (side: ToolbarSlotSide, occupied: boolean) => void
-  setHeaderRightOccupied: (occupied: boolean) => void
 }
 
 export const ToolbarSlotsContext = createContext<ToolbarSlotsValue>({
   left: null,
   right: null,
-  headerRight: null,
   setOccupied: () => {},
-  setHeaderRightOccupied: () => {},
 })
 
 /**
@@ -52,23 +48,4 @@ export function useToolbarSlot(side: ToolbarSlotSide, active: boolean): HTMLElem
   }, [side, active, setOccupied])
 
   return active ? ctx[side] : null
-}
-
-/**
- * Portal a detail view's refresh/status controls into the breadcrumb row.
- * Occupying this slot replaces the Toolbar's default refresh button; callers
- * must gate it on the active workspace tab just like the controls-row slots.
- */
-export function useToolbarHeaderRightSlot(active: boolean): HTMLElement | null {
-  const ctx = useContext(ToolbarSlotsContext)
-  const { setHeaderRightOccupied } = ctx
-
-  useEffect(() => {
-    if (!active) return
-    setHeaderRightOccupied(true)
-
-    return () => setHeaderRightOccupied(false)
-  }, [active, setHeaderRightOccupied])
-
-  return active ? ctx.headerRight : null
 }

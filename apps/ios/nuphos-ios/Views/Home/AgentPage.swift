@@ -18,6 +18,7 @@ struct AgentPage: View {
     @State private var archivingBot: AgentConversation?
     @State private var renamedTitle = ""
     @State private var refreshing = false
+    @State private var pulling = false
     #if DEBUG
     /// `-preview-agent-login`: the authorization-code step with a canned attempt.
     @State private var previewLogin = false
@@ -46,18 +47,19 @@ struct AgentPage: View {
             .refreshable {
                 // An alert shown before the pull has settled leaves the spinner running for good.
                 refreshing = true
-                defer {
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(600))
-                        refreshing = false
-                    }
-                }
+                pulling = true
+                defer { pulling = false }
                 if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
             }
-            .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide() }
+            // SwiftUI ends the pull only after its task returns, and this runs only when the
+            // phase changes, so the first idle after `pulling` ends follows that end at any speed.
+            .onScrollPhaseChange { _, phase in
+                if phase == .idle, !pulling { refreshing = false }
+            }
+            .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
-                NewBotSheet { title, avatar in
+                NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
                     await openBotChat(bot)
                 }
@@ -257,7 +259,7 @@ struct AgentPage: View {
             ContentUnavailableView {
                 Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
-                Text(store.search.isEmpty ? "Start a task from the bar below." : "No tasks match your search.")
+                if !store.search.isEmpty { Text("No tasks match your search.") }
             }
         case .loaded:
             EmptyView()
@@ -590,9 +592,11 @@ struct NewChatComposer: View {
             pickDevice: { device in
                 if !store.credentialSelection.contains(device) { store.credentialSelection.toggle(device) }
             },
-            search: { query in
-                await store.loadCredentialOptions()
-                return await store.mentionableSessions(teamId: draftTeam, excluding: nil, matching: query)
+            sessions: store.mentionableSessions(teamId: draftTeam, excluding: nil),
+            refresh: {
+                async let devices: () = store.loadCredentialOptions()
+                await store.loadMentionableSessions(teamId: draftTeam)
+                await devices
             }
         ), voiceTeamId: draftTeam.isEmpty ? nil : draftTeam, initialAttachments: initialContent?.attachments ?? [], temporaryDirectory: temporaryDirectory, focusRequest: focusRequest, onSend: { submission in
             do {

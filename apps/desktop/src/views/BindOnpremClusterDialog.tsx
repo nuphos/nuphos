@@ -18,7 +18,7 @@ import type { OnpremCluster, OnpremClusterAccess, OnpremClusterInstall } from '.
 // last — so the tunnel is proven with nothing at stake, and by the time a
 // credential changes hands we can show what it actually grants, asked of their
 // own API server rather than claimed by us.
-const STEPS = [t('Name it'), t('Install the agent'), t('Grant access')]
+const STEPS = [t('Name it'), t('Install the tunnel'), t('Grant access')]
 
 type Props = {
   teamId: string
@@ -137,7 +137,7 @@ export function BindOnpremClusterDialog({ teamId, onClose, onBound }: Props) {
         )}
         {step === 1 && (
           <PrimaryButton busy={busy} disabled={!connected} onClick={() => setStep(2)}>
-            {connected ? t('Continue') : t('Waiting for the agent…')}
+            {connected ? t('Continue') : t('Waiting for the tunnel…')}
           </PrimaryButton>
         )}
         {step === 2 && !access?.reachable && (

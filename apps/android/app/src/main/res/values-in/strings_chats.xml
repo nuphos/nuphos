@@ -44,7 +44,7 @@
     <string name="chats_select_text">Pilih teks</string>
     <string name="chats_reply">Balas</string>
     <string name="chats_copy">Salin</string>
-    <string name="chats_usage_returns">Kuota penggunaan pulih pada %1$s.</string>
+    <string name="chats_usage_resets">Kuota penggunaan %1$s.</string>
     <string name="chats_switch_runtime">Ganti runtime</string>
     <string name="chats_retry">Coba lagi</string>
     <string name="chats_send_failed_title">Tidak dapat mengirim pesan</string>

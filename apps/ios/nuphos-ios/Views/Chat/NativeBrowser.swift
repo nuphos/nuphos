@@ -240,6 +240,8 @@ final class WebPage: NSObject, WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        // A navigation that the next load replaced was cancelled, not failed (#3620).
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         failure = error.localizedDescription
     }
 

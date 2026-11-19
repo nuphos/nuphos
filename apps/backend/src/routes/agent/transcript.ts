@@ -232,6 +232,7 @@ export async function persistAcceptedConversationTurn(args: {
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
+  parentSessionId?: string
 }): Promise<{ isNew: boolean } | null> {
   const transcriptMessages = uiMessagesToTranscript(args.messages)
 
@@ -254,6 +255,7 @@ export async function persistAcceptedConversationTurn(args: {
     agentRuntime: args.agentRuntime,
     runtimeId: args.runtimeId,
     runtimeLabel: args.runtimeLabel,
+    parentSessionId: args.parentSessionId,
   })
 }
 
@@ -269,6 +271,8 @@ export function serializeConversationDoc(
     timelineEvents: _timelineEvents,
     // Sent per viewer as `watching` (conversation-view.ts).
     watcherIds: _watcherIds,
+    // Sent per viewer as `archivedAt` (conversation-view.ts).
+    memberArchivedAt: _memberArchivedAt,
     // Sent as the open requests only. pendingDecision is the field documents
     // kept before inputRequests; it is no longer read or sent.
     pendingDecision: _pendingDecision,

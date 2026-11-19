@@ -44,7 +44,7 @@
     <string name="chats_select_text">Seleccionar texto</string>
     <string name="chats_reply">Responder</string>
     <string name="chats_copy">Copiar</string>
-    <string name="chats_usage_returns">El uso se restablece el %1$s.</string>
+    <string name="chats_usage_resets">El uso %1$s.</string>
     <string name="chats_switch_runtime">Cambiar de entorno de ejecución</string>
     <string name="chats_retry">Reintentar</string>
     <string name="chats_send_failed_title">No se pudo enviar el mensaje</string>

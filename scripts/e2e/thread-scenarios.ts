@@ -60,7 +60,6 @@ export const threadScenarios: Scenario[] = [
       await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
       await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
@@ -100,7 +99,7 @@ export const threadModeScenario: Scenario = {
       has('permission-allow E2E_DELIVERY:thread'),
     )
     await page.getByRole('button', { name: 'Authorization mode' }).click()
-    await page.getByText('Auto Mode', { exact: true }).click()
+    await page.getByRole('menuitem', { name: /^Auto Mode/ }).click()
     await send(page, 'Message the thread E2E_POKE E2E_DELIVERY:poke')
     await page.getByText('ACK E2E_DELIVERY:poke').waitFor()
     await until('the thread to ask for its command', async () =>

@@ -82,7 +82,7 @@ function DiskWarning({
       </p>
       <p className="mt-0.5 text-tertiary">
         {t(
-          'Package caches, Docker images and conversation workspaces fill a disk over time. Agents fail once it is full.',
+          'Package caches, Docker images and conversation workspaces fill a disk over time. Bots and tasks fail once it is full.',
         )}
       </p>
       {clearable && (
@@ -95,27 +95,49 @@ function DiskWarning({
           {t('Clear caches')}
         </Button>
       )}
-      <ConfirmDialog
+      <ClearCachesConfirm
+        teamId={teamId}
+        device={device}
         open={confirming}
-        title={t('Clear caches on {boxLabel}?', { boxLabel: device.label })}
-        description={t(
-          'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer, and a build running in a terminal right now may fail. It does not start while an agent on it is replying.',
-          { boxLabel: device.label },
-        )}
-        confirmLabel={t('Clear caches')}
-        onConfirm={async () => {
-          try {
-            await api.boxClearCaches(device.deviceId, teamId)
-            toast.success(
-              t('Clearing caches on {boxLabel}', { boxLabel: device.label }),
-              t('Its disk reading drops as space is freed.'),
-            )
-          } catch (error) {
-            toast.apiError(t('Could not clear caches'), error)
-          }
-        }}
         onClose={() => setConfirming(false)}
       />
     </div>
+  )
+}
+
+/** The confirmation before clearing a Box's caches: from its card, or the conversation's banner. */
+export function ClearCachesConfirm({
+  teamId,
+  device,
+  open,
+  onClose,
+}: {
+  teamId: string
+  device: Pick<AgentDevice, 'deviceId' | 'label'>
+  open: boolean
+  onClose: () => void
+}) {
+  return (
+    <ConfirmDialog
+      open={open}
+      title={t('Clear caches on {boxLabel}?', { boxLabel: device.label })}
+      description={t(
+        'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer, and a build running in a terminal right now may fail. It does not start while anything on it is replying.',
+        { boxLabel: device.label },
+      )}
+      confirmLabel={t('Clear caches')}
+      onConfirm={async () => {
+        try {
+          await api.boxClearCaches(device.deviceId, teamId)
+          toast.success(
+            t('Clearing caches on {boxLabel}', { boxLabel: device.label }),
+            t('Its disk reading drops as space is freed.'),
+          )
+        } catch (error) {
+          toast.apiError(t('Could not clear caches'), error)
+        }
+      }}
+      onClose={onClose}
+    />
   )
 }

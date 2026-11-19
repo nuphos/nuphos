@@ -69,7 +69,9 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
         return list.map(::decodeRuntime).also { if (it.map { item -> item.id }.distinct().size != it.size) throw NuphosApi.Failure.InvalidResponse }
     }
     suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
-    suspend fun devices(): List<RuntimeDevice> = decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}&metrics=true", "GET", expected = 200))
+    /** `metrics`: asks every online host to sample, which only a meters view needs. */
+    suspend fun devices(metrics: Boolean = true): List<RuntimeDevice> =
+        decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}${if (metrics) "&metrics=true" else ""}", "GET", expected = 200))
     override suspend fun update(runtimeId: String, label: String?, status: String?): AgentRuntime {
         require(label != null || status != null)
         require(label == null || label.trim().length in 1..120)

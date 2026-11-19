@@ -65,16 +65,12 @@ const threads = [
   { key: 'last', parentKey: 'parent', finished: true },
 ]
 
-test('finished children leave the list and their parent counts them', () => {
+test('finished children leave the list', () => {
   const rows = nestItems(threads)
 
   assert.deepEqual(
     rows.map(({ item }) => item.key),
     ['parent', 'running'],
-  )
-  assert.deepEqual(
-    rows[0]?.done.map((item) => item.key),
-    ['finished', 'last'],
   )
   // The guide stops at the last listed child, not at a finished one.
   assert.deepEqual(rows[1]?.trail, [false])
@@ -90,17 +86,15 @@ test('a parent whose children all finished has none to fold', () => {
     rows.map(({ item, hasChildren, hidden }) => [item.key, hasChildren, hidden.length]),
     [['parent', false, 0]],
   )
-  assert.equal(rows[0]?.done.length, 2)
 })
 
-test('a folded parent hides only the children still listed, and no count', () => {
+test('a folded parent hides only the children still listed', () => {
   const rows = nestItems(threads, (key) => key === 'parent')
 
   assert.deepEqual(
     rows[0]?.hidden.map((item) => item.key),
     ['running'],
   )
-  assert.deepEqual(rows[0]?.done, [])
 })
 
 test('a finished child stays while one of its own children still shows', () => {
@@ -112,11 +106,11 @@ test('a finished child stays while one of its own children still shows', () => {
   ])
 
   assert.deepEqual(
-    rows.map(({ item, depth, done }) => [item.key, depth, done.length]),
+    rows.map(({ item, depth }) => [item.key, depth]),
     [
-      ['parent', 0, 0],
-      ['child', 1, 1],
-      ['grandchild', 2, 0],
+      ['parent', 0],
+      ['child', 1],
+      ['grandchild', 2],
     ],
   )
 })
@@ -125,49 +119,5 @@ test('a finished row without a listed parent stays at the top level', () => {
   assert.deepEqual(
     nestItems([{ key: 'thread', parentKey: 'pinned', finished: true }]).map(({ item }) => item.key),
     ['thread'],
-  )
-})
-
-test('an open done group lists the finished children after the running ones', () => {
-  const rows = nestItems(
-    [
-      { key: 'parent' },
-      { key: 'finished', parentKey: 'parent', finished: true },
-      { key: 'running', parentKey: 'parent' },
-    ],
-    () => false,
-    (key) => key === 'parent',
-  )
-
-  assert.deepEqual(
-    rows.map(({ item, trail }) => [item.key, trail]),
-    [
-      ['parent', []],
-      ['running', [true]],
-      ['finished', [false]],
-    ],
-  )
-  // The count stays, so the group can be closed again.
-  assert.deepEqual(
-    rows[0]?.done.map((item) => item.key),
-    ['finished'],
-  )
-})
-
-test('a parent whose open done group holds every child can fold it', () => {
-  const rows = nestItems(
-    threads.filter((item) => item.key !== 'running'),
-    (key) => key === 'parent',
-    () => true,
-  )
-
-  assert.deepEqual(
-    rows.map(({ item, hasChildren, hidden, done }) => [
-      item.key,
-      hasChildren,
-      hidden.length,
-      done.length,
-    ]),
-    [['parent', true, 2, 0]],
   )
 })

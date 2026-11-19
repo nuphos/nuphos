@@ -59,10 +59,7 @@ test('anything else is left alone', () => {
   // Not the runtime's fault, or stopped by a person.
   for (const part of [other, cancelled])
     expect(
-      failedPrompt(
-        [asked('Fix it'), { role: 'assistant', parts: [part] } as AgentMessage],
-        'owner',
-      ),
+      failedPrompt([asked('Fix it'), { role: 'assistant', parts: [part] }], 'owner'),
     ).toBeNull()
   // Nuphos's own message (an answer, a trigger, a GitHub event) is not resent: the
   // question it answers is open again, so the person decides what runs.
@@ -96,10 +93,15 @@ useAgentRunStore({
   getActiveAgentRunForSession: async () => null,
   reserveActiveAgentRunForSession: async () => async () => {},
 })
-useRuntimeModels({ runtimeModelCatalog: async () => ({ models: [] }) as never })
+useRuntimeModels({ runtimeModelCatalog: async () => ({ models: [] }) })
 useRuntimeCatalog({
-  requireRuntimeInstance: async () =>
-    ({ id: 'new', provider: 'codex', label: 'Codex', status: 'active', kind: 'managed' }) as never,
+  requireRuntimeInstance: async () => ({
+    id: 'new',
+    provider: 'codex',
+    label: 'Codex',
+    status: 'active',
+    kind: 'external',
+  }),
   developmentRuntimeEndpoint: () => {},
 })
 useRuntimeRegistry({
@@ -150,8 +152,8 @@ test('a person’s move resends the failed turn once on the new runtime, and say
   await Bun.sleep(0)
 
   expect(sent).toEqual([{ text: 'Fix it', runtimeId: 'new' }])
-  expect(memory.rows('agent_conversations')[0]?.timelineEvents).toMatchObject([
-    { kind: 'runtime_moved', toLabel: 'Codex', retrying: true },
+  expect(memory.rows('agent_conversations')[0]?.settingsHistory).toMatchObject([
+    { via: 'runtime_move', runtime: { to: { label: 'Codex' } }, retrying: true },
   ])
 })
 
@@ -165,7 +167,7 @@ test('a fallback move keeps its own continuation; a move after a good turn resen
   await Bun.sleep(0)
 
   expect(sent).toEqual([])
-  expect(memory.rows('agent_conversations')[0]?.timelineEvents?.[0]).not.toHaveProperty('retrying')
+  expect(memory.rows('agent_conversations')[0]?.settingsHistory?.[0]).not.toHaveProperty('retrying')
 })
 
 test('an answer that waited for the old runtime goes to the new one with the move', async () => {

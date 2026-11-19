@@ -320,15 +320,15 @@ container's limits. The agent command itself is not pinned there: it stays on
 Each runtime owns its own login. Nuphos never stores the account and never sends
 one to a runtime it did not provision; it only shows what the runtime reports.
 
-| Variant       | Sign in on the host                                                                   | Credential                                     |
-| ------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`) | `/home/node/.claude/.credentials.json`         |
-| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                            | `/home/node/.codex/auth.json`                  |
-| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                             | `/home/node/.grok/auth.json`                   |
-| `antigravity` | Sign in from the app (below)                                                          | Official CLI keyring (status via `agy models`) |
-| `opencode`    | `docker exec -it nuphos-runtime opencode providers login`                             | `/home/node/.local/share/opencode/auth.json`   |
-| `hermes`      | Sign in from the app (below)                                                          | `/home/node/.hermes/auth.json`                 |
-| `dsh`         | Sign in from the app (below)                                                          | `/home/node/.dsh/.credentials.yaml`            |
+| Variant       | Sign in on the host                                                                            | Credential                                     |
+| ------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `claude-code` | `docker exec -it nuphos-runtime claude auth login` (or run `claude` and use `/login`)          | `/home/node/.claude/.credentials.json`         |
+| `codex`       | `docker exec -it nuphos-runtime codex login --device-auth`                                     | `/home/node/.codex/auth.json`                  |
+| `grok`        | `docker exec -it nuphos-runtime grok login --device-auth`                                      | `/home/node/.grok/auth.json`                   |
+| `antigravity` | Sign in from the app (below)                                                                   | Official CLI keyring (status via `agy models`) |
+| `opencode`    | None for its free models; `docker exec -it nuphos-runtime opencode providers login` for others | `/home/node/.local/share/opencode/auth.json`   |
+| `hermes`      | Sign in from the app (below)                                                                   | `/home/node/.hermes/auth.json`                 |
+| `dsh`         | Sign in from the app (below)                                                                   | `/home/node/.dsh/.credentials.yaml`            |
 
 You can also sign in from the app once the runtime is connected (see below). Either
 way the credential is written inside the container, so mount the `/home/node` volume
@@ -376,11 +376,15 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly seven caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly nine caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
 `BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR`,
-`UV_CACHE_DIR` and the pnpm store (`<runtime home>/.local/share/pnpm/store`, set
-through `pnpm_config_store_dir` and the conversation's `pnpm/rc`). `XDG_CACHE_HOME` remains
+`UV_CACHE_DIR`, the npm cache (`npm_config_cache`, `<runtime home>/.npm`), the pnpm
+store (`<runtime home>/.local/share/pnpm/store`, set through `pnpm_config_store_dir`
+and the conversation's `pnpm/rc`) and Gradle's `caches/` (the conversation's
+`~/.gradle/caches` links to `<runtime home>/.gradle/caches`; `gradle.properties`
+stays per conversation). Cargo's registry is not shared: Cargo locks it from
+`CARGO_HOME`, so two homes sharing one registry would not see each other's lock. `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
 runtime home; the rest of `XDG_DATA_HOME` stays per conversation. On the DeepSeek

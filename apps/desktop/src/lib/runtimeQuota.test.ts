@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  formatResetsAt,
+  formatResetsDuration,
+  formatResetsIn,
   quotaDetailLines,
   quotaNote,
   quotaSharedWith,
@@ -76,16 +77,36 @@ test('detail lines carry usage and reset timing', () => {
   )
 
   assert.equal(lines.length, 3)
-  assert.match(lines[0] ?? '', /^5-hour: 62% left · resets in 2h 10m \(/u)
-  assert.match(lines[1] ?? '', /^Weekly: 88% left · resets /u)
+  assert.equal(lines[0], '5-hour: 62% left · resets in 2h 10m')
+  assert.equal(lines[1], 'Weekly: 88% left · resets in 2d 20h')
   assert.equal(lines[2], 'Other: 95% left')
 })
 
-test('reset formatting edge cases', () => {
-  assert.equal(formatResetsAt(null, now), null)
-  assert.equal(formatResetsAt('garbage', now), null)
-  assert.equal(formatResetsAt('2026-09-15T12:00:00Z', now), 'resets now')
-  assert.match(formatResetsAt('2026-09-15T12:45:00Z', now) ?? '', /^resets in 25m \(/u)
+test('resets in: days and hours, then hours and minutes, then minutes', () => {
+  const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000).toISOString()
+
+  assert.equal(formatResetsIn(at(2 * 1440 + 5 * 60 + 59), now), 'resets in 2d 5h')
+  assert.equal(formatResetsIn(at(1440), now), 'resets in 1d 0h')
+  assert.equal(formatResetsIn(at(3 * 60 + 20), now), 'resets in 3h 20m')
+  assert.equal(formatResetsIn(at(60), now), 'resets in 1h 0m')
+  assert.equal(formatResetsIn(at(12), now), 'resets in 12m')
+  // Under a minute still reads as a minute away, never as "0m".
+  assert.equal(formatResetsIn(at(0.25), now), 'resets in 1m')
+})
+
+test('the bare duration is what follows "resets in"', () => {
+  const at = new Date(now.getTime() + (2 * 1440 + 5 * 60) * 60_000).toISOString()
+
+  assert.equal(formatResetsDuration(at, now), '2d 5h')
+  assert.equal(formatResetsDuration(null, now), null)
+})
+
+test('resets in is hidden when the reset is unknown or past', () => {
+  assert.equal(formatResetsIn(null, now), null)
+  assert.equal(formatResetsIn(undefined, now), null)
+  assert.equal(formatResetsIn('garbage', now), null)
+  assert.equal(formatResetsIn(now.toISOString(), now), null)
+  assert.equal(formatResetsIn('2026-09-15T11:00:00Z', now), null)
 })
 
 test('an unavailable quota shows the reason the agent gave, and nothing else does', () => {
