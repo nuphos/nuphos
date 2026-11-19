@@ -86,7 +86,11 @@ export function chatSidebarItem({
                 {
                   id: conversation.sessionId,
                   name: conversation.title,
-                  agent: { avatar: conversation.avatar, provider: conversation.agentRuntime },
+                  agent: {
+                    avatar: conversation.avatar,
+                    avatarBackground: conversation.avatarBackground,
+                    provider: conversation.agentRuntime,
+                  },
                 },
               ]}
               title={conversation.title}
