@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_toolbar_runtimes">컴퓨터 및 런타임</string>
+    <string name="home_toolbar_switch_team">팀 전환</string>
+    <string name="home_toolbar_choose_team">팀 선택</string>
+    <string name="home_toolbar_create">만들기</string>
+    <string name="home_toolbar_new_bot">새 봇</string>
+    <string name="home_toolbar_new_task">새 작업</string>
+    <string name="home_toolbar_account">계정</string>
+    <string name="home_toolbar_close_workspace">워크스페이스 화면 닫기</string>
+</resources>
