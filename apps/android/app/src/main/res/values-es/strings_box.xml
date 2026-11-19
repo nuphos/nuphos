@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Computadora de Nuphos</string>
+    <string name="box_setup">Configuración del entorno de ejecución</string>
+    <string name="box_connect">Conectar un ordenador</string>
+    <string name="box_guide_body">Tus Bots y tareas necesitan un entorno de ejecución. Conecta tu ordenador con Nuphos Desktop o pide a un administrador del espacio de trabajo que comparta uno.</string>
+    <string name="box_description">Una computadora Linux que Nuphos ejecuta por ti, con Claude Code, Codex, OpenCode y otros agentes. Inicia sesión con tu propia cuenta.</string>
+    <string name="box_step1">1. Abre Nuphos en tu ordenador.</string>
+    <string name="box_step2">2. Inicia sesión y elige este espacio de trabajo.</string>
+    <string name="box_step3">3. Conecta tu ordenador y añade un entorno de ejecución.</string>
+    <string name="box_body">Una computadora Linux con Claude Code, Codex, OpenCode y otros agentes. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no.</string>
+    <string name="box_name_help">Déjalo vacío para llamarlo %1$s.</string>
+    <string name="box_create">Crear computadora</string>
+    <string name="box_creating">Creando…</string>
+    <string name="box_starting">Iniciando la computadora y sus entornos de ejecución; suele tardar entre 10 y 30 segundos…</string>
+    <string name="box_ready">Tu computadora está en ejecución. Elige un entorno de ejecución para iniciar sesión.</string>
+    <string name="box_failed">No se pudo iniciar la computadora. Elimínala en la página Entornos de ejecución y vuelve a intentarlo.</string>
+    <string name="box_timeout">La computadora no se inició tras 5 minutos. Elimínala en la página Entornos de ejecución y vuelve a intentarlo.</string>
+    <string name="box_plan">Elige un plan en Nuphos en tu computadora.</string>
+    <string name="box_state_starting">Iniciando</string>
+    <string name="box_state_connecting">Conectando</string>
+    <string name="box_state_paused">En pausa</string>
+    <string name="box_state_error">No se inició</string>
+    <string name="box_resume">Reanudar</string>
+    <string name="box_create_failed">No se pudo crear la computadora</string>
+    <string name="box_refresh_failed">No se pudieron actualizar los ordenadores. Inténtalo de nuevo.</string>
+    <string name="box_resume_failed">No se pudo reanudar el ordenador. Inténtalo de nuevo.</string>
+    <string name="box_uncertain">La solicitud puede haberse completado. Revisa los ordenadores y entornos antes de crear otro.</string>
+    <string name="box_visit">Visitar Nuphos</string>
+</resources>

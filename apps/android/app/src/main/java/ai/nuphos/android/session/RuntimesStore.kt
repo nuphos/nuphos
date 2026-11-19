@@ -86,7 +86,7 @@ fun inventoryDestination(runtime: AgentRuntime, administrator: Boolean, devices:
     if (runtime.deleting || runtime.status != "active") return InventoryDestination.Unavailable
     if (runtime.local != null) {
         val host = devices.firstOrNull { it.id == runtime.local.deviceId }
-        return if (host?.box != null && host.access == "manage" && host.online) InventoryDestination.ProviderSignIn else InventoryDestination.HostInstructions
+        return if (host?.box != null && host.access in setOf("owner", "manage") && host.online && host.box.state == "running") InventoryDestination.ProviderSignIn else InventoryDestination.HostInstructions
     }
     return if (administrator && runtime.kind in setOf("external", "development")) InventoryDestination.ProviderSignIn else InventoryDestination.AdministratorInstructions
 }

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Nuphos 電腦</string>
+    <string name="box_setup">設定執行環境</string>
+    <string name="box_connect">連接電腦</string>
+    <string name="box_guide_body">Bot 與任務需要執行環境才能工作。請使用 Nuphos Desktop 連接電腦，或請工作區管理員共用執行環境。</string>
+    <string name="box_description">由 Nuphos 為你代管的 Linux 電腦，內建 Claude Code、Codex、OpenCode 等 agent。使用你自己的帳號登入。</string>
+    <string name="box_step1">1. 在電腦上開啟 Nuphos。</string>
+    <string name="box_step2">2. 登入並選擇這個工作區。</string>
+    <string name="box_step3">3. 連接電腦並新增執行環境。</string>
+    <string name="box_body">內建 Claude Code、Codex、OpenCode 等 agent 的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。</string>
+    <string name="box_name_help">留空則命名為 %1$s。</string>
+    <string name="box_create">建立電腦</string>
+    <string name="box_creating">正在建立…</string>
+    <string name="box_starting">正在啟動電腦及其執行環境，通常需要 10 到 30 秒…</string>
+    <string name="box_ready">你的電腦正在執行。請選擇要登入的執行環境。</string>
+    <string name="box_failed">電腦無法啟動。請在「執行環境」頁面中刪除後再試一次。</string>
+    <string name="box_timeout">電腦在 5 分鐘後仍未啟動。請在「執行環境」頁面中刪除後再試一次。</string>
+    <string name="box_plan">請在電腦上的 Nuphos 選擇方案。</string>
+    <string name="box_state_starting">啟動中</string>
+    <string name="box_state_connecting">連接中</string>
+    <string name="box_state_paused">已暫停</string>
+    <string name="box_state_error">未啟動</string>
+    <string name="box_resume">繼續</string>
+    <string name="box_create_failed">無法建立電腦</string>
+    <string name="box_refresh_failed">無法重新整理電腦。請再試一次。</string>
+    <string name="box_resume_failed">無法恢復電腦。請再試一次。</string>
+    <string name="box_uncertain">請求可能已成功。再次建立電腦前，請先查看「電腦與執行環境」。</string>
+    <string name="box_visit">前往 Nuphos</string>
+</resources>
