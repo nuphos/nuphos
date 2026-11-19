@@ -202,10 +202,11 @@ export function boxToolModule(
               holderChannel(userId, deviceId),
               JSON.stringify({ t: 'revoke' }),
             )
-          await destroyBox(userId, deviceId)
+          const killed = await destroyBox(userId, deviceId)
+
           await deleteAgentDevice(userId, deviceId)
 
-          return { deviceId, action, done: true }
+          return { deviceId, action, done: true, ...(killed ? {} : { machineLeft: true }) }
         },
       }),
     },

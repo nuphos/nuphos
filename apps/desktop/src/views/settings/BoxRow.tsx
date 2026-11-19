@@ -20,6 +20,7 @@ import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
+import { deleteBox } from './boxDelete'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
@@ -284,7 +285,11 @@ export function BoxRow({
         destructive
         confirmLabel={remove.confirm}
         onConfirm={() =>
-          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+          act(
+            remove.error,
+            cloud ? () => deleteBox(device, teamId) : api.deviceRemove,
+            remove.fallback,
+          )
         }
         onClose={() => setConfirmDelete(false)}
       />
