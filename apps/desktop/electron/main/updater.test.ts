@@ -12,6 +12,7 @@ const restartFile = join(userData, 'update-restart.json')
 /** Electron's autoUpdater, which is Squirrel.Mac on macOS. */
 const squirrel = new EventEmitter()
 /** The version of the app that is running. */
+let cloud = true
 let running = '0.113.0'
 
 /** electron-updater as far as the app uses it. Like the real one, a check with
@@ -106,6 +107,7 @@ before(() => {
       },
     },
   })
+  mock.module('../api-endpoint.ts', { namedExports: { isNuphosCloud: () => cloud } })
   mock.module('../analytics.ts', {
     namedExports: { captureMain: mock.fn(), captureMainException: mock.fn() },
   })
@@ -115,6 +117,7 @@ before(() => {
 })
 
 beforeEach(() => {
+  cloud = true
   running = '0.113.0'
   rmSync(restartFile, { force: true })
 })
@@ -273,4 +276,29 @@ test('a launch on the target or a newer version is not a failed restart', async 
     assert.equal(updater.getUpdaterState().kind, 'up-to-date')
     assert.equal(existsSync(restartFile), false)
   }
+})
+
+test('a self-hosted launch does not check or download Cloud updates', async () => {
+  cloud = false
+  await launch()
+  assert.deepEqual(fake.log, [])
+  assert.equal(updater.getUpdaterState().kind, 'idle')
+})
+
+test('switching away from Cloud prevents subsequent checks and installs', async () => {
+  await launchWithReadyUpdate()
+  cloud = false
+  updater.checkForUpdates()
+  updater.installUpdate()
+  await settle()
+  assert.deepEqual(fake.log, [])
+})
+
+test('switching away during a check does not start its download', async () => {
+  await launchWithReadyUpdate()
+  fake.published = '0.113.2'
+  updater.checkForUpdates()
+  cloud = false
+  await settle()
+  assert.deepEqual(fake.log, ['check'])
 })

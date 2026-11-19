@@ -50,6 +50,8 @@ export function BotChatQuestion({
   const failure = useAnswerFailure(request.inputRequest.id)
   // A question card names who asked and is dismissed inside itself; the other cards keep both outside.
   const choice = parseChoiceRequest(part.input) !== null
+  // A secure card is dismissed inside itself too, but names no source.
+  const dismissedInside = choice || Boolean(request.inputRequest.secretName)
   const source = onOpenSession && (
     <QuestionSource
       conversation={request}
@@ -95,7 +97,7 @@ export function BotChatQuestion({
         />
       </ConnectCardContext.Provider>
       {failure && <AnswerFailure message={failure} />}
-      {!choice && dismissible && (
+      {!dismissedInside && dismissible && (
         <DismissQuestionButton
           teamId={teamId}
           sessionId={request.sessionId}

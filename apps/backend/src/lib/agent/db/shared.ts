@@ -5,6 +5,7 @@ import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
+import type { SettingsChange } from './settings-history'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
@@ -66,6 +67,13 @@ export type AgentConversation = ConversationTaskState & {
   title: string
   /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
+  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
+  avatarBackground?: string
+  botTemplate?: {
+    templateId: string
+    version: string
+    requirements: { provider: string; required: boolean; reason: string }[]
+  }
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
@@ -76,20 +84,21 @@ export type AgentConversation = ConversationTaskState & {
   // Archive marker, set by the owner. Archived conversations stay fully intact and
   // readable; list endpoints only hide them when asked (archived=exclude).
   archivedAt?: Date
+  memberArchivedAt?: Record<string, Date> // By user id: someone else archived a shared Task for them alone.
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
-  // Teammates who joined this conversation beside its owner. Speaking in a
-  // session and being invited from Share are the same fact — "this person is
-  // part of this conversation" — so both append here instead of splitting into
-  // an invited/active pair of lists. Being here puts the conversation in the
-  // person's list and lets them read it; reply follows its computer (access.ts).
-  // Older rows also carry managerIds, which nothing reads now.
+  // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
+  // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
   /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
   /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
+  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
+  settingsHistory?: SettingsChange[]
+  /** Bumped by each settings write; guards updateConversationSettings. */
+  settingsRevision?: number
   /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
@@ -144,16 +153,11 @@ export type AgentConversation = ConversationTaskState & {
     source?: string
     client?: AgentClientMeta
   }
-  // Memory backend that owns this conversation's recall/tools/ingest, stamped
-  // once at creation and immutable (SPI decision 4 / A3). Resolved through
-  // resolveForNewSession (global default today; team overrides arrive in
-  // Phase 3). Distinct from metadata.provider, which is the originating
-  // CHANNEL, not the memory backend.
+  // The memory backend owning its recall, tools and ingest: stamped once at creation, immutable
+  // (SPI decision 4 / A3), from resolveForNewSession. Not metadata.provider, the source channel.
   memoryProvider?: string
-  // Sticky per-conversation model fallback. Set write-once the first time a
-  // turn finishes with finishReason 'content-filter'; every later turn in this
-  // conversation then runs on toModelId instead of the primary. Permanent for
-  // the life of the conversation.
+  // Sticky model fallback, set once when a turn first ends with finishReason 'content-filter':
+  // every later turn here runs on toModelId instead of the primary, for the conversation's life.
   modelFallback?: {
     active: boolean
     reason: 'content-filter'

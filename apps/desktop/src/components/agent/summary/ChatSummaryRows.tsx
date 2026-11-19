@@ -201,6 +201,7 @@ export function ThreadRow({
         <AgentAvatar
           agentId={conversation.sessionId}
           avatar={conversation.avatar}
+          avatarBackground={conversation.avatarBackground}
           provider={conversation.agentRuntime}
           size={16}
         />

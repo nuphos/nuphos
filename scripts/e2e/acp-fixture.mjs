@@ -21,6 +21,7 @@ import {
   subtask,
 } from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -123,11 +124,11 @@ async function prompt({ sessionId, prompt: parts }) {
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('\n')
-  const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
+  const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
+  const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
-  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
-  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  log({ sessionId, marker, markers, event: 'start', language: promptLanguage(text) })
+  // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
@@ -142,6 +143,8 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
+    await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.

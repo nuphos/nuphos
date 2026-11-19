@@ -282,8 +282,8 @@ final class InboxUITests: XCTestCase {
     }
 
     /// A Bot's chat shows a question as the Inbox does: the question as the heading under who asked,
-    /// the first option first, "Other…", "Dismiss" and "Show more" each a full touch target. Dismiss
-    /// withdraws it unanswered; a chat offers no Snooze.
+    /// the options, "Other…" and "Dismiss" one row of the same pill in reading order, and "Show more" each a full
+    /// touch target. Dismiss withdraws it unanswered; a chat offers no Snooze.
     func testABotChatCardLeadsWithTheQuestionAndDismisses() throws {
         responses["POST /agent/conversations/agent-ops/decisions/q-deploy/resolve"] = ["status": 200, "body": ["ok": true]]
         // Asked by a Task under the Bot, with more to read than four lines.
@@ -301,21 +301,26 @@ final class InboxUITests: XCTestCase {
         }
         XCTAssertEqual(app.buttons["botQuestion.source"].label, "Release ops", "The source line does not name who asked")
         let options = ["Ship it", "Wait for QA"].map { app.buttons[$0].frame }
-        let wide = app.windows.firstMatch.horizontalSizeClass == .regular
-        XCTAssertTrue(wide ? options[0].minX < options[1].minX : options[0].minY < options[1].minY, "The first option is not first")
+        // Pills in reading order, left to right and then down, each the same height (#3468).
+        XCTAssertTrue(options[0].minY < options[1].minY - 1 || (abs(options[0].minY - options[1].minY) <= 1 && options[0].minX < options[1].minX),
+                      "The first option is not first")
+        XCTAssertEqual(options[0].height, options[1].height, accuracy: 1, "The options are not one style")
 
-        // Touch targets: 44pt on iPhone; wide, 40pt capsules. "Show more" spans the card.
+        // Touch targets: 44pt, and "Show more" spans the body. A chat offers no Skip and no Snooze.
         XCTAssertFalse(app.buttons["Skip"].exists || app.buttons["Snooze"].exists, "The card offers Skip or Snooze")
         for label in ["Other…", "Dismiss"] {
-            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), wide ? 40 : 44, "\(label) is too small to hit")
+            XCTAssertGreaterThanOrEqual(app.buttons[label].frame.height.rounded(), 44, "\(label) is too small to hit")
         }
-        if !wide {
-            XCTAssertEqual(app.buttons["Other…"].frame.width, app.buttons["Dismiss"].frame.width, accuracy: 1, "Not two halves")
-            XCTAssertEqual(app.buttons["Other…"].frame.minY, app.buttons["Dismiss"].frame.minY, accuracy: 1, "Not side by side")
+        // "Other…" and "Dismiss" are buttons after the options, the same pill (#3468).
+        for label in ["Other…", "Dismiss"] {
+            XCTAssertEqual(app.buttons[label].frame.height, options[0].height, accuracy: 1, "\(label) is not the options' pill")
         }
+        let other = app.buttons["Other…"].frame
+        XCTAssertTrue(other.minY > options[1].minY + 1 || (abs(other.minY - options[1].minY) <= 1 && other.minX > options[1].maxX),
+                      "Other… does not follow the options")
         let more = app.buttons["botQuestion.more"]
         XCTAssertGreaterThanOrEqual(more.frame.height.rounded(), 44, "Show more is too small to hit")
-        XCTAssertEqual(more.frame.width, options[0].union(app.buttons["Dismiss"].frame).width, accuracy: 1, "Show more is not full-width")
+        XCTAssertGreaterThanOrEqual(more.frame.width, app.descendants(matching: .any)["botQuestion.body"].frame.width - 1, "Show more is not full-width")
         XCTAssertEqual(more.label, "Show more")
         more.tap()
         XCTAssertEqual(more.label, "Show less")
@@ -613,8 +618,73 @@ final class InboxUITests: XCTestCase {
         shot("8-words-only-in-view")
     }
 
-    /// A card asking several questions, one of them multi-select, is a form answered in the Inbox
-    /// with one reply: options toggled, or the answer typed in their place.
+    /// #3468: a single- and a multi-select question are the same pills, "Other…", "Snooze" and "Dismiss"; a
+    /// multi-select only picks any number of them, with a check, and sends them with Send.
+    func testASingleAndAMultiSelectQuestionAreOneCard() throws {
+        let single = InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-first", "category": "preference", "question": "Which region ships first?",
+             "body": "The rollout starts after the freeze.", "options": ["us-east", "eu-west"],
+             "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        // Each from its own Task: the Inbox lists one question per source at a time.
+        let multi = InboxUITests.row(
+            "agent-rollout", "Rollout plan",
+            ["id": "q-today", "category": "preference", "question": "Which regions ship today?",
+             "body": "The rollout starts after the freeze.", "options": ["us-east", "eu-west", "ap-south"],
+             "multiSelect": true, "askedAt": "2026-11-03T09:41:00Z", "status": "open"])
+        try listQuestions([single, multi])
+        app = launch(page: "agent")
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+
+        openQuestion("Which region ships first?")
+        XCTAssertTrue(app.buttons["eu-west"].waitForExistence(timeout: 10), "No options")
+        XCTAssertTrue(app.buttons["Other…"].exists && app.buttons["Snooze"].exists && app.buttons["Dismiss"].exists)
+        XCTAssertFalse(app.buttons["Skip"].exists, "Skip is still offered")
+        XCTAssertFalse(app.buttons["Send"].exists, "A single-select is answered by its option")
+        shot("13-inbox-single-select")
+
+        openQuestion("Which regions ship today?")
+        XCTAssertTrue(app.buttons["us-east"].waitForExistence(timeout: 10), "No options")
+        shot("14-inbox-multi-select")
+        let send = app.buttons["Send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 10), "No Send for the picks")
+        XCTAssertTrue(app.buttons["us-east"].exists && app.buttons["Other…"].exists && app.buttons["Dismiss"].exists,
+                      "The multi-select is not the single-select's capsules")
+        XCTAssertFalse(app.textFields["Your answer"].exists, "The text box shows before Other…")
+        XCTAssertFalse(app.buttons["Send answer"].exists, "The multi-select is still a form")
+        XCTAssertFalse(send.isEnabled, "Send before anything is picked")
+        // Where a single-select's options are: pinned under the question on iPhone.
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertGreaterThan(app.buttons["Dismiss"].firstMatch.frame.minY, app.frame.height * 0.7,
+                                 "The multi-select options are not where a single-select's are")
+        }
+        app.buttons["us-east"].tap()
+        app.buttons["ap-south"].tap()
+        XCTAssertTrue(app.buttons["us-east"].isSelected && app.buttons["ap-south"].isSelected && !app.buttons["eu-west"].isSelected,
+                      "A tap does not pick, or picks one only")
+        XCTAssertTrue(send.isEnabled)
+        // Once the picks have settled, so both checks draw alike.
+        sleep(1)
+        shot("15-inbox-multi-select-picked")
+        // With "Other…" open, the keyboard up, Send stays above it.
+        app.buttons["Other…"].tap()
+        let words = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not open a text box")
+        XCTAssertTrue(send.isHittable && words.isHittable, "Send or the text box is hidden")
+        // The pinned card on iPhone rides above the keyboard.
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "No keyboard")
+            XCTAssertLessThan(send.frame.maxY, app.keyboards.firstMatch.frame.minY, "Send is under the keyboard")
+        }
+        shot("16-inbox-multi-select-other")
+        app.buttons["Other…"].tap()
+        send.tap()
+        try listQuestions([single])
+        XCTAssertTrue(listed("Which regions ship today?").waitForNonExistence(timeout: 5), "The answered question stayed")
+    }
+
+    /// A card asking several questions, one of them multi-select, picks the same capsules per
+    /// question and sends them at once: options picked, or the answer typed with "Other…"/"Reply…".
     func testAnswersSeveralQuestionsInOneCard() throws {
         let rollout = InboxUITests.row(
             "agent-ops", "Release ops",
@@ -639,14 +709,15 @@ final class InboxUITests: XCTestCase {
                        "The list written out for older clients shows beside the form")
 
         // By label: the card's own identifier covers those inside it.
-        let send = app.buttons["Send answer"]
-        XCTAssertTrue(send.exists && !send.isEnabled, "Send answer before every question is answered")
+        let send = app.buttons["Send"]
+        XCTAssertTrue(send.exists && !send.isEnabled, "Send before every question is answered")
         app.buttons["us-east"].tap()
         app.buttons["eu-west"].tap()
         app.buttons["Keep it for a week"].tap()
+        app.buttons["Reply…"].tap()
         let note = app.textFields["Your answer"]
-        note.tap()
-        note.typeText("Mention the new region picker.\n")
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "Reply… does not open a text box")
+        note.typeText("Mention the new region picker.")
         XCTAssertTrue(send.isEnabled)
         shot("12-inbox-several-questions-filled")
 
@@ -692,6 +763,42 @@ final class InboxUITests: XCTestCase {
         let opened = expectation(for: NSPredicate { _, _ in title.frame.height > line * 2 }, evaluatedWith: nil)
         wait(for: [opened], timeout: 3)
         shot("long-question-open")
+    }
+
+    /// An option says what it says: one too long for a line wraps onto as many as it needs,
+    /// growing its pill, rather than being cut with an ellipsis (#3599). A short one keeps
+    /// the single line it always had.
+    func testLongOptionsWrapInsteadOfBeingCut() throws {
+        let long = ["接受手機版改成全寬可換行的選項列表，桌面版維持原本的膠囊排列先不要動",
+                    "接受手機版的做法，並且把桌面版的選項也一起改成同樣的全寬排列",
+                    "手機版改成可以換行的膠囊，單行的高度與間距都保持現在的樣子"]
+        let short = "先擱置"
+        try listQuestions([InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-deploy", "category": "preference", "question": "選項的版面要怎麼調整？",
+             "options": long + [short], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
+        openQuestion("選項的版面要怎麼調整？")
+
+        let line = app.buttons[short]
+        XCTAssertTrue(line.waitForExistence(timeout: 10), "The question did not open")
+        shot("long-options")
+        for option in long {
+            let button = app.buttons[option]
+            XCTAssertTrue(button.exists, "The option is not on the card")
+            XCTAssertEqual(button.label, option, "The option does not carry its whole text")
+            // Cut to one line, an option is as tall as the short one; wrapped, it is taller.
+            XCTAssertGreaterThan(button.frame.height, line.frame.height,
+                                 "“\(option)” is still one line, so it is cut with an ellipsis")
+        }
+        // Grown, not drawn over each other.
+        for (above, below) in zip(long, long.dropFirst()) {
+            XCTAssertLessThanOrEqual(app.buttons[above].frame.maxY, app.buttons[below].frame.minY + 1,
+                                     "“\(above)” overlaps the option under it")
+        }
     }
 
     private func listed(_ question: String) -> XCUIElement {

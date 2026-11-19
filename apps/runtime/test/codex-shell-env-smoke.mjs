@@ -26,6 +26,12 @@ const processEnv = {
   GOFLAGS: '-p=2',
   MAKEFLAGS: '-j2',
   BASH_ENV: '/opt/nuphos-runtime/runtime-guard.sh',
+  // What openab passes the adapter on Windows (#3496).
+  ...Object.fromEntries(
+    ['SystemRoot', 'SystemDrive', 'ComSpec', 'PATHEXT'].flatMap((key) =>
+      process.env[key] ? [[key, process.env[key]]] : [],
+    ),
+  ),
 }
 const { shell_environment_policy: policy } = nuphosCodexSessionConfig(
   {},
@@ -75,7 +81,7 @@ const rpc = async (method, params) => {
       throw new Error(`Codex exited (${code}): ${stderr}`)
     }),
     new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Timeout ${method}: ${stderr}`)), 15000).unref(),
+      setTimeout(() => reject(new Error(`Timeout ${method}: ${stderr}`)), 75000).unref(),
     ),
   ])
 
@@ -86,18 +92,32 @@ const rpc = async (method, params) => {
 
 try {
   await rpc('initialize', { clientInfo: { name: 'nuphos-shell-smoke', version: '1' } })
+  const command =
+    process.platform === 'win32'
+      ? [
+          `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
+          '-NoProfile',
+          '-Command',
+          'if ($env:NUPHOS_TOKEN -ne "scoped-actor" -or $env:OPENAB_ACP_AUTH_KEY) { exit 3 }; Write-Output NUPHOS_OK',
+        ]
+      : [
+          '/bin/sh',
+          '-c',
+          'test -z "${OPENAB_ACP_AUTH_KEY+x}" && test -z "${UNSCOPED_SESSION_MARKER+x}" && test "$NUPHOS_TOKEN" = scoped-actor && test "$GOMEMLIMIT" = 6GiB && test "$NODE_OPTIONS" = --max-old-space-size=6144 && test "$GOFLAGS" = -p=2 && test "$MAKEFLAGS" = -j2 && test "$BASH_ENV" = /opt/nuphos-runtime/runtime-guard.sh && test "$HOME" = "$NUPHOS_SESSION_HOME" && test "$GH_CONFIG_DIR" = "$HOME/.config/gh" && test "$CLOUDSDK_CONFIG" = "$HOME/.config/gcloud" && command -v sh >/dev/null',
+        ]
+  const started = Date.now()
   const result = await rpc('command/exec', {
-    command: [
-      '/bin/sh',
-      '-c',
-      'test -z "${OPENAB_ACP_AUTH_KEY+x}" && test -z "${UNSCOPED_SESSION_MARKER+x}" && test "$NUPHOS_TOKEN" = scoped-actor && test "$GOMEMLIMIT" = 6GiB && test "$NODE_OPTIONS" = --max-old-space-size=6144 && test "$GOFLAGS" = -p=2 && test "$MAKEFLAGS" = -j2 && test "$BASH_ENV" = /opt/nuphos-runtime/runtime-guard.sh && test "$HOME" = "$NUPHOS_SESSION_HOME" && test "$GH_CONFIG_DIR" = "$HOME/.config/gh" && test "$CLOUDSDK_CONFIG" = "$HOME/.config/gcloud" && command -v sh >/dev/null',
-    ],
+    command,
     cwd: base,
     sandboxPolicy: { type: 'dangerFullAccess' },
-    timeoutMs: 10000,
+    // The Windows runner image starts PowerShell quickly only with its own
+    // PSModuleAnalysisCachePath. Without it, as here, a start takes about 20 s.
+    timeoutMs: 60000,
   })
 
+  console.log(`exit ${result.exitCode} after ${Date.now() - started} ms: ${result.stdout.trim()}`)
   assert.equal(result.exitCode, 0, `Codex shell environment isolation failed: ${result.stderr}`)
+  if (process.platform === 'win32') assert.match(result.stdout, /NUPHOS_OK/u)
   console.log(
     'PASS real Codex App Server shell: no transport key or unscoped env; scoped credentials and CLI environment available',
   )
@@ -105,5 +125,6 @@ try {
   child.stdin.end()
   child.kill()
   await exited
-  rmSync(base, { recursive: true, force: true })
+  // Windows keeps the directory locked for a moment after Codex exits.
+  rmSync(base, { recursive: true, force: true, maxRetries: 10 })
 }

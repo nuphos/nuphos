@@ -4,18 +4,23 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { randomUUID } from 'node:crypto'
 
+import { archiveIdleConversations } from '@/lib/agent/conversation-auto-archive'
 import { closeDb, connectDb } from '@/lib/db'
 
 import { setConversationArchived } from './archive'
+import { leaveChats } from './bot-membership'
 import { agentConversations } from './shared'
 
 const teamId = randomUUID()
 const userId = randomUUID()
 const thread = randomUUID()
 const parent = randomUUID()
+const idle = randomUUID()
+const bot = randomUUID()
+const chat = randomUUID()
 const question = (id: string, about?: string[]) => ({
   id,
-  category: 'preference',
+  category: 'preference' as const,
   question: id,
   askedAt: new Date(),
   status: 'open' as const,
@@ -60,5 +65,36 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('archiving withdraws questions ab
       'empty-about',
       'no-about',
     ])
+  })
+  // #3760: archived by idleness or by a Bot leaving its chats, not by setConversationArchived.
+  test('an idle Task archived by the sweep takes the questions about it along', async () => {
+    const longAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+
+    await seed(idle, { parentSessionId: parent, lastActiveAt: longAgo })
+    await agentConversations().updateOne(
+      { sessionId: parent },
+      { $push: { inputRequests: question('idle-only', [idle]) } },
+    )
+
+    await archiveIdleConversations()
+    const kept = await agentConversations().findOne({ sessionId: parent })
+
+    expect((await agentConversations().findOne({ sessionId: idle }))?.archivedAt).toBeDefined()
+    expect(kept?.inputRequests?.map((request) => request.id)).not.toContain('idle-only')
+  })
+
+  test('a Bot made a Task again takes the questions about its chat along', async () => {
+    await seed(bot, {
+      avatar: { emoji: 'x' },
+      messageCount: 1,
+      inputRequests: [question('chat-only', [chat])],
+    })
+    await seed(chat, { kind: 'channel', agentSessionIds: [bot], participantIds: [userId] })
+
+    await leaveChats(bot)
+    const kept = await agentConversations().findOne({ sessionId: bot })
+
+    expect((await agentConversations().findOne({ sessionId: chat }))?.archivedAt).toBeDefined()
+    expect(kept?.inputRequests ?? []).toEqual([])
   })
 })

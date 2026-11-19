@@ -108,6 +108,7 @@ export async function stop(child: ChildProcess): Promise<void> {
   signalGroup(child, 'SIGKILL')
 }
 
+// All at once: each may take its full 5 s, and one after another a stack took 37 s to stop.
 export async function stopAll(): Promise<void> {
-  for (const child of children.toReversed()) await stop(child)
+  await Promise.all(children.map(stop))
 }
