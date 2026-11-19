@@ -187,7 +187,8 @@ function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): Ban
 }
 
 /**
- * Reserve the notice’s actual height above the composer, including wrapped text.
+ * Said before the message goes, not after it fails. A slim tab on the composer's
+ * top edge: positioned out of flow, so showing or hiding it never moves the input.
  * Agent reachability owns this edge; anything else about the turn sits below.
  */
 export function AgentStatusBanner({
@@ -214,7 +215,10 @@ export function AgentStatusBanner({
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // An agent that can take the message, on a computer about to fail it: said, without blocking.
   const notice = useComputerNotice(control)
+  const [noticed, setNoticed] = useState(notice)
   const active: BannerKind | null = blocked ?? notice?.kind ?? null
+  // The words stay while the banner leaves, so it closes on what it said.
+  const [shown, setShown] = useState(active)
   const selected = control.options?.find((instance) => instance.id === control.value?.id)
   // The same fix the picker offers for this agent, so the two never disagree.
   const { fixes, dialogs } = usePickerFixes({
@@ -228,19 +232,21 @@ export function AgentStatusBanner({
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
-  const variant = active ? BANNER[active] : null
+  if (active && active !== shown) setShown(active)
+  if (notice && JSON.stringify(notice) !== JSON.stringify(noticed)) setNoticed(notice)
+  const variant = shown ? BANNER[shown] : null
   let copy: BannerCopy = { text: '', action: null }
 
-  if (active === 'disk' || active === 'outdated') copy = noticeCopy(notice, control.onSettings)
-  else if (active)
+  if (shown === 'disk' || shown === 'outdated') copy = noticeCopy(noticed, control.onSettings)
+  else if (shown)
     copy = bannerCopy(
-      active,
+      shown,
       control,
       fix,
       { ...fixes, ...(askedName && { askedName }) },
       onSwitchAgent,
     )
-  if (active === 'offline' && !unreachable && control.offlineAgent)
+  if (shown === 'offline' && !unreachable && control.offlineAgent)
     copy = {
       text: t('{name}’s computer is offline.', { name: control.offlineAgent }),
       action: null,
@@ -252,18 +258,23 @@ export function AgentStatusBanner({
       <div
         role="status"
         aria-hidden={!active}
+        // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
         inert={!active}
-        className={clsx('relative', hero ? 'mx-6' : 'mx-4', active ? 'mb-2' : 'hidden')}
+        className={clsx(
+          't-toast absolute bottom-full',
+          hero ? 'inset-x-6' : 'inset-x-4',
+          active ? 'is-open' : 'pointer-events-none',
+        )}
       >
         {variant && (
           <div
             className={clsx(
-              'relative overflow-hidden rounded-[10px] border bg-composer',
+              'relative overflow-hidden rounded-t-[10px] border border-b-0 bg-composer',
               variant.border,
             )}
           >
             <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
-            {/* A long reason wraps and reserves its full height above the input. */}
+            {/* A long reason wraps and the tab grows upward, never under the input. */}
             <div className="relative flex min-h-8 min-w-0 items-center gap-2 px-3 py-1 text-[12.5px] leading-snug text-secondary">
               <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
               <span className="min-w-0 flex-1">{text}</span>

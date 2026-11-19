@@ -164,7 +164,7 @@ export function Composer({
       className={clsx(
         // Its width and side clearance are the ChatColumn's it sits in. Docked, its bottom gap
         // matches the content card's own (`pb-2` on the main pane) so the two columns end on the
-        // same line. Status notices reserve their own height above the input.
+        // same line. The hero always keeps room for the agent-status banner above the greeting.
         hero ? 'pt-5' : sidebar ? 'pb-2' : 'pb-3',
       )}
     >
