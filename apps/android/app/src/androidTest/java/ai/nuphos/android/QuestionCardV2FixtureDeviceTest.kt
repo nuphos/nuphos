@@ -97,12 +97,15 @@ class QuestionCardV2FixtureDeviceTest {
         assertTrue("The body opens", bounds("bot-question-body").height > cut)
     }
 
-    @Test fun skipClosesItAndOtherTakesTheRow() {
+    @Test fun skipClosesIt() {
         var dismissed = false
-        val answers = mutableListOf<String>()
-        show(onDismiss = { dismissed = true }, answers = answers)
+        show(onDismiss = { dismissed = true })
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         assertTrue(dismissed)
+    }
+
+    @Test fun otherTakesTheRow() {
+        val answers = mutableListOf<String>()
         show(answers = answers)
         compose.onNodeWithTag("bot-question-other").performClick()
         compose.onNodeWithTag("bot-question-dismiss").assertDoesNotExist()

@@ -92,8 +92,8 @@ internal fun BotQuestionCard(
     /** Sets the question aside until a time; only the Inbox offers it. */
     onSnooze: ((Instant) -> Unit)? = null,
 ) {
-    // In a chat or a Task, #2879's card; the Inbox keeps its own, with the text box always there.
-    if (!answersInPlace) return ChatQuestionCard(question, onOpen, onAnswer, showsFrom, onLink, failure, onConnect, onForm, onDismiss)
+    // In a chat or a Task, #2879's card. The Inbox, which alone answers in place and snoozes, keeps its own.
+    if (!answersInPlace && onSnooze == null) return ChatQuestionCard(question, onOpen, onAnswer, showsFrom, onLink, failure, onConnect, onForm, onDismiss)
     val replies = cardReplies(question)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
