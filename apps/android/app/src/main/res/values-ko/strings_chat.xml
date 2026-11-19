@@ -207,5 +207,10 @@
     <string name="chat_summary_triggers">트리거</string>
     <string name="chat_summary_no_triggers">에이전트에게 이 작업의 반복 일정을 요청하세요.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">봇 세부 정보</string>
+    <string name="chat_bot_state_waiting">%1$d개 입력 필요</string>
+    <string name="chat_bot_state_running">%1$d개 실행 중</string>
+    <string name="chat_summary_idle_since">유휴 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">정기 작업 예약은 여기에서 요청하세요.</string>
     <string name="chat_summary_paused">일시 중지됨</string>
 </resources>

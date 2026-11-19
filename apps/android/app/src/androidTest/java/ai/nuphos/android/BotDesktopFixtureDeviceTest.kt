@@ -50,6 +50,14 @@ class BotDesktopFixtureDeviceTest {
     private var savedAccess: Any? = null
     private var historicalPosts = false
     @Volatile private var denyBotTask = false
+    /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
+    @Volatile private var dispatched = false
+    private val tasks = listOf(
+        Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
+        Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
+        Triple("task-run", "Collect merged PRs", """"lastActiveAt":"2026-11-03T09:00:00Z","activeRun":{"streamId":"s1"},"runtimeState":{"schemaVersion":2,"state":"active","phase":"turn"}"""),
+        Triple("task-new", "Draft the changelog", """"lastActiveAt":"2026-11-07T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
+    )
     private val botReads = java.util.concurrent.atomic.AtomicInteger()
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
@@ -96,6 +104,7 @@ class BotDesktopFixtureDeviceTest {
             val path = request.url.encodedPath
             val chatId = bots.keys.firstOrNull { path.endsWith("/agent/conversations/$it") }
             val ofBot = bots.values.firstOrNull { path.endsWith("/agent/conversations/${it.id}") }
+            val ofTask = tasks.firstOrNull { path.endsWith("/agent/conversations/${it.first}") }
             if (ofBot != null) {
                 botReads.incrementAndGet()
                 if (denyBotTask) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
@@ -104,11 +113,14 @@ class BotDesktopFixtureDeviceTest {
             val body = when {
                 chatId != null -> chat(chatId, bots.getValue(chatId))
                 ofBot != null -> bot(ofBot)
+                ofTask != null -> """{"sessionId":"${ofTask.first}","title":"${ofTask.second}","isOwner":true,"canManage":true,"readOnly":false,"parentSessionId":"bot-plain",
+                    "messages":[{"id":"m","role":"assistant","parts":[{"type":"text","text":"Working on: ${ofTask.second}."}]}]}"""
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
                     .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
-                path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
+                path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
+                    """{"sessionId":"$id","title":"$title","isOwner":true,"agentRuntime":"claude-code","parentSessionId":"bot-plain",$rest}""" }}],"hasMore":false}"""
                 path.endsWith("/resources") -> """{"resources":[]}"""
                 path.endsWith("/read") -> """{"activitySeq":2,"readSeq":2,"unread":false}"""
                 else -> "{}"
@@ -176,7 +188,10 @@ class BotDesktopFixtureDeviceTest {
         denyBotTask = true
         render("chat-plain", taskNavigation = true)
         compose.waitUntil(5_000) { botReads.get() > 0 && store.session("bot-plain", "Release notes")?.loadError != null }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
+        androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("channel-transcript").assertExists()
     }
 
@@ -185,7 +200,7 @@ class BotDesktopFixtureDeviceTest {
         val app = inst.targetContext.applicationContext as NuphosApplication
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(auth.user!!.id) }
         render("chat-plain", taskNavigation = true)
-        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
         compose.waitUntil(8_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         compose.onNode(hasSetTextAction()).performTextInput("Retained Bot draft")
         androidx.test.espresso.Espresso.closeSoftKeyboard()
@@ -195,7 +210,12 @@ class BotDesktopFixtureDeviceTest {
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         val before = position()
         assertTrue(before > 5)
-        capture("5-bot-task-entry")
+        // The Bot's own Task opens from its details, not the header.
+        compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        capture("5-bot-details-task-button")
         compose.onNodeWithTag("bot-task-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
         compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
@@ -222,7 +242,31 @@ class BotDesktopFixtureDeviceTest {
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
         assertTrue(compose.onAllNodes(button).fetchSemanticsNodes().isEmpty())
+        // Nothing dispatched: nothing under the name.
+        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertDoesNotExist()
         capture("2-no-desktop")
+    }
+
+    @Test fun botPageShowsAndOpensWhatItDispatched() {
+        dispatched = true
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("bot-state", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertTextEquals("1 needs input · 1 running")
+        compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
+        capture("8-bot-state")
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-row").fetchSemanticsNodes().size == 4 }
+        compose.waitForIdle()
+        val order = compose.onAllNodesWithTag("bot-task-row").fetchSemanticsNodes()
+            .map { node -> node.config[SemanticsProperties.Text].first().text }
+        assertEquals(listOf("Confirm the release date", "Collect merged PRs", "Draft the changelog", "Prune stale branches"), order)
+        capture("9-bot-details")
+        compose.onAllNodesWithTag("bot-task-row")[1].performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Working on: Collect merged PRs.").fetchSemanticsNodes().isNotEmpty() }
+        capture("10-sub-task-open")
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
     }
 
     @Test fun aBotWithADesktopOpensItFromTheHeader() {
