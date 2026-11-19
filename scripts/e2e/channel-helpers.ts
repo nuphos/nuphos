@@ -8,8 +8,13 @@ import { pickInSubmenu } from './ui.ts'
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
 
-/** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
-export async function computerWithUsage(stack: Stack, label: string, deviceId = randomUUID()) {
+/** A computer reporting Claude Code usage as Desktop's host does; with `diskPercent`, a live disk too. */
+export async function computerWithUsage(
+  stack: Stack,
+  label: string,
+  deviceId = randomUUID(),
+  diskPercent?: number,
+) {
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
     method: 'PUT',
@@ -52,12 +57,29 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
             usageAt: new Date().toISOString(),
           },
         },
+        ...(diskPercent === undefined ? {} : { localMetrics: true }),
       },
     }),
   )
+  const report = () =>
+    host.send(
+      JSON.stringify({
+        t: 'metrics',
+        metrics: {
+          sampledAt: new Date().toISOString(),
+          cpuPercent: 20,
+          memory: { used: 4, total: 16 },
+          disk: { used: diskPercent, total: 100 },
+        },
+      }),
+    )
+  const reporting = diskPercent === undefined ? undefined : setInterval(report, 4_000)
+
+  if (reporting) report()
 
   // `forget` false leaves it registered, to connect again.
   return (forget = true) => {
+    clearInterval(reporting)
     host.close()
     if (forget) forgetComputer(stack.mongoUri, deviceId)
   }
