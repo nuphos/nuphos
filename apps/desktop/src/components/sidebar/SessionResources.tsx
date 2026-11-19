@@ -1,4 +1,4 @@
-import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { agentApi } from '../../api/agent-api'
 import { t } from '../../i18n'
@@ -7,7 +7,6 @@ import { useSessionTerminalProcesses } from '../../lib/sessionTerminalProcesses'
 import { toast } from '../ui/toast'
 
 import { ResourceListMenu } from './ResourceListMenu'
-import { RowDetailExtraContext } from './row-detail-extra'
 import { SessionResourceChip } from './SessionResourceChip'
 import {
   chipNames,
@@ -38,9 +37,6 @@ export function SessionResources({
   onOpenTab?: (tabId: string) => void
 }) {
   const processes = useSessionTerminalProcesses(sessionId)
-  // The sidebar row's own chip (its done count) follows the resources.
-  const rowExtra = useContext(RowDetailExtraContext)
-  const extra = titlebar ? null : rowExtra
 
   const [canManage, setCanManage] = useState(false)
   const [removed, setRemoved] = useState<string[]>([])
@@ -53,7 +49,6 @@ export function SessionResources({
   const { rowRef, measureRef, shown, minimum, fresh } = useFittingChips(
     chips.map((chip) => chip.key),
     titlebar && canManage,
-    extra?.key,
   )
   const hidden = chips.length - shown
   // Set by an unlink from the "+N" menu. If the row then fits, "+N" and its
@@ -123,7 +118,7 @@ export function SessionResources({
     },
   }
 
-  if (!chips.length && !extra) return null
+  if (!chips.length) return null
   const chipProps = {
     titlebar,
     canManage,
@@ -183,11 +178,6 @@ export function SessionResources({
             +{hidden}
           </span>
         ))}
-      {extra && (
-        <span data-chip-reserve className="flex shrink-0 items-center">
-          {extra.node}
-        </span>
-      )}
       <div
         ref={measureRef}
         aria-hidden

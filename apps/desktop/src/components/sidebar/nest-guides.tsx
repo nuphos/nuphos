@@ -1,7 +1,4 @@
-import { CircleCheck } from 'lucide-react'
 import { Fragment } from 'react'
-
-import { t } from '../../i18n'
 
 import type { ReactNode } from 'react'
 
@@ -71,28 +68,5 @@ export function NestedRowBody({
         <span aria-hidden className={DOWN} style={{ ...x(trail.length), top: bottomY }} />
       )}
     </>
-  )
-}
-
-/** How the row names its done count, for screen readers and the tooltip. */
-function finishedThreadsLabel(n: number): string {
-  return n === 1 ? t('1 sub-agent done') : t('{n} sub-agents done', { n })
-}
-
-/**
- * Sub-agents that finished with nothing left running, as one quiet count on
- * their parent row, beside the merged badge. Only a count: the row's edge
- * chevron is what lists them.
- */
-export function FinishedThreadsBadge({ count }: { count: number }) {
-  return (
-    <span
-      title={finishedThreadsLabel(count)}
-      className="inline-flex shrink-0 items-center gap-1 text-[11px] text-tertiary"
-    >
-      <CircleCheck aria-hidden className="size-3 shrink-0" />
-      <span aria-hidden>{count === 1 ? t('1 done') : t('{n} done', { n: count })}</span>
-      <span className="sr-only">{finishedThreadsLabel(count)}</span>
-    </span>
   )
 }

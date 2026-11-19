@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
@@ -15,11 +16,9 @@ import { BotsDropZone } from './bot-drop'
 import { BOTS_SECTION, sectionFolds } from './chat-sections'
 import { FavoriteToggle } from './favorite-toggle'
 import { FoldedStatus } from './folded-status'
-import { finishedThreadsDetail } from './finished-threads-detail'
 import { NestedRowBody } from './nest-guides'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
-import { RowFoldToggle } from './row-fold-toggle'
 import { SessionRowSurface } from './SessionRowSurface'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
@@ -44,6 +43,12 @@ type SectionListProps = {
   onItemMenu: (menu: ItemMenuRequest) => void
   onSelect: (key: string) => void
   onOpenKey?: (key: string, favoriteLabel: string | null, newTab: boolean) => void
+}
+
+function foldLabel(item: Item, folded: boolean): string {
+  if (item.project) return folded ? t('Expand') : t('Collapse')
+
+  return folded ? t('Show sub-agents') : t('Hide sub-agents')
 }
 
 export function SidebarSectionList({
@@ -105,7 +110,7 @@ export function SidebarSectionList({
                     ) : (
                       folds(section)
                         .nest()
-                        .map(({ item, trail, hasChildren, hidden, done, running, hasDone }) => {
+                        .map(({ item, trail, hasChildren, hidden }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -129,37 +134,45 @@ export function SidebarSectionList({
                           const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
-                              pin={Boolean(item.bot || item.botChannelOf)}
+                              pin={
+                                item.bot || item.botChannelOf
+                                  ? 'bot'
+                                  : item.channel
+                                    ? 'chat'
+                                    : undefined
+                              }
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}
                             />
                           ) : null
-                          const doneGroup = finishedThreadsDetail(done.length)
-                          // A one-line row shows its done count on the detail line it reveals on
-                          // hover; a two-line Bot chat has no room for one, so keeps it by its name.
-                          const detail = doneGroup && !twoLine ? doneGroup : null
-                          const revealDetail = Boolean(item.description) || Boolean(detail)
-                          // One chevron lists or hides every child, running and finished; the
-                          // folds behind it are remembered per team like a section's.
-                          const sectionFold = folds(section)
-                          const folded = hasChildren && sectionFold.folded(item.key)
-                          const foldToggle =
-                            hasChildren || hasDone ? (
-                              <RowFoldToggle
-                                item={item}
-                                row={{
-                                  hasChildren,
-                                  folded,
-                                  running,
-                                  hasDone,
-                                  doneOpen: sectionFold.doneOpen(item.key),
-                                }}
-                                foldSet={sectionFold.folded(item.key)}
-                                toggleFold={() => sectionFold.toggleFold(item.key)}
-                                toggleDone={() => sectionFold.toggleDone(item.key)}
-                              />
-                            ) : null
+                          // A thread parent folds its threads; the fold is remembered
+                          // per team like a section's.
+                          const folded = hasChildren && folds(section).folded(item.key)
+                          const foldToggle = hasChildren ? (
+                            <span
+                              role="button"
+                              aria-label={foldLabel(item, folded)}
+                              title={foldLabel(item, folded)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                folds(section).toggleFold(item.key)
+                              }}
+                              className={clsx(
+                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                                // Hidden controls take no width; folded rows keep their disclosure visible.
+                                folded
+                                  ? 'inline-flex'
+                                  : 'hidden group-hover:inline-flex group-focus-within:inline-flex',
+                              )}
+                            >
+                              {folded ? (
+                                <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.8} />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.8} />
+                              )}
+                            </span>
+                          ) : null
                           const row = (
                             <SessionRowSurface
                               item={item}
@@ -168,7 +181,7 @@ export function SidebarSectionList({
                               onSelect={onSelect}
                               sessionId={rowSessionId}
                               teamId={scope.teamId}
-                              revealDetail={revealDetail}
+                              revealDetail={Boolean(item.description)}
                               onContextMenu={
                                 // Only open when the menu would have something in it.
                                 canFavorite(item) || (teamView && Boolean(rowSessionId))
@@ -198,19 +211,9 @@ export function SidebarSectionList({
                                 }}
                                 label={item.label}
                                 preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
-                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
-                                note={
-                                  twoLine && doneGroup ? (
-                                    <>
-                                      {item.note}
-                                      {doneGroup.node}
-                                    </>
-                                  ) : (
-                                    item.note
-                                  )
-                                }
+                                note={item.note}
                                 badge={item.badge}
                                 trailing={
                                   <>
@@ -231,9 +234,9 @@ export function SidebarSectionList({
                                   ) : undefined
                                 }
                                 icon={leading ?? null}
-                                revealDetail={revealDetail}
+                                revealDetail={Boolean(item.description)}
                               />
-                              <RowDetail item={item} extra={detail} />
+                              <RowDetail item={item} />
                             </SessionRowSurface>
                           )
 

@@ -1,17 +1,14 @@
 import clsx from 'clsx'
 
-import { RowDetailExtraContext } from './row-detail-extra'
-
-import type { RowDetailExtra } from './row-detail-extra'
 import type { Item } from './types'
 
 /**
- * A sidebar row's detail line (linked work, merged PRs, finished sub-agents). Hidden at rest, it
+ * A sidebar row's detail line (linked work, merged PRs). Hidden at rest, it
  * rises under the lifted title while the row is hovered or focused, inside
  * the row's fixed height (see SessionRowSurface `revealDetail`).
  */
-export function RowDetail({ item, extra = null }: { item: Item; extra?: RowDetailExtra | null }) {
-  if (!item.description && !extra) return null
+export function RowDetail({ item }: { item: Item }) {
+  if (!item.description) return null
 
   return (
     <div
@@ -26,16 +23,7 @@ export function RowDetail({ item, extra = null }: { item: Item; extra?: RowDetai
         'group-focus-within/session:opacity-100 motion-reduce:transition-none [&>*]:pb-0',
       )}
     >
-      {item.description ? (
-        <RowDetailExtraContext.Provider value={extra}>
-          {item.description}
-        </RowDetailExtraContext.Provider>
-      ) : (
-        // No linked work to sit beside (a Bot's row): the row's own chip, on the resources' line.
-        <div className="flex min-w-0 items-center gap-2 overflow-hidden pr-2 pb-1 pl-[40px] text-[11px] text-tertiary">
-          {extra?.node}
-        </div>
-      )}
+      {item.description}
     </div>
   )
 }
