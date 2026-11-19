@@ -1,7 +1,5 @@
 import { useLayoutEffect, useState } from 'react'
 
-import type { RefObject } from 'react'
-
 /** How far the bars above a composer whose top is `composerTop` reach up, in px: the room the chat's end needs. */
 export function overlayReach(composerTop: number, overlayTops: readonly number[]): number {
   return Math.max(0, ...overlayTops.map((top) => Math.ceil(composerTop - top)))
@@ -9,15 +7,13 @@ export function overlayReach(composerTop: number, overlayTops: readonly number[]
 
 /**
  * {@link overlayReach} of the open bars marked `data-composer-overlay` (a status banner, the reply
- * bar) inside `ref`, the composer's box, kept current as they open, close, wrap or slide in. A
+ * bar) inside `host`, the composer's box, kept current as they open, close, wrap or slide in. A
  * closing bar is inert and needs no room.
  */
-export function useComposerOverlay(ref: RefObject<HTMLElement | null> | undefined): number {
+export function useComposerOverlay(host: HTMLElement | null): number {
   const [reach, setReach] = useState(0)
 
   useLayoutEffect(() => {
-    const host = ref?.current
-
     if (!host) return
     const bars = () => [...host.querySelectorAll<HTMLElement>('[data-composer-overlay]')]
     const measure = () =>
@@ -46,7 +42,7 @@ export function useComposerOverlay(ref: RefObject<HTMLElement | null> | undefine
       changes.disconnect()
       host.removeEventListener('transitionend', measure)
     }
-  }, [ref])
+  }, [host])
 
   return reach
 }

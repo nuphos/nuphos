@@ -31,7 +31,7 @@ export function Conversation({
   teamId,
   currentUrl,
   sidebar = false,
-  composerRef,
+  composer = null,
   visible = true,
   onDockToSidebar,
   onStop,
@@ -60,13 +60,14 @@ export function Conversation({
   const currentUserId = useCurrentUser()?.id
   const lastMsgIsOwn = isOwnMessage(lastMsg, currentUserId, tab.foreign)
   const jump = useJumpToLatest(tab.messages, lastMsg?.id)
-  const room = useComposerOverlay(composerRef)
+  const room = useComposerOverlay(composer)
 
   // A bar opening over the end keeps a transcript that follows the latest message at its end.
   useLayoutEffect(() => {
     const el = ref.current
 
-    if (el && shouldFollowRef.current) el.scrollTop = el.scrollHeight
+    if (el && shouldFollowRef.current && !userLockedScrollRef.current)
+      el.scrollTop = el.scrollHeight
   }, [room])
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])

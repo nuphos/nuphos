@@ -23,7 +23,7 @@ import type { RefObject } from 'react'
  */
 export function useStickToBottom(
   ref: RefObject<HTMLDivElement | null>,
-  composer: RefObject<HTMLElement | null>,
+  composer: HTMLElement | null,
 ) {
   const stuck = useRef(true)
   const room = useComposerOverlay(composer)
