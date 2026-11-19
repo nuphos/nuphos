@@ -15,6 +15,7 @@ import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
 import {
   CHANNEL_SENDER_PREFIX,
+  channelNotice,
   noticeChannelId,
   SLACK_CHANNEL_SENDER_PREFIX,
 } from './db/channel-notes'
@@ -33,13 +34,6 @@ import { systemSender } from './message-metadata'
 
 import type { MessageMetadata } from './message-metadata'
 import type { ReplyFailedCause } from './db/timeline-events'
-
-/**
- * A channel's wake notice as queued: fixed per channel, so the queue keeps one.
- * A Slack channel's record (#3702) is named for what it is, never a Nuphos chat.
- */
-export const channelNotice = (channel: Pick<AgentConversation, 'sessionId' | 'external'>) =>
-  `New messages in ${channel.external === 'slack' ? 'a Slack channel' : 'a Nuphos channel'} (channelId ${channel.sessionId}).`
 
 /** Who a channel's wake notice is from: the channel, never a person. */
 export const channelNoticeSender = (
@@ -146,11 +140,8 @@ async function retrySteer(
 }
 
 /** The channel a message is the wake notice of, if it is one. */
-export function channelIdOf(message: { source?: string; metadata?: MessageMetadata }) {
-  return message.source === 'agent.resource'
-    ? noticeChannelId(message.metadata?.sender?.id)
-    : undefined
-}
+export const channelIdOf = (message: { source?: string; metadata?: MessageMetadata }) =>
+  message.source === 'agent.resource' ? noticeChannelId(message.metadata?.sender?.id) : undefined
 
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,

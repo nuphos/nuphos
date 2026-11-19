@@ -4,8 +4,8 @@ import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
+import { channelNotice } from './db/channel-notes'
 import {
-  channelNotice,
   channelNoticeSender,
   noteReplyFailed,
   steerQueuedNotice,
