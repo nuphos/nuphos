@@ -214,6 +214,37 @@ test('models and effort open together, and the effort is named, never "Default"'
   await act(() => picker.root.unmount())
 })
 
+test("Claude Code's older models end the same list, in a More models group", async () => {
+  const picker = mount()
+
+  await picker.render({
+    status: 'ready',
+    options: [
+      {
+        id: 'model',
+        name: 'Model',
+        kind: 'model',
+        currentValue: 'claude-opus-4-8',
+        options: [
+          { value: 'opus', name: 'Opus', description: 'Opus 5.5 · For complex work' },
+          { value: 'sonnet', name: 'Sonnet', description: 'Sonnet 5.5 · Everyday tasks' },
+          { value: 'claude-opus-4-8', name: 'claude-opus-4-8' },
+        ],
+      },
+    ],
+  })
+  await act(() => picker.chip().click())
+  const menu = dom.document.querySelector('[role="menu"]')
+  const labels = [...(menu?.querySelectorAll('[data-group-label]') ?? [])].map(
+    (label) => label.textContent,
+  )
+
+  assert.deepEqual(labels, ['Select model', 'More models'])
+  // An older model is a row of the same list, checked where it runs, not one step further.
+  assert.equal(picker.row('claude-opus-4-8')?.getAttribute('aria-checked'), 'true')
+  await act(() => picker.root.unmount())
+})
+
 test('a locked model picker shows the setting and why, and a pick changes nothing', async () => {
   const picker = mount()
 
