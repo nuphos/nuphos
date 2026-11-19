@@ -2,8 +2,8 @@ name: Desktop Windows agent CLI
 
 # Installs Claude Code with npm on real Windows, as a user without the native
 # installer would, and spawns the CLI findAgentCli picks the way the Agent SDK
-# does: without a shell. main's lookup is run too, to show the .cmd it picked
-# fails with EINVAL (#3290).
+# does: without a shell. It must pick claude.exe, not the .cmd that fails
+# with EINVAL (#3290).
 on:
   pull_request:
     paths:
@@ -31,7 +31,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -43,12 +42,7 @@ jobs:
         run: |
           npm install -g --prefix "$env:APPDATA\npm" --allow-scripts=@anthropic-ai/claude-code @anthropic-ai/claude-code
           Get-ChildItem "$env:APPDATA\npm"
-      - name: Before (main) picks claude.cmd, which fails with EINVAL
-        working-directory: apps/desktop/electron/main/local-runtime
-        run: |
-          git show origin/main:apps/desktop/electron/main/local-runtime/agent-cli-find.ts > agent-cli-find.main.ts
-          node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.main.ts einval
-      - name: After (this branch) picks claude.exe, which runs
+      - name: It picks claude.exe, which runs
         working-directory: apps/desktop/electron/main/local-runtime
         run: node ../../../scripts/windows-npm-claude-spawn.ts agent-cli-find.ts exe
       # Without its postinstall (npm 11 skips unallowed scripts), bin\claude.exe

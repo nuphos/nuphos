@@ -16,6 +16,7 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireSentryAccount,
   requireSentryMemberAccess,
@@ -134,13 +135,7 @@ bindingScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('sentryBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { sentryAccounts: { id: binding.id } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'sentryAccounts', { id: binding.id })
     // Unlike Asana/GitLab there is no revokeGrant step: Sentry exposes no OAuth
     // revocation endpoint, so a token already handed to a sandbox stays valid at
     // Sentry until it expires (~30d). Dropping the cache is all we can do server

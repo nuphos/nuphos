@@ -33,7 +33,7 @@ final class DesktopPanelContrastUITests: XCTestCase {
             throw XCTSkip("The desktop opens beside the conversation only on a wide window")
         }
         // The name alone: the title's own element takes the avatar beside it too.
-        let title = app.navigationBars.buttons["bot-trigger-entry"].staticTexts["Sign-in helper"].firstMatch
+        let title = app.navigationBars.buttons["bot-details-entry"].staticTexts["Sign-in helper"].firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(contrast(of: title), 4.5, "The conversation title blends into the desktop behind it")
     }
