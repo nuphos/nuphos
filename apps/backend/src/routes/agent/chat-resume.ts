@@ -4,7 +4,7 @@ import { AppError } from '@/lib/errors'
 
 import { agentRuns } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
-import { traceAgentChatError, traceAgentChatEvent } from './trace'
+import { traceAgentChatEvent } from './trace'
 
 import type { AgentRun, ResumeParams } from './types'
 
@@ -247,9 +247,10 @@ export async function resumeFromRedisOrThrow(params: ResumeParams): Promise<Resp
     requestId,
   })
 
-  traceAgentChatError(
+  // Desktop starts the turn afresh on this 409 (#3684), so it is not a backend failure.
+  traceAgentChatEvent(
+    'warn',
     'agent.chat.resume.redis_not_resumable',
-    err,
     {
       requestId,
       userId: runOwnerUserId,
@@ -264,6 +265,7 @@ export async function resumeFromRedisOrThrow(params: ResumeParams): Promise<Resp
       viewer_user_id: userId,
       read_only_resume: params.readOnlyResume,
       resume_from: body.resumeFrom,
+      error_code: err.code,
     },
   )
   resumeSpan.end()

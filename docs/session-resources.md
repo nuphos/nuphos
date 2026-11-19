@@ -77,7 +77,8 @@ are not replayed just because model execution subsequently failed; inspect the
 conversation for that outcome. External writes still need their own idempotency.
 
 Before running, the worker rechecks the binding, team membership
-and selected integration, then reads the PR through that integration. A revoked
+and selected integration, then wakes the conversation with the state the webhook
+stored, without reading GitHub again. A revoked
 or disconnected integration cannot wake the session. Unlinking also invalidates
 queued deliveries by binding ID; linking again creates a new ID. An event for an
 archived conversation restores it and runs, as any new turn does. Resource events

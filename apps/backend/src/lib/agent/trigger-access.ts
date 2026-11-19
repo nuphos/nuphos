@@ -23,6 +23,10 @@ export type TriggerActorContext = {
    * tools and HTTP routes resolve execution scope through one path.
    */
   sessionId?: string
+  /** The app that sent the request, as it named itself in `X-Atlas-Client`. */
+  client?: string
+  /** Set by a caller other than a request, for the Trigger's history. */
+  via?: 'bot_import'
 }
 
 export type TriggerActor = string | TriggerActorContext

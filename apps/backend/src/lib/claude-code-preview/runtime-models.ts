@@ -169,8 +169,8 @@ export async function discoverModels(
     ? catalog
     : {
         models: [],
-        // A managed runtime reports its models once it is up; any other needs its sign-in or an update.
-        reason: instance.kind === 'managed' ? 'unreported' : 'undiscovered',
+        // A runtime that reports none needs its sign-in or an update.
+        reason: 'undiscovered',
       }
 }
 

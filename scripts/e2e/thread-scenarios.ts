@@ -99,7 +99,7 @@ export const threadModeScenario: Scenario = {
       has('permission-allow E2E_DELIVERY:thread'),
     )
     await page.getByRole('button', { name: 'Authorization mode' }).click()
-    await page.getByText('Auto Mode', { exact: true }).click()
+    await page.getByRole('menuitem', { name: /^Auto Mode/ }).click()
     await send(page, 'Message the thread E2E_POKE E2E_DELIVERY:poke')
     await page.getByText('ACK E2E_DELIVERY:poke').waitFor()
     await until('the thread to ask for its command', async () =>
