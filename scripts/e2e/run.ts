@@ -158,7 +158,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...installScenarios].entries()) {
+  for (const [index, scenario] of [...signInScenarios, ...installScenarios].entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 
