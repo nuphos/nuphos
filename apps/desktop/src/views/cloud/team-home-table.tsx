@@ -91,7 +91,8 @@ export function IntegrationCatalog({
     personalItems: matchingPersonalConnectors(terms).filter(
       ({ provider }) =>
         (category.id === 'messaging' && provider === 'gmail') ||
-        (category.id === 'document' && provider === 'google-drive'),
+        (category.id === 'document' && provider === 'google-drive') ||
+        (category.id === 'project-management' && provider === 'google-calendar'),
     ),
   })).filter((category) => category.items.length > 0 || category.personalItems.length > 0)
   const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
@@ -177,7 +178,10 @@ export function IntegrationCatalog({
             onFilterChange={onFilterChange}
             installed={installedKeys}
             personal={personal.filter(
-              (item) => item.provider === 'gmail' || item.provider === 'google-drive',
+              (item) =>
+                item.provider === 'gmail' ||
+                item.provider === 'google-drive' ||
+                item.provider === 'google-calendar',
             )}
             onPickPersonal={openPersonalCredentials}
             onPick={(item) => {
