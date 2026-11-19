@@ -18,7 +18,6 @@ export const defaultStandInScenarios: Scenario[] = [
         await send(page, 'Before the pick E2E_DELIVERY:stand-in-picked')
         await page.getByText('ACK E2E_DELIVERY:stand-in-picked').waitFor()
         await page.getByRole('button', { name: /^Model settings/ }).click()
-        await page.getByRole('button', { name: 'Select model' }).click()
         await page.getByRole('menuitemcheckbox', { name: /^fixture(?!-)/ }).click()
         await page.keyboard.press('Escape')
         await until('the first agent to hold the picked model', async () =>

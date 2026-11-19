@@ -323,3 +323,14 @@ test('the notes draw a line above them only under the list or the effort', async
   assert.match(notes(/Only the owner/)?.className ?? '', /border-t/, 'under the list, it has one')
   await act(() => locked.root.unmount())
 })
+
+// #3147: the model a runtime's Default stands for is pinned when it is clicked.
+test('clicking the model Default stands for pins it', async () => {
+  const picker = mount()
+
+  await picker.render(withEffort)
+  await act(() => picker.chip().click())
+  await act(() => picker.row('gpt-5.5')?.click())
+  assert.deepEqual(picker.selected, [{ configId: 'model', value: 'gpt-5.5' }])
+  await act(() => picker.root.unmount())
+})
