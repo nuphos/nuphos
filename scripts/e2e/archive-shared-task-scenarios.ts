@@ -49,8 +49,9 @@ export const archiveSharedTaskScenarios: Scenario[] = [
         const row = rowOf(page, TASK)
 
         await row.waitFor({ timeout: 30_000 })
-        await row.hover()
-        await row.getByRole('button', { name: `More actions for ${TASK}` }).click()
+        // The row's two menus are one (leave-task-scenarios.ts checks); a right-click skips the
+        // hover that scrolls a clipped title under the More button.
+        await row.click({ button: 'right' })
         const archive = page.getByRole('menuitem', { name: 'Archive Task' })
 
         await archive.waitFor()
