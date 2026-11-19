@@ -26,8 +26,10 @@ export function PersonalConnectors({
   items,
   onOpenAccount,
   connectedOnly = false,
+  hideHeading = false,
 }: {
   teamId: string
+  hideHeading?: boolean
   connectedOnly?: boolean
   items: PersonalConnector[]
   onOpenAccount: (provider: PersonalConnector['provider']) => void
@@ -54,12 +56,14 @@ export function PersonalConnectors({
 
   return (
     <section>
-      <div className="mb-1.5 flex items-baseline justify-between gap-3 border-b border-line-control/55 pb-2.5">
-        <h2 className="text-[13px] font-medium text-main">{t('Personal accounts')}</h2>
-        <span className="truncate text-[12px] text-tertiary">
-          {t('Connect your own accounts so the agent acts as you.')}
-        </span>
-      </div>
+      {!hideHeading && (
+        <div className="mb-1.5 flex items-baseline justify-between gap-3 border-b border-line-control/55 pb-2.5">
+          <h2 className="text-[13px] font-medium text-main">{t('Personal accounts')}</h2>
+          <span className="truncate text-[12px] text-tertiary">
+            {t('Connect your own accounts so the agent acts as you.')}
+          </span>
+        </div>
+      )}
       <div className="-mx-2 grid grid-cols-1 gap-x-5 gap-y-0.5 sm:grid-cols-2">
         {items
           .filter(({ provider }) => !connectedOnly || credentialFor(credentials, provider, teamId))

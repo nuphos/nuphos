@@ -5,8 +5,8 @@ import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
-import { matchingPersonalConnectors, nameOf } from '../settings/personalCredentials'
-import { PersonalCredentialsSection } from '../settings/PersonalCredentialsSection'
+import { credentialFor, matchingPersonalConnectors, nameOf } from '../settings/personalCredentials'
+
 
 import { CatalogConnector } from './CatalogConnector'
 import { ConnectorGroups } from './connector-groups'
@@ -14,6 +14,7 @@ import { ConnectorHeaderContext } from './connector-header'
 import { connectionOwnership } from './connector-ownership'
 import { ConnectorSearch } from './connector-search'
 import { searchTerms } from './connector-suggestions'
+import { ConnectorServiceDetail } from './ConnectorServiceDetail'
 import { githubConnectedSummary, visibleGithubInstallations } from './github-installation-display'
 import { PersonalConnectors } from './personal-connectors'
 import { InstalledList } from './team-home-installed'
@@ -88,9 +89,18 @@ export function IntegrationCatalog({
   const visibleCategories = CATALOG.map((category) => ({
     ...category,
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
-  })).filter((category) => category.items.length > 0)
+    personalItems: matchingPersonalConnectors(terms).filter(
+      ({ provider }) =>
+        (category.id === 'messaging' && provider === 'gmail') ||
+        (category.id === 'document' && provider === 'google-drive'),
+    ),
+  })).filter((category) => category.items.length > 0 || category.personalItems.length > 0)
   const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
   const [personalProvider, setPersonalProvider] = useState<PersonalCredentialProvider | null>(null)
+  const credentialsQuery = useQuery({
+    queryKey: ['catalog-personal-credentials', personalProvider],
+    queryFn: () => api.atlasListPersonalCredentials(),
+  })
   const teamQuery = useQuery({
     queryKey: ['personal-connectors-team', teamId],
     queryFn: async () => {
@@ -133,19 +143,17 @@ export function IntegrationCatalog({
 
   if (personalProvider)
     return (
-      <div className="flex-1 overflow-y-auto px-8 pb-8 pt-2 selectable">
-        {teamQuery.data ? (
-          <PersonalCredentialsSection
-            team={teamQuery.data}
-            provider={personalProvider}
-            onOpenSection={onOpenSettingsSection}
-          />
-        ) : null}
-        {!teamQuery.data && teamQuery.isError && (
-          <Button onClick={() => void teamQuery.refetch()}>{t('Retry')}</Button>
-        )}
-        {!teamQuery.data && !teamQuery.isError && <p role="status">{t('Loading...')}</p>}
-      </div>
+      <ConnectorServiceDetail
+        team={teamQuery.data}
+        personalProvider={personalProvider}
+        rows={rows}
+        sharing={sharing}
+        onOpen={onOpen}
+        onAdd={onAdd}
+        onOpenSettingsSection={onOpenSettingsSection}
+        error={teamQuery.isError}
+        retry={() => teamQuery.refetch()}
+      />
     )
 
   return (
@@ -169,12 +177,15 @@ export function IntegrationCatalog({
             filter={filter}
             onFilterChange={onFilterChange}
             installed={installedKeys}
-            personal={personal}
+            personal={personal.filter(
+              (item) => item.provider === 'gmail' || item.provider === 'google-drive',
+            )}
             onPickPersonal={openPersonalCredentials}
             onPick={(item) => {
               const installed = rows.filter((row) => row.provider === item.key)
 
-              if (installed.length > 0) onOpen(installed)
+              if (item.key === 'github' || item.key === 'linear') openPersonalCredentials(item.key)
+              else if (installed.length > 0) onOpen(installed)
               else onAdd(item.key)
             }}
           />
@@ -200,22 +211,28 @@ export function IntegrationCatalog({
             items={personal}
             onOpenAccount={openPersonalCredentials}
             connectedOnly
+            hideHeading
           />
         )}
         {catalogTab !== 'browse' && (
-          <ConnectorGroups rows={visibleRows} sharing={sharing} onOpen={onOpen} mode={catalogTab} />
+          <ConnectorGroups
+            rows={visibleRows.filter(
+              (row) =>
+                catalogTab !== 'mine' ||
+                !(
+                  (row.provider === 'github' || row.provider === 'linear') &&
+                  credentialFor(credentialsQuery.data ?? null, row.provider, teamId)
+                ),
+            )}
+            sharing={sharing}
+            onOpen={onOpen}
+            mode={catalogTab}
+          />
         )}
         {loading && <InstalledList loading rows={[]} filter={filter} onOpen={onOpen} />}
 
         {catalogTab === 'browse' && (visibleCategories.length > 0 || personal.length > 0) ? (
           <div className="space-y-8 pt-4">
-            {personal.length > 0 && (
-              <PersonalConnectors
-                teamId={teamId}
-                items={personal}
-                onOpenAccount={openPersonalCredentials}
-              />
-            )}
             {visibleCategories.map((category) => (
               <section key={category.id}>
                 <h2 className="mb-1.5 border-b border-line-control/55 pb-2.5 text-[13px] font-medium text-main">
@@ -225,19 +242,48 @@ export function IntegrationCatalog({
                   {category.items.map((item) => {
                     const installed = rows.filter((row) => row.provider === item.key)
 
+                    const personalProvider =
+                      item.key === 'github' || item.key === 'linear' ? item.key : null
+                    const own =
+                      personalProvider &&
+                      credentialFor(credentialsQuery.data ?? null, personalProvider, teamId)
+                    const summary = summarizeConnection(item, installed, githubInstallations)
+
                     return (
                       <CatalogConnector
                         key={item.key}
                         item={item}
                         installed={installed}
-                        connectedSummary={summarizeConnection(item, installed, githubInstallations)}
-                        sharingSummary={connectionOwnership(installed, sharing)}
+                        connectedSummary={
+                          own
+                            ? {
+                                text: installed.length
+                                  ? t('{n} connections', { n: installed.length + 1 })
+                                  : `${t('Only me')} · ${own.login}`,
+                                attention: summary?.attention ?? false,
+                              }
+                            : summary
+                        }
+                        sharingSummary={own ? undefined : connectionOwnership(installed, sharing)}
+                        onActivate={
+                          personalProvider
+                            ? () => openPersonalCredentials(personalProvider)
+                            : undefined
+                        }
                         onAdd={onAdd}
                         onOpen={onOpen}
                       />
                     )
                   })}
                 </div>
+                {category.personalItems.length > 0 && (
+                  <PersonalConnectors
+                    hideHeading
+                    teamId={teamId}
+                    items={category.personalItems}
+                    onOpenAccount={openPersonalCredentials}
+                  />
+                )}
               </section>
             ))}
           </div>

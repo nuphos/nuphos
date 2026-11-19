@@ -20,7 +20,9 @@ export function CatalogConnector({
   sharingSummary,
   onAdd,
   onOpen,
+  onActivate,
 }: {
+  onActivate?: () => void
   item: CatalogItem
   installed: IntegrationPlatformRow[]
   connectedSummary: ConnectedSummary | null
@@ -28,9 +30,10 @@ export function CatalogConnector({
   onAdd: (key: AddIntegrationKey) => void
   onOpen: (rows: IntegrationPlatformRow[]) => void
 }) {
-  const connected = installed.length > 0
+  const connected = installed.length > 0 || connectedSummary !== null
   const open = () => {
-    if (connected) onOpen(installed)
+    if (onActivate) onActivate()
+    else if (connected) onOpen(installed)
     else onAdd(item.key)
   }
 
