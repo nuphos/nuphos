@@ -45,7 +45,7 @@ internal fun ChatQuestionHead(question: BotQuestion, showsFrom: Boolean, onOpen:
     }
 }
 
-/** The Bot or Task that asked: its face, its name (which opens it), ↗ and "· 15 days". */
+/** The Bot or Task that asked: its face, its name (which opens it), ↗ and "· 15 days", fainter than the name. */
 @Composable
 private fun Source(question: BotQuestion, onOpen: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -57,7 +57,7 @@ private fun Source(question: BotQuestion, onOpen: () -> Unit) {
         Icon(Icons.Outlined.ArrowOutward, null, Modifier.size(12.dp), tint = muted)
         question.request.askedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let {
             Text("· " + HistoryTime.format(it), Modifier.testTag("bot-question-age"), style = MaterialTheme.typography.labelMedium,
-                color = muted, maxLines = 1)
+                fontWeight = FontWeight.Normal, color = MaterialTheme.colorScheme.outline, maxLines = 1)
         }
     }
 }
@@ -69,9 +69,10 @@ private fun Body(id: String, text: String, onLink: ((String) -> Unit)?) {
     var expanded by rememberSaveable(id) { mutableStateOf(false) }
     val cut = long && !expanded
     val card = MaterialTheme.colorScheme.surfaceContainerHigh
-    Box {
+    // In the secondary text color, as on iOS, so the question stands out above it.
+    Box { MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(onSurface = MaterialTheme.colorScheme.onSurfaceVariant)) {
         MarkdownText(text, (if (cut) Modifier.heightIn(max = 84.dp).clipToBounds().clickable { expanded = true } else Modifier)
-            .testTag("bot-question-body"), onLink = onLink, compact = true)
+            .testTag("bot-question-body"), onLink = onLink, compact = true) }
         if (cut) Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(30.dp)
             .background(Brush.verticalGradient(listOf(card.copy(alpha = 0f), card))))
     }
