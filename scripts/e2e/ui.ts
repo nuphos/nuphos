@@ -28,8 +28,8 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
   )
 }
 
-/** Waits until no menu is mounted, a closing one included. Opening the runtime list while the
- *  model menu still closes can stall the window (#3862). */
+/** Temporary, until #3862 is fixed: waits until no menu is mounted, a closing one included,
+ *  since opening the runtime list while the model menu still closes can freeze the window. */
 export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
