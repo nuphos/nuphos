@@ -3,8 +3,14 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { agentAvatarPick, pickAgentAvatar, receiveAgentAvatars } from '../../lib/agentAvatarChoices'
+import {
+  agentAvatarBackground,
+  agentAvatarPick,
+  pickAgentAvatar,
+  receiveAgentAvatars,
+} from '../../lib/agentAvatarChoices'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
+import { BOT_AVATAR_BACKGROUNDS, botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
 import { botAvatarFile, botAvatarName } from '../../lib/botAvatars'
 import { closeChangeBotAvatar, useChangeBotAvatarRequest } from '../../lib/changeBotAvatar'
 import { AvatarPicker } from '../../views/settings/AvatarPicker'
@@ -13,9 +19,12 @@ import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { AgentAvatarGrid } from './AgentAvatarGrid'
+import { AvatarBackgroundPicker } from './AvatarBackgroundPicker'
 
+import type { BotAvatarBackground } from '../../lib/botAvatarBackgrounds'
 import type { BotAvatarFile } from '../../lib/botAvatars'
 import type { ChangeBotAvatarRequest } from '../../lib/changeBotAvatar'
+import type React from 'react'
 
 /** Mounted once: the face picker `openChangeBotAvatar` asks for. */
 export function ChangeBotAvatarHost() {
@@ -36,6 +45,12 @@ function ChangeBotAvatarDialog({
     photo ? undefined : botAvatarFile(botId, agentAvatarPick(botId)),
   )
   const [picked, setPicked] = useState(current)
+  const [savedBackground] = useState(() => {
+    const known = agentAvatarBackground(botId)
+
+    return BOT_AVATAR_BACKGROUNDS.find((name) => name === known) ?? 'none'
+  })
+  const [background, setBackground] = useState<BotAvatarBackground>(savedBackground)
   const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [busy, setBusy] = useState(false)
   const shown = preview ?? picked
@@ -50,7 +65,7 @@ function ChangeBotAvatarDialog({
 
   async function save() {
     if (busy) return
-    if (!picked || picked === current) {
+    if (!picked || (picked === current && background === savedBackground)) {
       closeChangeBotAvatar()
 
       return
@@ -60,7 +75,12 @@ function ChangeBotAvatarDialog({
 
     try {
       // Shown everywhere at once; the old face comes back if the save fails.
-      await pickAgentAvatar(botId, name, () => api.agentSetConversationAvatar(botId, name, teamId))
+      await pickAgentAvatar(
+        botId,
+        name,
+        () => api.agentSetConversationAvatar(botId, name, teamId, background),
+        background,
+      )
       closeChangeBotAvatar()
     } catch (err) {
       toast.apiError(t('Could not change avatar'), err)
@@ -85,12 +105,23 @@ function ChangeBotAvatarDialog({
           void save()
         }}
       >
-        <AvatarPicker
-          src={shown ? `/bot-avatars/${shown}` : photo}
-          name={title ?? ''}
-          onUpload={upload}
-        />
+        {/* The picked tint shows behind the character; a photo has none. */}
+        <div
+          className="[&_img]:[background:var(--bot-avatar-background)]"
+          style={
+            {
+              '--bot-avatar-background': (shown && botAvatarBackgroundColor(background)) || 'none',
+            } as React.CSSProperties
+          }
+        >
+          <AvatarPicker
+            src={shown ? `/bot-avatars/${shown}` : photo}
+            name={title ?? ''}
+            onUpload={upload}
+          />
+        </div>
         <AgentAvatarGrid value={picked} onChange={setPicked} onPreview={setPreview} />
+        <AvatarBackgroundPicker value={background} onChange={setBackground} />
         <div className="flex items-center gap-3">
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">{title}</span>
           <Button

@@ -8,10 +8,10 @@ import {
   getReadableConversation,
   upsertConversationShell,
 } from '@/lib/agent/db'
+import { listChannelAgents } from '@/lib/agent/db/channel-agents'
 import {
   addChannelAgent,
   isChannel,
-  listChannelAgents,
   listChannelMentions,
   ownsChannelAgent,
   removeChannelAgent,

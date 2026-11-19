@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
+import { diskFullCopy, noticeCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
 import { agentProblem } from './agentRowFix.ts'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix.ts'
@@ -125,7 +125,7 @@ test('once asked, the banner says who, with nothing more to press', () => {
   assert.equal(copy.action, null)
 })
 
-test('a nearly full disk names the computer and how full, and leads to where it is fixed', () => {
+test('a nearly full disk names the computer and how full, and frees space in place', () => {
   let opened = 0
   const copy = diskFullCopy({ label: 'Build Box', percent: 93 }, () => opened++)
 
@@ -133,7 +133,7 @@ test('a nearly full disk names the computer and how full, and leads to where it 
   assert.equal(copy.action?.label, 'Free space')
   copy.action?.run()
   assert.equal(opened, 1)
-  // Without a way to its settings the banner still says why.
+  // With nothing to clear from here the banner still says why.
   assert.equal(diskFullCopy({ label: 'Build Box', percent: 93 }).action, null)
 })
 
@@ -154,5 +154,24 @@ test('an outdated computer this viewer cannot update says who can, with no butto
     copy.text,
     'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail. Ask its owner to update Nuphos on it.',
   )
+  assert.equal(copy.action, null)
+})
+
+test('a nearly full Box this viewer can clear opens Clear caches in place', () => {
+  let confirming = 0
+  const copy = noticeCopy(
+    { kind: 'disk', label: 'Build Box', percent: 93 },
+    { clear: () => confirming++ },
+  )
+
+  assert.equal(copy.action?.label, 'Free space')
+  copy.action?.run()
+  assert.equal(confirming, 1)
+})
+
+test('a nearly full computer with nothing to clear from here says so, with no button', () => {
+  const copy = noticeCopy({ kind: 'disk', label: 'Studio Mac', percent: 93 }, {})
+
+  assert.equal(copy.text, 'Studio Mac’s disk is almost full (93%). Bots and tasks on it may fail.')
   assert.equal(copy.action, null)
 })
