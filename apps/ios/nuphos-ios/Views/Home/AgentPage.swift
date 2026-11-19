@@ -59,7 +59,7 @@ struct AgentPage: View {
             .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
-                NewBotSheet { title, avatar in
+                NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
                     await openBotChat(bot)
                 }
