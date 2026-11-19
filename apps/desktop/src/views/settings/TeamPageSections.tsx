@@ -42,6 +42,7 @@ export function SettingsPageFrame({
   onFilterChange,
   count,
   searchLabel,
+  searchPlaceholder,
   children,
 }: {
   title: string
@@ -55,6 +56,7 @@ export function SettingsPageFrame({
   count?: number
   /** What the search searches, when that is not plain from the page. */
   searchLabel?: string
+  searchPlaceholder?: string
   children: ReactNode
 }) {
   const [left, setLeft] = useState<HTMLElement | null>(null)
@@ -94,6 +96,7 @@ export function SettingsPageFrame({
             onFilterChange={onFilterChange}
             count={count}
             label={searchLabel}
+            placeholder={searchPlaceholder}
           />
         )}
         <div ref={setLeft} className="flex min-w-0 items-center gap-1 empty:hidden" />

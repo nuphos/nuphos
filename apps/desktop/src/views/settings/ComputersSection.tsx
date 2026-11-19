@@ -31,6 +31,8 @@ export function ComputersSection({
       // The search filters the runtimes listed below the computers; a count beside it read as
       // the computers.
       searchLabel={t('Search runtimes')}
+      // The collapsed box fits a word, not the label.
+      searchPlaceholder={t('Runtimes|search')}
     >
       <PageAsideContext.Provider value={aside}>
         <div className="flex min-h-0 flex-1 @container">

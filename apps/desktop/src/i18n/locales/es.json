@@ -4033,6 +4033,7 @@
   "Runtime terminal": "Terminal del entorno de ejecución",
   "Runtime: {label}": "Entorno de ejecución: {label}",
   "Runtimes": "Entornos de ejecución",
+  "Runtimes|search": "Runtimes",
   "S3 Buckets": "Buckets de S3",
   "S3 bucket {name} was not found.": "No se encontró el bucket de S3 {name}.",
   "SQLite tables via Cloudflare D1": "Tablas SQLite mediante Cloudflare D1",

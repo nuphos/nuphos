@@ -4033,6 +4033,7 @@
   "Runtime terminal": "執行環境終端機",
   "Runtime: {label}": "執行環境：{label}",
   "Runtimes": "執行環境",
+  "Runtimes|search": "執行環境",
   "S3 Buckets": "S3 儲存貯體",
   "S3 bucket {name} was not found.": "找不到 S3 儲存貯體 {name}。",
   "SQLite tables via Cloudflare D1": "透過 Cloudflare D1 的 SQLite 資料表",

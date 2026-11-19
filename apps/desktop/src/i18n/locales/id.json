@@ -4033,6 +4033,7 @@
   "Runtime terminal": "Terminal runtime",
   "Runtime: {label}": "Runtime: {label}",
   "Runtimes": "Runtime",
+  "Runtimes|search": "Runtime",
   "S3 Buckets": "Bucket S3",
   "S3 bucket {name} was not found.": "Bucket S3 {name} tidak ditemukan.",
   "SQLite tables via Cloudflare D1": "Tabel SQLite melalui Cloudflare D1",

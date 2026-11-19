@@ -4033,6 +4033,7 @@
   "Runtime terminal": "运行环境终端",
   "Runtime: {label}": "运行环境：{label}",
   "Runtimes": "运行环境",
+  "Runtimes|search": "运行环境",
   "S3 Buckets": "S3 存储桶",
   "S3 bucket {name} was not found.": "未找到 S3 存储桶 {name}。",
   "SQLite tables via Cloudflare D1": "通过 Cloudflare D1 访问的 SQLite 表",

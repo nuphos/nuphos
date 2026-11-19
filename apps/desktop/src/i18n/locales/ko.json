@@ -4033,6 +4033,7 @@
   "Runtime terminal": "런타임 터미널",
   "Runtime: {label}": "런타임: {label}",
   "Runtimes": "런타임",
+  "Runtimes|search": "런타임",
   "S3 Buckets": "S3 버킷",
   "S3 bucket {name} was not found.": "S3 버킷 {name}을(를) 찾을 수 없습니다.",
   "SQLite tables via Cloudflare D1": "Cloudflare D1의 SQLite 테이블",

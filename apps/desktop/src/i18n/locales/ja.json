@@ -4033,6 +4033,7 @@
   "Runtime terminal": "ランタイムのターミナル",
   "Runtime: {label}": "ランタイム：{label}",
   "Runtimes": "ランタイム",
+  "Runtimes|search": "ランタイム",
   "S3 Buckets": "S3 バケット",
   "S3 bucket {name} was not found.": "S3 バケット {name} が見つかりませんでした。",
   "SQLite tables via Cloudflare D1": "Cloudflare D1 経由の SQLite テーブル",

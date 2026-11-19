@@ -45,7 +45,8 @@ test('the Computers page shows no item count, and its search says it searches ru
     )
     const search = container.querySelector('input')
 
-    assert.equal(search?.getAttribute('placeholder'), 'Search runtimes')
+    assert.equal(search?.getAttribute('aria-label'), 'Search runtimes')
+    assert.equal(search?.getAttribute('placeholder'), 'Runtimes')
     assert.doesNotMatch(container.textContent ?? '', /items?\b/)
   } finally {
     await act(() => root.unmount())
