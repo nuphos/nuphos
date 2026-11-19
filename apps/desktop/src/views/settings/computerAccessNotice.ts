@@ -101,10 +101,10 @@ export function noticeWords(notice: AccessNotice): { title: string; body: string
   return notice.access === 'manage'
     ? {
         title: t('You can now manage {computer}', { computer }),
-        body: t('You can also add agents to it, rename it and choose who uses it.'),
+        body: t('You can also add runtimes to it, rename it and choose who uses it.'),
       }
     : {
         title: t('{computer} is now shared with you', { computer }),
-        body: t('Your agents can run on it now. Pick it when you start a chat.'),
+        body: t('Your Bots and tasks can run on it now. Pick it when you start a chat.'),
       }
 }

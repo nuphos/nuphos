@@ -6,7 +6,7 @@ import { artifacts } from './processes.ts'
 import { pickInSubmenu } from './ui.ts'
 
 import type { Stack } from './stack.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 /** A computer whose Claude Code reports usage with its status, as Desktop's host does. */
 export async function computerWithUsage(stack: Stack, label: string, deviceId = randomUUID()) {
@@ -110,4 +110,14 @@ export const isBotRow = (row: ListedConversation) => Boolean(row.avatar) && row.
 export async function botPresence(stack: Stack) {
   return (await listedConversations(stack)).find((row) => row.title === 'E2E Bot' && isBotRow(row))
     ?.presence
+}
+
+/** A Bot's sidebar row while it works: no spinner and no greyed-out name (#3522). */
+export async function loadingFree(row: Locator, when: string) {
+  for (const [selector, what] of [
+    ['.animate-spin', 'a spinner'],
+    ['.t-shimmer', 'a greyed-out name'],
+  ])
+    if ((await row.locator(selector).count()) > 0)
+      throw new Error(`${when}, the Bot's row shows ${what}`)
 }

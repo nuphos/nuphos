@@ -142,7 +142,8 @@ describe('Box update', () => {
 
   test('the host waits only for the agents and the CLI, fetched side by side', () => {
     expect(BOX_INSTALL_COMMAND).toContain('& agents=$!')
-    expect(BOX_INSTALL_COMMAND.split('\n').at(-1)).toBe('wait $agents')
+    // The last step under the install lock (box-install-lock.test.ts).
+    expect(BOX_INSTALL_COMMAND.split('\n').at(-2)).toBe('wait $agents')
     expect(BOX_INSTALL_COMMAND).toContain('command -v grok')
     expect(BOX_INSTALL_COMMAND).not.toContain('/etc/fstab')
   })

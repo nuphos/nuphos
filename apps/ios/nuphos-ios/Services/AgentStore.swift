@@ -404,6 +404,12 @@ final class AgentStore {
         selectedTeam == nil || !runtimesLoaded || newConversationRuntime == nil
     }
 
+    /// The workspace has a runtime to start a task on. New Task then asks for one
+    /// ("Choose runtime") if the remembered one is unavailable.
+    var canStartTask: Bool {
+        selectedTeam != nil && runtimesLoaded && RuntimeInstance.defaultPick(runtimes) != nil
+    }
+
     func selectRuntime(_ runtime: RuntimeInstance) {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
@@ -428,17 +434,25 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
+    /// Boxes, and the viewer is a team administrator.
+    private(set) var canCreateBox = false
+    /// The team's devices have loaded at least once.
+    private(set) var agentDevicesLoaded = false
 
-    func loadAgentDevices() async {
+    /// `metrics`: asks every online host to sample, which only a meters view needs.
+    func loadAgentDevices(metrics: Bool = true) async {
         guard let team = selectedTeam else { return }
-        struct Envelope: Decodable { let devices: [AgentDevice] }
+        struct Envelope: Decodable { let devices: [AgentDevice]; let boxAvailable: Bool?; let canCreateBox: Bool? }
         do {
-            let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
+            let query = (metrics ? [URLQueryItem(name: "metrics", value: "true")] : []) + [URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
             let result = try JSONDecoder().decode(Envelope.self, from: data)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
+            agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
@@ -500,7 +514,8 @@ final class AgentStore {
             newModelConfig = config
             newModelError = config.options.isEmpty ? "No models available. Try again." : nil
         } catch {
-            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id,
+                  !Task.isCancelled else { return }
             newModelError = error.localizedDescription
         }
     }
@@ -528,6 +543,8 @@ final class AgentStore {
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        canCreateBox = false
+        agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
@@ -587,6 +604,7 @@ final class AgentStore {
             credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
             publishSharingContext()
         } catch {
+            guard !Task.isCancelled else { return }
             credentials.finish(load, with: .failure(error))
         }
     }
@@ -625,6 +643,7 @@ final class AgentStore {
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
+        let shown = teamsPhase
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -642,6 +661,8 @@ final class AgentStore {
                 await reload()
             }
         } catch {
+            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
+            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -709,6 +730,7 @@ final class AgentStore {
         loadedPageCursors = []
         refreshPageIndex = 0
         let generation = loadGeneration
+        let shown = phase
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
@@ -729,6 +751,8 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
+            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
                 return

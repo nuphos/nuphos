@@ -18,8 +18,53 @@ const NOT_YET = [
   'design/',
   'lib/shortcutsCatalog.ts',
   'lib/workspaceRowLink.tsx',
-  'views/',
+  'views/AgentMemoriesView.tsx',
+  'views/ArchitectureView.tsx',
+  'views/AuditLogView.tsx',
+  'views/BindAsanaDialog.tsx',
+  'views/BindDatabaseDialog.tsx',
+  'views/BindGithubDialog.tsx',
+  'views/BindJiraDialog.tsx',
+  'views/BindLinearDialog.tsx',
+  'views/BindOnpremClusterDialog.tsx',
+  'views/BindPlaudDialog.tsx',
+  'views/BindPosthogDialog.tsx',
+  'views/BindSentryDialog.tsx',
+  'views/DesignsView.tsx',
+  'views/DesktopPanes.tsx',
+  'views/GrafanaLogExplorerView.tsx',
+  'views/InboxView.tsx',
+  'views/LarkSettingsView.tsx',
+  'views/PlansView.tsx',
+  'views/RuntimeFilesError.tsx',
+  'views/RuntimeFilesView.tsx',
+  'views/SlackSettingsView.tsx',
+  'views/TailscalePrivateNetworkPanel.tsx',
+  'views/TeamSkillsView.tsx',
+  'views/TerminalView.tsx',
+  'views/addIntegrationCatalog.ts',
+  'views/audit/',
+  'views/bind-account/',
+  'views/bind-onprem/',
+  'views/cloud/',
+  'views/connector-info/',
+  'views/database-connection/',
+  'views/detail/',
+  'views/gcp-dashboard/',
+  'views/iam/',
+  'views/lark-settings/',
+  'views/members/',
+  'views/memories/',
+  'views/mongo/',
+  'views/monitoring/',
+  'views/plans/',
+  'views/skills/',
+  'views/slack-settings/',
+  'views/stats/',
+  'views/triggers/',
 ]
+// Names that contain the word but are not about agents: ssh-agent, AGENTS.md, a log file.
+const NAMES = /ssh-agent|AGENTS\.md|nuphos-agent\.log/g
 const call = /\bt\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
 const sources = readdirSync(SRC, { recursive: true, withFileTypes: true })
@@ -44,7 +89,7 @@ test('no text names an agent, outside what is not reworded yet', () => {
     .filter((path) => !NOT_YET.some((prefix) => path.startsWith(prefix)))
     .flatMap((path) =>
       keys(path)
-        .filter((key) => /\bagents?\b/i.test(key))
+        .filter((key) => /\bagents?\b/i.test(key.replace(NAMES, '')))
         .map((key) => `${path}: ${key}`),
     )
 
