@@ -243,12 +243,12 @@ fun ChatComposer(
     val mentionLinks = remember(draft, mentions?.teamId) { mutableStateMapOf<String, String>() }
     val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
-    // What `@` offers is listed as the composer appears and again whenever it is focused, so every
+    // What `@` offers is listed whenever the composer is focused, so every
     // `@` opens on it at once and typing only filters it (#3739).
     var listedSessions by remember(mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>?>(null) }
     var mentionFailed by remember(mentions) { mutableStateOf(false) }
     LaunchedEffect(mentions, focused) {
-        val source = mentions ?: return@LaunchedEffect
+        val source = mentions?.takeIf { focused } ?: return@LaunchedEffect
         try {
             listedSessions = source.list()
             mentionFailed = false
@@ -266,7 +266,7 @@ fun ChatComposer(
     var devicesFailed by remember(devices, mentions?.teamId) { mutableStateOf(false) }
     var devicePickFailed by remember(activeMention, draft, devices) { mutableStateOf(false) }
     LaunchedEffect(devices, mentions?.teamId, focused) {
-        if (devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
+        if (!focused || devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
         try {
             listedDevices = devices.load()
             devicesFailed = false
