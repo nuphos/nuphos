@@ -73,8 +73,7 @@ final class LoginUITests: XCTestCase {
         app.buttons["Back"].tap()
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.tap()
-        // A Menu, which iOS 27 exposes as a pop-up button rather than a button.
-        app.descendants(matching: .any)["Account options for alex@example.com"].firstMatch.tap()
+        app.buttons["Account options for alex@example.com"].tap()
         app.buttons["Sign out"].firstMatch.tap()
         app.sheets.buttons["Sign out"].tap()
         XCTAssertTrue(email.waitForExistence(timeout: 5))
