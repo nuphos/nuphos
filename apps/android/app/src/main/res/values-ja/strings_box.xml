@@ -28,4 +28,5 @@
     <string name="box_uncertain">リクエストが成功した可能性があります。別のコンピューターを作成する前に、コンピューターとランタイムを確認してください。</string>
     <string name="box_visit">Nuphos を開く</string>
     <string name="box_name">名前</string>
+    <string name="box_not_available">このワークスペースでは現在 Nuphos コンピューターを作成できません。</string>
 </resources>

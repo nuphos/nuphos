@@ -28,4 +28,5 @@
     <string name="box_uncertain">Permintaan mungkin berhasil. Periksa komputer dan runtime sebelum membuat komputer lain.</string>
     <string name="box_visit">Kunjungi Nuphos</string>
     <string name="box_name">Nama</string>
+    <string name="box_not_available">Pembuatan komputer Nuphos tidak lagi tersedia untuk ruang kerja ini.</string>
 </resources>

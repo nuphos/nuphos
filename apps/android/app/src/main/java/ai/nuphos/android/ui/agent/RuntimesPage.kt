@@ -128,7 +128,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
             }
         } else LazyColumn(Modifier.fillMaxSize().testTag("runtime-inventory"), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (onConnect != null) item { TextButton(onClick = onConnect) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.box_connect)) } }
+            if (onConnect != null) item { TextButton(onClick = onConnect, modifier = Modifier.testTag("connect-computer")) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.box_connect)) } }
             if (store.errors.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     store.errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }

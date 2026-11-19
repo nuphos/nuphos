@@ -28,4 +28,5 @@
     <string name="box_uncertain">คำขออาจสำเร็จแล้ว ตรวจสอบคอมพิวเตอร์และรันไทม์ก่อนสร้างคอมพิวเตอร์อีกเครื่อง</string>
     <string name="box_visit">ไปที่ Nuphos</string>
     <string name="box_name">ชื่อ</string>
+    <string name="box_not_available">พื้นที่ทำงานนี้ไม่สามารถสร้างคอมพิวเตอร์ Nuphos ได้ในขณะนี้</string>
 </resources>

@@ -28,4 +28,5 @@
     <string name="box_uncertain">La solicitud puede haberse completado. Revisa los ordenadores y entornos antes de crear otro.</string>
     <string name="box_visit">Visitar Nuphos</string>
     <string name="box_name">Nombre</string>
+    <string name="box_not_available">Ya no se puede crear un ordenador Nuphos en este espacio de trabajo.</string>
 </resources>

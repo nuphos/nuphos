@@ -28,4 +28,5 @@
     <string name="box_uncertain">The request may have succeeded. Check Computers &amp; runtimes before creating another computer.</string>
     <string name="box_visit">Visit Nuphos</string>
     <string name="box_name">Name</string>
+    <string name="box_not_available">Creating a Nuphos computer is no longer available for this workspace.</string>
 </resources>

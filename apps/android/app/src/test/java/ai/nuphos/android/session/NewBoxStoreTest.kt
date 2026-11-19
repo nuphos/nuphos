@@ -34,7 +34,7 @@ class NewBoxStoreTest {
         val store = NewBoxStore(api, { rows }, this, { true }, {}, { time })
         assertFalse(store.canCreate); store.refresh(); assertTrue(store.canCreate)
         api.result = BoxInventory(emptyList(), false)
-        store.create(); advanceUntilIdle(); assertTrue(api.labels.isEmpty())
+        store.create(); advanceUntilIdle(); assertTrue(api.labels.isEmpty()); assertNotNull(store.error); assertFalse(store.canCreate)
         api.result = BoxInventory(listOf(device.copy(label = "Computer 8")), true)
         store.refresh(); store.create(); advanceUntilIdle()
         assertEquals(listOf("Computer 9"), api.labels)

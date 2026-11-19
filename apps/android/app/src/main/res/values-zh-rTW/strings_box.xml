@@ -28,4 +28,5 @@
     <string name="box_uncertain">請求可能已成功。再次建立電腦前，請先查看「電腦與執行環境」。</string>
     <string name="box_visit">前往 Nuphos</string>
     <string name="box_name">名稱</string>
+    <string name="box_not_available">這個工作區目前無法建立 Nuphos 電腦。</string>
 </resources>

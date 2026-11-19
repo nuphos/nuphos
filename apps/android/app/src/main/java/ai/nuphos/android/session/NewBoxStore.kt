@@ -65,7 +65,7 @@ class NewBoxStore(private val api: BoxTransport, private val catalog: suspend ()
                 val fresh = api.inventory()
                 if (!valid()) return@launch
                 inventory = fresh
-                if (!fresh.offered) return@launch
+                if (!fresh.offered) { error = Words(R.string.box_not_available); return@launch }
                 val made = api.createBox(label)
                 if (!valid()) return@launch
                 deviceId = made; madeAt = clock(); now = clock()
