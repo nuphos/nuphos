@@ -38,7 +38,7 @@ const lookup = async (args: Record<string, unknown>) => {
   const { toolsForContext } = await import('./tools')
   const handler = toolsForContext({ userId: 'u1' } as never).nuphos_find_pr_sessions
 
-  expect(handler).toBeDefined()
+  if (!handler) throw new Error('MCP tool is not registered')
 
   return handler(args)
 }
