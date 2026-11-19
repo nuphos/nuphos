@@ -123,7 +123,7 @@ export function ModelSelector({
   const select = (configId: string, value: string) => control.select({ configId, value })
   const pickModel = (value: string) => {
     if (!model) return
-    if (value !== model.currentValue) select(model.id, value)
+    select(model.id, value)
     control.setOpen(false)
   }
   const footer = {
