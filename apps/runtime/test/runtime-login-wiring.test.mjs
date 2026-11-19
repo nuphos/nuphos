@@ -22,6 +22,8 @@ const ANTIGRAVITY_LOGIN_COMMAND = 'node /opt/nuphos-runtime/antigravity-login.mj
 const ANTIGRAVITY_AUTH_COMMAND = 'node /opt/nuphos-runtime/antigravity-status-cli.mjs'
 const OPENCODE_LOGIN_COMMAND = 'node /opt/nuphos-runtime/opencode-login.mjs'
 const OPENCODE_AUTH_FILE = '/home/node/.local/share/opencode/auth.json'
+// OpenCode answers on its free models with no provider connected (#3602), so it is always signed in.
+const OPENCODE_AUTH_COMMAND = 'echo true'
 const HERMES_LOGIN_COMMAND = 'node /opt/nuphos-runtime/hermes-login.mjs'
 const HERMES_AUTH_FILE = '/home/node/.hermes/auth.json'
 const DSH_LOGIN_COMMAND = 'node /opt/nuphos-runtime/dsh-login.mjs'
@@ -45,6 +47,7 @@ test('each published image signs itself in and reports its own credential file',
   assert.ok(dockerfile.includes(`OPENAB_RUNTIME_AUTH_COMMAND="${ANTIGRAVITY_AUTH_COMMAND}"`))
   assert.ok(build.includes(`LOGIN_COMMAND='${OPENCODE_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${OPENCODE_AUTH_FILE}'`))
+  assert.ok(dockerfile.includes(`OPENAB_RUNTIME_AUTH_COMMAND="${OPENCODE_AUTH_COMMAND}"`))
   assert.ok(build.includes(`LOGIN_COMMAND='${HERMES_LOGIN_COMMAND}'`))
   assert.ok(build.includes(`AUTH_FILE='${HERMES_AUTH_FILE}'`))
   assert.ok(build.includes(`LOGIN_COMMAND='${DSH_LOGIN_COMMAND}'`))

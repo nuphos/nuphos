@@ -8,6 +8,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requirePosthogIntegration,
   requirePosthogMemberAccess,
@@ -40,13 +41,7 @@ posthogIntegrationScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const bindingId = new ObjectId(c.get('posthogIntegrationId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { posthogIntegrations: { id: bindingId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'posthogIntegrations', { id: bindingId })
 
     if (result.modifiedCount === 0) throw notBound()
     invalidatePosthogAccessToken(teamId, bindingId)

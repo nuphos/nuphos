@@ -16,6 +16,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireTeamRole,
   requireVantaIntegration,
@@ -140,13 +141,7 @@ integrationScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const integrationId = new ObjectId(c.get('vantaIntegrationId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { vantaIntegrations: { id: integrationId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'vantaIntegrations', { id: integrationId })
 
     if (result.modifiedCount === 0) {
       throw new AppError(404, 'vanta_integration_not_bound', 'Vanta integration not found')

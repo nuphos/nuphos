@@ -15,6 +15,7 @@ import {
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireJiraMemberAccess,
   requireJiraSite,
@@ -130,13 +131,7 @@ bindingScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('jiraBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { jiraSites: { id: binding.id } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'jiraSites', { id: binding.id })
     invalidateAccessToken(teamId, binding.id)
 
     return c.body(null, 204)
