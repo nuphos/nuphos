@@ -15,7 +15,6 @@ import type { RuntimeLoginDoc } from './runtime-login-store'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamPreviewClient } from './team-openab-runtime'
 import type { LocalRuntimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import type { LocalAgentProvider } from '@/lib/agent/devices/local-runtime/protocol'
 
 const CODEX_LOGIN_FAILED =
   'Sign-in did not complete. Retry and check device-code login in ChatGPT security settings.'
@@ -191,18 +190,6 @@ async function localAgentInstalling(
   )
 }
 
-/** How each agent's vendor installs its CLI on macOS and Linux, as their own docs give it. */
-const INSTALL_HOW: Record<LocalAgentProvider, string> = {
-  'claude-code': 'with `curl -fsSL https://claude.ai/install.sh | bash`',
-  codex: 'with `npm install -g @openai/codex`',
-  grok: 'with `curl -fsSL https://x.ai/cli/install.sh | bash`',
-  antigravity: 'from https://antigravity.google',
-  opencode: 'as https://opencode.ai/docs describes',
-  dsh: 'with `npm install -g @deepseek-ai/dsh`',
-  hermes: 'with `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`',
-  pi: 'with `npm install -g @earendil-works/pi-coding-agent`',
-}
-
 /**
  * A computer that answers but cannot start the agent reads as offline to its stream; when
  * the computer reports the agent's CLI missing, that is the reason to give instead.
@@ -223,10 +210,15 @@ export async function localAgentNotInstalled(
       `Could not install ${runtimeLabel(ref.provider)} on the computer running this agent: ${agent.cli.installError}`,
     )
 
+  const name = runtimeLabel(ref.provider)
+
+  // Nuphos installs every agent it adds but Antigravity, which comes only as a desktop app.
   return new AppError(
     409,
     'runtime_not_installed',
-    `${runtimeLabel(ref.provider)} is not installed on the computer running this agent. Install it there ${INSTALL_HOW[ref.provider]}, then try again.`,
+    ref.provider === 'antigravity'
+      ? `${name} is not installed on the computer running this agent. Install the ${name} app there from https://antigravity.google, then try again.`
+      : `${name} is not installed on the computer running this agent. Update Nuphos on that computer so it installs ${name}, then try again.`,
   )
 }
 

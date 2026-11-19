@@ -17,6 +17,8 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
 
     return [
       path.join(home, '.local', 'bin'),
+      // Grok Build's own installer (x.ai/cli/install.ps1), which leaves PATH alone.
+      path.join(home, '.grok', 'bin'),
       path.join(appData, 'npm'),
       path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
       // Command aliases of Microsoft Store apps.
@@ -27,6 +29,8 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
   return [
     path.join(home, '.local', 'bin'),
     path.join(home, '.claude', 'local'),
+    // Grok Build's own installer (x.ai/cli/install.sh), which leaves PATH alone.
+    path.join(home, '.grok', 'bin'),
     // OpenCode's own installer (opencode.ai/install), which only adds it to PATH in some shells.
     path.join(home, '.opencode', 'bin'),
     '/opt/homebrew/bin',
