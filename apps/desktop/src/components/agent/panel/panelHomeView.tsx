@@ -61,7 +61,7 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     runtimeInstancesLoading,
     runtimeInstancesError,
   )
-    ? openAgentSetup
+    ? () => openAgentSetup(teamId)
     : undefined
 
   const runtimeControl = {

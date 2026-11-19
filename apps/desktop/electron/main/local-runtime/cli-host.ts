@@ -23,6 +23,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
+import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { cliSessionToken, hostOwner } from './cli-host-session.ts'
@@ -46,10 +47,9 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
+import type { Instances } from './app-update-request.ts'
 import type { CliConfig } from './cli-host-session.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
-
-type Instances = (request: unknown) => Promise<unknown>
 
 const bundleRoot = process.env.NUPHOS_LOCAL_RUNTIME_DIR ?? path.dirname(process.argv[1] ?? '.')
 const dataDir = process.env.NUPHOS_AGENT_HOME ?? ''
@@ -168,7 +168,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: bundledModelProbe(bundle),
-  createTunnel: (runtime, status, onChange, instances) => {
+  createTunnel: withE2eStagedUpdate(stop, (runtime, status, onChange, instances) => {
     tunnel = new RuntimeTunnelClient({
       instances,
       sampleMetrics: readDeviceMetrics,
@@ -209,7 +209,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     })
 
     return tunnel
-  },
+  }),
   log,
 })
 

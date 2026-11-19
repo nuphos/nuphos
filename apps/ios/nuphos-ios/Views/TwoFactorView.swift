@@ -195,8 +195,9 @@ struct TwoFactorView: View {
             load = .ready(try await AccountAPI.mfaStatus(token: token))
         } catch NuphosAPI.Failure.sessionRequired {
             load = .signInAgain
-        } catch is CancellationError {
         } catch {
+            // A cancelled request throws URLError(.cancelled), not CancellationError (#3620).
+            guard !Task.isCancelled else { return }
             load = .failed(error.localizedDescription)
         }
     }

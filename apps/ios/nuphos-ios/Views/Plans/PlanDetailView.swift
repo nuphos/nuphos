@@ -331,7 +331,7 @@ struct PlanDetailView: View {
             fetched = try await plans.fetch(planId, teamId: teamId)
             loadError = nil
         } catch {
-            if plan == nil { loadError = error.localizedDescription }
+            if plan == nil, !Task.isCancelled { loadError = error.localizedDescription }
         }
     }
 

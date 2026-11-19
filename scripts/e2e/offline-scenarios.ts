@@ -2,7 +2,7 @@
 import { join } from 'node:path'
 
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -88,10 +88,7 @@ export const offlineScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:before-offline').waitFor()
       await page.getByRole('button', { name: /^Runtime:/ }).click()
       await page.getByRole('menu').getByText(LAPTOP).first().click()
-      await page
-        .getByRole('menuitem', { name: /Claude Code/ })
-        .last()
-        .click()
+      await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
       await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
       goOffline()
       const banner = page.getByRole('status').filter({ hasText: `${LAPTOP} is offline.` })
@@ -100,7 +97,10 @@ export const offlineScenarios: Scenario[] = [
       await page.screenshot({ path: join(artifacts, 'offline-banner.png') })
       await banner.getByRole('button', { name: 'Switch runtime' }).click()
       await page.getByRole('menu').getByText('E2E fixture agent').click()
-      await page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }).click()
+      await pickInSubmenu(
+        page,
+        page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }),
+      )
       await until('the banner to leave', async () => (await banner.count()) === 0)
       await send(page, 'After the laptop E2E_DELIVERY:after-offline')
       await page.getByText('ACK E2E_DELIVERY:after-offline').waitFor()
@@ -118,10 +118,7 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await page
-          .getByRole('menuitem', { name: /Claude Code/ })
-          .last()
-          .click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
@@ -151,10 +148,7 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await page
-          .getByRole('menuitem', { name: /Claude Code/ })
-          .last()
-          .click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page
           .getByRole('status')

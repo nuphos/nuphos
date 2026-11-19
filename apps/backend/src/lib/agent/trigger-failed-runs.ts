@@ -16,11 +16,15 @@ export const PAUSE_AFTER_FAILED_RUNS = 3
 /**
  * Why a turn failed, in plain words, when the cause cannot pass with time: a
  * conversation too long for the model, a model the endpoint does not serve, an
- * agent CLI that cannot start, or a signed-out agent. Undefined for anything
+ * agent CLI that cannot start, a signed-out agent, or a Box its team's plan
+ * will not start. Undefined for anything
  * else, such as a usage limit.
  */
 function lastingFailure(error: unknown): string | undefined {
   const setup = userSetupFailure(error)
+
+  // The team's plan will not start its Box, until it changes or its hours come back.
+  if (error instanceof AppError && error.code === 'box_vcpu_limit') return error.message
 
   if (setup) return USER_SETUP_MESSAGE[setup]
   for (let cause = error; cause instanceof Error; cause = cause.cause)
