@@ -9,7 +9,11 @@
 //
 // Needs only MONGODB_URI (and MONGODB_DB, default atlas), so it runs from a
 // backend pod before its image carries it. Dry run unless --apply; $addToSet,
-// so a second run adds nothing.
+// so a second run adds nothing. Before writing, --apply saves what it will add
+// to each conversation in --record (default /tmp), so a $pull of exactly those
+// ids undoes it.
+
+import { writeFile } from 'node:fs/promises'
 
 import { MongoClient } from 'mongodb'
 
@@ -62,7 +66,7 @@ async function main(): Promise<void> {
       )
       .toArray()
     const added: Record<string, number> = {}
-    let ticked = 0
+    const plan: { sessionId: string; userId: string; added: string[] }[] = []
 
     for (const conversation of conversations) {
       const add = missingGoogle(
@@ -74,18 +78,33 @@ async function main(): Promise<void> {
       )
 
       if (!add.length) continue
-      ticked += 1
       for (const id of add) added[id] = (added[id] ?? 0) + 1
-      if (!apply) continue
-      await db
-        .collection('agent_conversations')
-        .updateOne(
-          { sessionId: conversation.sessionId, userId: conversation.userId },
-          { $addToSet: { 'credentialAccess.personalCredentialIds': { $each: add } } },
-        )
+      plan.push({
+        sessionId: String(conversation.sessionId),
+        userId: String(conversation.userId),
+        added: add,
+      })
+    }
+    if (apply) {
+      const at = process.argv.indexOf('--record')
+      const record =
+        at >= 0
+          ? process.argv[at + 1]
+          : `/tmp/tick-own-google-credentials-${String(Date.now())}.json`
+
+      await writeFile(record, JSON.stringify(plan, null, 1))
+      console.log(`rollback record: ${record}`)
+      for (const { sessionId, userId, added: ids } of plan) {
+        await db
+          .collection('agent_conversations')
+          .updateOne(
+            { sessionId, userId },
+            { $addToSet: { 'credentialAccess.personalCredentialIds': { $each: ids } } },
+          )
+      }
     }
     console.log(
-      `${apply ? 'done' : 'dry-run'}: ${apply ? 'ticked' : 'would tick'} ${String(ticked)} of ` +
+      `${apply ? 'done' : 'dry-run'}: ${apply ? 'ticked' : 'would tick'} ${String(plan.length)} of ` +
         `${String(conversations.length)} unarchived conversation(s) with a list, from ` +
         `${String(owners.length)} member(s); ids ${JSON.stringify(added)}`,
     )
