@@ -22,6 +22,8 @@ import kotlinx.serialization.json.put
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -33,6 +35,18 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     private val bindingLock = Any()
     @Volatile private var login: Pair<String, String>? = null
     @Volatile private var registration: Pair<String, String>? = null
+    @Volatile private var registeredComputerAlerts: Boolean? = null
+    var computerAlerts by androidx.compose.runtime.mutableStateOf(prefs.getBoolean("computer_alerts", true))
+        private set
+
+    fun updateComputerAlerts(enabled: Boolean) {
+        synchronized(bindingLock) {
+            prefs.edit().putBoolean("computer_alerts", enabled).apply()
+            computerAlerts = enabled
+            if (!enabled) app.localNotifications.clearComputerAlerts()
+        }
+        requestToken()
+    }
     @Volatile private var started = 0
     @Volatile private var reading: LocalNotificationTarget? = null
     @Volatile private var unregistering: Job? = null
@@ -64,9 +78,11 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             login = null
             reading = null
             registration = null
+            registeredComputerAlerts = null
             prefs.edit().remove("account").remove("login_hash").remove("consent_granted").commit()
         }
         app.localNotifications.clear(clearPending)
+        app.localNotifications.clearComputerAlerts()
         if (FirebaseApp.getApps(app).isNotEmpty()) FirebaseMessaging.getInstance().isAutoInitEnabled = false
         if (oldLogin != null && oldRegistration != null) unregistering = scope.launch {
             mutex.withLock {
@@ -102,12 +118,13 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     fun refreshed(fcmToken: String) {
         val expected = login ?: return
         if (FirebaseApp.getApps(app).isEmpty()) return
-        if (registration == (expected.first to fcmToken)) return
         val project = FirebaseApp.getInstance().options.projectId ?: return
         scope.launch {
             mutex.withLock {
                 repeat(3) { attempt ->
                     if (login != expected) return@withLock
+                    val alerts = prefs.getBoolean("computer_alerts", true)
+                    if (registration == (expected.first to fcmToken) && registeredComputerAlerts == alerts) return@withLock
                     val ok = runCatching {
                         val device = prefs.getString("device_id", null) ?: UUID.randomUUID().toString().also {
                             prefs.edit().putString("device_id", it).commit()
@@ -116,6 +133,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
                             put("platform", "android"); put("environment", "production")
                             put("bundleId", "ai.nuphos.android"); put("projectId", project)
                             put("deviceId", device); put("token", fcmToken)
+                            put("computerAlerts", alerts)
                         }
                         val request = Http.authorizedGet("${ai.nuphos.android.BuildConfig.PUSH_BASE_URL}/push/devices", expected.second)
                             .newBuilder().put(json.toString().toRequestBody(Http.jsonMedia)).build()
@@ -126,6 +144,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
                             if (login != expected || !ai.nuphos.android.session.AiAccess.allows(expected.second)) false
                             else {
                                 registration = expected.first to fcmToken
+                                registeredComputerAlerts = alerts
                                 prefs.edit().putString("account", expected.first)
                                     .putString("login_hash", fingerprint(expected.second)).putBoolean("consent_granted", true).commit()
                                 true
@@ -162,6 +181,14 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             val badge = data["badge"]?.toIntOrNull()?.takeIf { it >= 0 }
             if (data["kind"] == "badge") {
                 if (badge != null) app.localNotifications.updateBadge(badge)
+                return
+            }
+            if (data["kind"] == "computer") {
+                if (prefs.getBoolean("computer_alerts", true)) {
+                    val computer = data["computerId"] ?: return
+                    val title = data["title"] ?: return
+                    app.localNotifications.postComputerAlert(computer, title, data["body"].orEmpty())
+                }
                 return
             }
             val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return

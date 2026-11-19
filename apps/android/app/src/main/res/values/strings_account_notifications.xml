@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_notifications">Notifications</string>
+    <string name="account_computer_alerts">Computers going offline</string>
+    <string name="account_computer_alerts_help">Get notified when a computer you own or use has been offline for 2 minutes, and when it\'s back.</string>
+</resources>

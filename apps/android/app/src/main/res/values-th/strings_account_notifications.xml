@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_notifications">การแจ้งเตือน</string>
+    <string name="account_computer_alerts">คอมพิวเตอร์ออฟไลน์</string>
+    <string name="account_computer_alerts_help">รับการแจ้งเตือนเมื่อคอมพิวเตอร์ที่คุณเป็นเจ้าของหรือใช้งานออฟไลน์นาน 2 นาที และเมื่อกลับมาออนไลน์</string>
+</resources>

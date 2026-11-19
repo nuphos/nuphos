@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import ai.nuphos.android.NuphosApplication
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,6 +92,22 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
             accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
+            notificationSettings = if (auth.aiAllowed) ({
+                val push = (voiceContext.applicationContext as NuphosApplication).pushNotifications
+                val label = stringResource(R.string.account_computer_alerts)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(label)
+                        Text(stringResource(R.string.account_computer_alerts_help),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = push.computerAlerts, onCheckedChange = push::updateComputerAlerts,
+                        modifier = Modifier.testTag("account-computer-alerts").semantics {
+                            contentDescription = label
+                        })
+                }
+            }) else null,
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
                 ProfileAction(stringResource(R.string.profile_workspace), subtitle = workspaceName, disclosure = true,
                     onClick = { if (workspacePicker != null) choosingWorkspace = true else onWorkspace?.invoke() })
@@ -149,6 +167,7 @@ internal fun ProfileContent(
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
     accounts: (@Composable () -> Unit)? = null,
+    notificationSettings: (@Composable () -> Unit)? = null,
 ) {
     val copyUserId = stringResource(R.string.profile_copy_user_id)
     Column(
@@ -203,6 +222,7 @@ internal fun ProfileContent(
                     voiceSettings()
                 }
             }
+            if (notificationSettings != null) ProfileGroup(stringResource(R.string.account_notifications)) { notificationSettings() }
             ProfileGroup(stringResource(R.string.profile_group_app_icon)) { AppIconPicker() }
             ProfileGroup(stringResource(R.string.profile_group_privacy)) {
                 ProfileAction(stringResource(R.string.profile_privacy_policy), onClick = onPrivacy)

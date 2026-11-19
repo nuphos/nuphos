@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_notifications">Notifikasi</string>
+    <string name="account_computer_alerts">Komputer offline</string>
+    <string name="account_computer_alerts_help">Dapatkan notifikasi saat komputer yang Anda miliki atau gunakan offline selama 2 menit, dan saat kembali online.</string>
+</resources>

@@ -65,6 +65,27 @@ export async function sendFcmBadge(
   })
 }
 
+export async function sendFcmComputerAlert(
+  projectId: string,
+  token: string,
+  userId: string,
+  change: { deviceId: string; title: string; body: string },
+): Promise<FcmResponse> {
+  return sendMessage(projectId, {
+    message: {
+      token,
+      data: {
+        accountId: userId,
+        kind: 'computer',
+        computerId: change.deviceId,
+        title: change.title,
+        body: change.body,
+      },
+      android: { priority: 'HIGH', ttl: '3600s', collapse_key: `computer:${change.deviceId}` },
+    },
+  })
+}
+
 export async function sendFcm(projectId: string, request: FcmRequest): Promise<FcmResponse> {
   return sendMessage(projectId, fcmMessage(request))
 }

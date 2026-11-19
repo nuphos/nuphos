@@ -269,6 +269,25 @@ class HomeNavigationFixtureDeviceTest {
         shot("bottom-tabs-tasks")
     }
 
+    @Test fun accountComputerAlertsToggleUpdatesTheDevicePreference() {
+        render()
+        val push = app.pushNotifications
+        val previous = push.computerAlerts
+        try {
+            compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+            compose.onNodeWithTag("account-computer-alerts").performScrollTo().performClick()
+            shot("account-computer-alerts")
+            compose.runOnIdle {
+                assertEquals(!previous, push.computerAlerts)
+                assertEquals(!previous, app.getSharedPreferences("push_binding", Context.MODE_PRIVATE)
+                    .getBoolean("computer_alerts", true))
+            }
+            noWrites()
+        } finally {
+            compose.runOnIdle { push.updateComputerAlerts(previous) }
+        }
+    }
+
     @Test fun bottomTabsRemainUsableAfterHistoryFailureAndTeamSwitch() {
         historyFailure = true
         render()
