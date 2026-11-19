@@ -221,6 +221,7 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
 /** Anthropic holds an account's replies until its holder verifies it, at the portal the notice links. */
 const VERIFICATION_HOLD =
   /^(?:API Error: )?(Your account can['’]t receive replies from Claude\b.*)/u
+const heldFor = (error: unknown) => VERIFICATION_HOLD.exec(claudeNotice(error) ?? '')?.[1]
 
 /** How a Pi turn the model provider refused reads after `Internal error: ` (acp-shim.mjs). */
 const PROVIDER_REFUSED = 'The model provider refused the request:'
@@ -238,8 +239,7 @@ function replyFailedReason(
   const label = agent?.agentRuntime ? `${runtimeLabel(agent.agentRuntime)} ` : ''
   // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
   const notice = resetsAt ? undefined : claudeNotice(error)
-
-  const held = notice && VERIFICATION_HOLD.exec(notice)?.[1]
+  const held = heldFor(error)
 
   if (cause === 'usage_limit' && held)
     return `its ${label}account must be verified with Anthropic (${held}).`
@@ -272,7 +272,8 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
   const agent = await getConversationBySessionId(agentId).catch(() => null)
   const cause = turnFailureCause(error)
   const resetsAt =
-    cause === 'usage_limit' && agent
+    // A held account comes back when its holder verifies it, not when its usage resets.
+    cause === 'usage_limit' && agent && !heldFor(error)
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = replyFailedReason(agent, cause, error, resetsAt)
