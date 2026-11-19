@@ -1,4 +1,5 @@
-import { postChannelMessage, replyQuote } from '@/lib/agent/channel-chat'
+import { postChannelMessage } from '@/lib/agent/channel-chat'
+import { replyQuote } from '@/lib/agent/channel-reply'
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { isChannel } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
