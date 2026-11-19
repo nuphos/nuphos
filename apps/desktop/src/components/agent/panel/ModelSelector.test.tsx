@@ -2,55 +2,86 @@ import assert from 'node:assert/strict'
 
 import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
-import { act, createElement } from 'react'
+import { act, createContext, createElement, forwardRef, useContext, useEffect } from 'react'
 
-import type { ModelControl } from './ModelSelector'
-import type {
-  SessionConfigOption,
-  SessionConfigSelection,
-  SessionConfigState,
-} from '../../../api/session-config-types'
+import type { SessionConfigSelection, SessionConfigState } from '../../../api/session-config-types'
 import type { ReactNode } from 'react'
 
-// Base UI's menu does not render in happy-dom; these keep the props the selector passes.
-// From #3270 (carrying #2419), whose header picker the composer's replaced.
+// Base UI's menu does not render in happy-dom; these keep the props the selector passes,
+// and the real model list renders through them. From #3270 (carrying #2419).
+const MenuState = createContext({ open: false, setOpen: (_open: boolean) => {} })
+
 mock.module('../../ui/menu', () => ({
-  Menu: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? children : null),
-  MenuContent: ({ children }: { children: ReactNode }) =>
-    createElement('div', { role: 'menu' }, children),
-  MenuGroup: ({ children }: { children: ReactNode }) => createElement('div', null, children),
-  MenuGroupLabel: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  Menu: function Menu({
+    open,
+    onOpenChange,
+    onOpenChangeComplete,
+    children,
+  }: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    onOpenChangeComplete?: (open: boolean) => void
+    children: ReactNode
+  }) {
+    // As Base UI does once the popup has opened.
+    useEffect(() => {
+      if (open) onOpenChangeComplete?.(true)
+    }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    return createElement(MenuState.Provider, { value: { open, setOpen: onOpenChange } }, children)
+  },
+  MenuTrigger: forwardRef<HTMLButtonElement, Record<string, unknown>>(function Trigger(
+    { children, ...props },
+    ref,
+  ) {
+    const { open, setOpen } = useContext(MenuState)
+
+    return createElement(
+      'button',
+      { ...props, ref, onClick: () => setOpen(!open) },
+      children as ReactNode,
+    )
+  }),
+  MenuPanel: forwardRef<HTMLDivElement, { children?: ReactNode; footer?: ReactNode }>(
+    function Panel({ children, footer }, ref) {
+      return useContext(MenuState).open
+        ? createElement('div', { ref, role: 'menu' }, children, footer)
+        : null
+    },
+  ),
+  MenuContent: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  MenuGroup: ({ children }: { children: ReactNode }) =>
+    createElement('div', { role: 'group' }, children),
+  MenuGroupLabel: ({ children }: { children: ReactNode }) =>
+    createElement('div', { 'data-group-label': '' }, children),
   MenuItem: ({ children }: { children: ReactNode }) => createElement('div', null, children),
   MenuSeparator: () => null,
-}))
-mock.module('./ModelMenu', () => ({
-  ModelMenu: ({
-    model,
-    blocked,
-    onSelect,
-    footer,
+  MenuSubmenu: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  MenuSubmenuTrigger: ({ children }: { children: ReactNode }) =>
+    createElement('div', null, children),
+  MenuCheckboxItem: ({
+    children,
+    checked,
+    disabled,
+    onCheckedChange,
   }: {
-    model: SessionConfigOption
-    blocked: boolean
-    onSelect: (value: string) => void
-    footer: ReactNode
+    children: ReactNode
+    checked: boolean
+    disabled?: boolean
+    onCheckedChange: () => void
   }) =>
     createElement(
-      'div',
-      null,
-      ...model.options.map((choice) =>
-        createElement(
-          'button',
-          {
-            key: choice.value,
-            role: 'menuitem',
-            disabled: blocked,
-            onClick: () => onSelect(choice.value),
-          },
-          choice.name,
-        ),
-      ),
-      footer,
+      'button',
+      {
+        role: 'menuitemcheckbox',
+        'aria-checked': checked,
+        disabled,
+        onClick: onCheckedChange,
+        // Base UI highlights the item the pointer moves over, and nothing else does.
+        onMouseMove: (event: { currentTarget: Element }) =>
+          event.currentTarget.setAttribute('data-highlighted', ''),
+      },
+      children,
     ),
 }))
 
@@ -69,103 +100,57 @@ for (const [key, value] of Object.entries(browser))
 const { ModelSelector } = await import('./ModelSelector')
 const { createRoot } = await import('react-dom/client')
 
-const offering: SessionConfigState = {
+const opencode: SessionConfigState = {
   status: 'ready',
   options: [
     {
       id: 'model',
       name: 'Model',
       kind: 'model',
-      currentValue: 'sonnet',
+      currentValue: 'opencode/big-pickle',
       options: [
-        { value: 'sonnet', name: 'Sonnet' },
-        { value: 'opus', name: 'Opus' },
+        { value: 'opencode/beam-free', name: 'OpenCode/Beam Free' },
+        { value: 'opencode/big-pickle', name: 'OpenCode/Big Pickle' },
+      ],
+    },
+  ],
+}
+const withEffort: SessionConfigState = {
+  status: 'ready',
+  options: [
+    {
+      id: 'model',
+      name: 'Model',
+      kind: 'model',
+      currentValue: 'default',
+      options: [
+        { value: 'default', name: 'Default', description: 'Uses gpt-5.5' },
+        { value: 'gpt-5.5', name: 'gpt-5.5' },
+        { value: 'gpt-5.4', name: 'gpt-5.4' },
+      ],
+    },
+    {
+      id: 'reasoning_effort',
+      name: 'Effort',
+      kind: 'effort',
+      currentValue: 'low',
+      options: [
+        { value: 'low', name: 'Low' },
+        { value: 'medium', name: 'Medium' },
+        { value: 'high', name: 'High' },
       ],
     },
   ],
 }
 
-test('a locked model picker shows the setting and why, and a pick changes nothing', async () => {
-  const selected: SessionConfigSelection[] = []
-  const control: ModelControl = {
-    data: offering,
-    loading: false,
-    slow: false,
-    saving: false,
-    error: null,
-    writeError: null,
-    queued: undefined,
-    open: true,
-    setOpen: () => {},
-    select: (selection) => selected.push(selection),
-    refresh: () => {},
-  }
-  const container = dom.document.createElement('div')
-
-  dom.document.body.append(container)
-  const root = createRoot(container as unknown as HTMLElement)
-  const item = (name: string) =>
-    [...dom.document.querySelectorAll('[role="menuitem"]')].find((element) =>
-      element.textContent?.includes(name),
-    ) as unknown as HTMLButtonElement | undefined
-  const render = (hint?: string) =>
-    act(() =>
-      root.render(
-        createElement(ModelSelector, { control, disabled: Boolean(hint), disabledHint: hint }),
-      ),
-    )
-
-  // A runtime without effort opens the same card; its model list is one step further.
-  const selectModel = () =>
-    act(() =>
-      (
-        dom.document.querySelector('[aria-label="Select model"]') as unknown as HTMLButtonElement
-      ).click(),
-    )
-
-  await render()
-  assert.equal(item('Opus'), undefined, 'no bare model list')
-  assert.equal(dom.document.querySelector('input[type="range"]'), null, 'no effort to slide')
-  await selectModel()
-  // The owner's pick goes through.
-  await act(() => item('Opus')?.click())
-  assert.deepEqual(selected, [{ configId: 'model', value: 'opus' }])
-
-  // Anyone else sees the same choices, is told why, and a pick changes nothing.
-  await render('Only the owner can change model settings.')
-  if (!item('Opus')) await selectModel()
-  assert.ok(item('Opus'), 'the choices still show')
-  assert.match(dom.document.body.textContent ?? '', /Only the owner can change model settings\./)
-  assert.equal(item('Opus')?.disabled, true)
-  await act(() => item('Opus')?.click())
-  assert.equal(selected.length, 1)
-  await act(() => root.unmount())
-})
-
-// #3427: the chip opened before its settings arrived stayed on the bare model list.
-test('a chip opened while its settings load shows the effort card once they arrive', async () => {
-  const withEffort: SessionConfigState = {
-    status: 'ready',
-    options: [
-      ...offering.options,
-      {
-        id: 'effort',
-        name: 'Effort',
-        kind: 'effort',
-        currentValue: 'high',
-        options: [
-          { value: 'low', name: 'Low' },
-          { value: 'high', name: 'High' },
-        ],
-      },
-    ],
-  }
+function mount() {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   let open = false
-  const render = (data?: SessionConfigState) =>
+  const selected: SessionConfigSelection[] = []
+  const render = (data: SessionConfigState | undefined, hint?: string) =>
     act(() =>
       root.render(
         createElement(ModelSelector, {
@@ -180,22 +165,161 @@ test('a chip opened while its settings load shows the effort card once they arri
             open,
             setOpen: (next: boolean) => {
               open = next
+              void render(data, hint)
             },
-            select: () => {},
+            select: (selection) => selected.push(selection),
             refresh: () => {},
           },
-          disabled: false,
+          disabled: Boolean(hint),
+          disabledHint: hint,
         }),
       ),
     )
+  const chip = () => dom.document.querySelector('[data-model-chip]') as unknown as HTMLButtonElement
+  const rows = () =>
+    [
+      ...dom.document.querySelectorAll('[role="menuitemcheckbox"]'),
+    ] as unknown as HTMLButtonElement[]
+  const row = (name: string) => rows().find((element) => element.textContent?.includes(name))
 
-  await render()
-  const chip = dom.document.querySelector('[data-model-chip]') as unknown as HTMLButtonElement
+  return { root, render, chip, rows, row, selected, isOpen: () => open }
+}
 
-  await act(() => chip.click())
-  assert.equal(open, true, 'the chip opens while its settings load')
-  await render(withEffort)
-  assert.equal(dom.document.querySelector('[role="menu"]'), null, 'no bare model list')
+// #3709: OpenCode opened a card holding only its model's name, then a list below the chip.
+test('a runtime without effort opens its models in one click, grouped by provider', async () => {
+  const picker = mount()
+
+  await picker.render(opencode)
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: Big Pickle')
+  await act(() => picker.chip().click())
+  assert.deepEqual(
+    picker.rows().map((element) => element.textContent),
+    ['Beam Free', 'Big Pickle'],
+    'the rows drop the provider their group names',
+  )
+  assert.ok(
+    [...dom.document.querySelectorAll('[data-group-label]')].some(
+      (label) => label.textContent === 'OpenCode',
+    ),
+  )
+  assert.equal(picker.row('Big Pickle')?.getAttribute('aria-checked'), 'true')
+  assert.equal(dom.document.querySelector('input[type="range"]'), null, 'no effort to slide')
+  await act(() => picker.row('Beam Free')?.click())
+  assert.deepEqual(picker.selected, [{ configId: 'model', value: 'opencode/beam-free' }])
+  await act(() => picker.root.unmount())
+})
+
+test('models and effort open together, and the effort is named, never "Default"', async () => {
+  const picker = mount()
+
+  await picker.render(withEffort)
+  await act(() => picker.chip().click())
+  // A runtime's Default is no row: the list checks the model it stands for.
+  assert.deepEqual(
+    picker.rows().map((element) => element.textContent),
+    ['gpt-5.5', 'gpt-5.4'],
+  )
+  assert.equal(picker.row('gpt-5.5')?.getAttribute('aria-checked'), 'true')
+  assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows with them')
+  assert.match(dom.document.querySelector('[role="menu"]')?.textContent ?? '', /Effort\s*Low/)
+  assert.doesNotMatch(dom.document.querySelector('[role="menu"]')?.textContent ?? '', /Default/)
+  await act(() => picker.root.unmount())
+})
+
+test("Claude Code's older models end the same list, in a More models group", async () => {
+  const picker = mount()
+
+  await picker.render({
+    status: 'ready',
+    options: [
+      {
+        id: 'model',
+        name: 'Model',
+        kind: 'model',
+        currentValue: 'claude-opus-4-8',
+        options: [
+          { value: 'opus', name: 'Opus', description: 'Opus 5.5 · For complex work' },
+          { value: 'sonnet', name: 'Sonnet', description: 'Sonnet 5.5 · Everyday tasks' },
+          { value: 'claude-opus-4-8', name: 'claude-opus-4-8' },
+        ],
+      },
+    ],
+  })
+  await act(() => picker.chip().click())
+  const menu = dom.document.querySelector('[role="menu"]')
+  const labels = [...(menu?.querySelectorAll('[data-group-label]') ?? [])].map(
+    (label) => label.textContent,
+  )
+
+  assert.deepEqual(labels, ['Select model', 'More models'])
+  // An older model is a row of the same list, checked where it runs, not one step further.
+  assert.equal(picker.row('claude-opus-4-8')?.getAttribute('aria-checked'), 'true')
+  await act(() => picker.root.unmount())
+})
+
+test('a locked model picker shows the setting and why, and a pick changes nothing', async () => {
+  const picker = mount()
+
+  await picker.render(opencode, 'Only the owner can change model settings.')
+  await act(() => picker.chip().click())
+  assert.ok(picker.row('Beam Free'), 'the choices still show')
+  assert.match(dom.document.body.textContent ?? '', /Only the owner can change model settings\./)
+  assert.equal(picker.row('Beam Free')?.disabled, true)
+  await act(() => picker.row('Beam Free')?.click())
+  assert.equal(picker.selected.length, 0)
+  await act(() => picker.root.unmount())
+})
+
+// #3427: the chip opened before its settings arrived stayed on the bare model list.
+test('a chip opened while its settings load shows models and effort once they arrive', async () => {
+  const picker = mount()
+
+  await picker.render(undefined)
+  await act(() => picker.chip().click())
+  assert.equal(picker.isOpen(), true, 'the chip opens while its settings load')
+  await picker.render(withEffort)
+  assert.ok(picker.row('gpt-5.5'), 'the models show')
   assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows')
-  await act(() => root.unmount())
+  await act(() => picker.root.unmount())
+})
+
+// The design head's fix: the menu showed one model checked and the first row highlighted.
+test('the menu opens focused and highlighted on the checked model', async () => {
+  const picker = mount()
+
+  await picker.render(opencode)
+  await act(() => picker.chip().click())
+  const checked = picker.row('Big Pickle')
+
+  assert.equal(dom.document.activeElement, checked, 'focus starts on the checked model')
+  assert.ok(checked?.hasAttribute('data-highlighted'), 'the checked model is highlighted')
+  assert.equal(picker.row('Beam Free')?.hasAttribute('data-highlighted'), false)
+  await act(() => picker.root.unmount())
+})
+
+/** The part of the open menu whose text matches. */
+const notes = (text: RegExp) =>
+  [...dom.document.querySelectorAll('[role="menu"] > div')].find((element) =>
+    text.test(element.textContent ?? ''),
+  )
+
+test('the notes draw a line above them only under the list or the effort', async () => {
+  const picker = mount()
+
+  await picker.render(undefined)
+  await act(() => picker.chip().click())
+  assert.ok(notes(/Getting model settings/), 'the loading note shows')
+  assert.doesNotMatch(
+    notes(/Getting model settings/)?.className ?? '',
+    /border-t/,
+    'alone in the menu, the loading note has no line above it',
+  )
+  await act(() => picker.root.unmount())
+
+  const locked = mount()
+
+  await locked.render(opencode, 'Only the owner can change model settings.')
+  await act(() => locked.chip().click())
+  assert.match(notes(/Only the owner/)?.className ?? '', /border-t/, 'under the list, it has one')
+  await act(() => locked.root.unmount())
 })

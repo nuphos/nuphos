@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { Loader2, RefreshCw } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import { MenuGroup, MenuGroupLabel, MenuItem, MenuSeparator } from '../../ui/menu'
+import { MenuGroup, MenuGroupLabel, MenuItem } from '../../ui/menu'
 
 type FooterProps = {
   lines: string[]
@@ -12,71 +12,30 @@ type FooterProps = {
   retrying: boolean
 }
 
-/** Connection notes under the effort controls, with a retry when it failed. */
-export function ModelFooter({
-  lines,
-  error,
-  onRetry,
-  retrying,
-  divided,
-}: FooterProps & { divided: boolean }) {
+/** Connection notes at the foot of the model menu, as a labelled group, with a retry when it failed. */
+export function ModelMenuFooter({ lines, error, onRetry, retrying }: FooterProps) {
   if (lines.length === 0) return null
   const Icon = retrying ? Loader2 : RefreshCw
 
   return (
-    <div
-      className={clsx(
-        'mx-3 py-2 text-center text-xs text-tertiary',
-        divided && 'border-t border-line-control/60',
-      )}
-    >
-      {lines.map((line) => (
-        <p key={line} role={line === error ? 'alert' : 'status'}>
-          {line}
-        </p>
-      ))}
+    <MenuGroup>
+      <MenuGroupLabel className="max-w-64 text-xs font-normal normal-case tracking-normal">
+        {lines.map((line) => (
+          <span key={line} role={line === error ? 'alert' : 'status'} className="block">
+            {line}
+          </span>
+        ))}
+      </MenuGroupLabel>
       {onRetry && (
-        <button
-          type="button"
+        <MenuItem
+          icon={<Icon size={13} className={clsx(retrying && 'animate-spin')} />}
           disabled={retrying}
+          closeOnClick={false}
           onClick={onRetry}
-          className="mx-auto mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-main outline-none hover:bg-state-hover focus-visible:bg-state-hover disabled:opacity-50"
         >
-          <Icon size={13} className={clsx(retrying && 'animate-spin')} />
           {t('Retry connection')}
-        </button>
+        </MenuItem>
       )}
-    </div>
-  )
-}
-
-/** The same notes at the foot of the model menu, as a labelled menu group. */
-export function ModelMenuFooter({ lines, onRetry, retrying }: FooterProps) {
-  if (lines.length === 0) return null
-  const Icon = retrying ? Loader2 : RefreshCw
-
-  return (
-    <>
-      <MenuSeparator />
-      <MenuGroup>
-        <MenuGroupLabel className="max-w-64 text-xs font-normal normal-case tracking-normal">
-          {lines.map((line) => (
-            <span key={line} className="block">
-              {line}
-            </span>
-          ))}
-        </MenuGroupLabel>
-        {onRetry && (
-          <MenuItem
-            icon={<Icon size={13} className={clsx(retrying && 'animate-spin')} />}
-            disabled={retrying}
-            closeOnClick={false}
-            onClick={onRetry}
-          >
-            {t('Retry connection')}
-          </MenuItem>
-        )}
-      </MenuGroup>
-    </>
+    </MenuGroup>
   )
 }
