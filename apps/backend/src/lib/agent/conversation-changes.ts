@@ -1,6 +1,8 @@
 // A team's conversation changes, pushed to its members' apps so a chat on screen
 // catches up at once instead of on its next poll (#3523). Lossy by design: a
 // client that reconnects revalidates what it shows.
+import { errorMessage, logEvent } from '@/lib/observability'
+
 import { generalAccessOf, isParticipant } from './db/access'
 import { agentConversations } from './db/shared'
 
@@ -47,6 +49,7 @@ type Listener = (conversation: ChangedConversation) => void
 
 const listeners = new Map<string, Set<Listener>>()
 let stream: ChangeStream<AgentConversation> | null = null
+let failures = 0
 
 function watch() {
   if (stream) return
@@ -89,11 +92,18 @@ function watch() {
     if (!conversation?.teamId) return
     for (const listener of listeners.get(conversation.teamId) ?? []) listener(conversation)
   })
-  opened.on('error', () => {
+  opened.on('change', () => {
+    failures = 0
+  })
+  opened.on('error', (error) => {
     if (stream === opened) stream = null
     void opened.close().catch(() => undefined)
-    // Clients revalidate when their stream ends; this keeps the next ones hearing.
-    if (listeners.size > 0) setTimeout(watch, 1_000).unref()
+    // Once per run of failures: a MongoDB that isn't a replica set fails every time.
+    if (failures === 0)
+      logEvent('warn', 'agent.conversation_changes.stream_failed', { error: errorMessage(error) })
+    failures += 1
+    // Clients revalidate when their stream ends; this keeps the next ones hearing, backing off to a minute.
+    if (listeners.size > 0) setTimeout(watch, Math.min(60_000, 1_000 * 2 ** (failures - 1))).unref()
   })
 }
 
