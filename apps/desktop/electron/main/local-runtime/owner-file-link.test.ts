@@ -46,6 +46,8 @@ for (const allowed of [true, false]) {
     const f = homes(t)
 
     linkOwnerFile(path.dirname(f.owner), f.home, 'auth.json')
+    // Codex refuses to save over a hard link, so it is never one.
+    assert.equal(fs.statSync(f.agent).nlink, 1)
     // The agent refreshes its token: Codex writes it where auth.json resolves.
     codexSaves(fs.realpathSync(f.agent), '{"tokens":"refreshed"}')
     linkOwnerFile(path.dirname(f.owner), f.home, 'auth.json')

@@ -213,7 +213,7 @@ test('changing CODEX_HOME relinks only isolated symlinks, without copying creden
   assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{}')
 })
 
-test('on Windows the login is a hard link that follows the owner’s login', (t) => {
+test('on Windows the login follows the owner’s login', (t) => {
   const f = codexFixture(t)
   const home = path.join(f.dir, 'codex-home')
   const link = path.join(home, 'auth.json')
@@ -224,7 +224,7 @@ test('on Windows the login is a hard link that follows the owner’s login', (t)
   linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(statSync(link).ino, statSync(path.join(f.owner, 'auth.json')).ino)
 
-  // Codex rewrites the file in place, so a refreshed token reaches both homes.
+  // A write through the link reaches the owner's file.
   writeFileSync(link, '{"tokens":1}')
   assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{"tokens":1}')
 

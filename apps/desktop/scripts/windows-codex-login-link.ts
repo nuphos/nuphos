@@ -2,7 +2,8 @@
 // (#2653). Run with `node --test` and LINK_MODULE naming the
 // module to check: main's agent-home (hardLinkFrom) or this branch's owner-file-link
 // (linkOwnerFile). EXPECT=shared asserts that a newer login made in the agent reaches the owner
-// and nothing older is linked back; EXPECT=swapped-back asserts the bug, as main shows it.
+// and nothing older is linked back; EXPECT=refused asserts main's bug: Codex will not save over
+// the hard link main makes, so the agent cannot sign in or refresh its token.
 import assert from 'node:assert/strict'
 import { execSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -55,7 +56,7 @@ function signedInAs(home: string): string {
 }
 
 for (const allowed of [true, false]) {
-  void test(`symlinks ${allowed ? 'allowed' : 'not allowed'}: a newer login in the agent ${expectShared ? 'reaches the owner' : 'is swapped back'}`, async () => {
+  void test(`symlinks ${allowed ? 'allowed' : 'not allowed'}: a newer login in the agent ${expectShared ? 'reaches the owner' : 'cannot be saved'}`, async () => {
     symlinksAllowed = allowed
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-login-link-'))
     const owner = path.join(dir, 'owner')
@@ -69,16 +70,16 @@ for (const allowed of [true, false]) {
 
     // Codex in the agent saves a newer login (as a refresh does), then the agent is prepared again.
     await new Promise((resolve) => setTimeout(resolve, 1100))
+    if (!expectShared) {
+      assert.throws(() => codexLogin(agent, 'sk-agent-login-000000000000AGENT'))
+
+      return
+    }
     codexLogin(agent, 'sk-agent-login-000000000000AGENT')
     link(owner, agent, 'auth.json')
     const [agentNow, ownerNow] = [signedInAs(agent), signedInAs(owner)]
 
     console.log(`after the agent's login: agent=${agentNow} owner=${ownerNow}`)
-    if (!expectShared) {
-      assert.equal(agentNow, 'OWNER', 'main links the owner’s older login back over the agent’s')
-
-      return
-    }
     assert.equal(agentNow, 'AGENT')
     assert.equal(ownerNow, 'AGENT', 'the owner’s own Codex has the newer login')
 

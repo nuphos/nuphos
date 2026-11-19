@@ -2,7 +2,7 @@ name: Desktop Windows Codex login
 
 # Real Codex on Windows, signing in the owner's home and the default Codex
 # agent's home that links to it (#2653). Codex saves auth.json by renaming a new
-# file over it; main then links the owner's older login back over the agent's.
+# file over it, and refuses to do that over the hard link main makes.
 on:
   pull_request:
     paths:
@@ -40,9 +40,9 @@ jobs:
           echo "CODEX_BIN=$(npm prefix -g)\\codex.cmd" >> "$GITHUB_ENV"
           "$(npm prefix -g)/codex.cmd" --version
       # Real Codex saves each login by renaming a new auth.json over the old one (#2653).
-      - name: Before (main) links the owner's older login back over the agent's
+      - name: Before (main) Codex cannot save a login over the hard link
         run: |
           git show origin/main:apps/desktop/electron/main/local-runtime/agent-home.ts > agent-home.main.ts
-          LINK_MODULE=agent-home.main.ts EXPECT=swapped-back node --test ../../../scripts/windows-codex-login-link.ts
+          LINK_MODULE=agent-home.main.ts EXPECT=refused node --test ../../../scripts/windows-codex-login-link.ts
       - name: After (this branch) the newer login reaches the owner and stays
         run: LINK_MODULE=owner-file-link.ts EXPECT=shared node --test ../../../scripts/windows-codex-login-link.ts
