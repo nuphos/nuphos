@@ -14,7 +14,7 @@ const temp = mkdtempSync(join(tmpdir(), 'video-test-'))
 const output = { dir: temp, creator: { name: 'Nuphos Desktop', version: '1.0.0' } }
 
 /** A tab whose debugger records the commands it is sent. */
-function tab() {
+function tab({ failScreencast = false } = {}) {
   const debug = Object.assign(new EventEmitter(), {
     commands: [] as { method: string; params?: object }[],
     attached: false,
@@ -27,6 +27,8 @@ function tab() {
     isAttached: () => debug.attached,
     sendCommand(method: string, params?: object) {
       debug.commands.push({ method, params })
+      if (failScreencast && method === 'Page.startScreencast')
+        return Promise.reject(new Error('screencast refused'))
 
       return Promise.resolve({})
     },
@@ -38,12 +40,16 @@ function tab() {
 }
 
 /** A helper page that encodes nothing, but answers `finish()` with a WebM's bytes. */
-function helper() {
+function helper({ fail }: { fail?: 'setup' | 'finish' } = {}) {
   const page = {
     scripts: [] as string[],
     closed: false,
     evaluate: (script: string) => {
       page.scripts.push(script)
+      if (fail === 'setup' && script !== 'finish()' && !script.startsWith('draw('))
+        return Promise.reject(new Error('no MediaRecorder'))
+      if (fail === 'finish' && script === 'finish()')
+        return Promise.reject(new Error('encoder crashed'))
 
       return Promise.resolve(script === 'finish()' ? Buffer.from('WEBM').toString('base64') : null)
     },
@@ -76,10 +82,12 @@ test('record_start with a helper also records what the tab shows, and record_sto
 
   assert.ok(methods(debug).includes('Page.stopScreencast'))
   assert.equal(page.closed, true)
-  assert.ok(result.video?.file.endsWith('.webm'))
-  assert.equal(readFileSync(result.video?.file ?? '', 'utf8'), 'WEBM')
-  assert.equal(result.video?.frames, 1)
-  assert.equal(result.video?.truncated, false)
+  const video = result.video && 'file' in result.video ? result.video : undefined
+
+  assert.ok(video?.file.endsWith('.webm'))
+  assert.equal(readFileSync(video?.file ?? '', 'utf8'), 'WEBM')
+  assert.equal(video?.frames, 1)
+  assert.equal(video?.truncated, false)
 })
 
 test('record_start without a helper records no video, as before', async () => {
@@ -109,4 +117,30 @@ test('a video past its frame budget stops taking frames and says it was cut shor
 
   assert.equal(done.truncated, true)
   assert.equal(done.frames, 2)
+})
+
+test('a video that fails to start closes its helper page and leaves no listener behind', async () => {
+  for (const [failing, page] of [
+    [tab(), helper({ fail: 'setup' })],
+    [tab({ failScreencast: true }), helper()],
+  ] as const) {
+    await assert.rejects(startVideo(failing.contents.debugger, () => Promise.resolve(page)))
+    assert.equal(page.closed, true)
+    assert.equal(failing.debug.listenerCount('message'), 0)
+  }
+})
+
+test('a video that fails to finish still writes the HAR, detaches, and says the video failed', async () => {
+  const { contents, debug } = tab()
+  const page = helper({ fail: 'finish' })
+
+  await startRecording(contents, () => Promise.resolve(page))
+  const result = await stopRecording(contents, output)
+
+  assert.ok(result.file.endsWith('.har'))
+  assert.match(readFileSync(result.file, 'utf8'), /"version":"1.2"/)
+  assert.deepEqual(result.video, { failed: 'encoder crashed' })
+  assert.equal(debug.isAttached(), false)
+  assert.equal(debug.listenerCount('message'), 0)
+  assert.equal(page.closed, true)
 })
