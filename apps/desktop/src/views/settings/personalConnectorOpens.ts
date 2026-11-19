@@ -1,4 +1,4 @@
-import { isGoogle } from '../../types'
+import { isGoogle } from '../../types/personal-credentials.ts'
 
 import type { PersonalCredential, PersonalCredentialProvider, TeamGoogleClient } from '../../types'
 
