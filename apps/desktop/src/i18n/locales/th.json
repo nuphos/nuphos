@@ -5632,7 +5632,6 @@
   "{a}, {b}, and {n} others": "{a}, {b} และอีก {n} คน",
   "{badge}, show all": "{badge} แสดงทั้งหมด",
   "{box} is offline.": "{box} ออฟไลน์อยู่",
-  "{box} is paused. It resumes when you send.": "{box} หยุดชั่วคราวอยู่ จะทำงานต่อเมื่อคุณส่งข้อความ",
   "{box}’s disk is almost full ({percent}%). Bots and tasks on it may fail.": "ดิสก์ของ {box} ใกล้เต็มแล้ว ({percent}%) บอทและงานบนเครื่องนี้อาจล้มเหลว",
   "{breakdown}, show in Changes": "{breakdown} แสดงในการเปลี่ยนแปลง",
   "{browser} on {system}": "{browser} บน {system}",

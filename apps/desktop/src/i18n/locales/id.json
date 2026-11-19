@@ -5632,7 +5632,6 @@
   "{a}, {b}, and {n} others": "{a}, {b}, dan {n} lainnya",
   "{badge}, show all": "{badge}, tampilkan semua",
   "{box} is offline.": "{box} sedang offline.",
-  "{box} is paused. It resumes when you send.": "{box} sedang dijeda. Akan berjalan lagi saat Anda mengirim pesan.",
   "{box}’s disk is almost full ({percent}%). Bots and tasks on it may fail.": "Disk {box} hampir penuh ({percent}%). Bot dan tugas di dalamnya bisa gagal.",
   "{breakdown}, show in Changes": "{breakdown}, tampilkan di Perubahan",
   "{browser} on {system}": "{browser} di {system}",
