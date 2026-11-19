@@ -41,6 +41,9 @@ useDb({
 
         return Promise.resolve()
       },
+      // Conversation cleanup also releases artifact file-transfer refs; this
+      // suite has none, so the ref scan comes back empty.
+      find: () => ({ toArray: () => Promise.resolve([]) }),
     }),
   }),
 })
