@@ -337,7 +337,7 @@ class AccountParityFixtureDeviceTest {
         assertEquals("Recreation changed the bound draft", text, auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
         compose.onNodeWithContentDescription(app.getString(R.string.composer_ask_nuphos)).assertTextEquals(text)
         compose.onNodeWithTag("new-task-cancel").performClick()
-        compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         tap(app.getString(R.string.profile_withdraw_action))
         compose.onNodeWithText(app.getString(R.string.profile_withdraw_confirm)).performClick()
         awaitText(app.getString(R.string.profile_consent_title))
