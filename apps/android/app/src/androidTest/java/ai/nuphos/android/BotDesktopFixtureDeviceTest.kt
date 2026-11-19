@@ -78,7 +78,9 @@ class BotDesktopFixtureDeviceTest {
     }
     private fun bot(bot: Bot): String {
         val desktop = if (bot.desktop) ""","canOpenDesktop":true""" else ""
-        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":true,"canManage":true,"readOnly":false,"messages":[],
+        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":true,"canManage":true,"readOnly":false,"messages":[
+            {"id":"task-prompt","role":"user","parts":[{"type":"text","text":"Draft the 0.26 release notes."}]},
+            {"id":"task-answer","role":"assistant","parts":[{"type":"text","text":"Release notes draft: Shared Bot Tasks keep the conversation and working context together."}]}],
             "runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle","actions":{"send":true}$desktop}}"""
     }
 
@@ -107,6 +109,7 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
+                path.endsWith("/resources") -> """{"resources":[]}"""
                 path.endsWith("/read") -> """{"activitySeq":2,"readSeq":2,"unread":false}"""
                 else -> "{}"
             }
@@ -196,6 +199,9 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-task-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
         compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
+        compose.onNodeWithText("Release notes draft: Shared Bot Tasks keep the conversation and working context together.").assertExists()
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_resources_unavailable)).assertDoesNotExist()
+        compose.waitUntil(5_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
         capture("6-bot-own-task")
         compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_task_actions)).performClick()
         compose.onNodeWithText(inst.targetContext.getString(R.string.chat_share)).assertDoesNotExist()
