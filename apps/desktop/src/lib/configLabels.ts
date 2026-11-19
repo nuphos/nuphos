@@ -10,16 +10,17 @@ const EFFORT_LABELS: Record<string, string> = {
 
 /** Some runtimes name a model by family ("Opus") and put the version only in
  *  its description ("Opus 5.5 · …"); show the versioned name when present.
- *  Codex names models "GPT-6.1-Sol", which Codex desktop shows as "GPT-6.1 Sol". */
+ *  Codex names models "GPT-6.1-Sol", which Codex desktop shows as "GPT-6.1 Sol".
+ *  OpenCode names them "OpenCode/Big Pickle": the provider is not the model's name. */
 export function modelChoiceLabel(choice: { name: string; description?: string }): string {
-  const name = choice.name.trim()
+  const name = choice.name.slice(choice.name.indexOf('/') + 1).trim()
   const gpt = /^(GPT-\d[\d.]*)-([a-z]+)$/i.exec(name)
 
   if (gpt) return `${gpt[1]} ${gpt[2]}`
-  if (!/^[A-Za-z]+$/.test(name)) return choice.name
+  if (!/^[A-Za-z]+$/.test(name)) return name
   const versioned = choice.description?.match(new RegExp(`^${name}\\s+\\d[\\w.]*`, 'i'))
 
-  return versioned ? `${name} ${versioned[0].slice(name.length).trim()}` : choice.name
+  return versioned ? `${name} ${versioned[0].slice(name.length).trim()}` : name
 }
 
 /** Readable effort names; values this app does not know keep the runtime's name. */
