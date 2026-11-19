@@ -1,8 +1,8 @@
 // Storage-provider boundary for the temporary file-transfer store. The default
 // implementation is the Zeabur-owned S3 bucket; a future team-level BYOS S3
 // plugs in behind the same interface without any route/agent changes. Providers
-// only ever mint short-lived presigned URLs and delete objects — the backend is
-// never in the file data path.
+// only ever mint short-lived presigned URLs, copy and delete objects — the
+// backend is never in the file data path.
 
 export type PresignedUrl = {
   url: string
@@ -43,6 +43,10 @@ export type StorageProvider = {
     downloadFileName: string,
     expiresInSeconds: number,
   ): Promise<PresignedUrl>
+
+  // Copy an object within the same bucket under a new key. Used to move
+  // artifact-retained media to the prefix the lifecycle rule leaves alone.
+  copyObject(src: StorageObjectRef, destKey: string): Promise<void>
 
   // Confirm an object exists and read its real size/type (used at finalize).
   // Returns null when the object is absent.

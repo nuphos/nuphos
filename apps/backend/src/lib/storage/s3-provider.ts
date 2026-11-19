@@ -7,6 +7,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   DeleteObjectCommand,
+  CopyObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
@@ -25,6 +26,12 @@ function contentDisposition(fileName: string): string {
   const encoded = encodeURIComponent(fileName)
 
   return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`
+}
+
+// CopySource is `/{bucket}/{key}` with every segment URL-encoded; the SDK does
+// not encode it for us, and a key with a space or `+` would otherwise mis-resolve.
+function copySource(bucket: string, key: string): string {
+  return `/${encodeURIComponent(bucket)}/${key.split('/').map(encodeURIComponent).join('/')}`
 }
 
 export class S3StorageProvider implements StorageProvider {
@@ -109,6 +116,18 @@ export class S3StorageProvider implements StorageProvider {
     )
 
     return { url, expiresAt: new Date(Date.now() + expiresInSeconds * 1000) }
+  }
+
+  async copyObject(src: StorageObjectRef, destKey: string): Promise<void> {
+    // CopyObject handles one object up to 5 GiB. A transfer object is at most
+    // 100 MiB (config.fileTransfer.maxBytes), so one call always suffices.
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: src.bucket,
+        CopySource: copySource(src.bucket, src.key),
+        Key: destKey,
+      }),
+    )
   }
 
   async headObject(ref: StorageObjectRef): Promise<StorageObjectHead | null> {

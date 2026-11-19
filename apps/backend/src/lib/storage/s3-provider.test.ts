@@ -29,6 +29,43 @@ test('upload signature binds Content-Length to the declared size', async () => {
   }
 })
 
+test('copyObject sends an encoded CopySource and the new key', async () => {
+  const original = config.fileTransfer.s3
+
+  config.fileTransfer.s3 = {
+    bucket: 'test-transfers',
+    region: 'us-east-1',
+    accessKeyId: 'test',
+    secretAccessKey: 'test-secret',
+    endpoint: undefined,
+    publicEndpoint: undefined,
+  }
+  try {
+    const provider = S3StorageProvider.fromConfig()
+    const sent: unknown[] = []
+    const internals = provider as unknown as {
+      client: { send: (command: unknown) => Promise<unknown> }
+    }
+
+    internals.client.send = async (command) => {
+      sent.push(command)
+
+      return {}
+    }
+    await provider.copyObject(
+      { bucket: 'test-transfers', region: 'us-east-1', key: 'transfers/a b/c+d' },
+      'pinned/team/group/item',
+    )
+    expect((sent[0] as { input: Record<string, unknown> }).input).toMatchObject({
+      Bucket: 'test-transfers',
+      CopySource: '/test-transfers/transfers/a%20b/c%2Bd',
+      Key: 'pinned/team/group/item',
+    })
+  } finally {
+    config.fileTransfer.s3 = original
+  }
+})
+
 test('presigned URLs use the public endpoint when one is set', async () => {
   const original = config.fileTransfer.s3
 

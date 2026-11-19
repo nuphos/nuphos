@@ -17,6 +17,7 @@ import {
   fileTransferGroups,
   fileTransferItems,
   fileTransferAdmissions,
+  fileTransferRefs,
 } from '@/models/diagrams'
 import {
   asanaPendingOAuth,
@@ -260,6 +261,17 @@ export async function setupCoreIndexes(): Promise<void> {
     { expireAfterSeconds: 0, name: 'file_transfer_items_ttl' },
   )
   await fileTransferItems().createIndex({ groupId: 1 }, { background: true })
+  // One ref per (group, conversation, artifact): re-rendering an artifact adds
+  // a version but never duplicates its citation of the same group.
+  await fileTransferRefs().createIndex(
+    { groupId: 1, sessionId: 1, artifactId: 1 },
+    { unique: true, name: 'file_transfer_refs_group_session_artifact_unique' },
+  )
+  // Matches purgeConversationFileTransferRefs: every ref one conversation owns.
+  await fileTransferRefs().createIndex(
+    { sessionId: 1 },
+    { background: true, name: 'file_transfer_refs_session' },
+  )
   // One stored photo per (user, image hash); uploads upsert on it.
   await userAvatars().createIndex(
     { userId: 1, hash: 1 },
