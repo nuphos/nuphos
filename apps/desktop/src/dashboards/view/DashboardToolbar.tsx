@@ -7,6 +7,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger, MenuSeparator } from '../../c
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
+import { DashboardHeaderControls } from './DashboardHeaderControls'
 import { RANGE_PRESETS, rangeLabel } from './helpers'
 import { VisibilityMenu } from './VisibilityMenu'
 
@@ -29,6 +30,8 @@ type Props = {
   customRange: CustomRange
   setCustomRange: Dispatch<SetStateAction<CustomRange>>
   refreshing: boolean
+  lastRefreshAt: string | null
+  onRefresh: () => void
   editingLayout: boolean
   setEditingLayout: Dispatch<SetStateAction<boolean>>
   applyDate: (
@@ -38,8 +41,8 @@ type Props = {
   ) => void
   onAddPanel: () => void
   openPanelAssistant: () => void
-  /** A move between Personal and Team, from the visibility menu. */
-  onVisibilitySaved: (dashboard: NuphosDashboard) => void
+  /** A move between Personal and Team, or a new cadence. */
+  onSaved: (dashboard: NuphosDashboard) => void
 }
 
 export function DashboardToolbar({
@@ -50,12 +53,14 @@ export function DashboardToolbar({
   customRange,
   setCustomRange,
   refreshing,
+  lastRefreshAt,
+  onRefresh,
   editingLayout,
   setEditingLayout,
   applyDate,
   onAddPanel,
   openPanelAssistant,
-  onVisibilitySaved,
+  onSaved,
 }: Props) {
   const [savingDefault, setSavingDefault] = useState(false)
   const savingDefaultRef = useRef(false)
@@ -156,7 +161,7 @@ export function DashboardToolbar({
               </MenuContent>
             </Menu>
             {/* Here rather than in the page header, which a dashboard open in a panel lacks. */}
-            <VisibilityMenu teamId={teamId} detail={detail} onSaved={onVisibilitySaved} />
+            <VisibilityMenu teamId={teamId} detail={detail} onSaved={onSaved} />
             {customRange && (
               <>
                 <input
@@ -215,6 +220,15 @@ export function DashboardToolbar({
       </div>
       {dashboard && (
         <div className="flex shrink-0 items-center gap-2">
+          {/* Here for the same reason as the visibility menu. */}
+          <DashboardHeaderControls
+            teamId={teamId}
+            detail={detail}
+            lastRefreshAt={lastRefreshAt}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onSaved={onSaved}
+          />
           <button
             type="button"
             aria-label={editingLayout ? t('Done') : t('Edit layout')}

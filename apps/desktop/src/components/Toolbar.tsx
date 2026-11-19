@@ -23,8 +23,6 @@ type Props = {
   count: number
   filterControls?: ReactNode
   extraActions?: ReactNode
-  headerRightActions?: ReactNode
-  hasHeaderRightActions?: boolean
   // Whether the controls row has anything worth showing. `filterControls` /
   // `extraActions` can't drive this: they always carry the (usually empty)
   // portal-slot mounts, so the caller computes real content presence instead.
@@ -67,8 +65,6 @@ export function Toolbar({
   count,
   filterControls,
   extraActions,
-  headerRightActions,
-  hasHeaderRightActions = false,
   hasControls = false,
   showFilter = true,
   onRefresh,
@@ -128,11 +124,7 @@ export function Toolbar({
           {/* flex-shrink-0: an uncapped trailing crumb shrinks the drag spacer
               to nothing before it truncates, and these must not be next. */}
           <div className="titlebar-no-drag flex flex-shrink-0 items-center gap-1">
-            {hasHeaderRightActions ? (
-              headerRightActions
-            ) : (
-              <RefreshButton onRefresh={onRefresh} loading={loading} />
-            )}
+            <RefreshButton onRefresh={onRefresh} loading={loading} />
             <button
               onClick={() => void copyCurrentPageUrl()}
               disabled={!currentPageUrl}
