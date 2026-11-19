@@ -1,3 +1,5 @@
+import { redactSecretsSync } from '@/lib/secrets/scan'
+
 export type Primitive = string | number | boolean | null
 
 export type ObservabilityProperties = Record<string, unknown>
@@ -10,6 +12,24 @@ const SECRET_KEY_COMPOUND =
 
 function isSecretKey(key: string): boolean {
   return SECRET_KEY_WORD.test(key) || SECRET_KEY_COMPOUND.test(key)
+}
+
+// An identifier is what ties a log line to a request; the entropy sweep would
+// hide a base64 one such as S3's x-amz-id-2. The contents of a field named
+// `*_id` / `*Id` are therefore NOT scanned: never log user-controlled text or a
+// credential under such a name. (A secret-looking name still wins: isSecretKey
+// runs first, so `auth_token_id` is masked whole.)
+const ID_KEY = /(?:^|[_-])id$|[a-z]Id$/
+
+// Only the head of a string survives truncation, so only the head is scanned;
+// the margin lets a token that crosses the cut be seen whole.
+const SCAN_MARGIN = 1_024
+
+/** Every string in a log line passes here: masked, unless it is an id, then truncated. */
+function sanitizeString(value: string, field: string | undefined): string {
+  if (field !== undefined && ID_KEY.test(field)) return truncate(value)
+
+  return truncate(redactSecretsSync(value.slice(0, MAX_STRING_LENGTH + SCAN_MARGIN)))
 }
 
 export function truncate(value: string, max = MAX_STRING_LENGTH): string {
@@ -74,16 +94,17 @@ function safeJsonParse(value: string): unknown {
 function sanitizeValue(
   value: unknown,
   depth = 0,
+  field?: string,
 ): Primitive | Primitive[] | Record<string, unknown> {
   if (value == null) return null
-  if (typeof value === 'string') return truncate(value)
+  if (typeof value === 'string') return sanitizeString(value, field)
   if (typeof value === 'number' || typeof value === 'boolean') return value
   if (typeof value === 'bigint') return value.toString()
-  if (value instanceof Error) return normalizeError(value)
+  if (value instanceof Error) return sanitizeValue(normalizeError(value), depth)
   if (depth >= 3) return '[Object]'
   if (Array.isArray(value))
-    return value.slice(0, 20).map((item) => sanitizeValue(item, depth + 1) as Primitive)
-  if (!isRecord(value)) return truncate(describeUnknown(value))
+    return value.slice(0, 20).map((item) => sanitizeValue(item, depth + 1, field) as Primitive)
+  if (!isRecord(value)) return sanitizeString(describeUnknown(value), field)
 
   const sanitized: Record<string, unknown> = {}
 
@@ -92,7 +113,7 @@ function sanitizeValue(
       sanitized[key] = REDACTED
       continue
     }
-    sanitized[key] = sanitizeValue(child, depth + 1)
+    sanitized[key] = sanitizeValue(child, depth + 1, key)
   }
 
   return sanitized
@@ -109,7 +130,7 @@ export function sanitizeProperties(
       sanitized[key] = REDACTED
       continue
     }
-    const safe = sanitizeValue(value)
+    const safe = sanitizeValue(value, 0, key)
 
     if (
       typeof safe === 'string' ||

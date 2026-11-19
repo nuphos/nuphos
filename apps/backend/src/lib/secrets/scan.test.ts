@@ -6,6 +6,7 @@ import {
   findEmbeddedSecret,
   findSecrets,
   redactSecrets,
+  redactSecretsSync,
   redactTokenShapes,
   shannonEntropy,
 } from './scan'
@@ -412,5 +413,38 @@ describe('nuphosSecretRule', () => {
     expect(result.messages.map((m) => [m.ruleId, m.range, m.data])).toEqual([
       [NUPHOS_RULE_ID, [2, 2 + token.length], { kind: 'nuphos-token' }],
     ])
+  })
+})
+
+// A key named in prose has no `=`/`:`, and a short one sits under the entropy
+// sweep's 32-char floor, so only the secret-phrase rule catches it.
+describe('redactSecretsSync', () => {
+  // Synthetic fixture, not a real credential.
+  const FAKE_KEY = 'tkey_0synthetic0fixture0only1'
+
+  test('a key named in prose after "API key" / "token"', () => {
+    expect(redactSecretsSync(`API key ${FAKE_KEY} expired; create a new one`)).toBe(
+      'API key [REDACTED:secret-phrase] expired; create a new one',
+    )
+    expect(redactSecretsSync(`invalid token ${FAKE_KEY}`)).not.toContain(FAKE_KEY)
+  })
+
+  test('leaves prose, ids, hashes and placeholders readable', () => {
+    const benign = [
+      'API key expired; send it as "Authorization: Bearer <key>"',
+      'commit ba52879a65f80fe52db77d9df203b0f92f97afb1 for session 2f1c7a4e-9b3d-4e8a-8c1f-5d6e7f8a9b0c',
+      'team 6a2360b039eaf6c10401d96e request req_7Hc2LmQp at /app/dist/index.js:55:52',
+      'API key [REDACTED:secret-phrase] expired',
+      'the secret /run/secrets/db1 and token /var/lib/app/data1.json are mounted',
+      'Password\nreset-link-sent-2026-11-19 to the owner',
+    ]
+
+    for (const text of benign) expect(redactSecretsSync(text)).toBe(text)
+  })
+
+  test('matches the async scanner on the shapes the Nuphos rule owns', async () => {
+    const input = `Bearer ${FAKE_KEY}0000 and ghp_${'a1'.repeat(18)}`
+
+    expect(redactSecretsSync(input)).toBe((await redactSecrets(input)).redacted)
   })
 })
