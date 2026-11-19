@@ -13,7 +13,7 @@ import type { Page } from 'playwright-core'
 export const OUTDATED_LINE =
   'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
 
-export const OUTDATED_FLOOR_LINE =
+export const NOT_READY_LINE =
   'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
@@ -105,7 +105,7 @@ export const outdatedTurnScenarios: Scenario[] = [
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
         await send(page, 'How to get the update')
-        await page.getByText(OUTDATED_FLOOR_LINE).waitFor()
+        await page.getByText(NOT_READY_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'not-ready-turn-error.png') })
         await backOnFixture(page, 'after-not-ready')
       } finally {

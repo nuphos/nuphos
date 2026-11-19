@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
-import { OUTDATED_FLOOR_LINE as OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
+import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
 
