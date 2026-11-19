@@ -23,11 +23,44 @@ struct AgentDevice: Decodable, Sendable {
     let metrics: Metrics?
     /// The id this computer opens its desktop by: present on the viewer's own online computer whose host can.
     var desktopRuntimeId: String? = nil
+    /// Whether its host is connected now; nil from older backends.
+    var online: Bool? = nil
     /// A live, sane reading, or nil: the picker then shows no meters at all.
     var liveMetrics: Metrics? {
         guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),
               metrics.memory.valid, metrics.disk.valid else { return nil }
         return metrics
+    }
+
+    /// Desktop's `boxState(device) == "running"`: the host is connected, and a Box is
+    /// neither paused, stopped, still being made nor in error. A Box being made is never
+    /// running whatever its host says, so its own state alone decides for it.
+    var running: Bool { online == true && (box.map { $0.state == "running" } ?? true) }
+
+    /// Desktop's `canManage`: a member who may only use a computer sees it without the
+    /// controls the backend would refuse. A team role grants nothing here (box-access.ts).
+    var canManage: Bool { access != "use" }
+
+    /// Desktop's `canAddAgent`: a new runtime goes on a running computer the viewer
+    /// manages, since adding one configures that computer.
+    var canAddRuntime: Bool { running && canManage }
+}
+
+/// How the conversation's computer stands right now, as its chat tells it.
+enum ComputerPresence: Equatable {
+    case online, offline
+    /// A paused Box, by its label: sending a message resumes it.
+    case paused(label: String)
+
+    /// Only the device list says an offline Box is paused. Until that list has
+    /// loaded (`devices` nil) nothing is said, so a paused Box never shows offline first.
+    static func of(_ local: RuntimeInstance.Local?, devices: [AgentDevice]?) -> ComputerPresence {
+        guard let local, local.online == false else { return .online }
+        guard let devices else { return .online }
+        if let device = devices.first(where: { $0.deviceId == local.deviceId }), device.box?.state == "paused" {
+            return .paused(label: device.label)
+        }
+        return .offline
     }
 }
 
@@ -60,5 +93,20 @@ struct SelectorBox: Identifiable {
     static func agentName(_ runtime: RuntimeInstance) -> String {
         guard let local = runtime.local else { return runtime.label }
         return local.agentLabel ?? runtime.providerName
+    }
+
+    /// Desktop's `agentNameTaken`: a name a runtime on this computer already goes by.
+    func nameTaken(_ name: String) -> Bool {
+        let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return agents.contains { Self.agentName($0).lowercased() == wanted }
+    }
+
+    /// Desktop's `defaultAgentName`: the provider's own name, numbered past the ones this
+    /// computer already has — the 2 of "Claude Code 2".
+    func defaultRuntimeName(_ provider: RuntimeInstance.Provider) -> String {
+        let base = RuntimeInstance.Provider.name(provider.rawValue)
+        var n = 1
+        while nameTaken(n == 1 ? base : "\(base) \(n)") { n += 1 }
+        return n == 1 ? base : "\(base) \(n)"
     }
 }

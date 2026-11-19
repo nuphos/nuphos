@@ -12,6 +12,12 @@ class RuntimeDeviceTest {
         assertNull(decode(cpu = "101").cpuPercent); assertNull(decode(used = "17").memory)
         assertNull(decode(total = "0").memory); assertNull(decode(used = "-1").memory)
     }
+    @Test fun boxStateIsKeptOnlyForABox() {
+        fun device(entry: String) = decodeRuntimeDevices(Http.json.parseToJsonElement("""{"devices":[$entry]}""").jsonObject).single()
+        assertEquals(RuntimeDevice.Box("paused"), device("""{"deviceId":"box","online":false,"box":{"provider":"instabox","state":"paused"}}""").box)
+        assertEquals(RuntimeDevice.Box(null), device("""{"deviceId":"box","online":false,"box":{}}""").box)
+        assertNull(device("""{"deviceId":"mac","online":false}""").box)
+    }
     @Test fun duplicateDeviceIdentityIsRejected() {
         val item = """{"deviceId":"same","online":false}"""
         assertThrows(Exception::class.java) { decodeRuntimeDevices(Http.json.parseToJsonElement("""{"devices":[$item,$item]}""").jsonObject) }

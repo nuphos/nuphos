@@ -67,13 +67,31 @@ export const TOOL_DEFINITIONS = [
             'The reasoning effort a NEW session starts with, e.g. high; needs runtime_id, ' +
             'like model.',
         },
+        full_access: {
+          type: 'boolean',
+          description:
+            'Full Access for a NEW session, set before its first turn: true runs commands ' +
+            'without asking for approval, so use it only when the person you work for ' +
+            'wants the session to run unattended. Omitted: each tool call that needs ' +
+            'approval waits as a tool_authorization in nuphos_check. For an existing ' +
+            'session use nuphos_update_session.',
+        },
+        parent_session_id: {
+          type: 'string',
+          description:
+            'Start a NEW session as a Task under one of your Bots (bot: true in ' +
+            "nuphos_list_sessions). It uses the Bot's credentials and Full Access mode, " +
+            "and starts on the Bot's agent, model and effort unless runtime_id, model " +
+            'or effort say otherwise.',
+        },
         request_id: {
           type: 'string',
           description:
-            'Answer an open question of the session, from the requests that ' +
-            'nuphos_check returns: prompt is then the answer, and the agent that ' +
-            'asked carries on with it. Questions that ask for a secret or to ' +
-            'connect an account are answered in Nuphos only.',
+            'Answer an open request of the session, from the requests that ' +
+            'nuphos_check returns. For a question, prompt is the answer and the agent ' +
+            'that asked carries on with it; questions that ask for a secret or to ' +
+            'connect an account are answered in Nuphos only. For a tool_authorization, ' +
+            'prompt is "approve" or "deny".',
         },
         context: {
           type: 'object',
@@ -91,7 +109,8 @@ export const TOOL_DEFINITIONS = [
     description:
       'See where a session stands. status is "running" (with in_progress, what ' +
       'the turn has done so far), "waiting_for_input" (it stopped on the questions ' +
-      'in requests; answer one with nuphos_ask request_id), "completed" (with the ' +
+      'or tool calls awaiting your approval, category tool_authorization, in ' +
+      'requests; answer one with nuphos_ask request_id), "completed" (with the ' +
       'answer) or "failed". Use this after nuphos_ask times out, to follow a ' +
       'long-running request, or to read an existing Task: from_index returns a ' +
       'page of its transcript.',
