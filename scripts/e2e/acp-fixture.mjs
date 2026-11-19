@@ -12,7 +12,7 @@ import { answerChannel } from './fixture-channel.mjs'
 import { listCommands } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
-import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { applySetting, currentModel, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -75,9 +75,9 @@ async function startThread(sessionId, marker) {
   })
 
   thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(started))?.[1]
-  const change = await call(sessionId, 'update_thread', {
+  const change = await call(sessionId, 'update_task', {
     label: 'Move the thread to Auto Mode',
-    threadId: thread,
+    taskId: thread,
     fullAccess: false,
   })
 
@@ -117,7 +117,9 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
+  const language = promptLanguage(text)
+
+  log({ sessionId, marker, event: 'start', language, model: currentModel(sessionId) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
