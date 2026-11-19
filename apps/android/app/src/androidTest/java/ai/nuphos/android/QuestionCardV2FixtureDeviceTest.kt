@@ -26,11 +26,13 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.time.Duration
+import java.time.Instant
 
 /**
- * #2879: in a chat, a question card leads with the question, names who asked when another Bot or Task
- * did, cuts a long body at four lines behind a full-width Show more, and answers with full-width
- * options and two half-width buttons, Other… and Skip. Synthetic questions only.
+ * #2879: in a chat, a question card leads with the question, names who asked and how long ago when another
+ * Bot or Task did, cuts a long body at four lines behind a full-width Show more, and answers with one
+ * wrapping row of the same pill: the options, Other… and Dismiss (#3489). Synthetic questions only.
  */
 @RunWith(AndroidJUnit4::class)
 class QuestionCardV2FixtureDeviceTest {
@@ -38,7 +40,7 @@ class QuestionCardV2FixtureDeviceTest {
     private val dark = InstrumentationRegistry.getArguments().getString("darkTheme") == "true"
 
     private val deploy = BotQuestion("agent-release", "Release ops", InputRequest("q-deploy", "approval",
-        "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA"),
+        "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA"), askedAt = Instant.now().minus(Duration.ofDays(15)).toString(),
         body = (1..8).joinToString("\n") { "Finding $it: the canary held for an hour." }))
 
     private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf()) {
@@ -64,25 +66,21 @@ class QuestionCardV2FixtureDeviceTest {
         compose.onNodeWithText("Approval needed").assertDoesNotExist()
         compose.onNodeWithTag("bot-question-from").assertIsDisplayed()
         compose.onNodeWithText("Release ops", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("bot-question-age", useUnmergedTree = true).assertTextEquals("· 15 days")
         capture("question-card-v2")
     }
 
-    @Test fun optionsAreFullWidthAndOtherAndSkipShareARow() {
+    @Test fun optionsOtherAndDismissAreOneRowOfTheSamePill() {
         show()
-        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         val card = bounds("bot-question")
         compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
-        for (i in 0..1) {
-            val option = bounds("bot-question-option", i)
-            assertTrue("Option $i is 44dp high", option.height >= 44 * density - 1)
-            assertTrue("Option $i is full width", option.width >= card.width - 40 * density)
+        val pills = listOf(bounds("bot-question-option", 0), bounds("bot-question-option", 1), bounds("bot-question-other"), bounds("bot-question-dismiss"))
+        for ((i, pill) in pills.withIndex()) {
+            assertEquals("Pill $i is as high as the first", pills[0].height, pill.height, 1f)
+            assertTrue("Pill $i fits its label, not the card", pill.width < card.width / 2)
         }
-        val other = bounds("bot-question-other")
-        val skip = bounds("bot-question-dismiss")
-        assertEquals("Other and Skip share a row", other.top, skip.top, 1f)
-        assertEquals("Other and Skip are the same width", other.width, skip.width, 2f)
-        assertTrue("Other is about half", other.width < card.width / 2)
-        assertTrue("Other is 44dp high", other.height >= 44 * density - 1)
+        assertEquals("The options and Other… start one row", pills[0].top, pills[2].top, 1f)
+        assertTrue("Dismiss follows in the row, or wraps under it", pills[3].top >= pills[0].top - 1)
     }
 
     @Test fun showMoreIsAFullWidthRowThatOpensTheBody() {
@@ -97,18 +95,17 @@ class QuestionCardV2FixtureDeviceTest {
         assertTrue("The body opens", bounds("bot-question-body").height > cut)
     }
 
-    @Test fun skipClosesIt() {
+    @Test fun dismissClosesIt() {
         var dismissed = false
         show(onDismiss = { dismissed = true })
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         assertTrue(dismissed)
     }
 
-    @Test fun otherTakesTheRow() {
+    @Test fun otherOpensTheAnswerField() {
         val answers = mutableListOf<String>()
         show(answers = answers)
         compose.onNodeWithTag("bot-question-other").performClick()
-        compose.onNodeWithTag("bot-question-dismiss").assertDoesNotExist()
         compose.onNodeWithTag("bot-question-answer").performTextInput("After the board meeting")
         compose.onNodeWithTag("bot-question-send").performClick()
         assertEquals(listOf("After the board meeting"), answers)
