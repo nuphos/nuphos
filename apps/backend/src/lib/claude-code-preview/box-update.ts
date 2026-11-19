@@ -1,8 +1,8 @@
 // A Box's agents update the way a managed agent's do, from its runtime card: the
 // host reports the CLI it runs, and Update installs the newest one on the machine
-// (BOX_UPDATE_COMMAND). Restarting the host ends every session on it, so the update
-// is refused while one of its agents is mid-turn. Nothing is stored: the version
-// the host reports is the state.
+// (BOX_UPDATE_COMMAND). Restarting the host ends every turn running on it; the person
+// who clicked Update asked for that, so it does not wait for them. Nothing is stored:
+// the version the host reports is the state.
 
 import { resumeBox } from '@/lib/agent/devices/box-instabox'
 import { BOX_UPDATE_COMMAND } from '@/lib/agent/devices/box-instabox-client'
@@ -15,9 +15,10 @@ import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { OpenAbAcpClient } from './openab-acp-client'
 import { RUNTIME_RELEASES_URL, latestCliRelease, newerRuntimeVersion } from './runtime-release'
-import { endpointHasActiveTurn } from './runtime-rollout'
 
+import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { LocalAgentRef, LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
@@ -27,10 +28,37 @@ export type BoxUpdateDeps = {
   canManage: (actorId: string, teamId: string, ref: LocalRuntimeRef) => Promise<boolean>
   status: (ref: LocalRuntimeRef) => Promise<LocalRuntimeStatus | undefined>
   latestVersion: () => Promise<{ version: string; url: string } | null>
-  busy: typeof boxAgentBusy
   update: (ref: LocalRuntimeRef) => Promise<unknown>
   /** Notes the restart on the Box, so every viewer sees it updating rather than offline. */
   markUpdating: (ref: LocalRuntimeRef) => Promise<unknown>
+}
+
+/**
+ * Whether the runtime at `endpoint` reports a running turn. Anything it cannot read as one
+ * (unreachable, an older runtime's answer, leftover background tools) counts as idle:
+ * refusing on those would block the update that fixes them.
+ */
+async function endpointHasActiveTurn(endpoint: TeamRuntimeEndpoint): Promise<boolean> {
+  let client: OpenAbAcpClient | undefined
+
+  try {
+    client = await OpenAbAcpClient.connect({
+      ...endpoint,
+      connectTimeoutMs: 3_000,
+      callTimeoutMs: 3_000,
+    })
+    await client.initialize()
+    const inventory = await client.getRuntimeExecutionState()
+
+    return (
+      Array.isArray(inventory.sessions) &&
+      inventory.sessions.some((snapshot: { state?: string }) => snapshot.state === 'active')
+    )
+  } catch {
+    return false
+  } finally {
+    client?.close()
+  }
 }
 
 /** Whether that agent is mid-turn, asked as `actorId`; an agent that cannot be reached counts as idle. */
@@ -52,7 +80,6 @@ const defaultDeps: BoxUpdateDeps = {
   status: async ({ userId, deviceId }) =>
     (await runtimePresenceStore().get(userId, deviceId))?.status,
   latestVersion: latestCliRelease,
-  busy: boxAgentBusy,
   update: ({ userId, deviceId }) => resumeBox(userId, deviceId, BOX_UPDATE_COMMAND),
   markUpdating: ({ userId, deviceId }) => markBoxUpdateStarted(userId, deviceId),
 }
@@ -123,9 +150,6 @@ export async function requestBoxUpdate(
       'runtime_release_unavailable',
       'Could not check the latest release. Try again shortly.',
     )
-  for (const id of hostAgents(found.ref, found.status))
-    if (await deps.busy(teamId, id, actorId))
-      throw new AppError(409, 'runtime_busy', 'Updates wait for active conversations to finish.')
   await deps.update(found.ref)
   // After the command started: an update that could not start leaves the Box as it was. One
   // that started is reported as started even when the note fails; its card then reads offline.

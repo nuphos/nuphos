@@ -107,10 +107,11 @@ function openStream(
   presence: LocalRuntimePresenceStore,
   teamId: string,
   actorId = owner.userId,
+  purpose = 'transport',
 ) {
   const socket = openLocalRuntimeSocket(
     localRuntimeUrl(owner, teamId, actorId),
-    ['openab.bearer.transport', 'acp.v1'],
+    [`openab.bearer.${purpose}`, 'acp.v1'],
     { bus, presence, livenessMs: 60_000, closeRetryMs: 5 },
   )
   const events: { type: string; data?: unknown; reason?: string }[] = []
@@ -412,6 +413,30 @@ describe('local runtime tunnel', () => {
     expect(await presence.get(owner.userId, owner.deviceId)).not.toBeNull()
     clock += 30_000
     expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
+  })
+
+  test('data on a stream marks the computer used; a status read does not', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, heartbeatMs: 1 })
+    const usedAt = async () => (await presence.get(owner.userId, owner.deviceId))?.usedAt ?? 0
+    const opened = await usedAt()
+    const exchange = async (purpose: string) => {
+      const { socket, events } = openStream(bus, presence, 't1', owner.userId, purpose)
+
+      await eventually(() => events.some((event) => event.type === 'open'))
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      socket.send('{"jsonrpc":"2.0"}')
+      await eventually(() => events.some((event) => event.type === 'message'))
+      await tick()
+    }
+
+    expect(opened).toBeGreaterThan(0)
+    await exchange('control')
+    expect(await usedAt()).toBe(opened)
+    await exchange('transport')
+    expect(await usedAt()).toBeGreaterThan(opened)
   })
 
   test('the bus and presence registry survive a module reload', () => {
