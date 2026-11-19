@@ -44,8 +44,11 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
-    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
-    private(set) var bots: [AgentConversation] = []
+    /// The viewer's Bots, own and shared, listed by the server rather than found in the
+    /// loaded history. A shared one is in no history here, so its face is learned from this.
+    private(set) var bots: [AgentConversation] = [] {
+        didSet { BotFaces.shared.learn(bots) }
+    }
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
