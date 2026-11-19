@@ -2,13 +2,8 @@ import { t } from '../../i18n/index.ts'
 
 import type { TeamUsageNames, TeamUsageRow, UsageDimension } from '../../types/usage'
 
-export const TOKEN_USAGE_RANGES = {
-  '7d': { days: 7, label: t('7d') },
-  '30d': { days: 30, label: t('30d') },
-  '90d': { days: 90, label: t('90d') },
-} as const
-
-export type TokenUsageRange = keyof typeof TOKEN_USAGE_RANGES
+/** The page always shows this many days. */
+const TOKEN_USAGE_DAYS = 30
 
 /** The dimensions the page offers to group by, in menu order. */
 export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string }[] = [
@@ -78,13 +73,9 @@ export function usageCacheCutoff(): string {
 }
 
 /** The query window: whole local days ending tonight at midnight, so today is included. */
-export function tokenUsageWindow(range: TokenUsageRange, now: Date): { from: string; to: string } {
+export function tokenUsageWindow(now: Date): { from: string; to: string } {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  const start = new Date(
-    end.getFullYear(),
-    end.getMonth(),
-    end.getDate() - TOKEN_USAGE_RANGES[range].days,
-  )
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - TOKEN_USAGE_DAYS)
 
   return { from: start.toISOString(), to: end.toISOString() }
 }
@@ -159,6 +150,8 @@ export function usageLabel(
   names: UsageNames,
 ): string {
   if (value === null) return t('Not recorded')
+  // A runtime turn whose model was never named.
+  if (groupBy === 'model' && value === 'unknown') return t('Unknown model')
   if (value === OTHERS_PRIVATE) return t('Other members’ private conversations')
 
   const served = names.served?.[groupBy]?.[value]

@@ -21,6 +21,7 @@ import {
   subtask,
 } from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -132,6 +133,11 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
+  if (
+    text.includes('The person just created you') &&
+    existsSync(`${process.env.E2E_ACP_LOG}.codex-broken-onboarding`)
+  )
+    refuse('E2E_CODEX_BROKEN', false)
   refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
   // Nuphos tells the agent when a person dismisses its question.
   if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
@@ -142,6 +148,8 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
+    await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.

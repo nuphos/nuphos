@@ -137,13 +137,22 @@ test('a nearly full disk names the computer and how full, and leads to where it 
   assert.equal(diskFullCopy({ label: 'Build Box', percent: 93 }).action, null)
 })
 
-test('an outdated computer is named, and the banner leads to where it is updated', () => {
-  let opened = 0
-  const copy = outdatedCopy('Studio Mac', () => opened++)
+test('an outdated computer is named, and its Update opens the update in place', () => {
+  let confirming = 0
+  const copy = outdatedCopy('Studio Mac', { update: () => confirming++ })
 
   assert.equal(copy.text, 'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail.')
   assert.equal(copy.action?.label, 'Update')
   copy.action?.run()
-  assert.equal(opened, 1)
-  assert.equal(outdatedCopy('Studio Mac').action, null)
+  assert.equal(confirming, 1)
+})
+
+test('an outdated computer this viewer cannot update says who can, with no button', () => {
+  const copy = outdatedCopy('Studio Mac', { hint: 'Ask its owner to update Nuphos on it.' })
+
+  assert.equal(
+    copy.text,
+    'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail. Ask its owner to update Nuphos on it.',
+  )
+  assert.equal(copy.action, null)
 })

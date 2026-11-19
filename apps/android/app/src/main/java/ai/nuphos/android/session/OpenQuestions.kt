@@ -67,7 +67,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
             AgentChatApi.snoozeDecision(token, teamId, sessionId, requestId, until)
 
         override suspend fun credentials(sessionId: String): JsonValue? =
-            NuphosApi.conversationDetail(token, teamId, sessionId, tail = 1).credentialAccess
+            NuphosApi.conversationDetail(token, teamId, sessionId, tail = 1, runtimeState = false).credentialAccess
 
         override suspend fun saveCredentials(sessionId: String, access: JsonValue) =
             AgentChatApi.updateCredentials(token, teamId, sessionId, access)

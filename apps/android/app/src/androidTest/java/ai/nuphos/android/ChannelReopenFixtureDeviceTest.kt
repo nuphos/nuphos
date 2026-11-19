@@ -42,6 +42,8 @@ class ChannelReopenFixtureDeviceTest {
     private val token = "synthetic-chats-reopen"
     private val team = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val aReads = AtomicInteger()
+    // #3526: a Bot chat's reads never ask for the runtime state.
+    private val runtimeStates = java.util.concurrent.ConcurrentLinkedQueue<String>()
     private val aStarted = CountDownLatch(1)
     private val releaseA = CountDownLatch(1)
     private lateinit var store: AgentStore
@@ -67,6 +69,8 @@ class ChannelReopenFixtureDeviceTest {
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
+            if (path.endsWith("/chat-a") || path.endsWith("/chat-b"))
+                runtimeStates += request.url.queryParameter("runtimeState") ?: "(asked)"
             val body = when {
                 path.endsWith("/agent/conversations/chat-a") -> {
                     // The first read of A hangs until the reader has moved on to B.
@@ -134,5 +138,6 @@ class ChannelReopenFixtureDeviceTest {
         compose.onNodeWithText("Only in chat B").assertDoesNotExist()
         compose.onNodeWithText("Try again").assertDoesNotExist()
         assertTrue("A was read again after its first read was abandoned", aReads.get() >= 2)
+        assertEquals("every read of a Bot chat leaves out the runtime", setOf("omit"), runtimeStates.toSet())
     }
 }
