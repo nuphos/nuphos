@@ -6,13 +6,14 @@ import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
 import { useChatSwitchShown } from '../../lib/chatSwitchTiming.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 
+import { pushed, useAgentChanges } from './agentChanges.ts'
 import { channelRevision } from './channelRevision.ts'
 import { listedConversation } from './channelShared.ts'
 
 import type { AgentConversation, AgentConversationDetail, ChannelAgent } from '../../api'
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 
-// Like an open conversation: new posts from people and agents show within a few seconds.
+// Only for a backend that predates the push of changes (agentChanges.ts, #3914).
 const POLL_MS = 4_000
 const RETRY_MAX_MS = 60_000
 const TAIL = 200
@@ -95,11 +96,13 @@ export function channelRetryMs(state: QueryState<Channel>): number {
 }
 
 /**
- * A channel's messages and agents, polled while it is on screen and the window is
- * visible. A failing channel backs off, longer the longer it has failed.
+ * A channel's messages and agents, read again when the backend says it changed (or polled
+ * from a backend that predates that). A failing channel backs off, longer the longer it has failed.
  */
 export function useChannel(teamId: string, channelId: string) {
   const client = useQueryClient()
+
+  useAgentChanges(teamId)
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
   const { data } = useQuery({
@@ -109,7 +112,9 @@ export function useChannel(teamId: string, channelId: string) {
     retry: false,
     // Kept for as long as the app runs: a chat opened an hour ago opens from memory too.
     gcTime: Infinity,
-    refetchInterval: (query) => channelRetryMs(query.state),
+    // No poll where the backend pushes changes; a failing read still retries.
+    refetchInterval: (query) =>
+      query.state.status !== 'error' && pushed(teamId) ? false : channelRetryMs(query.state),
   })
 
   const refresh = useCallback(

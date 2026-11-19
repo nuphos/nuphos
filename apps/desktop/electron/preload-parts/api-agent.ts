@@ -264,6 +264,18 @@ export const agentApi = {
 
     return () => ipcRenderer.off('ssh-terminal:event', handler)
   },
+  onAgentChanges: (
+    cb: (change: { teamId: string; sessionId: string | null; supported?: false }) => void,
+  ) => {
+    const handler = (
+      _e: unknown,
+      change: { teamId: string; sessionId: string | null; supported?: false },
+    ) => cb(change)
+
+    ipcRenderer.on('agent:changes', handler)
+
+    return () => ipcRenderer.off('agent:changes', handler)
+  },
   onAgentEvent: (cb: (payload: { streamId: string; event: unknown }) => void) => {
     const handler = (_e: unknown, payload: { streamId: string; event: unknown }) => cb(payload)
 
