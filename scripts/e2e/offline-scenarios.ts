@@ -3,29 +3,14 @@ import { join } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
+import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 const MATE_LAPTOP = 'E2E teammate laptop'
 const BOX = 'E2E disk Box'
-
-// What the conversation shows for a failed turn there: its summary, then the out-of-date line.
-const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos on the computer running this agent is out of date. Update it there, then try again.'
-
-// A new task starts on the runtime the last message went to. Sending one on the fixture agent
-// keeps the scenarios after these off the laptop, which has gone offline by then.
-async function backOnFixture(page: Page, marker: string) {
-  await newTask(page)
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText('E2E fixture agent').click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
-  await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
-  await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
-}
 
 export const offlineScenarios: Scenario[] = [
   {
@@ -206,34 +191,6 @@ export const offlineScenarios: Scenario[] = [
         if (await page.getByText('Nuphos on this computer is out of date').isVisible())
           throw new Error('The banner Update left the conversation for the computer page')
         await backOnFixture(page, 'after-outdated')
-      } finally {
-        goOffline()
-      }
-    },
-  },
-  {
-    // #3560: a Desktop above the floor with an update downloaded failed every turn on a runtime
-    // bug the update fixed, and nothing said an update would help (#3562).
-    name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
-    // The turn there fails on purpose.
-    expected: new RegExp(RESTORE_FAILED),
-    run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.127.0',
-        app: { version: '0.127.0', update: { version: '0.131.0', ready: true } },
-        restoreFails: true,
-      })
-
-      try {
-        // A new task starts on the laptop, whichever runtime the last one used.
-        await newTask(page)
-        await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await send(page, 'On the laptop behind the latest release')
-        await page.getByText(OUTDATED_LINE).waitFor()
-        await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
-        await backOnFixture(page, 'after-behind')
       } finally {
         goOffline()
       }

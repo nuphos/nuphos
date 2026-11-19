@@ -31,6 +31,7 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
@@ -139,6 +140,7 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...outdatedTurnScenarios,
   ...mcpScenarios,
   threadModeScenario,
   ...botFoldScenarios,
