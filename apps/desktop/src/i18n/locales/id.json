@@ -4868,7 +4868,7 @@
   "Token usage by group": "Penggunaan token per kelompok",
   "Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.": "Token dienkripsi dan diperbarui secara otomatis · cabut kapan saja di Cloudflare.",
   "Tokens per day": "Token per hari",
-  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.": "Token yang dilaporkan runtime tim. Input mencakup token yang di-cache; biaya diperkirakan dengan harga daftar.",
+  "Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, Input left out cached tokens; Total included them.": "Token yang dilaporkan runtime tim. Input mencakup token yang di-cache; biaya diperkirakan dengan harga daftar. Sebelum {date}, Input tidak mencakup token yang di-cache; Total mencakupnya.",
   "Tolerations": "Toleration",
   "Tomorrow, 9:00": "Besok, 9:00",
   "Too large to open": "Terlalu besar untuk dibuka",
