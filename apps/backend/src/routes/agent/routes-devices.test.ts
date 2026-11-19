@@ -501,8 +501,6 @@ describe('agent device routes', () => {
       },
       destroy: async (_userId, deviceId) => {
         calls.push(`destroy ${deviceId}`)
-
-        return true
       },
       desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
       heal: (_userId, deviceId) => {
@@ -695,37 +693,30 @@ describe('agent device routes', () => {
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
-  test('DELETE closes the Box tunnel before its machine goes', async () => {
+  test('DELETE closes the Box tunnel before its machine goes, and keeps the row if the kill fails', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
     credentials.add(key('user-1', 'b1'))
     const seen: string[] = []
+    let killFails = true
     const box: BoxDeps = {
       ...fakeBox([]),
       destroy: async () => {
         seen.push(`destroy after ${disconnected.length} disconnect(s)`)
-
-        return true
+        if (killFails) throw new Error('instabox is down')
       },
     }
+    const app = buildApp(box)
 
     expect(
-      (await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' }))
-        .status,
-    ).toBe(200)
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).not.toBe(200)
     expect(seen).toEqual(['destroy after 1 disconnect(s)'])
     expect(credentials.has(key('user-1', 'b1'))).toBe(false)
-    expect(devices[key('user-1', 'b1')]).toBeUndefined()
-  })
-
-  test('DELETE deletes a Box whose machine instabox would not kill, and says it may still run', async () => {
-    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
-    const box: BoxDeps = { ...fakeBox([]), destroy: async () => false }
-    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
-      method: 'DELETE',
-    })
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, machineLeft: true })
+    expect(devices[key('user-1', 'b1')]).toBeDefined()
+    killFails = false
+    expect(
+      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
+    ).toBe(200)
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
