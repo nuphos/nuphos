@@ -72,14 +72,14 @@ describe('resolveTriggerCredentialAccess', () => {
     expect(access.updatedBy).toBe('principal')
   })
 
-  test('ticks the member’s own Google credentials, never their own GitHub or Linear', async () => {
+  test('the member’s own Personal Credentials follow the connector rule', async () => {
     const { allCredentialAccessFromOptions } = await import('./credential-access')
+    const trigger = await resolveTriggerCredentialAccess('team-1', 'principal')
+    const unset = allCredentialAccessFromOptions(options, 'principal')
 
-    for (const access of [
-      await resolveTriggerCredentialAccess('team-1', 'principal'),
-      allCredentialAccessFromOptions(options, 'principal'),
-    ]) {
-      expect(access.personalCredentialIds).toEqual(['gmail', 'google-calendar'])
-    }
+    expect(trigger.personalCredentialIds).toEqual(['github', 'gmail', 'google-calendar'])
+    // Unset, like githubInstallationIds: absent reaches every one.
+    expect(unset.personalCredentialIds).toBeUndefined()
+    expect(unset.githubInstallationIds).toBeUndefined()
   })
 })

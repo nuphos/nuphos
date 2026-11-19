@@ -124,8 +124,8 @@ personalCredentialRoutes.get('/:provider/callback', async (c) => {
 // Mounted under /teams/:teamId for conversation tokens: the agent's handout of a
 // member's own grant. It is always the session owner's own, and a teammate's
 // message in that session gets none: a shared session may run on someone else's
-// runtime, so the grant never leaves its owner's sessions. Every one needs the
-// conversation's own selection of it (personalCredentialIds); Google grants are
+// runtime, so the grant never leaves its owner's sessions. Every one follows the
+// conversation's selection (personalCredentialIds) as connectors do; Google grants are
 // also issued by this team's OAuth client (or Composio), GitHub and Linear need
 // no team binding.
 export const personalCredentialTokenRoutes = new Hono()
@@ -152,13 +152,11 @@ async function ownerClaims(authorization: string, provider: PersonalCredentialPr
     )
   }
   const conversation = await getConversationBySessionId(claims.sid)
-  const access = conversation && (await credentialSource(conversation)).credentialAccess
-  // One that never stored a selection has the default, which ticks only Google.
-  const selected = access
-    ? access.personalCredentialIds?.includes(provider)
-    : isGoogleProvider(provider)
+  const ids =
+    conversation && (await credentialSource(conversation)).credentialAccess?.personalCredentialIds
 
-  if (conversation?.userId !== claims.own || !selected) {
+  // As for connectors, a conversation with no list keeps its reach.
+  if (conversation?.userId !== claims.own || (ids && !ids.includes(provider))) {
     throw new AppError(
       403,
       'personal_credential_not_selected',

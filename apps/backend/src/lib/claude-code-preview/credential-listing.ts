@@ -226,6 +226,7 @@ export const CREDENTIAL_LISTERS: Record<SelectionKey, Lister> = {
     available: (o) => o.personalCredentials,
     idOf: (c) => c.provider,
     details: personalCredentialDetails,
+    unsetMeansAll: true,
   }),
   deviceIds: (selectedIds, options) => {
     const listed = deviceLister(selectedIds, options)

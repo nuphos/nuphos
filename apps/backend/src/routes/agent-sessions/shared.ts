@@ -248,7 +248,7 @@ export function normalizeCredentialAccess(
     upstashAccountIds: optionalCredentialIds(access?.upstashAccountIds),
     cloudflareAccountIds: optionalCredentialIds(access?.cloudflareAccountIds),
     instaboxAccountIds: optionalCredentialIds(access?.instaboxAccountIds),
-    personalCredentialIds: credentialIds(access?.personalCredentialIds).filter(
+    personalCredentialIds: optionalCredentialIds(access?.personalCredentialIds)?.filter(
       (id): id is PersonalCredentialProvider =>
         (PERSONAL_CREDENTIAL_PROVIDERS as readonly string[]).includes(id),
     ),

@@ -459,13 +459,15 @@ describe('Google token handout', () => {
 
     expect(res.status).toBe(403)
     expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
-    conversation = { userId: 'owner', credentialAccess: {} }
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: [] } }
     expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
   })
 
-  test('a conversation that never stored a selection has the default, which ticks Google', async () => {
-    conversation = { userId: 'owner' }
-    expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(200)
+  test('as for connectors, a conversation with no list keeps its reach', async () => {
+    for (const stored of [{ userId: 'owner' }, { userId: 'owner', credentialAccess: {} }]) {
+      conversation = stored
+      expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(200)
+    }
   })
 
   test('the owner’s own and automated turns get the owner’s token', async () => {
@@ -580,8 +582,13 @@ describe('GitHub and Linear handout without a team binding', () => {
   test('nothing without the conversation’s selection', async () => {
     conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: ['linear'] } }
     expect((await fetchToken('github', await turn('owner', true))).status).toBe(403)
-    conversation = { userId: 'owner' }
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: [] } }
     expect((await fetchToken('linear', await turn('owner', true))).status).toBe(403)
+  })
+
+  test('as for connectors, a conversation with no list keeps its reach', async () => {
+    conversation = { userId: 'owner', credentialAccess: {} }
+    expect((await fetchToken('linear', await turn('owner', true))).status).toBe(200)
   })
 
   test('a conversation owned by someone else never hands out the token’s owner grant', async () => {

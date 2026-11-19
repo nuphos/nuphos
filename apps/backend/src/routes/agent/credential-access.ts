@@ -1,5 +1,3 @@
-import { isGoogleProvider } from '@/lib/personal-credentials/google'
-
 import { getAgentCredentialOptions } from './credential-options'
 
 import type { AgentCredentialOptions } from './types'
@@ -45,10 +43,6 @@ export function allCredentialAccessFromOptions(
     resendIntegrationIds: selectAll
       ? options.resendIntegrations.map((entry) => entry.integrationId)
       : [],
-    // The member's own Google grants come ticked; their own GitHub / Linear never do (#3743).
-    personalCredentialIds: options.personalCredentials
-      .map((credential) => credential.provider)
-      .filter(isGoogleProvider),
     // Offline and long-gone registrations are listed too; a default takes only usable ones.
     deviceIds: options.devices
       .filter((device) => device.available)
@@ -65,6 +59,7 @@ export function allCredentialAccessFromOptions(
           upstashAccountIds: options.upstashAccounts.map((entry) => entry.accountId),
           cloudflareAccountIds: options.cloudflareAccounts.map((entry) => entry.accountId),
           instaboxAccountIds: options.instaboxAccounts.map((entry) => entry.accountId),
+          personalCredentialIds: options.personalCredentials.map((entry) => entry.provider),
         }
       : {}),
     updatedAt: new Date(),

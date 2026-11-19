@@ -41,7 +41,7 @@ const selected = (stack: Stack, userId: string) =>
 export const personalCredentialScenarios: Scenario[] = [
   {
     // #3743: Google Personal Credentials were never offered, so a member could neither see nor
-    // untick them. A new chat starts with them ticked; GitHub / Linear still start unticked.
+    // untick them. Like every connector, a new chat starts with them ticked.
     name: 'a new chat starts with the Google Personal Credential ticked, and unticking it is saved',
     run: async (page, stack) => {
       const owner = client(stack.apiUrl, stack.token)
