@@ -81,7 +81,7 @@ export function Composer({
   newConversationModelControl?: ReactNode
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
-  bypassControl?: { active: boolean; onSelect: (bypass: boolean) => void }
+  bypassControl?: { active: boolean | undefined; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
   autoFocus?: boolean

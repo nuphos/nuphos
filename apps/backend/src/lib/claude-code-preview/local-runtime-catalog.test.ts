@@ -545,3 +545,21 @@ describe('a computer that reports settings without a model list', () => {
     expect(catalog.controls?.modelId).toBe('opus')
   })
 })
+
+// #3807: a computer without a model list got "send a message to start" in its picker.
+describe('a computer without a model list says why', () => {
+  const reason = async (report: LocalRuntimePresence | null) =>
+    (await localRuntimeModels(runtimeId, undefined, { getPresence: async () => report })).reason
+
+  test('a signed-in agent whose list has not arrived has not reported it yet', async () => {
+    expect(await reason(online(true))).toBe('unreported')
+  })
+
+  test('a signed-out agent is signed out, not late with its list', async () => {
+    expect(await reason(online(false))).toBe('signed-out')
+  })
+
+  test('a computer that has not reported at all has not reported its list', async () => {
+    expect(await reason(null)).toBe('unreported')
+  })
+})
