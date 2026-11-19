@@ -70,33 +70,72 @@ describe('leaveMeeting', () => {
   })
 })
 
-describe('Recall failures', () => {
-  test('an account out of credit logs an account-level recall.failed', async () => {
-    const { warn } = console
-    const lines: string[] = []
+function captureWarnings(): { lines: () => Record<string, unknown>[]; restore: () => void } {
+  const { warn } = console
+  const lines: string[] = []
 
-    // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
-    console.warn = (line: unknown) => lines.push(String(line))
+  // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
+  console.warn = (line: unknown) => lines.push(String(line))
+
+  return {
+    lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
+    restore: () => {
+      // eslint-disable-next-line no-console
+      console.warn = warn
+    },
+  }
+}
+
+const sendBot = () =>
+  createMeetingBot({
+    meetingUrl: 'https://meet.google.com/a',
+    botName: 'B',
+    face: 'j',
+    webhookUrl: 'https://w',
+  })
+
+describe('a refused request logs meeting_bot.failed', () => {
+  test('an account out of credit is account-level', async () => {
+    const warnings = captureWarnings()
 
     // Recall documents 402 as "Insufficient credit balance", with no code of its own.
     answer(402, { detail: 'Insufficient credit balance' })
-
-    await expect(
-      createMeetingBot({
-        meetingUrl: 'https://meet.google.com/a',
-        botName: 'B',
-        face: 'j',
-        webhookUrl: 'https://w',
+    await expect(sendBot()).rejects.toThrow('Insufficient credit balance')
+    warnings.restore()
+    expect(warnings.lines()).toEqual([
+      expect.objectContaining({
+        event: 'meeting_bot.failed',
+        reason: 'request_failed',
+        path: '/bot/',
+        status: 402,
+        account_level: true,
       }),
-    ).rejects.toThrow('Insufficient credit balance')
-    // eslint-disable-next-line no-console
-    console.warn = warn
-    expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-      level: 'warn',
-      event: 'recall.failed',
-      path: '/bot/',
-      status: 402,
-      account_level: true,
-    })
+    ])
+  })
+
+  test('an error code nobody has seen before still counts', async () => {
+    const warnings = captureWarnings()
+
+    answer(418, { code: 'brand_new_failure', detail: '?' })
+    await expect(sendBot()).rejects.toThrow('brand_new_failure')
+    warnings.restore()
+    expect(warnings.lines()).toEqual([
+      expect.objectContaining({
+        event: 'meeting_bot.failed',
+        reason: 'request_failed',
+        status: 418,
+        code: 'brand_new_failure',
+        account_level: false,
+      }),
+    ])
+  })
+
+  test('leaving a call that already ended is not a failure', async () => {
+    const warnings = captureWarnings()
+
+    answer(400, { code: 'cannot_command_unstarted_bot', detail: 'Cannot send a command…' })
+    await leaveMeeting('bot')
+    warnings.restore()
+    expect(warnings.lines()).toEqual([])
   })
 })

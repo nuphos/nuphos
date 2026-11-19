@@ -14,7 +14,7 @@ import { logError } from '@/lib/observability'
 import {
   createMeetingBot,
   leaveMeeting,
-  logRecallFailure,
+  logMeetingBotFailure,
   recallConfig,
   sendMeetingChat,
 } from './recall'
@@ -187,27 +187,69 @@ export function eventText(event: RecallEvent, botName: string): string | undefin
   return text ? `[chat] ${text}` : undefined
 }
 
-/** Recall gave up on the bot or on its speech recognition. */
-function logFailedEvent({ event, data }: RecallEvent): void {
-  if (event !== 'bot.fatal' && event !== 'transcript.failed') return
+// Recall's status events for a bot that got into its call.
+const IN_CALL = new Set(['bot.in_call_not_recording', 'bot.in_call_recording'])
+
+/** A bot that is not in its call this long after it was sent never got in. */
+export const JOIN_TIMEOUT_MS = 30 * 60_000
+
+/**
+ * Logs each bot sent between `JOIN_TIMEOUT_MS` and one `windowMs` earlier that neither got into
+ * its call nor ended. Each run looks at its own window, so a bot is reported once per replica.
+ */
+export async function reportJoinTimeouts(windowMs: number, now = Date.now()): Promise<void> {
+  const to = new Date(now - JOIN_TIMEOUT_MS)
+  const from = new Date(to.getTime() - windowMs)
+  // A Task is never last active before it was created: this bound uses the lastActiveAt index.
+  const stuck = await agentConversations()
+    .find({
+      lastActiveAt: { $gte: from },
+      createdAt: { $gte: from, $lt: to },
+      'meeting.botId': { $exists: true },
+      'meeting.joinedAt': { $exists: false },
+      'meeting.endedAt': { $exists: false },
+    })
+    .toArray()
+
+  for (const task of stuck)
+    logMeetingBotFailure('join_timeout', {
+      bot_id: task.meeting?.botId,
+      session_id: task.sessionId,
+    })
+}
+
+function logFatal({ data }: RecallEvent): void {
   const { code, sub_code } = data.data
 
-  logRecallFailure({ path: event, code, sub_code, bot_id: data.bot.id })
+  logMeetingBotFailure('fatal', { code, sub_code, bot_id: data.bot.id })
+}
+
+/** The live meeting's Task an event is for, after noting what the event says about the bot. */
+async function taskHearing(event: RecallEvent) {
+  const live = { 'meeting.botId': event.data.bot.id, 'meeting.endedAt': { $exists: false } }
+
+  // The first of a bot's end events ends its meeting, so the Task hears of it once.
+  if (CALL_ENDED.has(event.event))
+    return agentConversations().findOneAndUpdate(
+      live,
+      { $set: { 'meeting.endedAt': new Date() } },
+      { returnDocument: 'before' },
+    )
+  // Nothing to tell the Task: it only shows the bot made it in.
+  if (IN_CALL.has(event.event)) {
+    await agentConversations().updateOne(live, { $set: { 'meeting.joinedAt': new Date() } })
+
+    return null
+  }
+
+  return agentConversations().findOne(live)
 }
 
 /** One Recall delivery becomes one message to the meeting's Task; a redelivery is stored once. */
 export async function handleRecallEvent(deliveryId: string, event: RecallEvent): Promise<void> {
-  logFailedEvent(event)
-  const live = { 'meeting.botId': event.data.bot.id, 'meeting.endedAt': { $exists: false } }
+  if (event.event === 'bot.fatal') logFatal(event)
   const ended = CALL_ENDED.has(event.event)
-  // The first of a bot's end events ends its meeting, so the Task hears of it once.
-  const task = ended
-    ? await agentConversations().findOneAndUpdate(
-        live,
-        { $set: { 'meeting.endedAt': new Date() } },
-        { returnDocument: 'before' },
-      )
-    : await agentConversations().findOne(live)
+  const task = await taskHearing(event)
 
   if (!task?.meeting || !task.teamId) return
   // An archived Task stays archived, and nobody is left to hear the call.

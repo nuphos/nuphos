@@ -33,21 +33,30 @@ function recallCode(body: string): string | undefined {
   }
 }
 
-/** One log line per Recall failure, for alerting: a failed call or a bot Recall gave up on. */
-export function logRecallFailure(failure: {
-  path?: string
-  status?: number
-  code?: string | null
-  sub_code?: string | null
-  bot_id?: string
-}): void {
-  logEvent('warn', 'recall.failed', {
-    ...failure,
-    account_level: failure.status !== undefined && ACCOUNT_STATUSES.has(failure.status),
+/**
+ * One log line for every meeting bot that did not make it: Recall refused a request, gave up
+ * on the bot, or the bot never joined. Any reason counts; Recall's codes are only there to read.
+ */
+export function logMeetingBotFailure(
+  reason: 'request_failed' | 'fatal' | 'join_timeout',
+  details: {
+    path?: string
+    status?: number
+    code?: string | null
+    sub_code?: string | null
+    bot_id?: string
+    session_id?: string
+  },
+): void {
+  logEvent('warn', 'meeting_bot.failed', {
+    reason,
+    ...details,
+    account_level: details.status !== undefined && ACCOUNT_STATUSES.has(details.status),
   })
 }
 
-async function recallFetch(path: string, body: object): Promise<unknown> {
+/** `done` names the Recall error code that means the request is already done. */
+async function recallFetch(path: string, body: object, done?: string): Promise<unknown> {
   const recall = recallConfig()
   const response = await fetch(`https://${recall.region}.recall.ai/api/v1${path}`, {
     method: 'POST',
@@ -57,8 +66,10 @@ async function recallFetch(path: string, body: object): Promise<unknown> {
 
   if (!response.ok) {
     const text = await response.text()
+    const code = recallCode(text)
 
-    logRecallFailure({ path, status: response.status, code: recallCode(text) })
+    if (done && code === done) return
+    logMeetingBotFailure('request_failed', { path, status: response.status, code })
     throw new AppError(502, 'recall_error', `Recall.ai ${path} failed: ${text}`)
   }
 
@@ -120,11 +131,8 @@ export async function sendMeetingChat(botId: string, message: string): Promise<v
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {
-  await recallFetch(`/bot/${botId}/leave_call/`, {}).catch((error: unknown) => {
-    // Recall calls a bot whose call already ended "unstarted": it is out either way.
-    if (!(error instanceof AppError && error.message.includes('cannot_command_unstarted_bot')))
-      throw error
-  })
+  // Recall calls a bot whose call already ended "unstarted": it is out either way.
+  await recallFetch(`/bot/${botId}/leave_call/`, {}, 'cannot_command_unstarted_bot')
 }
 
 /** Recall signs `id.timestamp.body` with the workspace secret (Standard Webhooks). */

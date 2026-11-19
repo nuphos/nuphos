@@ -41,7 +41,7 @@ export type ChannelFields = {
    * On a Task: the live call it is in, whose speech and chat arrive as its messages. Kept once
    * the call ends, with `endedAt`, so it still counts toward the team's meeting budget.
    */
-  meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
+  meeting?: { botId: string; botName: string; url: string; joinedAt?: Date; endedAt?: Date }
 }
 
 /** The sender id a channel notice carries, which also picks its instructions. */

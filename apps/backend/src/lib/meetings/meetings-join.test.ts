@@ -7,7 +7,14 @@ import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { chatInMeeting, handleRecallEvent, joinMeeting, leaveMeetingTask } from './meetings'
+import {
+  JOIN_TIMEOUT_MS,
+  chatInMeeting,
+  handleRecallEvent,
+  joinMeeting,
+  leaveMeetingTask,
+  reportJoinTimeouts,
+} from './meetings'
 import * as recall from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -192,22 +199,81 @@ test('a bot that leaves because its Task asked ends the meeting without waking t
   await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
 })
 
-test('a bot Recall gives up on is logged with its code and sub_code, even without a Task', async () => {
+function captureWarnings(): { lines: () => Record<string, unknown>[]; restore: () => void } {
   const { warn } = console
   const lines: string[] = []
 
   // eslint-disable-next-line no-console -- logEvent writes its record to console.warn
   console.warn = (line: unknown) => lines.push(String(line))
-  await handleRecallEvent('delivery-1', ended('bot_errored', 'bot.fatal'))
-  // eslint-disable-next-line no-console
-  console.warn = warn
 
-  expect(JSON.parse(lines[0] ?? '{}')).toMatchObject({
-    event: 'recall.failed',
-    path: 'bot.fatal',
-    code: 'call_ended',
-    sub_code: 'bot_errored',
-    bot_id: 'recall-bot',
-    account_level: false,
+  return {
+    lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>),
+    restore: () => {
+      // eslint-disable-next-line no-console
+      console.warn = warn
+    },
+  }
+}
+
+test('a bot Recall gives up on logs meeting_bot.failed, even without a Task', async () => {
+  const warnings = captureWarnings()
+
+  await handleRecallEvent('delivery-1', ended('bot_errored', 'bot.fatal'))
+  warnings.restore()
+  expect(warnings.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.failed',
+      reason: 'fatal',
+      code: 'call_ended',
+      sub_code: 'bot_errored',
+      bot_id: 'recall-bot',
+    }),
+  ])
+})
+
+const MINUTE = 60_000
+
+test('a bot no webhook ever says is in its call logs join_timeout once', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+  const sent = Date.now()
+
+  await agentConversations().updateOne(
+    { sessionId: threadId },
+    { $set: { createdAt: new Date(sent), lastActiveAt: new Date(sent) } },
+  )
+  const warnings = captureWarnings()
+
+  // Still within the timeout, then in the window just past it, then in the one after.
+  await reportJoinTimeouts(10 * MINUTE, sent + 20 * MINUTE)
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 15 * MINUTE)
+  warnings.restore()
+  expect(warnings.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.failed',
+      reason: 'join_timeout',
+      bot_id: 'recall-bot',
+      session_id: threadId,
+    }),
+  ])
+})
+
+test('a bot that got into its call is not a join_timeout', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+  const sent = Date.now()
+
+  await agentConversations().updateOne(
+    { sessionId: threadId },
+    { $set: { createdAt: new Date(sent), lastActiveAt: new Date(sent) } },
+  )
+  await handleRecallEvent('delivery-1', {
+    event: 'bot.in_call_recording',
+    data: { data: { code: 'in_call_recording' }, bot: { id: 'recall-bot' } },
   })
+  expect(turn).not.toHaveBeenCalled()
+  const warnings = captureWarnings()
+
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  warnings.restore()
+  expect(warnings.lines()).toEqual([])
 })
