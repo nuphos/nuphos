@@ -39,7 +39,8 @@ class NewRuntimeStoreTest {
         assertFalse(host.copy(online = false).canAddRuntime)
         assertFalse(host.copy(box = RuntimeDevice.Box("paused")).canAddRuntime)
         assertTrue(host.copy(box = RuntimeDevice.Box("running")).canAddRuntime)
-        assertEquals(host, runtimeGroups(emptyList(), listOf(host)).single().device)
+        assertTrue(runtimeGroups(emptyList(), listOf(host)).isEmpty())
+        assertEquals(host, runtimeGroups(emptyList(), listOf(host), includeEmptyDevices = true).single().device)
     }
     @Test fun existingSignInNeverDeletesAnInstance() = runTest {
         val api = Api(); var done = 0

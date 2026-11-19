@@ -139,7 +139,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                     Text(stringResource(R.string.agent_no_runtimes_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(runtimeGroups(store.runtimes, store.devices), key = { it.key }) { group ->
+            items(runtimeGroups(store.runtimes, store.devices, includeEmptyDevices = true), key = { it.key }) { group ->
                 Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
                     Column {
                         RuntimeInventoryHost(group)
