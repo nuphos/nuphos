@@ -23,13 +23,11 @@ const catalog = {
   },
 }
 const writes: unknown[] = []
-let stored: AgentConversation | undefined
 
 useRuntimeModels({ runtimeModelCatalog: () => Promise.resolve(catalog) })
 useDb({
   db: () => ({
     collection: () => ({
-      findOne: () => Promise.resolve(stored),
       updateOne: (_query: unknown, update: unknown) => {
         writes.push(update)
 
@@ -41,8 +39,8 @@ useDb({
 beforeEach(() => {
   writes.length = 0
 })
-function conversation(moved = false) {
-  stored = {
+const conversation = (moved = false) =>
+  ({
     sessionId: 'fixture',
     teamId: 'team',
     userId: 'owner',
@@ -58,10 +56,7 @@ function conversation(moved = false) {
           },
         }
       : {}),
-  } as AgentConversation
-
-  return stored
-}
+  }) as AgentConversation
 
 test('catalog reads never erase unsupported saved settings before attachment', async () => {
   for (const moved of [false, true]) {
@@ -79,20 +74,7 @@ test('an explicit valid choice on a moved conversation is persisted', async () =
   )
 
   expect(state.options[0]?.currentValue).toBe('astra')
-  // The saved effort the agent no longer offers goes with it, and the record says so.
-  expect(writes).toMatchObject([
-    {
-      $set: { initialSessionConfig: { model: 'astra' } },
-      $push: {
-        settingsHistory: {
-          actorId: 'owner',
-          via: 'picker',
-          model: { from: { value: 'retired' }, to: { value: 'astra' } },
-          effort: { from: { value: 'retired-effort' } },
-        },
-      },
-    },
-  ])
+  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
 })
 test('an unsupported explicit choice is refused without deleting the saved settings', async () => {
   await expect(
