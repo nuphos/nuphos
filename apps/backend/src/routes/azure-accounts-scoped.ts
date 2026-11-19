@@ -5,7 +5,12 @@ import { generateAksKubeconfig, listAksClusters, listAzureRoleAssignments } from
 import { azureHandleFor } from '@/lib/byos/handles'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -57,10 +62,7 @@ azureAccountScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('azureBinding').id
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { azureAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-    )
+    await disconnectBinding(c, teamId, 'azureAccounts', { id: accountId })
 
     return c.body(null, 204)
   },

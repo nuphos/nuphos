@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.chat
 
+import kotlinx.coroutines.CancellationException
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,7 +37,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         busy = true
         error = null
         scope.launch {
-            try { block() } catch (e: Exception) { error = e.message ?: actionFailed }
+            try { block() } catch (e: Exception) { if (e is CancellationException) throw e; error = e.message ?: actionFailed }
             finally { busy = false }
         }
     }

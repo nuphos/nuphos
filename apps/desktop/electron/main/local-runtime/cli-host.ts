@@ -102,8 +102,10 @@ const currentToken = () => cliSessionToken(readCliConfig(), launch)
 // API calls go out with the session, read as above.
 setTokenSource(() => Promise.resolve(currentToken()))
 
+// e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
+const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
 // A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
-const desktopPool = enableDesktopPool(bundleRoot, dataDir)
+const desktopPool = e2eMacScreenHost ? null : enableDesktopPool(bundleRoot, dataDir)
 const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
 
 if (desktopPool) console.log('Each session gets its own desktop on this computer.')
@@ -214,8 +216,15 @@ const controller = new LocalRuntimeController(withHostProvider(process.env, deps
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 // A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
-const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
-const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
+const macScreen = enableMacScreen(
+  dataDir,
+  () => tunnel?.sendStatus(),
+  e2eMacScreenHost ? 'darwin' : process.platform,
+)
+const macScreenHost = {
+  ...cliMacScreenHost(bundleRoot, () => owner),
+  ...(e2eMacScreenHost && { binary: () => e2eMacScreenHost }),
+}
 // Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
 const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 

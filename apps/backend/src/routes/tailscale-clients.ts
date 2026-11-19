@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
+import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptTailscaleClientSecret } from '@/lib/byos/secrets'
 import {
   tailscaleFederationAudience,
@@ -106,23 +107,21 @@ tailscaleClientsRoutes.post(
       access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $push: { tailscaleClients: binding },
-        $set: { updatedAt: now },
-        $setOnInsert: {
-          awsRoles: [],
-          gcpServiceAccounts: [],
-          grafanaInstances: [],
-          githubInstallations: [],
-          cloudflareAccounts: [],
-          linodeAccounts: [],
-          zeaburProviders: [],
-        },
-      },
-      { upsert: true },
+    // The uniqueness check is part of the append, so two concurrent
+    // registrations of one client can't both be stored.
+    const inserted = await appendEnvironmentBinding(
+      teamId,
+      { 'tailscaleClients.clientId': { $ne: clientId } },
+      { $push: { tailscaleClients: binding }, $set: { updatedAt: now } },
     )
+
+    if (!inserted) {
+      throw new AppError(
+        409,
+        'tailscale_client_already_bound',
+        'This Tailscale OAuth client is already bound',
+      )
+    }
 
     return c.json(publicView(binding), 201)
   },

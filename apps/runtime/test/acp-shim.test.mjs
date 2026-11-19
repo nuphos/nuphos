@@ -658,7 +658,7 @@ const streamError = (at, sessionId, small, error) =>
 const LIMIT =
   'AI_APICallError: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
 
-test('an opencode turn its provider refuses ends with OpenCode’s own error instead of hanging (#3630)', async () => {
+test('an opencode turn its provider refuses fails with OpenCode’s own error instead of hanging (#3630, #3705)', async () => {
   await withShim(
     'opencode',
     async ({ call, home, notifications }) => {
@@ -685,14 +685,18 @@ test('an opencode turn its provider refuses ends with OpenCode’s own error ins
       const reply = await Promise.race([answered, new Promise((r) => setTimeout(r, 5000, 'hung'))])
 
       assert.notEqual(reply, 'hung', 'the turn ends once OpenCode logged the refusal')
-      assert.equal(reply.result.stopReason, 'end_turn')
-      const shown = notifications.filter(
-        (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
-      )
-      assert.equal(shown.length, 1)
+      // A failed turn, as Pi's: every client shows why, a Bot's chat included (#3705).
+      assert.equal(reply.result, undefined)
+      assert.equal(reply.error.code, -32603)
       assert.match(
-        shown[0].params.update.content.text,
-        /^The model provider refused the request: Free usage limit reached\./u,
+        reply.error.message,
+        /^Internal error: The model provider refused the request: Free usage limit reached\./u,
+      )
+      // Never a reply the agent seems to have written.
+      assert.equal(
+        notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+          .length,
+        0,
       )
     },
     STALLED_OPENCODE,
