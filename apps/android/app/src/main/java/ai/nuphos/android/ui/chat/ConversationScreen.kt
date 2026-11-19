@@ -235,7 +235,7 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberRuntimeOffline(auth.token, session.teamId, session.runtimeId))
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }

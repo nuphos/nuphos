@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { MessageResponse } from '../../components/agent/MessageResponse'
@@ -15,12 +16,17 @@ import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 
 import { AnswerFailure } from './AnswerFailure'
+import { KeyHint } from './KeyHint'
 import { QuestionSource } from './QuestionRail'
+import { SnoozeMenu } from './SnoozeMenu'
 import { useAnswerFailure } from './useInbox'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
 import type { ReactNode } from 'react'
+
+// An option button's look, which Snooze and Dismiss share.
+const OPTION = 'h-auto min-h-8 whitespace-normal py-1.5 text-left'
 
 /**
  * The Inbox's open question, read as a page: who asked and when, the question
@@ -29,7 +35,8 @@ import type { ReactNode } from 'react'
  * asked, and no message is sent. Several questions at once, a secret or an
  * integration keep the card the conversation draws: a secret sends only where
  * its value was saved, and an integration is selected in the asking
- * conversation's credentials, by whoever may change them.
+ * conversation's credentials, by whoever may change them. Snooze sets it aside
+ * until a time; Dismiss closes it, with a reason for the agent if one is given.
  */
 export function DecisionCard({
   teamId,
@@ -38,7 +45,8 @@ export function DecisionCard({
   request,
   keys,
   onAnswer,
-  onSkip,
+  onSnooze,
+  onDismiss,
   onOpenSource,
   onOpenLink,
 }: {
@@ -50,7 +58,8 @@ export function DecisionCard({
   /** Its keys are live: 1–9 choose, Esc closes "Other…". */
   keys: boolean
   onAnswer: (answer: DecisionAnswer) => void
-  onSkip: (() => void) | undefined
+  onSnooze: (until: Date) => void
+  onDismiss: (reason: string) => void
   onOpenSource: (source: AgentConversation) => void
   /** Opens a link in the question's text, as the conversation does. */
   onOpenLink: (href: string, beside: boolean) => boolean
@@ -69,6 +78,28 @@ export function DecisionCard({
     !choice.questions?.length &&
     (choice.options.length > 0 || typed)
   const [other, setOther] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const [reason, setReason] = useState('')
+  // Snooze and Dismiss, as two more of the options' buttons.
+  const asides = (
+    <>
+      <SnoozeMenu className={OPTION} onSnooze={onSnooze} />
+      {!dismissing && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={OPTION}
+          onClick={() => {
+            setOther(false)
+            setDismissing(true)
+          }}
+        >
+          <X aria-hidden className="size-3.5" />
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -100,9 +131,14 @@ export function DecisionCard({
               typed={typed}
               keys={keys}
               other={other}
-              onOther={setOther}
+              onOther={(open) => {
+                setOther(open)
+                if (open) setDismissing(false)
+              }}
               onAnswer={onAnswer}
-            />
+            >
+              {asides}
+            </ChoiceRow>
           </>
         ) : (
           <div className="mt-3 flex flex-col gap-3">
@@ -127,12 +163,28 @@ export function DecisionCard({
                 {t('Only the owner of this conversation can connect this.')}
               </span>
             )}
+            <div className="flex flex-wrap items-center gap-2">{asides}</div>
+          </div>
+        )}
+        {dismissing && (
+          <div className="mt-4">
+            <AnswerField
+              text={reason}
+              onText={setReason}
+              onSend={onDismiss}
+              onClose={() => setDismissing(false)}
+              label={t('Reason (optional)')}
+              // The server takes a reason of up to 1,000 characters.
+              maxLength={1_000}
+              action={t('Dismiss')}
+              optional
+            />
           </div>
         )}
         <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
-          {other ? (
+          {other || dismissing ? (
             <>
-              <KeyHint keys={['↵']} label={t('Send')} />
+              <KeyHint keys={['↵']} label={dismissing ? t('Dismiss') : t('Send')} />
               <KeyHint keys={['esc']} label={t('Close')} />
             </>
           ) : (
@@ -145,11 +197,6 @@ export function DecisionCard({
                 />
               )}
             </>
-          )}
-          {onSkip && (
-            <button type="button" onClick={onSkip} className="ml-auto hover:text-main">
-              {t('Skip')}
-            </button>
           )}
         </footer>
       </article>
@@ -170,6 +217,7 @@ function ChoiceRow({
   other,
   onOther,
   onAnswer,
+  children,
 }: {
   requestId: string
   teamId: string
@@ -180,6 +228,8 @@ function ChoiceRow({
   other: boolean
   onOther: (open: boolean) => void
   onAnswer: (answer: DecisionAnswer) => void
+  /** Snooze and Dismiss, after the options and "Other…". */
+  children: ReactNode
 }) {
   const failure = useAnswerFailure(requestId)
   const [draft, setDraft] = useState('')
@@ -212,7 +262,7 @@ function ChoiceRow({
             key={option}
             variant={index === 0 ? 'primary' : 'secondary'}
             size="sm"
-            className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
+            className={OPTION}
             onClick={() => onAnswer({ choices: [option] })}
           >
             {option}
@@ -220,14 +270,16 @@ function ChoiceRow({
         ))}
         {typed && (
           <Button
-            variant={other ? 'secondary' : 'ghost'}
+            variant="secondary"
             size="sm"
+            className={other ? `${OPTION} !bg-state-hover` : OPTION}
             aria-expanded={other}
             onClick={() => onOther(!other)}
           >
             {options.length > 0 ? t('Other…') : t('Reply…')}
           </Button>
         )}
+        {children}
       </div>
       {other && (
         <AnswerField
@@ -240,22 +292,5 @@ function ChoiceRow({
       )}
       {failure && <AnswerFailure message={failure} />}
     </div>
-  )
-}
-
-/** A key, or keys, and what pressing it does. */
-function KeyHint({ keys, label }: { keys: string[]; label: ReactNode }) {
-  return (
-    <span className="flex items-center gap-1">
-      {keys.map((key) => (
-        <kbd
-          key={key}
-          className="min-w-4 rounded bg-surface-sunken px-1 text-center font-sans text-[10.5px] leading-4 text-secondary"
-        >
-          {key}
-        </kbd>
-      ))}
-      <span className="ml-0.5">{label}</span>
-    </span>
   )
 }
