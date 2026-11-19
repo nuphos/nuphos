@@ -100,16 +100,25 @@ function watch({
     return faintest
   }
 
-  // What each composer chip reads, or null when it is not on screen.
-  const CHIPS = { access: '[aria-label="Authorization mode"]', model: '[data-model-chip]' }
+  // What each composer chip reads, or null when it is not on screen. The
+  // runtime chip is read by where it starts, so a late chip beside it can't push it.
+  const CHIPS = {
+    access: '[aria-label="Authorization mode"]',
+    model: '[data-model-chip]',
+    'runtime x': '[aria-label^="Runtime: "]',
+  }
   const chipTexts = () =>
     Object.fromEntries(
       Object.entries(CHIPS).map(([chip, selector]) => {
         const shown = [...document.querySelectorAll(selector)].find((element) =>
           element.checkVisibility({ visibilityProperty: true }),
         )
+        const read =
+          chip === 'runtime x'
+            ? String(Math.round(shown?.getBoundingClientRect().left ?? 0))
+            : (shown?.textContent ?? '').trim()
 
-        return [chip, shown ? (shown.textContent ?? '').trim() : null]
+        return [chip, shown ? read : null]
       }),
     )
 

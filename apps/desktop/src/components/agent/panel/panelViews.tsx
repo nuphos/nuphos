@@ -135,12 +135,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // Only the owner decides who has access, so only they are offered an invite
   // for the teammates they mention.
   const inviteSessionId = activeTab?.foreign ? undefined : activeTab?.sessionId
-  // Shown once the task's own mode is known, never a default before it.
+  // Undefined until the task's own mode is known, never a default before it.
   const bypassControl =
-    activeTab &&
-    ownsPermissionMode(activeTab) &&
-    Object.hasOwn(bypassBySession, activeTab.sessionId)
-      ? { active: bypassBySession[activeTab.sessionId] ?? false, onSelect: selectBypassMode }
+    activeTab && ownsPermissionMode(activeTab)
+      ? { active: bypassBySession[activeTab.sessionId], onSelect: selectBypassMode }
       : undefined
 
   return activeTab && !switchingConversation ? (
