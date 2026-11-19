@@ -866,7 +866,10 @@
                           "type": "string",
                           "enum": [
                             "github",
-                            "linear"
+                            "linear",
+                            "gmail",
+                            "google-drive",
+                            "google-calendar"
                           ]
                         }
                       },
@@ -1100,7 +1103,10 @@
                             "type": "string",
                             "enum": [
                               "github",
-                              "linear"
+                              "linear",
+                              "gmail",
+                              "google-drive",
+                              "google-calendar"
                             ]
                           }
                         },
