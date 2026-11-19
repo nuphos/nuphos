@@ -38,7 +38,8 @@ export async function computerWithUsage(stack: Stack, label: string, deviceId = 
   const at = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString()
   // Under a day and over one, so both forms of "resets in" show (#3732).
   const usage = {
-    five_hour: { utilization: 35, resets_at: at(3) },
+    // Yuanlin's case: 87% used, which both the Runtimes row and the details read as 13% left.
+    five_hour: { utilization: 87, resets_at: at(3) },
     seven_day: { utilization: 20, resets_at: at(2 * 24 + 5.5) },
   }
 
@@ -139,6 +140,7 @@ export async function shootUsageResets(page: Page, computer: string) {
 
   await row.waitFor({ timeout: 30_000 })
   await row.getByText(/^resets in (2h 5\dm|3h 0m)$/u).waitFor({ timeout: 30_000 })
+  await row.getByText(/^13% left$/u).waitFor({ timeout: 10_000 })
   await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
   await row.click()
@@ -149,6 +151,7 @@ export async function shootUsageResets(page: Page, computer: string) {
     .getByText(/^resets in 2d 5h$/u)
     .first()
     .waitFor({ timeout: 30_000 })
+  await card.getByText(/^13% left$/u).waitFor({ timeout: 10_000 })
   await page.waitForTimeout(500)
   await page.screenshot({ path: `${artifacts}/usage-resets-agent-light.png` })
   await page.getByText('Back to app', { exact: true }).click()
