@@ -137,18 +137,19 @@ export const runtimeScenarios: Scenario[] = [
       )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
-      // #2123: the second agent's default model was never applied to this Task, so its
-      // list, once read from that agent, shows no model as the current one.
+      // #3709: the Task starts a new session there with no model picked, so its list,
+      // once read from that agent, checks the model that session runs: its default.
       await page.getByRole('button', { name: /^Model settings/ }).click()
       await page.getByRole('button', { name: 'Select model' }).click()
-      await until('the second agent’s models, none of them current', async () => {
+      await until('the second agent’s models, its default current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
 
         return (
           names.some((name) => name.includes('fixture-small')) &&
           !names.some((name) => name.includes('fixture-large')) &&
-          (await page.getByRole('menuitemcheckbox', { checked: true }).count()) === 0
+          (await page.getByRole('menuitemcheckbox', { checked: true }).allTextContents()).join() ===
+            'fixture'
         )
       })
       await page.keyboard.press('Escape')
