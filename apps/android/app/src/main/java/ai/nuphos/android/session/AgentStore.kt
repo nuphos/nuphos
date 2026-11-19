@@ -156,6 +156,35 @@ class AgentStore(
     /** The Bots page: every chat, and each Bot without one yet. */
     val botsList: List<AgentConversation> get() = botsList(channels, bots)
 
+    private val botPins = BotPins(
+        scope = {
+            selectedTeam?.id?.takeIf { !disposed && hasAiAccess() }?.let {
+                BotPins.Scope(it, workspaceRevision, AiAccess.revision)
+            }
+        },
+        read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
+        write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
+    )
+    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    val pins: List<AgentConversation> get() {
+        val rows = botsList.associateBy { it.sessionId }
+        return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
+    }
+    val pinActionFailed get() = botPins.failed
+    val savingPins get() = botPins.saving
+    fun clearPinActionError() = botPins.clearError()
+    fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    suspend fun loadFavorites() = botPins.load()
+    suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
+        val team = selectedTeam?.id ?: return
+        if (row.teamId != null && row.teamId != team) return
+        val current = botsList.firstOrNull { it.sessionId == row.sessionId } ?: return
+        val label = if (current.isChannel) current.title.ifBlank {
+            current.faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: strings.getString(R.string.chats_untitled_chat)
+        } else current.displayTitle
+        botPins.setPinned(team, current.sessionId, label, pinned)
+    }
+
     var openingBotId by mutableStateOf<String?>(null)
         private set
     var botChatError by mutableStateOf<String?>(null)
@@ -298,6 +327,7 @@ class AgentStore(
             BotFaces.learn(channels)
             channelsLoaded = true
             rememberHasChats()
+            if (current()) loadFavorites()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -384,6 +414,7 @@ class AgentStore(
     }
 
     private fun resetHistory() {
+        botPins.reset()
         runtimesGeneration++
         runtimesListedFor = null
         hasRuntimes = null
