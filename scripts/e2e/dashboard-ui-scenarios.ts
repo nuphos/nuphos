@@ -103,6 +103,7 @@ export const dashboardUiScenarios: Scenario[] = [
         return dashboard?.cadence === 'daily'
       })
       await page.getByTitle(/^Daily at/).waitFor()
+      await page.getByRole('menu').waitFor({ state: 'hidden' })
       await shot(page, '2b-refresh-controls')
       // The same toolbar on one row, with the panel expanded to the window.
       await page.getByRole('button', { name: 'Expand workspace panel' }).click()

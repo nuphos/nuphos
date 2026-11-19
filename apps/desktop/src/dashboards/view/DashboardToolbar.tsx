@@ -107,7 +107,7 @@ export function DashboardToolbar({
   return (
     // A dashboard in the panel beside a chat is too narrow for one row: the actions wrap below.
     <div className="flex min-h-[42px] flex-wrap items-center gap-2 border-b border-line-control/60 px-3 py-[5px]">
-      <div className="flex flex-1 items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         {dashboard && (
           <>
             <Menu>
