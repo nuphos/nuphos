@@ -127,6 +127,7 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-move')
       await page.getByText('ACK E2E_DELIVERY:before-move').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
@@ -139,6 +140,7 @@ export const runtimeScenarios: Scenario[] = [
       // #2123: the second agent's default model was never applied to this Task, so its
       // list, once read from that agent, shows no model as the current one.
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await until('the second agent’s models, none of them current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
@@ -169,6 +171,7 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-kept')
       await page.getByText('ACK E2E_DELIVERY:before-kept').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
+      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
