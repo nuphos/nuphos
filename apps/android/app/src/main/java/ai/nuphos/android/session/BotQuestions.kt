@@ -98,10 +98,6 @@ data class BotQuestion(
             return "\n\n---\n\n" + list.joinToString("\n\n")
         }
 
-        /** One question's answer as it reads: what was typed, else the picked options. */
-        fun answerText(picked: List<String>, typed: String): String =
-            typed.trim().ifEmpty { picked.joinToString(", ") }
-
         /** Desktop's `formAnswer`: one question's picks or typed text, or one entry per question. */
         fun formAnswer(questions: List<DecisionQuestion>, picked: List<List<String>>, typed: List<String>): JsonValue {
             fun one(index: Int): JsonValue {

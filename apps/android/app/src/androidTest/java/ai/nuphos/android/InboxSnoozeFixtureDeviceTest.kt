@@ -99,6 +99,9 @@ class InboxSnoozeFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").assertTextContains("We deploy the docs from CI now.")
         // The test clock would otherwise skip the Undo window while waiting for idle.
+        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468):
+        // scrolled to while the clock still runs, since a paused clock never ends the scroll.
+        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo()
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("bot-question-dismiss-send").performClick()
         compose.mainClock.advanceTimeBy(500)
@@ -133,6 +136,9 @@ class InboxSnoozeFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").performTextInput("Use the token already in CI")
         capture("8-inbox-secret-reason")
+        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468):
+        // scrolled to while the clock still runs, since a paused clock never ends the scroll.
+        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo()
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag("bot-question-dismiss-send").performClick()
         compose.mainClock.advanceTimeBy(OpenQuestions.UNDO_MS + 500)
@@ -196,5 +202,8 @@ class InboxSnoozeFixtureDeviceTest {
         val directory = File(context.getExternalFilesDir(null), "review-3231").apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         File(directory, "$name-${width}dp.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        // And to the additional test output, which CI uploads with the device test report (#3468).
+        val uploaded = File(context.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        File(uploaded, "review-3468-inbox-$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 }

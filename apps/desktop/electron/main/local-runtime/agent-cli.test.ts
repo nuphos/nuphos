@@ -135,23 +135,22 @@ test(
 )
 
 test(
-  'Grok Build, OpenCode and DSH are signed in once their credential file is in the agent home',
+  'Grok Build and DSH are signed in once their credential file is in the agent home',
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-credential-'))
     const home = path.join(dir, 'home')
 
     t.after(() => rmSync(dir, { recursive: true, force: true }))
-    for (const command of ['grok', 'opencode', 'dsh'])
+    for (const command of ['grok', 'dsh'])
       writeFileSync(path.join(dir, command), '#!/bin/sh\necho 1.0.46\n', { mode: 0o700 })
     const env = { PATH: dir, HOME: dir }
     const files = {
       grok: path.join(home, '.grok', 'auth.json'),
-      opencode: path.join(home, '.local', 'share', 'opencode', 'auth.json'),
       dsh: path.join(home, '.dsh', '.credentials.yaml'),
     }
 
-    for (const provider of ['grok', 'opencode', 'dsh'] as const) {
+    for (const provider of ['grok', 'dsh'] as const) {
       const loggedIn = async (agentHome: string | undefined) => {
         const cli = await probeAgentCli(provider, env, agentHome)
 
@@ -175,7 +174,31 @@ test(
 )
 
 test(
-  'OpenCode 2.x is signed in once its own credential list names a connection',
+  'OpenCode with no provider connected is signed in, as its free models need no sign-in (#3598)',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-opencode1-'))
+    const home = path.join(dir, 'home')
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    // OpenCode 1.x: no auth.json in a clean home, and `auth list` rejects the 2.x flags.
+    writeFileSync(
+      path.join(dir, 'opencode'),
+      '#!/bin/sh\nif [ "$1" = --version ]; then echo 1.19.6; exit; fi\necho "opencode auth list" >&2\nexit 1\n',
+      { mode: 0o700 },
+    )
+
+    assert.deepEqual(await probeAgentCli('opencode', { PATH: dir, HOME: dir }, home), {
+      installed: true,
+      path: path.join(dir, 'opencode'),
+      version: '1.19.6',
+      loggedIn: true,
+    })
+  },
+)
+
+test(
+  'OpenCode 2.x is signed in with nothing connected, and a connection names the account',
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-opencode2-'))
@@ -197,7 +220,7 @@ test(
       installed: true,
       path: path.join(dir, 'opencode'),
       version: '2.1.4',
-      loggedIn: false,
+      loggedIn: true,
     })
     assert.equal(
       readFileSync(ran, 'utf8').trim(),

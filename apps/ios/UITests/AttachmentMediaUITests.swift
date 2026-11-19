@@ -138,7 +138,6 @@ final class AttachmentMediaUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
         app.staticTexts["release-planning"].firstMatch.tap()
-        app.dismissAutoFocusedKeyboard()
         return app
     }
 

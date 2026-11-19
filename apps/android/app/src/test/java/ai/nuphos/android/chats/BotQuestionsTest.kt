@@ -482,7 +482,6 @@ class BotQuestionsTest {
             BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
         assertEquals("""{"choices":["a","b"]}""",
             BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
-        assertEquals("Send, Hold", BotQuestion.answerText(listOf("Send", "Hold"), "  "))
     }
 
     @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {

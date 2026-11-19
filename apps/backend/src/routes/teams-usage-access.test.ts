@@ -18,10 +18,33 @@ let role: NuphosTeamRole = 'VIEWER'
 let caller = MEMBER
 const asked: { collection: string; query: unknown }[] = []
 
+// Each member ran one session an hour ago, so the activity has a titled session per row.
+const ranAt = Date.now() - 60 * 60_000
+const OWNERS = { [ADMIN]: 'Admin', [MEMBER]: 'Editor', [MEMBER_BY_ROLE.VIEWER]: 'Viewer' }
+const seeded: Record<string, unknown[]> = {
+  agent_conversations: Object.entries(OWNERS).map(([userId, name]) => ({
+    sessionId: `s-${userId}`,
+    userId,
+    title: `${name} work`,
+  })),
+  agent_messages: Object.keys(OWNERS).flatMap((userId) => [
+    { sessionId: `s-${userId}`, role: 'user', createdAt: new Date(ranAt) },
+    { sessionId: `s-${userId}`, role: 'assistant', createdAt: new Date(ranAt + 60_000) },
+  ]),
+}
+
 const recorded = (collection: string) => ({
   find: (query: unknown) => {
     asked.push({ collection, query })
-    const cursor = { map: () => cursor, toArray: () => Promise.resolve([]) }
+    let rows = seeded[collection] ?? []
+    const cursor = {
+      map: (fn: (row: unknown) => unknown) => {
+        rows = rows.map(fn)
+
+        return cursor
+      },
+      toArray: () => Promise.resolve(rows),
+    }
 
     return cursor
   },
@@ -56,6 +79,11 @@ beforeEach(() => {
   asked.length = 0
 })
 
+type Activity = { members: { id: string }[]; sessions: { id: string; title: string | null }[] }
+
+const titles = (activity: Activity) =>
+  Object.fromEntries(activity.sessions.map((s) => [s.id, s.title]))
+
 const as = (who: string, teamRole: NuphosTeamRole) => {
   caller = who
   role = teamRole
@@ -66,32 +94,38 @@ describe.each(['EDITOR', 'VIEWER'] as const)('a member with %s', (teamRole) => {
 
   beforeEach(() => as(self, teamRole))
 
-  test('reads only their own usage', async () => {
+  test('reads the whole team’s usage, as an administrator does', async () => {
     expect((await get('/usage')).status).toBe(200)
     const usage = asked.filter((a) => a.collection === 'agent_token_usage')
 
     expect(usage.length).toBeGreaterThan(0)
-    for (const { query } of usage)
-      expect((query as { $match?: object }[])[0]?.$match).toMatchObject({
-        teamId: TEAM,
-        userId: self,
-      })
+    for (const { query } of usage) {
+      const match = (query as { $match?: Record<string, unknown> }[])[0]?.$match
+
+      expect(match).toMatchObject({ teamId: TEAM })
+      expect(match).not.toHaveProperty('userId')
+    }
   })
 
-  test('sees only their own row of team activity', async () => {
+  test("sees every member's activity, with only their own sessions titled", async () => {
     const response = await get('/agent-activity?range=1d')
-    const body = (await response.json()) as { members: { id: string }[] }
+    const body = (await response.json()) as Activity
 
     expect(response.status).toBe(200)
-    expect(body.members.map((m) => m.id)).toEqual([self])
+    expect(new Set(body.members.map((m) => m.id))).toEqual(new Set(Object.keys(OWNERS)))
+    expect(titles(body)).toEqual({
+      [`s-${ADMIN}`]: null,
+      [`s-${MEMBER}`]: self === MEMBER ? 'Editor work' : null,
+      [`s-${MEMBER_BY_ROLE.VIEWER}`]: self === MEMBER ? null : 'Viewer work',
+    })
   })
 
-  test('reads their own stats, and is refused the team’s', async () => {
+  test('reads their own stats and the whole team’s', async () => {
     expect((await get('/agent-stats?scope=me')).status).toBe(200)
     expect(asked.find((a) => a.collection === 'agent_conversations')?.query).toMatchObject({
       userId: self,
     })
-    expect((await get('/agent-stats?scope=team')).status).toBe(403)
+    expect((await get('/agent-stats?scope=team')).status).toBe(200)
   })
 })
 
@@ -106,13 +140,21 @@ describe('an administrator', () => {
         .every(({ query }) => !('userId' in ((query as { $match: object }[])[0]?.$match ?? {}))),
     ).toBe(true)
 
-    const activity = (await (await get('/agent-activity?range=1d')).json()) as {
-      members: { id: string }[]
-    }
+    const activity = (await (await get('/agent-activity?range=1d')).json()) as Activity
 
     expect(activity.members.map((m) => m.id).sort((a, b) => a.localeCompare(b))).toEqual(
       [ADMIN, MEMBER, MEMBER_BY_ROLE.VIEWER].sort((a, b) => a.localeCompare(b)),
     )
+    expect(titles(activity)).toEqual({
+      [`s-${ADMIN}`]: 'Admin work',
+      [`s-${MEMBER}`]: 'Editor work',
+      [`s-${MEMBER_BY_ROLE.VIEWER}`]: 'Viewer work',
+    })
+    expect(titles(activity)).toEqual({
+      [`s-${ADMIN}`]: 'Admin work',
+      [`s-${MEMBER}`]: 'Editor work',
+      [`s-${MEMBER_BY_ROLE.VIEWER}`]: 'Viewer work',
+    })
     expect((await get('/agent-stats?scope=team')).status).toBe(200)
   })
 })

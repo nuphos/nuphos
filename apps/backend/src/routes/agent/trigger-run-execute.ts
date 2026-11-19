@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { registry } from '@/lib/claude-code-preview/agent-chat-registry'
@@ -31,6 +31,7 @@ import type { AgentRun, AgentRunTrace } from './types'
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentCredentialAccess } from '@/lib/agent/db'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { LarkReplyToolContext, SlackReplyToolContext } from '@/lib/agent/tools-skilled/types'
 import type { UIMessage } from 'ai'
 
@@ -59,6 +60,10 @@ export type TriggerRunParams = {
   client?: AgentClientMeta
   /** The agent a new conversation runs on, already checked against the caller. */
   runtimeId?: string
+  /** The model and effort a new conversation starts with, already checked against its agent. */
+  initialSessionConfig?: RuntimeDefaults
+  /** The Bot a new conversation starts under, already checked against the caller: its credentials and mode apply. */
+  parentSessionId?: string
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
@@ -106,6 +111,9 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const runtimeModelId = chatRuntime.runtime
 
   await restoreArchivedForTurn(existingConversation, params.origin ?? 'user')
+  // A conversation opened over MCP starts with the app's default selection, as a
+  // new chat does; a Task under a Bot uses the Bot's instead.
+  const mcpFirstTurn = source === 'mcp' && !existingConversation && !params.parentSessionId
 
   const chatSpan = startTraceSpan({
     name: 'turn',
@@ -177,6 +185,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       agentRuntime: chatRuntime.runtime,
       runtimeId: chatRuntime.runtimeId,
       runtimeLabel: chatRuntime.runtimeLabel,
+      ...(params.parentSessionId ? { parentSessionId: params.parentSessionId } : {}),
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {
@@ -198,7 +207,8 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       isNewConversationPromise,
       ensurePreviewChannelCredentialsSafe({
         selectAllCredentials: channelDefaults,
-        channelOriginated: channelDefaults || Boolean(params.slackReply ?? params.larkReply),
+        channelOriginated:
+          channelDefaults || mcpFirstTurn || Boolean(params.slackReply ?? params.larkReply),
         sessionId,
         teamId,
         actorUserId: userId,
@@ -210,6 +220,12 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       getSlackAgentThreadBySessionId(sessionId).catch(() => null),
     ])
 
+    // Fixed before the first session exists, as the app's first-turn pick is.
+    if (params.initialSessionConfig && (await isNewConversationPromise))
+      await agentConversations().updateOne(
+        { sessionId, teamId, claudeCodePreview: { $exists: false } },
+        { $set: { initialSessionConfig: params.initialSessionConfig } },
+      )
     const ended = await runClaudeCodePreviewChatTurn({
       run,
       sessionId,

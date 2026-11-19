@@ -1,6 +1,6 @@
 import { nearestBot } from '../../lib/nearestBot.ts'
 
-import { doneGroup, nestItems } from './nest-items.ts'
+import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
@@ -13,36 +13,30 @@ export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
 
-/** A Bot tree fold, not its done group: folded until opened by hand, then remembered per team. */
+/** A Bot tree fold: folded until opened by hand, then remembered per team. */
 export function isBotTreeFold(title: string): boolean {
-  return title.startsWith('bots:') && !title.endsWith(':done')
+  return title.startsWith('bots:')
 }
 
-/** The stored folds of a Bots row: its tree and its done group. */
-export function botFoldTitles(sessionId: string): string[] {
-  const tree = foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
-
-  return [tree, `${tree}:done`]
+/** The stored fold of a Bots row's tree. */
+export function botFoldTitle(sessionId: string): string {
+  return foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
 }
 
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
 
-/** A section's rows as nested, with its thread folds and done groups read and toggled by row key. */
+/** A section's rows as nested, with its thread folds read and toggled by row key. */
 export function sectionFolds(
   section: Pick<Section, 'title' | 'items'>,
   isCollapsed: (fold: Fold) => boolean,
   toggle?: (fold: Fold) => void,
 ) {
-  const done = (key: string) => doneGroup(foldKey(section, key))
   const folded = (key: string) => isCollapsed({ title: foldKey(section, key) })
-  const doneOpen = (key: string) => !isCollapsed(done(key))
 
   return {
-    nest: () => nestItems(section.items, folded, doneOpen),
+    nest: () => nestItems(section.items, folded),
     folded,
     toggleFold: (key: string) => toggle?.({ title: foldKey(section, key) }),
-    doneOpen,
-    toggleDone: (key: string) => toggle?.(done(key)),
   }
 }
 

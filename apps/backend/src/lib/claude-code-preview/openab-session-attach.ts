@@ -7,10 +7,7 @@ import {
 import { runtimeAddress, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { logEvent } from '@/lib/observability'
 
-import {
-  assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
-} from './runtime-portability-store'
+import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { storedPick } from './session-config-options'
 import { workspaceDirectory } from './session-context'
 import { RUNTIME_CWD } from './team-openab-runtime'
@@ -42,7 +39,6 @@ export async function attachOpenAbSession(
   workingDirectory?: string
 }> {
   await assertConversationRuntimeAvailable(conversationId)
-  await assertRuntimeNotDeleting(teamId, endpoint.runtimeId, endpoint.url)
   const stored = await getConversationPreviewAttachment(conversationId, teamId)
 
   // The settings a session starts with are fixed with its attachment, so any
