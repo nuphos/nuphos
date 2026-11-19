@@ -68,7 +68,7 @@ import androidx.compose.ui.res.stringResource
  * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
  * questions in its own chat. Snooze and Dismiss end the row of options, the same pill: Dismiss closes it
  * unanswered, in the Inbox with a reason for the agent ([asksReason]); Snooze, only in the Inbox, sets it
- * aside until one of [snoozeTimes].
+ * aside until one of [snoozeTimes]. Outside the Inbox, [ChatQuestionHead] leads the card instead (#2879).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -92,11 +92,11 @@ internal fun BotQuestionCard(
     /** Sets the question aside until a time; only the Inbox offers it. */
     onSnooze: ((Instant) -> Unit)? = null,
 ) {
-    // In a chat or a Task, #2879's card. The Inbox, which alone answers in place and snoozes, keeps its own.
-    if (!answersInPlace && onSnooze == null) return ChatQuestionCard(question, onOpen, onAnswer, showsFrom, onLink, failure, onConnect, onForm, onDismiss)
+    // In a chat or a Task, #2879's head leads the card. The Inbox, which alone answers in place and snoozes, keeps its own.
+    val chat = !answersInPlace && onSnooze == null
     val replies = cardReplies(question)
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp).testTag("bot-question"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (showsFrom) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
+        if (showsFrom && !chat) Row(Modifier.clickable(onClick = onOpen).testTag("bot-question-from"), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.chats_question_from, question.title), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -104,13 +104,16 @@ internal fun BotQuestionCard(
         }
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
-                // One line, cut with an ellipsis, as on Desktop and iOS; a tap shows it in full.
-                var open by rememberSaveable(question.id) { mutableStateOf(false) }
-                Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (open) Int.MAX_VALUE else 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.testTag("bot-question-title"))
-                question.ownBody?.let { QuestionBody(question.id, it, onLink) }
+                if (chat) ChatQuestionHead(question, showsFrom, onOpen, onLink)
+                else {
+                    Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                    // One line, cut with an ellipsis, as on Desktop and iOS; a tap shows it in full.
+                    var open by rememberSaveable(question.id) { mutableStateOf(false) }
+                    Text(question.request.question, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (open) Int.MAX_VALUE else 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.clickable { open = !open }.testTag("bot-question-title"))
+                    question.ownBody?.let { QuestionBody(question.id, it, onLink) }
+                }
                 val form = question.form
                 val secret = question.secretPart
                 // Asked for Dismiss's reason: the field under the row, and Dismiss is its send button.
@@ -173,7 +176,7 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun QuestionOptions(
+private fun QuestionOptions(
     id: String,
     questions: List<DecisionQuestion>,
     pick: Boolean,

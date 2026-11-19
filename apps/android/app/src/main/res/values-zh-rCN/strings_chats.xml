@@ -59,5 +59,4 @@
     <string name="chats_question_dismiss_reason">理由（可选）</string>
     <string name="chats_empty_bot_body">这里是你和 %1$s 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告诉 %1$s，你想做些什么。</string>
-    <string name="chats_question_skip">跳过</string>
 </resources>

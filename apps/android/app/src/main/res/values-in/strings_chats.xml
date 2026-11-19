@@ -59,5 +59,4 @@
     <string name="chats_question_dismiss_reason">Alasan (opsional)</string>
     <string name="chats_empty_bot_body">Ini percakapan Anda dengan %1$s. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama.</string>
     <string name="chats_empty_bot_start">Anda bisa mulai dengan memberi tahu %1$s apa yang ingin dilakukan.</string>
-    <string name="chats_question_skip">Lewati</string>
 </resources>
