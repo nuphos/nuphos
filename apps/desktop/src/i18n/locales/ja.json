@@ -5868,6 +5868,7 @@
   "{n} enabled channel(s) · Account linked": "有効なチャンネル {n} 件 · アカウント連携済み",
   "{n} enabled channel(s) · Account not linked": "有効なチャンネル {n} 件 · アカウント未連携",
   "{n} events · chain head": "{n} 件のイベント · チェーンヘッド",
+  "{n} failed": "{n} 件失敗",
   "{n} field paths": "{n} 件のフィールドパス",
   "{n} file(s)": "ファイル {n} 個",
   "{n} files": "ファイル {n} 個",

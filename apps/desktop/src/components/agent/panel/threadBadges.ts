@@ -1,5 +1,7 @@
 import { AGENT_PROVIDER } from '../../../types/runtime.ts'
 
+import { record, toolResultRecord } from './toolResultRecord.ts'
+
 import type { Part, ToolPart } from './parts.ts'
 import type { AgentProvider } from '../../../types/runtime.ts'
 
@@ -25,29 +27,6 @@ function nonEmpty(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
-function record(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-}
-
-// The receipt arrives as an object, as JSON text, or as MCP text content.
-function receipt(output: unknown): Record<string, unknown> | null {
-  if (typeof output === 'string') {
-    try {
-      return record(JSON.parse(output))
-    } catch {
-      return null
-    }
-  }
-  if (Array.isArray(output)) {
-    const text = output.find((item) => record(item)?.type === 'text') as
-      { text?: unknown } | undefined
-
-    return typeof text?.text === 'string' ? receipt(text.text) : null
-  }
-
-  return record(output)
-}
-
 function threadIdOf(value: unknown): string | null {
   return typeof value === 'string' && UUID.test(value) ? value : null
 }
@@ -56,7 +35,7 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
   if (!THREAD_TOOLS.has(part.toolName) || part.state === 'output-error') return null
   const input = record(part.input)
   const pending = part.state !== 'output-available'
-  const answer = receipt(part.output)
+  const answer = toolResultRecord(part.output)
   const threadId = threadIdOf(input?.threadId) ?? threadIdOf(answer?.threadId)
   const provider = nonEmpty(answer?.agentRuntime)
   const title = nonEmpty(input?.title)

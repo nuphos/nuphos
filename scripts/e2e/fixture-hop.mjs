@@ -5,7 +5,7 @@ const threadIdOf = (message) =>
   /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(message))?.[1]
 
 /** Calls a Nuphos tool and reports it to the client as Claude Code does, so its card shows. */
-async function shown({ call, send, sessionId }, name, args) {
+export async function shown({ call, send, sessionId }, name, args) {
   const toolCallId = randomUUID()
   const update = (fields) =>
     send({ method: 'session/update', params: { sessionId, update: { toolCallId, ...fields } } })

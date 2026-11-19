@@ -5868,6 +5868,7 @@
   "{n} enabled channel(s) · Account linked": "{n} 個已啟用頻道 · 帳號已連結",
   "{n} enabled channel(s) · Account not linked": "{n} 個已啟用頻道 · 帳號未連結",
   "{n} events · chain head": "{n} 個事件 · 鏈結頭",
+  "{n} failed": "{n} 個失敗",
   "{n} field paths": "{n} 個欄位路徑",
   "{n} file(s)": "{n} 個檔案",
   "{n} files": "{n} 個檔案",

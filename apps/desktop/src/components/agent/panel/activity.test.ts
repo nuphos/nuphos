@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { conversationActivity, liveActivityIndices } from './activity.ts'
+import {
+  conversationActivity,
+  failedCallCount,
+  liveActivityIndices,
+  toolFailure,
+} from './activity.ts'
 
 import type { Message } from './model.ts'
 import type { Part, ToolPart } from './parts.ts'
@@ -41,6 +46,12 @@ test('unknown text, questions, cards, failed commands and approvals are retained
     tool('output-available', { toolName: 'render_chart' }),
     tool('output-available', { output: { exit_code: 6 } }),
     tool('output-available', { output: { isError: true } }),
+    tool('output-available', { output: { error: 'upload_failed' } }),
+    tool('output-available', { toolName: 'local_upload', output: '{"error":"upload_failed"}' }),
+    tool('output-available', {
+      toolName: 'local_upload',
+      output: [{ type: 'text', text: '{"error":"upload_failed"}' }],
+    }),
   ]) {
     assert.equal(
       conversationActivity([message('a', part), message('b', text('Current', 'commentary'))]).hidden
@@ -92,4 +103,100 @@ test('live folding keeps the newest text and active tool outside the log', () =>
     ],
     [],
   )
+})
+
+test('a finished call is marked failed when it threw, flagged an error, or returned one', () => {
+  assert.equal(toolFailure(tool('output-error', { errorText: 'boom' })), '')
+  assert.equal(toolFailure(tool('output-available', { output: { isError: true } })), '')
+  assert.equal(
+    toolFailure(tool('output-available', { output: { error: 'file_transfer_rate_limited' } })),
+    'file transfer rate limited',
+  )
+  assert.equal(
+    toolFailure(
+      tool('output-available', { output: { error: 'You are no longer a member of this team.' } }),
+    ),
+    'You are no longer a member of this team.',
+  )
+})
+
+test('successes, running calls and command exit codes are not marked failed', () => {
+  for (const part of [
+    tool('output-available', { output: { groupId: 'g', fileName: 'a.png', size: 1 } }),
+    tool('output-available', { output: { error: '' } }),
+    tool('output-available', { output: { error: null } }),
+    tool('output-available', { output: { ok: true, error: 'already_reacted' } }),
+    tool('output-available', { output: [{ error: 'not a result object' }] }),
+    tool('output-available', { output: 'error' }),
+    tool('output-available', { output: { exit_code: 1 } }),
+    tool('output-available'),
+    tool('input-available'),
+  ])
+    assert.equal(toolFailure(part), null)
+})
+
+test('a run counts its failed calls by the same rule as each row', () => {
+  assert.equal(
+    failedCallCount([
+      tool('output-available', { output: { stdout: 'ok', exitCode: 0 } }),
+      tool('output-error', { errorText: 'boom' }),
+      tool('output-available', { output: { error: 'file_not_found' } }),
+      tool('output-available', { output: { isError: true } }),
+      tool('output-available', { output: { ok: true, error: 'already_reacted' } }),
+      tool('output-available', { output: { exit_code: 1 } }),
+      tool('input-available'),
+    ]),
+    3,
+  )
+  assert.equal(failedCallCount([tool('output-available'), tool('output-available')]), 0)
+})
+
+// The backend's MCP result for `{ error }`: its JSON text, as the content blocks Claude Code
+// reports as rawOutput, or as the text alone.
+const backendText = (value: unknown) => JSON.stringify(value, null, 2)
+const blocks = (value: string) => [{ type: 'text', text: value }]
+const upload = (output: unknown) => tool('output-available', { toolName: 'local_upload', output })
+
+test('a returned error is read from JSON text and from MCP text content too', () => {
+  const failed = backendText({ error: 'file_not_found' })
+
+  assert.equal(toolFailure(upload(blocks(failed))), 'file not found')
+  assert.equal(toolFailure(upload(failed)), 'file not found')
+  assert.equal(
+    failedCallCount([upload(blocks(failed)), upload(failed), upload({ error: 'file_not_found' })]),
+    3,
+  )
+})
+
+test('text results without an error are not marked failed', () => {
+  for (const output of [
+    blocks('Uploaded q3-report.pdf, no error.'),
+    'There was an error in the report, so I fixed it.',
+    blocks(backendText({ groupId: 'g', fileName: 'a.png', size: 1 })),
+    backendText({ groupId: 'g', fileName: 'a.png', size: 1 }),
+    blocks(backendText({ error: null })),
+    blocks(backendText({ error: '' })),
+    backendText({ error: '  ' }),
+    blocks(backendText({ ok: true, error: 'already_reacted' })),
+    blocks(backendText([{ error: 'not a result object' }])),
+    blocks(backendText({ exit_code: 1 })),
+    [{ type: 'image', data: '', mimeType: 'image/png' }],
+  ])
+    assert.equal(toolFailure(upload(output)), null, JSON.stringify(output))
+  // A text block that is not JSON fails only when the result itself says isError.
+  assert.equal(toolFailure(upload({ isError: true, content: blocks('boom') })), '')
+})
+
+test("JSON a shell command printed is its stdout, not the tool's error", () => {
+  for (const toolName of ['bash', 'local_exec']) {
+    const printed = tool('output-available', { toolName, output: '{"error":"rate_limited"}' })
+
+    assert.equal(toolFailure(printed), null)
+    assert.equal(
+      conversationActivity([message('a', printed), message('b', text('Now', 'commentary'))]).hidden
+        .size,
+      1,
+    )
+    assert.equal(toolFailure({ ...printed, output: blocks('{"error":"rate_limited"}') }), null)
+  }
 })

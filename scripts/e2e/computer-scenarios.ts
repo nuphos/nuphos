@@ -19,6 +19,9 @@ import { newTask, openComputers, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
+
+type Listed = { sessionId: string; firstMessage?: string }
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const OPENED = /"agent\.local_runtime\.tunnel_opened".*"device_id":"([^"]+)"/
@@ -74,6 +77,25 @@ async function pushed(stack: Stack, fileName: string, content: string): Promise<
   await api(stack, `${transfers}/${groupId}/finalize`, {})
 
   return groupId
+}
+
+/** What the opened fold shows and what the backend stored for the call, for a failure message. */
+async function failedRowEvidence(page: Page, stack: Stack): Promise<string> {
+  const fold = page.locator('[data-chat-fold]').last()
+  const rows = await fold.locator('button').evaluateAll((all) => all.map((b) => b.outerHTML))
+  const { conversations } = await api<{ conversations: Listed[] }>(
+    stack,
+    `/agent/conversations?teamId=${stack.teamId}`,
+  )
+  const id = conversations.find((c) => c.firstMessage?.includes('E2E_DELIVERY:not-there'))
+  const stored = JSON.stringify(await api(stack, `/agent/conversations/${id?.sessionId ?? ''}`))
+  const at = stored.indexOf('local_upload')
+
+  return [
+    `fold text: ${JSON.stringify((await fold.innerText()).slice(0, 600))}`,
+    `fold rows: ${rows.join('\n').slice(0, 2500)}`,
+    `stored call: ${stored.slice(Math.max(0, at - 300), at + 1500)}`,
+  ].join('\n')
 }
 
 export const computerScenarios: Scenario[] = [
@@ -162,6 +184,42 @@ export const computerScenarios: Scenario[] = [
       const stored = await (await fetch(files[0]?.downloadUrl ?? '')).text()
 
       if (stored !== content) throw new Error(`The store holds ${JSON.stringify(stored)}`)
+    },
+  },
+  {
+    // #3198: an upload that returned an error read as a success and folded into Activity.
+    // The call is reported to the app as Claude Code reports it, so its row is the real one.
+    name: 'an upload of a file that is not there is marked failed in the transcript',
+    run: async (page, stack) => {
+      const path = join(artifacts, `not-there-${randomUUID()}.txt`)
+      const args = JSON.stringify({ label: 'Upload a file that is not there', path })
+
+      await newTask(page)
+      await send(page, `Bring it in E2E_SHOWN E2E_CALL local_upload ${args} E2E_DELIVERY:not-there`)
+      await page.getByText('ACK E2E_DELIVERY:not-there').waitFor()
+      const answer = await calledTool(stack, 'local_upload')
+
+      if (!answer.includes('file_not_found'))
+        throw new Error(`local_upload did not report the missing file: ${answer}`)
+      // The finished turn folds its work behind "Worked for Xs"; the row is inside.
+      await page
+        .getByRole('button', { name: /^Worked/ })
+        .last()
+        .click()
+      const failed = page
+        .locator('[data-tool-failed]')
+        .filter({ hasText: 'Failed: file not found' })
+      const row = page.locator('button', { has: failed }).last()
+
+      await failed
+        .last()
+        .waitFor()
+        .catch(async (error: unknown) => {
+          throw new Error(`${String(error)}\n${await failedRowEvidence(page, stack)}`)
+        })
+      await row.getByText('Upload a file that is not there').waitFor()
+      await row.screenshot({ path: join(artifacts, 'failed-upload-row.png') })
+      await page.screenshot({ path: join(artifacts, 'failed-upload.png') })
     },
   },
   {

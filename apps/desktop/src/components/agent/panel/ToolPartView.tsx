@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { t } from '../../../i18n'
 
+import { toolFailure } from './activity'
 import { AuthorizationApprovalActions } from './AuthorizationActions'
 import { CodeSection, CommandTerminalView } from './CommandTerminalView'
 import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
@@ -12,6 +13,21 @@ import { describeAutoAuthorization } from './parts'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
 
 import type { ToolPart } from './parts'
+
+/**
+ * The red "Failed" / "Failed: <reason>" after a call's elapsed time (see toolFailure).
+ * Its flex basis is 0, so it only gets the room the label and time leave: a long
+ * reason truncates first, and the label only once it and the time alone do not fit.
+ */
+export function ToolFailureLabel({ failure }: { failure: string | null }) {
+  if (failure === null) return null
+
+  return (
+    <span className="min-w-0 flex-[1_1_0px] truncate text-left text-error" data-tool-failed>
+      {failure ? t('Failed: {error}', { error: failure }) : t('Failed')}
+    </span>
+  )
+}
 
 export function ToolPartView({
   part,
@@ -28,6 +44,7 @@ export function ToolPartView({
   const done = part.state === 'output-available' || part.state === 'output-error'
   const label = getToolLabel(part)
   const commandTool = isCommandTool(part)
+  const failure = toolFailure(part)
   const hasLiveOutput = Boolean(part.liveOutput?.stdout || part.liveOutput?.stderr)
 
   const [openedFor, setOpenedFor] = useState({
@@ -84,6 +101,7 @@ export function ToolPartView({
             {commandTool && <Terminal className="w-3.5 h-3.5 flex-shrink-0" strokeWidth={2} />}
             <span className="min-w-0 truncate text-left">{label}</span>
             <ToolElapsedBadge part={part} now={now} />
+            <ToolFailureLabel failure={failure} />
           </>
         )}
         <ChevronRight

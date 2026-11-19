@@ -1,6 +1,8 @@
 // The fixture's Nuphos tools client: the streamable-HTTP MCP server each session was given.
 import { randomUUID } from 'node:crypto'
 
+import { shown } from './fixture-hop.mjs'
+
 // The Nuphos tools server each session was given, when the backend offers one.
 const tools = new Map()
 
@@ -68,11 +70,15 @@ export const reporting = (send) => async (sessionId, name, args) => {
   return message
 }
 
-/** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
-export async function callNamed({ log, sessionId, text }) {
+// E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a
+// scenario knows. With E2E_SHOWN, the call is reported to the client so its row shows.
+export async function callNamed({ log, send, sessionId, text }) {
   // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
   for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
-    const message = await call(sessionId, name, JSON.parse(args))
+    const input = JSON.parse(args)
+    const message = text.includes('E2E_SHOWN')
+      ? await shown({ call, send, sessionId }, name, input)
+      : await call(sessionId, name, input)
 
     log({ sessionId, event: 'called', name, result: message.result ?? message.error })
   }
