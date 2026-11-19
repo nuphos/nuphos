@@ -70,10 +70,12 @@ export const reporting = (send) => async (sessionId, name, args) => {
 
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
-  const [, name, args] = /E2E_CALL (\S+) (\{.*\})/.exec(text) ?? []
-  const message = await call(sessionId, name, JSON.parse(args ?? '{}'))
+  // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
+  for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
+    const message = await call(sessionId, name, JSON.parse(args))
 
-  log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+    log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+  }
 }
 
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
