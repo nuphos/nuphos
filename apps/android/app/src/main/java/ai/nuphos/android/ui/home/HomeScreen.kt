@@ -324,6 +324,7 @@ fun HomeScreen(
     listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
+    val toolbarFocus = androidx.compose.ui.platform.LocalFocusManager.current
     var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
     // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
     var pagePicked by rememberSaveable { mutableStateOf(false) }
@@ -337,9 +338,6 @@ fun HomeScreen(
     }
     val shares = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val shared by shares.state.collectAsState()
-    LaunchedEffect(shared?.id, shared?.destination) {
-        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) page = HomePage.Agent.route
-    }
     val current = HomePage.fromRoute(page)
     val unavailablePage = HomePage.unavailableRoute(page)
     var searching by rememberSaveable { mutableStateOf(false) }
@@ -351,6 +349,12 @@ fun HomeScreen(
     var showNewBot by remember(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
     var showNewTask by rememberSaveable(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
     var showCreateMenu by remember(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    LaunchedEffect(shared?.id, shared?.destination) {
+        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) {
+            page = HomePage.Agent.route
+            showRuntimes = false; showWorkspacePicker = false; showProfile = false; showCreateMenu = false
+        }
+    }
     val selectedRuntime = auth.user?.id?.let { account ->
         store.selectedTeam?.id?.let { team -> auth.runtimeSelections.bind(account, team) }
     }
@@ -442,16 +446,18 @@ fun HomeScreen(
                 title = {
                     if (store.teams.isNotEmpty()) {
                         TextButton(
-                            onClick = { showWorkspacePicker = true },
+                            onClick = { toolbarFocus.clearFocus(); showWorkspacePicker = true },
                             modifier = Modifier.testTag("home-workspace-picker").semantics { contentDescription = switchTeamLabel },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
                         ) {
                             Text(
                                 store.selectedTeam?.name ?: stringResource(R.string.home_toolbar_choose_team),
                                 maxLines = 1,
+                                style = MaterialTheme.typography.titleMedium,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f, fill = false),
                             )
-                            Icon(painterResource(R.drawable.home_toolbar_chevron_down), contentDescription = null)
+                            Icon(painterResource(R.drawable.home_toolbar_chevron_down), contentDescription = null, modifier = Modifier.size(18.dp))
                         }
                     } else {
                         Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
@@ -461,12 +467,12 @@ fun HomeScreen(
                 actions = {
                     Box {
                         IconButton(
-                            onClick = { showCreateMenu = true },
+                            onClick = { toolbarFocus.clearFocus(); showCreateMenu = true },
                             enabled = canCreate,
                             modifier = Modifier.testTag("home-create"),
                         ) {
                             Icon(painterResource(R.drawable.home_toolbar_plus),
-                                contentDescription = stringResource(R.string.home_toolbar_create))
+                                contentDescription = stringResource(R.string.home_toolbar_create), modifier = Modifier.size(20.dp))
                         }
                         DropdownMenu(expanded = showCreateMenu && canCreate, onDismissRequest = { showCreateMenu = false }) {
                             DropdownMenuItem(
@@ -483,16 +489,9 @@ fun HomeScreen(
                             )
                         }
                     }
-                    PageSwitcher(selected = current, onSelect = ::selectPage,
-                        pages = listOf(HomePage.Connectors))
-                    IconButton(onClick = { showRuntimes = true }, modifier = Modifier.testTag("home-runtimes")) {
+                    IconButton(onClick = { toolbarFocus.clearFocus(); showRuntimes = true }, modifier = Modifier.testTag("home-runtimes")) {
                         Icon(painterResource(R.drawable.home_toolbar_monitor),
-                            contentDescription = stringResource(R.string.home_toolbar_runtimes))
-                    }
-                    if (current == HomePage.Agent || current == HomePage.Chats) {
-                        IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
-                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
-                        }
+                            contentDescription = stringResource(R.string.home_toolbar_runtimes), modifier = Modifier.size(20.dp))
                     }
                     FilledIconButton(
                         onClick = { showProfile = true },
@@ -514,6 +513,16 @@ fun HomeScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding),
         ) {
+            if (store.selectedTeam != null) Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(current.label), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                PageSwitcher(selected = current, onSelect = ::selectPage, pages = listOf(HomePage.Connectors))
+                    if (current == HomePage.Agent || current == HomePage.Chats) {
+                        IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
+                        }
+                    }
+            }
             if (store.selectedTeam == null && store.teamsPhase == AgentStore.Phase.Loaded) {
                 Column(Modifier.fillMaxWidth().weight(1f).padding(20.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
@@ -618,6 +627,7 @@ internal fun PageSwitcher(
     val expandedLabel = stringResource(R.string.shell_expanded)
     val collapsedLabel = stringResource(R.string.shell_collapsed)
     val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inboxCount)
+    val pageLabels = pages.map { stringResource(it.label) }
     Box(modifier) {
         TextButton(
             onClick = { expanded = true },
@@ -625,8 +635,8 @@ internal fun PageSwitcher(
             modifier = Modifier.heightIn(min = 48.dp).focusRequester(anchorFocus).testTag("home-page-switcher")
                 .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel },
         ) {
-            if (pages.size == 2) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "${stringResource(HomePage.Runtimes.label)}, ${stringResource(HomePage.Connectors.label)}")
+            if (pages.size <= 2) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = pageLabels.joinToString(", "))
             } else {
                 Text(stringResource(selected.label), style = MaterialTheme.typography.headlineSmall,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

@@ -73,6 +73,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var runtimeCatalogHold: CountDownLatch? = null
     @Volatile private var runtimeCatalogFailure = false
     @Volatile private var runtimeRemoved = false
+    @Volatile private var runtimeReplaced = false
     private lateinit var plansStore: PlansStore
     private lateinit var app: NuphosApplication
     private lateinit var agent: AgentStore
@@ -125,7 +126,7 @@ class HomeNavigationFixtureDeviceTest {
                 val body = when {
                     runtimeCatalog -> {
                         check(runtimeCatalogHold?.await(15, TimeUnit.SECONDS) != false)
-                        if (runtimeCatalogFailure) { code = 503; "{}" } else if (runtimeRemoved) "{\"runtimes\":[]}" else """{"runtimes":[{"id":"synthetic-cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"}]}"""
+                        if (runtimeCatalogFailure) { code = 503; "{}" } else if (runtimeReplaced) """{"runtimes":[{"id":"replacement","provider":"codex","label":"Other Cloud","status":"active","kind":"managed"}]}""" else if (runtimeRemoved) "{\"runtimes\":[]}" else """{"runtimes":[{"id":"synthetic-cloud","provider":"codex","label":"Synthetic Cloud","status":"active","kind":"managed"}]}"""
                     }
                     runtimeQuotas -> """{"quotas":[]}"""
                     devices -> """{"devices":[]}"""
@@ -280,7 +281,7 @@ class HomeNavigationFixtureDeviceTest {
         kotlinx.coroutines.runBlocking { app.incomingShares.awaitIdle() }
         render(newTask = true)
         select("runtimes")
-        compose.onNodeWithTag("new-task-open").assertDoesNotExist()
+        compose.onNodeWithTag("home-runtimes-close").assertIsDisplayed()
         val key = ai.nuphos.android.session.ComposerDrafts.Key(NuphosUser.preview.id, a.id,
             ai.nuphos.android.session.ComposerDrafts.Destination.NewChat)
         kotlinx.coroutines.runBlocking {
@@ -292,6 +293,7 @@ class HomeNavigationFixtureDeviceTest {
         }
         compose.waitUntil(8_000) { compose.onAllNodesWithTag("new-task-sheet").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Shared synthetic note", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("home-runtimes-close").assertDoesNotExist()
         shot("new-task-shared")
         compose.onNodeWithText("TXT").assertIsDisplayed()
         compose.runOnIdle { assertEquals(listOf("synthetic-note.txt"), app.incomingShares.attachments(key).map { it.name }) }
@@ -382,6 +384,43 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("new-task-cancel").performClick()
         compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
         compose.onNodeWithTag("home-tab-inbox").assertIsSelected()
+        noWrites()
+    }
+
+    @Test fun staleRuntimeChoiceOnlyDisablesNewBotInSharedMenu() {
+        render()
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        compose.runOnIdle {
+            val selection = auth.runtimeSelections.bind(NuphosUser.preview.id, a.id)
+            selection.saveCatalog(listOf(AgentRuntime("synthetic-cloud", "codex", "Synthetic Cloud", "active", "managed")))
+            assertTrue(selection.select("synthetic-cloud"))
+            runtimeReplaced = true; agent.refreshRuntimes()
+        }
+        compose.waitUntil(8_000) { agent.creationRuntimes?.singleOrNull()?.id == "replacement" }
+        compose.onNodeWithTag("home-create").assertIsEnabled().performClick()
+        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_bot)).assertIsNotEnabled()
+        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_task)).assertIsEnabled()
+        noWrites()
+    }
+
+    @Test fun sharedTaskWhileToolbarSheetIsOpenHasOnlyOneSheetAndKeepsDraft() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        render(newTask = true)
+        select("inbox")
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        compose.onNodeWithTag("home-create").performClick()
+        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_task)).performClick()
+        compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+        val key = ComposerDrafts.Key(NuphosUser.preview.id, a.id, ComposerDrafts.Destination.NewChat)
+        kotlinx.coroutines.runBlocking {
+            val id = requireNotNull(app.incomingShares.begin(NuphosUser.preview.id))
+            app.incomingShares.loaded(id, "Toolbar shared draft", emptyList())
+            app.incomingShares.choose(id, key)
+        }
+        compose.waitUntil(8_000) { compose.onAllNodesWithText("Toolbar shared draft", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onAllNodesWithTag("new-task-sheet").assertCountEquals(1)
+        compose.onNodeWithText("Toolbar shared draft", substring = true).assertIsDisplayed()
         noWrites()
     }
 
@@ -484,10 +523,10 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithText(app.getString(ai.nuphos.android.R.string.search_chats)).performTextInput("needle")
         compose.waitUntil(5_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("search") == "needle" } }
         select("runtimes")
-        pressSystemBack()
+        compose.onNodeWithTag("home-runtimes-close").performClick()
         compose.runOnIdle { assertEquals("needle", agent.search) }
         compose.onNodeWithTag("home-workspace-picker").performClick()
-        compose.onNodeWithText(b.name).performClick()
+        compose.onNodeWithText(b.name).performScrollTo().performClick()
         compose.waitUntil(8_000) { requests.any { it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("teamId") == b.id } }
         assertFixedListSelectors(); noWrites()
     }
