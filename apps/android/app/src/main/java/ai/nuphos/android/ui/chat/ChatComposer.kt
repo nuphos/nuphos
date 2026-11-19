@@ -189,6 +189,7 @@ fun ChatComposer(
     placeholder: String? = null,
     /** Each change raises the keyboard, as choosing to reply does. */
     focusRequest: Int = 0,
+    autoFocus: Boolean = false,
 ) {
     val store = LocalAgentStore.current
     val context = LocalContext.current
@@ -311,6 +312,14 @@ fun ChatComposer(
     val fieldFocus = remember { FocusRequester() }
     // Only a new request focuses: a chat reopened after a reply starts with a nonzero one.
     val firstFocusRequest = remember { focusRequest }
+    var initiallyFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(autoFocus, effectiveDraftingEnabled) {
+        if (autoFocus && effectiveDraftingEnabled && !initiallyFocused) {
+            androidx.compose.runtime.withFrameNanos { }
+            runCatching { fieldFocus.requestFocus() }
+            initiallyFocused = true
+        }
+    }
     // Not attached while dictating; then there is nothing to focus.
     LaunchedEffect(focusRequest) { if (focusRequest != firstFocusRequest) runCatching { fieldFocus.requestFocus() } }
     val keyboard = LocalSoftwareKeyboardController.current

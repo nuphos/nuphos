@@ -83,7 +83,7 @@ describe('GitHub resource routing', () => {
       config.byos.github.appSlug = previous
     }
   })
-  test('human PR comments wake, bot replies and ordinary issues do not loop', () => {
+  test('human PR and issue comments wake, bot replies do not loop', () => {
     const payload = {
       ...base,
       action: 'created',
@@ -98,7 +98,10 @@ describe('GitHub resource routing', () => {
         sender: { type: 'Bot', login: 'nuphos[bot]' },
       }),
     ).toEqual([])
-    expect(githubResourceEvents('issue_comment', { ...payload, issue: { number: 56 } })).toEqual([])
+    // An issue's comment wakes only a conversation that linked that issue, by its key.
+    expect(githubResourceEvents('issue_comment', { ...payload, issue: { number: 56 } })).toEqual([
+      expect.objectContaining({ key: githubResourceEvents('issue_comment', payload)[0]?.key }),
+    ])
   })
   test('unrelated, malformed and incomplete events cannot select a conversation', () => {
     for (const payload of [

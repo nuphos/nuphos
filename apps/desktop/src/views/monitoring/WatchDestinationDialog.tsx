@@ -237,7 +237,7 @@ export function WatchDestinationDialog({
               {t('Cancel')}
             </Dialog.Close>
             <Button size="sm" type="button" disabled={!canContinue} onClick={submit}>
-              {t('Continue in Agent')}
+              {t('Continue in a task')}
             </Button>
           </div>
         </Dialog.Popup>

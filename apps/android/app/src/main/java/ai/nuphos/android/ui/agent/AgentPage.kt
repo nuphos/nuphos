@@ -461,6 +461,11 @@ fun EmptyState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewChatComposer(nav: NavHostController) {
+    ai.nuphos.android.ui.chat.NewTaskLauncher(nav)
+}
+
+@Composable
+fun NewTaskComposer(nav: NavHostController, onSubmitted: () -> Unit) {
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val auth = ai.nuphos.android.ui.LocalAuthSession.current
@@ -500,6 +505,7 @@ fun NewChatComposer(nav: NavHostController) {
     val modelSettings = remember(store, selection, selection?.selected, store.workspaceRevision) { store.bindNewModelSettings(selection) }
     LaunchedEffect(modelSettings) { modelSettings?.refresh() }
     ChatComposer(
+        autoFocus = true,
         modelSettings = modelSettings,
         mentions = draftTeam?.let { team ->
             remember(store, team) {
@@ -529,6 +535,7 @@ fun NewChatComposer(nav: NavHostController) {
         onSend = { submission ->
             val session = store.newSession(selection) ?: return@ChatComposer false
             store.pendingPrompt = submission
+            onSubmitted()
             nav.navigate("conversation/${session.sessionId}?fresh=true")
             true
         },
