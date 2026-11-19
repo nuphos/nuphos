@@ -60,7 +60,8 @@ internal fun ChatQuestionCard(
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)) {
                 if (showsFrom) Source(question, onOpen)
                 Text(question.request.question, Modifier.testTag("bot-question-heading"),
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 22.sp), fontWeight = FontWeight.SemiBold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, lineHeight = 22.sp), fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface)
                 question.ownBody?.let { Spacer(Modifier.height(4.dp)); Body(question.id, it, card, onLink) }
                 Spacer(Modifier.height(12.dp))
                 val replies = cardReplies(question)
@@ -99,7 +100,7 @@ private fun Source(question: BotQuestion, onOpen: () -> Unit) {
     Row(Modifier.padding(bottom = 6.dp).clickable(onClick = onOpen).testTag("bot-question-from"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         AgentAvatar(question.sessionId, null, 14.dp, showBadge = false)
-        Text(question.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium,
+        Text(question.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, Modifier.size(12.dp), tint = muted)
         question.request.askedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let {
@@ -123,9 +124,9 @@ private fun Body(id: String, text: String, card: Color, onLink: ((String) -> Uni
     if (long) Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { expanded = !expanded }.testTag("bot-question-more"),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(if (expanded) R.string.chats_show_less else R.string.chats_show_more),
-            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp), fontWeight = FontWeight.SemiBold)
+            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp), fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         Spacer(Modifier.width(6.dp))
-        Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, Modifier.size(16.dp))
+        Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
     }
 }
 
