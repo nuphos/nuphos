@@ -130,13 +130,18 @@ export async function shootChipResets(page: Page) {
  *  the usage resets, in days past a day and in hours under one. */
 export async function shootUsageResets(page: Page, computer: string) {
   await openComputers(page)
-  const row = page.getByRole('button', { name: /Claude Code/ }).filter({ hasText: computer })
+  // The agent list sits under the usage history, whose row for the same agent shows no reset.
+  const row = page
+    .getByRole('button', { name: /Claude Code/ })
+    .filter({ hasText: computer })
+    .filter({ hasText: /resets in 2d 5h/u })
+    .first()
 
-  await row.first().waitFor({ timeout: 30_000 })
-  for (const time of [/^resets in 2d 5h$/u, /^resets in (2h 5\dm|3h 0m)$/u])
-    await row.first().getByText(time).first().waitFor({ timeout: 30_000 })
+  await row.waitFor({ timeout: 30_000 })
+  await row.getByText(/^resets in (2h 5\dm|3h 0m)$/u).waitFor({ timeout: 30_000 })
+  await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
-  await row.first().click()
+  await row.click()
   const card = page.locator('section[aria-label]').filter({ hasText: computer }).first()
 
   await card
