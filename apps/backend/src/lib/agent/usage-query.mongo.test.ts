@@ -239,7 +239,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
     await agentTokenUsage().insertMany(
       [
         ...turn(`${team}-a`, ADMIN, 'claude-opus-5-5', 1_000_000),
-        ...turn(`${team}-a`, ADMIN, 'gpt-6.1-sol', 1_000_000),
+        // Listed only at OpenAI's Flex tier, so it has no list price here.
+        ...turn(`${team}-a`, ADMIN, 'gpt-6.1-terra', 1_000_000),
       ].map((row) => ({ ...row, teamId: team })),
     )
     try {
