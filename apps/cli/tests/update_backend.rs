@@ -12,6 +12,7 @@ fn update_asks_the_configured_backend_for_the_release() {
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             if let Ok((mut stream, _)) = listener.accept() {
+                stream.set_nonblocking(false).unwrap();
                 stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
                 let mut bytes = [0; 4096];
                 let len = stream.read(&mut bytes).unwrap();

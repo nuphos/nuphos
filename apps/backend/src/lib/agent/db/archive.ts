@@ -129,20 +129,7 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
     )
     // A thread never outlives its parent: tokens issued so far stop working.
     await revokeSessionTokens([sessionId, ...descendants], 'archived')
-    // A question only about threads now archived waits on nothing: it leaves the Inbox.
-    // One that is also about something else (a PR) stays for that.
-    const tree = [sessionId, ...descendants]
-
-    await agentConversations().updateMany(
-      { userId: conversation.userId, 'inputRequests.about': { $in: tree } },
-      {
-        $pull: {
-          inputRequests: {
-            about: { $exists: true, $ne: [], $not: { $elemMatch: { $nin: tree } } },
-          },
-        },
-      },
-    )
+    await withdrawQuestionsAbout(conversation.userId, [sessionId, ...descendants])
 
     return
   }
@@ -155,6 +142,24 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
     )
   }
   await agentConversations().updateOne({ sessionId }, restore())
+}
+
+/**
+ * A question only about conversations now archived waits on nothing: it leaves the Inbox.
+ * One that is also about something else (a PR) stays for that. However they were archived.
+ */
+export async function withdrawQuestionsAbout(userId: string, archived: string[]): Promise<void> {
+  if (archived.length === 0) return
+  await agentConversations().updateMany(
+    { userId, 'inputRequests.about': { $in: archived } },
+    {
+      $pull: {
+        inputRequests: {
+          about: { $exists: true, $ne: [], $not: { $elemMatch: { $nin: archived } } },
+        },
+      },
+    },
+  )
 }
 
 /** A shared Task out of one member's lists, or back; it stays as it is for everyone else. */

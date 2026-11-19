@@ -207,5 +207,10 @@
     <string name="chat_summary_triggers">觸發條件</string>
     <string name="chat_summary_no_triggers">請代理程式為這個任務安排定期工作。</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot 詳細資料</string>
+    <string name="chat_bot_state_waiting">%1$d 個需要你的回覆</string>
+    <string name="chat_bot_state_running">%1$d 個執行中</string>
+    <string name="chat_summary_idle_since">閒置 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">請在這裡要求安排定期執行的工作。</string>
     <string name="chat_summary_paused">已暫停</string>
 </resources>
