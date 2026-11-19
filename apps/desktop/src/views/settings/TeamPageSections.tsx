@@ -41,6 +41,7 @@ export function SettingsPageFrame({
   filter,
   onFilterChange,
   count,
+  searchLabel,
   children,
 }: {
   title: string
@@ -50,7 +51,10 @@ export function SettingsPageFrame({
   searchable?: boolean
   filter: string
   onFilterChange: (filter: string) => void
-  count: number
+  /** Left out where it would count something the page does not show as a list. */
+  count?: number
+  /** What the search searches, when that is not plain from the page. */
+  searchLabel?: string
   children: ReactNode
 }) {
   const [left, setLeft] = useState<HTMLElement | null>(null)
@@ -84,7 +88,14 @@ export function SettingsPageFrame({
       />
       {/* Shown only while something is in it: a form has no search and no controls. */}
       <div className="hidden h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6 has-[>:not(:empty)]:flex">
-        {searchable && <SearchBox filter={filter} onFilterChange={onFilterChange} count={count} />}
+        {searchable && (
+          <SearchBox
+            filter={filter}
+            onFilterChange={onFilterChange}
+            count={count}
+            label={searchLabel}
+          />
+        )}
         <div ref={setLeft} className="flex min-w-0 items-center gap-1 empty:hidden" />
         <div className="flex-1" />
         <div ref={setRight} className="flex items-center gap-2 empty:hidden" />
