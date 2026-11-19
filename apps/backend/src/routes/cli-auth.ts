@@ -30,6 +30,14 @@ import type { Quota } from '@/lib/identity/device-login-quota'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
+function verificationUri(): string {
+  const origin = new URL(config.auth.publicBaseUrl).origin
+
+  return ['https://api.nuphos.ai', 'https://nuphos.ai'].includes(origin)
+    ? 'https://nuphos.ai/device'
+    : `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}`
+}
+
 const agentFields = {
   name: z.string().trim().min(1).max(64),
   teamId: z.string().regex(/^[a-f\d]{24}$/),
@@ -72,7 +80,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
 
     return c.json({
       ...started,
-      verificationUri: `${config.auth.publicBaseUrl}${DEVICE_PAGE_PATH}`,
+      verificationUri: verificationUri(),
     })
   })
 
