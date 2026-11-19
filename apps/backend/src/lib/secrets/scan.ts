@@ -48,6 +48,7 @@ const KIND_ORDER = [
   'nuphos-token',
   'github-token',
   'slack-token',
+  'instabox-api-key',
   'api-key',
   'url-credentials',
   'bearer-token',

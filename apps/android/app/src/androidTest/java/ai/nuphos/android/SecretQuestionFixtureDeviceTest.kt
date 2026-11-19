@@ -96,17 +96,22 @@ class SecretQuestionFixtureDeviceTest {
         val secret = BotQuestion("agent-ops", "Release ops", InputRequest("q-key", "credential",
             "Paste the Play Console API key", null, secretName = "API_KEY"))
         val value = "sk-fixture-value"
+        val inbox = ai.nuphos.android.session.OpenQuestions(object : ai.nuphos.android.session.OpenQuestions.Source {
+            override suspend fun pending() = listOf(ai.nuphos.android.model.AgentConversation(
+                secret.sessionId, title = secret.title, isOwner = true, inputRequests = listOf(secret.request),
+            ))
+        })
+        kotlinx.coroutines.runBlocking { inbox.refresh() }
         compose.setContent {
             val context = androidx.compose.ui.platform.LocalContext.current
             val store = androidx.compose.runtime.remember { AgentStore(token, context) }
             NuphosTheme { Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalAgentStore provides store) {
-                    Column(Modifier.fillMaxSize().padding(16.dp)) {
-                        BotQuestionCard(secret, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
-                    }
+                    ai.nuphos.android.ui.inbox.InboxPage(inbox, androidx.navigation.compose.rememberNavController(), allowed = { true })
                 }
             } }
         }
+        compose.onNodeWithText(secret.request.question).performClick()
         fun shows(tag: String) = compose.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
         // Whatever the card settles on is captured first, so a regression is seen as well as reported.
         compose.waitUntil(10_000) { shows("secret-value:q-key") || compose.onAllNodesWithText("Answer in the task").fetchSemanticsNodes().isNotEmpty() }
