@@ -1,10 +1,9 @@
-import { faFolder, faFile } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { X } from 'lucide-react'
+import { File as FileIcon, Folder as FolderIcon, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
+import { UiIcon } from '../../ui/ui-icon'
 
 import { setAttachmentDragData } from './attachmentDrag'
 import { isImageAttachmentPath } from './attachments'
@@ -73,8 +72,9 @@ export function AttachmentChips({
             className="surface-raised group relative flex h-12 max-w-[220px] items-center gap-2.5 rounded-lg bg-agentCanvas pl-2 pr-3"
           >
             <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface-sunken">
-              <FontAwesomeIcon
-                icon={isFolder ? faFolder : faFile}
+              <UiIcon
+                size={14}
+                icon={isFolder ? FolderIcon : FileIcon}
                 className={clsx('h-3.5 w-3.5', isFolder ? 'text-secondary' : 'text-tertiary')}
               />
             </div>
