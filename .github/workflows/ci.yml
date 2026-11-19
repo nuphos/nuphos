@@ -85,6 +85,10 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
+          # A merge group is judged by all it adds to main, not by its own PR: its base_sha is
+          # the group ahead's head, so a group touching only iOS skipped Backend lint and, as
+          # the queue's green head, merged the failing groups ahead of it.
+          base: ${{ github.event.merge_group.base_ref }}
           filters: |
             # Backend tests import electron main's local runtime, so its typecheck follows it,
             # and from there the desktop's shared types and one runtime-image script.
@@ -179,17 +183,17 @@ jobs:
       - name: Detect a version-only diff
         id: bump
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_ref }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE"
           # A failed diff or jq must fail the step or answer false, never true.
-          git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
+          git diff --no-renames --name-only FETCH_HEAD HEAD > "$RUNNER_TEMP/changed"
           only=true
           while read -r f; do
             case "$f" in
               apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
               apps/*/package.json)
-                old=$(git show "$BASE:$f" | jq -S 'del(.version)') &&
+                old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
                   [ "$old" = "$new" ] || only=false ;;
               *) only=false ;;
