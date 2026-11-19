@@ -33,21 +33,23 @@ const ABANDONED_MS = 10 * 60_000
 const SIZE = { width: 1440, height: 900 }
 
 // Frames are drawn in arrival order; MediaRecorder keeps their timing, as it records in real time.
+// A page that stops changing sends no frames, so finish draws the last one again: the video
+// then lasts until record_stop instead of ending at the page's last change.
 const SETUP = `(() => {
   const canvas = Object.assign(document.createElement('canvas'), ${JSON.stringify(SIZE)})
   const context = canvas.getContext('2d')
   const chunks = []
   const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType: 'video/webm;codecs=vp8' })
   let drawn = Promise.resolve()
+  let last
 
   document.body.append(canvas)
   recorder.ondataavailable = (event) => chunks.push(event.data)
   recorder.start(1000)
   window.draw = (jpeg) => {
     drawn = drawn.then(async () => {
-      const image = await createImageBitmap(await (await fetch('data:image/jpeg;base64,' + jpeg)).blob())
-
-      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+      last = await createImageBitmap(await (await fetch('data:image/jpeg;base64,' + jpeg)).blob())
+      context.drawImage(last, 0, 0, canvas.width, canvas.height)
     })
   }
   window.finish = () => drawn.then(() => new Promise((done) => {
@@ -58,7 +60,8 @@ const SETUP = `(() => {
       for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768))
       done(btoa(binary))
     }
-    recorder.stop()
+    if (last) context.drawImage(last, 0, 0, canvas.width, canvas.height)
+    setTimeout(() => recorder.stop(), 200)
   }))
 })()`
 

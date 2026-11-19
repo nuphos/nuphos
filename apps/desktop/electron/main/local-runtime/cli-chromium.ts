@@ -93,6 +93,10 @@ export function launchChromium(executable: string, profile: string): Browser {
     '--no-default-browser-check',
     '--hide-scrollbars',
     '--mute-audio',
+    // A tab behind another window keeps painting at full speed, as a recorded one must.
+    '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding',
+    '--disable-backgrounding-occluded-windows',
   ]
 
   // Chromium will not start as root with its sandbox, as `nuphos agent` may run on a server.
