@@ -122,7 +122,7 @@ export function AgentMemoriesView({
         icon={Brain}
         title={t('Memories')}
         description={t(
-          "Cross-agent memory is not enabled on this backend. The agent will continue to work without it; it just won't recall anything between agents.",
+          "Shared memory is not enabled on this backend. Bots and tasks keep working without it; they just won't recall anything from each other.",
         )}
       />
     )
@@ -216,10 +216,10 @@ export function AgentMemoriesView({
             icon={Brain}
             title={t('Memories')}
             description={t(
-              'Memories are facts the agent saves about your team and its work as you work together. Chat with the agent and useful context accumulates here.',
+              'Memories are facts Nuphos saves about your team and its work as you work together. Chat with your Bots and tasks and useful context accumulates here.',
             )}
             agentAction={{
-              label: t('Teach the agent something'),
+              label: t('Teach Nuphos something'),
               prompt:
                 'I want to teach you something about our team or systems so you remember it — ask me what to remember.',
             }}

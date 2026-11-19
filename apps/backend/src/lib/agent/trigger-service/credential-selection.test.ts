@@ -40,6 +40,7 @@ const options = {
   plaudAccounts: [],
   cloudflareAccounts: [],
   instaboxAccounts: [],
+  personalCredentials: [],
   devices: [],
 } as unknown as AgentCredentialOptions
 

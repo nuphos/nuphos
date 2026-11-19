@@ -444,7 +444,7 @@ jobs:
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     runs-on: instabox-medium
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
       attestations: read
