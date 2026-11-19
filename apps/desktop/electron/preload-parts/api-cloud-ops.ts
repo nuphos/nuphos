@@ -254,8 +254,6 @@ export const cloudOpsApi = {
   agentNotifyStopped: (args: { title: string; body: string; sessionId: string; teamId?: string }) =>
     ipcRenderer.invoke('agent:notifyStopped', args),
   agentAbort: (streamId: string) => ipcRenderer.invoke('agent:abort', streamId),
-  /** Pushes `agent:changes` for the team's conversations until the app quits. */
-  agentFollowChanges: (teamId: string) => ipcRenderer.invoke('agent:followChanges', teamId),
   agentReportFailure: (streamId: string, payload: Record<string, unknown>) =>
     ipcRenderer.invoke('agent:reportFailure', streamId, payload),
   agentAbortClientTools: (sessionId: string) =>

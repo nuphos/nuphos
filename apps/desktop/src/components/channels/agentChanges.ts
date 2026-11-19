@@ -16,18 +16,22 @@ const connected = new Set<string>()
 /** Whether a team's chats hear of their changes now, so they need no poll. */
 export const pushed = (teamId: string) => connected.has(teamId)
 
+type Cached = { agents?: { sessionId: string }[] } | undefined
+
 /**
- * One change: that chat reads again. The stream coming up or going down reads every chat of the
- * team again, which also starts or stops its poll.
+ * One change: that chat reads again, and so does every chat that has it as a member, which shows
+ * its name and face (renaming a Bot renames its chat). The stream coming up or going down reads
+ * every chat of the team again, which also starts or stops its poll.
  */
 export function applyChange(client: QueryClient, { teamId, sessionId, connected: up }: Change) {
   if (up === true) connected.add(teamId)
   if (up === false) connected.delete(teamId)
   void client.invalidateQueries({
-    queryKey: sessionId
-      ? queryKeys.channel(teamId, sessionId)
-      : [...queryKeys.team(teamId), 'channel'],
-    exact: sessionId !== null,
+    queryKey: [...queryKeys.team(teamId), 'channel'],
+    predicate: ({ queryKey, state }) =>
+      sessionId === null ||
+      queryKey.at(-1) === sessionId ||
+      (state.data as Cached)?.agents?.some((agent) => agent.sessionId === sessionId) === true,
   })
 }
 

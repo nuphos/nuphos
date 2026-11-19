@@ -24,6 +24,19 @@ test('a change reads that chat again; a reconnect reads every chat of the team a
   client.clear()
 })
 
+test("a Bot's change reads every chat it is a member of again", () => {
+  const client = createQueryClient()
+  const withBot = queryKeys.channel('t', 'with-bot')
+  const without = queryKeys.channel('t', 'without')
+
+  client.setQueryData(withBot, { revision: 'r', agents: [{ sessionId: 'bot' }] })
+  client.setQueryData(without, { revision: 'r', agents: [{ sessionId: 'other' }] })
+  applyChange(client, { teamId: 't', sessionId: 'bot' })
+  assert.equal(client.getQueryState(withBot)?.isInvalidated, true, 'its name and face show there')
+  assert.equal(client.getQueryState(without)?.isInvalidated, false)
+  client.clear()
+})
+
 test('a team polls until its stream is up, and again while it is down', () => {
   const client = createQueryClient()
 

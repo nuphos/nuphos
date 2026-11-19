@@ -264,6 +264,8 @@ export const agentApi = {
 
     return () => ipcRenderer.off('ssh-terminal:event', handler)
   },
+  /** Pushes `agent:changes` for the team's conversations until the app quits. */
+  agentFollowChanges: (teamId: string) => ipcRenderer.invoke('agent:followChanges', teamId),
   onAgentChanges: (
     cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
   ) => {
