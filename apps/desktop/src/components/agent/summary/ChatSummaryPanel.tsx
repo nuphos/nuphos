@@ -48,6 +48,8 @@ type Props = {
   requestsFailed: boolean
   /** Drawn first, above everything the chat did: a Bot chat's card of the Bot. */
   lead?: ReactNode
+  /** Drawn after a Bot's instructions: what the Bot may use. */
+  access?: ReactNode
   /** The panel's accessible name; by default "Task summary". */
   label?: string
   /** Closes the panel; by default this pane's Task summary. */
@@ -184,6 +186,7 @@ function SummaryBody({
   requestsLoaded,
   requestsFailed,
   lead,
+  access,
   label,
   onClose: close,
   onDismiss: dismiss,
@@ -249,6 +252,7 @@ function SummaryBody({
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
           <BotInstructionsSection conversation={conversation} />
+          {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
             key={`${teamId}:${triggerHome}`}
