@@ -55,7 +55,9 @@ function fakeChromium() {
                 result: {},
                 exceptionDetails: { text: 'Uncaught', exception: { description: 'Error: boom' } },
               }
-            : { result: { value: 42 } }
+            : params.expression === 'finish()'
+              ? { result: { value: Buffer.from('WEBM').toString('base64') } }
+              : { result: { value: 42 } }
       else if (method === 'Page.captureScreenshot') result = { data: 'SlBFRw==' }
       emit({ id, result, ...(sessionId ? { sessionId } : {}) })
     }
@@ -150,4 +152,29 @@ test('show answers that the computer has no screen', async () => {
 test('a computer offers local_browser only when it has a Chromium to run it on', () => {
   assert.deepEqual(cliBrowser(temp, undefined), {})
   assert.equal(typeof cliBrowser(temp, '/usr/bin/chromium').connectBrowser, 'function')
+})
+
+test('record_start with video records the tab from a helper window and record_stop returns a WebM', async () => {
+  const chromium = fakeChromium()
+  const run = createCliBrowser(() => chromium.browser, temp)
+
+  await run(call('s1', { action: 'open', url: 'https://example.com/' }))
+  await run(call('s1', { action: 'record_start', tab: 1, video: true }))
+  // Its own window, so the recorded tab stays in front and keeps painting.
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Target.createTarget' && c.params.newWindow === true,
+    ),
+  )
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Page.startScreencast' && c.sessionId === 'session-target-1',
+    ),
+  )
+  const stopped = JSON.parse(textOf(await run(call('s1', { action: 'record_stop', tab: 1 })))) as {
+    video: { file: string }
+  }
+
+  assert.equal(readFileSync(stopped.video.file, 'utf8'), 'WEBM')
+  assert.ok(chromium.commands.some((c) => c.method === 'Target.closeTarget'))
 })
