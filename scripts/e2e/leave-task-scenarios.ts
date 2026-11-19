@@ -1,5 +1,7 @@
 // A teammate's Task, hidden from your own list without archiving it for them (#3681).
 // The teammate sets things up through the API; the signed-in person leaves in the app.
+import { randomUUID } from 'node:crypto'
+
 import { joinTeam } from './dashboard-scenarios.ts'
 import { bothMenus, listed, rest, rowOf, stillGoneAfterReload } from './leave-helpers.ts'
 import { artifacts, until } from './processes.ts'
@@ -71,6 +73,7 @@ export const leaveTaskScenarios: Scenario[] = [
       const goOffline = await laptopOnline(stack, teammate.token, LAPTOP)
       // On the teammate's computer, which I may use.
       const usable = await sharedTask(stack, teammate.token, TASK)
+      const rejoin = randomUUID()
 
       try {
         await rest(stack, teammate.token)(
@@ -106,7 +109,9 @@ export const leaveTaskScenarios: Scenario[] = [
 
         if (read.ok) throw new Error('I can still read a private Task after leaving it')
         // I may still reply in the other, so speaking in it joins me again, as the dialog says.
-        await say(stack, usable, teammate.token, 'Back again E2E_DELIVERY:leave-task-rejoin')
+        await say(stack, usable, teammate.token, 'Back again E2E_DELIVERY:leave-task-rejoin', {
+          id: rejoin,
+        })
         await until('the new message to bring the Task back to my shared list', async () =>
           (await listed(stack, stack.token, 'shared')).includes(usable),
         )
@@ -118,13 +123,12 @@ export const leaveTaskScenarios: Scenario[] = [
         await page.screenshot({ path: `${artifacts}/leave-task-rejoined.png` })
       } finally {
         goOffline()
-        // Unshared, the computer no longer lets me reply, so my waiting message is dropped.
-        await rest(stack, teammate.token)(
-          'PUT',
-          `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
-          { level: 'off', everyone: false, userIds: [] },
+        // My message waits for the offline computer; I take it back.
+        await rest(stack, stack.token)(
+          'DELETE',
+          `/agent/conversations/${usable}/queue/${rejoin}?teamId=${stack.teamId}`,
         ).catch((error: unknown) => {
-          console.warn(`Could not unshare the laptop: ${String(error)}`)
+          console.warn(`Could not take back my waiting message: ${String(error)}`)
         })
       }
       // Nothing of mine is left waiting: dropped later, it would note so in the Task and move its
