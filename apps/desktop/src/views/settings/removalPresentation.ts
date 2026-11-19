@@ -31,7 +31,7 @@ export function removal(device: AgentDevice) {
     error: t('Could not remove computer'),
     description: device.online
       ? t(
-          '{name} is online. Removing it disconnects it now, stops tasks running on it and removes it and its runtimes from Nuphos. Opening Nuphos on it later registers it again. Your task history stays in Nuphos.',
+          '{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.',
           { name: device.label },
         )
       : t(

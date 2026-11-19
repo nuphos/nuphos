@@ -5783,7 +5783,7 @@
   "{name} is now available in {team}.": "{name} 现已在 {team} 中可用。",
   "{name} is now signed in.": "{name} 已登录。",
   "{name} is online and listed under Computers.": "{name} 已上线，并列在“电脑”中。",
-  "{name} is online. Removing it disconnects it now, stops tasks running on it and removes it and its runtimes from Nuphos. Opening Nuphos on it later registers it again. Your task history stays in Nuphos.": "{name} 当前在线。移除后会立即断开连接、停止在它上面运行的任务，并把它和它的 runtime 从 Nuphos 移除。之后在它上面打开 Nuphos 会再次注册。你的任务记录会保留在 Nuphos。",
+  "{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.": "{name} 当前在线。移除后会立即断开连接，并停止在它上面运行的任务。它运行过的任务会保留在 Nuphos。若要加回来，请在那台电脑上打开 Nuphos。",
   "{name} is ready.": "{name} 已就绪。",
   "{name} is signed out.": "{name} 已退出登录。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已退出登录。请联系工作区管理员重新连接此运行环境。",

@@ -5783,7 +5783,7 @@
   "{name} is now available in {team}.": "{name} 現已可在 {team} 中使用。",
   "{name} is now signed in.": "{name} 已登入。",
   "{name} is online and listed under Computers.": "{name} 已上線，並列在「電腦」中。",
-  "{name} is online. Removing it disconnects it now, stops tasks running on it and removes it and its runtimes from Nuphos. Opening Nuphos on it later registers it again. Your task history stays in Nuphos.": "{name} 目前在線上。移除後會立即中斷連線、停止在它上面執行的任務，並把它和它的 runtime 從 Nuphos 移除。之後在它上面開啟 Nuphos 會再次註冊。你的任務紀錄會保留在 Nuphos。",
+  "{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.": "{name} 目前在線上。移除後會立即中斷連線，並停止在它上面執行的任務。它執行過的任務會保留在 Nuphos。若要加回來，請在那台電腦上開啟 Nuphos。",
   "{name} is ready.": "{name} 已就緒。",
   "{name} is signed out.": "{name} 已登出。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} 已登出。請聯絡工作區管理員重新連接此執行環境。",

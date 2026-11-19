@@ -5783,7 +5783,7 @@
   "{name} is now available in {team}.": "{name} が {team} で利用可能になりました。",
   "{name} is now signed in.": "{name} にサインインしました。",
   "{name} is online and listed under Computers.": "{name} がオンラインになり、コンピューターに表示されています。",
-  "{name} is online. Removing it disconnects it now, stops tasks running on it and removes it and its runtimes from Nuphos. Opening Nuphos on it later registers it again. Your task history stays in Nuphos.": "{name} はオンラインです。削除するとすぐに接続が切れ、実行中のタスクが停止し、このコンピューターとそのランタイムが Nuphos から削除されます。後でこのコンピューターで Nuphos を開くと再登録されます。タスク履歴は Nuphos に残ります。",
+  "{name} is online. Removing it disconnects it now and stops any task running on it. Tasks it ran stay in Nuphos. To add it back, open Nuphos on that computer.": "{name} はオンラインです。削除するとすぐに接続が切れ、実行中のタスクは停止します。実行済みのタスクは Nuphos に残ります。元に戻すには、そのコンピューターで Nuphos を開いてください。",
   "{name} is ready.": "{name} の準備ができました。",
   "{name} is signed out.": "{name} はサインアウトしています。",
   "{name} is signed out. Ask a workspace administrator to reconnect this runtime.": "{name} はサインアウトしています。ワークスペースの管理者にこのランタイムの再接続を依頼してください。",
