@@ -2,6 +2,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
 import { AppError } from '@/lib/errors'
+import { useDb } from '@/lib/test/doubles/db'
 
 import { systemSender } from './message-metadata'
 import { PAUSE_AFTER_FAILED_RUNS, recordFailedFires } from './trigger-failed-runs'
@@ -17,6 +18,17 @@ const _id = new ObjectId()
 const TRIGGER_ID = _id.toHexString()
 let row: AgentTrigger
 const alerts: { title: string; body: string }[] = []
+const history: Record<string, unknown>[] = []
+
+useDb({
+  withTransaction: (body: (session: never) => Promise<void>) => body({} as never),
+  db: () =>
+    ({
+      collection: () => ({
+        insertOne: async (doc: Record<string, unknown>) => history.push(doc),
+      }),
+    }) as never,
+})
 
 const matches = (filter: Record<string, unknown>) =>
   String(filter._id) === TRIGGER_ID &&
@@ -70,6 +82,7 @@ const outOfUsage = new Error('Gateway (status 402 Payment Required): out of cred
 
 beforeEach(() => {
   alerts.length = 0
+  history.length = 0
   row = {
     _id,
     userId: 'owner',
@@ -101,6 +114,17 @@ test('fires that keep failing for a lasting reason pause the Trigger and tell it
   ])
   // Resuming starts the count over.
   expect(row.failedRunCount).toBeUndefined()
+  // #3755: the pause is on the Trigger's record, with why.
+  expect(history).toMatchObject([
+    {
+      action: 'updated',
+      actorId: 'system',
+      via: 'failed_runs',
+      reason: row.executionAuthorizationError,
+      before: { enabled: true },
+      after: { enabled: false },
+    },
+  ])
 })
 
 test('a signed-out agent counts as a lasting failure', async () => {

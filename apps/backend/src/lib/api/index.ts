@@ -3,6 +3,7 @@ import { databaseConnectionApiOperations } from './database-connections'
 import { feedbackApiOperations } from './feedback'
 import { oauthApiOperations } from './oauth'
 import { planApiOperations } from './plans'
+import { triggerHistoryApiOperations } from './trigger-history'
 import { zeaburProviderApiOperations } from './zeabur-providers'
 
 export const atlasApiOperations = [
@@ -12,6 +13,7 @@ export const atlasApiOperations = [
   ...databaseConnectionApiOperations,
   ...feedbackApiOperations,
   ...oauthApiOperations,
+  ...triggerHistoryApiOperations,
 ] as const
 
 export { assertApiOperationSchemas, byOperationId, routePathForMount } from './registry'
