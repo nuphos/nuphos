@@ -9,8 +9,7 @@ const READ_BYTES_MAX = 25 * 1024 * 1024
 
 // Transfer files read back or saved to disk.
 export const fileTransferReadChannels = {
-  // The renderer's PDF preview reads its bytes here rather than fetching the
-  // presigned link: the store sends no CORS headers and serves an attachment.
+  // The renderer reads bytes here because the store sends no CORS headers.
   'fileTransfer:readOne': (
     _e: IpcMainInvokeEvent,
     args: {
@@ -18,6 +17,7 @@ export const fileTransferReadChannels = {
       sessionId?: string
       groupId: string
       fileId: string
+      channelId?: string
       maxBytes: number
     },
   ) =>

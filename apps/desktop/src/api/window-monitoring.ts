@@ -74,6 +74,7 @@ export type WindowMonitoringApi = {
     teamId: string
     groupId: string
     fileId: string
+    channelId?: string
     maxBytes: number
   }): Promise<Uint8Array<ArrayBuffer> | null>
   fileTransferRevealInFolder(path: string): Promise<void>

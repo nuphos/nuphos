@@ -59,6 +59,15 @@ test('reads a file whose record has no size', async (t) => {
   assert.deepEqual(bytes, new Uint8Array([1, 2, 3]))
 })
 
+test('resolves a shared attachment through its chat before reading the file', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(new Uint8Array([1, 2, 3])))
+  const resolve = t.mock.fn(resolver([file()]))
+
+  await readBoundedFile({ ...args, channelId: 'chat' }, resolve)
+
+  assert.deepEqual(resolve.mock.calls[0]?.arguments, ['team', undefined, 'group', 'chat'])
+})
+
 test('stops reading as soon as the body passes the cap and answers null', async (t) => {
   const chunks = Array.from({ length: 8 }, () => new Uint8Array(3))
   const body = streamOf(chunks)

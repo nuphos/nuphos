@@ -70,6 +70,7 @@ export const monitoringApi = {
     teamId: string
     groupId: string
     fileId: string
+    channelId?: string
     maxBytes: number
   }) => window.api.fileTransferReadOne(args),
   fileTransferRevealInFolder: (path: string) => window.api.fileTransferRevealInFolder(path),

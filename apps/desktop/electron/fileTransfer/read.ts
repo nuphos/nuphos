@@ -5,6 +5,7 @@ export type FileBytesArgs = {
   sessionId?: string
   groupId: string
   fileId: string
+  channelId?: string
   maxBytes: number
 }
 
@@ -13,6 +14,7 @@ export type ResolveGroup = (
   teamId: string,
   sessionId: string | undefined,
   groupId: string,
+  channelId?: string,
 ) => Promise<TransferGroup>
 
 /**
@@ -27,7 +29,9 @@ export async function readBoundedFile(
   args: FileBytesArgs,
   resolve: ResolveGroup,
 ): Promise<Uint8Array | null> {
-  const group = await resolve(args.teamId, args.sessionId, args.groupId).catch(() => null)
+  const group = await resolve(args.teamId, args.sessionId, args.groupId, args.channelId).catch(
+    () => null,
+  )
 
   if (!group) return null
   const file = group.files.find((f) => f.id === args.fileId)

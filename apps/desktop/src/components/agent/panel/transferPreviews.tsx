@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 
+import { copyTransferImage } from './copyTransferImage'
 import { VideoThumb } from './MediaPreview'
 import { ImageAttachmentThumb, ImageLightbox } from './messageInline'
 import { previewKind } from './transferDownloads'
@@ -101,6 +102,7 @@ export function TransferPreviews({
                 size="md"
                 url={f.url}
                 fileName={f.fileName}
+                transfer={f}
                 onOpen={() => setPreview(i)}
                 onError={retry}
               />
@@ -111,6 +113,18 @@ export function TransferPreviews({
             index={preview}
             onIndexChange={setPreview}
             onDownload={onDownload && ((i) => onDownload(media[i]))}
+            onCopy={(i) => {
+              const { groupId: transferGroupId, id, fileName, contentType } = media[i]
+
+              void copyTransferImage({
+                teamId,
+                channelId,
+                groupId: transferGroupId,
+                fileId: id,
+                fileName,
+                contentType,
+              })
+            }}
           />
         </div>
       )}

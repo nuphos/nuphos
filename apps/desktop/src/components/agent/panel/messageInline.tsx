@@ -2,12 +2,13 @@ import { Dialog } from '@base-ui/react/dialog'
 import { faImage } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, Download, FileSearch, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileSearch, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
+import { LightboxFooter } from './LightboxFooter'
 import { PdfFrame } from './MediaPreview'
 import { fileNameFromPath } from './textUtils'
 import { MEDIA_BOX } from './transferDownloads'
@@ -64,6 +65,7 @@ export function ImageAttachmentThumb({
   size = 'sm',
   onError,
   badge,
+  transfer,
 }: {
   url?: string
   fileName: string
@@ -73,6 +75,7 @@ export function ImageAttachmentThumb({
   onOpen?: () => void
   /** `md` is the shared media preview box. */
   size?: keyof typeof THUMB_SIZE
+  transfer?: { groupId: string; id: string; contentType?: string | null }
   onError?: () => void
 }) {
   return (
@@ -83,6 +86,9 @@ export function ImageAttachmentThumb({
           <button
             type="button"
             onClick={onOpen}
+            data-transfer-group-id={transfer?.groupId}
+            data-transfer-file-id={transfer?.id}
+            data-transfer-content-type={transfer?.contentType ?? undefined}
             className="block h-full w-full cursor-zoom-in outline-none"
           >
             <img
@@ -149,11 +155,13 @@ export function ImageLightbox({
   index,
   onIndexChange,
   onDownload,
+  onCopy,
 }: {
   images: readonly LightboxImage[]
   index: number | null
   onIndexChange: (index: number | null) => void
   onDownload?: (index: number) => void
+  onCopy?: (index: number) => void
 }) {
   // Keep the last image on screen while the popup fades out.
   const [shown, setShown] = useState(0)
@@ -172,9 +180,10 @@ export function ImageLightbox({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 z-[2000] bg-black/80 opacity-100 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
+        <Dialog.Backdrop className="fixed inset-0 z-[1999] bg-black/80 opacity-100 transition-opacity duration-150 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup
           aria-label={image?.fileName}
+          data-image-lightbox=""
           onKeyDown={(e) => {
             const delta = STEP_KEYS[e.key]
 
@@ -247,24 +256,17 @@ export function ImageLightbox({
                   </button>
                 </>
               )}
-              <div className="absolute inset-x-0 bottom-3 flex items-center justify-center gap-3 px-16 text-[12px] text-white/80">
-                <span className="min-w-0 truncate">{image.fileName}</span>
-                {count > 1 && (
-                  <span className="flex-shrink-0 tabular-nums text-white/60">
-                    {i + 1} / {count}
-                  </span>
-                )}
-                {onDownload && (
-                  <button
-                    type="button"
-                    onClick={() => onDownload(i)}
-                    className="flex flex-shrink-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-white/10 hover:text-white"
-                  >
-                    <Download className="h-3 w-3" strokeWidth={2.2} />
-                    {t('Download')}
-                  </button>
-                )}
-              </div>
+              <LightboxFooter
+                fileName={image.fileName}
+                index={i}
+                count={count}
+                onDownload={onDownload && (() => onDownload(i))}
+                onCopy={
+                  onCopy && 'url' in image && !image.video && !image.audio
+                    ? () => onCopy(i)
+                    : undefined
+                }
+              />
             </>
           )}
           <Dialog.Close
@@ -278,7 +280,6 @@ export function ImageLightbox({
     </Dialog.Root>
   )
 }
-
 export function LocalFileChip({ path }: { path: string }) {
   return (
     <div
