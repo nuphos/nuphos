@@ -10,6 +10,8 @@ export type SessionConfigOption = {
 export type SessionConfigState = {
   status: 'ready' | 'busy' | 'dormant' | 'unsupported' | 'offline'
   options: SessionConfigOption[]
+  /** Why there are no options: the computer has not reported them, its agent is signed out, or none were found. */
+  reason?: 'unreported' | 'signed-out' | 'undiscovered'
 }
 
 export type SessionConfigSelection = { configId: string; value: string }

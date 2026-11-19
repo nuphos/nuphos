@@ -63,7 +63,7 @@ export function keepTeamIdentity(
 }
 
 /**
- * The member's own GitHub / Linear rows that Select all and the N/M badge count, as
+ * The member's own Personal Credential rows that Select all and the N/M badge count, as
  * drawn: the own credential, and under a team binding also the identity row
  * (ticked = the binding acts as the member).
  */
@@ -74,10 +74,10 @@ export function personalRows(options: AgentCredentialOptions, value: AgentCreden
       identity: false,
       checked: (value.personalCredentialIds ?? []).includes(provider),
     }
+    // Only GitHub and Linear have a team binding that can act as the member.
     const bound =
-      provider === 'github'
-        ? options.githubInstallations.length > 0
-        : options.linearWorkspaces.length > 0
+      (provider === 'github' && options.githubInstallations.length > 0) ||
+      (provider === 'linear' && options.linearWorkspaces.length > 0)
 
     if (!bound) return [own]
 
@@ -111,7 +111,7 @@ export function setAllPersonal(
 /** Ticked = this conversation may use the member's own credential of `provider`. */
 export function setPersonalOnly(
   value: AgentCredentialSelection,
-  provider: 'github' | 'linear',
+  provider: PersonalCredentialProvider,
   selected: boolean,
 ): AgentCredentialSelection {
   const rest = (value.personalCredentialIds ?? []).filter((p) => p !== provider)

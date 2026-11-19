@@ -83,7 +83,9 @@ final class ChannelSession {
             await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
-            if !loaded { loadError = error.localizedDescription; loaded = true }
+            // Cancelled (the chat closed, the app left the foreground): not a
+            // failure, and not loaded, so the next poll reads it (#3620).
+            if !loaded, !Task.isCancelled { loadError = error.localizedDescription; loaded = true }
         }
     }
 
@@ -94,7 +96,7 @@ final class ChannelSession {
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
-        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar) }
+        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar, background: agent.avatarBackground) }
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces

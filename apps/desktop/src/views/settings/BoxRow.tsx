@@ -7,27 +7,31 @@ import { InlineRename } from '../../components/ui/inline-rename'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
-import { useThisComputerBadge } from '../../hooks/useThisComputer'
+import { useThisComputerConnection } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
+import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
-import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
+import { askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
+import { deleteBox } from './boxDelete'
 import { openBoxPaywall } from './boxPaywallStore'
-import { BOX_BADGE, boxActions, boxState, removal } from './boxPresentation'
+import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
 import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
+import { removal } from './removalPresentation'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
+import { computerBadge } from './thisComputerPresentation'
 import { useComputerOwner } from './useComputerOwner'
 import { useComputerUpdate } from './useComputerUpdate'
 
@@ -43,7 +47,6 @@ export function BoxRow({
   agents,
   onSelect,
   onChanged,
-  onSetUpLocalAgent,
 }: {
   thisComputer: boolean
   teamId: string
@@ -51,8 +54,6 @@ export function BoxRow({
   agents: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
   onChanged: () => void
-  /** Opens User settings where this computer's local agent signs in. */
-  onSetUpLocalAgent?: () => void
 }) {
   const [busy, setBusy] = useState(false)
   // An older host's existing agent, signing in.
@@ -72,7 +73,7 @@ export function BoxRow({
   // Besides a Box, another of the viewer's own computers whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
-  const badge = useThisComputerBadge(thisComputer) ?? BOX_BADGE[state]
+  const badge = computerBadge(state, useThisComputerConnection(thisComputer))
   const actions = cloud && !restart ? boxActions(state) : { pause: false, resume: false }
   // Every Box action names the Box and the page's team.
   const act = (
@@ -84,6 +85,7 @@ export function BoxRow({
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
+  const computerSettings = useComputerSettings(device, teamId, changed)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
@@ -115,7 +117,6 @@ export function BoxRow({
 
   const dim = state === 'paused' || state === 'stopped'
   const settingUp = state === 'creating' || state === 'connecting'
-  const slots = agentSlots(thisComputer, settingUp || restart !== undefined, state, agents)
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
@@ -125,7 +126,7 @@ export function BoxRow({
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      await hostUpdate.request(team)
+      await hostUpdate.request(deviceId, team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -136,13 +137,12 @@ export function BoxRow({
         <DeskAgents
           device={device}
           agents={agents}
-          slots={slots}
+          starting={settingUp || restart !== undefined}
           away={away}
           dim={dim}
           busy={busy}
           onSelect={onSelect}
           onAdd={addAgent}
-          onSetUp={thisComputer ? onSetUpLocalAgent : undefined}
           canAdd={canAddAgent(state, manage)}
           ask={askToAdd(state, manage, owner)}
         />
@@ -196,6 +196,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
+              {computerSettings.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -234,7 +235,7 @@ export function BoxRow({
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            confirm={hostUpdate.confirm(updateVersion)}
+            confirm={hostUpdate.confirm(updateVersion, device.label)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}
@@ -269,6 +270,7 @@ export function BoxRow({
           }}
         />
       )}
+      {computerSettings.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}
@@ -284,7 +286,7 @@ export function BoxRow({
         destructive
         confirmLabel={remove.confirm}
         onConfirm={() =>
-          act(remove.error, cloud ? api.boxDelete : api.deviceRemove, remove.fallback)
+          act(remove.error, cloud ? deleteBox(device.label) : api.deviceRemove, remove.fallback)
         }
         onClose={() => setConfirmDelete(false)}
       />

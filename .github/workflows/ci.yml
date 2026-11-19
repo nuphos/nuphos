@@ -3,8 +3,15 @@ name: CI
 on:
   pull_request:
   merge_group:
+  # Format and lint only, so a regression two merged PRs create together shows on main.
+  push:
+    branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
   workflow_dispatch:
+  # The full macOS package every night, since PRs and the queue build it only
+  # when a packaging input changes.
+  schedule:
+    - cron: '0 19 * * *'
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
@@ -17,9 +24,13 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Every PR in a merge group already passed format and lint on pull_request,
+  # so the merge queue skips them (a skipped job still satisfies its required
+  # check). They run again on main after each merge, which catches what two
+  # PRs break only together, without holding up the queue.
   format:
     name: Format (prettier --check)
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +49,7 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
@@ -63,7 +74,7 @@ jobs:
 
   changes:
     name: Detect changed apps
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04-arm
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
@@ -441,8 +452,11 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
+    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
+    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    timeout-minutes: 40
     permissions:
       contents: read
       attestations: read
@@ -491,6 +505,13 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
+      # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
+      - name: Time chat switches
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:chat-switch
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -503,6 +524,9 @@ jobs:
             ${{ runner.temp }}/e2e-onboarding
             !${{ runner.temp }}/e2e-onboarding/mongo
             !${{ runner.temp }}/e2e-onboarding/sign-in
+            ${{ runner.temp }}/e2e-chat-switch
+            !${{ runner.temp }}/e2e-chat-switch/mongo
+            !${{ runner.temp }}/e2e-chat-switch/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
@@ -559,18 +583,20 @@ jobs:
           (env -u NUPHOS_AGENT_HOME node "$RUNNER_TEMP/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
 
   # Some tests only run on macOS (the keychain, macOS config paths), and the
-  # native addon only compiles there, so the Mac runs the suite and the build
-  # wherever it runs: in the merge queue, so nothing reaches main without them,
-  # and on a PR that changes a packaging input or the addon.
-  # Staging and electron-builder cost ~4 minutes and have not caught anything
-  # the Linux job missed, so they run only on such a PR; the release workflow
-  # packages before anything ships.
+  # native addon only compiles there. A PR or queue entry gets the Mac only when
+  # it changes a packaging input or the addon (desktop_package); every other
+  # desktop change is checked by the Linux job above, and its skipped Mac job
+  # still passes the required check. The full package runs on main every
+  # night, so what only the Mac catches shows up within a day.
+  # Staging and electron-builder are skipped in the queue: the PR already
+  # packaged the same inputs.
   desktop:
     name: Desktop (Nuphos macOS package)
     needs: changes
+    # On schedule `changes` is skipped; !cancelled() keeps this job running.
     if: >-
-      needs.changes.outputs.desktop == 'true' &&
-      (github.event_name != 'pull_request' || needs.changes.outputs.desktop_package == 'true')
+      ${{ !cancelled() && (github.event_name == 'schedule' ||
+      (needs.changes.outputs.desktop == 'true' && needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -596,16 +622,25 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec vite build
       - name: Stage the local agent adapter
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Nobody watches the nightly run, so a failure is posted to the maintainers.
+      - name: Report a failed nightly run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          curl -fsS -X POST "$WEBHOOK" -H 'content-type: application/json'
+          -d "{\"run\":\"$RUN\",\"commit\":\"$GITHUB_SHA\"}"
 
   # Type-aware ESLint is the slowest step in both apps, so it runs beside their
   # main jobs instead of after typecheck. A PR then waits for the slower of the
@@ -613,7 +648,8 @@ jobs:
   backend-lint:
     name: Backend lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -643,7 +679,7 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -691,6 +727,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test which backend log lines fail an e2e run
+        run: node --test --experimental-strip-types scripts/e2e/*.test.ts
       - name: Test filling mobile strings from the Desktop translations
         run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate

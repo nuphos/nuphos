@@ -94,7 +94,7 @@
     <string name="agent_window_percent_left">%1$s: sisa %2$s%%</string>
     <string name="agent_resets_in_minutes">direset dalam %1$d mnt</string>
     <string name="agent_resets_in_hours">direset dalam %1$d j %2$d mnt</string>
-    <string name="agent_resets_at">direset %1$s</string>
+    <string name="agent_resets_in_days">direset dalam %1$d hari %2$d j</string>
     <string name="agent_usage_unavailable">Penggunaan tidak tersedia</string>
     <string name="agent_sign_in">Masuk</string>
     <string name="agent_runtime_unavailable">Runtime tidak tersedia</string>

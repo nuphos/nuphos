@@ -38,6 +38,22 @@ enum Theme {
     static let hairline = heading.opacity(0.08)
     static let separator = heading.opacity(0.08)
 
+    /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
+    /// The characters are drawn for light discs, so the tints stay light in the dark.
+    private static let avatarBackgrounds: [String: Color] = [
+        "sand": adaptive(light: 0xF2E7D3, dark: 0xF2E7D3),
+        "peach": adaptive(light: 0xF8DCCB, dark: 0xF8DCCB),
+        "rose": adaptive(light: 0xF6D5DE, dark: 0xF6D5DE),
+        "lilac": adaptive(light: 0xE5DCF5, dark: 0xE5DCF5),
+        "sky": adaptive(light: 0xD6E6F7, dark: 0xD6E6F7),
+        "mint": adaptive(light: 0xD3EEDF, dark: 0xD3EEDF),
+        "sage": adaptive(light: 0xE1E9D1, dark: 0xE1E9D1),
+        "slate": adaptive(light: 0xE1E4EA, dark: 0xE1E4EA),
+    ]
+
+    /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
+    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { avatarBackgrounds[$0] } }
+
     enum Space {
         static let small: CGFloat = 8
         static let medium: CGFloat = 12
@@ -224,27 +240,5 @@ struct SetupEmptyState: View {
             Button(actionTitle, action: action).prominentButton().padding(.top, 4)
         }
         .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct RuntimeSetupGuide: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
-                    VStack(alignment: .leading, spacing: 16) {
-                        Text("1. Open Nuphos on your computer.")
-                        Text("2. Sign in and choose this workspace.")
-                        Text("3. Connect your computer and add a runtime.")
-                    }.font(.callout).foregroundStyle(Theme.body).padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-                    Link("Visit Nuphos", destination: URL(string: "https://nuphos.ai")!).prominentButton()
-                }.padding(24)
-            }.background(Theme.canvas)
-            .navigationTitle("Runtime setup").navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { LucideIcon("x") }.accessibilityLabel("Close") } }
-        }
     }
 }
