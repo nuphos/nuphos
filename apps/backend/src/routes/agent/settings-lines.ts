@@ -39,8 +39,21 @@ type Line = {
   actingFor?: string
 }
 
+// No value, the runtime's "default", and fast mode off all mean the agent's own default.
+const stock = (kind: Setting, value?: SettingValue) =>
+  !value || value.value === 'default' || (kind === 'fast' && value.value === 'off')
+
+/** The settings a record changed; one that went from the agent's default to it changed nothing. */
 const diffsOf = (change: SettingsChange) =>
-  new Map(PICKED.flatMap((kind) => (change[kind] ? [[kind, change[kind]] as const] : [])))
+  new Map(
+    PICKED.flatMap((kind) => {
+      const diff = change[kind]
+
+      return diff && !(stock(kind, diff.from) && stock(kind, diff.to))
+        ? [[kind, diff] as const]
+        : []
+    }),
+  )
 
 /** The agent filled in values nobody picked, replacing nothing. */
 const filledIn = (change: SettingsChange) =>

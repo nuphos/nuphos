@@ -295,3 +295,26 @@ test('values read as the picker shows them, and its "Default" is no model to com
     'Yuanlin changed effort from Low to High',
   ])
 })
+
+test('settings stored at the agent’s default alongside a pick change nothing', () => {
+  expect(
+    texts([
+      placed,
+      {
+        at: at(1),
+        actorId: 'yuan',
+        agentSessionId: 'notes',
+        via: 'create_thread',
+        model: { to: astra },
+        effort: { to: { value: 'default' } },
+        fast: { to: off },
+      },
+      {
+        at: at(2),
+        actorId: 'system',
+        via: 'runtime_reported',
+        effort: { to: { value: 'default', name: 'Default' } },
+      },
+    ]),
+  ).toEqual(['Release notes for the November desktop… (a Task) changed the model to GPT-6.2-Astra'])
+})
