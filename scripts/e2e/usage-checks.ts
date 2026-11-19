@@ -91,6 +91,8 @@ export async function computersAndPrivate(page: Page, section: Locator) {
       .nth(1)
       .innerText()
   const byConversation = await privateTotal()
+  const footer = () => section.getByText(/^About \$/).innerText()
+  const taskFooter = await footer()
 
   await section.getByRole('combobox', { name: 'Group by' }).click()
   await page.getByRole('option', { name: 'Bot and its Tasks' }).click()
@@ -100,5 +102,8 @@ export async function computersAndPrivate(page: Page, section: Locator) {
 
   if (byBot !== byConversation)
     throw new Error(`Private usage is ${byConversation} by Task but ${byBot} by Bot`)
+  // The cost at list prices is the team's, not the grouping's.
+  if ((await footer()) !== taskFooter)
+    throw new Error(`The cost reads "${taskFooter}" by Task but "${await footer()}" by Bot`)
   await shot(section, 'token-usage-by-bot')
 }

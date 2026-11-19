@@ -12,6 +12,7 @@ import {
   TOKEN_USAGE_GROUPS,
   TOKEN_USAGE_RANGES,
   formatUsd,
+  listPriceTotal,
   previousTokenUsageWindow,
   tokenUsageLines,
   tokenUsageSplit,
@@ -61,6 +62,8 @@ export function TokenUsage({
   const where = filterQuery(filters)
   const days = useTeamUsageQuery(teamId, { ...span, ...where, bucket: 'day', timeZone, groupBy })
   const groups = useTeamUsageQuery(teamId, { ...span, ...where, groupBy })
+  // The cost is read by model whatever the grouping, so every grouping shows the same total.
+  const models = useTeamUsageQuery(teamId, { ...span, ...where, groupBy: 'model' })
   // The same days just before, so a group that grew stands out.
   const previous = useTeamUsageQuery(teamId, {
     ...previousTokenUsageWindow(span),
@@ -101,6 +104,7 @@ export function TokenUsage({
         days={days.data}
         groups={groups.data}
         previous={previous.data}
+        priced={models.data && listPriceTotal(models.data.rows)}
         names={names}
         // The last range or grouping stays on screen, dimmed, until the new one arrives.
         stale={groups.isPlaceholderData || days.isPlaceholderData}
@@ -141,6 +145,7 @@ function UsageReport({
   days,
   groups,
   previous,
+  priced,
   names,
   stale,
   groupBy,
@@ -154,6 +159,7 @@ function UsageReport({
   groups: UsageAnswer
   /** Absent until read; compared only once it is for the same grouping. */
   previous: UsageAnswer | undefined
+  priced: ReturnType<typeof listPriceTotal>
   names: UsageNames
   stale: boolean
   groupBy: UsageDimension
@@ -178,9 +184,6 @@ function UsageReport({
     days.query,
   )
   const total = lines.reduce((sum, line) => sum + line.totalTokens, 0)
-  const cost = lines.some((line) => line.costUsd !== undefined)
-    ? lines.reduce((sum, line) => sum + (line.costUsd ?? 0), 0)
-    : undefined
 
   return (
     <div aria-busy={stale} className={stale ? 'opacity-50 transition-opacity' : undefined}>
@@ -196,12 +199,12 @@ function UsageReport({
           onChange={onFilters}
         />
         <div className="flex items-center gap-3 text-xs text-tertiary">
-          {cost === undefined
+          {priced === undefined
             ? null
-            : lines.every((line) => line.costUsd !== undefined)
-              ? t('About {cost} at list prices', { cost: formatUsd(cost) })
+            : priced.complete
+              ? t('About {cost} at list prices', { cost: formatUsd(priced.costUsd) })
               : t('About {cost} at list prices, not counting models without one', {
-                  cost: formatUsd(cost),
+                  cost: formatUsd(priced.costUsd),
                 })}
           <AppSelect
             size="sm"

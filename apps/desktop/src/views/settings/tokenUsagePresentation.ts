@@ -229,6 +229,21 @@ export function tokenUsageSplit(
   return { series, points, total: ranked.reduce((sum, [, value]) => sum + value, 0) }
 }
 
+/** What the models with a list price cost, from rows grouped by model so an unpriced model
+ *  never hides a priced one; `complete` when every model had a price. Undefined when none did. */
+export function listPriceTotal(
+  rows: readonly TeamUsageRow[],
+): { costUsd: number; complete: boolean } | undefined {
+  const priced = rows.filter((row) => row.costUsd !== undefined)
+
+  if (priced.length === 0) return undefined
+
+  return {
+    costUsd: priced.reduce((sum, row) => sum + (row.costUsd ?? 0), 0),
+    complete: priced.length === rows.length,
+  }
+}
+
 /** 1234 → "1.2K", 3_400_000 → "3.4M". */
 export function formatTokens(value: number): string {
   if (value < 1000) return String(value)
