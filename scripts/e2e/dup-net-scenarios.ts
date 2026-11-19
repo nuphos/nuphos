@@ -53,8 +53,8 @@ export function dupNetScenarios(proxy: NetProxy): Scenario[] {
           const marker = `E2E_DELIVERY:dupnet-${label}`
           const prompt = `Dup net ${label} ${marker}`
           const users = () =>
-            page.locator('.user-message-bubble').filter({ hasText: prompt }).count()
-          const acks = () => page.getByText(`ACK ${marker}`, { exact: true }).count()
+            page.locator('.user-message-bubble:visible').filter({ hasText: prompt }).count()
+          const acks = () => page.getByText(`ACK ${marker}`, { exact: true }).locator('visible=true').count()
 
           await newTask(page)
           proxy.reset()
@@ -73,10 +73,22 @@ export function dupNetScenarios(proxy: NetProxy): Scenario[] {
           const live = `user=${String(await users())} ack=${String(await acks())}`
 
           await page.screenshot({ path: `${artifacts}/dupnet-${label}-live.png` })
+          console.log(`REPRO ${label} live: acked=${String(acked)} ${live} | proxy ${proxy.log.join(', ') || '-'}`)
           await newTask(page)
-          await page.getByText(prompt, { exact: true }).first().click()
-          await page.waitForTimeout(4000)
-          const reopened = `user=${String(await users())} ack=${String(await acks())}`
+          let reopened = 'not reopened'
+
+          try {
+            // The Task's row in the sidebar, not a hidden pane that still holds its messages.
+            await page
+              .getByRole('tabpanel', { name: 'Tasks' })
+              .getByText(`Dup net ${label} `)
+              .first()
+              .click({ timeout: 10_000 })
+            await page.waitForTimeout(4000)
+            reopened = `user=${String(await users())} ack=${String(await acks())}`
+          } catch (error) {
+            reopened = `not reopened (${String(error).split('\n')[0]})`
+          }
 
           await page.screenshot({ path: `${artifacts}/dupnet-${label}-reopened.png` })
           const db = stored(stack.mongoUri, marker)
