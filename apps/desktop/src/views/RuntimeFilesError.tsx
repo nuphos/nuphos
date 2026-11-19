@@ -30,7 +30,7 @@ export function RuntimeFilesError({
           {errorCode === 'forbidden_path' && (
             <p className="mt-2">
               {t(
-                'Ask the agent in the source conversation to share a copy from its workspace, then open the new link.',
+                'Ask the source conversation to share a copy from its workspace, then open the new link.',
               )}
             </p>
           )}

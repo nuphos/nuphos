@@ -170,7 +170,7 @@ function NewBotForm({
 
     if (!title || creating.current || loading) return
     if (runtimeError) {
-      toast.apiError(t('Could not load agents'), runtimeError)
+      toast.apiError(t('Could not load runtimes'), runtimeError)
 
       return
     }
