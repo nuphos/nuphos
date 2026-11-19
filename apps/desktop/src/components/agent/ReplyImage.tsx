@@ -103,11 +103,11 @@ export function ReplyImage({
   }, [teamId, groupId, attempt])
 
   useEffect(() => {
-    if (!group) return
-    const timer = setTimeout(
-      () => setNow(Date.now()),
-      Math.max(0, Date.parse(group.expiresAt) - Date.now()) + 250,
-    )
+    if (!group?.expiresAt) return
+    const expiresAt = Date.parse(group.expiresAt)
+
+    if (!Number.isFinite(expiresAt)) return
+    const timer = setTimeout(() => setNow(Date.now()), Math.max(0, expiresAt - Date.now()) + 250)
 
     return () => clearTimeout(timer)
   }, [group])
@@ -150,7 +150,7 @@ export function ReplyImage({
         className={`my-2 ${MEDIA_FRAME}`}
       />
     )
-  if (Date.parse(group.expiresAt) <= now)
+  if (group.expiresAt && Date.parse(group.expiresAt) <= now)
     return <span role="status">{t('Image expired — files are no longer available.')}</span>
 
   return (
@@ -163,7 +163,13 @@ export function ReplyImage({
         onError={() => setError(true)}
       />
       <span className="block text-xs text-tertiary">
-        {t('Available until {time}.', { time: new Date(group.expiresAt).toLocaleString() })}{' '}
+        {group.expiresAt && (
+          <>
+            {t('Available until {time}.', {
+              time: new Date(group.expiresAt).toLocaleString(),
+            })}{' '}
+          </>
+        )}
         <button type="button" onClick={download}>
           {t('Download')}
         </button>

@@ -86,8 +86,9 @@ export type FileTransferGroup = {
   // came from by comparing this against the assistant messages' times.
   createdAt: string
   // ISO timestamp; after this the objects are gone (S3 lifecycle + Mongo TTL)
-  // and downloads will fail. The UI disables actions past it.
-  expiresAt: string
+  // and downloads will fail. The UI disables actions past it. Null for a group
+  // an artifact shows, which is retained as long as the conversation.
+  expiresAt: string | null
   files: FileTransferFile[]
   // Set by the desktop uploader when a folder / multi-file selection
   // was packed into a single .zip object: the agent must pull-and-extract it.
