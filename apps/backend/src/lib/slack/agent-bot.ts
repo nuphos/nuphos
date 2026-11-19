@@ -23,6 +23,7 @@ export {
   getCrossWorkspaceChannelMapping,
   getSlackChannelMapping,
   getSlackChannelMappingByExternalChat,
+  setSlackChannelExternalChat,
   getSlackUserMapping,
   getSlackUserMappingForNuphosUser,
   listSlackChannelMappings,

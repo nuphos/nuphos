@@ -18,6 +18,26 @@ export async function getSlackChannelMapping(
   })
 }
 
+/**
+ * Points a channel at its hidden record in place of `previous` (none, or one
+ * that is gone). Another connect may have set one meanwhile: the record kept.
+ */
+export async function setSlackChannelExternalChat(
+  slackWorkspaceId: string,
+  slackChannelId: string,
+  externalChatId: string,
+  previous: string | undefined,
+): Promise<string | undefined> {
+  const channel = { slackWorkspaceId, slackChannelId }
+  const set = await slackChannelMappings().findOneAndUpdate(
+    { ...channel, externalChatId: previous ?? { $exists: false } },
+    { $set: { externalChatId, updatedAt: new Date() } },
+    { returnDocument: 'after' },
+  )
+
+  return (set ?? (await slackChannelMappings().findOne(channel)))?.externalChatId
+}
+
 /** The Slack channel whose external chat (#3702) this record is. */
 export async function getSlackChannelMappingByExternalChat(
   externalChatId: string,
@@ -50,8 +70,6 @@ export async function upsertSlackChannelMapping(data: {
   teamId: string
   createdBy: string
   enabled?: boolean
-  // Omitted keeps what is stored; null clears it.
-  wakeSessionId?: string | null
 }): Promise<SlackChannelMapping> {
   const now = new Date()
   const mapping = await slackChannelMappings().findOneAndUpdate(
@@ -68,12 +86,10 @@ export async function upsertSlackChannelMapping(data: {
         teamId: data.teamId,
         enabled: data.enabled ?? true,
         updatedAt: now,
-        ...(data.wakeSessionId ? { wakeSessionId: data.wakeSessionId } : {}),
       },
       $unset: {
         agentUserId: '',
         credentialAccess: '',
-        ...(data.wakeSessionId === null ? { wakeSessionId: '' } : {}),
       },
     },
     { upsert: true, returnDocument: 'after' },
@@ -84,18 +100,17 @@ export async function upsertSlackChannelMapping(data: {
   return mapping
 }
 
+/** Disconnects a channel: the mapping it removed, if there was one. */
 export async function deleteSlackChannelMapping(
   slackWorkspaceId: string,
   slackChannelId: string,
   teamId: string,
-): Promise<boolean> {
-  const result = await slackChannelMappings().deleteOne({
+): Promise<SlackChannelMapping | null> {
+  return await slackChannelMappings().findOneAndDelete({
     slackWorkspaceId,
     slackChannelId,
     teamId,
   })
-
-  return result.deletedCount > 0
 }
 
 export async function getSlackUserMapping(

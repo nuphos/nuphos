@@ -1,10 +1,6 @@
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
-import {
-  isChannel,
-  listChannelAgents,
-  ownsChannelAgent,
-  removeChannelAgent,
-} from '@/lib/agent/db/channels'
+import { listChannelAgents } from '@/lib/agent/db/channel-agents'
+import { isChannel, ownsChannelAgent, removeChannelAgent } from '@/lib/agent/db/channels'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers, getTeamsByIds } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
