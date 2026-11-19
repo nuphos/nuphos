@@ -147,12 +147,16 @@ function mustNotAsk(reply: { status: number; body: unknown; text: string }, what
   )
 }
 
+// The refusals these scenarios ask for: a code, or (once past it) the empty body.
+const REFUSALS = /"error_code":"(reauth_required|validation_error)"/
+
 /** The MFA account the API scenarios share. */
 let account: { email: string; as: Client; teamId: string; agentToken?: string } | undefined
 
 export const stepUpScenarios: Scenario[] = [
   {
     name: 'with two-factor on, a sensitive action asks for a code, passes after one, and asks again ten minutes later',
+    expected: REFUSALS,
     run: async (_page, stack) => {
       const email = `e2e-mfa-${String(Date.now())}@example.com`
       const as = await signIn(stack, email)
@@ -183,6 +187,7 @@ export const stepUpScenarios: Scenario[] = [
   },
   {
     name: 'without two-factor, a sensitive action never asks for a code',
+    expected: REFUSALS,
     run: async (_page, stack) => {
       const email = `e2e-no-mfa-${String(Date.now())}@example.com`
       const as = await signIn(stack, email)
@@ -202,6 +207,7 @@ export const stepUpScenarios: Scenario[] = [
   },
   {
     name: 'a CLI token and an agent run are never asked for a code',
+    expected: REFUSALS,
     run: async (_page, stack) => {
       must(account?.agentToken !== undefined, 'the two-factor scenario to have run first')
       const { email, as, teamId, agentToken } = account
@@ -219,6 +225,7 @@ export const stepUpScenarios: Scenario[] = [
   },
   {
     name: 'Desktop asks for a code before connecting Cloudflare, and the connection starts after it',
+    expected: REFUSALS,
     run: async (page, stack) => {
       // A fresh sign-in may turn two-factor on; the app's own sign-in is then made old.
       const as = await signIn(stack, stack.email)
