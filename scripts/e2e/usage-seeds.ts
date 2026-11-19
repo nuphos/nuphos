@@ -29,7 +29,7 @@ export function tooManyModels(stack: Stack, add: boolean) {
   })
 }
 
-type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string }
+type Seed = { actor: string; total: number; daysAgo: number; triggerId?: string; modelId?: string }
 
 /** Writes (or, with no seeds, removes) usage a turn would record, in `sessionId`, owned by its owner. */
 export function seedUsage(stack: Stack, sessionId: string, owner: string, seeds: Seed[]) {
@@ -45,7 +45,8 @@ export function seedUsage(stack: Stack, sessionId: string, owner: string, seeds:
         const base = {
           sessionId, userId: owner, actorUserId: seed.actor, teamId, operation: 'e2e.seed',
           source: 'agent-runtime', accounting: 'upstream_reported', provider: 'claude-code',
-          modelId: 'claude-opus-5-5', turnSource: seed.triggerId ? 'agent.trigger' : 'app',
+          modelId: seed.modelId ?? 'claude-opus-5-5',
+          turnSource: seed.triggerId ? 'agent.trigger' : 'app',
           createdAt: new Date(Date.now() - seed.daysAgo * 86400000),
           ...(seed.triggerId ? { triggerId: seed.triggerId } : {}),
         }
