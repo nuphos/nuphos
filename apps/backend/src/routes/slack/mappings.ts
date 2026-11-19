@@ -1,13 +1,22 @@
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
+import {
+  addChannelAgent,
+  isChannel,
+  listChannelAgents,
+  ownsChannelAgent,
+  removeChannelAgent,
+} from '@/lib/agent/db/channels'
 import { AppError } from '@/lib/errors'
 import { getTeamsByIds } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import {
   deleteSlackChannelMapping,
+  getSlackChannelMapping,
   listSlackChannelMappings,
   upsertSlackChannelMapping,
 } from '@/lib/slack/agent-bot'
 import { describeSlackChannel } from '@/lib/slack/destinations'
+import { ensureExternalChat } from '@/lib/slack/external-chats'
 import { resolveInstalledWorkspaceBot } from '@/lib/slack/installations'
 import { assertChannelMappingCreationAllowed } from '@/lib/slack/mapping-authorization'
 import { requireAuth } from '@/middleware/auth'
@@ -15,7 +24,7 @@ import { resolveVerifiedTeamId } from '@/routes/agent'
 import { normalizeSlackId, requireTeamAdmin, serializeMapping } from '@/routes/slack/shared'
 
 import type { AuthVariables } from '@/middleware/auth'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVariables }>): void {
   slackRoutes.use('/mappings', requireAuth)
@@ -69,6 +78,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
         return {
           ...serializeMapping(mapping),
+          bots: await channelBots(mapping.externalChatId, c.get('userId')),
           workspace: {
             id: mapping.slackWorkspaceId,
             name: installation?.name ?? null,
@@ -91,7 +101,24 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       }),
     )
 
-    return c.json({ mappings: enriched })
+    // The viewer's own Bots: the only ones they may bring into a channel.
+    const myBots = await agentConversations()
+      .find({
+        teamId,
+        userId: c.get('userId'),
+        avatar: { $exists: true },
+        kind: { $ne: 'channel' },
+        archivedAt: { $exists: false },
+      })
+      .project<{ sessionId: string; title?: string; avatar: string }>({
+        _id: 0,
+        sessionId: 1,
+        title: 1,
+        avatar: 1,
+      })
+      .toArray()
+
+    return c.json({ mappings: enriched, myBots })
   })
 
   slackRoutes.put('/mappings', async (c) => {
@@ -117,27 +144,23 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       slackWorkspaceId,
       slackChannelId,
     })
-    const wakeSessionId = body.wakeSessionId as string | null | undefined
-
-    // Only a conversation of this team can be woken by the channel.
-    if (
-      wakeSessionId != null &&
-      (typeof wakeSessionId !== 'string' ||
-        (await getConversationBySessionId(wakeSessionId))?.teamId !== teamId)
-    )
-      throw new AppError(
-        400,
-        'invalid_request',
-        'wakeSessionId must be a conversation of this team',
-      )
     const mapping = await upsertSlackChannelMapping({
       slackWorkspaceId,
       slackChannelId,
       teamId,
       createdBy: userId,
       enabled: typeof body.enabled === 'boolean' ? body.enabled : true,
-      wakeSessionId,
     })
+    // Connected, the channel is an external chat (#3702): its Bots' hidden record.
+    const installed = await resolveInstalledWorkspaceBot(slackWorkspaceId).catch(() => null)
+    const described =
+      installed &&
+      (await describeSlackChannel(installed.botToken, slackChannelId).catch(() => null))
+    const externalChatId = await ensureExternalChat(
+      mapping,
+      userId,
+      described ? described.name : slackChannelId,
+    )
 
     logEvent('info', 'slack.agent.mapping.upsert', {
       user_id: userId,
@@ -146,7 +169,32 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
       slack_channel_id: slackChannelId,
     })
 
-    return c.json({ mapping: serializeMapping(mapping) })
+    return c.json({ mapping: serializeMapping({ ...mapping, externalChatId }) })
+  })
+
+  // A connected channel's Bots: each member brings only their own (#3702),
+  // as in a group chat. An admin removes them all by disconnecting the channel.
+  slackRoutes.post('/mappings/:workspaceId/:channelId/bots', async (c) => {
+    const body = await c.req.json()
+    const { record, userId, teamId } = await connectedChannel(c, body.teamId)
+    const botSessionId = typeof body.botSessionId === 'string' ? body.botSessionId : ''
+
+    if (!(await ownsChannelAgent(botSessionId, userId, teamId)))
+      throw new AppError(403, 'forbidden', 'Only a Bot’s owner can bring it into a Slack channel')
+    await addChannelAgent(record, botSessionId)
+
+    return c.json({ bots: await channelBots(record, userId) })
+  })
+
+  slackRoutes.delete('/mappings/:workspaceId/:channelId/bots/:botSessionId', async (c) => {
+    const { record, userId, teamId } = await connectedChannel(c, c.req.query('teamId'))
+    const botSessionId = c.req.param('botSessionId')
+
+    if (!(await ownsChannelAgent(botSessionId, userId, teamId)))
+      throw new AppError(403, 'forbidden', 'Only a Bot’s owner can take it out of a Slack channel')
+    await removeChannelAgent(record, botSessionId)
+
+    return c.json({ bots: await channelBots(record, userId) })
   })
 
   slackRoutes.delete('/mappings/:workspaceId/:channelId', async (c) => {
@@ -162,4 +210,32 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
     return c.json({ ok: true, deleted })
   })
+}
+
+/** The connected channel the path names, in a team the caller is in: its hidden record. */
+async function connectedChannel(c: Context<{ Variables: AuthVariables }>, team: unknown) {
+  const teamId = await resolveVerifiedTeamId(c, typeof team === 'string' ? team : undefined)
+
+  if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
+  const mapping = await getSlackChannelMapping(
+    normalizeSlackId(c.req.param('workspaceId'), 'workspaceId'),
+    normalizeSlackId(c.req.param('channelId'), 'channelId'),
+  )
+
+  if (mapping?.teamId !== teamId || !mapping.externalChatId)
+    throw new AppError(404, 'not_found', 'This Slack channel is not connected')
+
+  return { record: mapping.externalChatId, userId: c.get('userId'), teamId }
+}
+
+/** The Bots answering in a channel, and which of them are the viewer's to remove. */
+async function channelBots(externalChatId: string | undefined, viewerId: string) {
+  const record = externalChatId ? await getConversationBySessionId(externalChatId) : null
+
+  if (!record || !isChannel(record)) return []
+
+  return (await listChannelAgents(record)).map((bot) => ({
+    ...bot,
+    mine: bot.ownerId === viewerId,
+  }))
 }

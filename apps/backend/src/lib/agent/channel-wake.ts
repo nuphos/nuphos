@@ -8,7 +8,12 @@ import { logError } from '@/lib/observability'
 import { getConversationBySessionId } from './db'
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
-import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
+import {
+  CHANNEL_SENDER_PREFIX,
+  noticeChannelId,
+  SLACK_CHANNEL_SENDER_PREFIX,
+} from './db/channel-notes'
+import { readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import {
@@ -24,21 +29,26 @@ import { systemSender } from './message-metadata'
 import type { MessageMetadata } from './message-metadata'
 import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 
-/** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
-export const channelNotice = (channelId: string) =>
-  `New messages in a Nuphos channel (channelId ${channelId}).`
+/**
+ * A channel's wake notice as queued: fixed per channel, so the queue keeps one.
+ * A Slack channel's record (#3702) is named for what it is, never a Nuphos chat.
+ */
+export const channelNotice = (channel: Pick<AgentConversation, 'sessionId' | 'external'>) =>
+  `New messages in ${channel.external === 'slack' ? 'a Slack channel' : 'a Nuphos channel'} (channelId ${channel.sessionId}).`
 
 /** Who a channel's wake notice is from: the channel, never a person. */
 export const channelNoticeSender = (
   teamId: string,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   displayName: string,
 ): MessageMetadata =>
-  systemSender(
-    `${CHANNEL_SENDER_PREFIX}${channelId}`,
-    displayName,
-    `/teams/${teamId}/agent/${channelId}`,
-  )
+  channel.external === 'slack'
+    ? systemSender(`${SLACK_CHANNEL_SENDER_PREFIX}${channel.sessionId}`, displayName)
+    : systemSender(
+        `${CHANNEL_SENDER_PREFIX}${channel.sessionId}`,
+        displayName,
+        `/teams/${teamId}/agent/${channel.sessionId}`,
+      )
 
 /**
  * Steers the agent's running turn with the notice and the posts it has not
@@ -48,7 +58,7 @@ export const channelNoticeSender = (
  */
 export async function steerRunningTurn(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
 ) {
   // Lazy so importing this does not pull in the runtime graph.
@@ -60,7 +70,7 @@ export async function steerRunningTurn(
   const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
 
   if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) return false
-  const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channelId) }
+  const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channel) }
   const { messages, markRead } = await withChannelPosts(agent.sessionId, agent.userId, [notice])
 
   // Already read, during the very turn it would steer.
@@ -75,7 +85,7 @@ export async function steerRunningTurn(
     return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
-  await addRunChannels(agent.userId, active.streamId, [channelId])
+  await addRunChannels(agent.userId, active.streamId, [channel.sessionId])
   await markRead()
 
   return true
@@ -93,14 +103,14 @@ export const QUEUED_NOTICE_STEER = { attempts: 15, delayMs: 2_000 }
  */
 export function steerQueuedNotice(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
   noticeId: string,
 ) {
   // The notice stays queued, so a failure here only leaves it to the turn's end.
-  retrySteer(agent, channelId, metadata, noticeId).catch((error: unknown) => {
+  retrySteer(agent, channel, metadata, noticeId).catch((error: unknown) => {
     logError('agent.channel.steer_failed', error, {
-      channel_id: channelId,
+      channel_id: channel.sessionId,
       session_id: agent.sessionId,
     })
   })
@@ -108,7 +118,7 @@ export function steerQueuedNotice(
 
 async function retrySteer(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
   noticeId: string,
 ) {
@@ -123,7 +133,7 @@ async function retrySteer(
     const [notice] = waiting ? await takePendingUserMessages(userId, sessionId, [waiting]) : []
 
     if (!notice) return
-    if (await steerRunningTurn(agent, channelId, metadata)) return
+    if (await steerRunningTurn(agent, channel, metadata)) return
     await requeuePendingAtHead(userId, sessionId, [notice])
     // The turn may have ended while the notice was off the queue.
     sessionReleased(userId, sessionId)
@@ -132,10 +142,8 @@ async function retrySteer(
 
 /** The channel a message is the wake notice of, if it is one. */
 export function channelIdOf(message: { source?: string; metadata?: MessageMetadata }) {
-  const id = message.metadata?.sender?.id
-
-  return message.source === 'agent.resource' && id?.startsWith(CHANNEL_SENDER_PREFIX)
-    ? id.slice(CHANNEL_SENDER_PREFIX.length)
+  return message.source === 'agent.resource'
+    ? noticeChannelId(message.metadata?.sender?.id)
     : undefined
 }
 
@@ -179,7 +187,7 @@ export async function withChannelPosts<
       // What people see of it: the newest post, as the agent got it.
       ...(channelPost ? { metadata: { ...message.metadata!, channelPost } } : {}),
       // From the bare notice, so a requeued one does not carry its posts twice.
-      renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}`,
+      renderedText: `${channelNotice(channel)}\n\n${channelPage(page)}`,
     })
   }
 

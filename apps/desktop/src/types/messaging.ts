@@ -22,7 +22,11 @@ export type SlackChannelMapping = {
     botInChannel: boolean
     archived: boolean
   } | null
+  /** The Bots that answer in this channel (#3702); `mine` ones the viewer may remove. */
+  bots?: SlackChannelBot[]
 }
+
+export type SlackChannelBot = { sessionId: string; title?: string; avatar: string; mine?: boolean }
 
 export type DiscordConnection = {
   configured: boolean

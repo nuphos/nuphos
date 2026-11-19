@@ -1,5 +1,22 @@
 import type { MessageMetadata } from '../message-metadata'
 
+/** The sender id a chat's wake notice carries, which also picks its instructions. */
+export const CHANNEL_SENDER_PREFIX = 'channel:'
+/**
+ * A Slack channel's notice (#3702) carries this instead: the apps draw `channel:`
+ * as a chat to open, and a Slack channel's record is never opened in Nuphos.
+ */
+export const SLACK_CHANNEL_SENDER_PREFIX = 'slack-channel:'
+
+/** The chat whose wake notice a sender id is, if it is one. */
+export function noticeChannelId(senderId: string | undefined): string | undefined {
+  const prefix = [CHANNEL_SENDER_PREFIX, SLACK_CHANNEL_SENDER_PREFIX].find((candidate) =>
+    senderId?.startsWith(candidate),
+  )
+
+  return prefix && senderId ? senderId.slice(prefix.length) || undefined : undefined
+}
+
 /** How an agent in a channel asks its owner; shared by the channel wake and the system prompt. */
 export const OWNER_DECISION_NOTE =
   "When you need this conversation's owner (the person you work for) to choose, approve, or give you information, open a request_user_decision card for it and post at most one short sentence pointing to that card, never the question itself: a question in a post scrolls away and never reaches their Inbox."

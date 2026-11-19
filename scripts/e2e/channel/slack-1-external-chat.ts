@@ -4,7 +4,7 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { until } from '../processes.ts'
+import { artifacts, until } from '../processes.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
 
 import type { Stack } from '../stack.ts'
@@ -33,6 +33,20 @@ function mongo(stack: Stack, body: string, args: unknown = null): unknown {
 }
 
 let events = 0
+
+/** One call to the Slack settings API as the e2e user, a team admin who owns the E2E Bot. */
+async function settings(stack: Stack, method: string, path: string, body?: object) {
+  const query = body ? '' : `${path.includes('?') ? '&' : '?'}teamId=${stack.teamId}`
+  const response = await fetch(`${stack.apiUrl}${path}${query}`, {
+    method,
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    ...(body ? { body: JSON.stringify({ teamId: stack.teamId, ...body }) } : {}),
+  })
+
+  if (!response.ok) throw new Error(`${method} ${path} answered ${String(response.status)}`)
+
+  return (await response.json()) as unknown
+}
 
 /** One person's Slack message in the connected channel, delivered as Slack signs it. */
 async function slackMessage(stack: Stack, user: string, text: string, extra: object = {}) {
@@ -63,35 +77,37 @@ async function answer(stack: Stack, chatId: string, text: string) {
 
 export default {
   name: "a Slack channel's messages reach its Bot as an external chat, only the owner speaks for them, and the Bot answers in Slack",
-  run: async (_page, stack) => {
+  run: async (page, stack) => {
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
     addSlackUser('UNEW', { team_id: WORKSPACE, email: 'stranger@example.com', name: 'Stranger' })
-    // The record the settings will make for this channel: the E2E Bot's, and nobody's chat.
-    const { chatId, created } = mongo(
+    // The workspace's installation, as OAuth would store it.
+    const created = mongo(
       stack,
-      `const bot = await db.collection('agent_conversations').findOne({ title: 'E2E Bot', avatar: { $exists: true } })
-      const chatId = crypto.randomUUID()
-      await db.collection('agent_conversations').insertOne({ sessionId: chatId, userId: bot.userId,
-        teamId: args.teamId, kind: 'channel', external: 'slack', agentSessionIds: [bot.sessionId],
-        title: '#e2e', firstMessage: '', messageCount: 0, createdAt: new Date(), lastActiveAt: new Date() })
-      await db.collection('slack_channel_mappings').insertOne({ slackWorkspaceId: args.workspace,
-        slackChannelId: args.channel, teamId: args.teamId, externalChatId: chatId, enabled: true,
-        createdBy: 'e2e', createdAt: new Date(), updatedAt: new Date() })
-      const done = await db.collection('team_byos_bindings').updateOne(
+      `const done = await db.collection('team_byos_bindings').updateOne(
         { _id: new ObjectId(args.teamId) },
         { $push: { slackWorkspaces: { id: new ObjectId(), slackTeamId: args.workspace,
           slackTeamName: 'E2E', botUserId: 'UE2EBOT', encryptedBotToken: args.token,
           installerSlackUserId: null, scope: '', createdAt: new Date() } } },
         { upsert: true })
-      return { chatId, created: Boolean(done.upsertedId) }`,
-      {
-        workspace: WORKSPACE,
-        channel: CHANNEL,
-        teamId: stack.teamId,
-        token: sealSlackToken('xoxb-e2e'),
-      },
-    ) as { chatId: string; created: boolean }
+      return Boolean(done.upsertedId)`,
+      { workspace: WORKSPACE, teamId: stack.teamId, token: sealSlackToken('xoxb-e2e') },
+    ) as boolean
+    // The settings, as an admin and then the Bot's owner use them: connect, then bring the Bot.
+    const { mapping } = (await settings(stack, 'PUT', '/slack/mappings', {
+      slackWorkspaceId: WORKSPACE,
+      slackChannelId: CHANNEL,
+    })) as { mapping: { externalChatId: string } }
+    const chatId = mapping.externalChatId
+    const { myBots } = (await settings(stack, 'GET', '/slack/mappings')) as {
+      myBots: { sessionId: string; title?: string }[]
+    }
+    const bot = myBots.find((candidate) => candidate.title === 'E2E Bot')
+
+    if (!bot) throw new Error('The settings do not offer the E2E Bot')
+    await settings(stack, 'POST', `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`, {
+      botSessionId: bot.sessionId,
+    })
 
     try {
       const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')
@@ -153,16 +169,36 @@ export default {
         throw new Error(`The owner's message was stored ${String(stored.asked)} times`)
       if (stored.replyTo !== `slack:${CHANNEL}:${asked}`)
         throw new Error(`The thread reply quotes ${String(stored.replyTo)}, not its root`)
+      // The settings screen as it is reviewed, in light: the channel with its Bot, then connecting one.
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      await page
+        .getByRole('button', { name: /^Open Slack/ })
+        .first()
+        .click()
+      const channels = page.getByText('Connected channels', { exact: true })
+
+      await channels.waitFor()
+      await channels.scrollIntoViewIfNeeded()
+      await page.getByText('E2E Bot', { exact: true }).first().waitFor()
+      await page.screenshot({ path: `${artifacts}/slack-settings-channels-light.png` })
+      await page.getByRole('button', { name: 'Connect a channel' }).click()
+      await page.getByText('Link by ID', { exact: true }).waitFor()
+      await page.screenshot({ path: `${artifacts}/slack-settings-connect-light.png` })
+      await page.keyboard.press('Escape')
     } finally {
+      await settings(stack, 'DELETE', `/slack/mappings/${WORKSPACE}/${CHANNEL}`)
       mongo(
         stack,
-        `await db.collection('slack_channel_mappings').deleteOne({ slackChannelId: args.channel })
-        await db.collection('agent_conversations').deleteOne({ sessionId: args.chatId })
+        `await db.collection('agent_conversations').deleteOne({ sessionId: args.chatId })
         await db.collection('agent_messages').deleteMany({ sessionId: args.chatId })
         const team = { _id: new ObjectId(args.teamId) }
         if (args.created) await db.collection('team_byos_bindings').deleteOne(team)
         else await db.collection('team_byos_bindings').updateOne(team, { $pull: { slackWorkspaces: { slackTeamId: args.workspace } } })`,
-        { channel: CHANNEL, teamId: stack.teamId, workspace: WORKSPACE, created, chatId },
+        { teamId: stack.teamId, workspace: WORKSPACE, created, chatId },
       )
     }
   },

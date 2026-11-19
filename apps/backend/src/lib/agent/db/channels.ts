@@ -49,9 +49,6 @@ export type ChannelFields = {
   meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
 }
 
-/** The sender id a channel notice carries, which also picks its instructions. */
-export const CHANNEL_SENDER_PREFIX = 'channel:'
-
 export function isChannel(conversation: ChannelFields | null | undefined): boolean {
   return conversation?.kind === 'channel'
 }

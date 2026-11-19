@@ -196,6 +196,13 @@ export const teamChannels = {
     teamId: string,
     input: { slackWorkspaceId: string; slackUserId: string },
   ) => atlas.linkMySlackUser(teamId, input),
+  'atlas:setSlackChannelBot': (
+    _e: unknown,
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ) => atlas.setSlackChannelBot(teamId, channel, botSessionId, answers),
   'atlas:upsertSlackChannelMapping': (
     _e: unknown,
     teamId: string,

@@ -1,17 +1,11 @@
 import clsx from 'clsx'
-import {
-  ExternalLink as ExternalLinkIcon,
-  MessagesSquare as MessagesSquareIcon,
-  Hash as HashIcon,
-  Link as LinkIcon,
-} from 'lucide-react'
-import { Fragment } from 'react'
+import { ExternalLink as ExternalLinkIcon, Link as LinkIcon } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
 import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
-import type { FormEvent, ReactNode } from 'react'
+import type { FormEvent } from 'react'
 
 const inputClasses =
   'w-full h-9 rounded-md border border-line-control bg-surface px-3 text-[13px] text-main outline-none transition-colors focus:border-line-focus placeholder:text-tertiary'
@@ -44,8 +38,6 @@ export function LinkChannelPanel({
   canManage,
   installed,
   oauthAvailable,
-  botMention,
-  botDmLink,
   onInstall,
   newChannelWorkspaceId,
   setNewChannelWorkspaceId,
@@ -57,8 +49,6 @@ export function LinkChannelPanel({
   canManage: boolean
   installed: boolean
   oauthAvailable: boolean
-  botMention: string | null
-  botDmLink: string | null
   onInstall: () => void
   newChannelWorkspaceId: string
   setNewChannelWorkspaceId: (value: string) => void
@@ -67,65 +57,8 @@ export function LinkChannelPanel({
   linkChannelSubmitting: boolean
   onSubmit: (e: FormEvent) => Promise<void>
 }) {
-  // The command and the reply button are styled, so split one sentence around them.
-  const mentionSteps = botMention
-    ? t('Invite it ({command}), @mention it, then click {button} in its reply.')
-    : t('Invite it, @mention it, then click {button} in its reply.')
-  const mentionNodes: Record<string, ReactNode> = {
-    '{command}': <span className="font-mono text-[11px]">/invite @{botMention}</span>,
-    '{button}': <span className="text-secondary">Link this channel</span>,
-  }
-
   return (
     <div className="divide-y divide-line-control/60 border-t border-line-control/60">
-      <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
-          <UiIcon size={14} icon={HashIcon} className="h-3.5 w-3.5 text-secondary" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">
-            {t('Mention the bot in the channel')}
-          </div>
-          <div className="mt-0.5 text-[12px] text-tertiary">
-            {mentionSteps.split(/(\{\w+\})/).map((part, i) => (
-              <Fragment key={i}>{mentionNodes[part] ?? part}</Fragment>
-            ))}
-          </div>
-        </div>
-        {canManage && (
-          <InstallButton
-            oauthAvailable={oauthAvailable}
-            installed={installed}
-            onInstall={onInstall}
-          />
-        )}
-      </div>
-
-      <div className="flex items-start gap-3 px-4 py-3.5">
-        <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
-          <UiIcon size={14} icon={MessagesSquareIcon} className="h-3.5 w-3.5 text-secondary" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-medium text-main">{t("Pick from the bot's DM")}</div>
-          <div className="mt-0.5 text-[12px] text-tertiary">
-            {t('Your DM with the bot has a channel picker for its own workspace.')}
-          </div>
-        </div>
-        {botDmLink && (
-          <button
-            type="button"
-            onClick={() => window.open(botDmLink, '_blank')}
-            className="mt-1 inline-flex h-7 flex-shrink-0 items-center gap-1.5 rounded-md border border-line-control px-2 text-[11.5px] text-secondary transition-colors hover:border-line-control hover:text-main"
-          >
-            <UiIcon size={16} icon={ExternalLinkIcon} className="h-4 w-4" />
-            {t('Open DM')}
-          </button>
-        )}
-        {canManage && !installed && (
-          <InstallButton oauthAvailable={oauthAvailable} installed={false} onInstall={onInstall} />
-        )}
-      </div>
-
       <div className="flex items-start gap-3 px-4 py-3.5">
         <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-surface-sunken">
           <UiIcon size={14} icon={LinkIcon} className="h-3.5 w-3.5 text-secondary" />
@@ -182,6 +115,13 @@ export function LinkChannelPanel({
             </div>
           )}
         </div>
+        {canManage && (
+          <InstallButton
+            oauthAvailable={oauthAvailable}
+            installed={installed}
+            onInstall={onInstall}
+          />
+        )}
       </div>
     </div>
   )

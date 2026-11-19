@@ -197,6 +197,12 @@ export const teamApi = {
     teamId: string,
     input: { slackWorkspaceId: string; slackUserId: string },
   ) => ipcRenderer.invoke('atlas:linkMySlackUser', teamId, input),
+  atlasSetSlackChannelBot: (
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ) => ipcRenderer.invoke('atlas:setSlackChannelBot', teamId, channel, botSessionId, answers),
   atlasUpsertSlackChannelMapping: (
     teamId: string,
     input: { slackWorkspaceId: string; slackChannelId: string; enabled?: boolean },

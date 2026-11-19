@@ -6,6 +6,7 @@ import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type {
+  SlackChannelBot,
   SlackChannelMapping,
   SlackChannelOption,
   SlackConnectionStatus,
@@ -26,6 +27,8 @@ function isSlackId(value: string): boolean {
 export function useSlackSettings(teamId: string, currentUserId: string) {
   const [installation, setInstallation] = useState<SlackInstallation | null>(null)
   const [channelMappings, setChannelMappings] = useState<SlackChannelMapping[]>([])
+  // The viewer's own Bots: the only ones they may bring into a channel (#3702).
+  const [myBots, setMyBots] = useState<SlackChannelBot[]>([])
   const [userMappings, setUserMappings] = useState<SlackUserMapping[]>([])
   const [myMapping, setMyMapping] = useState<SlackUserMapping | null>(null)
   const [status, setStatus] = useState<SlackConnectionStatus | null>(null)
@@ -95,7 +98,8 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
         if (connectionStatus.error) {
           toast.error(t('Slack connection check failed'), connectionStatus.error)
         }
-        setChannelMappings(channels)
+        setChannelMappings(channels.mappings)
+        setMyBots(channels.myBots)
         setMyMapping(mySlackMapping)
 
         if (isAdmin) {
@@ -200,9 +204,30 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
     }
   }
 
+  async function setChannelBot(
+    mapping: SlackChannelMapping,
+    botSessionId: string,
+    answers: boolean,
+  ) {
+    setBusyKey(`bot:${mapping.id}:${botSessionId}`)
+    try {
+      const bots = await api.atlasSetSlackChannelBot(teamId, mapping, botSessionId, answers)
+
+      setChannelMappings((all) =>
+        all.map((row) => (row.id === mapping.id ? { ...row, bots } : row)),
+      )
+    } catch (err) {
+      toast.apiError(t('Could not change the Bots in this channel'), err)
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   return {
     installation,
     channelMappings,
+    myBots,
+    setChannelBot,
     myMapping,
     status,
     loading,
