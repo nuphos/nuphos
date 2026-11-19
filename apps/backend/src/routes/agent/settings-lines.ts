@@ -244,7 +244,8 @@ export function settingsTimelineLines(
   let startedOver = false
 
   for (const { change, provider } of withProviders(changes)) {
-    if (change.via === 'placement') continue
+    // Where a new Task starts, and the picks it starts with, are on the chip: neither is a change.
+    if (change.via === 'placement' || change.via === 'new_chat') continue
     const last = out.at(-1)
 
     if (MOVES.has(change.via)) {

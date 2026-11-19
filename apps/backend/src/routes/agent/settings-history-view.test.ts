@@ -318,3 +318,13 @@ test('settings stored at the agent’s default alongside a pick change nothing',
     ]),
   ).toEqual(['Release notes for the November desktop… (a Task) changed the model to GPT-6.2-Astra'])
 })
+
+test('a new Task’s first picks show nothing, and a later change from them does', () => {
+  expect(
+    texts([
+      placed,
+      pick(1, { via: 'new_chat', model: { to: sol }, fast: { to: on } }),
+      pick(3, { model: { from: sol, to: astra } }),
+    ]),
+  ).toEqual(['Yuanlin changed the model from GPT-6.2-Sol to GPT-6.2-Astra'])
+})

@@ -151,6 +151,35 @@ export const settingsHistoryScenarios: Scenario[] = [
         // A new Task starts on the agent last used, and the scenarios after this one expect the first.
         await pickAgent(page, 'E2E fixture agent')
         await page.getByText('moved this task from E2E second agent to E2E fixture agent').waitFor()
+
+        // A new Task starts on the person's last picks. They are on the chip, and no line says
+        // the person changed them.
+        await newTask(page)
+        await send(page, 'Remembered picks E2E_DELIVERY:retune-remembered')
+        await page.getByText('ACK E2E_DELIVERY:retune-remembered', { exact: true }).waitFor()
+        const auth = { headers: { authorization: `Bearer ${stack.token}` } }
+        const found = (await (
+          await fetch(
+            `${stack.apiUrl}/agent/conversations?teamId=${stack.teamId}&search=retune-remembered`,
+            auth,
+          )
+        ).json()) as { conversations: { sessionId: string }[] }
+        const remembered = found.conversations[0]?.sessionId
+
+        await until('the new Task to record the picks it started with', async () => {
+          const history = await fetch(
+            `${stack.apiUrl}/agent/conversations/${remembered ?? ''}/settings-history?teamId=${stack.teamId}`,
+            auth,
+          )
+
+          return ((await history.json()) as { changes: Change[] }).changes.some(
+            (change) => change.via === 'new_chat',
+          )
+        })
+        await page.waitForTimeout(1_000)
+        if (await line(page, / changed | turned | set /).count())
+          throw new Error('A new Task showed a line for the picks it started with')
+        await capture(page, 'settings-history-remembered')
       } finally {
         stopOffering()
         await page.evaluate((previous) => {
