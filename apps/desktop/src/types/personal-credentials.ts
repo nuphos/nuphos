@@ -1,6 +1,12 @@
 export type PersonalCredentialProvider =
   'github' | 'linear' | 'gmail' | 'google-drive' | 'google-calendar'
 
+/** Google grants are per team and have no team binding to act as the member. */
+export const GOOGLE_PROVIDERS = ['gmail', 'google-drive', 'google-calendar'] as const
+
+export const isGoogle = (provider: PersonalCredentialProvider) =>
+  (GOOGLE_PROVIDERS as readonly string[]).includes(provider)
+
 export type PersonalCredential = {
   provider: PersonalCredentialProvider
   login: string

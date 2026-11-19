@@ -245,7 +245,7 @@ export function DesignsView({
           icon={Palette}
           title={t('Designs')}
           description={t(
-            "Lay out a product's screens on one canvas: live HTML frames, sections, notes and the flow between them. Start from scratch, or let the agent sketch the screens.",
+            "Lay out a product's screens on one canvas: live HTML frames, sections, notes and the flow between them. Start from scratch, or let Nuphos sketch the screens.",
           )}
           primaryAction={{
             label: t('New design'),

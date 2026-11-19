@@ -208,6 +208,8 @@ class ChatSession(
         private set
     private var observationClock by mutableStateOf(RuntimeObservation.now())
     private var submissionPending by mutableStateOf(false)
+    /** Nothing in flight: a store may let it go without losing a reply or a send. */
+    val idle: Boolean get() = !isStreaming && !submissionPending && queued.isEmpty()
     private var replySubmissionPending = false
     private var repliedWaitKey: String? = null
     private var steeringPending by mutableStateOf(false)
@@ -351,6 +353,7 @@ class ChatSession(
                 if (!hasAiAccess) return@launch
                 AgentChatApi.setBypass(token, sessionId, mode == PermissionMode.Bypass)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 permissionMode = previous
                 showError(e)
             }
@@ -425,6 +428,7 @@ class ChatSession(
                 if (hasAiAccess) permissionMode = if (it) PermissionMode.Bypass else PermissionMode.Auto
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (!hasAiAccess || detailGeneration != detailLoadGeneration) return
             draftAccessInvalidated = e is NuphosApi.Failure.Unauthorized || (e is NuphosApi.Failure.Http && e.code in setOf(403, 404))
             loadError = e.message
@@ -446,6 +450,15 @@ class ChatSession(
     private var preparedTransfer: AttachmentTransfers.Pending? = null
 
     fun send(text: String) = send(ComposerSubmission(text))
+
+    fun failedTurn(userId: String?): ChatRow.FailedTurn? =
+        if (isStreaming || hasActiveRun || runtimeTurnActive || submissionPending || !canSubmit) null
+        else ChatRow.failedTurn(messages, userId, foreignChat = !isOwner)
+
+    fun retryFailedTurn(userId: String?) {
+        val prompt = failedTurn(userId)?.prompt ?: return
+        send(prompt)
+    }
 
     /**
      * The secure input card's answer, as on the desktop and iOS: the value goes
@@ -493,7 +506,7 @@ class ChatSession(
         }
         if (uploadDraft != null) { error = Words(R.string.convtext_retry_attachments_first); return false }
         val pending = try { preparedTransfer?.takeIf { it.attachmentIds == submission.attachments.map { a -> a.id } } ?: transfers.retain(submission.attachments) }
-            catch (e: Exception) { error = e.message; return false }
+            catch (e: Exception) { if (e is CancellationException) throw e; error = e.message; return false }
         uploadDraft = submission
         retainedTransfer = pending
         beginUpload()
@@ -658,6 +671,7 @@ class ChatSession(
                 }
                 startTurn(TurnOptions(streamId = newId(), continueAfterInterruption = true, resumeReason = "approval-decision"))
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 submissionPending = false
                 replySubmissionPending = false
                 replaceTool(mi, pi, part)
@@ -731,6 +745,7 @@ class ChatSession(
                     }
                 }
                 catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     cancelRequested = false
                     showError(e)
                     // The reader asked for this and may be far up the transcript: show them why it didn't happen.
@@ -1002,6 +1017,7 @@ class ChatSession(
                 if (queued.firstOrNull() == text) queued = queued.drop(1)
                 addSteering(id, text, assistantId)
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 if (!hasAiAccess) return@launch
                 if (RuntimeApi.definitelyRejected(e)) {
                     steeringRetryRequired = true
@@ -1123,10 +1139,17 @@ class ChatSession(
         lastSyncedSignature = signature()
     }
 
+    private var shownBefore = false
+
     suspend fun pollWhileIdle() {
         if (!hasAiAccess) return
+        // Back on a chat it showed before (or back in the foreground), the first read is at once,
+        // not after 3 s (#3526). A first open has just loaded it: reading again then would race that load.
+        var wait = !shownBefore
+        shownBefore = true
         while (coroutineContext.isActive && hasAiAccess) {
-            delay(3_000)
+            if (wait) delay(3_000)
+            wait = true
             if (!hasAiAccess) return
             observationClock = RuntimeObservation.now()
             if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue
@@ -1568,6 +1591,7 @@ class ChatSession(
                 AgentChatApi.putTranscript(token, teamId, sessionId, title, wire, if (transcriptFullResend) null else transcriptRebasedTo)
             }.onSuccess { lastSyncedSignature = sig }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.d(TAG, "transcript sync failed: $e")
         }
     }

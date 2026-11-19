@@ -41,6 +41,8 @@ export type AgentDevice = DeviceAgentRecords & {
   userId: string
   deviceId: string
   label: string
+  /** Its switch for updating itself when idle, as it last reported it; the computer keeps it. */
+  autoInstall?: boolean
   platform: string
   /** The machine's model as the OS names it, e.g. "MacBook Pro"; absent for a Box. */
   model?: string

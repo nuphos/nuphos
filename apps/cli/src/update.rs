@@ -6,14 +6,14 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
 
-/// Nuphos Cloud's answer whichever backend this CLI uses: releases are global,
-/// and the GitHub API this used to ask rate-limits shared IPs.
-const LATEST: &str = "https://api.nuphos.ai/cli/latest";
+fn latest_url() -> String {
+    format!("{}/cli/latest", crate::config::api_url().trim_end_matches('/'))
+}
 
 /// The newest published CLI version.
 pub async fn latest() -> Option<String> {
     let text = reqwest::Client::new()
-        .get(LATEST)
+        .get(latest_url())
         .header("user-agent", concat!("nuphos-cli/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(5))
         .send()
@@ -29,8 +29,12 @@ pub async fn latest() -> Option<String> {
 }
 
 fn parse(version: &str) -> Option<(u64, u64, u64)> {
+    if version.bytes().any(|b| !b.is_ascii_digit() && b != b'.') {
+        return None;
+    }
     let mut parts = version.split('.').map(|p| p.parse().ok());
-    Some((parts.next()??, parts.next()??, parts.next()??))
+    let parsed = (parts.next()??, parts.next()??, parts.next()??);
+    parts.next().is_none().then_some(parsed)
 }
 
 pub fn is_newer(version: &str) -> bool {
@@ -48,7 +52,7 @@ pub fn check_enabled() -> bool {
 /// `nuphos update`: installs the newest release over this binary.
 pub async fn update() -> Result<i32> {
     let current = env!("CARGO_PKG_VERSION");
-    let latest = latest().await.ok_or_else(|| anyhow!("could not look up the newest release at {LATEST}"))?;
+    let latest = latest().await.ok_or_else(|| anyhow!("could not look up the newest release at {}", latest_url()))?;
     if !is_newer(&latest) {
         println!("nuphos {current} is up to date.");
         return Ok(0);
@@ -73,6 +77,22 @@ pub async fn update() -> Result<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_only_three_numeric_version_parts() {
+        for invalid in [
+            "1.2.3.4",
+            "99.0.0.$(echo test)",
+            "99.0.0.; echo test",
+            "+1.2.3",
+            "1.2.+3",
+            "1..3",
+            "1.2.3suffix",
+            "1.2.3\n",
+        ] {
+            assert_eq!(parse(invalid), None, "accepted {invalid:?}");
+        }
+    }
 
     #[test]
     fn compares_versions_numerically() {

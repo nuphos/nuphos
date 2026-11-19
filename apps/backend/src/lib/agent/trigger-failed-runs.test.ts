@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { runtimeGone } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 
 import { systemSender } from './message-metadata'
@@ -110,6 +111,17 @@ test('a signed-out agent counts as a lasting failure', async () => {
     await recordFailedFires(signedOut, fire, deps)
   expect(row.enabled).toBe(false)
   expect(row.executionAuthorizationError).toContain('sign-in is no longer valid')
+})
+
+// #3718: failed before the turn, while resolving the agent, and never counted.
+test('an agent that is gone counts as a lasting failure', async () => {
+  for (let run = 0; run < PAUSE_AFTER_FAILED_RUNS; run++)
+    await recordFailedFires(runtimeGone(), fire, deps)
+  expect(row.enabled).toBe(false)
+  expect(row.executionAuthorizationError).toContain('Move this conversation to another agent')
+  expect(alerts).toEqual([
+    { title: 'Trigger paused', body: `Hourly report: ${row.executionAuthorizationError}` },
+  ])
 })
 
 test('a failure that passes with time never pauses the Trigger', async () => {
