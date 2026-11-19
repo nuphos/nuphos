@@ -94,9 +94,10 @@ function Unavailable({
   )
 }
 
-/** Past its lifetime the backend deletes a group: no retry brings it back. */
+/** Past its lifetime a group is refused, then deleted: no retry brings it back. */
+const GONE = new Set(['transfer_expired', 'transfer_not_found'])
 const failureOf = (failure: unknown) =>
-  parseAtlasError(failure).code === 'transfer_not_found' ? 'gone' : 'error'
+  GONE.has(parseAtlasError(failure).code ?? '') ? 'gone' : 'error'
 
 /** Resolve a persisted group reference with the viewer's own credentials. */
 export function ReplyImage({

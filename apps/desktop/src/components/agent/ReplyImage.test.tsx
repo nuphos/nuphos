@@ -48,12 +48,13 @@ const atlasError = (code: string) =>
   new Error(`__ATLAS_API_ERROR__${JSON.stringify({ message: 'File transfer not found', code })}`)
 
 // #3861: past 24 hours the backend deletes the group, and the reply offered a Retry that never works.
-test('a file the backend no longer has reads as expired, with no Retry', async () => {
-  const { text, retry } = await shown(() => Promise.reject(atlasError('transfer_not_found')))
+for (const code of ['transfer_expired', 'transfer_not_found'])
+  test(`a file the backend refuses as ${code} reads as expired, with no Retry`, async () => {
+    const { text, retry } = await shown(() => Promise.reject(atlasError(code)))
 
-  assert.match(text, /File expired — no longer available\./)
-  assert.equal(retry, false)
-})
+    assert.match(text, /File expired — no longer available\./)
+    assert.equal(retry, false)
+  })
 
 test('an expired video says File, not Image', async () => {
   const { text } = await shown(async () => ({
