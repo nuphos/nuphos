@@ -196,10 +196,10 @@ export function Modal({
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
-            titleHidden && headerInset === 'wide' && 'min-h-10',
+            titleHidden && headerInset === 'wide' && 'min-h-14',
             headerInset === 'wide'
               ? titleHidden
-                ? 'items-center px-8 py-1.5 pr-16'
+                ? 'items-center px-8 py-3.5 pr-16'
                 : 'px-8 py-4 pr-16'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
@@ -255,7 +255,7 @@ export function Modal({
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
             headerInset === 'wide'
               ? titleHidden
-                ? 'right-[26px] top-1 min-h-8'
+                ? 'right-[26px] top-3 min-h-8'
                 : 'right-[26px] top-4 min-h-8'
               : headerCompact
                 ? 'right-2 top-1.5'
