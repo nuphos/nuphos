@@ -62,19 +62,21 @@ test('catalog reads never erase unsupported saved settings before attachment', a
   for (const moved of [false, true]) {
     const state = await conversationSessionConfig(conversation(moved), undefined, 'owner')
 
-    expect(state.options[0]?.currentValue).toBe(moved ? '' : 'sol')
+    // What the session will run on, named: the model and the effort it starts with.
+    expect(state.options.map((option) => option.currentValue)).toEqual(['sol', 'low'])
   }
   expect(writes).toEqual([])
 })
-test('an explicit valid choice on a moved conversation is persisted', async () => {
+test('a model chosen on a moved conversation is saved together with its effort', async () => {
   const state = await conversationSessionConfig(
     conversation(true),
     { configId: 'model', value: 'astra' },
     'owner',
   )
 
-  expect(state.options[0]?.currentValue).toBe('astra')
-  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra' } } }])
+  expect(state.options.map((option) => option.currentValue)).toEqual(['astra', 'low'])
+  // The model is saved with the effort it runs on, never alone.
+  expect(writes).toEqual([{ $set: { initialSessionConfig: { model: 'astra', effort: 'low' } } }])
 })
 test('an unsupported explicit choice is refused without deleting the saved settings', async () => {
   await expect(
