@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import ai.nuphos.android.data.AgentRuntimeApi
+import ai.nuphos.android.data.*
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.LocalAgentStore
@@ -53,6 +53,7 @@ fun RuntimesPage() {
         val observations = remember { RuntimesStore(scope, current, api::catalog, api::quotas, api::devices, expired) }
         val selection = remember { auth.runtimeSelections.bind(account, team.id) }
         val setup = remember { RuntimeSetupStore(api, scope, current, { current() && agents.selectedTeam?.isAdministrator == true }, selection, expired, loginAllowed = { runtime -> current() && inventoryDestination(runtime, agents.selectedTeam?.isAdministrator == true, observations.devices) in setOf(InventoryDestination.CloudDetails, InventoryDestination.ProviderSignIn) }, useSelectedRuntime = false) }
+        var adding by remember { mutableStateOf<RuntimeGroup?>(null) }
         var managing by remember { mutableStateOf(false) }
         var runtimeId by remember { mutableStateOf<String?>(null) }
         DisposableEffect(observations, setup) { onDispose { observations.close(); setup.close() } }
@@ -63,7 +64,31 @@ fun RuntimesPage() {
         }
         if (current()) {
         RuntimeInventory(observations,
-            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true })
+            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it })
+        adding?.let { target ->
+            val device = observations.devices.firstOrNull { it.id == target.device?.id }
+            if (device?.canAddRuntime == true) key(device.id) {
+                val creation = remember { NewRuntimeStore(api, scope, device,
+                    { observations.runtimes.filter { it.local?.deviceId == device.id } },
+                    { current() && observations.devices.any { it.id == device.id && it.canAddRuntime } }, expired,
+                    { adding = null; observations.refresh() }) }
+                val newSelection = remember { RuntimeSelections.Selection(account, team.id).also {
+                    it.saveCatalog(observations.runtimes.filter { row -> row.local?.deviceId == device.id })
+                } }
+                val transport = remember { object : RuntimeTransport by api {
+                    override suspend fun catalog(): List<AgentRuntime> {
+                        val rows = api.catalog()
+                        val pending = creation.runtime
+                        return if (pending != null && rows.none { it.id == pending.id }) rows + pending else rows
+                    }
+                } }
+                val newSetup = remember { RuntimeSetupStore(transport, scope, current, { false }, newSelection, expired,
+                    loginAllowed = { runtime -> current() && runtime.local?.deviceId == device.id &&
+                        observations.devices.any { it.id == device.id && it.canAddRuntime } }, useSelectedRuntime = false) }
+                DisposableEffect(creation) { onDispose { creation.close(); newSetup.close(); newSelection.invalidate() } }
+                NewRuntimeSheet(creation, newSetup)
+            }
+        }
         if (managing && setup.isSourceCurrent()) {
             val runtime = runtimeId?.let { id -> observations.runtimes.firstOrNull { it.id == id } }
             val destination = runtime?.let { inventoryDestination(it, team.isAdministrator, observations.devices) }
@@ -82,7 +107,7 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
+fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}) {
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -106,7 +131,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
                     TextButton(onClick = store::refresh, enabled = !store.loading) { Text(stringResource(R.string.try_again)) }
                 }
             }
-            if (store.runtimes.isEmpty()) item {
+            if (store.runtimes.isEmpty() && store.devices.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.Cloud, null)
@@ -144,6 +169,13 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
                                 }
                             }
                         }
+                        if (group.device?.canAddRuntime == true) TextButton(onClick = { onAdd(group) },
+                            modifier = Modifier.padding(horizontal = 16.dp).testTag("new-runtime-${group.device.id}")) {
+                            Text(stringResource(R.string.new_runtime_title))
+                        } else if (group.runtimes.isEmpty() && group.device?.box == null) Text(
+                            if (group.device?.access == "use") stringResource(R.string.new_runtime_ask_owner)
+                            else stringResource(R.string.new_runtime_install, group.title),
+                            modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

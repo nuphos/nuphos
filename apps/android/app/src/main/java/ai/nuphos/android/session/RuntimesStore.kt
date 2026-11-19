@@ -68,13 +68,16 @@ class RuntimesStore(
 }
 
 data class RuntimeGroup(val key: String, val title: String, val device: RuntimeDevice?, val runtimes: List<AgentRuntime>)
-fun runtimeGroups(runtimes: List<AgentRuntime>, devices: List<RuntimeDevice>): List<RuntimeGroup> =
-    runtimes.groupBy { it.local?.deviceId?.let { id -> "device:$id" } ?: if (it.kind == "managed") "cloud" else "runtime:${it.id}" }
+fun runtimeGroups(runtimes: List<AgentRuntime>, devices: List<RuntimeDevice>): List<RuntimeGroup> {
+    val groups = runtimes.groupBy { it.local?.deviceId?.let { id -> "device:$id" } ?: if (it.kind == "managed") "cloud" else "runtime:${it.id}" }
         .map { (key, rows) ->
             val host = rows.first().local
             val device = host?.deviceId?.let { id -> devices.firstOrNull { it.id == id } }
             RuntimeGroup(key, if (key == "cloud") Words(R.string.agent_cloud) else device?.label ?: host?.deviceLabel ?: rows.first().label, device, rows)
-        }.sortedBy { if (it.key == "cloud") 0 else 1 }
+        }
+    return (groups + devices.filter { device -> groups.none { it.key == "device:${device.id}" } }
+        .map { RuntimeGroup("device:${it.id}", it.label, it, emptyList()) }).sortedBy { if (it.key == "cloud") 0 else 1 }
+}
 
 /** Unknown access never grants sign-in; the API also checks the current actor. */
 enum class InventoryDestination { CloudDetails, ProviderSignIn, HostInstructions, AdministratorInstructions, Unavailable }
