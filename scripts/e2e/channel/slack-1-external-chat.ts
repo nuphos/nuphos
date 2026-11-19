@@ -53,7 +53,9 @@ async function shootSettings(page: Page, file: string) {
 
   await channels.waitFor()
   await page.getByText('Mei Bot', { exact: true }).first().waitFor()
-  await channels.scrollIntoViewIfNeeded()
+  // The dialog scrolls its own body: bring the channel list to its top.
+  await channels.evaluate((element) => element.scrollIntoView({ block: 'start' }))
+  await page.waitForTimeout(300)
   await page.screenshot({ path: `${artifacts}/${file}` })
 }
 
