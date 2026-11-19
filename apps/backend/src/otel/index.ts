@@ -22,7 +22,6 @@ export async function setupTelemetry(): Promise<{
   return { shutdown }
 }
 
-export { log } from '@/otel/log'
 export { getTracer, getMeter, getLogger } from '@/otel/api'
 export { metricsRegistry } from '@/otel/metrics'
 export { otelHono } from '@/otel/hono'
