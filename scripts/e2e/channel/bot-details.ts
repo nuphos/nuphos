@@ -31,6 +31,17 @@ async function shoot(page: Page, name: string) {
   await page.screenshot({ path: `${artifacts}/bot-details-${name}.png` })
 }
 
+/** Replies to the newest post, then scrolls up a little so posts pass under the reply bar (#3553). */
+async function replyAndScroll(page: Page) {
+  const row = page.locator('.group\\/post').last()
+
+  await row.hover()
+  await row.getByRole('button', { name: 'Reply', exact: true }).click()
+  await page.getByRole('button', { name: 'Cancel reply' }).waitFor()
+  await page.mouse.move(400, 400)
+  await page.mouse.wheel(0, -160)
+}
+
 async function openChat(page: Page, name: string) {
   await page.getByRole('tab', { name: /^Bots/ }).click()
   await page.locator('[data-sidebar-row]').filter({ hasText: name }).first().click()
@@ -119,6 +130,10 @@ const scenario: Scenario = {
     await card.waitFor()
     await details(page).getByText('Bot instructions').waitFor()
     await shoot(page, 'owner-wide-open')
+    // Replying: the transcript runs under the reply bar, beside the details.
+    await replyAndScroll(page)
+    await shoot(page, 'owner-wide-replying')
+    await page.getByRole('button', { name: 'Cancel reply' }).click()
     // Its owner renames the Bot in Edit Bot, the dialog the title bar's rename opened.
     await card.getByRole('button', { name: 'Edit Bot' }).click()
     const name = page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' })
@@ -197,6 +212,14 @@ const scenario: Scenario = {
       await setBotDetails(page, true)
       await checkFloating(page)
       await shoot(page, 'owner-narrow-open')
+      // Replying, the popover ends above the reply bar. A press on a post is a press outside, so
+      // the reply starts first.
+      await setBotDetails(page, false)
+      await replyAndScroll(page)
+      await setBotDetails(page, true)
+      await checkFloating(page)
+      await shoot(page, 'owner-narrow-replying')
+      await page.getByRole('button', { name: 'Cancel reply' }).click()
       await openChat(page, GROUP)
       await shoot(page, 'group-narrow')
     } finally {
@@ -204,6 +227,8 @@ const scenario: Scenario = {
       await cdp.detach()
     }
     await openChat(page, 'E2E Bot')
+    // Saved closed for the scenarios after this one, whatever a press outside left.
+    await setBotDetails(page, true)
     await setBotDetails(page, false)
     // Leave the lists as the scenarios after this one expect them: the Bot back with its
     // owner, then it, its chat and the group archived.
