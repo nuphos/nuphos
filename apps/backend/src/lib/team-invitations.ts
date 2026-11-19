@@ -1,5 +1,6 @@
 import { config } from '@/config'
 import { isEmailConfigured, sendEmail } from '@/lib/email'
+import { logError } from '@/lib/observability'
 
 import type { NuphosTeam } from '@/lib/identity'
 import type { NuphosTeamRole } from '@/lib/identity/types'
@@ -146,7 +147,7 @@ export async function sendTeamInvitationEmail(
 
     return true
   } catch (err) {
-    console.error('team-invitations: failed to send invitation email', err)
+    logError('team_invitation.email_failed', err)
 
     return false
   }

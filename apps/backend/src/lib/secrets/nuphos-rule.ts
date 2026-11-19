@@ -104,6 +104,18 @@ const CONTEXTUAL: Shape[] = [
       /--(?:token|password|passwd|secret|api-key|client-secret|access-key|private-key)[= ](?!\[REDACTED:[a-z0-9-]+\](?!\S))("[^"]+"|'[^']+'|[^\s"']+)/dgi,
     group: 1,
   },
+  {
+    // "API key <value> expired", "invalid token <value>": prose that names a
+    // key without `=` or `:`. The value must hold a digit, so the words that
+    // follow "key" in an ordinary sentence stay readable, and start with a
+    // word character, so "the secret /run/secrets/db1" (a path) does too. The
+    // gap stays on one line. A heuristic: values under 16 characters, or cut by
+    // a character outside the set (`@`, `:`, `$`), are not caught.
+    kind: 'secret-phrase',
+    pattern:
+      /\b(?:(?:api|access|secret)[ _-]?key|token|password|secret)[ \t]+(?!\[REDACTED)(?=[\w.~+/=-]*\d)(\w[\w.~+/=-]{15,})/dgi,
+    group: 1,
+  },
 ]
 
 /** Shannon entropy in bits per character. */
