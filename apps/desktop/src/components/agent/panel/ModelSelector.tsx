@@ -148,13 +148,21 @@ export function ModelSelector({
     <Menu
       open={control.open}
       onOpenChange={control.setOpen}
-      // Start on the current model, so ↑/↓ move from where the user is.
+      // Start on the current model, scrolled into view and highlighted, so ↑/↓
+      // move from where the user is. Base UI's Menu offers no way to set the
+      // highlighted item and does not follow focus, but it highlights the item
+      // the pointer moves over, so the checked row is given one such move.
       onOpenChangeComplete={(shown) => {
         if (!shown) return
         const checked = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')
 
-        if (checked) checked.focus()
-        else if (!model) sliderRef.current?.focus()
+        if (!checked) {
+          if (!model) sliderRef.current?.focus()
+
+          return
+        }
+        checked.focus()
+        checked.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
       }}
     >
       <Tooltip
@@ -210,7 +218,12 @@ export function ModelSelector({
               </div>
             )}
             {footer.lines.length > 0 && (
-              <div className="px-1 pb-1">
+              <div
+                className={clsx(
+                  'px-1 pb-1',
+                  (model || effort || fast) && 'border-t border-line-control/60 pt-1',
+                )}
+              >
                 <ModelMenuFooter {...footer} />
               </div>
             )}

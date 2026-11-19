@@ -2,7 +2,7 @@ import clsx from 'clsx'
 import { Loader2, RefreshCw } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import { MenuGroup, MenuGroupLabel, MenuItem, MenuSeparator } from '../../ui/menu'
+import { MenuGroup, MenuGroupLabel, MenuItem } from '../../ui/menu'
 
 type FooterProps = {
   lines: string[]
@@ -18,27 +18,24 @@ export function ModelMenuFooter({ lines, error, onRetry, retrying }: FooterProps
   const Icon = retrying ? Loader2 : RefreshCw
 
   return (
-    <>
-      <MenuSeparator />
-      <MenuGroup>
-        <MenuGroupLabel className="max-w-64 text-xs font-normal normal-case tracking-normal">
-          {lines.map((line) => (
-            <span key={line} role={line === error ? 'alert' : 'status'} className="block">
-              {line}
-            </span>
-          ))}
-        </MenuGroupLabel>
-        {onRetry && (
-          <MenuItem
-            icon={<Icon size={13} className={clsx(retrying && 'animate-spin')} />}
-            disabled={retrying}
-            closeOnClick={false}
-            onClick={onRetry}
-          >
-            {t('Retry connection')}
-          </MenuItem>
-        )}
-      </MenuGroup>
-    </>
+    <MenuGroup>
+      <MenuGroupLabel className="max-w-64 text-xs font-normal normal-case tracking-normal">
+        {lines.map((line) => (
+          <span key={line} role={line === error ? 'alert' : 'status'} className="block">
+            {line}
+          </span>
+        ))}
+      </MenuGroupLabel>
+      {onRetry && (
+        <MenuItem
+          icon={<Icon size={13} className={clsx(retrying && 'animate-spin')} />}
+          disabled={retrying}
+          closeOnClick={false}
+          onClick={onRetry}
+        >
+          {t('Retry connection')}
+        </MenuItem>
+      )}
+    </MenuGroup>
   )
 }
