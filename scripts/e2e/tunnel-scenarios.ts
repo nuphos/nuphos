@@ -183,14 +183,13 @@ export const tunnelScenarios: Scenario[] = [
         await page.getByText(`${UPDATED} is back`).waitFor({ timeout: 120_000 })
         await page.getByText('Back to app', { exact: true }).click()
 
-        // The turn the restart ended stops running, and the Task carries on.
+        // The turn the restart ended stops running and says it was cut off; the Task carries on.
         await until(
           'the Task to stop running',
           async () => (await page.locator('button[title="Stop"]').count()) === 0,
           120_000,
         )
-        // TODO(#3642): wait for "This message was cut off" again. It is skipped when the restarted
-        // session comes back idle, so it does not show reliably until that is fixed.
+        await page.getByText(/This message was cut off/).waitFor({ timeout: 60_000 })
         await page.screenshot({ path: join(artifacts, 'computer-update-task-after.png') })
         // The next turn carries the cut-off message along, so its wait must not hold it.
         writeFileSync(UPDATE_RELEASE, '')
