@@ -95,10 +95,10 @@ export async function startVideo(
     await helper.evaluate(SETUP)
     // The video's clock starts at its first frame, and a tab that does not repaint sends none
     // until it changes, so the first frame is the page as it is now.
-    const { data } = (await debug.sendCommand('Page.captureScreenshot', {
-      format: 'jpeg',
-      quality: 70,
-    })) as { data?: string }
+    // A refused screenshot only loses that first frame, not the recording.
+    const { data } = (await debug
+      .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
+      .catch(() => ({}))) as { data?: string }
 
     if (data) void helper.evaluate(`draw(${JSON.stringify(data)})`).catch(() => {})
     debug.on('message', video.onMessage)

@@ -14,7 +14,7 @@ const temp = mkdtempSync(join(tmpdir(), 'video-test-'))
 const output = { dir: temp, creator: { name: 'Nuphos Desktop', version: '1.0.0' } }
 
 /** A tab whose debugger records the commands it is sent. */
-function tab({ failScreencast = false } = {}) {
+function tab({ failScreencast = false, failScreenshot = false } = {}) {
   const debug = Object.assign(new EventEmitter(), {
     commands: [] as { method: string; params?: object }[],
     attached: false,
@@ -29,6 +29,8 @@ function tab({ failScreencast = false } = {}) {
       debug.commands.push({ method, params })
       if (failScreencast && method === 'Page.startScreencast')
         return Promise.reject(new Error('screencast refused'))
+      if (failScreenshot && method === 'Page.captureScreenshot')
+        return Promise.reject(new Error('screenshot refused'))
 
       return Promise.resolve(method === 'Page.captureScreenshot' ? { data: 'SHOT' } : {})
     },
@@ -156,4 +158,11 @@ test('a video starts with the page as it is at record_start, before any screenca
     methods(debug).indexOf('Page.captureScreenshot') <
       methods(debug).indexOf('Page.startScreencast'),
   )
+})
+
+test('a refused first screenshot still starts the video', async () => {
+  const { contents, debug } = tab({ failScreenshot: true })
+
+  await startVideo(contents.debugger, () => Promise.resolve(helper()))
+  assert.ok(methods(debug).includes('Page.startScreencast'))
 })
