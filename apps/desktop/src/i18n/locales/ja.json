@@ -5637,6 +5637,7 @@
   "{a}, {b}, and {n} others": "{a}、{b} ほか {n} 人",
   "{badge}, show all": "{badge}、すべて表示",
   "{box} is offline.": "{box} はオフラインです。",
+  "{box} is paused. It resumes when you send.": "{box} は一時停止中です。送信すると再開します。",
   "{box}’s disk is almost full ({percent}%).": "{box} のディスクがほぼいっぱいです ({percent}%)。",
   "{box}’s disk is almost full ({percent}%). Bots and tasks on it may fail.": "{box} のディスクがほぼいっぱいです ({percent}%)。このコンピューターのボットやタスクが失敗する可能性があります。",
   "{breakdown}, show in Changes": "{breakdown}、「変更」に表示",
