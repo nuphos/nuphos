@@ -158,7 +158,8 @@ struct RuntimeQuota: Decodable, Sendable {
     /// The widest a reset reads, under a day and past one, for a column that fits any of them.
     static var widestResets: [String] {
         let now = Date(timeIntervalSince1970: 0)
-        return [23 * 60 + 59, 29 * 1440 + 23 * 60].compactMap { resetsIn(now.addingTimeInterval(Double($0) * 60), now: now) }
+        let minutes: [Double] = [1439, 43_140] // 23h 59m, 29d 23h
+        return minutes.compactMap { (minutes: Double) -> String? in resetsIn(now.addingTimeInterval(minutes * 60), now: now) }
     }
 
     let runtimeId: String
