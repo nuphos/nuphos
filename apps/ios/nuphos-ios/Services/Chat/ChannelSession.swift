@@ -83,7 +83,9 @@ final class ChannelSession {
             await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
-            if !loaded { loadError = error.localizedDescription; loaded = true }
+            // Cancelled (the chat closed, the app left the foreground): not a
+            // failure, and not loaded, so the next poll reads it (#3620).
+            if !loaded, !Task.isCancelled { loadError = error.localizedDescription; loaded = true }
         }
     }
 
