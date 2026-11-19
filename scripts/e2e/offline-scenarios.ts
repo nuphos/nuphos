@@ -2,14 +2,93 @@
 import { join } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
-import { LAPTOP, laptopOnline } from './laptop-fixture.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
 
+import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
+const LAPTOP = 'E2E laptop'
 const MATE_LAPTOP = 'E2E teammate laptop'
-const BOX = 'E2E disk Box'
+
+const GIB = 1024 ** 3
+
+// A computer of this person's with a signed-in Claude Code, online until the returned function
+// is called. With `diskPercent` it also reports its readings, as full as that; `client` is the
+// app it connects as, and `app` the update its Nuphos Desktop has found; `owner` is whose
+// computer it is, this person by default.
+async function laptopOnline(
+  stack: Stack,
+  {
+    diskPercent,
+    client,
+    app,
+    owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
+  }: {
+    diskPercent?: number
+    client?: string
+    app?: { version: string; update: { version: string; ready: boolean } }
+    owner?: { token: string; deviceId: string; label: string }
+  } = {},
+): Promise<() => void> {
+  const authorization = `Bearer ${owner.token}`
+  const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
+    method: 'PUT',
+    headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      deviceId: owner.deviceId,
+      label: owner.label,
+      platform: 'darwin',
+      allowLocalExec: true,
+    }),
+  })
+
+  if (!registered.ok) throw new Error(`Registering the laptop answered ${registered.status}`)
+  const tunnel = new WebSocket(
+    `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${owner.deviceId}/runtime-tunnel`,
+    {
+      headers: { authorization, ...(client ? { 'x-atlas-client': client } : {}) },
+    } as unknown as string[],
+  )
+
+  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
+  await new Promise((opened, failed) => {
+    tunnel.addEventListener('open', opened)
+    tunnel.addEventListener('error', failed)
+  })
+  tunnel.send(
+    JSON.stringify({
+      t: 'status',
+      status: {
+        localMetrics: diskPercent !== undefined,
+        app,
+        agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+      },
+    }),
+  )
+  if (diskPercent === undefined) return () => tunnel.close()
+  const report = () =>
+    tunnel.send(
+      JSON.stringify({
+        t: 'metrics',
+        metrics: {
+          sampledAt: new Date().toISOString(),
+          cpuPercent: 12,
+          memory: { used: 6 * GIB, total: 16 * GIB },
+          disk: { used: diskPercent * GIB, total: 100 * GIB },
+        },
+      }),
+    )
+  // A reading counts as live for 12 seconds.
+  const reporting = setInterval(report, 4_000)
+
+  report()
+
+  return () => {
+    clearInterval(reporting)
+    tunnel.close()
+  }
+}
 
 export const offlineScenarios: Scenario[] = [
   {
@@ -43,9 +122,7 @@ export const offlineScenarios: Scenario[] = [
   },
   {
     // #3181: a disk about to fill was only a gauge, until a turn failed on it.
-    // #3848: Free space is offered only where it clears caches in place, on a running Box the
-    // viewer manages; a person's own computer has nothing to clear from here.
-    name: 'a conversation on a computer whose disk is almost full says so, without a button that only navigates',
+    name: 'a conversation on a computer whose disk is almost full says so, and leads to the computer',
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, { diskPercent: 93 })
 
@@ -100,44 +177,11 @@ export const offlineScenarios: Scenario[] = [
         } finally {
           if (size) await page.setViewportSize(size)
         }
-        if ((await banner.getByRole('button', { name: 'Free space' }).count()) > 0)
-          throw new Error('The banner offers Free space on a computer it cannot clear')
-      } finally {
-        goOffline()
-      }
-    },
-  },
-  {
-    // #3848: on a running Box the viewer manages, Free space opens its card's Clear caches
-    // where the conversation is, instead of leading to the Computers page.
-    name: 'a conversation on a Box whose disk is almost full clears its caches in place',
-    run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { diskPercent: 93, box: BOX })
-
-      try {
-        await newTask(page)
-        await send(page, 'On the fixture E2E_DELIVERY:before-box-disk')
-        await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
-        await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(BOX).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
-        const banner = page.getByRole('status').filter({
-          hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
-        })
-
         await banner.getByRole('button', { name: 'Free space' }).click()
-        const confirm = page.getByRole('alertdialog', { name: `Clear caches on ${BOX}?` })
-
-        await confirm
-          .getByText('Workspaces, sign-ins, Docker images and volumes are kept.')
-          .waitFor()
-        await page.waitForTimeout(500)
-        await page.screenshot({ path: join(artifacts, 'disk-box-confirm.png') })
-        await confirm.getByRole('button', { name: 'Cancel' }).click()
-        await confirm.waitFor({ state: 'hidden' })
-        // Still in the conversation: nothing navigated away to the computer's page.
-        await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
+        await page.getByText('Disk almost full: 7 GB free').waitFor()
+        // The cards fade in; the picture is taken once they have.
+        await page.waitForTimeout(1_500)
+        await page.screenshot({ path: join(artifacts, 'disk-computer.png') })
       } finally {
         goOffline()
       }
