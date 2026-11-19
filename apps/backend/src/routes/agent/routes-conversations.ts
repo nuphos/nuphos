@@ -181,8 +181,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const openabSessionId = liveAttachment(result.conversation)?.openabSessionId
   // An unreachable runtime answers the way the list does, never "disconnected":
   // whether its Box is online is the agent's own status, not this session's.
+  // A runtime still saying active once its run ended answers as resting, as the list does.
   const resting =
-    probed && probed.state !== 'disconnected'
+    probed && probed.state !== 'disconnected' && (probed.state !== 'active' || transportRun)
       ? probed
       : await withSessionDesktops(
           restingRuntimeState(

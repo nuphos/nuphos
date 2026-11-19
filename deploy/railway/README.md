@@ -129,5 +129,4 @@ two isolated projects, generated Railway domains and 1 GiB test volumes. Email
 sign-in, model inference and custom-domain DNS were not tested.
 
 Keep one backend replica. Redis-backed cron, background thread queues and journal
-sealing are disabled. Backend model features and Kubernetes-managed agents need
-separate configuration. Volume snapshots/backups are the operator's responsibility.
+sealing are disabled. Backend model features need separate configuration. Volume snapshots/backups are the operator's responsibility.
