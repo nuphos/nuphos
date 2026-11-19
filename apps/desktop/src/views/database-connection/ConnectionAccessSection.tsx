@@ -29,7 +29,7 @@ export function ConnectionAccessSection({
       <SectionHeader
         icon={<ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.8} />}
         title={t('Access policy')}
-        hint={t('Who — and which agents — may use this connection')}
+        hint={t('Who — and which Bots and tasks — may use this connection')}
       />
       <div className="max-w-xl">
         <div className="text-[12px] text-secondary">{t('Member access')}</div>
@@ -94,13 +94,13 @@ export function ConnectionAccessSection({
           </div>
         )}
         <label className="mt-4 block text-[12px] text-secondary">
-          {t('Agent access')}
+          {t('Access for Bots and tasks')}
           <div className="mt-1">
             <AppSelect
               value={connection.agentPolicy}
               onValueChange={(value) => onUpdatePolicy(value as DatabaseAgentPolicy)}
               disabled={!isTeamAdmin || busy || !connection.access}
-              ariaLabel={t('Agent access policy')}
+              ariaLabel={t('Access policy for Bots and tasks')}
               options={
                 connection.providerOrigin?.capabilities.query === false
                   ? AGENT_POLICY_OPTIONS.filter((o) => o.value !== 'read-only')
@@ -111,17 +111,17 @@ export function ConnectionAccessSection({
         </label>
         <div className="mt-2 rounded-md border border-line-control bg-state-selected p-2.5 text-[10.5px] leading-4 text-tertiary">
           {connection.agentPolicy === 'disabled'
-            ? t('Agent tools cannot discover or access this database.')
+            ? t('Bots and tasks cannot discover or access this database.')
             : connection.providerOrigin
               ? t(
-                  'Agent tools can discover this provider resource and its supported metadata. Query and change tools remain unavailable unless the provider adapter explicitly exposes those capabilities.',
+                  'Bots and tasks can discover this provider resource and its supported metadata. Query and change tools remain unavailable unless the provider adapter explicitly exposes those capabilities.',
                 )
               : connection.agentPolicy === 'metadata-only'
                 ? t(
-                    'Agent tools can discover metadata and propose governed change Plans, but query execution is rejected.',
+                    'Bots and tasks can discover metadata and propose governed change Plans, but query execution is rejected.',
                   )
                 : t(
-                    'Agent tools can inspect metadata, run bounded read-only queries, and propose governed change Plans. Mutations still require Plan approval and explicit execution.',
+                    'Bots and tasks can inspect metadata, run bounded read-only queries, and propose governed change Plans. Mutations still require Plan approval and explicit execution.',
                   )}
         </div>
         <div className="mt-3 flex gap-2 text-[11.5px] text-tertiary">
@@ -131,7 +131,7 @@ export function ConnectionAccessSection({
                 'Provider credentials are resolved from the active connector only inside backend operations and never copied into prompts, sandboxes, or this database resource.',
               )
             : t(
-                'Credentials are decrypted only inside backend operations and are never placed in prompts or sandboxes. Agent queries appear in Audit with source “agent”.',
+                'Credentials are decrypted only inside backend operations and are never placed in prompts or sandboxes. Queries from Bots and tasks appear in Audit.',
               )}
         </div>
       </div>
