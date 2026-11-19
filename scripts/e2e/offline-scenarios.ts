@@ -150,6 +150,40 @@ export const offlineScenarios: Scenario[] = [
     },
   },
   {
+    // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
+    name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
+    run: async (page, stack) => {
+      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
+
+      try {
+        await newTask(page)
+        await send(page, 'On the fixture E2E_DELIVERY:before-outdated')
+        await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menu').getByText(LAPTOP).first().click()
+        await page
+          .getByRole('menuitem', { name: /Claude Code/ })
+          .last()
+          .click()
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        const banner = page
+          .getByRole('status')
+          .filter({ hasText: `Nuphos on ${LAPTOP} is out of date. Bots and tasks on it may fail.` })
+
+        await banner.waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
+        await banner.getByRole('button', { name: 'Update' }).click()
+        await page.getByText('Nuphos on this computer is out of date').waitFor()
+        await page.getByText('Open Nuphos on it and restart to update.').waitFor()
+        // The cards fade in; the picture is taken once they have.
+        await page.waitForTimeout(1_500)
+        await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
     // #3446: someone who can only use the computer cannot free space on it, so they get no
     // banner; the runtime picker's disk meter says who can.
     name: "a teammate's computer whose disk is almost full says who can free space, without a banner",
@@ -162,24 +196,25 @@ export const offlineScenarios: Scenario[] = [
       ).json()) as { id: string }
       const owner = { token: teammate.token, deviceId: 'e2e-teammate-laptop', label: MATE_LAPTOP }
       const goOffline = await laptopOnline(stack, { diskPercent: 93, owner })
+      // Who may use the teammate's computer: just this person, then no one again, so it does
+      // not linger in this person's runtime picker for the scenarios after this one.
+      const share = (userIds: string[]) =>
+        fetch(`${stack.apiUrl}/agent/devices/${owner.deviceId}/share?teamId=${stack.teamId}`, {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${teammate.token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            level: userIds.length > 0 ? 'full' : 'off',
+            everyone: false,
+            userIds,
+            managerIds: [],
+          }),
+        })
 
       try {
-        const shared = await fetch(
-          `${stack.apiUrl}/agent/devices/${owner.deviceId}/share?teamId=${stack.teamId}`,
-          {
-            method: 'PUT',
-            headers: {
-              authorization: `Bearer ${teammate.token}`,
-              'content-type': 'application/json',
-            },
-            body: JSON.stringify({
-              level: 'full',
-              everyone: false,
-              userIds: [me.id],
-              managerIds: [],
-            }),
-          },
-        )
+        const shared = await share([me.id])
 
         if (!shared.ok) throw new Error(`Sharing the teammate's laptop answered ${shared.status}`)
         await newTask(page)
@@ -225,40 +260,7 @@ export const offlineScenarios: Scenario[] = [
         if (banners > 0) throw new Error('Someone who cannot free space was shown the disk banner')
         await page.screenshot({ path: join(artifacts, 'disk-shared-no-banner.png') })
       } finally {
-        goOffline()
-      }
-    },
-  },
-  {
-    // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
-    name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
-    run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
-
-      try {
-        await newTask(page)
-        await send(page, 'On the fixture E2E_DELIVERY:before-outdated')
-        await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
-        await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await page
-          .getByRole('menuitem', { name: /Claude Code/ })
-          .last()
-          .click()
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
-        const banner = page
-          .getByRole('status')
-          .filter({ hasText: `Nuphos on ${LAPTOP} is out of date. Bots and tasks on it may fail.` })
-
-        await banner.waitFor()
-        await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
-        await banner.getByRole('button', { name: 'Update' }).click()
-        await page.getByText('Nuphos on this computer is out of date').waitFor()
-        await page.getByText('Open Nuphos on it and restart to update.').waitFor()
-        // The cards fade in; the picture is taken once they have.
-        await page.waitForTimeout(1_500)
-        await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
-      } finally {
+        await share([]).catch(() => null)
         goOffline()
       }
     },
