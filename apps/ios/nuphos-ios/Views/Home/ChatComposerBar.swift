@@ -47,7 +47,6 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
-    @State private var mentionResults: [AgentConversation] = []
     /// The `@Title`s picked into the draft, and the links they are sent as.
     @State private var mentionLinks: [String: URL] = [:]
     #if canImport(UIKit)
@@ -73,8 +72,13 @@ struct ChatComposerBar<Controls: View>: View {
     private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
+    /// Nothing until the sessions are listed, so the list never opens part-filled.
+    private var mentionResults: [AgentConversation] {
+        guard let query = mentionQuery, let sessions = mentions?.sessions else { return [] }
+        return SessionMention.sessions(sessions, matching: query)
+    }
     private var mentionDevices: [CredentialCatalog.Item] {
-        guard let query = mentionQuery, let mentions else { return [] }
+        guard let query = mentionQuery, let mentions, mentions.sessions != nil else { return [] }
         return Array(mentions.devices.filter { SessionMention.matches($0.label, query) }.prefix(3))
     }
 
@@ -162,14 +166,7 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
-        .task(id: mentionQuery) {
-            guard let query = mentionQuery, let mentions else { mentionResults = []; return }
-            // Typing on cancels this task, so only a pause asks the backend.
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled else { return }
-            let found = await mentions.search(query)
-            if !Task.isCancelled { mentionResults = found }
-        }
+        .task(id: mentions?.teamId) { await mentions?.refresh() }
         .onAppear {
             guard !importedInitialAttachments else { return }
             importedInitialAttachments = true
@@ -367,7 +364,6 @@ struct ChatComposerBar<Controls: View>: View {
         let name = "@" + (conversation.title.isEmpty ? conversation.sessionId : conversation.title)
         mentionLinks[name] = link
         text = SessionMention.insert(name, into: text)
-        mentionResults = []
     }
 
     // MARK: Voice input
