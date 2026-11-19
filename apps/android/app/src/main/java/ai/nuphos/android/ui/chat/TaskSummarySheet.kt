@@ -93,16 +93,13 @@ internal fun TaskSummarySheet(
     }
 
     LaunchedEffect(inbox, allowed()) {
-        while (allowed()) {
-            inbox.refresh()
-            attempted = true
-            if (!allowed()) break
-            session.refreshResources()
-            if (!allowed()) break
-            session.refreshDownloads()
-            refreshTriggers()
-            delay(20_000)
-        }
+        pollTaskSummary(
+            allowed,
+            { inbox.refresh(); attempted = true },
+            { session.refreshResources() },
+            { session.refreshDownloads() },
+            { refreshTriggers() },
+        )
     }
     LaunchedEffect(selectedId, selected) {
         if (selectedId != null && selected == null) selectedId = null
@@ -300,4 +297,14 @@ internal fun taskSummaryBackground(snapshot: JsonValue?): List<TaskSummaryWork> 
         TaskSummaryWork(task["id"]?.stringValue ?: key, task["name"]?.stringValue ?: key)
     }
     return (terminals + tasks).distinctBy { it.id }
+}
+
+internal suspend fun pollTaskSummary(allowed: () -> Boolean, vararg reads: suspend () -> Unit) {
+    while (allowed()) {
+        for (read in reads) {
+            if (!allowed()) return
+            read()
+        }
+        delay(20_000)
+    }
 }
