@@ -327,13 +327,14 @@ test('the notes draw a line above them only under the list or the effort', async
   await act(() => locked.root.unmount())
 })
 
-// #3147: the model a runtime's Default stands for is pinned when it is clicked.
-test('clicking the model Default stands for pins it', async () => {
+// #3147: a session on Claude Code's Default is reported on the model it stands for, so that
+// model shows checked, and clicking it must still pin it.
+test('clicking the checked model still pins it', async () => {
   const picker = mount()
 
-  await picker.render(withEffort)
+  await picker.render(opencode)
   await act(() => picker.chip().click())
-  await act(() => picker.row('gpt-5.5')?.click())
-  assert.deepEqual(picker.selected, [{ configId: 'model', value: 'gpt-5.5' }])
+  await act(() => picker.row('Big Pickle')?.click())
+  assert.deepEqual(picker.selected, [{ configId: 'model', value: 'opencode/big-pickle' }])
   await act(() => picker.root.unmount())
 })
