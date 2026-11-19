@@ -1,3 +1,4 @@
+import { withOutdatedHint } from '@/lib/claude-code-preview/host-minimum-version'
 import { claudeNotice, turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import {
   AGENT_CLI_UNSTARTABLE_MESSAGE,
@@ -80,13 +81,14 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
     cause === 'usage_limit' && agent && !verifyUrlFor(error)
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
-  const reason = replyFailedReason(agent, cause, error, resetsAt)
+  const reason = withOutdatedHint(replyFailedReason(agent, cause, error, resetsAt), error)
   const verifyUrl = cause === 'usage_limit' ? verifyUrlFor(error) : null
 
   await agentConversations()
     .updateOne(
       { sessionId: channelId },
       {
+        $set: { transcriptUpdatedAt: new Date() },
         $push: pushTimelineEvent({
           kind: 'agent_reply_failed',
           at: new Date(),
