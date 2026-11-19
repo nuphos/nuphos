@@ -15,7 +15,12 @@ import {
 import { encryptPlaudSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { plaudPendingOAuth, teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -163,10 +168,7 @@ bindingScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const binding = c.get('plaudBinding')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { plaudAccounts: { id: binding.id } }, $set: { updatedAt: new Date() } },
-    )
+    await disconnectBinding(c, teamId, 'plaudAccounts', { id: binding.id })
     // Revoke after the local delete so a Plaud outage never keeps the binding.
     await revokePlaudGrant(teamId, binding)
     invalidatePlaudAccessToken(teamId, binding.id)

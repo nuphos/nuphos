@@ -121,8 +121,25 @@ export const installScenarios: Scenario[] = [
     // the app's computer has Claude Code from here on.
     name: 'this computer without Claude Code installs it from its settings, then signs it in',
     run: async (page) => {
+      // #3848: its card adds a runtime with the same + as any other computer, not a link away.
+      await page.setViewportSize({ width: 1280, height: 880 })
       await openComputers(page)
-      await page.getByRole('button', { name: 'Set up' }).first().click()
+      await page
+        .getByRole('button', { name: /^New runtime on / })
+        .first()
+        .click()
+      await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).waitFor()
+      await shot(page, 'local-0-new-runtime')
+      await page.keyboard.press('Escape')
+      await page.getByText('Back to app', { exact: true }).click()
+      await page
+        .getByRole('button', { name: /^Search/ })
+        .first()
+        .click()
+      await page.keyboard.type('User settings')
+      await page.getByRole('option', { name: 'User settings' }).first().click()
+      await page.getByRole('searchbox', { name: 'Search settings' }).fill('Local runtime')
+      await page.keyboard.press('Enter')
       const install = page.getByRole('button', { name: 'Install Claude Code' })
 
       await install.waitFor()

@@ -5,6 +5,7 @@ import { getConversationBySessionId } from '../db'
 import { readsConversation } from '../db/access'
 import { assertTeamMember, assertTriggerAccess, canManageTrigger } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
+import { writeTrigger } from '../trigger-history'
 import { unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { triggerListFilter } from './list-filter'
@@ -81,13 +82,25 @@ export async function expireTriggers(now = new Date()): Promise<number> {
     if (!trigger._id) continue
     const triggerId = trigger._id.toString()
 
-    await agentTriggers().updateOne(
+    await writeTrigger(
       {
-        _id: trigger._id,
-        enabled: true,
-        ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
+        before: trigger,
+        after: { ...trigger, enabled: false },
+        by: { actorId: 'system', via: 'expiry' },
+        reason: 'It expired',
       },
-      { $set: { enabled: false, updatedAt: now }, $inc: { configRevision: 1 } },
+      async (session) =>
+        (
+          await agentTriggers().updateOne(
+            {
+              _id: trigger._id,
+              enabled: true,
+              ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
+            },
+            { $set: { enabled: false, updatedAt: now }, $inc: { configRevision: 1 } },
+            { session },
+          )
+        ).modifiedCount > 0,
     )
     if (trigger.triggerType === 'cron') {
       await unscheduleCronTrigger(triggerId).catch((err: unknown) => {

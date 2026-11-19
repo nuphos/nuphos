@@ -17,7 +17,7 @@ export type PushDevice = {
   liveActivityStartedAt?: Date
   /** Conversations waiting for that card. */
   liveActivityPending?: PendingLiveActivityRow[]
-  /** False when this phone turned off alerts about computers going offline (iOS). */
+  /** Legacy phone flag, retained for older clients. Explicit account subscriptions govern delivery. */
   computerAlerts?: boolean
   createdAt: Date
   updatedAt: Date
