@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { openComputers } from './ui.ts'
@@ -37,6 +38,9 @@ export const installScenarios: Scenario[] = [
 
       try {
         await openComputers(page)
+        // #3637: Add computer, on the page's titlebar row, ends left of the workspace panel toggle.
+        await page.getByRole('button', { name: 'Add computer' }).waitFor()
+        await checkDockToggleClear(page, 'Computers page header', '.workspace-page-toolbar > div')
         await page.getByRole('button', { name: `New runtime on ${label}` }).click()
         await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click()
         await shot(page, 'remote-1-settings')

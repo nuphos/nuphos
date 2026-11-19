@@ -57,6 +57,7 @@ type Props = {
   onToggleAgentSidebar?: () => void
   /** Leads the header row, which it keeps alive; e.g. the collapsed sidebar's toggle. */
   leading?: ReactNode
+  /** For the titlebar row: the header row, or the controls row on a page without one. */
   headerClassName?: string
 }
 
@@ -173,8 +174,9 @@ export function Toolbar({
         // The first row sits on the traffic lights' line; a second row keeps its height.
         <div
           className={clsx(
-            showHeaderRow ? 'h-[42px]' : 'sheet-titlebar-row',
             'flex items-center px-3 gap-2',
+            // Without a header row this row is the titlebar row, so it takes the header's classes.
+            showHeaderRow ? 'h-[42px]' : ['sheet-titlebar-row', headerClassName],
           )}
         >
           {/* Sized by its content, not `flex-1`. With `flex-1` this shared a
