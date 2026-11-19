@@ -37,7 +37,7 @@ export function LarkPairCard({
         <div className="text-[13px] font-medium text-main">{t('Link your Lark account')}</div>
         <div className="mt-0.5 text-[12px] text-tertiary">
           {t(
-            'Generate a code, then DM it to the Nuphos bot in Lark to link your Lark account to your Nuphos user. The agent then acts as you. Codes are single-use and expire shortly.',
+            'Generate a code, then DM it to the Nuphos bot in Lark to link your Lark account to your Nuphos user. Nuphos then acts as you. Codes are single-use and expire shortly.',
           )}
         </div>
       </div>

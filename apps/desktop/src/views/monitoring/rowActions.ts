@@ -44,7 +44,7 @@ export function menuItems(
   if (onWatch) {
     items.push({
       key: 'watch',
-      label: t('Watch with Agent'),
+      label: t('Watch in a task'),
       icon: EyeIcon,
       onSelect: () => onWatch(row),
     })

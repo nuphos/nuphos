@@ -22,6 +22,8 @@ import kotlinx.coroutines.withContext
  * their cards. The Inbox shows them all, less those snoozed; a Bot's chat only those under the Bot.
  */
 class OpenQuestions(private val source: Source, private val clock: () -> Instant = Instant::now) {
+    val workspaceId: String? get() = (source as? Api)?.teamId
+
     interface Source {
         /** Every page of the viewer's conversations with an open question, with their parents. */
         suspend fun pending(): List<AgentConversation> = emptyList()
@@ -37,7 +39,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
         suspend fun saveCredentials(sessionId: String, access: JsonValue) {}
     }
 
-    class Api(private val token: String, private val teamId: String) : Source {
+    class Api(private val token: String, internal val teamId: String) : Source {
         override suspend fun pending(): List<AgentConversation> {
             val rows = mutableListOf<AgentConversation>()
             var cursor: String? = null
@@ -77,6 +79,10 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
     /** Why the last answer to a question failed, by [BotQuestion.id], until it is answered again. */
     var failures by mutableStateOf(emptyMap<String, String>())
         private set
+    /** First-load failure, cleared by the next successful refresh. */
+    var loadFailure by mutableStateOf<String?>(null)
+        private set
+
     /** False until the first listing lands. */
     var loaded by mutableStateOf(false)
         private set
@@ -111,11 +117,12 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
             listed = pick(source.pending())
             now = clock()
             answered = answered intersect listed.map { it.id }.toSet()
+            loadFailure = null
             loaded = true
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            // Kept as they were; the next poll tries again.
+        } catch (e: Exception) {
+            if (!loaded) loadFailure = ChannelSession.postFailureMessage(e)
         }
     }
 

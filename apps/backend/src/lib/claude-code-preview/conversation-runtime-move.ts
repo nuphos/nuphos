@@ -109,18 +109,17 @@ export async function moveConversationRuntime(
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
-    // Only what the destination offers, as a new conversation's first turn keeps:
-    // its runtime refuses to open a session on any other value.
-    const pick =
-      target.provider === provider
-        ? await offeredSessionConfig(
-            (model) => runtimeModelCatalog(teamId, target.id, model, userId),
-            saved ?? {},
-          ).then(
-            ({ kept }) => kept,
-            () => saved ?? {},
-          )
-        : undefined
+    // The choices the destination still offers, and its own effort and fast
+    // where none is, so the moved Task never runs on a level nobody sees.
+    // Another provider's ids mean nothing there: its choices start over.
+    const sameProvider = target.provider === provider
+    const pick = await offeredSessionConfig(
+      (model) => runtimeModelCatalog(teamId, target.id, model, userId),
+      (sameProvider && saved) || {},
+    ).then(
+      ({ kept }) => kept,
+      () => (sameProvider ? (saved ?? {}) : undefined),
+    )
     const result = await agentConversations().updateOne(
       {
         sessionId: conversation.sessionId,
