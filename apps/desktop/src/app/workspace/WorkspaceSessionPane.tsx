@@ -65,6 +65,7 @@ function TeamSessionPane({
       <WorkspaceBotsStart
         key={teamId}
         visible={botsStart}
+        loaded={bots.data !== undefined}
         firstBot={firstBot}
         teamId={teamId}
         onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}

@@ -221,6 +221,7 @@ export type AgentDevice = {
   desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
   app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
   outdated?: 'desktop' | 'cli' // Which Nuphos on it is older than the backend supports.
+  autoInstall?: boolean // Whether it updates itself when idle; absent while it is offline or older.
 }
 
 export type AgentDeviceList = {

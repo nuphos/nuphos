@@ -441,7 +441,9 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    runs-on: ubuntu-24.04
+    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
+    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
+    runs-on: instabox-medium
     timeout-minutes: 30
     permissions:
       contents: read
@@ -491,6 +493,13 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
+      # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
+      - name: Time chat switches
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:chat-switch
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -503,6 +512,9 @@ jobs:
             ${{ runner.temp }}/e2e-onboarding
             !${{ runner.temp }}/e2e-onboarding/mongo
             !${{ runner.temp }}/e2e-onboarding/sign-in
+            ${{ runner.temp }}/e2e-chat-switch
+            !${{ runner.temp }}/e2e-chat-switch/mongo
+            !${{ runner.temp }}/e2e-chat-switch/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them

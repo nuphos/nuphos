@@ -19,12 +19,23 @@ function localRef(agent: NamedAgent): { userId: string; deviceId: string } | nul
   return match?.[1] && match[2] ? { userId: match[1], deviceId: match[2] } : null
 }
 
+/**
+ * Whether a computer is this one. A device id names the machine, not the account: one machine
+ * signed in with two accounts is two computers, and only the one signed in here is this one.
+ */
+export function isThisComputer(
+  here: ThisComputer,
+  computer: { userId?: string; deviceId?: string } | null | undefined,
+): boolean {
+  return Boolean(here && computer?.userId === here.userId && computer.deviceId === here.deviceId)
+}
+
 export function agentTier(agent: NamedAgent, owner: ThisComputer): AgentTier {
   const ref = localRef(agent)
 
   if (!ref) return 'cloud'
 
-  return ref.userId === owner?.userId && ref.deviceId === owner.deviceId ? 'local' : 'remote'
+  return isThisComputer(owner, ref) ? 'local' : 'remote'
 }
 
 /**

@@ -104,8 +104,13 @@ export type ThreadModelPick = { model?: string; effort?: string; fast?: string }
 /** The model, effort and fast mode a conversation runs with: what a thread it starts begins on. */
 export function currentPick(conversation: AgentConversation): ThreadModelPick {
   const attachment = liveAttachment(conversation)
+  const { model, ...settings } = attachment
+    ? storedPick(attachment)
+    : (conversation.initialSessionConfig ?? {})
 
-  return attachment ? storedPick(attachment) : (conversation.initialSessionConfig ?? {})
+  // A session on Claude Code's "Default" reports `default`, which no catalog
+  // lists: it means the agent's default, what a session given no model runs.
+  return model && model !== 'default' ? { ...settings, model } : settings
 }
 
 /**

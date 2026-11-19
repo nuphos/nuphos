@@ -6,6 +6,7 @@ import {
   agentTier,
   defaultAgent,
   groupAgentsByTier,
+  isThisComputer,
   listedAgents,
   newChatAgent,
   unavailable,
@@ -156,4 +157,14 @@ test('the agent connected from the home composer is picked as soon as it lists',
   assert.equal(newChatAgent([], undefined, me), undefined)
   assert.equal(newChatAgent([signedOut], undefined, me), undefined)
   assert.equal(newChatAgent([connected], undefined, me)?.id, 'local_u1_mac')
+})
+
+test('one machine signed in with two accounts is this computer only for the account signed in here', () => {
+  const here = { userId: 'me', deviceId: 'mac' }
+
+  assert.equal(isThisComputer(here, { userId: 'me', deviceId: 'mac' }), true)
+  assert.equal(isThisComputer(here, { userId: 'my-other-account', deviceId: 'mac' }), false)
+  assert.equal(isThisComputer(here, { userId: 'me', deviceId: 'studio' }), false)
+  assert.equal(isThisComputer(here, { deviceId: 'mac' }), false)
+  assert.equal(isThisComputer(null, { userId: 'me', deviceId: 'mac' }), false)
 })

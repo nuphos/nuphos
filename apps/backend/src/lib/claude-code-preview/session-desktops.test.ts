@@ -118,3 +118,23 @@ describe('session desktops', () => {
     expect(await withSessionDesktops(snapshot, { sessionId: 's1' })).toBe(snapshot)
   })
 })
+
+describe('a computer card’s automatic updates switch', () => {
+  test('shows what the computer reports, and while it is offline what it last reported', async () => {
+    const { createMemoryPresenceStore } = await import('@/lib/agent/devices/local-runtime/presence')
+    const { ownComputer } = await import('./session-desktops')
+    const presence = createMemoryPresenceStore()
+    const ref = { userId: 'owner', deviceId: 'srv', autoInstall: false }
+
+    expect((await ownComputer(ref, 'owner', presence)).autoInstall).toBe(false)
+    await presence.claim('owner', 'srv', 'c1', {
+      conn: 'c1',
+      status: { agents: {}, autoInstall: true } as LocalRuntimeStatus,
+      seenAt: Date.now(),
+    })
+    expect((await ownComputer(ref, 'owner', presence)).autoInstall).toBe(true)
+    expect(
+      (await ownComputer({ userId: 'owner', deviceId: 'new' }, 'admin', presence)).autoInstall,
+    ).toBeUndefined()
+  })
+})
