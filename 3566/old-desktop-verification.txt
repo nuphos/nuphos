@@ -1,0 +1,11 @@
+Backend code head: b4db4341bfef5d667467ae35c74bcb794986868b
+Released Desktop: official 0.123.0 Linux x86_64 AppImage
+Source: https://nuphos-releases.s3.amazonaws.com/desktop/Nuphos-0.123.0-x86_64.AppImage
+AppImage SHA256: cd0a79530747194e662ee3808feccc9ba132b8b02dab02fa38ec40d46c031d4a
+The release executable and app.asar were not patched.
+Isolated profile, e2e backend/MongoDB/file store, deterministic ACP fixture; no production customer data.
+Local bundled agents disabled for this client; the external laptop fixture reports a staged newer update and refuses turns as a runtime with a restore failure.
+The check validates old-renderer compatibility and immediate Bot polling refresh, not a real Squirrel download/install or OS notification.
+Run: E2E_OLD_DESKTOP=<extracted official binary> OPENAB=<bundled openab> E2E_ARTIFACTS=<directory> xvfb-run bun scripts/e2e/run-old-desktop-update.ts
+Result: PASS released Desktop: a turn that fails on a computer with a Nuphos update waiting says to update it
+Focused backend tests: 74 pass, 0 fail. Changed-file lint: 0 errors. Repository Prettier: pass.
