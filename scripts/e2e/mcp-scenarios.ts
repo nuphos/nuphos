@@ -67,6 +67,49 @@ async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<s
 
 export const mcpScenarios: Scenario[] = [
   {
+    name: 'an MCP client finds a readable Task bound to a PR, excluding private and issue bindings',
+    run: async (_page, stack) => {
+      const { execFileSync } = await import('node:child_process')
+      const { tool } = mcp(client(stack.apiUrl, stack.token))
+      const task = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-pr-binding')
+      const setup = `
+        import { MongoClient } from 'mongodb'
+        const client = await new MongoClient(process.argv[1]).connect()
+        const conversations = client.db('nuphos_e2e').collection('agent_conversations')
+        const task = await conversations.findOne({ sessionId: process.argv[2] })
+        const { _id, ...copy } = task
+        const linkedResources = [{ provider: 'github', repository: 'Example/Repo', number: 42 }]
+        await conversations.updateOne({ _id }, { $set: { linkedResources } })
+        await conversations.insertMany([
+          { ...copy, sessionId: 'mcp-private-binding', userId: 'other', generalAccess: 'none', linkedResources },
+          { ...copy, sessionId: 'mcp-issue-binding', linkedResources: [{ ...linkedResources[0], kind: 'issue' }] },
+        ])
+        await client.close()`
+      execFileSync('bun', ['-e', setup, stack.mongoUri, task], {
+        cwd: new URL('../../apps/backend', import.meta.url),
+        timeout: 10_000,
+      })
+      const result = await tool<{ sessions: { session_id: string }[]; note: string }>(
+        'nuphos_find_pr_sessions',
+        {
+          team_id: stack.teamId,
+          repository: 'example/repo',
+          number: 42,
+        },
+      )
+      must(result.isError !== true, `PR lookup to succeed, got ${JSON.stringify(result)}`)
+      must(
+        JSON.stringify(result.structuredContent?.sessions.map((session) => session.session_id)) ===
+          JSON.stringify([task]),
+        'only the readable PR binding',
+      )
+      must(
+        result.structuredContent?.note.includes('not proof of authorship') === true,
+        'the binding boundary to be explicit',
+      )
+    },
+  },
+  {
     name: 'an MCP client lists the tools and teams, asks the agent, and the Task shows in the app',
     run: async (page, stack) => {
       const { rpc, tool } = mcp(client(stack.apiUrl, stack.token))
