@@ -27,7 +27,6 @@ mock.module('../../api', () => ({
   },
 }))
 mock.module('../ui/toast', () => ({ toast: { apiError: () => {} } }))
-mock.module('./SidebarArchiveSection', () => ({ SidebarArchiveSection: () => null }))
 mock.module('./SidebarBotPins', () => ({
   SidebarBotPins: (props: NonNullable<typeof botPins>) => {
     botPins = props

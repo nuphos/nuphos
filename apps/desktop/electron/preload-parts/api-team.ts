@@ -48,6 +48,8 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),
   atlasGetAgentStats: (teamId: string, query: { range: string; scope: string; timeZone: string }) =>
     ipcRenderer.invoke('atlas:getAgentStats', teamId, query),
+  atlasQueryTeamUsage: (teamId: string, query: Record<string, string>) =>
+    ipcRenderer.invoke('atlas:queryTeamUsage', teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>
     ipcRenderer.invoke('atlas:putHomeLayout', teamId, scope, layout),
   archListDiagrams: (teamId: string) => ipcRenderer.invoke('arch:listDiagrams', teamId),
@@ -75,6 +77,8 @@ export const teamApi = {
     ipcRenderer.invoke('designs:delete', teamId, designId),
   // --- Dashboards ---
   dashboardsList: (teamId: string) => ipcRenderer.invoke('dashboards:list', teamId),
+  dashboardsFormerMembers: (teamId: string) =>
+    ipcRenderer.invoke('dashboards:former-members', teamId),
   dashboardsCreate: (teamId: string, input: unknown) =>
     ipcRenderer.invoke('dashboards:create', teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>
@@ -167,8 +171,6 @@ export const teamApi = {
   atlasUpdateTeamMemberRole: (teamId: string, memberId: string, role: string) =>
     ipcRenderer.invoke('atlas:updateTeamMemberRole', teamId, memberId, role),
   atlasListMyInvitations: () => ipcRenderer.invoke('atlas:listMyInvitations'),
-  atlasInviteTeamMember: (teamId: string, inviteeEmail: string) =>
-    ipcRenderer.invoke('atlas:inviteTeamMember', teamId, inviteeEmail),
   atlasAcceptInvitation: (invitationId: string) =>
     ipcRenderer.invoke('atlas:acceptInvitation', invitationId),
   atlasRejectInvitation: (invitationId: string) =>

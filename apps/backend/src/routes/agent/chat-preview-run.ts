@@ -20,6 +20,7 @@ import type { AgentChatBody, AgentRun } from './types'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { PreviewDecision, PreviewWait } from '@/lib/claude-code-preview/decision-waiter'
+import type { TurnUsageReport } from '@/lib/claude-code-preview/preview-agent-update'
 import type { PreviewFrameConsumer } from '@/lib/claude-code-preview/run-frame-bridge'
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 import type { UIMessage } from 'ai'
@@ -61,7 +62,7 @@ export type PreviewChatTurnArgs = {
   direct?: boolean
   onRunHandoff?: (next: AgentRun) => void
   /** The usage the runtime reported for this turn, for per-turn accounting. */
-  onTurnUsage?: (usage: unknown) => void
+  onTurnUsage?: (report: TurnUsageReport) => void
 }
 
 /**
@@ -123,13 +124,11 @@ export function createPreviewRunState(args: {
   let unbind = bindCurrent()
   const turnAbort = new AbortController()
   const follow = (run: AgentRun) => {
-    run.abortController.signal.addEventListener(
-      'abort',
-      () => {
-        turnAbort.abort(run.abortController.signal.reason)
-      },
-      { once: true },
-    )
+    const { signal } = run.abortController
+
+    // A Stop that came while the turn was being saved has already fired its event.
+    if (signal.aborted) turnAbort.abort(signal.reason)
+    else signal.addEventListener('abort', () => turnAbort.abort(signal.reason), { once: true })
   }
 
   follow(current)

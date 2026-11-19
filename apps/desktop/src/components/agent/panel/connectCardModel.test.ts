@@ -10,6 +10,8 @@ import {
   parseChoiceRequest,
   parseConnectRequest,
   parseSecretRequest,
+  secretFieldsSavedReply,
+  secretSavedReply,
   personalConnectStatus,
   withConnectIds,
 } from './connectCardModel.ts'
@@ -178,6 +180,82 @@ test('parseSecretRequest reads a credential decision that names a secret', () =>
   assert.equal(parseSecretRequest({ ...input, secretName: '../etc/passwd' }), null)
 })
 
+test("parseSecretRequest reads a form's fields and site, and falls back to the one secret", () => {
+  const input = {
+    category: 'credential',
+    question: 'Looking up your appointment needs these details.',
+    secretName: 'CLINIC_LOOKUP',
+    fields: [
+      { name: 'NATIONAL_ID', label: ' National ID number ' },
+      { name: 'BIRTH_DATE', label: 'Date of birth (YYYY-MM-DD)' },
+    ],
+    site: 'www.clinic.example',
+  }
+  const single = { name: 'CLINIC_LOOKUP', reason: input.question }
+
+  assert.deepEqual(parseSecretRequest(input), {
+    ...single,
+    fields: [
+      { name: 'NATIONAL_ID', label: 'National ID number' },
+      { name: 'BIRTH_DATE', label: 'Date of birth (YYYY-MM-DD)' },
+    ],
+    site: 'www.clinic.example',
+  })
+  // It is never a question card: the details are not typed as an ordinary answer.
+  assert.equal(parseChoiceRequest(input), null)
+  // Fields or a site it cannot trust leave the one masked input, never a looser card.
+  for (const patch of [
+    { site: undefined },
+    { site: 'https://www.clinic.example/lookup' },
+    { site: 'clinic' },
+    { site: 'WWW.Clinic.Example' },
+    { site: 'www.clinic.example:0' },
+    { fields: [] },
+    { fields: [{ name: '../x', label: 'ID' }] },
+    { fields: [{ name: 'ID', label: ' ' }] },
+    { fields: [input.fields[0], input.fields[0]] },
+    { fields: Array.from({ length: 7 }, (_, i) => ({ name: `F${String(i)}`, label: 'x' })) },
+  ])
+    assert.deepEqual(parseSecretRequest({ ...input, ...patch }), single)
+  // A port is part of the site, as it is part of the page's origin.
+  assert.equal(parseSecretRequest({ ...input, site: 'localhost:5199' })?.site, 'localhost:5199')
+  // Without a secretName there is no secure card at all.
+  assert.equal(parseSecretRequest({ ...input, secretName: undefined }), null)
+})
+
+test('a card with several fields replies as a saved secret, one file per field', () => {
+  const reply = secretFieldsSavedReply('CLINIC_LOOKUP', [
+    { name: 'NATIONAL_ID', path: '/runtime/nuphos-secret-a/0/NATIONAL_ID' },
+    { name: 'BIRTH_DATE', path: '/runtime/nuphos-secret-b/0/BIRTH_DATE' },
+  ])
+
+  // Every client reads a reply that opens this way as the request's saved answer.
+  assert.ok(reply.startsWith(secretSavedReply('CLINIC_LOOKUP')))
+  assert.deepEqual(reply.split('\n').slice(1), [
+    'NATIONAL_ID: /runtime/nuphos-secret-a/0/NATIONAL_ID',
+    'BIRTH_DATE: /runtime/nuphos-secret-b/0/BIRTH_DATE',
+  ])
+})
+
+test('an open request keeps its fields and site for the card drawn from the record', () => {
+  const fields = [{ name: 'NATIONAL_ID', label: 'National ID number' }]
+  const question = requestQuestion({
+    id: 'req-1',
+    category: 'credential',
+    question: 'Needed for the lookup.',
+    secretName: 'CLINIC_LOOKUP',
+    fields,
+    site: 'www.clinic.example',
+  })
+
+  assert.deepEqual(parseSecretRequest(questionPart(question).input), {
+    name: 'CLINIC_LOOKUP',
+    reason: 'Needed for the lookup.',
+    fields,
+    site: 'www.clinic.example',
+  })
+})
+
 test('decisionRequestId reads the request a tool result names, also from text', () => {
   assert.equal(decisionRequestId({ ok: true, requestId: 'req-1' }), 'req-1')
   assert.equal(
@@ -200,7 +278,7 @@ test('a member who cannot bind a connector is told who can, so nobody reinstalls
 
 test('a bound credential stays usable for a member: only Connect is blocked', () => {
   // Selecting what the team already bound is not a bind, so `available` keeps its
-  // "Use in agent" — the block applies where Connect itself would be offered.
+  // "Use in task" — the block applies where Connect itself would be offered.
   const available = selection({ grafanaInstanceIds: ['g1'] })
   const status = connectRowStatus('grafana', 'idle', selection(), available)
 

@@ -51,6 +51,8 @@ fun CredentialPickerSheet(
     onSelectionChange: (CredentialSelection) -> Unit,
     onDismiss: () -> Unit,
     computersOnly: Boolean = false,
+    /** An integration question's providers: only the credentials that answer it are offered. */
+    providers: List<String>? = null,
     onConfirm: (() -> Unit)? = null,
 ) {
     val store = LocalAgentStore.current
@@ -63,7 +65,7 @@ fun CredentialPickerSheet(
         else if (selection.newConversation || selection.stored != null) loaded else ai.nuphos.android.model.CredentialCatalog(
             loaded.sections.filter { it.provider in ai.nuphos.android.model.CredentialCatalog.PROVIDERS },
         )
-    }
+    }?.answering(providers)
     val error = store.credentialCatalogError
     val scope = rememberCoroutineScope()
     // Like iOS, always ask the server when the picker opens: a connector unbound

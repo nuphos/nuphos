@@ -9,6 +9,7 @@ import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useAutoModeStore } from '@/lib/test/doubles/auto-mode-store'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useLiveTurn } from '@/lib/test/doubles/live-turn'
+import { useFakeRuntimeRequests } from '@/lib/test/doubles/runtime-request-store'
 import { useThreadRuntime } from '@/lib/test/doubles/thread-runtime'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -39,12 +40,20 @@ let bypass: boolean
 // The Bot a Task runs under, whose permission mode it follows.
 let bot: string | undefined
 let picked: Record<string, unknown> | undefined
+let changer: unknown
 let lastParts: unknown[]
 let events: { event: string; data?: Record<string, unknown> }[]
 
-useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
-useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? ({} as never) : null) })
-useLiveTurn({ getLiveTurn: async () => ({ parts: [] }) as never })
+useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
+useAgentRunStore({ getActiveAgentRunForSession: async () => (running ? {} : null) })
+// The running turn shows the call that waits for approval.
+useLiveTurn({
+  getLiveTurn: async () => ({
+    parts: [{ type: 'tool', id: 'call-1', name: 'Bash', input: { command: 'aws s3 ls' } }],
+  }),
+})
+const runtimeRequests = useFakeRuntimeRequests()
+
 useAutoModeStore({
   getSessionBypass: async () => bypass,
   setSessionBypass: async (_session, _user, enabled) => {
@@ -55,11 +64,12 @@ useAutoModeStore({
   modeSource: async (session) => bot ?? session,
 })
 useThreadRuntime({
-  setThreadModel: async (_session, _user, pick) => {
+  setThreadModel: async (_session, _user, pick, by) => {
     if (pick.model === 'nope') throw new Error('model "nope" is not offered. Choose one of: opus.')
     picked = pick
+    changer = by
 
-    return pick as never
+    return pick
   },
 })
 useAgentDb({
@@ -74,13 +84,16 @@ useAgentDb({
     }
   },
   getConversationBySessionId: async () => stored,
-  getConversationWithMessages: async () =>
-    stored && {
-      conversation: stored,
-      messages: [{ index: 1, role: 'assistant', parts: lastParts }] as never,
-    },
-  getConversationTranscriptForAgent: async () =>
-    ({ lines: ['#0 user: hi', '#1 assistant: Done so far.'], nextIndex: null }) as never,
+  // A long session's whole transcript runs to hundreds of MB; a status check reads one message.
+  getConversationWithMessages: async () => {
+    throw new Error('nuphos_check read the whole transcript')
+  },
+  getReadableConversation: async () => stored,
+  getLatestAssistantMessage: async () => ({ index: 1, role: 'assistant', parts: lastParts }),
+  getConversationTranscriptForAgent: async () => ({
+    lines: ['#0 user: hi', '#1 assistant: Done so far.'],
+    nextIndex: null,
+  }),
   liveTurnTranscriptLine: () => '#4 assistant (in progress): [tool: bash]',
   recordAgentEvent: ({ event, data }) => {
     events.push({ event, data })
@@ -141,6 +154,8 @@ describe('nuphos_update_session', () => {
     )
 
     expect(picked).toEqual({ model: 'opus', effort: 'high' })
+    // The settings record names the MCP client too.
+    expect(changer).toEqual({ actorId: 'u1', via: 'mcp_update', client: 'Claude Code' })
     expect(result).toMatchObject({ session_id: 's1', model: 'opus', full_access: true })
     // Turning Full Access on from outside is recorded with where it came from.
     expect(events).toEqual([
@@ -192,6 +207,38 @@ describe('nuphos_update_session on a Task under a Bot', () => {
 })
 
 describe('nuphos_check', () => {
+  test("a turn held on a tool call lists the caller's own approval, waiting_for_input", async () => {
+    running = true
+    const wait = (waitId: string, userId: string) =>
+      runtimeRequests.records.set(`s1:${waitId}`, {
+        wait: {
+          waitId,
+          userId,
+          sessionId: 's1',
+          kind: 'agent-permission',
+          ref: 'call-1',
+          createdAt: 0,
+        },
+        decision: null,
+      })
+
+    wait('w1', 'u1')
+    // A teammate's turn waits on them; the caller cannot decide it, so it is not theirs to see.
+    wait('w2', 'u2')
+    const result = body(await nuphosCheck({ session_id: 's1' }, ctx))
+
+    expect(result).toMatchObject({ status: 'waiting_for_input', session_id: 's1' })
+    expect(result.requests).toEqual([
+      {
+        request_id: 'w1',
+        category: 'tool_authorization',
+        tool: 'Bash',
+        input: { command: 'aws s3 ls' },
+        asked_at: '1970-01-01T00:00:00.000Z',
+      },
+    ])
+  })
+
   test('a session stopped on a question is waiting_for_input, with the question', async () => {
     stored = session({ inputRequests: [question] })
     const result = body(await nuphosCheck({ session_id: 's1' }, ctx))

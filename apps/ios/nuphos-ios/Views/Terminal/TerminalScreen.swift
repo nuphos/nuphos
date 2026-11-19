@@ -12,7 +12,7 @@ struct TerminalScreen: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button(action: close) {
-                    Image(systemName: "xmark")
+                    LucideIcon("x")
                         .font(.system(size: 15, weight: .semibold))
                         .frame(width: 36, height: 36)
                         .background(Circle().fill(Color.white.opacity(0.12)))
@@ -56,7 +56,7 @@ struct TerminalScreen: View {
 
     private func notice(_ message: String, retry: String) -> some View {
         VStack(spacing: 14) {
-            Image(systemName: "terminal")
+            LucideIcon("terminal")
                 .font(.system(size: 34, weight: .light))
             Text(message)
                 .font(Theme.Text.secondary)
@@ -64,7 +64,8 @@ struct TerminalScreen: View {
             HStack(spacing: 12) {
                 Button("Close", action: close)
                     .buttonStyle(.bordered)
-                Button(retry) { terminal.retry() }
+                // Close's shape and size; the ink fill and surface label of the desktop's Take over.
+                Button { terminal.retry() } label: { Text(retry).foregroundStyle(Theme.surface) }
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.brand)
             }

@@ -1,5 +1,4 @@
-import { faArrowUpRightFromSquare, faSpinner } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { ExternalLink as ExternalLinkIcon, LoaderCircle as LoaderCircleIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
@@ -7,6 +6,7 @@ import { CloudLogo } from '../components/CloudLogo'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import { Fill } from './bind-account/shared'
@@ -72,7 +72,7 @@ export function BindPlaudDialog({ open, teamId, onClose, onBound }: Props) {
       onClose={close}
       title={t('Connect {name}', { name: 'Plaud' })}
       description={t(
-        'Authorize Nuphos to read your Plaud recordings so the agent can search them and work from their transcripts and summaries.',
+        'Authorize Nuphos to read your Plaud recordings so it can search them and work from their transcripts and summaries.',
       )}
       width={460}
     >
@@ -93,7 +93,11 @@ export function BindPlaudDialog({ open, teamId, onClose, onBound }: Props) {
 
         {phase === 'waiting' && (
           <div className="flex flex-col items-center gap-4 py-3">
-            <FontAwesomeIcon icon={faSpinner} className="w-6 h-6 text-primary animate-spin" />
+            <UiIcon
+              size={20}
+              icon={LoaderCircleIcon}
+              className="w-5 h-5 text-primary animate-spin"
+            />
             <div className="text-[12.5px] text-secondary text-center">
               {t('Waiting for {name}… complete the authorization in your browser.', {
                 name: 'Plaud',
@@ -120,7 +124,7 @@ export function BindPlaudDialog({ open, teamId, onClose, onBound }: Props) {
         </button>
         {phase !== 'waiting' && (
           <Button size="sm" onClick={() => void startInstall()}>
-            <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5" />
+            <UiIcon size={16} icon={ExternalLinkIcon} className="w-4 h-4" />
             {t('Authorize {name}', { name: 'Plaud' })}
           </Button>
         )}

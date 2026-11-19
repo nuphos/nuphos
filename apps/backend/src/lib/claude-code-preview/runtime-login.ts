@@ -67,7 +67,7 @@ export async function requireLoginInstance(
   }
   const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
-  if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
+  if (instance.kind !== 'external' && instance.kind !== 'local')
     throw new AppError(
       400,
       'runtime_login_unavailable',
@@ -144,19 +144,21 @@ export async function performRuntimeLogin<Target>(
         else {
           // Each step replaces the one before it and takes a fresh answer.
           const update =
-            frame.type === 'step'
-              ? {
-                  $set: { state: 'awaiting_authorization' as const, step: frame.step },
-                  $unset: { codeSubmitted: '' as const },
-                }
-              : {
-                  $set: {
-                    state: 'awaiting_authorization' as const,
-                    ...(frame.type === 'authorize'
-                      ? { authorizationUrl: frame.url }
-                      : { verificationUri: frame.verificationUri, userCode: frame.userCode }),
-                  },
-                }
+            frame.type === 'installing'
+              ? { $set: { installing: true as const } }
+              : frame.type === 'step'
+                ? {
+                    $set: { state: 'awaiting_authorization' as const, step: frame.step },
+                    $unset: { codeSubmitted: '' as const },
+                  }
+                : {
+                    $set: {
+                      state: 'awaiting_authorization' as const,
+                      ...(frame.type === 'authorize'
+                        ? { authorizationUrl: frame.url }
+                        : { verificationUri: frame.verificationUri, userCode: frame.userCode }),
+                    },
+                  }
 
           updates = updates
             .then(async () => {

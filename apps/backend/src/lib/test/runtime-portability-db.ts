@@ -21,11 +21,19 @@ function matches(doc: Doc, query: Doc): boolean {
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
         )
       if ('$exists' in expected) return (actual !== undefined) === expected.$exists
+      if ('$gte' in expected || '$lt' in expected)
+        return (
+          (!('$gte' in expected) || actual >= expected.$gte) &&
+          (!('$lt' in expected) || actual < expected.$lt)
+        )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
-      if ('$in' in expected) return expected.$in.includes(actual)
+      if ('$in' in expected)
+        return Array.isArray(actual)
+          ? actual.some((value) => expected.$in.includes(value))
+          : expected.$in.includes(actual)
     }
 
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
@@ -63,9 +71,14 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     parent[parts[0]!] = value
   }
   for (const key of Object.keys(mutation.$unset ?? {})) {
-    const [head = key, tail] = key.split('.')
+    const [head = key, tail, field] = key.split('.')
 
-    if (tail === undefined) delete doc[key]
+    if (tail === '$' && field) {
+      const element = query[head]?.$elemMatch
+      const entry = doc[head]?.find((candidate: Doc) => matches(candidate, element))
+
+      if (entry) delete entry[field]
+    } else if (tail === undefined) delete doc[key]
     else if (doc[head]) delete doc[head][tail]
   }
   for (const [key, value] of Object.entries<number>(mutation.$max ?? {})) {
@@ -132,12 +145,6 @@ export function portabilityDb() {
       return cursor
     },
     insertOne: async (doc: Doc) => {
-      // The unique { teamId, hostedSlot } index on hosted runtimes.
-      if (
-        typeof doc.hostedSlot === 'number' &&
-        rows(name).some((row) => row.teamId === doc.teamId && row.hostedSlot === doc.hostedSlot)
-      )
-        throw Object.assign(new Error('Duplicate key'), { code: 11000 })
       rows(name).push(doc)
 
       return { insertedId: doc._id }

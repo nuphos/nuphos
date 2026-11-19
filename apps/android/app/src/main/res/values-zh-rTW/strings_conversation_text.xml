@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">已由使用者停止。</string>
     <string name="convtext_empty_reply">Agent 傳回了空白回覆。</string>
     <string name="convtext_steering_rejected">引導遭拒。請在執行環境允許時重試。</string>
+    <string name="convtext_stop_runtime_unreachable">執行環境沒有回應，已在這裡停止這一輪。</string>
     <string name="convtext_steering_unconfirmed">無法確認引導是否送達。重試前請先查看任務。</string>
     <string name="convtext_delivery_unconfirmed">無法確認訊息是否送達。請恢復原本的連線。</string>
     <string name="convtext_task_reloaded">此任務已在其他地方變更並重新載入。請重試傳送你的訊息。</string>
@@ -58,6 +59,7 @@
     <string name="convtext_runtime_disabled">此任務的執行環境已停用。請切換到其他執行環境以繼續。</string>
     <string name="convtext_runtime_not_found">此執行環境已無法在這個工作區使用。請切換到其他執行環境以繼續。</string>
     <string name="convtext_runtime_offline">執行此執行環境的電腦已離線。請在該電腦上開啟 Nuphos，或切換到其他執行環境。</string>
+    <string name="convtext_runtime_paused">%1$s 已暫停，傳送訊息後會自動恢復。</string>
     <string name="convtext_ask_owner">請擁有者處理</string>
     <string name="convtext_ask_admin">請管理員處理</string>
     <string name="convtext_server_status">Nuphos 傳回狀態 %1$d。</string>

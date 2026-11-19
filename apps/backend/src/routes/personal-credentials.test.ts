@@ -248,7 +248,7 @@ beforeEach(() => {
   }
 })
 
-describe.each(['github', 'linear', 'gmail', 'google-drive'])(
+describe.each(['github', 'linear', 'gmail', 'google-drive', 'google-calendar'])(
   '%s Personal Credential OAuth',
   (provider) => {
     test('the starter claims the staged grant with the callback code', async () => {
@@ -302,10 +302,14 @@ describe.each(['github', 'linear', 'gmail', 'google-drive'])(
 )
 
 describe('Google Personal Credentials', () => {
-  test('each provider asks Google for its own scope with offline access', async () => {
+  test('each provider asks Google for its own scopes with offline access', async () => {
     for (const [provider, scope] of [
-      ['gmail', 'https://www.googleapis.com/auth/gmail.modify'],
+      [
+        'gmail',
+        'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/contacts.readonly',
+      ],
       ['google-drive', 'https://www.googleapis.com/auth/drive'],
+      ['google-calendar', 'https://www.googleapis.com/auth/calendar.events'],
     ] as const) {
       const res = await requestStart(provider, 'alice')
       const url = new URL(((await res.json()) as { authorizeUrl: string }).authorizeUrl)
@@ -418,6 +422,11 @@ const turn = (actor: string, humanTurn: boolean, teamId = TEAM) =>
     humanTurn,
   })
 
+// conv-1's selection, as the conversation document stores it.
+let conversation: { userId: string; credentialAccess?: Doc } | null = null
+
+useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
+
 describe('Google token handout', () => {
   const handout = new Hono()
 
@@ -438,6 +447,27 @@ describe('Google token handout', () => {
       googleGrant('owner', 'gmail', 'owner-mail'),
       googleGrant('teammate', 'gmail', 'teammate-mail'),
     )
+    conversation = {
+      userId: 'owner',
+      credentialAccess: { personalCredentialIds: ['gmail', 'google-drive'] },
+    }
+  })
+
+  test('nothing without the conversation’s selection', async () => {
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: ['github'] } }
+    const res = await fetchToken('gmail', await turn('owner', true))
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ code: 'personal_credential_not_selected' })
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: [] } }
+    expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
+  })
+
+  test('as for connectors, a conversation with no list keeps its reach', async () => {
+    for (const stored of [{ userId: 'owner' }, { userId: 'owner', credentialAccess: {} }]) {
+      conversation = stored
+      expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(200)
+    }
   })
 
   test('the owner’s own and automated turns get the owner’s token', async () => {
@@ -487,11 +517,6 @@ describe('Google token handout', () => {
     expect((await fetchToken('dropbox', await turn('owner', true))).status).toBe(404)
   })
 })
-
-// conv-1's selection, as the conversation document stores it.
-let conversation: { userId: string; credentialAccess?: Doc } | null = null
-
-useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
 
 describe('GitHub and Linear handout without a team binding', () => {
   const handout = new Hono()
@@ -557,8 +582,13 @@ describe('GitHub and Linear handout without a team binding', () => {
   test('nothing without the conversation’s selection', async () => {
     conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: ['linear'] } }
     expect((await fetchToken('github', await turn('owner', true))).status).toBe(403)
-    conversation = { userId: 'owner' }
+    conversation = { userId: 'owner', credentialAccess: { personalCredentialIds: [] } }
     expect((await fetchToken('linear', await turn('owner', true))).status).toBe(403)
+  })
+
+  test('as for connectors, a conversation with no list keeps its reach', async () => {
+    conversation = { userId: 'owner', credentialAccess: {} }
+    expect((await fetchToken('linear', await turn('owner', true))).status).toBe(200)
   })
 
   test('a conversation owned by someone else never hands out the token’s owner grant', async () => {

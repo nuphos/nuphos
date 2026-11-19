@@ -65,7 +65,7 @@ afterAll(() => server.stop(true))
 useDb({ db: () => portabilityDb() })
 useRuntimeRegistry({
   // No operator key, so nothing answers on the control channel.
-  resolveTeamRuntimeEndpoints: (_teamId, _kube, _provider, purpose) =>
+  resolveTeamRuntimeEndpoints: (_teamId, _provider, purpose) =>
     Promise.resolve(
       purpose === 'control'
         ? []

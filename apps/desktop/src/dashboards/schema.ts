@@ -30,6 +30,8 @@ export type PanelSnapshotErrorKind =
   | 'runtime_unavailable'
   | 'runtime_outdated'
   | 'author_unavailable'
+  // The message's first line is "Not connected: <integration>".
+  | 'not_connected'
   // Only on snapshots from the retired sandbox executor.
   | 'sandbox_expired'
   | 'internal'
@@ -115,6 +117,9 @@ export type NuphosDashboardLayoutItem = {
   h: number
 }
 
+/** Who sees a dashboard: only its creator, or the whole team. */
+export type DashboardVisibility = 'personal' | 'team'
+
 export type NuphosDashboard = {
   id: string
   teamId: string
@@ -127,6 +132,8 @@ export type NuphosDashboard = {
   cadence: DashboardCadence | null
   nextRefreshAt: string | null
   lastScheduledRefreshAt: string | null
+  /** Absent from a backend that predates personal dashboards: they were all the team's. */
+  visibility?: DashboardVisibility
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -175,6 +182,7 @@ export type CreateDashboardInput = {
   name: string
   timeRange: DashboardTimeRangeInput
   rangePreset?: DashboardRangePreset
+  visibility?: DashboardVisibility
 }
 
 export type UpdateDashboardInput = {
@@ -184,6 +192,7 @@ export type UpdateDashboardInput = {
   rangePreset?: DashboardRangePreset | null
   layout?: NuphosDashboardLayoutItem[]
   cadence?: DashboardCadence | null
+  visibility?: DashboardVisibility
 }
 
 export type CreatePanelInput = {

@@ -1,14 +1,15 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { azureOidcInfo, verifyAzureBinding } from '@/lib/byos/azure'
 import { azureConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindIdentity, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { azureAccountScoped } from '@/routes/azure-accounts-scoped'
 
@@ -49,7 +50,7 @@ export function azureAccountsView(
     // to members in the list.
     ...(isAdmin ? { access: accessView(b.access) } : {}),
     // Admins pass the member-access gate regardless of the allow-list.
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }
@@ -73,6 +74,24 @@ azureAccountsRoutes.post(
   async (c) => {
     const { label, tenantId, clientId, subscriptionId } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const sameApp = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { azureAccounts: 1 } },
+    )
+
+    const check = (bindings: AzureAccountBinding[]) =>
+      assertMayBindIdentity(
+        c,
+        bindings.filter(
+          // Entra GUIDs are case-insensitive, so a different spelling is the same app.
+          (binding) =>
+            binding.tenantId.toLowerCase() === tenantId.toLowerCase() &&
+            binding.clientId.toLowerCase() === clientId.toLowerCase(),
+        ),
+        `Azure app ${clientId}`,
+      )
+
+    check(sameApp?.azureAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -83,10 +102,12 @@ azureAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'azureAccounts',
+      check,
       { azureAccounts: { $not: { $elemMatch: { clientId, subscriptionId } } } },
       {
         $push: {

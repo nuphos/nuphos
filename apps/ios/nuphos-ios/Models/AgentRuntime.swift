@@ -20,6 +20,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         static let opencode = Self(rawValue: "opencode")
         static let hermes = Self(rawValue: "hermes")
         static let dsh = Self(rawValue: "dsh")
+        static let pi = Self(rawValue: "pi")
     }
     enum Status: String, Codable, Sendable { case active, disabled }
 
@@ -210,7 +211,8 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     }
 
     var model: Option? { options.first { $0.kind == .model } }
-    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue != "off" } }
+    /// A started conversation offers fast with no value until its session confirms one.
+    var isFast: Bool { options.contains { $0.kind == .fast && !["", "off"].contains($0.currentValue) } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
     var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }

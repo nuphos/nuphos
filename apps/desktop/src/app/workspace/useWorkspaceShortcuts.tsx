@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 
 import { restorePersistedTab } from '../../app/workspacePersistence'
+import { OPEN_COMPUTERS } from '../../views/onboarding/setup/agentSetupStore'
 import {
   TEAM_SETTINGS_DEFAULT_SECTION,
   USER_SETTINGS_DEFAULT_SECTION,
@@ -53,6 +54,16 @@ export function useWorkspaceShortcuts(a: Args) {
     if (tab) workspaceActions.openTab(tab)
   }, [closedTabSnapshotsRef, workspaceActions])
 
+  // A cloud computer a new user just made: its card on Computers adds its runtimes.
+  useEffect(() => {
+    if (!paneActive) return
+    const open = () => openSettingsSection('workspace.agent')
+
+    window.addEventListener(OPEN_COMPUTERS, open)
+
+    return () => window.removeEventListener(OPEN_COMPUTERS, open)
+  }, [paneActive, openSettingsSection])
+
   useEffect(() => {
     if (!paneActive || typeof window.api.onAppShortcut !== 'function') return
 
@@ -90,6 +101,11 @@ export function useWorkspaceShortcuts(a: Args) {
       if (action === 'new-chat') {
         setSettingsOpen(false)
         workspaceActions.selectSession(null)
+
+        return
+      }
+      if (action === 'open-computers') {
+        openSettingsSection('workspace.computers')
 
         return
       }

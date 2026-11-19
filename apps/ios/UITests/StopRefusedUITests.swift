@@ -30,13 +30,7 @@ final class StopRefusedUITests: XCTestCase {
     }
 
     func testARefusedStopShowsWhileReadingOlderMessages() throws {
-        app = XCUIApplication()
-        app.launchArguments = [
-            "-preview-home", "-preview-no-push",
-            "-open-links", "https://nuphos.ai/teams/\(teamId)/agent/\(sessionId)",
-        ]
-        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
-        app.launch()
+        launch()
 
         let transcript = app.collectionViews["chat.transcript"]
         let stop = app.buttons["Stop"].firstMatch
@@ -69,7 +63,39 @@ final class StopRefusedUITests: XCTestCase {
         XCTAssertFalse(transcript.staticTexts[refusal].exists, "The refusal is also a row at the end")
     }
 
+    /// The runtime never heard the Stop and the server stopped the turn on
+    /// its side: the tap is answered, not left looking ignored.
+    func testAStopTheRuntimeNeverHeardSaysTheTurnWasStoppedHere() throws {
+        let notice = "The runtime didn't respond; the turn was stopped here."
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        responses["POST /agent/conversations/\(sessionId)/cancel-runtime"] = [
+            "status": 200, "body": ["ok": true, "status": "runtime_unreachable", "message": notice],
+        ]
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+        launch()
+
+        let stop = app.buttons["Stop"].firstMatch
+        XCTAssertTrue(stop.waitForExistence(timeout: 15), "Stop is not offered for the running turn")
+        stop.tap()
+
+        let alert = app.alerts[notice]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "A Stop the runtime never heard showed nothing")
+        XCTAssertFalse(app.alerts["Couldn't stop the agent"].exists, "The stop is reported as refused")
+        alert.buttons["OK"].tap()
+        XCTAssertFalse(alert.waitForExistence(timeout: 2), "The notice did not close")
+    }
+
     // MARK: - Helpers
+
+    private func launch() {
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-preview-home", "-preview-no-push",
+            "-open-links", "https://nuphos.ai/teams/\(teamId)/agent/\(sessionId)",
+        ]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+    }
 
     /// Whether any element carrying `text` is on screen and not covered.
     private func visible(_ text: String) -> Bool {

@@ -1,3 +1,4 @@
+import type { BoxStatus } from './box-types.ts'
 import type { LocalAgentProvider } from './local-agent-providers.ts'
 
 export type { LocalAgentProvider }
@@ -100,9 +101,6 @@ export type SleepState = SleepPreferences & {
   reason: 'unsupported' | 'off' | 'battery' | 'signed-out' | 'idle' | 'active'
 }
 
-/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
-export type LoginItemState = { supported: boolean; openAtLogin: boolean }
-
 export type LocalRuntimeState = {
   detectionDisabled?: boolean
   sleepPrevention?: SleepState
@@ -113,6 +111,8 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
   customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint
@@ -183,19 +183,7 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides its owner and managers, who always may. */
-export type BoxAccess = { everyone: boolean; userIds: string[] }
-
-export type BoxStatus = {
-  provider: 'instabox'
-  /** Only for those who manage the Box. */
-  access?: BoxAccess
-  /** Set once the machine exists. */
-  sandboxId?: string
-  state: BoxState
-  /** While an update restarts its host: when it began. Absent from older backends. */
-  updateStartedAt?: string
-}
+export type { BoxAccess, BoxStatus } from './box-types.ts'
 
 export type DeviceMetrics = {
   sampledAt: string
@@ -232,6 +220,8 @@ export type AgentDevice = {
   desktops?: { display: number; sessionId: string; title: string }[]
   desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
   app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
+  outdated?: 'desktop' | 'cli' // Which Nuphos on it is older than the backend supports.
+  autoInstall?: boolean // Whether it updates itself when idle; absent while it is offline or older.
 }
 
 export type AgentDeviceList = {

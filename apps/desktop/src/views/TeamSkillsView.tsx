@@ -27,7 +27,7 @@ const SCOPES: { scope: SkillScope; label: string; title: string }[] = [
     scope: 'personal',
     label: t('Personal'),
     title: t(
-      'Your own skills in this team. Claude Code runtimes load them on your turns in your own agents.',
+      'Your own skills in this team. Claude Code runtimes load them on your turns in your own Bots and tasks.',
     ),
   },
 ]
@@ -151,7 +151,7 @@ export function TeamSkillsView({
           title={t('Skills')}
           description={withNode(
             t(
-              'The skills store is not configured. Set {name} and related S3 credentials on the backend to enable team-shared agent skills.',
+              'The skills store is not configured. Set {name} and related S3 credentials on the backend to enable team-shared skills.',
             ),
             '{name}',
             <code className="px-1 py-0.5 bg-state-selected rounded">ATLAS_SKILLS_BUCKET</code>,
@@ -227,11 +227,11 @@ export function TeamSkillsView({
             description={
               scope === 'personal'
                 ? t(
-                    "Personal skills are yours in this team. Claude Code runtimes load them on your turns in agents you own, and never on another member's turn. A team skill with the same name is used instead. Move a skill to the team when everyone should have it.",
+                    "Personal skills are yours in this team. Claude Code runtimes load them on your turns in Bots and tasks you own, and never on another member's turn. A team skill with the same name is used instead. Move a skill to the team when everyone should have it.",
                   )
                 : withNode(
                     t(
-                      'Skills are reusable instructions that teach the agent how your team works. Ask the agent to create one, or upload skill directories under {path} to your team bucket.',
+                      'Skills are reusable instructions that teach Nuphos how your team works. Ask Nuphos to create one, or upload skill directories under {path} to your team bucket.',
                     ),
                     '{path}',
                     <code className="px-1 py-0.5 bg-state-selected rounded">

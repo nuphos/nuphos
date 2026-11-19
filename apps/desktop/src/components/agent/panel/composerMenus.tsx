@@ -212,37 +212,56 @@ export function BypassControlMenu({
   bypassControl,
   hero,
 }: {
-  bypassControl: { active: boolean; onSelect: (bypass: boolean) => void }
+  /** active is undefined until the task's own mode is known. */
+  bypassControl: { active: boolean | undefined; onSelect: (bypass: boolean) => void }
   hero: boolean
 }) {
+  const { active } = bypassControl
+  // Both labels always share one cell, the inactive one unseen, so the chip is
+  // always the wider label's width: nothing moves when the mode arrives or changes.
+  // Until it is known the whole chip is unseen too: no wrong mode shows.
+
   return (
     <Menu>
       <MenuTrigger
         aria-label={t('Authorization mode')}
+        aria-hidden={active === undefined || undefined}
         className={clsx(
           'hidden @[210px]:flex items-center gap-1.5 flex-shrink-0 rounded-full transition-colors',
           hero ? 'h-8 px-1.5 @[400px]:px-3' : 'h-7 px-1.5 @[400px]:px-2.5',
           'text-secondary hover:text-main hover:bg-state-hover',
+          active === undefined && 'invisible',
         )}
         title={t('Choose how commands in this task are authorized')}
       >
-        <span className="text-[12.5px] font-medium flex items-center">
-          {bypassControl.active ? (
-            <Unlock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
-          ) : (
-            <Lock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
-          )}
-          <span className="hidden @[400px]:inline @[520px]:hidden">
-            {bypassControl.active ? t('Full') : t('Auto')}
-          </span>
-          <span className="hidden @[520px]:inline">
-            {bypassControl.active ? t('Full Access') : t('Auto Mode')}
-          </span>
+        <span className="grid text-[12.5px] font-medium">
+          {[true, false].map((full) => (
+            <span
+              key={String(full)}
+              aria-hidden={full !== active || undefined}
+              className={clsx(
+                'col-start-1 row-start-1 flex items-center',
+                full !== active && 'invisible',
+              )}
+            >
+              {full ? (
+                <Unlock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
+              ) : (
+                <Lock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
+              )}
+              <span className="hidden @[400px]:inline @[520px]:hidden">
+                {full ? t('Full') : t('Auto')}
+              </span>
+              <span className="hidden @[520px]:inline">
+                {full ? t('Full Access') : t('Auto Mode')}
+              </span>
+            </span>
+          ))}
         </span>
         <ChevronDown className="w-3 h-3 opacity-60 hidden @[400px]:block" strokeWidth={2} />
       </MenuTrigger>
       <MenuContent side="top" align="start" className="w-64">
-        <MenuItem selected={!bypassControl.active} onClick={() => bypassControl.onSelect(false)}>
+        <MenuItem selected={active === false} onClick={() => bypassControl.onSelect(false)}>
           <div className="flex flex-col">
             <span>{t('Auto Mode')}</span>
             <span className="text-[11px] text-tertiary">
@@ -250,7 +269,7 @@ export function BypassControlMenu({
             </span>
           </div>
         </MenuItem>
-        <MenuItem selected={bypassControl.active} onClick={() => bypassControl.onSelect(true)}>
+        <MenuItem selected={active === true} onClick={() => bypassControl.onSelect(true)}>
           <div className="flex flex-col">
             <span>{t('Full Access')}</span>
             <span className="text-[11px] text-tertiary">

@@ -1,6 +1,6 @@
 import { api } from '../../api'
 import { AnswerFailure } from '../../views/inbox/AnswerFailure'
-import { dismissQuestion } from '../../views/inbox/dismissQuestion'
+import { dismissQuestion, snoozeQuestion } from '../../views/inbox/dismissQuestion'
 import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { QuestionSource } from '../../views/inbox/QuestionRail'
 import { answerQuestion, useAnswerFailure } from '../../views/inbox/useInbox'
@@ -20,7 +20,7 @@ export function BotChatQuestion({
   teamId,
   credentials,
   onOpenSession,
-  skippable,
+  dismissible,
   onAnswer,
   onLinkClick,
   fullBody,
@@ -35,7 +35,7 @@ export function BotChatQuestion({
   /** Absent for the Bot's own questions, which name no source. */
   onOpenSession?: (sessionId: string) => void
   /** It can be withdrawn unanswered from here. */
-  skippable?: boolean
+  dismissible?: boolean
   /** Answers the question: the server wakes the agent that asked. */
   onAnswer: (answer: DecisionAnswer, requestId: string) => void
   /** Opens a link in the question's body, as the conversation does. */
@@ -48,17 +48,24 @@ export function BotChatQuestion({
     credentials !== undefined,
   )
   const failure = useAnswerFailure(request.inputRequest.id)
-  // A question card names who asked and is skipped inside itself; the other cards keep both outside.
+  // A question card names who asked and is dismissed inside itself; the other cards keep both outside.
   const choice = parseChoiceRequest(part.input) !== null
+  // A secure card is dismissed inside itself too, but names no source.
+  const dismissedInside = choice || Boolean(request.inputRequest.secretName)
   const source = onOpenSession && (
     <QuestionSource
       conversation={request}
       askedAt={request.inputRequest.askedAt}
+      updatedAt={request.inputRequest.updatedAt}
       onOpen={() => onOpenSession(request.sessionId)}
     />
   )
-  const skip = skippable
+  const dismiss = dismissible
     ? () => dismissQuestion(teamId, request.sessionId, request.inputRequest.id)
+    : undefined
+  const snooze = dismissible
+    ? (_card: unknown, until: Date) =>
+        void snoozeQuestion(teamId, request.sessionId, request.inputRequest.id, until)
     : undefined
 
   return (
@@ -70,7 +77,8 @@ export function BotChatQuestion({
           // Only a secure card sends: the line naming where its value was saved.
           send: (text, card) => void answerQuestion(teamId, request.sessionId, replyTo(card), text),
           answer: (answer, card) => onAnswer(answer, replyTo(card)),
-          skip,
+          dismiss,
+          snooze,
           source,
           // Written on the asking agent's runtime, as its own secure card writes it.
           saveSecret: async (name, value) =>
@@ -89,7 +97,7 @@ export function BotChatQuestion({
         />
       </ConnectCardContext.Provider>
       {failure && <AnswerFailure message={failure} />}
-      {!choice && skippable && (
+      {!dismissedInside && dismissible && (
         <DismissQuestionButton
           teamId={teamId}
           sessionId={request.sessionId}

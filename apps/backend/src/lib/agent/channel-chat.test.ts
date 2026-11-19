@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
+import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -16,9 +17,10 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
-  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { replyQuote } from './channel-reply'
+import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
 import { firstLine } from './channel-newest-post'
@@ -118,6 +120,13 @@ const person: MessageMetadata = {
   sender: { type: 'user', id: 'owner', displayName: 'Owner' },
   source: 'nuphos',
   sentAt: new Date().toISOString(),
+}
+
+// What Nuphos records when a person answers a question card: theirs, but not news to anyone.
+const cardAnswer: MessageMetadata = {
+  ...person,
+  replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+  requestId: 'q1',
 }
 
 function agentSpeaker(sessionId: string): MessageMetadata {
@@ -249,6 +258,43 @@ describe('waking a channel’s agents', () => {
     expect(runs.map((run) => run.channelIds)).toEqual([['channel'], ['channel']])
   })
 
+  test('an answer to a question asked in the channel is a turn for that channel', async () => {
+    const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async (args) => {
+        runs.push(args)
+
+        return { status: 'completed' }
+      },
+    })
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+    const { run } = await startConversationTurn(
+      {
+        userId: agent.userId,
+        teamId: TEAM,
+        targetSessionId: 'agent-a',
+        messageId: 'answer',
+        locale: 'en-US',
+        answers: { id: 'q', question: 'Which marker?', status: 'resolved', channelId: 'channel' },
+      } as never,
+      agent,
+      'Your question (requestId q) was answered.',
+      'agent.resource',
+      {
+        version: 1,
+        sender: { type: 'system', id: 'nuphos:decision', displayName: 'Nuphos' },
+        source: 'agent.resource',
+        sentAt: new Date().toISOString(),
+      },
+    )
+
+    await run
+    // The person answered in the channel, so the channel shows the agent working on it.
+    expect(runs.map((started) => started.channelIds)).toEqual([['channel']])
+  })
+
   test('an agent that cannot start a reply says so in the channel', async () => {
     installTurnRunner({
       claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
@@ -328,6 +374,82 @@ describe('waking a channel’s agents', () => {
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
     })
+  })
+
+  test("an agent the model provider refused says the provider's words", async () => {
+    const refused =
+      'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: ${refused}`,
+            -32603,
+            {
+              code: -32603,
+              message: `Internal error: ${refused}`,
+            },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
+  test('a Codex install missing its binary says to install it again, so the chat can offer Install', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(died, 1001, { code: 1001, message: died })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'cli', reason: AGENT_CLI_UNSTARTABLE_MESSAGE })
+  })
+
+  test("an agent's other internal error leaves its words out of the chat", async () => {
+    const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`**Internal Error** (code: -32603)\n${internal}`, -32603, {
+            code: -32603,
+            message: internal,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.find(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
+    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -711,6 +833,14 @@ describe('reading a channel', () => {
     expect(read.note).toContain('replyTo')
   })
 
+  test('an answer to a question card is never read: the agent that asked has it', async () => {
+    await say('us-east', cardAnswer)
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner', true)).messages).toEqual(
+      [],
+    )
+    expect((await readChannelMessages(await channel(), 'agent-a', 'owner')).messages).toEqual([])
+  })
+
   test('starts at the latest page, then returns only what is new', async () => {
     for (let n = 0; n < 55; n++) await say(`message ${String(n)}`)
     const first = await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')
@@ -1084,5 +1214,100 @@ describe('an agent speaks in a channel only with channel_post', () => {
         metadata: { sender: { type: 'agent', id: 'agent-a' } },
       },
     ])
+  })
+})
+
+describe('an agent whose computer is offline', () => {
+  const offline = () => new AppError(409, 'runtime_offline', 'The computer is offline.')
+  const failures = async () =>
+    (await channel()).timelineEvents?.filter((event) => event.kind === 'agent_reply_failed') ?? []
+
+  beforeEach(async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'], 'agentReadIndex.agent-a': -1 } },
+    )
+    await agentConversations().updateOne(
+      { sessionId: 'agent-a' },
+      { $set: { runtimeId: 'local_agent-a-owner_mac' } },
+    )
+  })
+
+  test('says so in the channel once its wake waited out the grace, and keeps the post unread', async () => {
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: async () => {
+        throw offline()
+      },
+    })
+    await say('anyone there?')
+    const [notice] = await listPendingUserMessages('agent-a-owner', 'agent-a')
+
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    // Offline for longer than a reconnecting computer gets.
+    await runTurn(
+      { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'agent.resource',
+      [{ ...notice!, offlineSince: new Date(Date.now() - 120_000).toISOString() }],
+    ).catch(() => {})
+
+    expect(await failures()).toEqual([
+      expect.objectContaining({
+        agentId: 'agent-a',
+        cause: 'offline',
+        reason: 'its runtime could not be reached.',
+      }),
+    ])
+    expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+  })
+
+  test('is woken for the posts it missed when its computer is back, and only for those', async () => {
+    await say('anyone there?')
+    // Its notice was lost while it was away.
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wokenSessions()).toEqual(['agent-a'])
+
+    // Caught up: coming back again wakes nothing.
+    await catchUp()
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { 'agentReadIndex.agent-a': 0 } },
+    )
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for an answer to a question card when its computer is back', async () => {
+    await say('us-east', cardAnswer)
+    await catchUp()
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+  })
+
+  test('is not woken for agents’ posts alone, nor in a channel it was never woken in', async () => {
+    await say('from b', agentSpeaker('agent-b'))
+    await catchUp()
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
+
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $unset: { 'agentReadIndex.agent-a': '' } },
+    )
+    await say('hello')
+    await catchUp()
+    wakes = []
+    await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
+    expect(wakes).toEqual([])
   })
 })

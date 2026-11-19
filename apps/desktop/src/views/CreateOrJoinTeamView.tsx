@@ -1,6 +1,5 @@
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { ArrowLeft as ArrowLeftIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
@@ -8,6 +7,7 @@ import { Avatar } from '../components/Avatar'
 import { SidebarNamePreview } from '../components/sidebar/SidebarNamePreview'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import type { DiscoverableTeam, UserInfo } from '../types'
@@ -105,7 +105,7 @@ export function CreateOrJoinTeamView({ user, onClose, onJoin, onCreate }: Props)
         title={t('Back')}
         aria-label={t('Back')}
       >
-        <FontAwesomeIcon icon={faArrowLeft} className="w-3 h-3" />
+        <UiIcon size={16} icon={ArrowLeftIcon} className="w-4 h-4" />
         {t('Back')}
       </button>
 

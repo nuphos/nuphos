@@ -9,14 +9,11 @@ import {
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
 import { openConversationSession } from './open-conversation-session'
-import { OpenAbRpcError } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
+import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
-import {
-  assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
-} from './runtime-portability-store'
+import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import {
   previewSessionPrincipalChanged,
@@ -33,7 +30,7 @@ import {
   RUNTIME_CWD,
 } from './team-openab-runtime'
 import { renewTurnCredentials } from './turn-credential-renewal'
-import { RuntimeStateProbeError } from './turn-diagnostics'
+import { probeFailure } from './turn-diagnostics'
 
 import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
@@ -105,7 +102,6 @@ export async function runClaudeCodePreviewPrompt(args: {
     throw new Error('Conversation id is invalid.')
   }
   await assertConversationRuntimeAvailable(args.conversationId)
-  await assertRuntimeNotDeleting(args.teamId, args.endpoint.runtimeId, args.endpoint.url)
   const currentAttachment = await getConversationPreviewAttachment(args.conversationId, args.teamId)
 
   if (currentAttachment && !sameRuntimeUrl(currentAttachment.runtimeUrl, args.endpoint.url))
@@ -139,7 +135,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      throw await RuntimeStateProbeError.from(cause)
+      throw await probeFailure(cause, session.conversationId, session.endpoint)
     })
   const observed = await observe()
 
@@ -279,11 +275,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         attachments,
         lead,
       )
-      .catch((error: unknown) => {
-        // The runtime's own busy rejection: another turn won the race since the check above.
-        throw error instanceof OpenAbRpcError && error.code === -32001
-          ? refusal(error.message)
-          : error
+      .catch(async (error: unknown) => {
+        throw await promptFailure(error, session, nextContext.runtime.defaults)
       })
       .finally(() => {
         text.flush()

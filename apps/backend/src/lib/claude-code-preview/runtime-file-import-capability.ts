@@ -29,7 +29,7 @@ export async function assertRuntimeFileImportSupported(
   const endpoint =
     instance.kind === 'development'
       ? developmentRuntimeEndpoint(instance.provider, 'control')
-      : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
+      : (await resolveTeamRuntimeEndpoints(teamId, instance.provider, 'control')).find(
           (item) => item.runtimeId === runtimeId,
         )
 

@@ -2,21 +2,16 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { config } from '@/config'
-import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { fastChoicesSchema } from '@/lib/agent/devices/local-runtime/protocol'
 
 import { controlRegistry } from './agent-chat-registry'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { resolveDefaultModel } from './runtime-default-model'
-import { execRuntimeCommand } from './runtime-login-exec'
 import { localRuntimeModels } from './local-runtime-catalog'
 import { createRuntimeModelCatalog } from './runtime-model-cache'
 import { RUNTIME_MODEL_PROBE } from './runtime-model-probe'
-import { resolveTeamRuntimeEndpoints, runtimes } from './runtime-registry'
-import { runtimeServiceName } from './runtime-service-name'
+import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { parseSessionConfigOptions } from './session-config-options'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -53,49 +48,17 @@ const runtimeModelCatalogSchema = z.object({
       defaultEffort: z.string().max(100).optional(),
     })
     .optional(),
-  message: z.string().optional(),
+  /** Why there is nothing to choose: the picker says so instead of offering nothing. */
+  reason: z.enum(['unreported', 'signed-out', 'undiscovered']).optional(),
 })
 
 export type RuntimeModelCatalog = z.infer<typeof runtimeModelCatalogSchema>
-
-async function probeManagedModels(
-  teamId: string,
-  instance: RuntimeInstance,
-  model?: string,
-): Promise<RuntimeModelCatalog> {
-  const namespace = config.claudeCodeRuntimeProvisioner.namespace
-  const hosted = await runtimes().findOne({ _id: instance.id, teamId, hostedBy: 'nuphos' })
-  const deployment = hosted && runtimeServiceName(hosted.url, namespace)
-
-  if (!deployment) throw new Error('Runtime not ready')
-  let output = ''
-
-  await execRuntimeCommand(
-    namespace,
-    deployment,
-    [
-      'node',
-      '--input-type=module',
-      '-e',
-      RUNTIME_MODEL_PROBE,
-      instance.provider,
-      ...(model ? [model] : []),
-    ],
-    (chunk) => {
-      output += chunk
-      if (output.length > 1024 * 1024) throw new Error('Invalid model catalog')
-    },
-    AbortSignal.timeout(30_000),
-  )
-
-  return runtimeModelCatalogSchema.parse(JSON.parse(output))
-}
 
 /** The control endpoint the agent answers on, or none while it is offline. */
 async function controlEndpoint(teamId: string, instance: RuntimeInstance) {
   return instance.kind === 'development'
     ? developmentRuntimeEndpoint(instance.provider, 'control')
-    : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
+    : (await resolveTeamRuntimeEndpoints(teamId, instance.provider, 'control')).find(
         (candidate) => candidate.runtimeId === instance.id,
       )
 }
@@ -139,17 +102,14 @@ async function observedModels(
   instance: RuntimeInstance,
   selectedModel?: string,
 ): Promise<RuntimeModelCatalog> {
-  const endpoints = await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider)
+  const endpoints = await resolveTeamRuntimeEndpoints(teamId, instance.provider)
   const development = developmentRuntimeEndpoint(instance.provider)
 
   if (development) endpoints.push(development)
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
   if (!endpoint) return { models: [] }
-  const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
-    callTimeoutMs: 5_000,
-  })
+  const client = await OpenAbAcpClient.connect({ ...endpoint, callTimeoutMs: 5_000 })
 
   try {
     await client.initialize()
@@ -194,26 +154,13 @@ export async function discoverModels(
 ): Promise<RuntimeModelCatalog> {
   if (instance.kind === 'local') return localRuntimeModels(instance.id, model)
   const endpoint = await controlEndpoint(teamId, instance)
-  // A runtime that joined as a device reports its models with its presence, as a local one
-  // does. That answer stands, empty or not: nothing is run on its pod to ask again.
-  const joined = endpoint?.tunnelUrl && parseLocalRuntimeUrl(endpoint.tunnelUrl)
 
-  if (joined) return localRuntimeModels(localRuntimeId(joined), model)
   try {
     const catalog = await probeConnectedModels(teamId, instance, endpoint, model)
 
     if (catalog.models.length) return catalog
   } catch {
-    // Older hosted images can still be probed through the provisioner's exec path.
-  }
-  if (instance.kind === 'managed') {
-    try {
-      const catalog = await probeManagedModels(teamId, instance, model)
-
-      if (catalog.models.length) return catalog
-    } catch {
-      /* An older image without the probe still runs its agent through OpenAB. */
-    }
+    // An older image without the probe still runs its agent through OpenAB.
   }
   // Runtimes older than the agent probe answer it with an error: they need an update.
   const catalog = await observedModels(teamId, instance, model).catch(() => null)
@@ -222,10 +169,8 @@ export async function discoverModels(
     ? catalog
     : {
         models: [],
-        message:
-          instance.kind === 'managed'
-            ? 'Models are unavailable. Check that the runtime is online, then retry.'
-            : 'Could not discover models. Check the agent’s sign-in and update its runtime, then retry.',
+        // A runtime that reports none needs its sign-in or an update.
+        reason: 'undiscovered',
       }
 }
 

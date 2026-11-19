@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from './binding-access'
 
 export type TencentSite = 'china' | 'international'
 
@@ -73,11 +76,12 @@ export async function bindTencentAccount(
   site: TencentSite,
   roleArn: string,
   providerId: string,
+  share?: BindingShare,
 ): Promise<TencentAccount> {
   const a = await call<TencentAccountResponse>(
     'POST',
     `/teams/${teamId}/tencent-accounts`,
-    { label, site, roleArn, providerId },
+    withShare({ label, site, roleArn, providerId }, share),
     // Bind verifies the role is assumable via STS before storing — give it
     // sweep-level headroom so a slow (e.g. proxied) route doesn't abort a bind.
     { retry: false, timeoutMs: 30_000 },
@@ -141,11 +145,12 @@ export async function bindAliyunAccount(
   site: AliyunSite,
   roleArn: string,
   oidcProviderArn: string,
+  share?: BindingShare,
 ): Promise<AliyunAccount> {
   const a = await call<AliyunAccountResponse>(
     'POST',
     `/teams/${teamId}/aliyun-accounts`,
-    { label, site, roleArn, oidcProviderArn },
+    withShare({ label, site, roleArn, oidcProviderArn }, share),
     // Bind verifies the role is assumable via STS before storing — give it
     // sweep-level headroom so a slow (e.g. proxied) route doesn't abort a bind.
     { retry: false, timeoutMs: 30_000 },
@@ -205,11 +210,12 @@ export async function bindVolcengineAccount(
   teamId: string,
   label: string,
   roleTrn: string,
+  share?: BindingShare,
 ): Promise<VolcengineAccount> {
   const a = await call<VolcengineAccountResponse>(
     'POST',
     `/teams/${teamId}/volcengine-accounts`,
-    { label, roleTrn },
+    withShare({ label, roleTrn }, share),
     // Bind verifies the role is assumable via STS before storing — give it the
     // same headroom as the list sweeps so a slow (e.g. proxied) route doesn't
     // abort a bind the backend then completes anyway.

@@ -14,10 +14,14 @@ export const queryKeys = {
   credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  /** The computers in a team the viewer manages: they sign those computers' agents in. */
+  managedComputers: (teamId: string) => [...queryKeys.team(teamId), 'managed-computers'] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,
   runtimeQuotas: (teamId: string) => [...queryKeys.team(teamId), 'runtime-quotas'] as const,
   runtimeQuotaHistory: (teamId: string, range: string) =>
     [...queryKeys.team(teamId), 'runtime-quota-history', range] as const,
+  teamUsage: (teamId: string, query: object) =>
+    [...queryKeys.team(teamId), 'team-usage', query] as const,
   /** Under `runtimeInstances`, so a change to the agents reads their status again too. */
   runtimeStatus: (teamId: string, runtimeId: string) =>
     [...queryKeys.runtimeInstances(teamId), runtimeId, 'status'] as const,
@@ -28,8 +32,11 @@ export const queryKeys = {
     [...queryKeys.team(teamId), 'iam', provider, id, principal] as const,
   audit: (teamId: string, ...filters: (string | boolean)[]) =>
     [...queryKeys.team(teamId), 'audit', ...filters] as const,
+  memoryScope: (teamId: string, scope: string) =>
+    [...queryKeys.team(teamId), 'memories', scope] as const,
+  /** Under `memoryScope`, so a change marks both the live and the removed list. */
   memories: (teamId: string, scope: string, state = 'live') =>
-    [...queryKeys.team(teamId), 'memories', scope, state] as const,
+    [...queryKeys.memoryScope(teamId, scope), state] as const,
   grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>

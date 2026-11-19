@@ -72,6 +72,13 @@ any of the languages (`MissingTranslation`). Mark text that must stay as written
 translations in the pull request; a follow-up commit on the same branch fills
 them before it merges.
 
+Legal and consent statements (the sign-in terms, the AI data sharing consent,
+account deletion and the voice transcription notice) stay in English in every
+language until a native speaker confirms the translation (#3031). They are
+`translatable="false"`, and `LegalTextTest` fails if one is translated before
+review. To ship a reviewed language set, add the translations, remove
+`translatable="false"` and list the key in the test's `REVIEWED`.
+
 ## Service support
 
 The app defaults to Nuphos Cloud (`api.nuphos.ai`). On the welcome screen,

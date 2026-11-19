@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
+import { logEvent } from '@/lib/observability'
 
 import type { MeetingsConfig } from '@/config/meetings'
 
@@ -18,16 +19,59 @@ export function recallConfig(): Recall {
   return recall
 }
 
-async function recallFetch(path: string, body: object): Promise<unknown> {
+// Recall answers 401 for a bad API key and 402 when the account is out of credit: no bot joins
+// any call until someone fixes the account.
+const ACCOUNT_STATUSES = new Set([401, 402])
+
+function recallCode(body: string): string | undefined {
+  try {
+    const { code } = JSON.parse(body) as { code?: unknown }
+
+    return typeof code === 'string' ? code : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * One log line for every meeting bot that did not make it: Recall refused a request, gave up
+ * on the bot, or the bot never joined. Any reason counts; Recall's codes are only there to read.
+ */
+export function logMeetingBotFailure(
+  reason: 'request_failed' | 'fatal' | 'join_timeout',
+  details: {
+    path?: string
+    status?: number
+    code?: string | null
+    sub_code?: string | null
+    bot_id?: string
+    session_id?: string
+  },
+): void {
+  logEvent('warn', 'meeting_bot.failed', {
+    reason,
+    ...details,
+    account_level: details.status !== undefined && ACCOUNT_STATUSES.has(details.status),
+  })
+}
+
+/** A GET without `body`. `done` names the Recall error code that means it is already done. */
+async function recallFetch(path: string, body?: object, done?: string): Promise<unknown> {
   const recall = recallConfig()
   const response = await fetch(`https://${recall.region}.recall.ai/api/v1${path}`, {
-    method: 'POST',
+    method: body ? 'POST' : 'GET',
     headers: { Authorization: recall.apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: body && JSON.stringify(body),
   })
 
-  if (!response.ok)
-    throw new AppError(502, 'recall_error', `Recall.ai ${path} failed: ${await response.text()}`)
+  if (!response.ok) {
+    const text = await response.text()
+    const code = recallCode(text)
+
+    if (done && code === done) return
+    logMeetingBotFailure('request_failed', { path, status: response.status, code })
+    throw new AppError(502, 'recall_error', `Recall.ai ${path} failed: ${text}`)
+  }
 
   return response.json()
 }
@@ -87,11 +131,21 @@ export async function sendMeetingChat(botId: string, message: string): Promise<v
 }
 
 export async function leaveMeeting(botId: string): Promise<void> {
-  await recallFetch(`/bot/${botId}/leave_call/`, {}).catch((error: unknown) => {
-    // Recall calls a bot whose call already ended "unstarted": it is out either way.
-    if (!(error instanceof AppError && error.message.includes('cannot_command_unstarted_bot')))
-      throw error
-  })
+  // Recall calls a bot whose call already ended "unstarted": it is out either way.
+  await recallFetch(`/bot/${botId}/leave_call/`, {}, 'cannot_command_unstarted_bot')
+}
+
+/** Whether the bot ever got into its call, and the last status Recall gave it. */
+export async function meetingBotStatus(botId: string) {
+  const bot = (await recallFetch(`/bot/${botId}/`)) as {
+    status_changes?: { code: string; sub_code?: string | null }[]
+  }
+  const changes = bot.status_changes ?? []
+
+  return {
+    joined: changes.some(({ code }) => code.startsWith('in_call')),
+    last: changes.at(-1),
+  }
 }
 
 /** Recall signs `id.timestamp.body` with the workspace secret (Standard Webhooks). */

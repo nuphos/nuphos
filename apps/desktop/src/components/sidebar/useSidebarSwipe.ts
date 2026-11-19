@@ -21,6 +21,7 @@ export function useSidebarSwipe(
   const track = useRef<HTMLDivElement>(null)
   const change = useRef(onPage)
   const slots = useRef(order)
+  const shown = useRef(page)
   const control = useRef<{
     go: (slot: SidebarPage) => void
     place: (slot: SidebarPage) => void
@@ -39,11 +40,14 @@ export function useSidebarSwipe(
       el,
       layer,
       slotOf(slots.current, page),
-      (slot) => change.current(pageAtSlot(slots.current, slot)),
-      {
-        onStart: () => change.current.cancelPending?.(),
-        onThreshold: () => api.sidebarAlignmentFeedback?.(),
+      (slot) => {
+        const next = pageAtSlot(slots.current, slot)
+
+        // Only a gesture picks a page. A slide to the page already shown has
+        // nothing to report, and reporting it would reopen that page's home.
+        if (next !== shown.current) change.current(next)
       },
+      { onThreshold: () => api.sidebarAlignmentFeedback?.() },
     )
     const unsubscribe = api.onSidebarGesture?.(controller.nativePhase)
 
@@ -61,6 +65,7 @@ export function useSidebarSwipe(
     // A new order moves the open page's panel along the track: jump there, don't slide.
     const step = trackStep(slots.current, order, page)
 
+    shown.current = page
     slots.current = order
     if (step.jump) control.current?.place(step.slot)
     else control.current?.go(step.slot)

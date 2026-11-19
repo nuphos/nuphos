@@ -1,3 +1,6 @@
+import { useRef } from 'react'
+
+import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarInboxPage } from './SidebarInboxPage'
 import { SidebarPageList } from './SidebarPageList'
 import { SidebarPageTabs } from './SidebarPageTabs'
@@ -37,6 +40,7 @@ export function SidebarTeamPages({
   ).size
   const inboxCount = useInboxBadge(listProps.scope.teamId)
   const changePage = useSidebarModeNavigation(onPage, sections, listProps)
+  const row = useRef<HTMLDivElement>(null)
   const content = (index: 0 | 1) => (
     <SidebarPageList page={index} sections={sections} listProps={listProps} onScroll={onScroll} />
   )
@@ -56,7 +60,8 @@ export function SidebarTeamPages({
           />,
         ]}
       />
-      <div className="sidebar-mode-switcher">
+      <div ref={row} className="sidebar-mode-switcher flex items-center justify-center gap-0.5">
+        <SidebarArchiveSection listProps={listProps} row={row} />
         <SidebarPageTabs page={page} onPage={changePage} counts={[botCount, count, inboxCount]} />
       </div>
     </div>

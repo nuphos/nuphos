@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -96,7 +96,7 @@ class PullRefreshFixtureDeviceTest {
                     path == "/agent/conversations" -> {
                         val title = historyTitle
                         val order = req.url.queryParameter("sort")
-                        if ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null)) {
+                        if (isHistory(req) && ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null))) {
                             holdHistory = false; holdPage = false; historyHeld.countDown()
                             check(historyRelease.await(15, TimeUnit.SECONDS))
                         }
@@ -376,13 +376,16 @@ class PullRefreshFixtureDeviceTest {
         treeHistory = true; entries = "[]"; render()
         compose.runOnIdle { store.refresh() }
         waitText("Synthetic child"); settled()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
+        compose.onNodeWithContentDescription(app.resources.getQuantityString(R.plurals.agent_hide_sub_agents, 1, 1)).performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Unsent refresh fixture draft")
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         hideKeyboard()
+        compose.onNodeWithTag("new-task-cancel").performClick()
         pull(); settled()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         shot("fold-draft-light")
     }

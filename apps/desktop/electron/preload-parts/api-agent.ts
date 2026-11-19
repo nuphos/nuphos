@@ -10,7 +10,15 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) =>
+    ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => ipcRenderer.invoke('agent:snoozeDecision', sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,
@@ -19,6 +27,7 @@ export const agentApi = {
       choices?: string[]
       text?: string
       questions?: { choices?: string[]; text?: string }[]
+      answeredIn?: 'inbox'
     },
   ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (

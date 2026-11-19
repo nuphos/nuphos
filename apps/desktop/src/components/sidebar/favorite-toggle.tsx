@@ -11,15 +11,17 @@ export function FavoriteToggle({
   favorited,
   label,
   onToggle,
-  pin = false,
+  pin,
 }: {
-  pin?: boolean
+  pin?: 'bot' | 'chat'
   favorited: boolean
   label: string
   onToggle: () => void
 }) {
   const Icon = pin ? Pin : Star
-  const pinLabel = favorited ? t('Unpin Bot') : t('Pin Bot')
+  const chatPinLabel = favorited ? t('Unpin chat') : t('Pin chat')
+  const botPinLabel = favorited ? t('Unpin Bot') : t('Pin Bot')
+  const pinLabel = pin === 'chat' ? chatPinLabel : botPinLabel
 
   return (
     <span

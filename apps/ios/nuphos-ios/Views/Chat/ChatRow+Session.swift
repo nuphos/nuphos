@@ -7,8 +7,8 @@ extension ChatRow {
         return calls == 0 ? String(localized: "Stopped by you") : calls == 1 ? String(localized: "Stopped by you · 1 call") : String(localized: "Stopped by you · \(calls) calls")
     }
 
-    /// Builds rows for the whole transcript.
-    static func rows(for session: ChatSession) -> [ChatRow] {
+    /// Builds rows for the whole transcript, with what its computer's state means for sending.
+    static func rows(for session: ChatSession, presence: ComputerPresence = .online) -> [ChatRow] {
         var rows: [ChatRow] = []
         let messages = session.messages
         let lastApprovalCallId = session.canReply ? lastPendingApproval(in: messages) : nil
@@ -24,7 +24,14 @@ extension ChatRow {
                     rows.append(.timestamp(id: "time.\(message.id)", date: date))
                 }
                 if let answered = AnsweredQuestion.all(message, in: messages) {
-                    rows.append(contentsOf: answered.enumerated().map { .answered(id: "answered.\(message.id).\($0)", question: $1) })
+                    // Its answer has not reached the agent yet: the last line says what it waits for.
+                    let waiting = AnsweredQuestion.Notice(message.text.trimmingCharacters(in: .whitespacesAndNewlines))
+                        .flatMap { session.waitingAnswers[$0.requestId] }
+                    rows.append(contentsOf: answered.enumerated().map { index, question in
+                        var question = question
+                        if index == answered.count - 1 { question.waiting = waiting }
+                        return .answered(id: "answered.\(message.id).\(index)", question: question)
+                    })
                     continue
                 }
                 let me = session.sentHere.contains(message.id) ? session.me : nil
@@ -59,6 +66,20 @@ extension ChatRow {
         }
         if let error = session.error, !session.stoppedByUser, error != failure {
             rows.append(.hint(id: "error", text: error, isError: true))
+        } else if session.error == nil, session.sending == nil, !session.isStreaming, session.serverQueued.isEmpty {
+            // A queued send is already waking or waiting for its computer.
+            switch presence {
+            case .offline:
+                // Said before the message goes, with the way on: another runtime.
+                if let offline = AgentChatAPI.Conflict.runtimeOffline.errorDescription {
+                    rows.append(.hint(id: "runtime-offline", text: offline, isError: true))
+                }
+            case .paused(let name):
+                // Sending resumes a paused Box, so nothing points away from it.
+                rows.append(.hint(id: "runtime-paused", text: String(localized: "\(name) is paused. It resumes when you send."), isError: false))
+            case .online:
+                break
+            }
         }
         return rows
     }

@@ -25,6 +25,7 @@ function matches(row: Record<string, unknown>, query: Record<string, unknown>): 
     if (value && typeof value === 'object' && !(value instanceof ObjectId)) {
       if ('$exists' in value) return (row[key] !== undefined) === value.$exists
       if ('$ne' in value) return !equal(row[key], value.$ne)
+      if ('$nin' in value) return !(value.$nin as unknown[]).some((id) => equal(row[key], id))
     }
 
     return equal(row[key], value)
@@ -171,6 +172,46 @@ test('real exporter scopes conversation children and knowledge, excludes structu
 
     expect(trigger.targetSessionId).toBe('s')
     expect(trigger.enabled).toBe(false)
+  } finally {
+    archive.dispose()
+  }
+})
+
+test('personal dashboards and their panels stay out of a team export', async () => {
+  const dashboard = (name: string, visibility?: 'personal') => ({
+    _id: new ObjectId(),
+    teamId: new ObjectId(teamId),
+    name,
+    layout: [],
+    timeRange: { periodStart: now, periodEnd: now },
+    ...(visibility ? { visibility } : {}),
+    createdBy: String(userId),
+    createdAt: now,
+    updatedAt: now,
+  })
+  const shared = dashboard('TEAM-DASHBOARD')
+  const personal = dashboard('PERSONAL-DASHBOARD', 'personal')
+
+  records.cost_dashboards = [shared, personal]
+  records.cost_panels = [
+    {
+      _id: new ObjectId(),
+      teamId: new ObjectId(teamId),
+      dashboardId: personal._id,
+      title: 'PERSONAL-PANEL',
+    },
+  ]
+  const archive = await exportTeam(teamId)
+
+  try {
+    const entries = unzipSync(readFileSync(archive.path))
+    const dashboards = Buffer.from(entries['work/dashboards.ndjson']!).toString()
+    const panels = Buffer.from(entries['work/panels.ndjson']!).toString()
+
+    expect(dashboards).toContain('TEAM-DASHBOARD')
+    expect(dashboards).not.toContain('PERSONAL-DASHBOARD')
+    expect(dashboards).not.toContain('visibility')
+    expect(panels).not.toContain('PERSONAL-PANEL')
   } finally {
     archive.dispose()
   }

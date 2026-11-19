@@ -26,6 +26,9 @@ export type DashboardRangePreset = 'last7' | 'last14' | 'last30' | 'thisMonth' |
 
 export type DashboardRefreshCadence = 'daily' | 'weekly' | 'monthly'
 
+/** Who sees a dashboard: only its creator, or the whole team. Absent means team. */
+export type DashboardVisibility = 'personal' | 'team'
+
 export type NuphosDashboard = {
   _id: ObjectId
   teamId: ObjectId
@@ -45,6 +48,9 @@ export type NuphosDashboard = {
   /** Set exactly when `cadence` is; the sweeper claims the dashboard once it is due. */
   nextRefreshAt?: Date
   lastScheduledRefreshAt?: Date
+  /** `personal`: only `createdBy` can read or change it. Absent: shared with the team,
+   *  as every dashboard was before visibility existed. */
+  visibility?: DashboardVisibility
   createdBy: string
   createdAt: Date
   updatedAt: Date
@@ -103,6 +109,8 @@ export type PanelSnapshotErrorKind =
   | 'runtime_outdated'
   /** The script's author can no longer run scripts in the team. */
   | 'author_unavailable'
+  /** An integration the script reads is no longer connected; the message's first line names it. */
+  | 'not_connected'
   /** Read-only: written by the retired sandbox executor. */
   | 'sandbox_expired'
   | 'internal'

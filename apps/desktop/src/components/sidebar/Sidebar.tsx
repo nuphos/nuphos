@@ -6,12 +6,12 @@ import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor
 import { openBotChannel } from '../channels/botChannel'
 import { SIDEBAR_PANEL_PADDING_CLASS } from '../SidebarNavItem'
 
-import { useArchiveBotConfirm } from './archive-bot-confirm'
 import { isChatSection, withChatSections, withSectionActions } from './chat-sections'
 import { SidebarHeaderBar, SidebarTeamSwitcher } from './header'
 import { SidebarItemContextMenu } from './item-context-menu'
 import { SidebarBackControl, SidebarNavStack } from './nav-stack'
 import { SidebarIdentitySelector } from './parts'
+import { useRowConfirms } from './row-confirms'
 import { chatSectionActions, useProjectRows } from './section-actions'
 import { SidebarSectionList } from './sections-list'
 import { teamSections } from './sections-services'
@@ -75,7 +75,7 @@ export const Sidebar = memo(function Sidebar({
   )
   const [sidebarPage, changeSidebarPage] = useSidebarMode(scope.teamId, agentSessionId)
   const teamId = scope.teamId
-  const chrome = useSidebarChrome({ teamId, collapsed, page: sidebarPage })
+  const chrome = useSidebarChrome({ teamId, collapsed })
   const { width, dragging, setDragging, peek, setPeek } = chrome
   const { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds } =
     useSidebarChats({
@@ -121,7 +121,7 @@ export const Sidebar = memo(function Sidebar({
       onOpenKey,
     })
   const [itemMenu, setItemMenu] = useState<ItemMenuRequest | null>(null)
-  const archiveBot = useArchiveBotConfirm(archiveChat)
+  const confirms = useRowConfirms(teamId, archiveChat)
   const projects = useProjectRows(teamId, onSelect, chrome.toggleGroup)
   const openBot = (botId: string) => openBotChannel(teamId, botId, onSelect)
   const renderSections = withChatSections(sections, openBot, projects.rows)
@@ -280,7 +280,7 @@ export const Sidebar = memo(function Sidebar({
           onClose={() => setRenameTarget(null)}
         />
       )}
-      {archiveBot.dialog}
+      {confirms.dialogs}
       {itemMenu && (
         <SidebarItemContextMenu
           menu={itemMenu}
@@ -290,7 +290,7 @@ export const Sidebar = memo(function Sidebar({
           favoriteMatch={favoriteMatch}
           toggleFavorite={toggleFavorite}
           archiveChat={archiveChat}
-          confirmArchiveBot={archiveBot.confirm}
+          {...confirms.menuProps}
           unlinkChat={unlinkChat}
           renameChat={(sessionId, title) => setRenameTarget({ sessionId, title })}
         />

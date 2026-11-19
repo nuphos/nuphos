@@ -12,7 +12,7 @@ import { MessageResponse } from '../MessageResponse'
 
 import { AnsweredNotice } from './AnsweredNotice'
 import { DECISION_NOTICE, parseDecisionNotice } from './decisionNotice'
-import { Rule } from './TimelineEventLine'
+import { Rule } from './timelineParts'
 
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 import type { ReactNode } from 'react'

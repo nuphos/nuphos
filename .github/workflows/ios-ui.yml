@@ -1,0 +1,180 @@
+# The iOS UI tests on a simulator: every night on main, on any branch when
+# dispatched by hand (Actions > iOS UI tests > Run workflow, or
+# `gh workflow run ios-ui.yml --ref <branch> -f tests='nuphos-iosUITests/SomeTests'`
+# to run only some tests), and when a pull request that changes iOS navigation,
+# lists or the toolbar is approved. They run serially, one suite after another
+# on one simulator, on the newest iOS the runner has. A failed test fails the job,
+# except on a pull request, where only a test that passed on main's latest nightly
+# run does. A failed nightly run opens or updates an issue that lists the failed tests.
+name: iOS UI tests
+
+on:
+  schedule:
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: Only these tests, space-separated -only-testing identifiers (empty runs all)
+        required: false
+        default: ''
+  # On approval rather than every push: a run takes an hour of a scarce macOS runner.
+  # Review events cannot filter by path, so the `scope` job checks the files.
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+
+concurrency:
+  # A run dispatched by hand on main does not cancel the nightly one, and a comment
+  # or a change request gets its own group, so it never cancels an approval's run.
+  group: ios-ui-${{ github.event_name }}-${{ (github.event_name != 'pull_request_review' || github.event.review.state == 'approved') && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  scope:
+    name: Approved iOS change
+    if: github.event_name != 'pull_request_review' || github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    outputs:
+      run: ${{ steps.files.outputs.run }}
+    steps:
+      # Where #3343, #2708 and #3004 changed navigation, lists, selection and the toolbar.
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$PR" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
+          if gh api --paginate "repos/$GH_REPO/pulls/$PR/files" --jq '.[].filename' | grep -qE "$paths"; then
+            echo run=true >> "$GITHUB_OUTPUT"
+          else
+            echo "No iOS navigation, list or toolbar change; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo run=false >> "$GITHUB_OUTPUT"
+          fi
+
+  ui:
+    name: iOS UI tests (simulator)
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
+    # Same Xcode as the iOS build in ci.yml.
+    runs-on: xcode-27
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      # To download main's latest nightly results on a pull request.
+      actions: read
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Run the UI tests
+        working-directory: apps/ios
+        env:
+          EVENT: ${{ github.event_name }}
+          TESTS: ${{ inputs.tests }}
+        run: |
+          set -uo pipefail
+          only=(-only-testing:nuphos-iosUITests)
+          if [ -n "${TESTS:-}" ]; then
+            [[ "$TESTS" =~ ^[A-Za-z0-9_/\ -]+$ ]] || { echo "::error::tests must be -only-testing identifiers"; exit 1; }
+            only=(); for t in $TESTS; do only+=("-only-testing:$t"); done
+          fi
+          type=$(xcrun simctl list devicetypes | sed -n 's/^iPhone 17 Pro (\(.*\))$/\1/p' | head -1)
+          # The newest iOS the runner has for that iPhone, named rather than left to the default.
+          # A runner can carry two runtimes of one version, and only one runs an iPhone 17 Pro.
+          runtime=$(xcrun simctl list runtimes -j | node -e '
+            const ios = JSON.parse(require("fs").readFileSync(0, "utf8")).runtimes
+              .filter((r) => r.isAvailable && r.identifier.includes("SimRuntime.iOS"))
+              .filter((r) => r.supportedDeviceTypes.some((d) => d.name === "iPhone 17 Pro"))
+              .sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }))
+            const newest = ios.at(-1)
+            console.log(newest.identifier)
+            console.error(`iPhone 17 Pro on iOS ${newest.version}`)' 2>> "$GITHUB_STEP_SUMMARY")
+          udid=$(xcrun simctl create iphone "$type" "$runtime")
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b > /dev/null
+          xcrun simctl ui "$udid" appearance light
+          # The shell stops at the first failed command, so keep the test status for the end.
+          status=0
+          xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
+            -parallel-testing-enabled NO "${only[@]}" \
+            -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || status=$?
+          xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
+          grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log" || true
+          # On a pull request the next step decides, from which failures are new.
+          if [ "$EVENT" = pull_request_review ]; then exit 0; fi
+          exit "$status"
+      - name: Compare with main's latest nightly run
+        if: github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Only the latest nightly counts, and only while it is recent: an old or missing one
+          # says nothing about main today, so it must fail rather than pass.
+          # Nightly or dispatched by hand on main, never another pull request's run, and never
+          # a run of only some tests: those upload ios-ui-results-partial, so the download skips them.
+          found=
+          while read -r run created; do
+            if gh run download "$run" --name ios-ui-results --dir "$RUNNER_TEMP/main" 2> /dev/null; then found=1; break; fi
+          done < <(gh run list --workflow ios-ui.yml --branch main --status completed --limit 20 \
+            --json databaseId,createdAt,event --jq '.[] | select(.event == "schedule" or .event == "workflow_dispatch")
+              | "\(.databaseId) \(.createdAt)"')
+          if [ -z "$found" ]; then
+            echo "::error::No results from a nightly run on main to compare with. Run ios-ui.yml on main, then re-run this job."
+            exit 1
+          fi
+          age=$(( ($(date -u +%s) - $(date -u -j -f '%Y-%m-%dT%H:%M:%SZ' "$created" +%s)) / 3600 ))
+          if [ "$age" -gt 48 ]; then
+            echo "::error::main's latest nightly results are ${age} hours old (run $run). Run ios-ui.yml on main, then re-run this job."
+            exit 1
+          fi
+          echo "Compared with main's nightly run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run (${age} hours old)" >> "$GITHUB_STEP_SUMMARY"
+          node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
+          path: ${{ runner.temp }}/tests.json
+          retention-days: 7
+      # The full result bundle, with screen recordings, only when something failed.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: failure()
+        with:
+          name: ios-ui-xcresult
+          path: ${{ runner.temp }}/ui.xcresult
+          retention-days: 7
+
+  report:
+    name: Report a failed nightly run
+    needs: ui
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ios-ui-results
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title='Nightly iOS UI tests failed on main'
+          failed=$(jq -r '[.. | objects | select(.nodeType == "Test Case" and .result == "Failed") | "- `\(.nodeIdentifier // .name)`"] | join("\n")' tests.json 2>/dev/null)
+          body=$(printf 'The nightly iOS UI test run failed on `main`: %s\n\nFailed tests:\n%s\n' "$RUN" "${failed:-(none listed; see the run)}")
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ -n "$number" ]; then gh issue comment "$number" --body "$body"; else gh issue create --title "$title" --label bug --body "$body"; fi

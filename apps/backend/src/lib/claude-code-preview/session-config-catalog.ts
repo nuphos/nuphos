@@ -1,6 +1,6 @@
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type { SessionConfigOption } from './session-config-options'
+import type { SessionConfigOption, SessionConfigState } from './session-config-options'
 
 /** The runtime's own choices as session options; a pick it still offers is the current value. */
 export function catalogSessionConfig(
@@ -46,20 +46,29 @@ export function catalogSessionConfig(
 }
 
 /**
- * The runtime's choices, and the picks it still offers. A model it no longer
- * lists (re-login, update) is dropped and the list read again without it.
+ * The runtime's choices, and what to store for a session: each pick it still
+ * offers, and for effort and fast, its default where nothing offered was
+ * picked, so no session starts on a level nobody sees. A model is kept only
+ * when picked: a runtime's default model sent by name can be one a team's
+ * proxy does not serve. A model it no longer lists (re-login, update) is
+ * dropped and the list read again without it. `confirmedOnly` keeps just the
+ * picks, for a caller that must claim or accept nothing it was not given.
  */
 export async function offeredSessionConfig(
   catalogFor: (model?: string) => Promise<RuntimeModelCatalog>,
   pick: RuntimeDefaults,
   confirmedOnly = false,
-): Promise<{ options: SessionConfigOption[]; kept: RuntimeDefaults }> {
+): Promise<{
+  options: SessionConfigOption[]
+  kept: RuntimeDefaults
+  reason?: NonNullable<RuntimeModelCatalog['reason']>
+}> {
   let catalog = pick.model ? await catalogFor(pick.model).catch(() => {}) : undefined
 
   if (!catalog?.models.length) catalog = await catalogFor()
   const offered = catalogSessionConfig(catalog, pick)
   const options = confirmedOnly
-    ? offered.flatMap((option) => {
+    ? offered.map((option) => {
         // Claude Code's "default" model is listed as the model it stands for.
         const value =
           option.kind === 'model' && pick.model === 'default'
@@ -68,16 +77,45 @@ export async function offeredSessionConfig(
         const confirmed =
           value !== undefined && option.options.some((choice) => choice.value === value)
 
-        if (confirmed) return [{ ...option, currentValue: value }]
-
-        return option.kind === 'model' ? [{ ...option, currentValue: '' }] : []
+        // An unconfirmed setting stays offered, without claiming a value.
+        return { ...option, currentValue: confirmed ? value : '' }
       })
     : offered
   const kept = Object.fromEntries(
-    Object.entries(pick).filter(
-      ([id, value]) => options.find((option) => option.id === id)?.currentValue === value,
-    ),
+    options
+      .filter((option) =>
+        option.kind === 'model' || confirmedOnly
+          ? pick[option.kind] === option.currentValue
+          : option.options.some((choice) => choice.value === option.currentValue),
+      )
+      .map((option) => [option.id, option.currentValue]),
   ) as RuntimeDefaults
 
-  return { options, kept }
+  // With nothing to choose, why: the picker says it instead of offering nothing.
+  const reason = options.length ? undefined : catalog.reason
+
+  return { options, kept, ...(reason ? { reason } : {}) }
+}
+
+/**
+ * A model the runtime's list lacks but the session itself last reported running
+ * (a Task started on its parent's model, on a computer whose list is behind) is
+ * named from that report instead of left blank.
+ */
+export function namedModel(
+  state: SessionConfigState,
+  attachment: { sessionConfig?: SessionConfigOption[] },
+): SessionConfigState {
+  const running = attachment.sessionConfig?.find(
+    (option) => option.kind === 'model' && option.currentValue,
+  )
+
+  if (!running) return state
+
+  return {
+    ...state,
+    options: state.options.map((option) =>
+      option.kind === 'model' && !option.currentValue ? running : option,
+    ),
+  }
 }

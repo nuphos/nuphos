@@ -7,7 +7,7 @@ use tracing::{error, warn};
 use crate::acp::connection::{
     build_permission_response, PermissionResponder, SessionActivity, ACP_NOTIFICATION_CAPACITY,
 };
-use crate::acp::pool::ACP_RESOURCE_NOT_FOUND;
+use crate::acp::pool::session_lost;
 use crate::acp::protocol::JsonRpcMessage;
 use crate::acp::{
     classify_notification, parse_turn_result, AcpEvent, ContentBlock, SessionPool, TurnResult,
@@ -1152,6 +1152,8 @@ impl AdapterRouter {
                     let mut turn_result = TurnResult::default();
                     // The provider's own usage object, forwarded verbatim at turn end.
                     let mut turn_usage: Option<serde_json::Value> = None;
+                    let mut turn_quota: Option<serde_json::Value> = None;
+                    let mut turn_stop_reason: Option<serde_json::Value> = None;
                     let mut last_activity = tokio::time::Instant::now();
                     let prompt_activity = conn.activity_handle();
                     // Stall visibility (see #43/prod incident): once a turn has been
@@ -1328,13 +1330,15 @@ impl AdapterRouter {
                             let notification =
                                 crate::acp::connection::with_recent_stderr(notification, &prompt_activity);
                             if let Some(ref err) = notification.error {
-                                session_gone = err.code == ACP_RESOURCE_NOT_FOUND;
+                                session_gone = session_lost(err);
                                 response_error = Some(format_coded_error(err.code, &err.message, err.data_message().as_deref()));
                                 response_error_data = Some(err.relay_data());
                             }
                             if let Some(ref result) = notification.result {
                                 turn_result = parse_turn_result(result);
                                 turn_usage = result.get("usage").cloned();
+                                turn_quota = result.pointer("/_meta/quota").cloned();
+                                turn_stop_reason = result.get("stopReason").cloned();
                             }
                             // The provider's prompt response is the turn boundary.
                             // Background tools may outlive it (or never emit another
@@ -1819,16 +1823,21 @@ impl AdapterRouter {
                         // turn. `turn_usage` is not part of the ACP schema: the relay
                         // forwards session updates verbatim, clients that do not know
                         // the kind ignore it, and a runtime with no usage sends
-                        // nothing at all.
+                        // nothing at all. The agent's `_meta.quota` rides along: its
+                        // per-model rows also count sub-agents and compaction.
                         if let Some(usage) = turn_usage.as_ref() {
+                            let mut update = serde_json::json!({
+                                "sessionUpdate": "turn_usage",
+                                "usage": usage,
+                            });
+                            if let Some(quota) = turn_quota.as_ref() {
+                                update["quota"] = quota.clone();
+                            }
+                            if let Some(stop_reason) = turn_stop_reason.as_ref() {
+                                update["stopReason"] = stop_reason.clone();
+                            }
                             if let Err(e) = adapter
-                                .forward_agent_update(
-                                    &thread_channel,
-                                    serde_json::json!({
-                                        "sessionUpdate": "turn_usage",
-                                        "usage": usage,
-                                    }),
-                                )
+                                .forward_agent_update(&thread_channel, update)
                                 .await
                             {
                                 tracing::warn!(error = ?e, platform = %thread_channel.platform, "acp turn usage send failed");

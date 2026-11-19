@@ -328,19 +328,68 @@ enum ChatPart: Equatable, Sendable {
             case terminal, read, write, edit, search, fetch, todos, question, task, plan, skill, memory, chart, generic
         }
 
+        /// One input of a secure card that asks for several: its file name and what the person reads.
+        struct SecretField: Equatable {
+            let name: String
+            let label: String
+        }
+
         /// A `request_user_decision` asking for a secret (category
-        /// `credential` with a `secretName`): the secure input card.
-        var secretRequest: (name: String, reason: String)? {
+        /// `credential` with a `secretName`): the secure input card. With
+        /// `fields` and a `site` it asks for a website form's details
+        /// together; fields it cannot read leave the one input for `secretName`.
+        var secretRequest: (name: String, reason: String, fields: [SecretField]?, site: String?)? {
             guard input?["category"]?.stringValue == "credential",
-                  let name = input?["secretName"]?.stringValue,
-                  name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil else { return nil }
-            return (name, input?["question"]?.stringValue ?? "")
+                  let name = input?["secretName"]?.stringValue, Self.isSecretName(name) else { return nil }
+            let fields = Self.secretFields(input?["fields"], site: input?["site"])
+            return (name, input?["question"]?.stringValue ?? "", fields, fields == nil ? nil : input?["site"]?.stringValue)
+        }
+
+        private static func isSecretName(_ name: String) -> Bool {
+            name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil
+        }
+
+        /// A site as the backend accepts it: a lowercase host name and, if not the default, a port.
+        static func isSiteHost(_ site: String) -> Bool {
+            guard site.count <= 253, site.range(of: #"^[a-z0-9.-]+(:[1-9][0-9]{0,4})?$"#, options: .regularExpression) != nil else { return false }
+            let host = site.split(separator: ":", omittingEmptySubsequences: false)[0]
+            let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+            return host == "localhost" || (labels.count > 1 && labels.allSatisfy {
+                $0.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"#, options: .regularExpression) != nil
+            })
+        }
+
+        /// The card's `fields`, only when they and its `site` are what the backend accepts.
+        private static func secretFields(_ value: JSONValue?, site: JSONValue?) -> [SecretField]? {
+            guard let items = value?.arrayValue, (1...6).contains(items.count),
+                  let site = site?.stringValue, isSiteHost(site) else { return nil }
+            let fields = items.compactMap { item -> SecretField? in
+                guard let name = item["name"]?.stringValue, isSecretName(name),
+                      let label = item["label"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else { return nil }
+                return SecretField(name: name, label: label)
+            }
+            guard fields.count == items.count, Set(fields.map { $0.name.lowercased() }).count == items.count else { return nil }
+            return fields
+        }
+
+        /// The reply that answers a secret request, before the file's path; the desktop's text.
+        static func secretSavedReply(_ name: String) -> String { "🔒 \(name) saved to " }
+
+        /// The reply a card with several fields sends: it opens as a single secret's
+        /// does, so every client reads it as saved, then names one file per field.
+        static func secretFieldsSavedReply(_ name: String, saved: [(name: String, path: String)]) -> String {
+            ([secretSavedReply(name) + "these files, one per field:"] + saved.map { "\($0.name): \($0.path)" }).joined(separator: "\n")
         }
 
         /// Native runtimes may name the call with its display label, so recognize the decision input.
         var isProviderIntegrationRequest: Bool {
             input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
                 && input?["credentials"] == nil
+        }
+
+        /// The providers an integration question asks for.
+        var integrationProviders: [String]? {
+            input?["providers"]?.arrayValue?.compactMap(\.stringValue)
         }
 
         /// The request id the decision's result names; the call id otherwise.

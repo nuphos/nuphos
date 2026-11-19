@@ -7,7 +7,7 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -123,7 +123,7 @@ class FixtureDeviceTest {
         input = JsonValue.obj("command" to JsonValue.Str("printf FIXTURE_TOOL_INPUT")),
         output = JsonValue.Str("FIXTURE_TOOL_OUTPUT"), title = "Fixture terminal")
 
-    @Ignore("Fails since the formerly isolated classes run beside it, not yet triaged: #1620") @Test fun conversationTitleOpensTriggers() {
+    @Test fun conversationTitleOpensTriggers() {
         triggerFixture = """[{"id": "digest", "name": "Morning PR digest", "enabled": true, "triggerType": "cron", "cronExpression": "0 9 * * 1-5", "scheduleDescription": "Weekdays at 09:00 UTC", "nextRunAt": "2027-01-04T09:00:00.000Z", "canManage": true}, {"id": "watch", "name": "Production alerts", "enabled": true, "triggerType": "webhook", "scheduleDescription": "When a webhook arrives", "canManage": true}, {"id": "weekly", "name": "Weekly dependency review", "enabled": false, "triggerType": "cron", "cronExpression": "0 10 * * 1", "scheduleDescription": "Mondays at 10:00 UTC", "canManage": true}]"""
         render(emptyList())
         compose.onNodeWithContentDescription("Show task triggers").performClick()

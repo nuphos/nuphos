@@ -63,8 +63,8 @@ test('a Mac without Screen Recording, or whose screen host did not start, says s
 
 test('a computer that went offline or never answered says so', async () => {
   for (const [code, reason] of [
-    ['runtime_offline', 'The Box disconnected before answering.'],
-    ['agent_instance_timeout', 'The Box did not answer in time.'],
+    ['runtime_offline', 'The computer disconnected before answering.'],
+    ['agent_instance_timeout', 'The computer did not answer in time.'],
   ] as const) {
     assert.deepEqual(await shownFor(refused(code, reason)), [
       { title: 'Could not open the desktop', description: reason },

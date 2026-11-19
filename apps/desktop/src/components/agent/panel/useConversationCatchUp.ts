@@ -6,7 +6,12 @@ import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { trackError } from '../../../lib/analytics.ts'
 import { shouldResumeRuntimeWakeup, wakeupTranscriptTail } from '../../../lib/runtimeWakeup.ts'
 
-import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp.ts'
+import {
+  adoptStoredTranscript,
+  fetchWakeupTranscriptTail,
+  shouldDeferTranscriptCatchUp,
+} from './conversationCatchUp.ts'
+import { listsRuntimeState } from './listedRuntimeState.ts'
 import { CONVERSATION_TAIL_LIMIT } from './model.ts'
 import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
 import { getAgentLocale } from './textUtils.ts'
@@ -74,9 +79,12 @@ export function useConversationCatchUp(acc: Acc): void {
         // messages, so ask for none (a server that predates `messages=omit`
         // sends the one `tail` allows). The transcript tail is fetched below
         // only when the stored count has grown.
+        // Reads with the runtime state are slow; the session list publishes it for what it lists.
+        const listed = listsRuntimeState(teamId, sessionId)
         const probe = await api.agentGetConversation(sessionId, teamId, {
           tail: 1,
           messages: 'omit',
+          ...(listed && { runtimeState: 'omit' as const }),
         })
 
         if (state.stopped) return
@@ -91,6 +99,7 @@ export function useConversationCatchUp(acc: Acc): void {
                   ...tab,
                   timelineEvents: probe.timelineEvents,
                   promptSuggestion: probe.promptSuggestion,
+                  waitingAnswers: probe.waitingAnswers,
                   // The backend can move the conversation to another agent (fallback, #1149).
                   ...(probe.runtimeId && {
                     agentRuntime: probe.agentRuntime,
@@ -192,7 +201,11 @@ export function useConversationCatchUp(acc: Acc): void {
         if (tail === 0) return
         const fetched = await fetchWakeupTranscriptTail(
           () => tabsRef.current.find((tab) => tab.sessionId === sessionId),
-          (requestedTail) => api.agentGetConversation(sessionId, teamId, { tail: requestedTail }),
+          (requestedTail) =>
+            api.agentGetConversation(sessionId, teamId, {
+              tail: requestedTail,
+              runtimeState: 'omit',
+            }),
           tail,
           CONVERSATION_TAIL_LIMIT,
         )
@@ -224,11 +237,10 @@ export function useConversationCatchUp(acc: Acc): void {
               revisions.current.set(sessionId, detail.transcriptUpdatedAt)
             lastSyncedRef.current.set(sessionId, transcriptSignature(next))
 
-            return {
-              ...tab,
+            return adoptStoredTranscript(tab, {
               messages: next.messages,
               historyBaseIndex: next.historyBaseIndex,
-            }
+            })
           }),
         )
       } catch {

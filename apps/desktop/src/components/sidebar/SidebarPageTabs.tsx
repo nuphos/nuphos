@@ -1,13 +1,16 @@
 import { MotionConfig, Reorder } from 'framer-motion'
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { isMac } from '../../lib/platform'
 
+import { sidebarShortcutPage } from './sidebar-shortcuts'
 import { moveTab, pageBeside, setSidebarTabOrder } from './sidebar-tab-order'
 import { SidebarPageTab } from './SidebarPageTab'
 import { SIDEBAR_PAGES } from './swipe-gesture'
 import { useSidebarTabOrder } from './useSidebarMode'
+import { useSidebarShortcutHints } from './useSidebarShortcutHints'
 
 import type { SidebarTabOrder } from './sidebar-tab-order'
 import type { SidebarPage } from './swipe-gesture'
@@ -29,6 +32,32 @@ export function SidebarPageTabs({
 }) {
   const labels = [t('Bots'), t('Tasks'), t('Inbox')]
   const order = useSidebarTabOrder()
+  const showHints = useSidebarShortcutHints()
+
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const next = sidebarShortcutPage(event, order, isMac)
+
+      if (next === undefined) return
+      if (document.querySelector('[aria-modal="true"]')) return
+      event.preventDefault()
+      onPage(next)
+    }
+
+    const unsubscribe = window.api?.onAppShortcut?.((action) => {
+      const match = /^select-sidebar-tab-([1-3])$/.exec(action)
+
+      if (!match || document.querySelector('[aria-modal="true"]')) return
+      onPage(order[Number(match[1]) - 1])
+    })
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      unsubscribe?.()
+    }
+  }, [order, onPage])
   const bounds = useRef<HTMLDivElement>(null)
   const hintId = useId()
   // While a drag is in flight the bar previews the order; it is saved on drop.
@@ -50,7 +79,12 @@ export function SidebarPageTabs({
     document.getElementById(`sidebar-${SIDEBAR_PAGES[id]}-tab`)?.focus()
 
   const keyDown = (id: SidebarPage) => (event: KeyboardEvent<HTMLButtonElement>) => {
-    const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, Home: -9, End: 9 }
+    const keys: Record<string, number> = {
+      ArrowLeft: -1,
+      ArrowRight: 1,
+      Home: -9,
+      End: 9,
+    }
 
     if (!Object.hasOwn(keys, event.key)) return
     const delta = keys[event.key]
@@ -93,11 +127,13 @@ export function SidebarPageTabs({
           }}
           className="sidebar-page-tabs"
         >
-          {shown.map((id) => (
+          {shown.map((id, index) => (
             <SidebarPageTab
               key={SIDEBAR_PAGES[id]}
               page={id}
               label={label(id)}
+              shortcutHint={showHints ? String(index + 1) : undefined}
+              shortcut={`${isMac ? 'ctrl' : 'alt'}+${String(index + 1)}`}
               count={counts[id]}
               active={page === id}
               bounds={bounds}

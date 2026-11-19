@@ -76,6 +76,11 @@ export type AgentTrigger = {
   lastFiredAt?: Date
   /** Time of the latest fire that never ran; unset by the next turn that runs. */
   missedRunAt?: Date
+  /**
+   * Fires in a row whose turn failed for a reason that cannot pass with time.
+   * Unset by a turn that runs and by the pause it leads to.
+   */
+  failedRunCount?: number
   createdAt: Date
   updatedAt: Date
 }

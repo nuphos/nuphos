@@ -8,18 +8,20 @@ import {
   getReadableConversation,
   upsertConversationShell,
 } from '@/lib/agent/db'
+import { listChannelAgents } from '@/lib/agent/db/channel-agents'
 import {
   addChannelAgent,
   isChannel,
-  listChannelAgents,
   listChannelMentions,
   ownsChannelAgent,
   removeChannelAgent,
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
+import { withPresence } from '@/lib/agent/channel-agent-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { postChannelMessage, replyQuote, wakeChannelAgents } from '@/lib/agent/channel-chat'
+import { postChannelMessage, wakeChannelAgents } from '@/lib/agent/channel-chat'
+import { replyQuote } from '@/lib/agent/channel-reply'
 import { resolveMentions } from '@/lib/agent/mentions'
 import { createMessageMetadata } from '@/lib/agent/message-attribution'
 import { AppError } from '@/lib/errors'
@@ -75,7 +77,9 @@ function channelOrNotFound(conversation: AgentConversation | null): AgentConvers
 }
 
 async function agentsResponse(channel: AgentConversation | null) {
-  return { agents: await listChannelAgents(channelOrNotFound(channel)) }
+  const found = channelOrNotFound(channel)
+
+  return { agents: await withPresence(found.teamId, await listChannelAgents(found)) }
 }
 
 channelRoutes.post('/channels', async (c) => {

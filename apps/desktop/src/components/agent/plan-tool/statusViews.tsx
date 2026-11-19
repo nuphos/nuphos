@@ -62,7 +62,7 @@ export function PlanExecutionPreparingView() {
             {t('Preparing plan execution')}
           </div>
           <div className="mt-0.5 text-[12px] leading-relaxed text-secondary">
-            {t('The agent is starting the first command.')}
+            {t('Starting the first command.')}
           </div>
         </div>
       </div>

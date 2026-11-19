@@ -20,15 +20,15 @@ struct AccountDeletionView: View {
         Form {
             Section {
                 Text("Request permanent account deletion").font(.headline)
-                Text("We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary.")
-                Text("This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request.")
+                Text("We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary.", comment: "Legal text")
+                Text("This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request.", comment: "Legal text")
                 Link("Privacy policy", destination: URL(string: "https://nuphos.ai/privacy")!)
             }
             if let request {
                 Section("Request received") {
                     LabeledContent("Status", value: request.status == "in_progress" ? String(localized: "In progress") : String(localized: "Requested"))
                     LabeledContent("Complete by", value: String(request.dueAt.prefix(10)))
-                    Text("Your request has been saved. You do not need to contact support to start deletion.")
+                    Text("Your request has been saved. You do not need to contact support to start deletion.", comment: "Legal text")
                 }
             } else {
                 Section("Confirm it is you") {
@@ -62,7 +62,7 @@ struct AccountDeletionView: View {
         do {
             let result: Envelope = try await AccountAPI.request("account-deletion", token: token)
             request = result.request; loaded = true; error = nil
-        } catch { self.error = error.localizedDescription }
+        } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
     }
 
     private func sendCode() async {

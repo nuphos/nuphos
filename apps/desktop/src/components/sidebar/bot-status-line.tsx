@@ -1,13 +1,15 @@
 import { t } from '../../i18n'
 
-import { chatPreview } from './chat-preview'
-
 import type { Activity } from './bot-activity'
 
-/** The dots a chat shows while an agent types, in a bubble. */
-function Dots() {
+/** The chat's typing dots, standing in for its newest post while the chat shows them. */
+export function TypingPreview() {
   return (
-    <span className="inline-flex flex-shrink-0 items-center gap-[3px] rounded-full bg-state-selected px-2 py-[5px] text-tertiary">
+    <span
+      role="status"
+      aria-label={t('Thinking…')}
+      className="inline-flex flex-shrink-0 items-center gap-[3px] rounded-full bg-state-selected px-2 py-[5px] text-tertiary"
+    >
       {[0, 160, 320].map((delay) => (
         <span
           key={delay}
@@ -19,12 +21,10 @@ function Dots() {
   )
 }
 
-/**
- * A Bot's preview line while it, or one of its sub-agents, is at work: the
- * typing dots and the working run's latest message. A question or a failure
- * says so instead.
- */
+/** A Bot's preview line when it needs something: a question, a failure or its setup. */
 export function BotStatusLine({ activity }: { activity: Activity }) {
+  if (activity.kind === 'onboarding')
+    return <span className="truncate text-tertiary">{t('Getting started')}</span>
   if (activity.kind === 'asking')
     return (
       <span className="truncate text-secondary">
@@ -39,16 +39,6 @@ export function BotStatusLine({ activity }: { activity: Activity }) {
         {activity.label ? `${t('Failed')}: ${activity.label}` : t('Failed')}
       </span>
     )
-  if (activity.kind === 'idle') return null
-  const message = activity.run?.conversation.lastMessage
-  const text =
-    (message && chatPreview(message, activity.run?.conversation.faces)) ??
-    (activity.kind === 'background' ? t('Working in the background') : t('Thinking…'))
 
-  return (
-    <span className="inline-flex max-w-full items-center gap-2 align-top">
-      <Dots />
-      <span className="truncate text-tertiary">{text}</span>
-    </span>
-  )
+  return null
 }

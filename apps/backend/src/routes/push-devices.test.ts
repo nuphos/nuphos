@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
-import { createLiveActivityRoutes, createPushDeviceRoutes } from '@/routes/push-devices'
+import {
+  createComputerSubscriptionRoutes,
+  createLiveActivityRoutes,
+  createPushDeviceRoutes,
+} from '@/routes/push-devices'
 
 import type { PushDeviceRegistration, PushDeviceStore } from '@/lib/push/devices'
 import type { LiveActivityRow, LiveActivityToken } from '@/lib/push/live-activities'
@@ -172,5 +176,43 @@ describe('Live Activity registration', () => {
     expect((await putActivity({ sessionId: 'someone-elses' })).status).toBe(404)
     expect((await putActivity({ sessionId: 'readable', teamId: 'team-2' })).status).toBe(404)
     expect(activities).toEqual([])
+  })
+})
+
+describe('personal computer subscriptions', () => {
+  test('defaults empty and subscribes and unsubscribes only as the authenticated person', async () => {
+    const selected = new Map<string, Set<string>>()
+    const routes = createComputerSubscriptionRoutes({
+      list: async (userId) => [...(selected.get(userId) ?? [])],
+      set: async (userId, deviceId, enabled) => {
+        const ids = selected.get(userId) ?? new Set<string>()
+
+        if (enabled) ids.add(deviceId)
+        else ids.delete(deviceId)
+        selected.set(userId, ids)
+      },
+    })
+    const app = new Hono<{ Variables: AuthVariables }>()
+
+    app.use('*', async (c, next) => {
+      c.set('userId', 'user-1')
+      await next()
+    })
+    app.route('/subscriptions-test', routes)
+    const read = () => app.request('/subscriptions-test/computer-subscriptions')
+
+    expect(await (await read()).json()).toEqual({ deviceIds: [] })
+    const write = (enabled: boolean) =>
+      app.request('/subscriptions-test/computer-subscriptions/mac-1', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ enabled, userId: 'another-person' }),
+      })
+
+    expect((await write(true)).status).toBe(200)
+    expect(await (await read()).json()).toEqual({ deviceIds: ['mac-1'] })
+    expect(selected.has('another-person')).toBe(false)
+    expect((await write(false)).status).toBe(200)
+    expect(await (await read()).json()).toEqual({ deviceIds: [] })
   })
 })

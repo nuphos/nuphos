@@ -1,14 +1,15 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { accessView, canUseAllowList, createDefaultAccess } from '@/lib/byos/access'
+import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { newBindingAccess } from '@/lib/byos/initial-access'
 import { tencentConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { verifyTencentRole, tencentOidcInfo } from '@/lib/byos/tencent'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { assertMayBindRole, canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import { tencentAccountScoped } from '@/routes/tencent-accounts-scoped'
 
@@ -46,7 +47,7 @@ export function tencentAccountsView(
     ...(isAdmin ? { access: accessView(b.access) } : {}),
     // Admins pass the member-access gate regardless of the allow-list, so
     // report canUse accordingly (matches the scoped route's gate).
-    canUse: isAdmin || canUseAllowList(b.access?.memberAllowList, userId),
+    canUse: canUseBinding(b.access, userId, teamRole),
     createdAt: b.createdAt,
   }))
 }
@@ -70,6 +71,33 @@ tencentAccountsRoutes.post(
   async (c) => {
     const { label, site, roleArn, providerId } = c.req.valid('json')
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const bound = await teamByosBindings().findOne(
+      { _id: teamId },
+      { projection: { tencentAccounts: 1 } },
+    )
+
+    // A binding saved in the older role/<id> form names its role by an id we
+    // cannot match to a name, so while someone else holds one privately in
+    // this account, no other role in it can be bound past them.
+    const uin = /uin\/(\d+)/.exec(roleArn)?.[1]
+    const check = (bindings: TencentAccountBinding[]) => {
+      assertMayBindRole(c, bindings, (b: { roleArn: string }) => b.roleArn, roleArn)
+      const heldById = bindings.some(
+        (binding) =>
+          /uin\/(\d+):role\//.exec(binding.roleArn)?.[1] === uin &&
+          !canRequestUseBinding(c, binding.access),
+      )
+
+      if (heldById) {
+        throw new AppError(
+          403,
+          'identity_bound_privately',
+          `Another member has a private connection to Tencent account ${uin ?? ''} saved by role id. Ask them to share it, or to connect it again by role name.`,
+        )
+      }
+    }
+
+    check(bound?.tencentAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -79,10 +107,12 @@ tencentAccountsRoutes.post(
 
     const id = new ObjectId()
     const createdAt = new Date()
-    const access = createDefaultAccess(c.get('userId'), createdAt)
+    const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'tencentAccounts',
+      check,
       { 'tencentAccounts.roleArn': { $ne: roleArn } },
       {
         $push: { tencentAccounts: { id, label, site, roleArn, providerId, createdAt, access } },

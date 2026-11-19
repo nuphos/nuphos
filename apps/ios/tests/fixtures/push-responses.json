@@ -233,5 +233,17 @@
     "body": {
       "ok": true
     }
+  },
+  "GET /agent/conversations/push-a/agents": {
+    "status": 200,
+    "body": {
+      "agents": []
+    }
+  },
+  "GET /agent/conversations/push-b/agents": {
+    "status": 200,
+    "body": {
+      "agents": []
+    }
   }
 }

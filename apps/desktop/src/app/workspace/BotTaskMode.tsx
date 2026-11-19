@@ -1,18 +1,25 @@
+import { clsx } from 'clsx'
 import { ArrowLeft } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { AgentPanel } from '../../components/agent/AgentPanel'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
+import { ChatSummaryPanel } from '../../components/agent/summary/ChatSummaryPanel'
+import { ChatSummaryToggle } from '../../components/agent/summary/ChatSummaryToggle'
+import { useSessionInputRequests } from '../../components/agent/summary/useSessionInputRequests'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { useDetailSidebarTransition } from '../../hooks/useDetailSidebarTransition'
 import { t } from '../../i18n'
+import { setChatSummaryDocked } from '../../lib/chatSummaryPanel'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
-import { useWorkspacePane } from './WorkspacePaneContext'
+import { useOwnPaneSummary } from './usePaneSummary'
+import { usePaneId, useWorkspacePane, WorkspacePaneContext } from './WorkspacePaneContext'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 import type { AgentProvider } from '../../types/runtime'
+import type { ComponentProps } from 'react'
 
 /** The conversation in outline while the page slides in. */
 function TaskSkeleton() {
@@ -29,7 +36,22 @@ function TaskSkeleton() {
   )
 }
 
-export function BotTaskMode({
+/** The temporary Task must not take over its underlying chat's summary state. */
+export function BotTaskMode(props: ComponentProps<typeof BotTaskBody>) {
+  const pane = useWorkspacePane()
+  const scoped = useMemo(
+    () => (pane ? { ...pane, paneId: `${pane.paneId}:bot-task` } : null),
+    [pane],
+  )
+
+  return (
+    <WorkspacePaneContext value={scoped}>
+      <BotTaskBody {...props} />
+    </WorkspacePaneContext>
+  )
+}
+
+function BotTaskBody({
   ws,
   user,
   teamId,
@@ -44,6 +66,12 @@ export function BotTaskMode({
   onSessionChange: (sessionId: string) => void
   onBack: () => void
 }) {
+  const pane = useWorkspacePane()
+  const paneId = usePaneId()
+  const { open: summaryOpen } = useOwnPaneSummary(sessionId)
+  const inputQueue = useSessionInputRequests(sessionId, teamId)
+
+  useEffect(() => setChatSummaryDocked(paneId, ws.dockOpen), [paneId, ws.dockOpen])
   const [title, setTitle] = useState('')
   const [provider, setProvider] = useState<AgentProvider | undefined>()
   const corner = useWorkspacePane()?.cornerPane ?? false
@@ -60,11 +88,18 @@ export function BotTaskMode({
   return (
     <section
       ref={panelRef}
+      data-workspace-focus-surface="session"
       data-open={open ? 'true' : 'false'}
       className={`t-bot-task-mode workspace-content-surface absolute inset-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden ${ws.dockOpen ? 'workspace-content-surface--leading' : ''}`}
     >
       <header
-        className={`sheet-titlebar-row titlebar-drag flex flex-shrink-0 items-center gap-3 px-3 ${corner ? CORNER_TITLEBAR_CLASS : ''}`}
+        className={clsx(
+          'sheet-titlebar-row titlebar-drag flex flex-shrink-0 items-center gap-3 pl-3',
+          corner && CORNER_TITLEBAR_CLASS,
+          // The viewport-anchored dock toggle (see `.workspace-dock-toggle`) sits
+          // over this header while the dock is closed, as over the Task chat's.
+          ws.dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
+        )}
       >
         <CornerSidebarToggle />
         <button
@@ -75,34 +110,58 @@ export function BotTaskMode({
           <ArrowLeft className="size-4" strokeWidth={1.7} />
           {t('Back to conversation')}
         </button>
-        <div className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-main">
+        <div className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-medium text-main">
           <AgentProviderIcon provider={provider} className="size-4 shrink-0" />
           <span className="truncate">{title || t('Task')}</span>
         </div>
-      </header>
-      <SkeletonReveal
-        ready={settled}
-        skeleton={<TaskSkeleton />}
-        className="flex min-h-0 flex-1 flex-col [&>*]:flex [&>*]:min-h-0 [&>*]:flex-1 [&>*]:flex-col"
-      >
-        <AgentPanel
-          variant="page"
-          open
-          userName={user.name}
-          teamId={teamId}
+        <ChatSummaryToggle
+          active={pane?.active !== false}
           sessionId={sessionId}
-          isTeamAdmin={ws.currentTeam?.role === 'ADMINISTRATOR'}
-          autoFocusComposer
-          onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
-          onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
-          onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
-          onTitleChange={(nextTitle, reportedId, agentRuntime) => {
-            if (reportedId !== sessionId) return
-            setTitle(nextTitle)
-            setProvider(agentRuntime)
-          }}
+          pendingCount={inputQueue.requests.length}
         />
-      </SkeletonReveal>
+      </header>
+      <div className="relative flex min-h-0 flex-1">
+        <SkeletonReveal
+          ready={settled}
+          skeleton={<TaskSkeleton />}
+          className="flex min-h-0 flex-1 flex-col [&>*]:flex [&>*]:min-h-0 [&>*]:flex-1 [&>*]:flex-col"
+        >
+          <AgentPanel
+            variant="page"
+            open
+            userName={user.name}
+            teamId={teamId}
+            sessionId={sessionId}
+            isTeamAdmin={ws.currentTeam?.role === 'ADMINISTRATOR'}
+            autoFocusComposer
+            pendingLocate={ws.auditChatLocate}
+            onLocateConsumed={() => ws.setAuditChatLocate(null)}
+            onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
+            onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
+            onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
+            onTitleChange={(nextTitle, reportedId, agentRuntime) => {
+              if (reportedId !== sessionId) return
+              setTitle(nextTitle)
+              setProvider(agentRuntime)
+            }}
+          />
+        </SkeletonReveal>
+        <ChatSummaryPanel
+          key={sessionId}
+          open={summaryOpen}
+          sessionId={sessionId}
+          teamId={teamId}
+          onOpenLink={ws.stableOpenSessionResource}
+          onOpenSession={onSessionChange}
+          onOpenRequest={(id, target) => {
+            onSessionChange(id)
+            ws.setAuditChatLocate(target ? { sessionId: id, target } : null)
+          }}
+          requests={inputQueue.requests}
+          requestsLoaded={inputQueue.loaded}
+          requestsFailed={inputQueue.failed}
+        />
+      </div>
     </section>
   )
 }

@@ -24,7 +24,14 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => window.api.agentSnoozeDecision(sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,
@@ -91,6 +98,7 @@ export const agentApi = {
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      includeOnboarding?: boolean
       /** Channels instead of agent conversations; lists never mix the two. */
       kind?: 'channel'
     },
@@ -113,8 +121,12 @@ export const agentApi = {
   },
   agentRenameConversation: (sessionId: string, title: string, teamId?: string) =>
     window.api.agentRenameConversation(sessionId, title, teamId),
-  agentSetConversationAvatar: (sessionId: string, avatar: string | null, teamId?: string) =>
-    window.api.agentSetConversationAvatar(sessionId, avatar, teamId),
+  agentSetConversationAvatar: (
+    sessionId: string,
+    avatar: string | null,
+    teamId?: string,
+    background?: string,
+  ) => window.api.agentSetConversationAvatar(sessionId, avatar, teamId, background),
   agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
     window.api.agentUploadConversationAvatar(sessionId, image, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>

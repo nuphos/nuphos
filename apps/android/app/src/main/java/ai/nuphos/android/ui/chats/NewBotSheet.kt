@@ -26,6 +26,10 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.model.BotAvatars
 import ai.nuphos.android.ui.components.BotFace
 import ai.nuphos.android.R
+import ai.nuphos.android.ui.LocalAgentStore
+import ai.nuphos.android.ui.LocalAuthSession
+import androidx.navigation.NavHostController
+import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -40,6 +44,7 @@ internal fun NewBotSheet(
     botExists: Boolean,
     onCreate: (title: String, avatar: String) -> Unit,
     onDismiss: () -> Unit,
+    creationAllowed: Boolean = true,
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var face by rememberSaveable { mutableStateOf(BotAvatars.files.random()) }
@@ -52,7 +57,7 @@ internal fun NewBotSheet(
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onDismiss, enabled = !creating) { Text(stringResource(R.string.cancel)) }
             Text(stringResource(R.string.chats_new_bot), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            TextButton(onClick = { onCreate(name.trim(), face.removeSuffix(".svg")) }, enabled = valid && !creating) {
+            TextButton(onClick = { onCreate(name.trim(), face.removeSuffix(".svg")) }, enabled = valid && !creating && creationAllowed) {
                 if (creating) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Text(stringResource(R.string.chats_new_bot_create))
             }
         }
@@ -87,3 +92,27 @@ internal fun NewBotSheet(
 /** `05-rembrandt.svg` as a screen reader should say it. */
 private fun faceName(file: String) = file.removeSuffix(".svg").substringAfter('-').replace('-', ' ')
     .replaceFirstChar { it.uppercase() }
+
+@Composable
+internal fun CreateBotDialog(nav: NavHostController, requireCurrentRuntime: Boolean = false, onDismiss: () -> Unit) {
+    val store = LocalAgentStore.current
+    val team = store.selectedTeam?.id
+    val scope = rememberCoroutineScope()
+    val auth = LocalAuthSession.current
+    val account = auth.user?.id
+    val selected = if (account != null && team != null) auth.runtimeSelections.bind(account, team) else null
+    val target = ai.nuphos.android.session.HomeCreation.botRuntime(store.creationRuntimes, selected?.selectedId)
+    NewBotSheet(store.creatingBot, store.newBotError, store.newBotWaitingForChat != null,
+        onCreate = { title, avatar ->
+            // On the runtime a new chat would use, so the Bot's composer shows it.
+            val runtime = if (requireCurrentRuntime) target?.let { ai.nuphos.android.data.RuntimeBinding(it.id, it.provider, it.label) } else selected?.binding
+            scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+                val chat = store.createBot(title, avatar, runtime) ?: return@launch
+                onDismiss()
+                nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
+            }
+        },
+        onDismiss = { store.forgetNewBot(); onDismiss() },
+        creationAllowed = !requireCurrentRuntime || target != null || store.newBotWaitingForChat != null,
+    )
+}

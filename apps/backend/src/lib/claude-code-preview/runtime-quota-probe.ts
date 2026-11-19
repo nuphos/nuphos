@@ -6,6 +6,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent } from './local-runtime-catalog'
 import { OpenAbConnectError } from './openab-acp-connect'
+import { ACCOUNT_KEY } from './runtime-quota-shape'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -33,6 +34,8 @@ const SENTINEL = '__NUPHOS_QUOTA__';
 const MAX_BODY_CHARS = 200000;
 let token = '';
 let asked = false;
+// The signed-in account's own id, hashed below: only the hash leaves the runtime.
+let accountId = '';
 const safe = text => (token ? String(text).split(token).join('[REDACTED]') : String(text));
 const read = path => readFile(path, 'utf8').then(JSON.parse, () => null);
 
@@ -77,6 +80,13 @@ async function lookup() {
     if (!tokens || typeof tokens.access_token !== 'string' || !tokens.access_token)
       return { error: 'API-key agents have no usage limits' };
     token = tokens.access_token;
+    try {
+      const claims = JSON.parse(Buffer.from(String(tokens.id_token).split('.')[1], 'base64url').toString('utf8'));
+      const openai = claims['https://api.openai.com/auth'] || {};
+      // A ChatGPT workspace is shared, so its user names the quota too.
+      if (typeof openai.chatgpt_account_id === 'string' && openai.chatgpt_account_id && typeof openai.chatgpt_user_id === 'string' && openai.chatgpt_user_id)
+        accountId = openai.chatgpt_account_id + ':' + openai.chatgpt_user_id;
+    } catch {}
     url = 'https://chatgpt.com/backend-api/wham/usage';
     headers = {
       authorization: 'Bearer ' + token,
@@ -105,6 +115,9 @@ async function lookup() {
       token = oauth.accessToken;
       if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
     }
+    const config = await read(join(homedir(), '.claude.json'));
+    const account = config && config.oauthAccount && config.oauthAccount.accountUuid;
+    if (typeof account === 'string' && account) accountId = account;
     url = 'https://api.anthropic.com/api/oauth/usage';
     headers = { authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20' };
   }
@@ -117,7 +130,10 @@ async function lookup() {
   if (!response.ok) return { error: 'HTTP ' + response.status, asked: true };
   const body = await response.text();
   if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large', asked: true };
-  return { usage: JSON.parse(body), ...(plan ? { plan } : {}) };
+  const { createHash } = await import('node:crypto');
+  const provider = params && params.provider === 'codex' ? 'codex' : 'claude-code';
+  const accountKey = accountId && createHash('sha256').update(provider + ':' + accountId).digest('hex').slice(0, 16);
+  return { usage: JSON.parse(body), ...(plan ? { plan } : {}), ...(accountKey ? { accountKey } : {}) };
 }
 
 let result;
@@ -147,7 +163,7 @@ const MAX_REASON_CHARS = 500
  *  not ask. `asked` marks a failure the provider itself answered, which is the
  *  only kind worth holding on to — the rest cost nothing to ask again. */
 export type RuntimeQuotaReading =
-  | { usage?: unknown; plan?: string; readAt?: string }
+  | { usage?: unknown; plan?: string; readAt?: string; accountKey?: string }
   | { error: string; asked?: boolean; offline?: true }
 
 export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
@@ -163,7 +179,13 @@ export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
     return { error: UNREADABLE }
   }
   if (!json || typeof json !== 'object') return { error: UNREADABLE }
-  const value = json as { error?: unknown; asked?: unknown; usage?: unknown; plan?: unknown }
+  const value = json as {
+    error?: unknown
+    asked?: unknown
+    usage?: unknown
+    plan?: unknown
+    accountKey?: unknown
+  }
 
   // The agent's own reason comes first: a reading that carries one is never a
   // usage body, and both keys are optional, so no schema can tell them apart by
@@ -178,6 +200,9 @@ export function parseQuotaReading(stdout: string): RuntimeQuotaReading {
   return {
     usage: value.usage,
     ...(typeof value.plan === 'string' && value.plan ? { plan: value.plan } : {}),
+    ...(typeof value.accountKey === 'string' && ACCOUNT_KEY.test(value.accountKey)
+      ? { accountKey: value.accountKey }
+      : {}),
   }
 }
 
@@ -197,7 +222,11 @@ export async function reportedQuota(
   if (agent.cli.loggedIn === false) return { error: 'Sign in required', asked: true }
   if (agent.usage === undefined) return { error: 'The agent has not reported usage yet' }
 
-  return { usage: agent.usage, ...(agent.usageAt ? { readAt: agent.usageAt } : {}) }
+  return {
+    usage: agent.usage,
+    ...(agent.usageAt ? { readAt: agent.usageAt } : {}),
+    ...(agent.accountKey ? { accountKey: agent.accountKey } : {}),
+  }
 }
 
 /** Asks the agent that holds the credential; the same path for self-hosted and
@@ -206,12 +235,7 @@ export async function probeRuntimeQuota(
   teamId: string,
   instance: RuntimeInstance,
 ): Promise<RuntimeQuotaReading> {
-  const endpoints = await resolveTeamRuntimeEndpoints(
-    teamId,
-    undefined,
-    instance.provider,
-    'control',
-  )
+  const endpoints = await resolveTeamRuntimeEndpoints(teamId, instance.provider, 'control')
   const endpoint = endpoints.find((candidate) => candidate.runtimeId === instance.id)
 
   if (!endpoint) return { error: 'Agent is offline', offline: true }
@@ -225,7 +249,7 @@ export async function probeRuntimeQuota(
   if (!client) return { error: 'Agent is offline', offline: true }
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))
-    return { error: 'This agent runs an image that cannot report usage' }
+    return { error: 'This runtime runs an image that cannot report usage' }
   const raw = await client.runJob(
     {
       jobId: randomUUID(),

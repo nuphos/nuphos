@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">ユーザーが停止しました。</string>
     <string name="convtext_empty_reply">エージェントの応答が空でした。</string>
     <string name="convtext_steering_rejected">割り込みが拒否されました。ランタイムが許可したら再試行してください。</string>
+    <string name="convtext_stop_runtime_unreachable">ランタイムが応答しなかったため、このターンはここで停止しました。</string>
     <string name="convtext_steering_unconfirmed">割り込みが届いたか確認できません。再試行する前にタスクを確認してください。</string>
     <string name="convtext_delivery_unconfirmed">メッセージが届いたか確認できません。元の接続を再開してください。</string>
     <string name="convtext_task_reloaded">このタスクは別の場所で変更され、再読み込みされました。メッセージを再送信してください。</string>
@@ -58,6 +59,7 @@
     <string name="convtext_runtime_disabled">このタスクのランタイムは無効になっています。続けるには別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_not_found">このランタイムはこのワークスペースで利用できなくなりました。続けるには別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_offline">このランタイムを実行しているコンピューターはオフラインです。そのコンピューターで Nuphos を開くか、別のランタイムに切り替えてください。</string>
+    <string name="convtext_runtime_paused">%1$s は一時停止中です。送信すると再開します。</string>
     <string name="convtext_ask_owner">所有者に依頼</string>
     <string name="convtext_ask_admin">管理者に依頼</string>
     <string name="convtext_server_status">Nuphos からステータス %1$d が返されました。</string>

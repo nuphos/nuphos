@@ -14,7 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.model.ComposerAttachment
@@ -354,7 +354,8 @@ class ContentInputFixtureDeviceTest {
         assertEquals("second draft", sent?.text)
         assertTrue(sent!!.attachments.isEmpty())
         assertEquals("first draft", first.text)
-        assertEquals("", second.text)
+        // The composer clears the draft after the send callback returns and the sent state is saved.
+        compose.waitUntil(10_000) { second.text.isEmpty() }
         assertTrue(java.io.File(context.filesDir, "chat-attachments").listFiles().orEmpty().isEmpty())
     }
 

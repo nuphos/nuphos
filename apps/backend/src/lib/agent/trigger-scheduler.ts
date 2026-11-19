@@ -1,7 +1,8 @@
 import { Queue, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
-import { CRON_TIME_ZONE } from '@/lib/cron'
+import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
+import { serving } from '@/lib/event-loop-stall'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
@@ -39,43 +40,94 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
-    async (job) => {
-      if (job.name === 'resource-session-turn') {
-        const { executeResourceTurn } = await import('./resource-turn')
+    // A stall during a job names it, as it names the requests being served.
+    async (job) =>
+      serving('job', job.name, async () => {
+        if (job.name === 'task-report') {
+          const { deliverTaskReport } = await import('./task-report-delivery')
 
-        await executeResourceTurn(job.data)
+          await deliverTaskReport(job.data.reportId)
 
-        return
-      }
-      if (job.name === EXPIRY_SWEEP_JOB) {
-        const expired = await expireTriggers()
+          return
+        }
+        if (job.name === 'recover-task-reports') {
+          const { recoverTaskReports } = await import('./task-reports')
 
-        if (expired > 0) logEvent('info', 'agent.trigger.expiry_sweep', { expired })
+          await recoverTaskReports()
 
-        return
-      }
-      const { triggerId } = job.data as { triggerId: string }
-      const trigger = await agentTriggers().findOne({ _id: new ObjectId(triggerId) })
+          return
+        }
+        if (job.name === 'resource-session-turn') {
+          const { executeResourceTurn } = await import('./resource-turn')
 
-      if (!trigger?.enabled) return
-      // Belt-and-braces: the hourly sweep is the primary expiry path, but a
-      // fire that races it must not execute an already-expired trigger.
-      if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
-      if (trigger.triggerType !== 'cron') return
-      // Recorded before the turn so a long or failing turn still counts as fired.
-      // A missed run is over only once a turn has run (recordTriggerRan).
-      await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastFiredAt: new Date() } })
-      await executeTrigger(trigger, undefined, {
-        runKind: 'scheduled',
-        ...(job.id ? { fireId: job.id } : {}),
-      })
-    },
+          await executeResourceTurn(job.data)
+
+          return
+        }
+        if (job.name === 'answer-delivery') {
+          const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
+
+          await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
+
+          return
+        }
+        if (job.name === EXPIRY_SWEEP_JOB) {
+          const expired = await expireTriggers()
+
+          if (expired > 0) logEvent('info', 'agent.trigger.expiry_sweep', { expired })
+
+          return
+        }
+        const { triggerId } = job.data as { triggerId: string }
+        const trigger = await agentTriggers().findOne({ _id: new ObjectId(triggerId) })
+
+        if (!trigger?.enabled) return
+        // Belt-and-braces: the hourly sweep is the primary expiry path, but a
+        // fire that races it must not execute an already-expired trigger.
+        if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
+        if (trigger.triggerType !== 'cron') return
+        // Recorded before the turn so a long or failing turn still counts as fired.
+        // A missed run is over only once a turn has run (recordTriggerRan).
+        await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastFiredAt: new Date() } })
+        await executeTrigger(trigger, undefined, {
+          runKind: 'scheduled',
+          ...(job.id ? { fireId: job.id } : {}),
+        })
+      }),
     { connection, concurrency: 3 },
   )
 
   _worker.on('failed', (job, err) => {
-    logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id })
+    void whoseJob(job?.data).then((owner) =>
+      logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }),
+    )
+    if (job?.name === 'task-report') {
+      void import('./task-reports')
+        .then(({ taskReports }) =>
+          taskReports().updateOne(
+            { _id: job.data.reportId },
+            {
+              $set: {
+                deliveryError:
+                  'Report notification failed; inspect the parent conversation and queue before retrying.',
+              },
+            },
+          ),
+        )
+        .catch((error: unknown) => {
+          logError('agent.task_report.failure_record_failed', error)
+        })
+    }
   })
+
+  await _queue.upsertJobScheduler(
+    'task-report-recovery',
+    { every: 60_000 },
+    {
+      name: 'recover-task-reports',
+      opts: { removeOnComplete: 1, removeOnFail: 10 },
+    },
+  )
 
   const cronTriggers = await agentTriggers()
     .find({ ...liveTriggerShapeFilter, triggerType: 'cron', enabled: true })
@@ -129,7 +181,8 @@ async function _upsertJobScheduler(
 ): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: timeZone },
+    // Within the scheduled minute: hourly Triggers otherwise all start at :00:00 together.
+    { pattern: spreadWithinMinute(triggerId, cronExpression), tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },
@@ -173,4 +226,16 @@ export async function scheduleCronTrigger(
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
   if (!_queue) return
   await _queue.removeJobScheduler(`trigger:${triggerId}`)
+}
+
+/** The Trigger a failed fire belongs to, so its log line says whose it is (#3718). */
+async function whoseJob(data: unknown): Promise<Record<string, string | undefined>> {
+  const triggerId = (data as { triggerId?: unknown } | undefined)?.triggerId
+
+  if (typeof triggerId !== 'string' || !ObjectId.isValid(triggerId)) return {}
+  const trigger = await agentTriggers()
+    .findOne({ _id: new ObjectId(triggerId) }, { projection: { teamId: 1, targetSessionId: 1 } })
+    .catch(() => null)
+
+  return { trigger_id: triggerId, team_id: trigger?.teamId, session_id: trigger?.targetSessionId }
 }
