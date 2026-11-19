@@ -122,12 +122,14 @@ object NuphosApi {
         return id
     }
 
+    /** `runtimeState = false` for a read that never shows the runtime: with it, a read is about 10x slower. */
     suspend fun conversationDetail(
         token: String,
         teamId: String,
         sessionId: String,
         tail: Int = 100,
-    ): AgentConversationDetail = conversationDetail(Http.client, token, teamId, sessionId, tail)
+        runtimeState: Boolean = true,
+    ): AgentConversationDetail = conversationDetail(Http.client, token, teamId, sessionId, tail, runtimeState)
 
     internal suspend fun conversationDetail(
         client: OkHttpClient,
@@ -135,10 +137,11 @@ object NuphosApi {
         teamId: String,
         sessionId: String,
         tail: Int = 100,
+        runtimeState: Boolean = true,
     ): AgentConversationDetail = get(
         "agent/conversations/$sessionId",
         token,
-        listOf("teamId" to teamId, "tail" to tail.toString()),
+        listOf("teamId" to teamId, "tail" to tail.toString()) + if (runtimeState) emptyList<Pair<String, String>>() else listOf("runtimeState" to "omit"),
         timeoutSeconds = 20,
         forbiddenIsUnauthorized = false,
         transport = client,

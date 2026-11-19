@@ -462,12 +462,12 @@ class AgentStore(
         rowActionError = null
         try {
             val validTitle = requireNotNull(ConversationActions.validTitle(title)) { "Title must contain 1–120 characters." }
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true))) { "Only the owner can rename this agent." }
             ConversationActions.rename(token, team, current.sessionId, validTitle)
             if (!valid()) return false
-            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(confirmed.title == validTitle) { "The updated title could not be confirmed. Refresh and try again." }
             conversations = conversations.map { if (it.sessionId == current.sessionId && (it.teamId ?: team) == team) it.copy(title = confirmed.title) else it }
@@ -499,7 +499,7 @@ class AgentStore(
         rowActionSessionId = current.sessionId
         rowActionError = null
         try {
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
             require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
