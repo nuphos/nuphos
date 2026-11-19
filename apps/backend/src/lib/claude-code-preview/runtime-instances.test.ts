@@ -158,3 +158,19 @@ test('creation stays retired and leaves existing runtime records untouched', asy
   expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'external' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
 })
+
+// #2401: a conversation still pointing at a runtime whose record was deleted.
+test('a runtime whose record is gone answers runtime_not_found, not an error', async () => {
+  const gone = await existing('Deleted')
+
+  store.rows('claude_code_runtimes').splice(
+    runtimeRows().findIndex((doc) => doc._id === gone.id),
+    1,
+  )
+
+  await expect(requireRuntimeInstance('one', gone.id)).rejects.toMatchObject({
+    status: 404,
+    code: 'runtime_not_found',
+  })
+  expect((await app().request(`/agent-runtimes/${gone.id}/status`)).status).toBe(404)
+})
