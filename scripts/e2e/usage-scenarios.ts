@@ -63,6 +63,8 @@ export const usageScenarios: Scenario[] = [
       const section = page.getByRole('region', { name: 'Token usage' })
 
       await section.getByText('No token usage recorded in this range yet.').waitFor()
+      // Rows from before cached tokens were recorded in input are left as they are, and say so.
+      await section.getByText(/Input left out cached tokens; Total included them/).waitFor()
       await shot(section, 'token-usage-empty')
 
       // The card always shows the last 30 days: there is no range to pick.

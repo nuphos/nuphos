@@ -60,6 +60,18 @@ export function clearFilter(filters: UsageFilters, dimension: UsageDimension): U
   return rest
 }
 
+/** When runtime turns began recording cached tokens in input and cost (#3262 reached
+ *  production); rows before it carry them only in the total, and are left as recorded. */
+const CACHE_RECORDED_SINCE = '2026-11-17T14:24:20Z'
+
+/** That moment in the viewer's own date and time format. */
+export function usageCacheCutoff(): string {
+  return new Date(CACHE_RECORDED_SINCE).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 /** The query window: whole local days ending tonight at midnight, so today is included. */
 export function tokenUsageWindow(now: Date): { from: string; to: string } {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
