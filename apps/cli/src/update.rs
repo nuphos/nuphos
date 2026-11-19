@@ -29,8 +29,12 @@ pub async fn latest() -> Option<String> {
 }
 
 fn parse(version: &str) -> Option<(u64, u64, u64)> {
+    if version.bytes().any(|b| !b.is_ascii_digit() && b != b'.') {
+        return None;
+    }
     let mut parts = version.split('.').map(|p| p.parse().ok());
-    Some((parts.next()??, parts.next()??, parts.next()??))
+    let parsed = (parts.next()??, parts.next()??, parts.next()??);
+    parts.next().is_none().then_some(parsed)
 }
 
 pub fn is_newer(version: &str) -> bool {
@@ -73,6 +77,22 @@ pub async fn update() -> Result<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn accepts_only_three_numeric_version_parts() {
+        for invalid in [
+            "1.2.3.4",
+            "99.0.0.$(echo test)",
+            "99.0.0.; echo test",
+            "+1.2.3",
+            "1.2.+3",
+            "1..3",
+            "1.2.3suffix",
+            "1.2.3\n",
+        ] {
+            assert_eq!(parse(invalid), None, "accepted {invalid:?}");
+        }
+    }
 
     #[test]
     fn compares_versions_numerically() {
