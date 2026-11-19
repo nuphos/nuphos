@@ -201,4 +201,11 @@
     <string name="chat_summary_running">Berjalan</string>
     <string name="chat_summary_open">Ringkasan agen</string>
     <string name="chat_summary_output_truncated">Keluaran sebelumnya disembunyikan.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Subtugas</string>
+    <string name="chat_summary_files">File</string>
+    <string name="chat_summary_triggers">Pemicu</string>
+    <string name="chat_summary_no_triggers">Minta agen menjadwalkan pekerjaan berulang dalam tugas ini.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_paused">Dijeda</string>
 </resources>

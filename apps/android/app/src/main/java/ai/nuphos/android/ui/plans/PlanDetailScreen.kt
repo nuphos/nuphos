@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.plans
 
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
@@ -196,7 +197,7 @@ private fun ActionBar(plan: Plan, showsChatActions: Boolean, nav: NavHostControl
             if (canApprove) {
                 Button(
                     enabled = !busy,
-                    onClick = { if (!busy) { busy = true; scope.launch { try { val updated = plans.approve(plan); if (updated.status != "approved" && updated.approvalCount == plan.approvalCount) notice = alreadyRecorded } catch (e: Exception) { notice = e.message ?: approveFailed } finally { busy = false } } } },
+                    onClick = { if (!busy) { busy = true; scope.launch { try { val updated = plans.approve(plan); if (updated.status != "approved" && updated.approvalCount == plan.approvalCount) notice = alreadyRecorded } catch (e: Exception) { if (e is CancellationException) throw e; notice = e.message ?: approveFailed } finally { busy = false } } } },
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.approve)) }
             }

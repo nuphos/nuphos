@@ -32,7 +32,7 @@ const instance = (id: string, extra: Partial<RuntimeInstance> = {}): RuntimeInst
   provider: 'claude-code',
   label: `Agent ${id}`,
   status: 'active',
-  kind: 'managed',
+  kind: 'external',
   createdAt: '',
   ...extra,
 })

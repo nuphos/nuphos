@@ -208,9 +208,9 @@ export function BypassControlMenu({
   hero: boolean
 }) {
   const { active } = bypassControl
-  // Until the mode is known the chip holds its place, unseen, at the wider
-  // label's width: no wrong mode shows, and nothing moves when it arrives.
-  const modes = active === undefined ? [true, false] : [active]
+  // Both labels always share one cell, the inactive one unseen, so the chip is
+  // always the wider label's width: nothing moves when the mode arrives or changes.
+  // Until it is known the whole chip is unseen too: no wrong mode shows.
 
   return (
     <Menu>
@@ -226,8 +226,15 @@ export function BypassControlMenu({
         title={t('Choose how commands in this task are authorized')}
       >
         <span className="grid text-[12.5px] font-medium">
-          {modes.map((full) => (
-            <span key={String(full)} className="col-start-1 row-start-1 flex items-center">
+          {[true, false].map((full) => (
+            <span
+              key={String(full)}
+              aria-hidden={full !== active || undefined}
+              className={clsx(
+                'col-start-1 row-start-1 flex items-center',
+                full !== active && 'invisible',
+              )}
+            >
               {full ? (
                 <Unlock className="w-3.5 h-3.5 @[400px]:hidden" strokeWidth={2} aria-hidden />
               ) : (
