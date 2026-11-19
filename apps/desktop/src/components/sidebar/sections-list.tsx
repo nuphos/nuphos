@@ -210,7 +210,6 @@ export function SidebarSectionList({
                                 }}
                                 label={item.label}
                                 preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
-                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
                                 note={rowNote(item, done, folds(section))}
