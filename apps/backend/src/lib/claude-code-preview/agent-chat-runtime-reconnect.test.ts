@@ -6,7 +6,6 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
-import { agentHostAway } from './openab-acp-connect'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { classifyPreviewInterruption } from './preview-transcript'
 import { OpenAbTimeoutError, RuntimeStateProbeError, turnDiagnostics } from './turn-diagnostics'
@@ -260,20 +259,12 @@ test('changed identity instructions reload an already attached session before pr
   expect(loadedPrompt).toBe('new identity instructions')
 })
 
-test('a state check that times out fails as an agent host away, which the queue waits out for its grace', async () => {
-  probeError = new OpenAbTimeoutError(
-    'OpenAB ACP _openab/session/state timed out',
-    'call-deadline',
-    3000,
-  )
-  const failure = await run().catch((cause: unknown) => cause)
-
-  expect(agentHostAway(failure)).toBe(true)
-  // Nothing reached the agent, so sending it again cannot run it twice.
-  expect(calls).toEqual(['observe-control'])
-})
-
 for (const [name, error, diagnostics] of [
+  [
+    'timeout',
+    new OpenAbTimeoutError('OpenAB ACP _openab/session/state timed out', 'call-deadline', 3000),
+    { source: 'backend', timeoutKind: 'call-deadline', timeoutMs: 3000 },
+  ],
   ['invalid snapshot', new Error('Invalid runtime execution snapshot'), { source: 'unknown' }],
   [
     'unsupported RPC',
@@ -288,7 +279,7 @@ for (const [name, error, diagnostics] of [
     expect(failure).toBeInstanceOf(RuntimeStateProbeError)
     expect((failure as Error).cause).toBe(error)
     expect(classifyPreviewInterruption(failure, false)).toEqual({
-      reason: 'error',
+      reason: name === 'timeout' ? 'timeout' : 'error',
       message: `Could not check the agent's state: ${error.message}`,
     })
     expect(

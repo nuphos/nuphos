@@ -1,10 +1,7 @@
 import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
-import { AppError } from '@/lib/errors'
-import { logEvent } from '@/lib/observability'
 import { errorMessage } from '@/lib/observability-sanitize'
 import { redactSecrets } from '@/lib/secrets/scan'
 
-import { agentHostAway } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 
 import type { PreviewToolStep } from './preview-transcript'
@@ -34,29 +31,6 @@ export class RuntimeStateProbeError extends Error {
 
     return new RuntimeStateProbeError(redacted.slice(0, 2000), cause)
   }
-}
-
-/**
- * What a turn fails with when its state check before the prompt failed. A check
- * that got no answer in time fails as an agent host away, as the queue's own
- * status read does (queued-turn.ts): nothing was sent, so the queue sends it
- * again, and tells the sender why once the host has stayed away past its grace.
- */
-export async function probeFailure(
-  cause: unknown,
-  sessionId: string,
-  endpoint: { runtimeId?: string; provider?: string },
-): Promise<unknown> {
-  if (agentHostAway(cause)) return cause
-  if (!(cause instanceof OpenAbTimeoutError)) return await RuntimeStateProbeError.from(cause)
-  logEvent('warn', 'agent.runtime_state.probe_timeout', {
-    session_id: sessionId,
-    runtime_id: endpoint.runtimeId ?? null,
-    provider: endpoint.provider ?? 'claude-code',
-    error: cause.message,
-  })
-
-  return new AppError(409, 'runtime_offline', 'The agent did not report its state in time.')
 }
 
 export type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
