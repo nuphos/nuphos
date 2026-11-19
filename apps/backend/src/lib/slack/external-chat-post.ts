@@ -31,15 +31,24 @@ export async function postToSlack(
   if (!mapping || !installed)
     throw new AppError(409, 'slack_channel_unavailable', 'This chat is no longer in Slack.')
   const name = bot.title || 'Nuphos'
-  // Without the scope Slack shows the app's name, so the post opens with the Bot's.
-  const customize = installed.binding.scope.split(',').includes('chat:write.customize')
   const body = toSlackMrkdwn(text)
-  const { ts } = await postSlackMessage({
-    token: installed.botToken,
-    channel: mapping.slackChannelId,
-    text: customize ? body : `*${escapeSlackMrkdwn(name)}*\n${body}`,
-    threadTs: await threadRoot(record, mapping.slackChannelId, replyTo?.id),
-    ...(customize ? { username: name } : {}),
+  const threadTs = await threadRoot(record, mapping.slackChannelId, replyTo?.id)
+  const post = (customize: boolean) =>
+    postSlackMessage({
+      token: installed.botToken,
+      channel: mapping.slackChannelId,
+      // Without the name Slack shows the app's, so the post opens with the Bot's.
+      text: customize ? body : `*${escapeSlackMrkdwn(name)}*\n${body}`,
+      threadTs,
+      ...(customize ? { username: name } : {}),
+    })
+  // Slack does not say a custom name is ignored without chat:write.customize,
+  // so a token that refuses it posts once more without one.
+  const customize = installed.binding.scope.split(',').includes('chat:write.customize')
+  const { ts } = await post(customize).catch(async (error: unknown) => {
+    if (!customize || !(error instanceof AppError) || error.message !== 'missing_scope') throw error
+
+    return await post(false)
   })
 
   if (!ts) throw new AppError(502, 'slack_api_error', 'Slack returned no message id')

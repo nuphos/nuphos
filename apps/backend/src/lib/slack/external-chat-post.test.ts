@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { agentConversations, agentMessages } from '@/lib/agent/db'
 import { channelToolModule } from '@/lib/claude-code-preview/preview-tools/channels'
 import * as transfers from '@/lib/file-transfer/service'
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -22,6 +23,8 @@ let memory = portabilityDb()
 let posted: Record<string, unknown>[] = []
 let slackFails = false
 let scope = 'chat:write'
+// A token that refuses a custom name, whatever its stored scope says.
+let refusesName = false
 
 useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 // The in-memory store has no bulkWrite, so the append writes each row itself.
@@ -63,6 +66,8 @@ useSlackInstallations({
 useSlackApi({
   slackApi: (_token: string, method: string, body: Record<string, unknown>) => {
     if (slackFails) return Promise.reject(new Error('channel_not_found'))
+    if (refusesName && body.username)
+      return Promise.reject(new AppError(502, 'slack_api_error', 'missing_scope'))
     posted.push({ method, ...body })
 
     return Promise.resolve({ ok: true, ts: `20.${String(posted.length)}` } as never)
@@ -118,6 +123,7 @@ beforeEach(async () => {
   posted = []
   slackFails = false
   scope = 'chat:write'
+  refusesName = false
   await seed(RECORD, { kind: 'channel', external: 'slack', agentSessionIds: ['bot'] })
   await seed(CHAT, { kind: 'channel', agentSessionIds: ['bot'] })
   await seed('bot', { title: 'Deploy Bot', avatar: '07-ada' })
@@ -147,6 +153,17 @@ describe("a Bot's post in a Slack channel's external chat", () => {
     await post({ channelId: RECORD, text: 'Done.' })
 
     expect(posted[0]).toMatchObject({ text: 'Done.', username: 'Deploy Bot' })
+  })
+
+  test('a token without the customize scope still posts, under the app with the Bot’s name first', async () => {
+    scope = 'chat:write,chat:write.customize'
+    refusesName = true
+
+    expect(await post({ channelId: RECORD, text: 'Done.' })).toMatchObject({
+      structuredContent: { posted: true },
+    })
+    expect(posted).toEqual([expect.objectContaining({ text: '*Deploy Bot*\nDone.' })])
+    expect(posted[0]).not.toHaveProperty('username')
   })
 
   test('an answer to a message goes into its Slack thread, at the thread’s root', async () => {
