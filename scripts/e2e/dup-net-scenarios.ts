@@ -14,7 +14,7 @@ import type { Page } from 'playwright-core'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
 /** How many stored messages of each role carry the marker. */
-function stored(mongoUri: string, marker: string) {
+export function stored(mongoUri: string, marker: string) {
   const script = `
     import { MongoClient } from 'mongodb'
     const [uri, marker] = process.argv.slice(1)

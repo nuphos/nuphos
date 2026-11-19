@@ -1,6 +1,6 @@
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
-import { dupNetScenarios } from './dup-net-scenarios.ts'
+import { dupCaseScenarios } from './dup-case-scenarios.ts'
 import { startNetProxy } from './net-proxy.ts'
 import { rmSync } from 'node:fs'
 
@@ -276,7 +276,7 @@ try {
 
   desktop = await startDesktop(proxy.url)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...signInScenarios, ...dupNetScenarios(proxy)].entries()) {
+  for (const [index, scenario] of [...signInScenarios, ...dupCaseScenarios(proxy)].entries()) {
     const from = backendLines()
 
     await scenario.run(desktop.page, stack)
