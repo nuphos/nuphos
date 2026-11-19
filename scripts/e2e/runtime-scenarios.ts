@@ -5,6 +5,7 @@ import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
 import { languageScenarios } from './language-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { providerMoveScenarios } from './provider-move-scenarios.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -289,6 +290,7 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...providerMoveScenarios,
   ...fallbackSetupScenarios,
   ...languageScenarios,
 ]
