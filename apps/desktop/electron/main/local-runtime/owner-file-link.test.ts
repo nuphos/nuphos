@@ -27,6 +27,11 @@ function homes(t: { after: (fn: () => void) => void }) {
   fs.mkdirSync(owner)
   fs.mkdirSync(home)
   fs.writeFileSync(path.join(owner, 'auth.json'), '{"tokens":"first"}')
+  // An hour old, so a save made in the same millisecond still counts as newer: a
+  // timestamp set from a Date has whole milliseconds, a written file's has finer.
+  const anHourAgo = new Date(Date.now() - 3_600_000)
+
+  fs.utimesSync(path.join(owner, 'auth.json'), anHourAgo, anHourAgo)
 
   return { owner: path.join(owner, 'auth.json'), agent: path.join(home, 'auth.json'), home }
 }
