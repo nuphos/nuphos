@@ -122,7 +122,7 @@ export function ClearCachesConfirm({
       open={open}
       title={t('Clear caches on {boxLabel}?', { boxLabel: device.label })}
       description={t(
-        'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer, and a build running in a terminal right now may fail. It does not start while anything on it is replying.',
+        'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer. Clearing starts immediately, even while Tasks are running, and may interrupt them or fail a build running in a terminal.',
         { boxLabel: device.label },
       )}
       confirmLabel={t('Clear caches')}
