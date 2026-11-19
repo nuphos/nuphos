@@ -54,6 +54,9 @@ struct NewBoxTests {
         precondition(NewBox.phase(madeAt: made, now: made + 300, state: "creating", runtimes: 0) == .starting)
         precondition(NewBox.phase(madeAt: made, now: made + 301, state: "creating", runtimes: 0) == .timeout)
         precondition(NewBox.phase(madeAt: made, now: made + 301, state: nil, runtimes: 1) == .ready)
+        // Runtimes join one by one: the list is still read once the first is up.
+        precondition(NewBox.Phase.starting.reads && NewBox.Phase.ready.reads, "the Ready list stops at the first runtime")
+        precondition(!NewBox.Phase.idle.reads && !NewBox.Phase.error.reads && !NewBox.Phase.timeout.reads)
     }
 
     private static func labelsABoxsStateAndWhoMayResumeIt() {

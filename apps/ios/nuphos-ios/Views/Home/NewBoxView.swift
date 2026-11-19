@@ -58,9 +58,9 @@ struct NewBoxView: View {
         } message: { failure in
             Text(failure.plan ? "\(failure.message)\n\n\(String(localized: "Choose a plan in Nuphos on your computer."))" : failure.message)
         }
-        // Desktop polls the new Box every second until its runtimes join.
+        // Desktop polls the new Box every second while its runtimes join.
         .task(id: made?.deviceId) {
-            while made != nil, phase == .starting, !Task.isCancelled {
+            while made != nil, phase.reads, !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 async let devices: Void = store.loadAgentDevices()
                 async let runtimes: Void = store.loadRuntimes(force: true)
