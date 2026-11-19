@@ -72,16 +72,14 @@ export const archiveSharedTaskScenarios: Scenario[] = [
         await post('Status update E2E_DELIVERY:archive-owner')
         await page.waitForTimeout(3000)
         if (await mine()) throw new Error("The owner's message brought back a Task I archived")
-        // My Archived lists it with my own, to restore.
-        await page
-          .getByRole('button', { name: /^Search/ })
-          .first()
-          .click()
-        await page.keyboard.type('Archived')
-        await page.getByRole('option', { name: 'Archived' }).first().click()
-        await page.getByText(TASK, { exact: true }).waitFor({ timeout: 15_000 })
+        // My Archived, at the sidebar's foot, lists it with my own, to restore.
+        await page.getByRole('button', { name: 'Archived', exact: true }).click()
+        const archived = page.locator('.sidebar-archive-overlay')
+
+        await archived.getByText(TASK, { exact: true }).waitFor({ timeout: 15_000 })
         await page.screenshot({ path: `${artifacts}/archive-shared-task-archived.png` })
-        await page.getByText('Back to app', { exact: true }).click()
+        await page.keyboard.press('Escape')
+        await archived.waitFor({ state: 'detached' })
         // Being mentioned in it is.
         await post('Can you take a look? E2E_DELIVERY:archive-mention', [me])
         await until('the mention to bring the Task back to my list', mine)
