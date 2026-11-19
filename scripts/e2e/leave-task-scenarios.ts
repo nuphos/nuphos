@@ -147,6 +147,9 @@ async function leaveFromRow(
 export const leaveTaskScenarios: Scenario[] = [
   {
     name: "a teammate's Task is left from its row's two menus after a confirmation, only for you",
+    // My message waits for the offline computer, and the private Task refuses and hides itself.
+    expected:
+      /queued_launch_failed|"error_code":"conversation_read_only"|"path":"\/agent\/conversations\/[\w-]+","status":404/,
     run: async (page, stack) => {
       const teammate = await joinTeam(stack, 'task-owner')
       const me = await rest(stack, stack.token)<{ id?: string; user?: { id: string } }>(
@@ -209,6 +212,12 @@ export const leaveTaskScenarios: Scenario[] = [
         if (read.ok) throw new Error('I can still read a private Task after leaving it')
       } finally {
         goOffline()
+        // Unshared, the computer no longer lets me reply, so my waiting message is dropped.
+        await rest(stack, teammate.token)(
+          'PUT',
+          `/agent/devices/${LAPTOP}/share?teamId=${stack.teamId}`,
+          { level: 'off', everyone: false, userIds: [] },
+        )
       }
     },
   },
