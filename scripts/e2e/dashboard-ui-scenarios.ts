@@ -105,6 +105,14 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Auto-refresh: Daily', exact: true }).waitFor()
       await page.getByTitle(/^Auto-refresh: Daily at/).waitFor()
       await page.getByRole('menu').waitFor({ state: 'hidden' })
+      // Nothing in the narrow panel runs past its edge (the panel is at the window's right).
+      const addPanel = await page
+        .getByRole('button', { name: 'Add Panel', exact: true })
+        .boundingBox()
+      const windowWidth = page.viewportSize()?.width ?? 0
+
+      if (!addPanel || addPanel.x + addPanel.width > windowWidth)
+        throw new Error(`Add Panel runs past the panel edge: ${JSON.stringify(addPanel)}`)
       await shot(page, '2b-refresh-controls')
       // The same toolbar on one row, with the panel expanded to the window.
       await page.getByRole('button', { name: 'Expand workspace panel' }).click()

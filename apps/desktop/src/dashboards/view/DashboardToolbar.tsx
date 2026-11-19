@@ -220,7 +220,7 @@ export function DashboardToolbar({
         )}
       </div>
       {dashboard && (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
           {/* Here for the same reason as the visibility menu. */}
           <DashboardHeaderControls
             teamId={teamId}
