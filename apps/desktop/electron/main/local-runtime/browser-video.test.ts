@@ -30,7 +30,7 @@ function tab({ failScreencast = false } = {}) {
       if (failScreencast && method === 'Page.startScreencast')
         return Promise.reject(new Error('screencast refused'))
 
-      return Promise.resolve({})
+      return Promise.resolve(method === 'Page.captureScreenshot' ? { data: 'SHOT' } : {})
     },
   })
   const frame = (data: string, sessionId: number) =>
@@ -111,7 +111,7 @@ test('a video past its frame budget stops taking frames and says it was cut shor
   frame('AAAA', 3) // past it: not drawn
   await new Promise((resolve) => setImmediate(resolve))
   assert.ok(methods(debug).includes('Page.stopScreencast'))
-  assert.equal(page.scripts.filter((s) => s.startsWith('draw(')).length, 2)
+  assert.equal(page.scripts.filter((s) => s === 'draw("AAAA")').length, 2)
 
   const done = await stopVideo(video, join(temp, 'cut.webm'))
 
@@ -143,4 +143,17 @@ test('a video that fails to finish still writes the HAR, detaches, and says the 
   assert.equal(debug.isAttached(), false)
   assert.equal(debug.listenerCount('message'), 0)
   assert.equal(page.closed, true)
+})
+
+test('a video starts with the page as it is at record_start, before any screencast frame', async () => {
+  const { contents, debug } = tab()
+  const page = helper()
+
+  await startVideo(contents.debugger, () => Promise.resolve(page))
+  // A tab that does not repaint sends no frame, and the video would only start at its next change.
+  assert.ok(page.scripts.includes('draw("SHOT")'))
+  assert.ok(
+    methods(debug).indexOf('Page.captureScreenshot') <
+      methods(debug).indexOf('Page.startScreencast'),
+  )
 })
