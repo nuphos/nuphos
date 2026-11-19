@@ -404,6 +404,12 @@ final class AgentStore {
         selectedTeam == nil || !runtimesLoaded || newConversationRuntime == nil
     }
 
+    /// The workspace has a runtime to start a task on. New Task then asks for one
+    /// ("Choose runtime") if the remembered one is unavailable.
+    var canStartTask: Bool {
+        selectedTeam != nil && runtimesLoaded && RuntimeInstance.defaultPick(runtimes) != nil
+    }
+
     func selectRuntime(_ runtime: RuntimeInstance) {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
