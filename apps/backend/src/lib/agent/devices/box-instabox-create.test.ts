@@ -1,4 +1,10 @@
-import { InstaboxAuthError, InstaboxQuotaError, Sandbox } from '@insforge/instabox-sdk'
+import {
+  InstaboxAuthError,
+  InstaboxError,
+  InstaboxQuotaError,
+  InstaboxTimeoutError,
+  Sandbox,
+} from '@insforge/instabox-sdk'
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
@@ -10,6 +16,7 @@ import { useInstaboxMachines } from '@/lib/test/doubles/instabox-machines'
 import { useJoinTokens } from '@/lib/test/doubles/join-tokens'
 
 import { createBox } from './box-instabox'
+import { BOX_INSTALL_COMMAND } from './box-instabox-client'
 
 import type { AgentDevice } from './store'
 
@@ -192,5 +199,75 @@ test('an order the plan refuses says so, instead of blaming the API key', async 
 
   expect(error).toMatchObject({ status: 409, code: 'instabox_plan_not_allowed' })
   expect(error?.message).not.toContain('API key')
+  expect(deleted).toHaveLength(1)
+})
+
+/** Sets a Box up to the end, its install failing first with `failure`; the commands it ran. */
+async function setUpWithInstallFailing(failure: Error) {
+  const ran: string[] = []
+  let settled = () => {}
+  const done = new Promise<void>((resolve) => {
+    settled = resolve
+  })
+  const machine = {
+    sandboxId: 'm_1',
+    setAutoSuspend: () => Promise.resolve(),
+    commands: {
+      run: (command: string) => {
+        ran.push(command)
+
+        return command === BOX_INSTALL_COMMAND && ran.length === 1
+          ? Promise.reject(failure)
+          : Promise.resolve({})
+      },
+    },
+  } as unknown as Sandbox
+
+  installStore({
+    setAgentDeviceBoxSandbox: () => Promise.resolve(true),
+    deleteAgentDevice: (_userId: string, deviceId: string) => {
+      deleted.push(deviceId)
+      settled()
+
+      return Promise.resolve(true)
+    },
+  })
+  installTokens({
+    issueDeviceJoinToken: () => Promise.resolve({ token: 't' } as never),
+    deleteDeviceJoinTokens: () => Promise.resolve(),
+  })
+  installPresence({
+    waitForPresence: () => {
+      settled()
+
+      return Promise.resolve(true)
+    },
+  })
+  spies.push(spyOn(Sandbox, 'create').mockResolvedValue(machine))
+  spies.push(spyOn(Sandbox, 'connect').mockResolvedValue(machine))
+
+  await createBox('u1', teamId, 'Box', { accountId })
+  await done
+
+  return ran.filter((command) => command === BOX_INSTALL_COMMAND).length
+}
+
+test('a connection reset mid-install runs the install again on the same machine', async () => {
+  const reset = new InstaboxError('POST /v1/machines/m_1/exec failed: socket closed', {
+    code: 'network_error',
+    retryable: true,
+  })
+
+  expect(await setUpWithInstallFailing(reset)).toBe(2)
+  expect(deleted).toEqual([])
+  expect(killed).toEqual([])
+})
+
+test('an install that timed out is not run again: the Box is discarded', async () => {
+  const timedOut = new InstaboxTimeoutError('POST /v1/machines/m_1/exec timed out', {
+    code: 'request_timeout',
+  })
+
+  expect(await setUpWithInstallFailing(timedOut)).toBe(1)
   expect(deleted).toHaveLength(1)
 })

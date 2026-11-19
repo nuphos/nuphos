@@ -28,4 +28,6 @@ export type ConversationTranscriptSync = {
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
+  /** A new conversation's parent: the Bot a Task opened over MCP starts under. */
+  parentSessionId?: string
 }

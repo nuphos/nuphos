@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 
-import { requestComputerAppUpdate } from './computer-app-update'
+import { requestComputerAppUpdate, setComputerAutoInstall } from './computer-app-update'
 
-import type { ComputerAppUpdateDeps } from './computer-app-update'
+import type { ComputerAppUpdateDeps, ComputerAutoInstallDeps } from './computer-app-update'
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 const staged: LocalRuntimeStatus = {
@@ -58,5 +58,57 @@ describe('requestComputerAppUpdate', () => {
       })
       expect(sent).toEqual([])
     }
+  })
+})
+
+describe('computer automatic updates', () => {
+  function autoDeps(over: Partial<ComputerAutoInstallDeps> = {}) {
+    const sent: unknown[] = []
+    const value: ComputerAutoInstallDeps = {
+      // Only someone who manages box-1; its host reports under its transport owner.
+      manage: async (actorId, _teamId, deviceId) => {
+        if (actorId !== 'admin' || deviceId !== 'box-1') throw new Error('not found')
+
+        return { userId: 'transport' }
+      },
+      online: async () => true,
+      set: async (target, enabled) => {
+        sent.push([target, enabled])
+
+        return { enabled }
+      },
+      remember: async (userId, deviceId, enabled) => {
+        sent.push(['remember', userId, deviceId, enabled])
+      },
+      ...over,
+    }
+
+    return { value, sent }
+  }
+
+  test('whoever manages a computer turns its automatic updates off, on the computer', async () => {
+    const { value, sent } = autoDeps()
+
+    expect(await setComputerAutoInstall('t1', 'admin', 'box-1', false, value)).toEqual({
+      enabled: false,
+    })
+    expect(sent).toEqual([
+      [{ userId: 'transport', actorId: 'admin', deviceId: 'box-1', teamId: 't1' }, false],
+      // Noted for its card while it is offline: what the computer answered.
+      ['remember', 'transport', 'box-1', false],
+    ])
+  })
+
+  test('nobody else can, and an offline computer is refused', async () => {
+    const { value, sent } = autoDeps()
+
+    await expect(setComputerAutoInstall('t1', 'member', 'box-1', false, value)).rejects.toThrow()
+    await expect(
+      setComputerAutoInstall('t1', 'admin', 'box-1', false, {
+        ...value,
+        online: async () => false,
+      }),
+    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    expect(sent).toEqual([])
   })
 })

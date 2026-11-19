@@ -10,16 +10,32 @@ const SRC = join(import.meta.dirname, '..')
 const AWS_TERMS = new Set(['views/ecs/EcsInfrastructureView.tsx'])
 // Not reworded yet (#3250). Each batch removes its entries; the list ends empty.
 const NOT_YET = [
-  'components/BindingAccess.tsx',
-  'components/SidebarSlackPromo.tsx',
   'components/Toolbar.tsx',
   'components/sidebar/',
   'dashboards/',
   'design/',
   'lib/shortcutsCatalog.ts',
-  'lib/workspaceRowLink.tsx',
-  'views/',
+  'views/AgentMemoriesView.tsx',
+  'views/ArchitectureView.tsx',
+  'views/AuditLogView.tsx',
+  'views/DesignsView.tsx',
+  'views/DesktopPanes.tsx',
+  'views/InboxView.tsx',
+  'views/PlansView.tsx',
+  'views/RuntimeFilesError.tsx',
+  'views/RuntimeFilesView.tsx',
+  'views/TeamSkillsView.tsx',
+  'views/TerminalView.tsx',
+  'views/audit/',
+  'views/detail/',
+  'views/memories/',
+  'views/plans/',
+  'views/skills/',
+  'views/stats/',
+  'views/triggers/',
 ]
+// Names that contain the word but are not about agents: ssh-agent, AGENTS.md, a log file.
+const NAMES = /ssh-agent|AGENTS\.md|nuphos-agent\.log/g
 const call = /\bt\(\s*(['"])((?:\\.|(?!\1)[^\\])*)\1/g
 
 const sources = readdirSync(SRC, { recursive: true, withFileTypes: true })
@@ -44,7 +60,7 @@ test('no text names an agent, outside what is not reworded yet', () => {
     .filter((path) => !NOT_YET.some((prefix) => path.startsWith(prefix)))
     .flatMap((path) =>
       keys(path)
-        .filter((key) => /\bagents?\b/i.test(key))
+        .filter((key) => /\bagents?\b/i.test(key.replace(NAMES, '')))
         .map((key) => `${path}: ${key}`),
     )
 

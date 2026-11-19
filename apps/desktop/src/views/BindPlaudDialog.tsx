@@ -72,7 +72,7 @@ export function BindPlaudDialog({ open, teamId, onClose, onBound }: Props) {
       onClose={close}
       title={t('Connect {name}', { name: 'Plaud' })}
       description={t(
-        'Authorize Nuphos to read your Plaud recordings so the agent can search them and work from their transcripts and summaries.',
+        'Authorize Nuphos to read your Plaud recordings so it can search them and work from their transcripts and summaries.',
       )}
       width={460}
     >

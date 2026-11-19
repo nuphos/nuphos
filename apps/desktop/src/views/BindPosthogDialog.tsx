@@ -144,10 +144,10 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
           <>
             <p className="text-secondary text-[12.5px] leading-relaxed">
               {kind === 'connect'
-                ? t('{message}. Choose the projects the agent may query.', {
+                ? t('{message}. Choose the projects Nuphos may query.', {
                     message: connectedMessage(existing, phase.bindingId, 'PostHog'),
                   })
-                : t('PostHog is connected. Choose the projects the agent may query.')}
+                : t('PostHog is connected. Choose the projects Nuphos may query.')}
             </p>
             <PosthogProjectChecklist
               projects={phase.available}

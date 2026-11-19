@@ -7,7 +7,6 @@ import {
   boxSessions,
   boxSizeChoices,
   accessHint,
-  removal,
   BOX_BADGE,
   boxActions,
   boxAgents,
@@ -21,6 +20,7 @@ import {
   machineLine,
   vanishedBoxes,
 } from './boxPresentation.ts'
+import { removal } from './removalPresentation.ts'
 
 import type { AgentDevice } from '../../api/device-types.ts'
 import type { RuntimeInstance } from '../../types/runtime.ts'
@@ -161,7 +161,7 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
       name: 'Medium',
       spec: '4 vCPU · 8 GiB',
       use: 'Everyday work',
-      sessions: 'Up to 3 agents at once',
+      sessions: 'Up to 3 tasks at once',
     },
     {
       vcpus: 8,
@@ -169,15 +169,15 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
       name: 'Large',
       spec: '8 vCPU · 16 GiB',
       use: 'Heavy builds',
-      sessions: 'Up to 8 agents at once',
+      sessions: 'Up to 8 tasks at once',
     },
   ])
   assert.deepEqual(
     boxSizeChoices([small, medium, large]).map((c) => [c.name, c.tier, c.sessions]),
     [
-      ['Small', 0, 'Up to 1 agent at once'],
-      ['Medium', 1, 'Up to 3 agents at once'],
-      ['Large', 2, 'Up to 8 agents at once'],
+      ['Small', 0, 'Up to 1 task at once'],
+      ['Medium', 1, 'Up to 3 tasks at once'],
+      ['Large', 2, 'Up to 8 tasks at once'],
     ],
   )
   // The edges: 2 is still Small, 6 still Medium, 7 already Large.
@@ -211,12 +211,14 @@ test('a member who may only use a Box gets none of the controls the backend refu
   assert.equal(canManage(box('a', 'running')), true, 'your own machine, no access field')
 })
 
-test('a Box can always be deleted; a computer can be removed only while offline', () => {
+test('a Box can always be deleted, and a computer removed online or not, saying it is online', () => {
   const computer = { deviceId: 'c1', label: 'Mac', platform: 'darwin' } as AgentDevice
 
   assert.equal(removal({ ...computer, online: false }).allowed, true)
   assert.equal(removal({ ...computer, online: false }).error, 'Could not remove computer')
-  assert.equal(removal({ ...computer, online: true }).allowed, false)
+  assert.equal(removal({ ...computer, online: true }).allowed, true)
+  assert.match(removal({ ...computer, online: true }).description, /^Mac is online\./)
+  assert.doesNotMatch(removal({ ...computer, online: false }).description, /online/)
   for (const online of [true, false])
     assert.equal(
       removal({ ...computer, online, box: { provider: 'instabox' } } as AgentDevice).allowed,
@@ -286,5 +288,5 @@ test('only a manager sees who may use a Box', () => {
 })
 
 test('boxSizeChoices says "1 agent", not "1 agents"', () => {
-  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 agent at once')
+  assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 task at once')
 })
