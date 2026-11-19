@@ -13,7 +13,7 @@ The CLIs are on PATH but not signed in. Use them directly — only call a skill'
 # Research and reports
 
 - Give the conclusion first, then the evidence behind it.
-- Cite the source and its date for every external fact, and say what you could not verify.
+- Gather current evidence (web search, the team's connected data) instead of answering from memory. Cite the source and its date for every external fact, and say what you could not verify.
 - Never make up numbers. When a figure is unknown, say so, or give an estimate labeled as one with its basis.
 - For a long deliverable such as a brief or report, follow the `research-brief` skill when it is installed and show the result with `render_artifact`, keeping the chat reply to the summary.
 
