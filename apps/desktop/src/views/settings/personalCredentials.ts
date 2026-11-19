@@ -1,9 +1,5 @@
-import { api } from '../../api'
-import { parseAtlasError } from '../../api/errors'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-
-import { isGoogle } from './personalConnectorOpens'
 
 import type {
   PersonalCredential,
@@ -28,31 +24,8 @@ export function nameOf(provider: PersonalCredentialProvider): string {
 
 export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
 
-export { isGoogle }
-
-/** Starts signing in to the member's own account in the browser; a failure says why. */
-export async function connectPersonalCredential(
-  provider: PersonalCredentialProvider,
-  teamId: string | undefined,
-): Promise<void> {
-  try {
-    const { authorizeUrl } = await api.atlasStartPersonalCredential(
-      provider,
-      isGoogle(provider) ? teamId : undefined,
-    )
-
-    await api.appOpenExternal(authorizeUrl)
-  } catch (err) {
-    if (parseAtlasError(err).code === 'personal_credential_not_configured') {
-      toast.error(
-        t('Could not connect {name}', { name: nameOf(provider) }),
-        t('Not configured on this server yet'),
-      )
-    } else {
-      toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
-    }
-  }
-}
+export const isGoogle = (provider: PersonalCredentialProvider) =>
+  provider === 'gmail' || provider === 'google-drive' || provider === 'google-calendar'
 
 /** The credential that applies in this team: Google grants are per team. */
 export function credentialFor(

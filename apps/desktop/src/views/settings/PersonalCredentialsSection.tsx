@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { CloudLogo } from '../../components/CloudLogo'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkeletonReveal } from '../../components/SkeletonReveal'
@@ -10,10 +11,8 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
-import { needsTeamGoogleClient } from './personalConnectorOpens'
 import {
   PERSONAL_CREDENTIALS_CHANGED,
-  connectPersonalCredential,
   credentialFor,
   isGoogle,
   nameOf,
@@ -116,7 +115,21 @@ export function PersonalCredentialsSection({
   async function connect(provider: PersonalCredentialProvider) {
     setBusy(provider)
     try {
-      await connectPersonalCredential(provider, team?.id)
+      const { authorizeUrl } = await api.atlasStartPersonalCredential(
+        provider,
+        isGoogle(provider) ? team?.id : undefined,
+      )
+
+      await api.appOpenExternal(authorizeUrl)
+    } catch (err) {
+      if (parseAtlasError(err).code === 'personal_credential_not_configured') {
+        toast.error(
+          t('Could not connect {name}', { name: nameOf(provider) }),
+          t('Not configured on this server yet'),
+        )
+      } else {
+        toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
+      }
     } finally {
       setBusy(null)
     }
@@ -162,9 +175,9 @@ export function PersonalCredentialsSection({
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
               const credential = credentialFor(credentials, provider, team?.id)
-              const needsTeamClient = needsTeamGoogleClient(provider, googleClient)
-              const viaComposio =
-                isGoogle(provider) && googleClient?.clientId === null && googleClient.composio
+              const noTeamClient = isGoogle(provider) && googleClient?.clientId === null
+              const needsTeamClient = noTeamClient && !googleClient.composio
+              const viaComposio = noTeamClient && googleClient.composio
 
               return (
                 <div
