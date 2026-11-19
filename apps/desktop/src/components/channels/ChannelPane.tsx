@@ -70,7 +70,7 @@ export function ChannelPane({
   /** What the workspace lends to repair an agent that could not reply. */
   fixes?: ChannelFixes
 }) {
-  const { detail, chat, agents, refresh } = useChannel(teamId, channelId, visible)
+  const { detail, chat, agents, refresh } = useChannel(teamId, channelId)
 
   useConversationRead(channelId, visible)
   const [restore, setRestore] = useState<AgentPromptSeed | null>(null)

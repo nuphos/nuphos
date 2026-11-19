@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useContext } from 'react'
+import { useCallback, useContext, useEffect } from 'react'
 
 import { api } from '../../api.ts'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
@@ -9,7 +9,7 @@ import { queryKeys } from '../../lib/query/keys.ts'
 import { channelRevision } from './channelRevision.ts'
 import { listedConversation } from './channelShared.ts'
 
-import type { AgentConversationDetail, ChannelAgent } from '../../api'
+import type { AgentConversation, AgentConversationDetail, ChannelAgent } from '../../api'
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 
 // Like an open conversation: new posts from people and agents show within a few seconds.
@@ -54,6 +54,22 @@ export function prefetchChannel(client: QueryClient, teamId: string, channelId: 
     .catch(() => {})
 }
 
+/** The three most recent Bot chats, loaded once the sidebar lists them, so they open from memory. */
+export function usePrefetchRecentChannels(teamId: string, listed: AgentConversation[] | undefined) {
+  const client = useQueryClient()
+  const loaded = listed !== undefined
+
+  useEffect(() => {
+    if (!loaded) return
+    const recent = (client.getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId)) ?? [])
+      .filter((row) => row.kind === 'channel')
+      .sort((a, b) => Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt))
+      .slice(0, 3)
+
+    for (const row of recent) prefetchChannel(client, teamId, row.sessionId)
+  }, [client, teamId, loaded])
+}
+
 /** After a post or an agent change, from any pane showing the channel: fetch it all now. */
 export function refreshChannel(client: QueryClient, teamId: string, channelId: string) {
   const queryKey = queryKeys.channel(teamId, channelId)
@@ -77,17 +93,16 @@ export function channelRetryMs(state: QueryState<Channel>): number {
 
 /**
  * A channel's messages and agents, polled while it is on screen and the window is
- * visible. A failing channel backs off, longer the longer it has failed. A chat kept
- * mounted behind another (`visible` false) keeps what it has and polls again once shown.
+ * visible. A failing channel backs off, longer the longer it has failed.
  */
-export function useChannel(teamId: string, channelId: string, visible = true) {
+export function useChannel(teamId: string, channelId: string) {
   const client = useQueryClient()
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
   const { data } = useQuery({
     queryKey: queryKeys.channel(teamId, channelId),
     queryFn: () => loadChannel(client, teamId, channelId),
-    enabled: visible && (tab ? tab.isActive : true),
+    enabled: tab ? tab.isActive : true,
     retry: false,
     // Kept for as long as the app runs: a chat opened an hour ago opens from memory too.
     gcTime: Infinity,
@@ -101,7 +116,7 @@ export function useChannel(teamId: string, channelId: string, visible = true) {
 
   const detail = data?.detail ?? null
 
-  useChatSwitchShown(channelId, 'bot', visible && detail !== null)
+  useChatSwitchShown(channelId, 'bot', detail !== null)
 
   // Until the chat loads, the sidebar's row says its name and its Bot, so the header and
   // the composer open as they will stay.

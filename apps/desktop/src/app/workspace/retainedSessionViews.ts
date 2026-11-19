@@ -7,12 +7,8 @@ export type SessionViewSelection = {
 export type RetainedSessionViews = {
   teamId?: string
   agent?: { sessionId: string | null; readOnly: boolean }
-  /** The Bot chats kept mounted, most recent last; the selected one is shown. */
-  channelIds?: string[]
+  channelId?: string
 }
-
-// Like a Task's retained tabs: switching back to one of these is a frame, not a mount.
-const RETAINED_CHANNELS = 3
 
 /** The two kinds of conversation are independent mounted views, not alternatives. */
 export function retainSessionViews(
@@ -23,15 +19,9 @@ export function retainSessionViews(
 
   if (!selection.teamId || selection.channel === undefined) return base
   if (selection.channel) {
-    const id = selection.sessionId
-    const ids = base.channelIds ?? []
+    if (!selection.sessionId || base.channelId === selection.sessionId) return base
 
-    if (!id || ids.at(-1) === id) return base
-
-    return {
-      ...base,
-      channelIds: [...ids.filter((kept) => kept !== id), id].slice(-RETAINED_CHANNELS),
-    }
+    return { ...base, channelId: selection.sessionId }
   }
   if (base.agent?.sessionId === selection.sessionId && base.agent.readOnly === selection.readOnly)
     return base
