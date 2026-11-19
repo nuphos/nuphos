@@ -7,7 +7,7 @@ export const MODEL_UNAVAILABLE_MESSAGE =
 export const PROVIDER_UNREACHABLE_MESSAGE =
   "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message."
 export const AGENT_CLI_UNSTARTABLE_MESSAGE =
-  "The agent's CLI couldn't start on its computer, so its install may be broken. Reinstall it there, then resend your message."
+  "This runtime couldn't start on its computer. Install it there again, then resend your message."
 
 /** How each provider words a prompt over its model's context, through any adapter. */
 const CONTEXT_TOO_LONG =
