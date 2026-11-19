@@ -5,7 +5,7 @@ import { t } from '../../i18n'
 
 import { dismissQuestion } from './dismissQuestion'
 
-/** Withdraws the open question of a card that has no "Skip" of its own. */
+/** Withdraws the open question of a card that has no "Dismiss" of its own. */
 export function DismissQuestionButton({
   teamId,
   sessionId,

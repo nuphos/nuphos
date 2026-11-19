@@ -1,3 +1,5 @@
+import type { MessageMetadata } from '../message-metadata'
+
 /** How an agent in a channel asks its owner; shared by the channel wake and the system prompt. */
 export const OWNER_DECISION_NOTE =
   "When you need this conversation's owner (the person you work for) to choose, approve, or give you information, open a request_user_decision card for it and post at most one short sentence pointing to that card, never the question itself: a question in a post scrolls away and never reaches their Inbox."
@@ -12,4 +14,17 @@ export function readNote(channel: { agentSessionIds?: string[] }): string {
   return channel.agentSessionIds?.length === 1
     ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
     : CHANNEL_READ_NOTE
+}
+
+/**
+ * Whether the reading agent's owner posted this, as themselves in the app. Only
+ * the server-authored sender id counts: never a display name or quoted text.
+ */
+export function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
+  return (
+    metadata?.source === 'nuphos' &&
+    metadata.sender.type === 'user' &&
+    !metadata.sender.onBehalfOf &&
+    metadata.sender.id === ownerId
+  )
 }

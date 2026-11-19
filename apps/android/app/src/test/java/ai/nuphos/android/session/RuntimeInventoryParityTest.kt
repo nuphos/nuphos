@@ -8,12 +8,12 @@ import org.junit.Test
 class RuntimeInventoryParityTest {
     private val cloud = AgentRuntime("cloud", "codex", "Cloud", "active", "managed")
     private val local = cloud.copy(id="local", kind="local", local=RuntimeHost("host", "Computer", true))
-    private val host = RuntimeDevice("host", "Box", true, true, "unavailable", null, null, null, "manage")
+    private val host = RuntimeDevice("host", "Box", true, RuntimeDevice.Box(null), "unavailable", null, null, null, "manage")
     @Test fun destinationsRespectExplicitBoxAccessAndWorkspaceRole() {
         assertEquals(InventoryDestination.CloudDetails, inventoryDestination(cloud,true,emptyList()))
         assertEquals(InventoryDestination.AdministratorInstructions, inventoryDestination(cloud,false,emptyList()))
         assertEquals(InventoryDestination.ProviderSignIn, inventoryDestination(local,false,listOf(host)))
-        for (h in listOf(host.copy(access="use"),host.copy(access=null),host.copy(box=false),host.copy(online=false)))
+        for (h in listOf(host.copy(access="use"),host.copy(access=null),host.copy(box=null),host.copy(online=false)))
             assertEquals(InventoryDestination.HostInstructions,inventoryDestination(local,true,listOf(h)))
         assertEquals(InventoryDestination.CloudDetails,inventoryDestination(cloud.copy(deleting=true),true,emptyList()))
     }

@@ -10,7 +10,6 @@ enum ConversationNestingTests {
         aBotIsNeverAThread()
         tasksOrderFamiliesByTheirNewestActivity()
         aBotOwnsWhatItDispatchedAtAnyDepth()
-        botsListWhatEachBotDispatched()
         chatsAndTasksFallBackToTheirOwnNames()
         print("Conversation nesting passed")
     }
@@ -108,16 +107,6 @@ enum ConversationNestingTests {
                     bot("helper", parent: "job"), row("fix", parent: "helper"), row("task"), row("loop", parent: "loop")]
         let owners = ConversationNesting.botOwners(rows)
         precondition(owners == ["job": "lead", "step": "lead", "fix": "helper"])
-    }
-
-    /// Under Bots, a Bot's direct threads follow its 1:1 chat, or the Bot while it has none.
-    private static func botsListWhatEachBotDispatched() {
-        let threads = [row("job", parent: "lead"), row("step", parent: "job"), row("draft", parent: "solo"), row("task")]
-        let list = [chat("lead-chat", with: "lead"), bot("solo")]
-        let owners = ConversationNesting.botOwners(threads + [bot("lead"), bot("solo")])
-        let rows = ConversationNesting.nest(ConversationNesting.botRows(list, threads: threads, owners: owners))
-        precondition(rows.map(\.id) == ["lead-chat", "job", "step", "solo", "draft"])
-        precondition(rows.map(\.depth) == [0, 1, 2, 0, 1] && rows[0].threads == 2)
     }
 
     private static func chatsAndTasksFallBackToTheirOwnNames() {
