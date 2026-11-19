@@ -129,7 +129,7 @@ export function BoxRow({
   const [confirmUpdate, setConfirmUpdate] = useState(false)
   const update = () =>
     act(t('Could not update computer'), async (deviceId, team) => {
-      await hostUpdate.request(team)
+      await hostUpdate.request(deviceId, team)
       boxRestarts.start(deviceId, team, 'update')
     })
 
@@ -239,7 +239,7 @@ export function BoxRow({
         <AccessHint device={device} />
         {updateVersion !== undefined && (
           <BoxHostUpdate
-            confirm={hostUpdate.confirm(updateVersion)}
+            confirm={hostUpdate.confirm(updateVersion, device.label)}
             version={updateVersion}
             busy={busy}
             confirming={confirmUpdate}

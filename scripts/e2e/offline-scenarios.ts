@@ -15,16 +15,19 @@ const GIB = 1024 ** 3
 
 // A computer of this person's with a signed-in Claude Code, online until the returned function
 // is called. With `diskPercent` it also reports its readings, as full as that; `client` is the
-// app it connects as; `owner` is whose computer it is, this person by default.
+// app it connects as, and `app` the update its Nuphos Desktop has found; `owner` is whose
+// computer it is, this person by default.
 async function laptopOnline(
   stack: Stack,
   {
     diskPercent,
     client,
+    app,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
     client?: string
+    app?: { version: string; update: { version: string; ready: boolean } }
     owner?: { token: string; deviceId: string; label: string }
   } = {},
 ): Promise<() => void> {
@@ -58,6 +61,7 @@ async function laptopOnline(
       t: 'status',
       status: {
         localMetrics: diskPercent !== undefined,
+        app,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
       },
     }),
@@ -185,9 +189,13 @@ export const offlineScenarios: Scenario[] = [
   },
   {
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
-    name: 'a conversation on a computer whose Nuphos is out of date says so, and leads to the computer',
+    // Its Update opens the computer card's own confirmation where the user is, not the page.
+    name: 'a conversation on a computer whose Nuphos is out of date says so, and updates it in place',
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { client: 'nuphos-desktop/0.119.0' })
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.119.0',
+        app: { version: '0.119.0', update: { version: '0.131.0', ready: true } },
+      })
 
       try {
         await newTask(page)
@@ -204,11 +212,20 @@ export const offlineScenarios: Scenario[] = [
         await banner.waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-banner.png') })
         await banner.getByRole('button', { name: 'Update' }).click()
-        await page.getByText('Nuphos on this computer is out of date').waitFor()
-        await page.getByText('Open Nuphos on it and restart to update.').waitFor()
-        // The cards fade in; the picture is taken once they have.
-        await page.waitForTimeout(1_500)
-        await page.screenshot({ path: join(artifacts, 'outdated-computer.png') })
+        const confirm = page.getByRole('alertdialog', { name: `Update ${LAPTOP}?` })
+
+        await confirm
+          .getByText(`This restarts Nuphos on ${LAPTOP} now to install v0.131.0.`)
+          .waitFor()
+        await confirm.getByText('A Task running on it stops where it is').waitFor()
+        await confirm.getByRole('button', { name: 'Update and restart' }).waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-confirm.png') })
+        await confirm.getByRole('button', { name: 'Cancel' }).click()
+        // Still in the conversation: nothing navigated away to the computer's page.
+        await confirm.waitFor({ state: 'hidden' })
+        await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
+        if (await page.getByText('Nuphos on this computer is out of date').isVisible())
+          throw new Error('The banner Update left the conversation for the computer page')
       } finally {
         goOffline()
       }
