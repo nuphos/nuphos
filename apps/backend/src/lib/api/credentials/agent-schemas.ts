@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credentials'
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credential-providers'
 
 import { objectIdStringSchema, zeaburIdStringSchema } from './paths'
 
