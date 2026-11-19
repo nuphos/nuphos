@@ -81,6 +81,7 @@ class NewRuntimeStore(
                     runtime = AgentRuntime(made.runtimeId, candidate, made.label, "active", "local", signedIn = false,
                         local = RuntimeHost(device.id, device.label, true, made.label))
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     val definite = e is RuntimeHttpFailure && e.status in 400..499 || e is NuphosApi.Failure.Unauthorized
                     if (!definite) uncertain = true
                     if (definite && !uncertain) { instanceId = null; requestLabel = null }
@@ -102,7 +103,9 @@ class NewRuntimeStore(
         scope.launch(NonCancellable) {
             withContext(NonCancellable) {
                 try { discard(); closed = true; finished() }
-                catch (e: Exception) { fail(e) }
+                catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    fail(e) }
                 finally { busy = false }
             }
         }
