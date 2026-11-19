@@ -61,7 +61,7 @@ const WAKE_TIMEOUT_MS = 60_000
 type BoxDevice = AgentDevice & { box: AgentDeviceBox }
 
 function requireBox(device: AgentDevice | null, deviceId: string): BoxDevice {
-  if (!device?.box) throw new AppError(404, 'not_found', `No cloud computer ${deviceId}`)
+  if (!device?.box) throw new AppError(404, 'not_found', `No computer from Nuphos ${deviceId}`)
 
   return device as BoxDevice
 }
