@@ -48,6 +48,7 @@ import { stepUpScenarios } from './step-up-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
+import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -130,6 +131,7 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
   // Turns two-factor authentication on for this account, and off again.

@@ -84,7 +84,7 @@ async function schedules(
           enabled: enabled && routine.requestedEnabled,
           dedupeKey: `bot-import:${batch.id}:${item.kind}:${item.key}:${routine.key}`,
         },
-        { userId: batch.userId, teamId: batch.teamId, source: 'user' },
+        { userId: batch.userId, teamId: batch.teamId, source: 'user', via: 'bot_import' },
       )
     } catch {
       throw new ImportScheduleFailure()

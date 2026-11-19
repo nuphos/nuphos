@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 
+import { readTriggerHistory } from '@/lib/agent/trigger-history'
 import { listTriggers } from '@/lib/agent/trigger-service'
+import { triggerHistoryResponseSchema } from '@/lib/api/trigger-history'
 import { redisEnabled } from '@/lib/redis'
 import { requireAuth } from '@/middleware/auth'
 import { registerTriggerItemRoutes } from '@/routes/agent-triggers/items'
@@ -36,6 +38,18 @@ agentTriggersRoutes.get('/', async (c) => {
   const actor = await triggerActor(c, c.req.query('teamId'))
 
   return c.json(await listTriggers(actor, c.req.query('targetSessionId')))
+})
+
+// Who created, changed or deleted each Trigger (#3755). Before the item routes, which would
+// read `history` as a Trigger id.
+agentTriggersRoutes.get('/history', async (c) => {
+  const actor = await triggerActor(c, c.req.query('teamId'))
+
+  return c.json(
+    triggerHistoryResponseSchema.parse({
+      changes: await readTriggerHistory(actor, c.req.query('triggerId')),
+    }),
+  )
 })
 
 registerTriggerItemRoutes(agentTriggersRoutes)
