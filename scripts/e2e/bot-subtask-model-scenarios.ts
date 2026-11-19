@@ -45,19 +45,20 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await until('the sub-Task to reply', async () =>
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
         )
+        await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
+        await page.waitForTimeout(3_000)
+        await light()
+        await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
+        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
+        const label = (await chip.getAttribute('aria-label')) ?? ''
+
+        if (!label.startsWith('Model settings: fixture-unlisted'))
+          throw new Error(`The sub-Task's chip reads "${label}"`)
       } finally {
+        // Kept until the chip is read: the app reads the sub-Task's model again once it ends.
         rmSync(behind, { force: true })
         rmSync(release, { force: true })
       }
-      await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
-      await page.waitForTimeout(3_000)
-      await light()
-      await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
-      const chip = page.getByRole('button', { name: /^Model settings/ }).last()
-      const label = (await chip.getAttribute('aria-label')) ?? ''
-
-      if (!label.startsWith('Model settings: fixture-unlisted'))
-        throw new Error(`The sub-Task's chip reads "${label}"`)
       // Back in the Bot's chat, where the channel scenarios carry on. The finished sub-Task
       // leaves the sidebar with no count in its place, so the Bot's name has the row's width.
       await bot.click()
