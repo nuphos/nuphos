@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -665,6 +666,37 @@ private fun ChatRowView(
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            val auth = LocalAuthSession.current
+            val store = LocalAgentStore.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val workspace = store.workspaceRevision
+            val consent = AiAccess.revision
+            val viewer = auth.user?.id
+            val generation = auth.generation
+            val valid = { auth.aiAllowed && session.readAllowed && store.selectedTeam?.id == session.teamId &&
+                store.workspaceRevision == workspace && AiAccess.revision == consent && auth.generation == generation }
+            val report = ChatRow.failureReport(row.id, session.messages)?.takeIf { valid() }
+            val retry = session.failedTurn(viewer)?.takeIf { it.rowId == row.id && valid() }
+            var copied by remember(row.id, report) { mutableStateOf(false) }
+            if (retry != null || report != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (retry != null) OutlinedButton(onClick = { if (valid()) session.retryFailedTurn(auth.user?.id) },
+                    modifier = Modifier.testTag("failed-turn-retry:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(R.drawable.failed_turn_retry), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.failed_turn_retry))
+                }
+                if (report != null) OutlinedButton(onClick = copy@{
+                    if (!valid()) return@copy
+                    val current = ChatRow.failureReport(row.id, session.messages) ?: return@copy
+                    (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(android.content.ClipData.newPlainText(row.text, current))
+                    copied = true
+                }, modifier = Modifier.testTag("failed-turn-copy:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(if (copied) R.drawable.failed_turn_check else R.drawable.failed_turn_copy), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(if (copied) R.string.failed_turn_copied else R.string.failed_turn_copy))
+                }
+            }
             // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
             val runtimeId = session.runtimeId
             val block = session.runtimeBlock?.takeIf { row.isError }

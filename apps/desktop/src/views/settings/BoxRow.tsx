@@ -12,6 +12,7 @@ import { t } from '../../i18n'
 
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
+import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
 import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
@@ -86,6 +87,7 @@ export function BoxRow({
     onChanged()
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
+  const computerSettings = useComputerSettings(device, teamId, changed)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
@@ -198,6 +200,7 @@ export function BoxRow({
                   {hostUpdate.label}
                 </MenuItem>
               )}
+              {computerSettings.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -271,6 +274,7 @@ export function BoxRow({
           }}
         />
       )}
+      {computerSettings.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}

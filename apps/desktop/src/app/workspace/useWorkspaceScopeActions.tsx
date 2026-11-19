@@ -185,7 +185,7 @@ export function useWorkspaceScopeActions(a: Args) {
   // (flows that hand off to the agent, such as cloud connector setup);
   // pass `send: false` to only prefill the composer — used by shortcuts that
   // seed context but want the user to review/edit the intent before sending
-  // (e.g. Monitoring's "Watch with Agent").
+  // (e.g. Monitoring's "Watch in a task").
   const openAgentChatWithPrompt = useCallback(
     (prompt: string, options?: { send?: boolean; background?: boolean }) => {
       chatPromptNonceRef.current += 1

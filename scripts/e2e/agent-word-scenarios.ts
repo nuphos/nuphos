@@ -86,4 +86,24 @@ export const agentWordScenarios: Scenario[] = [
       if (said.length > 0) throw new Error(`Settings say agent: ${said.join(' | ')}`)
     },
   },
+  {
+    // Batch 4 of #3250: the Connectors list describes Nuphos, Bots and tasks.
+    name: 'the Connectors list never says agent',
+    run: async (page) => {
+      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+      const aws = page.getByRole('button', { name: 'Add AWS' })
+      const slack = page.getByRole('button', { name: 'Add Slack' })
+      // The smallest part of the page that holds both rows: the list itself, not the sidebar.
+      const list = aws.locator('xpath=ancestor::*[.//button[@aria-label="Add Slack"]][1]')
+
+      await aws.waitFor()
+      await slack.scrollIntoViewIfNeeded()
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/agent-words-connectors.png` })
+      const said = (await list.innerText()).split('\n').filter((line) => /\bagents?\b/i.test(line))
+
+      if (said.length > 0) throw new Error(`The Connectors list says agent: ${said.join(' | ')}`)
+      await page.keyboard.press('Escape')
+    },
+  },
 ]

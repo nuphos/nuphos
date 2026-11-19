@@ -77,6 +77,9 @@ test('a runtime out of disk space names the fix and keeps the raw cause in detai
   expect(frame.errorCode).toBe('runtime_disk_full')
   expect(frame.details).toMatchObject({ acp_error_code: -32603 })
   expect(frame.errorText).toContain('out of disk space')
+  // Said in the app's words, and pointing at who can free the space.
+  expect(frame.errorText).not.toMatch(/\bagent\b|\bsession\b/iu)
+  expect(frame.errorText).toContain('Ask someone who manages that computer to free space')
   expect(frame.errorText).not.toContain('-32603')
   expect(JSON.stringify(frame.details)).toContain('ENOSPC')
 })
