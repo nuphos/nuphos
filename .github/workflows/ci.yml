@@ -443,7 +443,8 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
-    runs-on: instabox-medium
+    # Fork pull requests stay on GitHub's hosts so no outside code runs on ours.
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-24.04' || 'instabox-medium' }}
     timeout-minutes: 30
     permissions:
       contents: read
