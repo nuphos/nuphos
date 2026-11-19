@@ -647,7 +647,7 @@ final class ChatSession {
             sessionConfig = incoming.retainingOptions(from: sessionConfig)
             sessionConfigError = nil
         } catch {
-            guard sessionConfigRequest == request else { return }
+            guard sessionConfigRequest == request, !Task.isCancelled else { return }
             sessionConfigError = error.localizedDescription
         }
         await applyPendingModelSettings()
@@ -673,6 +673,8 @@ final class ChatSession {
             sessionConfig = try await AgentChatAPI.setSessionConfig(token: token, teamId: teamId, sessionId: sessionId, configId: configId, value: value)
             sessionConfigError = nil
         } catch {
+            // Cancelled with the sheet that asked: not a failure, and nothing more to send.
+            if Task.isCancelled { sessionConfigSaving = false; return }
             pendingModelSettings.removeAll()
             sessionConfigError = error.localizedDescription
         }

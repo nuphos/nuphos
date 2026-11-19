@@ -3,6 +3,7 @@ import { Box, Laptop } from 'lucide-react'
 
 import { t } from '../../i18n'
 
+import { CLOUD_COMPUTER_DESCRIPTION } from './boxCreatePresentation'
 import { StepActions } from './StepActions'
 
 import type { ReactNode } from 'react'
@@ -66,9 +67,7 @@ export function AddAgentChoices({
         <Choice
           icon={<Box className="h-4 w-4" />}
           title={t('Nuphos cloud computer')}
-          description={t(
-            'A cloud computer Nuphos runs for you, with Claude Code and Codex. Sign in with your own account.',
-          )}
+          description={CLOUD_COMPUTER_DESCRIPTION}
           onClick={onCloud}
         />
       )}

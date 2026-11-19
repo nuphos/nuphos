@@ -137,7 +137,10 @@ struct ConversationView: View {
         #endif
     }
 
-    private var rows: [ChatRow] { ChatRow.rows(for: session, runtimeOffline: conversationRuntime?.local?.online == false) }
+    private var rows: [ChatRow] {
+        let devices = store.agentDevicesLoaded || store.agentDevicesError ? store.agentDevices : nil
+        return ChatRow.rows(for: session, presence: .of(conversationRuntime?.local, devices: devices))
+    }
 
     /// Shown instead of the transcript while it loads or after it failed.
     @ViewBuilder
@@ -299,6 +302,11 @@ struct ConversationView: View {
         .task(id: conversationRuntime?.local?.deviceId) {
             guard conversationRuntime?.local != nil else { return }
             while !Task.isCancelled {
+                // Only an offline Box can be paused; a computer known not to be a Box is not asked again.
+                if let local = conversationRuntime?.local, local.online == false,
+                   !store.agentDevices.contains(where: { $0.deviceId == local.deviceId && $0.box == nil }) {
+                    await store.loadAgentDevices(metrics: false)
+                }
                 try? await Task.sleep(for: .seconds(15))
                 await store.loadRuntimes(force: true)
             }
@@ -439,7 +447,6 @@ struct ConversationView: View {
                 ),
                 voiceTeamId: session.teamId,
                 temporaryDirectory: temporaryDirectory,
-                autoFocus: session.loaded && !session.readOnly && !summaryOpen && !summaryOpening && !dockOpen,
                 onSend: { session.send($0) },
                 onStop: { session.stop() }
             ) {

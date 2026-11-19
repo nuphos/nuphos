@@ -197,4 +197,15 @@
     <string name="chat_share_access_reply">El equipo puede ver y responder</string>
     <string name="chat_share_can_reply">Puede responder</string>
     <string name="chat_share_can_view">Puede ver</string>
+    <string name="chat_summary_title">Resumen de la tarea</string>
+    <string name="chat_summary_close">Cerrar resumen</string>
+    <string name="chat_summary_question">Pregunta</string>
+    <string name="chat_summary_close_question">Cerrar pregunta</string>
+    <string name="chat_summary_needs_input">Necesita tu respuesta</string>
+    <string name="chat_summary_no_questions">No hay preguntas esperando tu respuesta.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Comando</string>
+    <string name="chat_summary_running">En curso</string>
+    <string name="chat_summary_open">Resumen del agente</string>
+    <string name="chat_summary_output_truncated">Se ha ocultado la salida anterior.</string>
 </resources>

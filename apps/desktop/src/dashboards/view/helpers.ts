@@ -15,7 +15,7 @@ export function defaultRange(): { periodStart: string; periodEnd: string } {
   return { periodStart: start.toISOString(), periodEnd: end.toISOString() }
 }
 
-/** Create a dashboard with the standard naming and default range. */
+/** Create a dashboard with the standard naming and default range, personal until shared. */
 export function createNuphosDashboard(
   teamId: string,
   hasExisting: boolean,
@@ -26,6 +26,7 @@ export function createNuphosDashboard(
     name,
     timeRange: defaultRange(),
     rangePreset: 'last30',
+    visibility: 'personal',
   })
 }
 
