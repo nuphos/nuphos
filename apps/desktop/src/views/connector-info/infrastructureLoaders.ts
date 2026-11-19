@@ -45,7 +45,7 @@ export async function gcpConnectorInfo(
   if (bindings.length !== 1) {
     info.fields.push({
       label: 'Firebase',
-      value: t('Select an ordinary service account with the agent to inspect Firebase.'),
+      value: t('Select an ordinary service account in a task to inspect Firebase.'),
     })
 
     return info
@@ -131,7 +131,7 @@ export const infrastructureLoaders: ConnectorInfoLoaders = {
         { label: t('Engine'), value: databaseEngineLabel(item.engine) },
         { label: t('Environment'), value: item.environment.length > 0 ? item.environment : '—' },
         { label: t('Endpoint'), value: item.endpoint, mono: true },
-        { label: t('Agent access'), value: item.agentPolicy.replaceAll('-', ' ') },
+        { label: t('Access for Bots and tasks'), value: item.agentPolicy.replaceAll('-', ' ') },
         { label: t('Connected'), value: new Date(item.createdAt).toLocaleString() },
         { label: t('Connector ID'), value: item.id, mono: true },
       ],

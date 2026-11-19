@@ -470,6 +470,24 @@ describe('conversation-scoped thread tools', () => {
     expect(picks.map(({ configId, value }) => [configId, value])).toEqual([['effort', 'low']])
   })
 
+  test("a parent on Claude Code's Default passes on its effort, and leaves the model to the agent", async () => {
+    // A session on "Default (recommended)" reports `default`; the catalog lists the model it
+    // stands for instead (#3709, production 2026-11-19 05:08:46Z: parent_model_failed).
+    offered.model = ['claude-fable-5-1']
+    source.claudeCodePreview = {
+      openabSessionId: 'live',
+      runtimeUrl: 'http://runtime',
+      runtimeDefaults: { model: 'default', effort: 'high' },
+    } as never
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+      expect(picks).toEqual([{ sessionId: threadId, configId: 'effort', value: 'high' }])
+    } finally {
+      offered.model = ['claude-fable-5-1', 'default']
+    }
+  })
+
   test("a parent's model the agent no longer offers leaves the thread on its defaults", async () => {
     source.initialSessionConfig = { model: 'gpt-1' }
     await createAgentThread(actor, 'Work', 'Task')

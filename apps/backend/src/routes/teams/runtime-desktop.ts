@@ -1,13 +1,18 @@
 import { upgradeWebSocket } from 'hono/bun'
+import { z } from 'zod'
 
 import { requestBoxCacheClear } from '@/lib/claude-code-preview/box-clear-caches'
-import { requestComputerAppUpdate } from '@/lib/claude-code-preview/computer-app-update'
+import {
+  requestComputerAppUpdate,
+  setComputerAutoInstall,
+} from '@/lib/claude-code-preview/computer-app-update'
 import {
   openRuntimeDesktop,
   runtimeDesktopEvents,
   runtimeDesktopTarget,
 } from '@/lib/claude-code-preview/runtime-desktop'
 import { AppError } from '@/lib/errors'
+import { zv } from '@/lib/validate'
 
 import type { DesktopOwner } from '@/lib/claude-code-preview/runtime-desktop'
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -46,6 +51,21 @@ export function registerRuntimeDesktopRoutes(teamScoped: Hono<{ Variables: TeamA
     c.json(
       await requestComputerAppUpdate(c.get('teamId'), c.get('userId'), c.req.param('deviceId')),
     ),
+  )
+
+  // Whoever manages a computer turns its automatic updates on or off.
+  teamScoped.put(
+    '/computers/:deviceId/auto-install',
+    zv('json', z.object({ enabled: z.boolean() }).strict()),
+    async (c) =>
+      c.json(
+        await setComputerAutoInstall(
+          c.get('teamId'),
+          c.get('userId'),
+          c.req.param('deviceId'),
+          c.req.valid('json').enabled,
+        ),
+      ),
   )
 
   // Whoever manages a Box frees its disk of the caches its tools rebuild.

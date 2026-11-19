@@ -21,6 +21,11 @@ function matches(doc: Doc, query: Doc): boolean {
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
         )
       if ('$exists' in expected) return (actual !== undefined) === expected.$exists
+      if ('$gte' in expected || '$lt' in expected)
+        return (
+          (!('$gte' in expected) || actual >= expected.$gte) &&
+          (!('$lt' in expected) || actual < expected.$lt)
+        )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
       if ('$ne' in expected)
