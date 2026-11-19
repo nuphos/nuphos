@@ -83,6 +83,8 @@ export type LocalRuntimeTunnelStatus = {
   cliVersion?: string
   /** This Nuphos Desktop and the update it found; its owner restarts into it with `method: 'update'`. */
   app?: AppUpdateStatus
+  /** Whether this computer installs updates by itself when idle; the card sets it with `method: 'autoInstall'`. */
+  autoInstall?: boolean
   desktops?: { sessionId: string; display: number }[]
   /** Opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen?: boolean

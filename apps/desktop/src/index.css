@@ -2271,7 +2271,7 @@ html.platform-darwin:not(.window-fullscreen) .workspace-corner-titlebar {
   }
 }
 
-/* Session heading changes use the text-swap motion tokens without delaying navigation. */
+/* A Task's linked resource chips fade in as they appear in its title bar. */
 .t-session-heading {
   animation: t-session-heading-enter var(--text-swap-dur) var(--text-swap-ease) both;
 }
@@ -2503,4 +2503,14 @@ html.light .workspace-desk {
   .t-bot-task-mode {
     transition: none;
   }
+}
+
+/* The Bots start page's intro: a texts reveal of its four lines, in turn. */
+.t-bot-start {
+  --stagger-dur: 350ms;
+  --stagger-distance: 8px;
+  --stagger-stagger: 55ms;
+}
+.t-bot-start .t-stagger-line {
+  transition-delay: calc(var(--stagger-stagger) * var(--line, 0));
 }

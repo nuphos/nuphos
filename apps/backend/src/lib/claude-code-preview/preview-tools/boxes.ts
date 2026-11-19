@@ -91,7 +91,7 @@ export function boxToolModule(
     {
       list_boxes: tool({
         description:
-          "List the team's instabox accounts and the Boxes (cloud computers) on them that you may use, " +
+          "List the team's instabox accounts and the Boxes (computers from Nuphos) on them that you may use, " +
           'with each one’s state. Use an account id with create_box and a deviceId with update_box, ' +
           'local_exec, local_cua or update_task.',
         inputSchema: z.object({ label }).strict(),
@@ -112,7 +112,7 @@ export function boxToolModule(
       }),
       create_box: tool({
         description:
-          "Create a Box, a Linux cloud computer with a desktop, on one of the team's instabox accounts; " +
+          "Create a Box, a Linux computer with a desktop, on one of the team's instabox accounts; " +
           'instabox bills that account. It joins the team as a Nuphos computer and is selected for ' +
           'this conversation and its sub-agents: use it with local_exec and local_cua, or move a ' +
           'sub-agent onto its agent with update_task runtimeId (from list_agent_runtimes). ' +

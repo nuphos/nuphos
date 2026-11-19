@@ -41,6 +41,8 @@ export type StreamResumeContext = {
 // briefly miss a Redis probe during Sentinel reconnects or before the
 // owner has mirrored the first frame, so do the wait inside the already
 // opened SSE response instead of returning an HTTP 409 to the client.
+// A resume past frame 0 saw the stream exist, so a missing one has expired
+// and waiting cannot bring it back (#3713).
 export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise<void> {
   const { key, oKey, startIndex, startedAt, trace, state, emit, close } = ctx
   const attachDeadline = Date.now() + RESUME_ATTACH_GRACE_MS
@@ -91,14 +93,16 @@ export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise
       })
     }
     const orphanConfirmed = orphanProbes >= RESUME_ATTACH_ORPHAN_PROBES
+    const expired = Boolean(probe) && startIndex > 0
 
-    if (orphanConfirmed || Date.now() >= attachDeadline) {
+    if (expired || orphanConfirmed || Date.now() >= attachDeadline) {
       traceRunStoreEvent('error', 'agent.run.redis_resume.stream_missing_after_wait', trace, {
         redis_stream_key: key,
         redis_owner_key: oKey,
         resume_from: startIndex,
         owner_present: Boolean(owner),
         orphan_confirmed: orphanConfirmed,
+        expired,
         orphan_probes: orphanProbes,
         attach_wait_ms: Date.now() - startedAt,
         attach_grace_ms: RESUME_ATTACH_GRACE_MS,
@@ -106,7 +110,11 @@ export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise
       })
       emit(
         runStoreErrorFrame('stream_unresumable', 'Agent run stream is no longer available', trace, {
-          reason: orphanConfirmed ? 'stream_never_registered' : 'stream_missing_after_wait',
+          reason: expired
+            ? 'stream_expired'
+            : orphanConfirmed
+              ? 'stream_never_registered'
+              : 'stream_missing_after_wait',
           redis_stream_key: key,
           redis_owner_key: oKey,
           resume_from: startIndex,

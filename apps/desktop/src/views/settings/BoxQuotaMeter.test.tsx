@@ -40,7 +40,7 @@ test('a plan with no computers says so in one line, with a way to choose a plan'
     )
     const text = container.textContent ?? ''
 
-    assert.match(text, /Your team's plan doesn't include cloud computers\./)
+    assert.match(text, /Your team's plan doesn't include computers from Nuphos\./)
     assert.doesNotMatch(text, /vCPU/)
     const button = [...container.querySelectorAll('button')].find(
       (b) => b.textContent === 'Choose a plan',

@@ -46,8 +46,13 @@ export function catalogSessionConfig(
 }
 
 /**
- * The runtime's choices, and the picks it still offers. A model it no longer
- * lists (re-login, update) is dropped and the list read again without it.
+ * The runtime's choices, and what to store for a session: each pick it still
+ * offers, and for effort and fast, its default where nothing offered was
+ * picked, so no session starts on a level nobody sees. A model is kept only
+ * when picked: a runtime's default model sent by name can be one a team's
+ * proxy does not serve. A model it no longer lists (re-login, update) is
+ * dropped and the list read again without it. `confirmedOnly` keeps just the
+ * picks, for a caller that must claim or accept nothing it was not given.
  */
 export async function offeredSessionConfig(
   catalogFor: (model?: string) => Promise<RuntimeModelCatalog>,
@@ -73,9 +78,13 @@ export async function offeredSessionConfig(
       })
     : offered
   const kept = Object.fromEntries(
-    Object.entries(pick).filter(
-      ([id, value]) => options.find((option) => option.id === id)?.currentValue === value,
-    ),
+    options
+      .filter((option) =>
+        option.kind === 'model' || confirmedOnly
+          ? pick[option.kind] === option.currentValue
+          : option.options.some((choice) => choice.value === option.currentValue),
+      )
+      .map((option) => [option.id, option.currentValue]),
   ) as RuntimeDefaults
 
   return { options, kept }

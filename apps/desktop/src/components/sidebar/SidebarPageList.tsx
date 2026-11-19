@@ -3,8 +3,10 @@ import { Plus } from 'lucide-react'
 import { useRef } from 'react'
 
 import { t } from '../../i18n'
+import { SkeletonReveal } from '../SkeletonReveal'
 
 import { BOTS_SECTION, foldKey, unpinnedChatItems } from './chat-sections'
+import { SidebarSectionSkeleton } from './parts'
 import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
 import { SidebarBotPins } from './SidebarBotPins'
@@ -40,7 +42,7 @@ export function SidebarPageList({
   const pinned = (item: Item) =>
     Boolean((item.bot || item.channel) && listProps.favoriteMatch(item))
   const visible = shown
-    .filter((section) => section.title !== 'Tasks' || section.items.length > 0 || section.loading)
+    .filter((section) => section.title !== 'Tasks' || section.items.length > 0)
     .map((section) => ({
       ...section,
       ...(section.title === 'Tasks' || section.title === 'Channels' ? { title: undefined } : {}),
@@ -48,9 +50,7 @@ export function SidebarPageList({
         items: unpinnedChatItems(section.items, pinned),
       }),
     }))
-  const empty =
-    source.every((section) => !section.loading) &&
-    shown.every((section) => section.items.length === 0)
+  const loading = source.some((section) => section.loading)
   // Bots drops its title to hide its heading, so its row folds take back the Bots scope.
   const scoped = (fold: Pick<Section, 'title' | 'defaultCollapsed'>) =>
     page === 0 && fold.title?.startsWith('agent-session:')
@@ -66,6 +66,17 @@ export function SidebarPageList({
       listProps.toggleGroup(scoped(section)),
   }
   const list = <SidebarSectionList {...props} sections={visible} />
+  // The skeleton pulses until the first listing arrives, then cross-fades to the rows or the
+  // empty message, so loading never reads as "nothing here".
+  const content = (message: string, filled: boolean) => (
+    <SkeletonReveal
+      className="t-sidebar-section-reveal"
+      ready={!loading}
+      skeleton={<SidebarSectionSkeleton />}
+    >
+      {filled ? list : <p className="px-3 py-6 text-center text-[12px] text-tertiary">{message}</p>}
+    </SkeletonReveal>
+  )
 
   const heading: Section = {
     title: page === 0 ? 'Channels' : 'Tasks',
@@ -113,18 +124,16 @@ export function SidebarPageList({
             onSelect={listProps.onSelect}
             teamId={listProps.scope.teamId}
           >
-            {source.every((section) => !section.loading && section.items.length === 0) ? (
-              <p className="px-3 py-6 text-center text-[12px] text-tertiary">{t('No Bots yet')}</p>
-            ) : (
-              list
+            {content(
+              t('No Bots yet'),
+              source.some((section) => section.items.length > 0),
             )}
           </SidebarBotPins>
         ) : (
           <div className="shrink-0">
-            {empty ? (
-              <p className="px-3 py-6 text-center text-[12px] text-tertiary">{t('No tasks yet')}</p>
-            ) : (
-              list
+            {content(
+              t('No tasks yet'),
+              shown.some((section) => section.items.length > 0),
             )}
           </div>
         )}
