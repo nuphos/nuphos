@@ -214,7 +214,7 @@ export default {
         { botSessionId: theirs.sessionId },
         teammate.token,
       )
-      await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-curie' })
+      await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-leonardo' })
       await shootSettings(page, 'slack-settings-admin-channels-light.png')
       await page.getByRole('button', { name: 'Connect a channel' }).click()
       await page.getByText('Link by ID', { exact: true }).waitFor()
