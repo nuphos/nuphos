@@ -378,7 +378,7 @@ test('device page counts every code lookup and decision against the approval quo
   expect(post.status).toBe(429)
   expect(keys).toEqual(Array(3).fill(`device-login:approve:${user.id}`))
 })
-test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC provider', async () => {
+test('nuphos login uses its configured approval page with or without OIDC', async () => {
   const cli = new Hono().onError(errorHandler).route(
     '/',
     createCliAuthRoutes(async () => true),
@@ -389,7 +389,7 @@ test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC pr
     return ((await response.json()) as { verificationUri: string }).verificationUri
   }
 
-  expect(await verificationUri()).toBe('https://nuphos.ai/device')
+  expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
   Object.assign(config.auth.oidc, {
     issuer: 'https://sso.example.test/oidc',
     clientId: 'c',
