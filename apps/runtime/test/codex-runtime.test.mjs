@@ -135,6 +135,23 @@ test('Codex shell inherits only baseline variables and explicitly scoped credent
   assert.ok(env.PATH.endsWith('/usr/bin:/bin'))
 })
 
+// Windows PowerShell fails with 0x8009001D without SystemRoot (#3496).
+test('Codex shell keeps the Windows system variables', () => {
+  const windows = {
+    SystemRoot: 'C:\\Windows',
+    SystemDrive: 'C:',
+    ComSpec: 'C:\\Windows\\system32\\cmd.exe',
+    PATHEXT: '.COM;.EXE;.BAT;.CMD',
+  }
+  const env = nuphosCodexSessionConfig(
+    {},
+    { 'ai.nuphos/codex': { env: { NUPHOS_SESSION_ID: 'windows-session' } } },
+    { PATH: 'C:\\Windows\\system32', HOME: runtimeHome, ...windows },
+  ).shell_environment_policy.set
+
+  for (const [key, value] of Object.entries(windows)) assert.equal(env[key], value, key)
+})
+
 test('adapter upgrades fail closed until the pinned patch is reviewed', () => {
   assert.throws(() => patchAdapter('unexpected bundle', ''), /bundle changed/)
 })
