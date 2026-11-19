@@ -45,6 +45,21 @@ test('a host that has not reported in again is still restarting long after the r
   assert.equal(boxRestartStep(update, device(true), 120_000).outcome, 'restarting')
 })
 
+test('a new report before the host stops ends the update early, which only shows it back sooner', () => {
+  // Accepted: lastSeenAt is also written when a computer's agent list changes while connected.
+  assert.equal(boxRestartStep(update, device(true, undefined, AFTER), 500).outcome, 'back')
+})
+
+test('a computer never seen before the update is back once it reports in', () => {
+  const unseen = { ...update, lastSeenAt: undefined }
+
+  assert.equal(
+    boxRestartStep(unseen, { ...device(true), lastSeenAt: undefined }, 1_000).outcome,
+    'restarting',
+  )
+  assert.equal(boxRestartStep(unseen, device(true, undefined, AFTER), 2_000).outcome, 'back')
+})
+
 test('a resumed host is back the first time it is online', () => {
   const resume = { ...update, kind: 'resume' as const }
 
