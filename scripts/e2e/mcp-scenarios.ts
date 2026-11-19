@@ -85,11 +85,13 @@ export const mcpScenarios: Scenario[] = [
         personal_credential_ids: [],
         team_identity: ['github'],
       })
+
       must(changed.isError !== true, `credential update to succeed, got ${JSON.stringify(changed)}`)
       const read = await tool<{ enabled_for_session: Record<string, unknown> }>(
         'nuphos_list_credentials',
         args,
       )
+
       must(
         JSON.stringify(read.structuredContent?.enabled_for_session.github_installation_ids) ===
           '[]',
@@ -99,6 +101,7 @@ export const mcpScenarios: Scenario[] = [
         'nuphos_update_credentials',
         args,
       )
+
       must(
         JSON.stringify(preserved.structuredContent?.enabled_for_session.team_identity) ===
           '["github"]',
@@ -108,11 +111,13 @@ export const mcpScenarios: Scenario[] = [
         ...args,
         github_installation_ids: 'invalid',
       })
+
       must(invalid.isError === true, 'the shared validator to reject a malformed GitHub list')
       const cleared = await tool<{ enabled_for_session: Record<string, unknown> }>(
         'nuphos_update_credentials',
         { ...args, team_identity: [] },
       )
+
       must(
         JSON.stringify(cleared.structuredContent?.enabled_for_session.team_identity) === '[]',
         'an explicit empty identity to restore the personal preference',
