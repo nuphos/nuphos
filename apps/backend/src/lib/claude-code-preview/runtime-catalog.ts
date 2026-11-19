@@ -3,7 +3,6 @@ import { isLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 
 import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { runtimeLogins } from './runtime-login-store'
-import { runtimeDeletions } from './runtime-portability-store'
 import { OPENAB_PROVIDERS, runtimeLabel } from './runtime-provider'
 import { fetchRuntimeQuota } from './runtime-quota'
 import { usedUp, withSharedQuota } from './runtime-quota-shape'
@@ -89,27 +88,7 @@ export async function listRuntimeInstances(
     }),
   )
 
-  const instances = [
-    ...groups.flat(),
-    ...(userId ? await listOwnLocalRuntimes(teamId, userId) : []),
-  ]
-  const deletions = await runtimeDeletions()
-    .find({ teamId, completedAt: { $exists: false } })
-    .sort({ requestedAt: 1 })
-    .toArray()
-
-  return instances.map((instance) => ({
-    ...instance,
-    ...(deletions.find((job) => job._id === instance.id)
-      ? {
-          status: 'disabled' as const,
-          deletion: {
-            state: 'deleting' as const,
-            error: deletions.find((job) => job._id === instance.id)?.error,
-          },
-        }
-      : {}),
-  }))
+  return [...groups.flat(), ...(userId ? await listOwnLocalRuntimes(teamId, userId) : [])]
 }
 
 /**
@@ -125,7 +104,7 @@ export async function withRuntimeReadiness(
   instances: RuntimeInstance[],
 ): Promise<RuntimeInstance[]> {
   const endpoints = await Promise.all(
-    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, undefined, provider)),
+    OPENAB_PROVIDERS.map((provider) => resolveTeamRuntimeEndpoints(teamId, provider)),
   )
   const reachable = new Set(endpoints.flat().map((endpoint) => endpoint.runtimeId))
 

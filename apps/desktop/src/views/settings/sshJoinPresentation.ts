@@ -22,7 +22,7 @@ export function sshJoinNotice(problem: SshJoinProblem | 'timeout', host: string)
       return {
         title: t('Could not sign in to {host}', { host }),
         description: t(
-          'Desktop signs in only with your SSH keys and agent, never a password. Add a key, or run the command on the machine yourself.',
+          'Desktop signs in only with your SSH keys and ssh-agent, never a password. Add a key, or run the command on the machine yourself.',
         ),
       }
     case 'unreachable':
@@ -35,9 +35,7 @@ export function sshJoinNotice(problem: SshJoinProblem | 'timeout', host: string)
     case 'timeout':
       return {
         title: t('{host} has not come online yet', { host }),
-        description: t(
-          'The agent was started there. Its log is ~/.nuphos-agent.log on that machine.',
-        ),
+        description: t('Nuphos was started there. Its log is ~/.nuphos-agent.log on that machine.'),
       }
     case 'failed':
       return {

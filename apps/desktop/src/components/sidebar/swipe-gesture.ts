@@ -1,7 +1,7 @@
 /** The sidebar's pages, in order: Bots, Tasks and the Inbox. */
 export const SIDEBAR_PAGES = ['bots', 'tasks', 'inbox'] as const
 export type SidebarPage = 0 | 1 | 2
-export type SidebarPageChange = ((page: SidebarPage) => void) & { cancelPending?: () => void }
+export type SidebarPageChange = (page: SidebarPage) => void
 
 /** Choose the destination only after release; input must never snap mid-gesture. */
 export function swipeDestination(

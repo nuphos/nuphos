@@ -194,7 +194,7 @@ test('a failed lookup is logged and does not reach the caller', async () => {
   await recheckLinkedResources(conversation, now)
   expect(pullFetches).toBe(1)
   expect(refreshes).toEqual([])
-  expect(warnings).toEqual(['linked_resource.recheck_failed'])
+  expect(warnings).toEqual(['github.resource.lookup_failed', 'linked_resource.recheck_failed'])
 })
 test('only a few checks run at once', async () => {
   conversation.linkedResources = Array.from({ length: MAX_RUNNING_RECHECKS + 2 }, (_, index) =>

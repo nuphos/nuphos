@@ -167,6 +167,10 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: Date
   rejectedAt?: Date
+  /** When an invitation email last went out; unset while none has. */
+  lastSentAt?: Date
+  /** The role its person joins with; older invitations have none and join as editors. */
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = {

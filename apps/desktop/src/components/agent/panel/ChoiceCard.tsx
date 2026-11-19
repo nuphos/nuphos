@@ -1,9 +1,10 @@
 import clsx from 'clsx'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, X } from 'lucide-react'
 import { useContext, useLayoutEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
+import { SnoozeMenu } from '../../../views/inbox/SnoozeMenu'
 import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
@@ -12,6 +13,7 @@ import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
 import { DecisionForm } from './DecisionForm'
 import { formQuestions, ownBody } from './decisionFormModel'
+import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
 
 import type { ConnectCardContextValue } from './connectCardContext'
@@ -19,10 +21,14 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionCardRef } from './replyTarget'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
+// An option button's look, which Snooze and Dismiss share.
+const OPTION = 'h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left'
+
 /**
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
- * "Other…" to type one in the card instead, and "Skip" to withdraw it unanswered.
+ * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
+ * and "Dismiss" to withdraw it unanswered, both in the options' row.
  * A multi-select or several questions are a form sent as one answer. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
@@ -56,8 +62,8 @@ export function ChoiceCard({
   const [typing, setTyping] = useState(false)
   // Kept while the field is closed, so Esc and "Other…" again lose nothing.
   const [draft, setDraft] = useState('')
-  const [skipped, setSkipped] = useState<'no' | 'sending' | 'yes'>('no')
-  const interactive = Boolean(ctx?.answer) && canAct && !chosen && skipped !== 'yes'
+  const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
+  const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
   const live = interactive && (form !== null || options.length > 0)
@@ -71,18 +77,27 @@ export function ChoiceCard({
 
     return choose(option)
   })
-  const skip = interactive && ctx?.skip && (
-    <button
-      type="button"
-      disabled={skipped === 'sending'}
-      className="ml-auto px-1 text-[12.5px] text-tertiary hover:text-main"
-      onClick={() => {
-        setSkipped('sending')
-        void ctx.skip?.(card).then((ok) => setSkipped(ok ? 'yes' : 'no'))
-      }}
-    >
-      {t('Skip')}
-    </button>
+  const asides = interactive && (
+    <>
+      {ctx?.snooze && (
+        <SnoozeMenu className={OPTION} onSnooze={(until) => ctx.snooze?.(card, until)} />
+      )}
+      {ctx?.dismiss && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={OPTION}
+          disabled={dismissed === 'sending'}
+          onClick={() => {
+            setDismissed('sending')
+            void ctx.dismiss?.(card).then((ok) => setDismissed(ok ? 'yes' : 'no'))
+          }}
+        >
+          <X aria-hidden className="size-3.5" />
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
   )
 
   return (
@@ -95,15 +110,15 @@ export function ChoiceCard({
       className="flex flex-col rounded-[14px] border border-line-control bg-surface-raised px-4 pb-3 pt-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
     >
       {ctx?.source && <div className="pb-1.5">{ctx.source}</div>}
-      <h3 className="selectable whitespace-pre-wrap text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
+      <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
-      </h3>
+      </DecisionTitle>
       <DecisionBody
         text={ownBody(body, questions)}
         full={ctx?.fullBody}
         onLinkClick={ctx?.onLinkClick}
       />
-      <AnswerStatus recorded={recorded} failed={failed} skipped={skipped === 'yes'} />
+      <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
       {!chosen &&
         (form ? (
           <DecisionForm
@@ -111,7 +126,7 @@ export function ChoiceCard({
             disabled={!interactive}
             onSubmit={(answer) => act(() => submit(answer))}
           >
-            {skip}
+            {asides}
           </DecisionForm>
         ) : (
           <>
@@ -121,7 +136,7 @@ export function ChoiceCard({
                   key={option}
                   variant={index === 0 ? 'primary' : 'secondary'}
                   size="sm"
-                  className="h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left"
+                  className={OPTION}
                   disabled={!interactive}
                   title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
                   onClick={() => act(() => choose(option))}
@@ -131,9 +146,9 @@ export function ChoiceCard({
               ))}
               {typeable ? (
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  className={clsx('px-3', typing && '!bg-state-hover !text-main')}
+                  className={clsx(OPTION, typing && '!bg-state-hover')}
                   aria-expanded={typing}
                   onClick={() => setTyping(!typing)}
                 >
@@ -145,7 +160,7 @@ export function ChoiceCard({
                   <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
                 )
               )}
-              {skip}
+              {asides}
             </div>
             {typing && typeable && (
               <div className="pt-2.5" data-card-answer-field>
@@ -192,15 +207,15 @@ function useSubmit(
   return { chosen: sent || recorded !== undefined, failed, submit }
 }
 
-/** What answered the card, that it was skipped, or that its answer was not taken. */
+/** What answered the card, that it was dismissed, or that its answer was not taken. */
 function AnswerStatus({
   recorded,
   failed,
-  skipped,
+  dismissed,
 }: {
   recorded: string | undefined
   failed: boolean
-  skipped: boolean
+  dismissed: boolean
 }) {
   if (recorded)
     return (
@@ -209,10 +224,10 @@ function AnswerStatus({
       </div>
     )
 
-  if (skipped)
+  if (dismissed)
     return (
       <div className="mt-2 text-[12.5px] text-secondary">
-        {t('Skipped. It carries on without an answer.')}
+        {t('Dismissed. It carries on without an answer.')}
       </div>
     )
 

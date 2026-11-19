@@ -135,7 +135,13 @@ export function SidebarSectionList({
                           const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
-                              pin={Boolean(item.bot || item.botChannelOf)}
+                              pin={
+                                item.bot || item.botChannelOf
+                                  ? 'bot'
+                                  : item.channel
+                                    ? 'chat'
+                                    : undefined
+                              }
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}
@@ -204,7 +210,6 @@ export function SidebarSectionList({
                                 }}
                                 label={item.label}
                                 preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
-                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
                                 note={rowNote(item, done, folds(section))}

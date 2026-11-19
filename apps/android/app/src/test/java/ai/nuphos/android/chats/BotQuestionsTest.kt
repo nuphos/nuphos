@@ -235,6 +235,17 @@ class BotQuestionsTest {
         assertNull(BotQuestion("s", "t", InputRequest("q", "credential", "Signed in?", listOf("Signed in"))).secretPart)
     }
 
+    @Test fun aFormRequestCarriesItsFieldsAndSite() {
+        val form = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q","category":"credential","question":"The lookup needs these.","secretName":"CLINIC_LOOKUP",
+               "fields":[{"name":"NATIONAL_ID","label":"ID number"},{"name":"BIRTH_DATE","label":"Date of birth"}],
+               "site":"www.clinic.example"}"""))
+        val secret = form.secretPart?.secretRequest
+        assertEquals(listOf("NATIONAL_ID", "BIRTH_DATE"), secret?.fields?.map { it.name })
+        assertEquals(listOf("ID number", "Date of birth"), secret?.fields?.map { it.label })
+        assertEquals("www.clinic.example", secret?.site)
+    }
+
     @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
         fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
         // A sign-in status card: a credential with options and no secret is answered with them.
@@ -427,7 +438,6 @@ class BotQuestionsTest {
             BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
         assertEquals("""{"choices":["a","b"]}""",
             BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
-        assertEquals("Send, Hold", BotQuestion.answerText(listOf("Send", "Hold"), "  "))
     }
 
     @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {

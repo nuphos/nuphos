@@ -1,12 +1,14 @@
-// #3401: a computer whose agent cannot reach its model API is told what to check, not EPROTO.
+// A computer's own setup failing a turn, said as what to do there, never the raw error.
+// #3401: an agent that cannot reach its model API is told what to check, not EPROTO.
 import { artifacts } from './processes.ts'
-import { pickAgent } from './runtime-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
 const SENTENCE =
   "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message."
+const REINSTALL =
+  "The agent's CLI couldn't start on its computer, so its install may be broken. Reinstall it there, then resend your message."
 
 export const providerUnreachableScenarios: Scenario[] = [
   {
@@ -19,6 +21,24 @@ export const providerUnreachableScenarios: Scenario[] = [
       await page.getByText(SENTENCE).first().waitFor()
       await page.screenshot({ path: `${artifacts}/api-unreachable.png` })
       const raw = await page.getByText(/Unable to connect to API|EPROTO/).count()
+
+      if (raw > 0) throw new Error(`The chat shows the raw error ${raw} times`)
+    },
+  },
+  {
+    name: 'a Codex install missing its binary says to reinstall, without the raw spawn error',
+    // The fixture fails these turns on purpose; the backend still logs the agent's error.
+    expected: /Codex process has exited with code 1:.*spawn \/Users\/e2e\/[^"]*ENOENT/,
+    run: async (page) => {
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      // The fixture fails it as codex-acp does when the computer's npm Codex lost its binary.
+      await send(page, 'Start Codex E2E_CODEX_BROKEN E2E_DELIVERY:codex-broken')
+      await page.getByText(REINSTALL).first().waitFor()
+      // The agent's own failure: the row that offers Switch runtime, as a signed-out agent's does.
+      await page.getByRole('button', { name: 'Switch runtime' }).last().waitFor()
+      await page.screenshot({ path: `${artifacts}/codex-broken.png` })
+      const raw = await page.getByText(/ENOENT|codex-darwin-arm64|process has exited/).count()
 
       if (raw > 0) throw new Error(`The chat shows the raw error ${raw} times`)
     },

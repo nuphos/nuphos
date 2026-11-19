@@ -37,7 +37,7 @@ useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: (...args: unknown[]) => {
     resolveCalls.push(args)
     if (resolveFails) return Promise.reject(new Error('registry unavailable'))
-    const [teamId, , provider] = args as [string, unknown, string]
+    const [teamId, provider] = args as [string, string]
 
     return Promise.resolve(
       rows
@@ -152,7 +152,7 @@ test('reads each self-hosted runtime through its operator endpoint, grouped per 
     },
   })
 
-  expect(resolveCalls.map((call) => [call[0], call[2], call[3]])).toEqual([
+  expect(resolveCalls.map((call) => [call[0], call[1], call[2]])).toEqual([
     ['team-1', 'claude-code', 'control'],
     ['team-1', 'codex', 'control'],
   ])
