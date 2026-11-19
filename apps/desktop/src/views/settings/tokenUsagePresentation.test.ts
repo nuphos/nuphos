@@ -135,13 +135,13 @@ test('the window before is the same number of whole days, ending where this one 
   assert.equal(new Date(before.from).getTime(), new Date(2026, 10, 5).getTime())
 })
 
-test('a name the viewer may not see shows as a plain Conversation, never as its id', () => {
+test('a name the viewer may not see shows as a plain Task, never as its id', () => {
   const [line] = tokenUsageLines([row({ conversation: 'c1' }, 10)], 'conversation', {
     ...names,
     served: { conversation: { c1: null } },
   })
 
-  assert.equal(line?.label, 'Conversation')
+  assert.equal(line?.label, 'Task')
 })
 
 test('filters hold several values per dimension and go out as comma lists', () => {
@@ -159,10 +159,10 @@ test('filters hold several values per dimension and go out as comma lists', () =
   })
 })
 
-test('other members’ private conversations show as one row, by that name', () => {
+test('other members’ private Tasks show as one row, by that name', () => {
   const [line] = tokenUsageLines([row({ conversation: OTHERS_PRIVATE }, 5)], 'conversation', names)
 
-  assert.equal(line?.label, 'Other members’ private conversations')
+  assert.equal(line?.label, 'Other members’ private Tasks')
 })
 
 test('the cutoff for cached tokens reads as a date and time in 2026', () => {
@@ -174,5 +174,4 @@ test('a Bot row includes its Tasks, and usage outside every Bot says so', () => 
 
   assert.equal(usageGroupLabel('bot'), 'Bot and its Tasks')
   assert.equal(line?.label, 'Not in a Bot')
-  assert.equal(tokenUsageLines([row({ task: null }, 5)], 'task', names)[0]?.label, 'Not in a Task')
 })

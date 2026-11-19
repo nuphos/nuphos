@@ -78,15 +78,15 @@ export async function computersAndPrivate(page: Page, section: Locator) {
   if (/^[0-9a-f-]{20,}$/.test(label)) throw new Error(`The computer shows as id ${label}`)
   await shot(section, 'token-usage-computers')
   await section.getByRole('combobox', { name: 'Group by' }).click()
-  await page.getByRole('option', { name: 'Conversation' }).click()
-  await table.getByText('Other members’ private conversations').waitFor()
+  await page.getByRole('option', { name: 'Task', exact: true }).click()
+  await table.getByText('Other members’ private Tasks').waitFor()
   await shot(section, 'token-usage-private-merged')
 
-  // By Bot, the same private usage is the same one row, never folded into a Bot or "not recorded".
+  // By Bot, the same private usage is the same one row, never folded into a Bot or "not in a Bot".
   const privateTotal = () =>
     table
       .getByRole('row')
-      .filter({ hasText: 'Other members’ private conversations' })
+      .filter({ hasText: 'Other members’ private Tasks' })
       .getByRole('cell')
       .nth(1)
       .innerText()
@@ -99,6 +99,6 @@ export async function computersAndPrivate(page: Page, section: Locator) {
   const byBot = await privateTotal()
 
   if (byBot !== byConversation)
-    throw new Error(`Private usage is ${byConversation} by conversation but ${byBot} by Bot`)
+    throw new Error(`Private usage is ${byConversation} by Task but ${byBot} by Bot`)
   await shot(section, 'token-usage-by-bot')
 }

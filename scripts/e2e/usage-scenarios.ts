@@ -153,8 +153,8 @@ export const usageScenarios: Scenario[] = [
 
       // The backend names conversations by their titles, not their session ids.
       await section.getByRole('combobox', { name: 'Group by' }).click()
-      await page.getByRole('option', { name: 'Conversation' }).click()
-      await table.getByRole('columnheader', { name: 'Conversation' }).waitFor()
+      await page.getByRole('option', { name: 'Task', exact: true }).click()
+      await table.getByRole('columnheader', { name: 'Task', exact: true }).waitFor()
       await table.getByText('290.3K').waitFor()
       const label = await table.getByRole('row').nth(1).getByRole('cell').first().innerText()
 

@@ -19,8 +19,8 @@ export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string
   { value: 'trigger', label: t('Trigger') },
   // A Bot's row counts its Tasks too.
   { value: 'bot', label: t('Bot and its Tasks') },
-  { value: 'task', label: t('Task') },
-  { value: 'conversation', label: t('Conversation') },
+  // A Bot's own chat is a Task too.
+  { value: 'conversation', label: t('Task') },
   { value: 'source', label: t('Source') },
   { value: 'outcome', label: t('Outcome') },
 ]
@@ -150,7 +150,7 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
-/** The backend's one row for every conversation other members made private. */
+/** The backend's one row for every Task other members made private. */
 export const OTHERS_PRIVATE = 'private:others'
 
 /** A grouped value as the page shows it: the backend's name, a runtime's name, or the id. */
@@ -160,9 +160,8 @@ export function usageLabel(
   names: UsageNames,
 ): string {
   if (value === null && groupBy === 'bot') return t('Not in a Bot')
-  if (value === null && groupBy === 'task') return t('Not in a Task')
   if (value === null) return t('Not recorded')
-  if (value === OTHERS_PRIVATE) return t('Other members’ private conversations')
+  if (value === OTHERS_PRIVATE) return t('Other members’ private Tasks')
 
   const served = names.served?.[groupBy]?.[value]
 

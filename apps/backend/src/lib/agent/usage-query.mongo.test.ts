@@ -114,8 +114,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       [JSON.stringify({ bot: BOT })]: 1370,
       [JSON.stringify({ bot: null })]: 50,
     })
-    expect(await run({ groupBy: ['task'], filters: { model: ['haiku'] } })).toEqual({
-      [JSON.stringify({ task: TASK })]: 300,
+    expect(await run({ groupBy: ['conversation'], filters: { model: ['haiku'] } })).toEqual({
+      [JSON.stringify({ conversation: TASK })]: 300,
     })
   })
 

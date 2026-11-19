@@ -43,7 +43,7 @@ const NOTE =
 
 /** What the team's runtimes spent in model tokens, per day and split by one dimension, each
  *  group against the period before. Every member sees the team's numbers; the backend names
- *  another member's Bot, Task, conversation, Trigger or computer only where the viewer may see
+ *  another member's Bot, Task, Trigger or computer only where the viewer may see
  *  it, and the rest show as their dimension. */
 export function TokenUsage({
   teamId,
