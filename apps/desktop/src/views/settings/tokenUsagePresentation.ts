@@ -17,7 +17,8 @@ export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string
   { value: 'runtime', label: t('Runtime') },
   { value: 'computer', label: t('Computer') },
   { value: 'trigger', label: t('Trigger') },
-  { value: 'bot', label: t('Bot') },
+  // A Bot's row counts its Tasks too.
+  { value: 'bot', label: t('Bot and its Tasks') },
   { value: 'task', label: t('Task') },
   { value: 'conversation', label: t('Conversation') },
   { value: 'source', label: t('Source') },
@@ -158,13 +159,15 @@ export function usageLabel(
   groupBy: UsageDimension,
   names: UsageNames,
 ): string {
+  if (value === null && groupBy === 'bot') return t('Not in a Bot')
+  if (value === null && groupBy === 'task') return t('Not in a Task')
   if (value === null) return t('Not recorded')
   if (value === OTHERS_PRIVATE) return t('Other members’ private conversations')
 
   const served = names.served?.[groupBy]?.[value]
 
   // A teammate's conversation the viewer may not name shows as plainly that, as team activity does.
-  if (served === null) return usageGroupLabel(groupBy)
+  if (served === null) return groupBy === 'bot' ? t('Bot') : usageGroupLabel(groupBy)
 
   return served ?? (groupBy === 'runtime' ? names.runtimes.get(value) : undefined) ?? value
 }

@@ -196,7 +196,13 @@ function UsageReport({
           onChange={onFilters}
         />
         <div className="flex items-center gap-3 text-xs text-tertiary">
-          {cost === undefined ? null : t('About {cost} at list prices', { cost: formatUsd(cost) })}
+          {cost === undefined
+            ? null
+            : lines.every((line) => line.costUsd !== undefined)
+              ? t('About {cost} at list prices', { cost: formatUsd(cost) })
+              : t('About {cost} at list prices, not counting models without one', {
+                  cost: formatUsd(cost),
+                })}
           <AppSelect
             size="sm"
             ariaLabel={t('Group by')}

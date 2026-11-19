@@ -11,6 +11,7 @@ import {
   tokenUsageSplit,
   tokenUsageWindow,
   toggleFilter,
+  usageGroupLabel,
   usageCacheCutoff,
 } from './tokenUsagePresentation.ts'
 
@@ -166,4 +167,12 @@ test('other members’ private conversations show as one row, by that name', () 
 
 test('the cutoff for cached tokens reads as a date and time in 2026', () => {
   assert.match(usageCacheCutoff(), /2026/)
+})
+
+test('a Bot row includes its Tasks, and usage outside every Bot says so', () => {
+  const [line] = tokenUsageLines([row({ bot: null }, 5)], 'bot', names)
+
+  assert.equal(usageGroupLabel('bot'), 'Bot and its Tasks')
+  assert.equal(line?.label, 'Not in a Bot')
+  assert.equal(tokenUsageLines([row({ task: null }, 5)], 'task', names)[0]?.label, 'Not in a Task')
 })

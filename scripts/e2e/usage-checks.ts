@@ -81,4 +81,24 @@ export async function computersAndPrivate(page: Page, section: Locator) {
   await page.getByRole('option', { name: 'Conversation' }).click()
   await table.getByText('Other members’ private conversations').waitFor()
   await shot(section, 'token-usage-private-merged')
+
+  // By Bot, the same private usage is the same one row, never folded into a Bot or "not recorded".
+  const privateTotal = () =>
+    table
+      .getByRole('row')
+      .filter({ hasText: 'Other members’ private conversations' })
+      .getByRole('cell')
+      .nth(1)
+      .innerText()
+  const byConversation = await privateTotal()
+
+  await section.getByRole('combobox', { name: 'Group by' }).click()
+  await page.getByRole('option', { name: 'Bot and its Tasks' }).click()
+  await table.getByRole('columnheader', { name: 'Bot and its Tasks' }).waitFor()
+  await table.getByText('Not in a Bot').waitFor()
+  const byBot = await privateTotal()
+
+  if (byBot !== byConversation)
+    throw new Error(`Private usage is ${byConversation} by conversation but ${byBot} by Bot`)
+  await shot(section, 'token-usage-by-bot')
 }
