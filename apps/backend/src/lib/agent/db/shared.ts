@@ -70,6 +70,11 @@ export type AgentConversation = ConversationTaskState & {
   /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
   avatarBackground?: string
   /** A Bot's own standing instructions, written by the Bot through `update_self`. */
+  botTemplate?: {
+    templateId: string
+    version: string
+    requirements: { provider: string; required: boolean; reason: string }[]
+  }
   instructions?: string
   firstMessage: string
   messageCount: number
