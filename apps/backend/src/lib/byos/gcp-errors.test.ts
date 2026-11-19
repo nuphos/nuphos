@@ -104,6 +104,13 @@ describe('gcpServiceDisabledInfo', () => {
 })
 
 describe('classifyListClustersError', () => {
+  test('billing disabled is not an IAM denial', () => {
+    const error = classifyListClustersError(
+      Object.assign(new Error('Billing disabled'), { code: 7, reason: 'BILLING_DISABLED' }),
+      HANDLE,
+    )
+    expect(error?.code).toBe('gcp_billing_disabled')
+  })
   // The production report: the SA already held container.clusters.list, but the
   // code-7 disabled-API error was reported as a missing role.
   test('a disabled API reports gcp_api_disabled and names the enable command', () => {
