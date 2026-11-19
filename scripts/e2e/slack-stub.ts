@@ -18,6 +18,21 @@ const slackUsers = new Map<string, SlackUser>()
 export function addSlackUser(id: string, user: SlackUser) {
   slackUsers.set(id, user)
 }
+const posts: Record<string, string>[] = []
+
+/** What the backend posted with chat.postMessage, oldest first. */
+export const slackPosts = () => [...posts]
+
+function postMessage(params: Record<string, string>) {
+  posts.push(params)
+
+  return {
+    ok: true,
+    channel: params.channel,
+    ts: `1900000000.${String(posts.length).padStart(6, '0')}`,
+  }
+}
+
 function usersInfo(id: string) {
   const user = slackUsers.get(id)
 
@@ -25,6 +40,11 @@ function usersInfo(id: string) {
   const profile = { email: user.email, real_name: user.name }
 
   return { ok: true, user: { id, team_id: user.team_id, real_name: user.name, profile } }
+}
+
+const METHODS: Record<string, (params: Record<string, string>) => object> = {
+  'users.info': (params) => usersInfo(params.user ?? ''),
+  'chat.postMessage': postMessage,
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */
@@ -39,7 +59,7 @@ export async function startSlackStub(): Promise<Record<string, string>> {
       const body = chunks.length > 0 ? (JSON.parse(Buffer.concat(chunks).toString()) as object) : {}
       const params = { ...Object.fromEntries(url.searchParams), ...body } as Record<string, string>
 
-      const answer = method === 'users.info' ? usersInfo(params.user ?? '') : { ok: true }
+      const answer = (METHODS[method] ?? (() => ({ ok: true })))(params)
 
       response.writeHead(200, { 'content-type': 'application/json' })
       response.end(JSON.stringify(answer))
