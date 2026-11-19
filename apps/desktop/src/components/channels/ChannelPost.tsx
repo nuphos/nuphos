@@ -112,7 +112,7 @@ export function ChannelMessage({
             {text && (
               <div
                 className={clsx(
-                  'chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                  'user-message-bubble chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
                   fresh && 't-bubble-in-mine',
                 )}
               >

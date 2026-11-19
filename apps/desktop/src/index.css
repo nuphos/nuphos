@@ -403,20 +403,43 @@
     background-color: #000000;
   }
 
-  /* Your post in a chat: a bubble a shade apart from an agent's
-     (state.selected), the text color at a step beyond its alpha. One rule
-     for both themes: a neutral warm gray, since blue is kept for links and
-     data. The text stays at WCAG AA (chatBubble.test.ts). */
-  .chat-bubble-mine {
+  /* The theme's own text and control colors under a second name, resolved on
+     <html> so they follow the theme. A bubble that pins --color-text-* to
+     white can hand the theme's values back with them. */
+  html {
+    --theme-text-primary: var(--color-text-primary);
+    --theme-text-secondary: var(--color-text-secondary);
+    --theme-text-tertiary: var(--color-text-tertiary);
+    --theme-line-control: var(--color-line-control);
+    --theme-state-selected: var(--color-state-selected);
+    --theme-state-hover: var(--color-state-hover);
+  }
+
+  /* Your post in a chat. It keeps .user-message-bubble, so chips, mentions and
+     its selectors work as in a conversation, and overrides only the fill and
+     the tokens that fill pins: a bubble a shade apart from an agent's
+     (state.selected), the text color at a step beyond its alpha, with the
+     theme's own text on it. One rule for both themes, a neutral warm gray;
+     blue is kept for links and data. The text stays at WCAG AA
+     (chatBubble.test.ts). `html` lifts it past `html.light .user-message-bubble`. */
+  html .user-message-bubble.chat-bubble-mine {
+    --color-text-base: var(--theme-text-primary);
+    --color-text-primary: var(--theme-text-primary);
+    --color-text-secondary: var(--theme-text-secondary);
+    --color-text-tertiary: var(--theme-text-tertiary);
+    color: rgb(var(--color-text-primary));
     background-color: rgba(var(--color-text-primary), 0.21);
   }
 
-  /* The link blue does not read on the fill; the underline marks a link. */
-  .chat-bubble-mine a:not(.atlas-mention) {
-    color: inherit;
-    text-decoration-line: underline;
+  html .user-message-bubble.chat-bubble-mine a:not(.atlas-mention, .chat-resource-chip) {
     text-decoration-color: rgba(var(--color-text-primary), 0.45);
-    text-underline-offset: 2px;
+  }
+
+  /* A resource chip on the light fill takes the theme's controls back. */
+  html .user-message-bubble.chat-bubble-mine .chat-resource-chip {
+    --color-line-control: var(--theme-line-control);
+    --color-state-selected: var(--theme-state-selected);
+    --color-state-hover: var(--theme-state-hover);
   }
 
   .resource-meter {

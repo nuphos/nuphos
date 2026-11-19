@@ -8,13 +8,27 @@ type Rgb = [number, number, number]
 
 const css = readFileSync(new URL('../../index.css', import.meta.url), 'utf8')
 
-/** The fill's token and opacity from a `.chat-bubble-mine` rule in index.css. */
-function fill(selector: string): { token: string; alpha: number } {
-  const match = new RegExp(
-    `${selector.replace(/\./g, '\\.')} \\{\\s*background-color: rgba\\(var\\(--color-([\\w-]+)\\), ([\\d.]+)\\)`,
-  ).exec(css)
+/** The declarations of the first `selector { ... }` rule in index.css. */
+function block(selector: string): string {
+  const start = css.indexOf(`${selector} {`)
 
-  assert.ok(match, `missing ${selector} in index.css`)
+  assert.notEqual(start, -1, `missing ${selector} in index.css`)
+
+  return css.slice(start, css.indexOf('}', start))
+}
+
+/**
+ * Your bubble's fill, as its token and opacity. The bubble keeps
+ * .user-message-bubble, which pins the text tokens to white, so the rule must
+ * hand the theme's text color back before the fill can use it.
+ */
+function mineFill(): { token: string; alpha: number } {
+  const rule = block('html .user-message-bubble.chat-bubble-mine')
+  const match = /background-color: rgba\(var\(--color-([\w-]+)\), ([\d.]+)\)/.exec(rule)
+
+  assert.ok(match, 'your bubble has no token fill')
+  assert.match(rule, /--color-text-primary: var\(--theme-text-primary\)/)
+  assert.match(css, /html \{\s*--theme-text-primary: var\(--color-text-primary\);/)
 
   return { token: match[1].replace('-', '.'), alpha: Number(match[2]) }
 }
@@ -45,7 +59,7 @@ test('your chat bubble stands apart from an agent bubble and keeps its text read
   // One rule for both themes: the light theme has no override of its own.
   assert.ok(!css.includes('html.light .chat-bubble-mine'), 'a light-only override is back')
 
-  const mine = fill('  .chat-bubble-mine')
+  const mine = mineFill()
   const cases = [
     { name: 'dark', theme: themes.dark, rule: mine },
     { name: 'light', theme: themes.light, rule: mine },
