@@ -142,8 +142,12 @@ export function ModelSelector({
   // to it and closed again (#3862).
   const finalFocus = () => {
     const focused = document.activeElement
+    // The chip counts as the menu's own: pressing it to close still returns to typing.
     const movedOn =
-      focused !== null && focused !== document.body && !menuRef.current?.contains(focused)
+      focused !== null &&
+      focused !== document.body &&
+      !menuRef.current?.contains(focused) &&
+      !chipRef.current?.contains(focused)
 
     return movedOn
       ? false
