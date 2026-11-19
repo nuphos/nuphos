@@ -6,14 +6,14 @@ use std::time::Duration;
 
 use anyhow::{anyhow, bail, Result};
 
-/// Nuphos Cloud's answer whichever backend this CLI uses: releases are global,
-/// and the GitHub API this used to ask rate-limits shared IPs.
-const LATEST: &str = "https://api.nuphos.ai/cli/latest";
+fn latest_url() -> String {
+    format!("{}/cli/latest", crate::config::api_url().trim_end_matches('/'))
+}
 
 /// The newest published CLI version.
 pub async fn latest() -> Option<String> {
     let text = reqwest::Client::new()
-        .get(LATEST)
+        .get(latest_url())
         .header("user-agent", concat!("nuphos-cli/", env!("CARGO_PKG_VERSION")))
         .timeout(Duration::from_secs(5))
         .send()
@@ -48,7 +48,7 @@ pub fn check_enabled() -> bool {
 /// `nuphos update`: installs the newest release over this binary.
 pub async fn update() -> Result<i32> {
     let current = env!("CARGO_PKG_VERSION");
-    let latest = latest().await.ok_or_else(|| anyhow!("could not look up the newest release at {LATEST}"))?;
+    let latest = latest().await.ok_or_else(|| anyhow!("could not look up the newest release at {}", latest_url()))?;
     if !is_newer(&latest) {
         println!("nuphos {current} is up to date.");
         return Ok(0);
