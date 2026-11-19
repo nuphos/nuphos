@@ -17,14 +17,21 @@ export async function send(page: Page, text: string) {
 }
 
 /** Moves the open conversation to `label`'s Claude Code runtime. */
-export async function pickAgent(page: Page, label: string) {
+export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
+  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   // The computer's row opens a submenu of its runtimes.
   await page.getByRole('menu').getByText(label).click()
   await pickInSubmenu(
     page,
-    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }),
   )
+}
+
+/** Temporary, until #3862 is fixed: waits until no menu is mounted, a closing one included,
+ *  since opening the runtime list while the model menu still closes can freeze the window. */
+export async function noMenuOpen(page: Page) {
+  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
 /** Picks `item` in the submenu a menu row opened, by key. A pointer that jumps from the row onto

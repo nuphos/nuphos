@@ -79,6 +79,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:appUpdate', deviceId, teamId),
   boxClearCaches: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:clearCaches', deviceId, teamId),
+  deviceSetAutoInstall: (deviceId: string, teamId: string, enabled: boolean) =>
+    ipcRenderer.invoke('box:autoInstall', deviceId, teamId, enabled),
   boxDesktop: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('box:desktop', deviceId, teamId),
   boxJoinToken: () => ipcRenderer.invoke('box:join-token'),

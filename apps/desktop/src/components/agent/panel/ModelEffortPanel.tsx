@@ -1,6 +1,6 @@
 import { Slider } from '@base-ui/react/slider'
 import clsx from 'clsx'
-import { ChevronRight, Rocket, RotateCcw, Zap } from 'lucide-react'
+import { Rocket, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
@@ -57,32 +57,26 @@ function IconButton({
 }
 
 /**
- * The model chip's card, as Codex's: fast toggle, the effort name over the
- * model name, reset, and a slider with one stop per level. A runtime without
- * effort or fast leaves those parts out.
+ * The effort controls pinned under the model list: the level by name, fast
+ * toggles, and a slider with one stop per level. A runtime without fast leaves
+ * the toggles out. Keys stay here, so ←/→ move the slider, not the menu.
  */
 export function ModelEffortPanel({
   effort,
   fast,
-  modelName,
-  resetValue,
   blocked,
   saving,
   sliderRef,
   onSelect,
-  onOpenModels,
 }: {
   effort?: SessionConfigOption
   fast?: SessionConfigOption
-  modelName: string
-  resetValue?: string
   /** No changes at all, e.g. the agent is offline. */
   blocked: boolean
-  /** A change is being saved; the slider and reset are disabled until it ends. */
+  /** A change is being saved; the slider is disabled until it ends. */
   saving: boolean
   sliderRef?: React.Ref<HTMLInputElement>
   onSelect: (configId: string, value: string) => void
-  onOpenModels?: () => void
 }) {
   const choices = effort?.options ?? []
   const currentValue = effort?.currentValue ?? ''
@@ -112,84 +106,56 @@ export function ModelEffortPanel({
   // Codex offers Ultrafast as a separate tier beside Fast; Claude has only Fast.
   const offersFast = fast?.options.some((option) => option.value === 'on')
   const offersUltrafast = fast?.options.some((option) => option.value === 'ultrafast')
-  const resetLevel =
-    resetValue && stops.find((stop) => stop.value === resolvedEffort(choices, resetValue))
-  const resetHint =
-    resetValue === currentValue
-      ? t('Already at the default effort')
-      : resetLevel
-        ? t('Reset to default ({level})', { level: effortLabel(resetLevel) })
-        : t('Reset to default')
 
   return (
-    <div className="relative px-3 pb-3 pt-2.5">
-      {fast && (
-        <div className="absolute left-1.5 top-1.5 flex">
-          {offersFast && (
-            <Tooltip
-              content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
-            >
-              <IconButton
-                label={
-                  fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
-                }
-                pressed={fastOn}
-                disabled={blocked || saving}
-                inert={Boolean(fastReason)}
-                onClick={() => onSelect(fast.id, fastOn ? 'off' : 'on')}
-                className={fastOn ? 'text-status-attention' : 'text-tertiary'}
-              >
-                <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
-              </IconButton>
-            </Tooltip>
-          )}
-          {offersUltrafast && (
-            <Tooltip content={ultrafastOn ? t('Ultrafast mode is on') : t('Ultrafast mode')}>
-              <IconButton
-                label={ultrafastOn ? t('Turn off Ultrafast mode') : t('Turn on Ultrafast mode')}
-                pressed={ultrafastOn}
-                disabled={blocked || saving}
-                onClick={() => onSelect(fast.id, ultrafastOn ? 'off' : 'ultrafast')}
-                className={ultrafastOn ? 'text-status-attention' : 'text-tertiary'}
-              >
-                <Rocket size={16} strokeWidth={1.6} fill={ultrafastOn ? 'currentColor' : 'none'} />
-              </IconButton>
-            </Tooltip>
-          )}
-        </div>
-      )}
-      {/* Reset only exists where the runtime names a default level to return to. */}
-      {effort && resetValue && (
-        <Tooltip content={resetHint} triggerClassName="absolute right-1.5 top-1.5">
-          <IconButton
-            label={resetHint}
-            inert={blocked || saving || resetValue === currentValue}
-            onClick={() => onSelect(effort.id, resetValue)}
-            className="text-tertiary"
-          >
-            <RotateCcw size={16} strokeWidth={1.6} />
-          </IconButton>
-        </Tooltip>
-      )}
-      <div className="flex flex-col items-center">
+    <div
+      className="px-3 pb-3 pt-1.5"
+      onKeyDown={(event) => {
+        // Escape and Tab still close the menu; the rest belong to the slider and toggles.
+        if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation()
+      }}
+    >
+      <div className="flex h-7 items-center gap-1.5">
         {effort && (
-          <span className="text-sm font-medium text-status-attention">
-            {current ? effortLabel(current) : t('Default')}
-          </span>
+          <>
+            <span className="text-xs text-tertiary">{t('Effort')}</span>
+            <span className="text-sm font-medium text-status-attention">
+              {current && effortLabel(current)}
+            </span>
+          </>
         )}
-        <button
-          type="button"
-          aria-label={t('Select model')}
-          disabled={!onOpenModels}
-          onClick={onOpenModels}
-          className={clsx(
-            'flex max-w-full items-center gap-0.5 rounded-md px-1 text-xs leading-5 text-secondary outline-none',
-            onOpenModels && HOVER,
-          )}
-        >
-          <span className="truncate">{modelName}</span>
-          {onOpenModels && <ChevronRight size={12} strokeWidth={2} className="shrink-0" />}
-        </button>
+        <span className="flex-1" />
+        {offersFast && (
+          <Tooltip
+            content={fastReason?.tooltip ?? (fastOn ? t('Fast mode is on') : t('Fast mode'))}
+          >
+            <IconButton
+              label={
+                fastReason?.tooltip ?? (fastOn ? t('Turn off fast mode') : t('Turn on fast mode'))
+              }
+              pressed={fastOn}
+              disabled={blocked || saving}
+              inert={Boolean(fastReason)}
+              onClick={() => fast && onSelect(fast.id, fastOn ? 'off' : 'on')}
+              className={fastOn ? 'text-status-attention' : 'text-tertiary'}
+            >
+              <Zap size={16} strokeWidth={1.6} fill={fastOn ? 'currentColor' : 'none'} />
+            </IconButton>
+          </Tooltip>
+        )}
+        {offersUltrafast && (
+          <Tooltip content={ultrafastOn ? t('Ultrafast mode is on') : t('Ultrafast mode')}>
+            <IconButton
+              label={ultrafastOn ? t('Turn off Ultrafast mode') : t('Turn on Ultrafast mode')}
+              pressed={ultrafastOn}
+              disabled={blocked || saving}
+              onClick={() => fast && onSelect(fast.id, ultrafastOn ? 'off' : 'ultrafast')}
+              className={ultrafastOn ? 'text-status-attention' : 'text-tertiary'}
+            >
+              <Rocket size={16} strokeWidth={1.6} fill={ultrafastOn ? 'currentColor' : 'none'} />
+            </IconButton>
+          </Tooltip>
+        )}
       </div>
       {effort && (
         <Slider.Root
@@ -211,7 +177,7 @@ export function ModelEffortPanel({
                 : undefined,
             )
           }}
-          className="mt-4 data-[disabled]:opacity-60"
+          className="mt-1.5 data-[disabled]:opacity-60"
         >
           <Slider.Control className="relative h-7 cursor-pointer touch-none select-none">
             <Slider.Track className="relative h-full w-full rounded-full bg-surface-sunken">
@@ -234,7 +200,7 @@ export function ModelEffortPanel({
               ))}
               <Slider.Thumb
                 inputRef={sliderRef}
-                getAriaValueText={() => (current ? effortLabel(current) : t('Default'))}
+                getAriaValueText={() => (current ? effortLabel(current) : '')}
                 className={clsx(
                   'h-7 w-7 rounded-full border border-black/10 bg-white shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-status-attention/60',
                   index < 0 && 'opacity-0',

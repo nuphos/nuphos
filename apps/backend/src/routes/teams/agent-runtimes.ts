@@ -150,13 +150,13 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     '/agent-runtimes/:runtimeId/model-config',
     zv('query', sessionConfigPickSchema),
     async (c) => {
-      const { options } = await offeredSessionConfig(
+      const { options, reason } = await offeredSessionConfig(
         (model) =>
           runtimeModelCatalog(c.get('teamId'), c.req.param('runtimeId'), model, c.get('userId')),
         c.req.valid('query'),
       )
 
-      return c.json({ status: 'dormant', options })
+      return c.json({ status: 'dormant', options, ...(reason ? { reason } : {}) })
     },
   )
   teamScoped.get(
@@ -244,7 +244,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     throw new AppError(
       410,
       'managed_runtime_retired',
-      'Managed runtimes are being retired. Add a Nuphos cloud computer or connect your own computer instead.',
+      'Managed runtimes are being retired. Add a computer from Nuphos or connect your own computer instead.',
     )
   })
   teamScoped.patch(

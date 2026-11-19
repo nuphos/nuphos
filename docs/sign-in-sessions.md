@@ -43,7 +43,8 @@ using a recovery code send an email, best effort.
 Someone who lost both the authenticator and the recovery codes contacts
 support. Once support confirms who is asking, an admin calls
 `POST /admin/directory/users/:id/mfa-reset`, which turns MFA off, signs the
-account out of every session and emails the user.
+account out everywhere as a password reset does (every session and CLI token)
+and emails the user.
 
 ### Passkeys
 
@@ -72,6 +73,14 @@ on, the sign-in itself took the second factor, so both are second-factor checks.
 An action that needs a recent check answers `403 reauth_required` otherwise;
 `error.details.method` is `mfa` (ask for a code, call `/auth/mfa/reauth`, then
 retry) or `sign_in` (the account has no MFA, so sign in again).
+
+For an account with MFA on, these need a recent check (`isStepUpRoute` in
+`lib/identity/step-up.ts`): connecting or changing a tool or cloud credential
+(including starting its OAuth flow and completing a connector or personal
+credential), creating a CLI token, approving a device sign-in, creating a device
+join token, deleting a team, changing a member's role, transferring ownership and
+deleting the account. CLI tokens and agent runs are exempt: minting one already
+took a check, and they cannot answer a prompt.
 
 MFA is optional, and accounts without it are not asked, except to turn MFA on:
 `POST /auth/mfa/totp/setup` needs a sign-in in the last 10 minutes from every

@@ -6,6 +6,8 @@ import os
 struct ChatFace: Codable, Equatable, Hashable, Sendable {
     struct Agent: Codable, Equatable, Hashable, Sendable {
         let avatar: String?
+        /// The tint its face sits on, e.g. `sky`; nil for none (#3504).
+        var avatarBackground: String? = nil
         let provider: String?
     }
 
@@ -148,6 +150,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
+    /// The tint a Bot's face sits on, e.g. `sky`; nil for none (#3504).
+    var avatarBackground: String?
     /// Absent when the chat has no post yet, or from an older backend.
     var lastMessage: LastMessage?
     /// Open questions, oldest first; absent when there are none.
@@ -224,6 +228,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        avatarBackground = try? c.decodeIfPresent(String.self, forKey: .avatarBackground)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
