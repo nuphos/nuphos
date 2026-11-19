@@ -161,6 +161,16 @@ test('outputs list ready files from live download groups, newest group first', (
   assert.equal(files[0]?.image, true)
 })
 
+test('a pinned group has no expiry and stays listed', () => {
+  const now = Date.parse('2030-10-14T12:00:00Z')
+  const pinned = {
+    ...group('pinned', '2026-10-14T00:00:00Z', '2026-10-15T00:00:00Z'),
+    expiresAt: null,
+  }
+
+  assert.deepEqual(outputFilesOf([pinned], now).map((file) => file.fileId), ['pinned-png'])
+})
+
 test('⌘I toggles on macOS and Ctrl+I elsewhere, nothing with extra modifiers', () => {
   const key = {
     metaKey: false,
