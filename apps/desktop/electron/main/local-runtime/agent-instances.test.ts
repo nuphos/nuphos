@@ -31,7 +31,7 @@ test('same-provider instances persist and isolate homes, processes, usage and ro
     nodeExecPath: '/mock/node',
     backendUrl: 'https://example.test',
     userEnv: async () => ({ PATH: '/mock', HOME: '/host', CODEX_HOME: '/host/.codex' }),
-    probeCli: async (provider) => ({ installed: true, loggedIn: true, path: `/mock/${provider}` }),
+    probeCli: async () => ({ installed: true, loggedIn: true, path: process.execPath }),
     readUsage: async (_provider, env) => {
       usageHomes.push(env.CODEX_HOME ?? env.CLAUDE_CONFIG_DIR ?? '')
 

@@ -26,7 +26,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.time.Instant
-import androidx.compose.ui.text.intl.Locale
 
 /** One team snapshot, refreshed only while this screen is resumed. Errors never gate chat. */
 @Composable
@@ -132,7 +131,6 @@ internal fun resetsInText(at: ResetsIn?): String? = at?.text(androidx.compose.ui
 
 @Composable
 fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
-    val locale = java.util.Locale.forLanguageTag(Locale.current.toLanguageTag())
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (quota?.available != true || quota.windows.isEmpty()) {
             Text(stringResource(R.string.agent_usage_unavailable), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -145,15 +143,15 @@ fun RuntimeUsage(quota: RuntimeQuota?, compact: Boolean = false) {
             val column = windows.any { ResetsIn.of(it.resetsAt) != null }
             windows.forEach { window ->
                 val reset = resetsInText(ResetsIn.of(window.resetsAt))
-                val left = (100.0 - window.usedPercent).coerceIn(0.0, 100.0)
+                val left = window.leftPercent
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ContinuousUsageBar(progress = (left / 100.0).toFloat(), modifier = Modifier.weight(1f))
+                    ContinuousUsageBar(progress = left / 100f, modifier = Modifier.weight(1f))
                     if (column) Box(contentAlignment = Alignment.CenterEnd) {
                         widest.forEach { Text(it, style = resetStyle, color = Color.Transparent, maxLines = 1, modifier = Modifier.clearAndSetSemantics {}) }
                         Text(reset.orEmpty(), style = resetStyle, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                 }
-                val percent = String.format(locale, "%.0f", left)
+                val percent = left.toString()
                 Text(if (compact) stringResource(R.string.agent_percent_left, percent) else stringResource(R.string.agent_window_percent_left, window.label, percent),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
