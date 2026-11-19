@@ -11,7 +11,7 @@ import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedUpdates } from './fixture-commands.mjs'
-import { hop, inherit, startThread } from './fixture-hop.mjs'
+import { hop, inherit } from './fixture-hop.mjs'
 import {
   call,
   callNamed,
@@ -20,7 +20,7 @@ import {
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, currentModel, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -75,6 +75,24 @@ async function delegate(sessionId, fast) {
   if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
+/** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
+async function startThread(sessionId, marker) {
+  const started = await call(sessionId, 'create_thread', {
+    label: 'Start a thread',
+    title: 'E2E thread',
+    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
+  })
+
+  thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(started))?.[1]
+  const change = await call(sessionId, 'update_thread', {
+    label: 'Move the thread to Auto Mode',
+    threadId: thread,
+    fullAccess: false,
+  })
+
+  log({ sessionId, marker, event: refused(change) ? 'thread-mode-refused' : 'thread-mode-changed' })
+}
+
 /** Asks the client to allow a command, as a runtime does before it runs one. */
 async function permission(sessionId, marker) {
   const id = nextRequest++
@@ -108,9 +126,7 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  const language = promptLanguage(text)
-
-  log({ sessionId, marker, event: 'start', language, model: currentModel(sessionId) })
+  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
@@ -154,7 +170,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
-    thread = await startThread({ call, log, sessionId, marker })
+    await startThread(sessionId, marker)
   }
   if (text.includes('E2E_POKE')) {
     await call(sessionId, 'send_message_to_thread', {
