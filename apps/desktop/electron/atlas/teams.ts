@@ -118,6 +118,17 @@ export async function getAgentStats(teamId: string, query: AgentStatsQuery): Pro
   )
 }
 
+/** Team token usage grouped by one dimension and/or a time bucket; members get only their own. */
+export async function queryTeamUsage(
+  teamId: string,
+  query: Record<string, string>,
+): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/usage/query?${new URLSearchParams(query).toString()}`,
+  )
+}
+
 /** Each runtime's fallback in the team, by runtime id. */
 export async function getRuntimeFallback(teamId: string): Promise<unknown> {
   return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallbacks`)

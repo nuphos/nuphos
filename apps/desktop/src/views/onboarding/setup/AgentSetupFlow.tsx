@@ -9,9 +9,11 @@ import { SetupComplete } from './SetupComplete'
  * composer's runtime picker.
  */
 export function AgentSetupFlow({
+  teamId,
   onFinish,
   workspaceCreated = false,
 }: {
+  teamId?: string
   onFinish: () => void
   workspaceCreated?: boolean
 }) {
@@ -29,7 +31,8 @@ export function AgentSetupFlow({
           onBack={() => setDone(false)}
         />
       ) : (
-        <LocalAgentsStep onContinue={() => setDone(true)} />
+        // A cloud computer is made over the workspace, so setup ends as it is chosen.
+        <LocalAgentsStep teamId={teamId} onContinue={() => setDone(true)} onCloud={onFinish} />
       )}
     </div>
   )

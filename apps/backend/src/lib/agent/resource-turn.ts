@@ -2,7 +2,6 @@ import { executeConversationTurn } from './conversation-turn'
 import { relatedQuestionsNote } from './db/pending-decision'
 import { systemSender } from './message-metadata'
 import { authorizedResourceTurn } from './resource-webhook'
-import { refreshSessionResource } from './session-resources'
 
 import type { ResourceTurn } from './resource-webhook'
 
@@ -10,8 +9,9 @@ export async function executeResourceTurn(data: ResourceTurn) {
   const authorized = await authorizedResourceTurn(data)
 
   if (!authorized) return
-  const { conversation } = authorized
-  const resource = await refreshSessionResource(conversation, authorized.resource)
+  // The webhook already stored the state and health this event changed, so the
+  // wakeup reads nothing more from GitHub and can't be lost to a failed read.
+  const { conversation, resource } = authorized
 
   await executeConversationTurn(
     {

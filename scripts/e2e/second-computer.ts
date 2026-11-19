@@ -12,13 +12,16 @@ import type { Stack } from './stack.ts'
 
 export const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 
-// It dials the backend at `apiUrl` and runs its agents from the bundle in `runtimeDir`.
+// It dials the backend at `apiUrl` and runs its agents from the bundle in `runtimeDir`. With
+// `stagedUpdate` it reports that update downloaded, as a Nuphos Desktop does; updating it stops
+// the host, which starts again on its own without one, as the Desktop opens again once installed.
 export async function startSecondComputer(
   stack: Stack,
   label: string,
   {
     apiUrl = stack.apiUrl,
     runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
+    stagedUpdate = '',
   } = {},
 ) {
   const deviceId = randomUUID()
@@ -50,16 +53,26 @@ export async function startSecondComputer(
     ],
     { cwd: DESKTOP_DIR, stdio: 'ignore' },
   )
-  const child = spawn(`computer-${label}`, ['node', host], {
-    env: {
-      HOME: home,
-      NUPHOS_AGENT_HOME: agentHome,
-      NUPHOS_LOCAL_RUNTIME_DIR: runtimeDir,
-      NUPHOS_API_URL: apiUrl,
-      NUPHOS_CLI_CONFIG: cliConfig,
-      NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
-    },
+  const env = {
+    HOME: home,
+    NUPHOS_AGENT_HOME: agentHome,
+    NUPHOS_LOCAL_RUNTIME_DIR: runtimeDir,
+    NUPHOS_API_URL: apiUrl,
+    NUPHOS_CLI_CONFIG: cliConfig,
+    NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+  }
+  let stopped = false
+  let restarts = 0
+  let child = spawn(`computer-${label}`, ['node', host], {
+    env: stagedUpdate ? { ...env, NUPHOS_E2E_STAGED_UPDATE: stagedUpdate } : env,
   })
+
+  if (stagedUpdate)
+    child.once('exit', () => {
+      if (stopped) return
+      restarts++
+      child = spawn(`computer-${label}`, ['node', host], { env })
+    })
 
   await until(`${label} to connect`, async () =>
     backendLog().some(
@@ -67,5 +80,15 @@ export async function startSecondComputer(
     ),
   )
 
-  return { deviceId, home, stop: () => stop(child) }
+  return {
+    deviceId,
+    home,
+    /** How often the host stopped and started again on its own. */
+    restarts: () => restarts,
+    stop: () => {
+      stopped = true
+
+      return stop(child)
+    },
+  }
 }
