@@ -15,6 +15,8 @@ let updates: { filter: Record<string, unknown>; update: Record<string, unknown> 
 let matchedCount = 1
 let memberAllowList = ['u1', 'u2']
 let ownerUserId: string | undefined = 'u1'
+// Whether the binding is still there when a save matches nothing.
+let stillBound = 0
 
 useModels({
   teamByosBindings: () => ({
@@ -23,12 +25,14 @@ useModels({
 
       return { matchedCount }
     },
+    countDocuments: async () => stillBound,
   }),
 })
 
 beforeEach(() => {
   updates = []
   matchedCount = 1
+  stillBound = 0
   memberAllowList = ['u1', 'u2']
   ownerUserId = 'u1'
 })
@@ -81,7 +85,7 @@ describe('registerBindingAccessRoutes', () => {
     })
     expect(updates[0]?.filter).toEqual({
       _id: new ObjectId(teamId),
-      'linodeAccounts.id': bindingId,
+      linodeAccounts: { $elemMatch: { id: bindingId, 'access.updatedAt': new Date(0) } },
     })
     expect(updates[0]?.update.$set).toMatchObject({
       'linodeAccounts.$.access': {
@@ -99,6 +103,15 @@ describe('registerBindingAccessRoutes', () => {
   test('reports a binding disconnected meanwhile', async () => {
     matchedCount = 0
     expect((await put('ADMINISTRATOR', ['u1'])).status).toBe(404)
+  })
+
+  test('refuses to save over a list changed since this edit was allowed', async () => {
+    matchedCount = 0
+    stillBound = 1
+    const response = await put('ADMINISTRATOR', ['*'])
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ error: { code: 'binding_access_changed' } })
   })
 
   test("lets an admin see, but not share, another member's private binding", async () => {

@@ -100,7 +100,7 @@ useRuntimeCatalog({
     provider: 'codex',
     label: 'Codex',
     status: 'active',
-    kind: 'managed',
+    kind: 'external',
   }),
   developmentRuntimeEndpoint: () => {},
 })

@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -56,6 +58,7 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     'PLAYWRIGHT_BROWSERS_PATH',
     'PIP_CACHE_DIR',
     'UV_CACHE_DIR',
+    'npm_config_cache',
     'pnpm_config_store_dir',
   ]) {
     assert.equal(a[key], b[key])
@@ -214,6 +217,26 @@ test('two sessions install into one pnpm store, and a session keeps a store it c
     execFileSync('pnpm', ['store', 'path'], { cwd: env.HOME, env, encoding: 'utf8' }).trim()
   assert.equal(path(a), path(b))
   assert.equal(dirname(path(a)), store)
+})
+
+test('two sessions share Gradle caches but keep their own gradle.properties', (t) => {
+  const host = runtime(t)
+  const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const b = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  const shared = join(host.HOME, '.gradle', 'caches')
+  put(join(a.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'jar')
+  assert.equal(readFileSync(join(b.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'utf8'), 'jar')
+  assert.equal(realpathSync(join(a.HOME, '.gradle', 'caches')), realpathSync(shared))
+  // Gradle keeps repository credentials in gradle.properties, beside the caches.
+  put(join(a.HOME, '.gradle', 'gradle.properties'), 'token=a')
+  assert.throws(() => readFileSync(join(b.HOME, '.gradle', 'gradle.properties')), {
+    code: 'ENOENT',
+  })
+  // A home that already has caches of its own keeps them.
+  rmSync(join(b.HOME, '.gradle', 'caches'))
+  mkdirSync(join(b.HOME, '.gradle', 'caches'))
+  nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  assert.equal(lstatSync(join(b.HOME, '.gradle', 'caches')).isDirectory(), true)
 })
 
 test('a session still starts when its pnpm rc cannot be written', (t) => {

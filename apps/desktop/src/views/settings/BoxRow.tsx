@@ -14,7 +14,7 @@ import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { useComputerSettings } from './useComputerSettings'
 import { BoxAgentSetup } from './BoxAgentSetup'
-import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots'
+import { askToAdd, canAddAgent } from './boxAgentSlots'
 import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
@@ -47,7 +47,6 @@ export function BoxRow({
   agents,
   onSelect,
   onChanged,
-  onSetUpLocalAgent,
 }: {
   thisComputer: boolean
   teamId: string
@@ -55,8 +54,6 @@ export function BoxRow({
   agents: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
   onChanged: () => void
-  /** Opens User settings where this computer's local agent signs in. */
-  onSetUpLocalAgent?: () => void
 }) {
   const [busy, setBusy] = useState(false)
   // An older host's existing agent, signing in.
@@ -120,7 +117,6 @@ export function BoxRow({
 
   const dim = state === 'paused' || state === 'stopped'
   const settingUp = state === 'creating' || state === 'connecting'
-  const slots = agentSlots(thisComputer, settingUp || restart !== undefined, state, agents)
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
@@ -141,13 +137,12 @@ export function BoxRow({
         <DeskAgents
           device={device}
           agents={agents}
-          slots={slots}
+          starting={settingUp || restart !== undefined}
           away={away}
           dim={dim}
           busy={busy}
           onSelect={onSelect}
           onAdd={addAgent}
-          onSetUp={thisComputer ? onSetUpLocalAgent : undefined}
           canAdd={canAddAgent(state, manage)}
           ask={askToAdd(state, manage, owner)}
         />
