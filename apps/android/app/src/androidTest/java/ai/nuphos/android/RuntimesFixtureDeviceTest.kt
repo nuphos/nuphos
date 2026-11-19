@@ -64,9 +64,11 @@ class RuntimesFixtureDeviceTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         Thread.sleep(500) // Platform window/compositor settling, not product loading.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        File(context.getExternalFilesDir(null), (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name).outputStream().use {
-            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG,100,it)
-        }
+        val file = (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name
+        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(context.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, file).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()

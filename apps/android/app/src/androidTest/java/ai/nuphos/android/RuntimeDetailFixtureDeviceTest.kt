@@ -71,8 +71,10 @@ class RuntimeDetailFixtureDeviceTest {
         compose.waitForIdle()
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         android.os.SystemClock.sleep(500) // Let the platform dialog transition finish before capturing.
-        val dir = InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null)!!
-        File(dir, name).outputStream().use { InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, name).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun lightDetailAndDestructiveConfirmation() {
         render(false)
