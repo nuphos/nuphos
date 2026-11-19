@@ -375,6 +375,33 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test('an agent whose Claude account needs verification says where to verify it', async () => {
+    const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}\n> {"errorKind":"verification_required"}`,
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: `its account must be verified with Anthropic (Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}).`,
+    })
+  })
+
   test("an agent the model provider refused says the provider's words", async () => {
     const refused =
       'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'

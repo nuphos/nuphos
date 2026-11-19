@@ -20,6 +20,22 @@ type ReplyFailedEvent = AgentTimelineEvent & {
   resetsAt?: string
 }
 
+/** A web address in the server's line, such as where a provider asks the account holder to act. */
+const WEB_URL = /(https:\/\/[^\s()]+[^\s().,])/u
+
+/** The line with its web addresses as links, which open in the browser. */
+function withLinks(text: string) {
+  return text.split(WEB_URL).map((piece, index) =>
+    index % 2 ? (
+      <a key={index} href={piece} target="_blank" rel="noreferrer" className="underline">
+        {piece}
+      </a>
+    ) : (
+      piece
+    ),
+  )
+}
+
 /**
  * An agent could not reply: what happened and why (the server's line), when its
  * usage returns, and the fix. Only the latest line offers it; Switch runtime only
@@ -84,7 +100,7 @@ export function ChannelReplyFailed({
       onRetry={actionable && agentId ? retry : undefined}
       retrying={retrying}
     >
-      {event.text}
+      {withLinks(event.text)}
       {resets && <> {t('Usage {resets}.', { resets })}</>}
     </FailureRow>
   )

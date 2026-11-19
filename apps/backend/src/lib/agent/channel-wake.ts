@@ -218,6 +218,10 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
   )
 }
 
+/** Anthropic holds an account's replies until its holder verifies it, at the portal the notice links. */
+const VERIFICATION_HOLD =
+  /^(?:API Error: )?(Your account can['’]t receive replies from Claude\b.*)/u
+
 /** How a Pi turn the model provider refused reads after `Internal error: ` (acp-shim.mjs). */
 const PROVIDER_REFUSED = 'The model provider refused the request:'
 
@@ -235,6 +239,10 @@ function replyFailedReason(
   // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
   const notice = resetsAt ? undefined : claudeNotice(error)
 
+  const held = notice && VERIFICATION_HOLD.exec(notice)?.[1]
+
+  if (cause === 'usage_limit' && held)
+    return `its ${label}account must be verified with Anthropic (${held}).`
   if (cause === 'usage_limit')
     return notice
       ? `its ${label}account hit its usage limit (${notice}).`

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
+import { rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 import { agentEvents } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
 import { loadingFree } from './channel-helpers.ts'
+import { VERIFICATION_HOLD } from './fixture-turn-refusals.mjs'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -110,6 +113,30 @@ export const botOnboardingScenarios: Scenario[] = [
         .first()
         .waitFor()
       await page.screenshot({ path: `${artifacts}/normal-work-inbox.png` })
+    },
+  },
+  {
+    name: 'a Bot whose Claude account Anthropic holds for verification says where to verify it',
+    run: async (page, stack) => {
+      const hold = join(dirname(stack.acpLog), 'verification-hold')
+      const portal = /https:\S+/u.exec(VERIFICATION_HOLD)![0]
+
+      writeFileSync(hold, '')
+      try {
+        await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+        await page.getByRole('textbox', { name: 'Bot name' }).fill('Verify Helper')
+        await page.getByRole('button', { name: 'Create', exact: true }).click()
+        const line = page.getByText(
+          /couldn’t reply: its .*account must be verified with Anthropic/u,
+        )
+
+        await line.waitFor()
+        assert.equal(await line.getByRole('link', { name: portal }).getAttribute('href'), portal)
+        await page.getByRole('button', { name: 'Switch runtime', exact: true }).waitFor()
+        await page.screenshot({ path: `${artifacts}/onboarding-verification-light.png` })
+      } finally {
+        rmSync(hold, { force: true })
+      }
     },
   },
 ]

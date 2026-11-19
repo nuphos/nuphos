@@ -11,6 +11,7 @@ import {
   OpenAbRpcError,
   isSessionOutputSinkUnavailable,
   retrySessionPromptWhenBusy,
+  runtimeUsageExhaustedMessage,
   SESSION_OUTPUT_SINK_UNAVAILABLE,
 } from './openab-acp-errors'
 
@@ -86,6 +87,20 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(relayed)).toBe('usage_limit')
     expect(turnFailureCause(wrappedOnly)).toBe('usage_limit')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
+  })
+
+  test('an account Anthropic holds for verification is refused like one out of usage', () => {
+    // The refusal production logged (#3926), with a stand-in org id.
+    const notice =
+      "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"verification_required"}`,
+      -32603,
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    expect(isRuntimeAuthRequired(refused)).toBe(false)
   })
 })
 
