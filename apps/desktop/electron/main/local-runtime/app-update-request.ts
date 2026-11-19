@@ -7,6 +7,9 @@
 //
 // Runtime imports stay free of Electron so this loads under plain `node --test`.
 
+import { withAutoInstallRequest } from './cli-auto-update.ts'
+
+import type { AutoInstallPreferences } from '../auto-update.ts'
 import type { UpdaterState } from '../updater-state.ts'
 
 export type AppUpdateStatus = {
@@ -48,6 +51,38 @@ export function withAppUpdate(
     defer(update.install)
 
     return Promise.resolve({})
+  }
+}
+
+/**
+ * This Desktop's side of its card: the update its updater found and the switch for installing
+ * updates by itself (Settings > Updates), in the status, and the requests that act on them.
+ */
+export function appUpdateTunnel<S extends object>(
+  status: () => S,
+  instances: ((request: unknown) => Promise<unknown>) | undefined,
+  deps: Parameters<typeof withAppUpdate>[1] & {
+    version: () => string
+    state: () => UpdaterState
+    /** The status changed: the card shows the switch as it now is. */
+    changed: () => void
+    autoInstall: {
+      read: () => AutoInstallPreferences
+      write: (value: unknown) => AutoInstallPreferences
+    }
+  },
+) {
+  return {
+    status: () => ({
+      ...status(),
+      app: appUpdateStatus(deps.version(), deps.state()),
+      autoInstall: deps.autoInstall.read().enabled,
+    }),
+    instances: withAutoInstallRequest(
+      withAppUpdate(instances, deps),
+      deps.autoInstall.write,
+      deps.changed,
+    ),
   }
 }
 

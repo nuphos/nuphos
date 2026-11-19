@@ -72,7 +72,7 @@ async function runOn(stack: Stack, token: string, deviceId: string, command: str
 export const memberStreamScenarios: Scenario[] = [
   {
     // #3201: a role change grants and removes nothing on a computer, so what is open there stays.
-    name: "a teammate's command on the team's cloud computer outlives a role change, and removing them cuts it off",
+    name: "a teammate's command on the team's computer from Nuphos outlives a role change, and removing them cuts it off",
     run: async (_page, stack) => {
       const computer = await startSecondComputer(stack, 'E2E team mini')
 

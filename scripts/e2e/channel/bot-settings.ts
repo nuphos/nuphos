@@ -28,7 +28,6 @@ async function setComposerSettings(page: Page, full: boolean, model: string) {
   await composer(page)
     .getByRole('button', { name: /^Model settings/ })
     .click()
-  await page.getByRole('button', { name: 'Select model' }).click()
   await page.getByRole('menuitemcheckbox', { name: new RegExp(model) }).click()
   const name = new RegExp(`^Model settings: ${model}`)
 

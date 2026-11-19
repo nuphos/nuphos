@@ -53,6 +53,8 @@ export function recordRuntimeTurnUsage(turn: RuntimeTurnUsage): void {
 /** The write itself, so a test can await what the turn path must not. */
 export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<void> {
   const byModel = quotaModelTokens(turn.quota)
+  // Every row of the turn, whatever its model, carries one time: it is how a turn is counted.
+  const createdAt = new Date()
   const rows = (
     byModel.length
       ? byModel
@@ -63,7 +65,7 @@ export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<voi
           },
         ]
   ).flatMap(({ modelId, tokens }) =>
-    Object.keys(tokens).length ? turnUsageRows(turn, tokens, modelId) : [],
+    Object.keys(tokens).length ? turnUsageRows(turn, tokens, modelId, createdAt) : [],
   )
 
   // Runtimes that report nothing record nothing; nothing is estimated.
@@ -143,8 +145,8 @@ function turnUsageRows(
   turn: RuntimeTurnUsage,
   tokens: AgentTokenUsageTokens,
   modelId: string,
+  createdAt: Date,
 ): AgentTokenUsageRecord[] {
-  const createdAt = new Date()
   const trigger = triggerFields(turn.trigger)
   const row = (kind: AgentTokenUsageKind, part: AgentTokenUsageTokens): AgentTokenUsageRecord => ({
     recordId: randomUUID(),
