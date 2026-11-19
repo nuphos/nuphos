@@ -25,7 +25,7 @@ const claude: RuntimeInstance = {
   provider: 'claude-code',
   label: 'Claude',
   status: 'active',
-  kind: 'managed',
+  kind: 'external',
   createdAt: fetchedAt,
 }
 const codex: RuntimeInstance = { ...claude, id: 'codex-1', provider: 'codex', label: 'Codex' }

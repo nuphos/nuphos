@@ -68,6 +68,11 @@ pub async fn run(join: Option<String>) -> Result<i32> {
     if let Some(token) = config::read_session().token {
         host.env("NUPHOS_SESSION_TOKEN", token);
     }
+    // Under the service only: the restart `nuphos update` ends with starts the new one, so the
+    // host updates this computer when idle (cli-auto-update.ts runs `<exe> update`).
+    if crate::service::running() {
+        host.env("NUPHOS_CLI_EXE", std::env::current_exe()?);
+    }
     let error = host
         .arg(runtime.join("host.mjs"))
         .env("NUPHOS_AGENT_HOME", agent_home()?)

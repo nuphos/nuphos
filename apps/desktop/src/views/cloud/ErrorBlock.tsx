@@ -130,10 +130,10 @@ export function ErrorBlock({ message }: { message: string }) {
               className="mt-3"
               type="button"
               onClick={fixWithAgent}
-              title={t('Seed the agent chat with this permission error')}
+              title={t('Start a task with this permission error')}
             >
               <Sparkles className="w-3.5 h-3.5" strokeWidth={1.8} />
-              {t('Fix with Agent')}
+              {t('Fix in a task')}
             </Button>
           </div>
         </div>

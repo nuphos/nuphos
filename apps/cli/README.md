@@ -169,6 +169,42 @@ with status 0 under launchd, which restarts only a failed exit. Its log is
 `~/Library/Logs/nuphos-agent.log`; `launchctl bootout gui/$(id -u)/ai.nuphos.agent`
 stops it until the next sign-in, and removing the plist as well stops it for good.
 
+### Your own model provider
+
+Claude Code and Codex can bill your own provider instead of a Claude or
+ChatGPT sign-in: Amazon Bedrock, Google Vertex AI, Microsoft Foundry, Azure
+OpenAI, or any Anthropic- or OpenAI-compatible gateway. Set the variables each
+CLI already reads where you run `nuphos agent`; it passes on only the ones in
+the list below, and only when set. The service keeps them with its other
+variables (`~/.config/nuphos/agent.env` or the LaunchAgent plist, both readable
+only by you), so run `nuphos agent` again from a shell with the new values to
+change or remove them. A container or a hand-written unit just sets them in the
+environment of `nuphos agent`.
+
+| Agent       | Provider                         | Variables                                                                                                                                                                                       |
+| ----------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | Amazon Bedrock                   | `CLAUDE_CODE_USE_BEDROCK=1`, `AWS_REGION`, and `AWS_BEARER_TOKEN_BEDROCK` or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` or `AWS_PROFILE` (an instance role needs none) |
+| Claude Code | Google Vertex AI                 | `CLAUDE_CODE_USE_VERTEX=1`, `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`, `GOOGLE_APPLICATION_CREDENTIALS`                                                                                  |
+| Claude Code | Microsoft Foundry                | `CLAUDE_CODE_USE_FOUNDRY=1`, `ANTHROPIC_FOUNDRY_RESOURCE` or `ANTHROPIC_FOUNDRY_BASE_URL`, `ANTHROPIC_FOUNDRY_API_KEY`                                                                          |
+| Claude Code | Gateway or API key               | `ANTHROPIC_BASE_URL`, and `ANTHROPIC_AUTH_TOKEN` (sent as a bearer token) or `ANTHROPIC_API_KEY`                                                                                                |
+| Codex       | Azure OpenAI, gateway or API key | `OPENAI_API_KEY`, and `OPENAI_BASE_URL` (for Azure OpenAI `https://<resource>.openai.azure.com/openai/v1`)                                                                                      |
+
+Claude Code also takes `ANTHROPIC_MODEL` and `ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU}_MODEL`
+for the model ids of your provider. Codex sends the model you pick in Nuphos, so
+name an Azure OpenAI deployment after the model (`gpt-5.5`). Every agent on the
+computer uses the provider, which counts as its sign-in: Nuphos lists the agent
+as signed in, shows no plan usage for it, and `nuphos agent` does not ask you to
+sign Claude Code in.
+On start `nuphos agent` prints which variables it passes, by name; no value is
+written to a log or to the runtime's own config. The values reach the agents'
+processes, so the commands an agent runs can read them, as they can read a
+key in any CLI's own environment. On a shared computer, everyone allowed to
+use it already runs commands as its user: anyone you share it with, anyone in a
+team who continues an agent moved onto it, and their Bots and Tasks. They can all
+read these variables (see [Working on a shared computer](../../docs/shared-computers.md)),
+so give the computer a dedicated key, scoped to what its agents need. The desktop app never reads these from your
+shell; it has **Custom provider** under each local runtime instead.
+
 `exec` writes the reply to stdout and tool activity to stderr, ending with
 the agent id. New agents use the mode last picked in `/full-access`
 (Full Access by default). In Full Access nothing asks for approval. In Auto Mode,

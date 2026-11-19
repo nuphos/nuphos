@@ -2,6 +2,7 @@ import { logError } from '@/lib/observability'
 
 import { createPushAdmitter } from './admit'
 import { apnsCredentials, sendApns } from './apns'
+import { computerSubscriptions } from './computer-subscriptions'
 import { pushDeviceStore } from './devices'
 import { sendIos } from './ios'
 
@@ -10,23 +11,28 @@ import type { IosSender } from './ios'
 
 export type ComputerChange = { deviceId: string; online: boolean; title: string; body: string }
 
-export type ComputerAlertDeps = IosSender & { devices: PushDeviceStore; now: () => number }
+export type ComputerAlertDeps = IosSender & {
+  devices: PushDeviceStore
+  subscribed: (userId: string, deviceId: string) => Promise<boolean>
+  now: () => number
+}
 
 const defaults: ComputerAlertDeps = {
   credentials: apnsCredentials,
   send: sendApns,
   devices: pushDeviceStore,
+  subscribed: (userId, deviceId) => computerSubscriptions.has(userId, deviceId),
   now: Date.now,
 }
 
-/** One alert per person's iPhones that did not turn these off; with no conversation, it opens the app. */
+/** Only explicitly subscribed people hear about a computer; tapping opens the app. */
 export function createComputerAlerts(deps: ComputerAlertDeps = defaults) {
   const { admit } = createPushAdmitter(deps.now)
 
   return async (userId: string, change: ComputerChange): Promise<void> => {
-    if (!deps.credentials()) return
+    if (!deps.credentials() || !(await deps.subscribed(userId, change.deviceId))) return
     const devices = (await deps.devices.listForUser(userId)).filter(
-      (device) => device.platform === 'ios' && device.computerAlerts !== false,
+      (device) => device.platform === 'ios',
     )
 
     if (

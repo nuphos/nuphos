@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'bun:test'
 import { deflateRawSync } from 'node:zlib'
+
+import { describe, expect, test } from 'bun:test'
 
 import { readBotBundle } from './archive'
 import { botBundleSchema, bundlePath } from './manifest'
@@ -238,4 +239,35 @@ describe('independent Bot bundle admission', () => {
         .success,
     ).toBe(false)
   })
+})
+
+test('template bundles preserve complete skill packages and require all referenced assets', async () => {
+  const value = {
+    format: 'nuphos-bot-bundle',
+    version: 1,
+    source: { application: 'nuphos-template', templateId: 'research', version: '1.0.0' },
+    bots: [
+      {
+        key: 'research',
+        name: 'Research',
+        skills: [{ key: 'research', version: '1.0.0', directory: 'skills/research' }],
+      },
+    ],
+  }
+  const files: [string, string][] = [
+    ['manifest.json', JSON.stringify(value)],
+    [
+      'skills/research/SKILL.md',
+      '# Research\nRead references/guide.md and run scripts/research.ts.',
+    ],
+    ['skills/research/references/guide.md', 'Cite each source.'],
+    ['skills/research/scripts/research.ts', 'export const topic = "public research"'],
+  ]
+  const bundle = await readBotBundle(zip(files))
+
+  expect(bundle.files.has('skills/research/references/guide.md')).toBe(true)
+  expect(bundle.files.has('skills/research/scripts/research.ts')).toBe(true)
+  await expect(
+    readBotBundle(zip(files.filter(([path]) => !path.endsWith('SKILL.md')))),
+  ).rejects.toThrow()
 })

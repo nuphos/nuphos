@@ -21,6 +21,11 @@ function matches(doc: Doc, query: Doc): boolean {
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
         )
       if ('$exists' in expected) return (actual !== undefined) === expected.$exists
+      if ('$gte' in expected || '$lt' in expected)
+        return (
+          (!('$gte' in expected) || actual >= expected.$gte) &&
+          (!('$lt' in expected) || actual < expected.$lt)
+        )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
       if ('$ne' in expected)
@@ -140,12 +145,6 @@ export function portabilityDb() {
       return cursor
     },
     insertOne: async (doc: Doc) => {
-      // The unique { teamId, hostedSlot } index on hosted runtimes.
-      if (
-        typeof doc.hostedSlot === 'number' &&
-        rows(name).some((row) => row.teamId === doc.teamId && row.hostedSlot === doc.hostedSlot)
-      )
-        throw Object.assign(new Error('Duplicate key'), { code: 11000 })
       rows(name).push(doc)
 
       return { insertedId: doc._id }

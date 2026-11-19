@@ -12,4 +12,5 @@ export const TEAM_WIDE_WHEN_UNSET = [
   'upstashAccountIds',
   'cloudflareAccountIds',
   'instaboxAccountIds',
+  'personalCredentialIds',
 ] as const

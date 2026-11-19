@@ -21,12 +21,14 @@ struct DesktopScreen: View {
         self.close = close
     }
 
+    private var upright: Bool { desktop.browserTab == nil && size.height > size.width }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             if desktop.browserTab != nil {
                 tabLayout
-            } else if size.height > size.width {
+            } else if upright {
                 // The keyboard covers the trackpad rather than squeezing the picture.
                 uprightLayout(width: size.width).ignoresSafeArea(.keyboard)
             } else {
@@ -36,7 +38,8 @@ struct DesktopScreen: View {
                 .frame(width: 1, height: 1)
                 .opacity(0.01)
                 .allowsHitTesting(false)
-            status
+            // Upright, it shows in the trackpad's place, clear of the controls and keys above.
+            if !upright { status }
         }
         .background {
             GeometryReader { geometry in
@@ -77,7 +80,9 @@ struct DesktopScreen: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(Color.white.opacity(0.06))
-                if desktop.controlling {
+                if showsStatus {
+                    status
+                } else if desktop.controlling {
                     Text("Drag to move the pointer. Tap to click, two fingers to scroll.")
                         .font(Theme.Text.caption)
                         .foregroundStyle(.white.opacity(0.35))
@@ -190,7 +195,8 @@ struct DesktopScreen: View {
                 .frame(height: 36)
                 .background(Capsule().fill(desktop.controlling ? Color.white.opacity(0.12) : Theme.brand))
         }
-        .foregroundStyle(.white)
+        // The brand is ink, near-white here: its label takes the surface, as a primary button's does.
+        .foregroundStyle(desktop.controlling ? Color.white : Theme.surface)
         .disabled(desktop.phase != .live)
     }
 
@@ -226,6 +232,14 @@ struct DesktopScreen: View {
         .opacity(desktop.controlling ? 1 : 0.4)
     }
 
+    /// Whether `status` has something to show: still connecting, or failed.
+    private var showsStatus: Bool {
+        switch desktop.phase {
+        case .connecting where desktop.screenSize == .zero, .failed: true
+        default: false
+        }
+    }
+
     @ViewBuilder
     private var status: some View {
         switch desktop.phase {
@@ -243,7 +257,8 @@ struct DesktopScreen: View {
                 HStack(spacing: 12) {
                     Button("Close", action: close)
                         .buttonStyle(.bordered)
-                    Button("Try again") { desktop.retry() }
+                    // Close's shape and size; Take over's ink fill and surface label.
+                    Button { desktop.retry() } label: { Text("Try again").foregroundStyle(Theme.surface) }
                         .buttonStyle(.borderedProminent)
                         .tint(Theme.brand)
                 }
@@ -252,6 +267,8 @@ struct DesktopScreen: View {
             .padding(28)
             .frame(maxWidth: 360)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(white: 0.12)))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("desktop.error")
             .padding(24)
         default:
             EmptyView()
@@ -278,7 +295,7 @@ private struct DesktopKeyCap: View {
                 .frame(height: 40)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(latched ? Theme.brand : Color.white.opacity(0.12)))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(latched ? Theme.surface : Color.white)
         .buttonStyle(.plain)
     }
 }

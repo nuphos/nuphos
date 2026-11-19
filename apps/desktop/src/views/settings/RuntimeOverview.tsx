@@ -1,13 +1,9 @@
 import { SkeletonReveal } from '../../components/SkeletonReveal'
 import { t } from '../../i18n'
-import {
-  formatResetsAt,
-  quotaLeftPercent,
-  quotaNote,
-  quotaWindowTone,
-} from '../../lib/runtimeQuota'
+import { quotaLeftPercent, quotaNote, quotaWindowTone } from '../../lib/runtimeQuota'
 
 import { PanelHeading, PanelStat } from './RuntimePanel'
+import { ResetsIn } from './RuntimeUsageBar'
 import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS, formatUptime } from './runtimePresentation'
 
 import type { PolledRuntimeStatus } from '../../lib/query/runtime'
@@ -24,7 +20,6 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
       {note && <PanelStat label={t('Usage')}>{note}</PanelStat>}
       {quota?.available &&
         quota.windows.map((window) => {
-          const reset = formatResetsAt(window.resetsAt, new Date())
           const left = quotaLeftPercent(window)
           const tone = quotaWindowTone(window)
 
@@ -33,19 +28,21 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
               <span className={QUOTA_LABEL_CLASS[tone]}>
                 {t('{percent}% left', { percent: left })}
               </span>
-              {reset && <span className="text-tertiary"> · {reset}</span>}
-              <div
-                role="progressbar"
-                aria-label={t('{name} remaining', { name: window.label })}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={left}
-                className="mt-2 h-2 overflow-hidden rounded-full bg-surface-sunken"
-              >
+              <div className="mt-2 flex items-center gap-3">
                 <div
-                  className={`h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
-                  style={{ width: `${String(left)}%` }}
-                />
+                  role="progressbar"
+                  aria-label={t('{name} remaining', { name: window.label })}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={left}
+                  className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-sunken"
+                >
+                  <div
+                    className={`h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
+                    style={{ width: `${String(left)}%` }}
+                  />
+                </div>
+                <ResetsIn resetsAt={window.resetsAt} />
               </div>
             </PanelStat>
           )

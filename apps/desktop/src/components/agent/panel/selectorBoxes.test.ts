@@ -3,6 +3,7 @@ import { test } from 'node:test'
 
 import {
   boxAgentName,
+  diskMeterHint,
   selectorBoxes,
   selectorMetrics,
   sharedBoxOwner,
@@ -243,4 +244,32 @@ test("a teammate's computer names its owner; the viewer's own, a cloud one and t
     null,
   )
   assert.equal(sharedBoxOwner({}, members), null)
+})
+
+test('the disk meter tells someone who cannot free space who can', () => {
+  const shared = (access: AgentDevice['access']) => ({
+    label: 'Studio Mac',
+    device: device('m5', {
+      access,
+      ownerUserId: 'u1',
+      metrics: {
+        sampledAt: '2026-11-18T00:00:00Z',
+        cpuPercent: 10,
+        memory: { used: 8 * GB, total: 32 * GB },
+        disk: { used: 480 * GB, total: 500 * GB },
+      },
+    }),
+  })
+  const members = [{ id: 'u1', email: 'ana@example.com' }] as never
+
+  assert.equal(
+    diskMeterHint(shared('use'), members),
+    'Studio Mac’s disk is almost full (96%). Ask ana@example.com to free space.',
+  )
+  assert.equal(
+    diskMeterHint(shared('use'), null),
+    'Studio Mac’s disk is almost full (96%). Ask the computer’s owner to free space.',
+  )
+  assert.equal(diskMeterHint(shared('manage'), members), 'Studio Mac’s disk is almost full (96%).')
+  assert.equal(diskMeterHint({ label: 'm5', device: device('m5') }, members), null)
 })
