@@ -8,7 +8,6 @@ import { backendEnv } from './dev-backend-env.ts'
 import { ANSI_COLOR, pipeLines, stripAnsi } from './dev-child-output.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { localBackendEnv } from './dev-local-stack-env.ts'
-import { managedBackendEnv } from './dev-managed-env.ts'
 import { findFreePort, releasePort } from './dev-ports.ts'
 import { storageTunnelUrl } from './dev-quick-tunnel.ts'
 import { backend, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
@@ -157,8 +156,7 @@ function assignBackendPort(port: number) {
   pushEvent(backend, `starting on :${port} …`)
 }
 
-/** `managedContext` is the verified local kube context the provisioner deploys into, or null to keep it off. */
-export async function startBackend(local: LocalStack, managedContext: string | null = null) {
+export async function startBackend(local: LocalStack) {
   backend.status = 'starting'
   backend.health = {}
   backendPortConflict = false
@@ -192,7 +190,6 @@ export async function startBackend(local: LocalStack, managedContext: string | n
     env: {
       ...baseEnv,
       ...localBackendEnv(local),
-      ...(managedContext ? managedBackendEnv(managedContext) : {}),
       PORT: String(backend.port),
       NUPHOS_DEV_LAUNCHER_PID: String(process.pid),
       FORCE_COLOR: '1',
@@ -227,7 +224,7 @@ export async function startBackend(local: LocalStack, managedContext: string | n
         backend,
         `port taken by another worktree — retrying on a new port (${backendRetries}/${MAX_BACKEND_RETRIES})…`,
       )
-      void startBackend(local, managedContext)
+      void startBackend(local)
     } else {
       pushEvent(backend, `exited (code ${code}) — press r to restart`)
     }

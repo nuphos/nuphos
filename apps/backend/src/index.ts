@@ -8,6 +8,7 @@ import '@/otel/bootstrap'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
+import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
@@ -29,9 +30,9 @@ import {
   startRuntimeHandoffAdoption,
 } from '@/lib/claude-code-preview/runtime-handoff'
 import {
-  initClaudeCodeRuntimeProvisioner,
-  shutdownClaudeCodeRuntimeProvisioner,
-} from '@/lib/claude-code-preview/runtime-provisioner'
+  initRuntimeMetricsSampler,
+  shutdownRuntimeMetricsSampler,
+} from '@/lib/claude-code-preview/runtime-metrics-sampler'
 import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
@@ -134,11 +135,10 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 initStuckTurnProbe()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
-if (initClaudeCodeRuntimeProvisioner()) {
-  logEvent('info', 'backend.claude_code_runtime_provisioner.ready')
-}
+initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 startBotImportCleanup()
+startFreeBoxSweep()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
@@ -214,9 +214,7 @@ async function shutdown(sig: string) {
   logEvent('info', 'backend.shutdown.started', { signal: sig })
   markShuttingDown()
   dashboardRefreshScheduler.shutdown()
-  // Stop reconciliation before draining so the old backend cannot overwrite
-  // runtime Deployments after the replacement revision takes ownership.
-  shutdownClaudeCodeRuntimeProvisioner()
+  shutdownRuntimeMetricsSampler()
   shutdownDiscordGateway()
   const workersStopped = quiesceAgentWorkers()
 

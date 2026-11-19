@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 
 import { agentEvents } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
+import { loadingFree } from './channel-helpers.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -74,9 +75,12 @@ export const botOnboardingScenarios: Scenario[] = [
       // A Bot still in setup that is working shows its work dots, and its setup again at rest.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Release Helper' }).first()
 
+      // The row learns a turn ended from its 4 s poll: until then its dots are the last turn's.
+      await row.getByText('Getting started', { exact: true }).waitFor()
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
+      await loadingFree(row, 'While the Bot in setup works')
       await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
       await neverElsewhere()
       await until('the setup-time turn to finish', async () =>

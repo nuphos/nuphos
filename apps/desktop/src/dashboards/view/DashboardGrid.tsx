@@ -11,12 +11,14 @@ export function DashboardGrid({
   loading,
   onOpen,
   onMenu,
+  hasMenu = () => true,
 }: {
   dashboards: NuphosDashboard[]
   loading: boolean
   onOpen: (dashboard: NuphosDashboard) => void
-  /** Absent for a viewer, whom the backend lets change nothing. */
   onMenu?: (dashboard: NuphosDashboard, position: { x: number; y: number }) => void
+  /** Whether this member may do anything from a dashboard's menu; its button is left out otherwise. */
+  hasMenu?: (dashboard: NuphosDashboard) => boolean
 }) {
   if (loading) return <div className="h-24 animate-pulse rounded-xl bg-state-selected" />
 
@@ -27,7 +29,7 @@ export function DashboardGrid({
           key={dashboard.id}
           className="group relative min-w-0 rounded-xl border border-line-control hover:bg-state-hover"
           onContextMenu={(event) => {
-            if (!onMenu) return
+            if (!onMenu || !hasMenu(dashboard)) return
             event.preventDefault()
             onMenu(dashboard, { x: event.clientX, y: event.clientY })
           }}
@@ -51,7 +53,7 @@ export function DashboardGrid({
               {t('Updated')} · {new Date(dashboard.updatedAt).toLocaleDateString()}
             </span>
           </button>
-          {onMenu && (
+          {onMenu && hasMenu(dashboard) && (
             <button
               type="button"
               aria-label={t('More actions')}

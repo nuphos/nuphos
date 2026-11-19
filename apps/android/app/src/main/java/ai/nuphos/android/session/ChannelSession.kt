@@ -73,6 +73,8 @@ class ChannelSession(
         override suspend fun pending() = questions.pending()
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
             questions.answer(sessionId, requestId, answer)
+        override suspend fun dismiss(sessionId: String, requestId: String, reason: String?) =
+            questions.dismiss(sessionId, requestId, reason)
         override suspend fun credentials(sessionId: String) = questions.credentials(sessionId)
         override suspend fun saveCredentials(sessionId: String, access: JsonValue) = questions.saveCredentials(sessionId, access)
     }
@@ -150,6 +152,9 @@ class ChannelSession(
     /** Answers a several-question or multi-select card with what its form built. */
     fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, body, scope)
+
+    /** Dismisses a question in this chat at once, without a reason: the agent that asked is told. */
+    fun dismiss(question: BotQuestion, scope: kotlinx.coroutines.CoroutineScope) = open.dismiss(question, null, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
