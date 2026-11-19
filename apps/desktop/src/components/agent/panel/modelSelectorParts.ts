@@ -7,6 +7,14 @@ import type { SessionConfigOption, SessionConfigState } from '../../../api/sessi
 
 export const EFFORT_SHORTCUT = 'ctrl+shift+m'
 
+/** "OpenCode/Big Pickle" → ["OpenCode", "Big Pickle"]; a plain name has no provider. */
+export function splitProvider(name: string): [string, string] {
+  const slash = name.indexOf('/')
+
+  return slash > 0 ? [name.slice(0, slash), name.slice(slash + 1)] : ['', name]
+}
+
+/** The model a chip names: the one it runs, without the provider its list groups it under. */
 export function modelName(option: SessionConfigOption) {
   const { current, label } = concreteModelChoices(
     option.options.map((choice) => ({
@@ -21,7 +29,9 @@ export function modelName(option: SessionConfigOption) {
   // does not identify a concrete model. Do not turn it into a loading state.
   const selected = option.options.find((choice) => choice.value === option.currentValue)
 
-  return label ?? current ?? (selected ? modelChoiceLabel(selected) : option.currentValue)
+  return splitProvider(
+    label ?? current ?? (selected ? modelChoiceLabel(selected) : option.currentValue),
+  )[1]
 }
 
 export function effortName(option: SessionConfigOption | undefined) {
