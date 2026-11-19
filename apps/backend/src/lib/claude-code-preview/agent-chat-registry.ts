@@ -7,22 +7,17 @@ import type { TeamPreviewClient, TeamRuntimeEndpoint, TeamSession } from './team
 export const sessionsByConversation = new Map<string, TeamSession>()
 /** A session being opened, with the runtime route it is being opened on. */
 export const sessionCreations = new Map<string, { route: string; session: Promise<TeamSession> }>()
-/**
- * A runtime answered again, for any conversation's reason: its agents are woken for the posts
- * they missed while it was away (#3284). Lazy, so this module does not pull in the channel graph.
- */
-function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint) {
-  void import('@/lib/agent/deliver-waiting-answers').then(async ({ onDevice }) => {
-    const filter = endpoint.local
-      ? onDevice(endpoint.local.userId, endpoint.local.deviceId)
-      : endpoint.runtimeId && { teamId, runtimeId: endpoint.runtimeId }
+type RuntimeWake = (teamId: string, endpoint: TeamRuntimeEndpoint) => void
 
-    if (!filter) return
-    const { wakeMissedPosts } = await import('@/lib/agent/channel-missed-posts')
+// Installed at boot (wakeOnRuntime): a runtime answering again wakes its agents for
+// the posts they missed (#3284), and this module must not import the channel graph.
+let runtimeWake: RuntimeWake = () => {}
 
-    await wakeMissedPosts(filter)
-  })
+export function installRuntimeWake(wake: RuntimeWake): void {
+  runtimeWake = wake
 }
+
+const wakeOnRuntime: RuntimeWake = (teamId, endpoint) => runtimeWake(teamId, endpoint)
 
 /** Separate sockets keep operator capabilities out of prompt transports. */
 export const controlRegistry = createTeamRuntimeRegistry(
