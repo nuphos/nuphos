@@ -2318,7 +2318,7 @@
   "Issues & projects.": "议题与项目。",
   "Issues and comments authored by you.": "Issue 和评论都以你的身份发出。",
   "Issues could not be loaded.": "无法加载议题。",
-  "It disappears from your list. If you can't use its computer, the owner will need to invite you again.": "它会从你的列表中消失。如果你无法使用它的电脑，需要所有者重新邀请你。",
+  "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "它会从你的列表中消失，其他人会看到你已离开。如果你无法使用它的电脑，需要请所有者重新邀请你。",
   "It is ready to pick once it is back online.": "重新上线后即可选择。",
   "It may be installed by a package manager that updates it separately.": "它可能由包管理器安装，需单独更新。",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "此对话可能是私人的，也可能已被删除。如果是别人分享给你的，请让对方邀请你。",

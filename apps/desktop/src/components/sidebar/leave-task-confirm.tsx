@@ -18,7 +18,7 @@ export function useLeaveTaskConfirm(teamId: string) {
         open={sessionId !== null}
         title={t('Leave this task?')}
         description={t(
-          "It disappears from your list. If you can't use its computer, the owner will need to invite you again.",
+          "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.",
         )}
         confirmLabel={t('Leave task')}
         onConfirm={() => {
