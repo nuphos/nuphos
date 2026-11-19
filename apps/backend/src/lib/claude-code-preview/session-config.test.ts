@@ -351,7 +351,7 @@ test('a catalog model keeps its description, so a family name can show its versi
   ])
 })
 
-test('a pick the runtime no longer offers gives way to its default, and a stale model is read again without it', async () => {
+test('picks the runtime no longer offers are dropped, and a stale model is read again without it', async () => {
   const requested: (string | undefined)[] = []
   const catalogFor = async (model?: string) => {
     requested.push(model)
@@ -370,8 +370,7 @@ test('a pick the runtime no longer offers gives way to its default, and a stale 
   })
 
   expect(requested).toEqual(['retired', undefined])
-  // What the session will start on, so the model is never left unnamed.
-  expect(kept).toEqual({ model: 'opus', effort: 'high' })
+  expect(kept).toEqual({ effort: 'high' })
   expect(options.map((option) => [option.id, option.currentValue])).toEqual([
     ['model', 'opus'],
     ['effort', 'high'],

@@ -262,7 +262,7 @@ test('a same-provider move without a pick does not invent one', async () => {
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation).toMatchObject({ initialSessionConfig: {} })
 })
-test('a cross-provider move drops the old choices and names what the destination runs', async () => {
+test('a cross-provider move drops the old choices and stores the effort the destination runs', async () => {
   conversation.claudeCodePreview!.sessionConfig = [
     { id: 'model', kind: 'model', name: 'Model', currentValue: 'chosen-model', options: [] },
     { id: 'effort', kind: 'effort', name: 'Effort', currentValue: 'high', options: [] },
@@ -270,8 +270,9 @@ test('a cross-provider move drops the old choices and names what the destination
   destinationDefaults = { modelId: 'latest-model', defaultEffort: 'low' }
   target.provider = 'codex'
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
-  // Never "nothing": a Task with no stored effort runs on one nobody sees.
-  expect(conversation.initialSessionConfig).toEqual({ model: 'latest-model', effort: 'low' })
+  // Never "nothing": a Task with no stored effort runs on one nobody sees. The
+  // model is left to the destination's default, which the picker names.
+  expect(conversation.initialSessionConfig).toEqual({ effort: 'low' })
   expect(conversation.claudeCodePreview).toBeUndefined()
 })
 test('a cross-provider move with an unreadable destination catalog stores no stale choices', async () => {
