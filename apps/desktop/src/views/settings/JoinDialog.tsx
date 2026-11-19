@@ -45,7 +45,9 @@ export function JoinDialog({ join, onClose }: { join: BoxJoin; onClose: () => vo
             </Button>
           </div>
           <p className="text-[11.5px] leading-4 text-tertiary">
-            {t('Uses your SSH config, keys and agent on this computer. Nuphos never sees them.')}
+            {t(
+              'Uses your SSH config, keys and ssh-agent on this computer. Nuphos never sees them.',
+            )}
           </p>
           {ssh.output && (
             <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-line-control bg-main p-3 font-mono text-[11.5px] text-secondary">

@@ -20,6 +20,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         static let opencode = Self(rawValue: "opencode")
         static let hermes = Self(rawValue: "hermes")
         static let dsh = Self(rawValue: "dsh")
+        static let pi = Self(rawValue: "pi")
     }
     enum Status: String, Codable, Sendable { case active, disabled }
 

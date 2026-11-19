@@ -164,6 +164,7 @@ export type WindowAppApi = {
   designsApplyOps(teamId: string, designId: string, ops: DesignOp[]): Promise<Design>
   designsDelete(teamId: string, designId: string): Promise<void>
   dashboardsList(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
+  dashboardsFormerMembers(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
   dashboardsCreate(
     teamId: string,
     input: import('../dashboards/schema').CreateDashboardInput,
