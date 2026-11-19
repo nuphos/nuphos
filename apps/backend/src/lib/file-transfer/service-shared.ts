@@ -60,7 +60,8 @@ export type TransferGroupView = {
   status: FileTransferGroupStatus
   label: string | null
   createdAt: string
-  expiresAt: string
+  // Null for a pinned group, which has no expiry.
+  expiresAt: string | null
   files: ResolvedFileView[]
 }
 
@@ -145,7 +146,8 @@ export async function loadGroup(scope: TransferScope, groupId: string): Promise<
   if (!group) {
     throw new AppError(404, 'transfer_not_found', 'File transfer not found')
   }
-  if (group.expiresAt.getTime() <= Date.now()) {
+  // A pinned group has no expiresAt and stays readable for its conversation.
+  if (group.expiresAt && group.expiresAt.getTime() <= Date.now()) {
     throw new AppError(410, 'transfer_expired', 'File transfer has expired')
   }
 
@@ -197,7 +199,7 @@ export async function view(
     status: group.status,
     label: group.label ?? null,
     createdAt: group.createdAt.toISOString(),
-    expiresAt: group.expiresAt.toISOString(),
+    expiresAt: group.expiresAt?.toISOString() ?? null,
     files,
   }
 }
