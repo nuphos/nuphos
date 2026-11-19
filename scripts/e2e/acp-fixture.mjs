@@ -117,7 +117,10 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
+  // Every marker in the prompt, in order: deliveries that ran together in one turn.
+  const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
+
+  log({ sessionId, marker, markers, event: 'start', language: promptLanguage(text) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)

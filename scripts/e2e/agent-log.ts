@@ -9,6 +9,8 @@ type AgentEntry = {
   sessionId: string
   event: string
   marker?: string
+  /** Every marker in a turn's prompt, in order. */
+  markers?: string[]
   /** The model settings a new session was created with. */
   defaults?: { model?: string; fast?: string }
   /** The response language a turn's prompt names. */
