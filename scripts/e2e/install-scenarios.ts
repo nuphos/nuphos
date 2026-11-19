@@ -1,16 +1,18 @@
 // Adding Claude Code to a computer that does not have it installs it, then signs it in (#3244).
 // The installer is fixture-install.sh, so no vendor's CLI is downloaded.
-import { existsSync, readFileSync, rmSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, hostname } from 'node:os'
+import { join, resolve } from 'node:path'
 
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
-import { openComputers } from './ui.ts'
+import { newTask, openComputers, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
+
+const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */
 async function shot(page: Page, name: string) {
@@ -118,9 +120,11 @@ export const installScenarios: Scenario[] = [
     },
   },
   {
-    // #3804: the CLI the running agent was started with is deleted, as the Claude app's update
-    // deletes its old copy. Only the fixture is deleted, never a developer's own Claude Code.
-    name: "this computer's Claude Code deleted under its running agent shows as not installed, and Install brings it back",
+    // #3804: the Claude app keeps its Claude Code under a folder named for its version and
+    // deletes that folder when it updates. A session started after that runs the new copy. Only
+    // the e2e fixture is moved or deleted, never a developer's own Claude Code.
+    name: "this computer's Claude Code from the Claude app runs the app's new copy after it updates, and Install brings back a deleted one",
+    expected: /"event":"agent\.chat\.(?:request\.error|run\.error_frame_appended)"/,
     run: async (page) => {
       const cli = join(homedir(), '.local', 'bin', 'claude')
 
@@ -129,6 +133,13 @@ export const installScenarios: Scenario[] = [
 
         return
       }
+      const app = join(homedir(), '.config', 'Claude', 'claude-code')
+      const ran = join(app, 'ran-2.1.1')
+      const copy = (version: string, script: string) => {
+        mkdirSync(join(app, version), { recursive: true })
+        writeFileSync(join(app, version, 'claude'), script, { mode: 0o755 })
+      }
+
       await openComputers(page)
       await page.getByRole('button', { name: 'Set up' }).first().click()
       // The Claude Code card: its name and its own Check again, and not the Codex card beside it.
@@ -139,10 +150,31 @@ export const installScenarios: Scenario[] = [
         .last()
       const ready = card.getByText('Ready for your Bots and tasks')
 
-      await ready.waitFor({ timeout: 60_000 })
+      // Only the Claude app's copy is left, and the agent runs it.
+      copy('2.1.0', readFileSync(cli, 'utf8'))
       rmSync(cli)
       await card.getByRole('button', { name: 'Check again' }).click()
-      // It says so, instead of a running agent that only fails once asked for a turn.
+      await card.getByText('v2.1.0').waitFor({ timeout: 60_000 })
+      await ready.waitFor({ timeout: 60_000 })
+
+      // The Claude app updates: 2.1.1 in, 2.1.0 deleted while the agent runs it.
+      copy('2.1.1', `#!/bin/sh\ntouch "${ran}"\nexec node "${FIXTURE_CLAUDE}" "$@"\n`)
+      rmSync(join(app, '2.1.0'), { recursive: true })
+      await page.getByText('Back to app', { exact: true }).click()
+      await newTask(page)
+      await pickAgent(page, hostname())
+      await send(page, 'Which Claude Code runs this?')
+      await until(
+        'the session to start the Claude app’s new copy',
+        async () => existsSync(ran),
+        90_000,
+      )
+
+      // Nothing left: the card says so, and Install brings it back.
+      rmSync(join(homedir(), '.config', 'Claude'), { recursive: true })
+      await openComputers(page)
+      await page.getByRole('button', { name: 'Set up' }).first().click()
+      await card.getByRole('button', { name: 'Check again' }).click()
       await card.getByText('Not installed', { exact: true }).waitFor({ timeout: 60_000 })
       await shot(page, 'local-4-deleted')
       await card.getByRole('button', { name: 'Install Claude Code' }).click()
