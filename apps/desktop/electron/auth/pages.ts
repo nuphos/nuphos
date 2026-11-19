@@ -32,6 +32,14 @@ export const MFA_HTML = SUCCESS_HTML.replace(
     'Return to Nuphos and enter the code from your authenticator app.',
   )
 
+// The browser part of a passkey ceremony is done; the app takes it from here.
+export const PASSKEY_DONE_HTML = SUCCESS_HTML.replace(
+  '<title>Logged in</title>',
+  '<title>Passkey</title>',
+)
+  .replace("You're logged in", 'Return to Nuphos')
+  .replace('You can close this tab and return to Nuphos.', 'You can close this tab.')
+
 function escapeHtml(value: string): string {
   const entities: Record<string, string> = {
     '&': '&amp;',

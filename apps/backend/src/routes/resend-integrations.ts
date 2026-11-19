@@ -2,13 +2,14 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { ResendApiError, verifyResendApiKey } from '@/lib/byos/resend'
 import { encryptResendSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireResendIntegration, requireTeamRole } from '@/middleware/auth'
+import { requireCanDisconnect, requireResendIntegration, requireTeamRole } from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { ResendIntegrationVariables, TeamAuthVariables } from '@/middleware/auth'
@@ -23,6 +24,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     apiKey: z.string().trim().min(1).max(300),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -82,7 +84,7 @@ resendIntegrationsRoutes.post(
       domains: info.domains,
       encryptedApiKey: encryptResendSecret(apiKey),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -110,28 +112,34 @@ resendIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: ResendIntegrationVariables }>()
 
 integrationScoped.use('*', requireResendIntegration())
+registerBindingAccessRoutes(integrationScoped, 'resendIntegrations', (c) => c.get('resendBinding'))
 
 integrationScoped.get('/', (c) => {
   return c.json(publicView(c.get('resendBinding')))
 })
 
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const integrationId = new ObjectId(c.get('resendIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { resendIntegrations: { id: integrationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('resendAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const integrationId = new ObjectId(c.get('resendIntegrationId'))
+    const result = await teamByosBindings().updateOne(
+      { _id: teamId },
+      {
+        $pull: { resendIntegrations: { id: integrationId } },
+        $set: { updatedAt: new Date() },
+      },
+    )
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'resend_integration_not_bound', 'Resend integration not found')
-  }
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'resend_integration_not_bound', 'Resend integration not found')
+    }
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // NOTE: there is deliberately NO team-scoped /credentials handout here, unlike
 // notion-integrations. Every other provider exposes one and lets the sandbox

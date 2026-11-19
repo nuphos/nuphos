@@ -10,7 +10,25 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) =>
+    ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => ipcRenderer.invoke('agent:snoozeDecision', sessionId, requestId, teamId, until),
+  agentAnswerDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: {
+      choices?: string[]
+      text?: string
+      questions?: { choices?: string[]; text?: string }[]
+    },
+  ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
     sessionId: string,
     teamId: string,
@@ -26,6 +44,10 @@ export const agentApi = {
     ),
   agentCheckConversationMove: (sessionId: string, teamId: string, runtimeId: string) =>
     ipcRenderer.invoke('agent:checkConversationMove', sessionId, teamId, runtimeId),
+  agentRecordFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordFork', sessionId, forkSessionId, teamId),
+  agentRecordEditFork: (sessionId: string, forkSessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:recordEditFork', sessionId, forkSessionId, teamId),
   agentGetSessionConfig: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:getSessionConfig', sessionId, teamId),
   agentImportLocalSession: (args: {
@@ -185,32 +207,10 @@ export const agentApi = {
     ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
-  agentRetryPlan: (planId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:retryPlan', planId, teamId),
-  agentListTriggers: (teamId?: string) => ipcRenderer.invoke('agent:listTriggers', teamId),
-  agentListTriggerGroups: (teamId?: string) =>
-    ipcRenderer.invoke('agent:listTriggerGroups', teamId),
-  agentUpdateTriggerGroup: (
-    groupId: string,
-    patch: {
-      name?: string
-      messageTemplate?: string
-      enabled?: boolean
-    },
-    teamId: string,
-  ) => ipcRenderer.invoke('agent:updateTriggerGroup', groupId, patch, teamId),
-  agentTestFireTriggerGroup: (groupId: string, teamId: string) =>
-    ipcRenderer.invoke('agent:testFireTriggerGroup', groupId, teamId),
+  agentListTriggers: (teamId?: string, targetSessionId?: string) =>
+    ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:getTrigger', triggerId, teamId),
-  agentCreateTrigger: (input: {
-    name: string
-    triggerType: 'cron' | 'webhook'
-    messageTemplate: string
-    cronExpression?: string
-    targetSessionId: string
-    teamId?: string
-  }) => ipcRenderer.invoke('agent:createTrigger', input),
   agentUpdateTrigger: (
     triggerId: string,
     patch: {
@@ -222,15 +222,8 @@ export const agentApi = {
     },
     teamId?: string,
   ) => ipcRenderer.invoke('agent:updateTrigger', triggerId, patch, teamId),
-  agentDeleteTrigger: (triggerId: string, teamId?: string, withoutProviderCleanup?: boolean) =>
-    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId, withoutProviderCleanup),
-  agentTestFireTrigger: (triggerId: string, payload?: Record<string, unknown>, teamId?: string) =>
-    ipcRenderer.invoke('agent:testFireTrigger', triggerId, payload, teamId),
-  agentTransferTriggerExecutionPrincipal: (triggerId: string, userId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:transferTriggerExecutionPrincipal', triggerId, userId, teamId),
-  agentTransferTriggerGroupExecutionPrincipal: (groupId: string, userId: string, teamId?: string) =>
-    ipcRenderer.invoke('agent:transferTriggerGroupExecutionPrincipal', groupId, userId, teamId),
-  agentGetTriggerSchedulerStatus: () => ipcRenderer.invoke('agent:getTriggerSchedulerStatus'),
+  agentDeleteTrigger: (triggerId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:deleteTrigger', triggerId, teamId),
   appOpenExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
   appOpenSsh: (url: string) => ipcRenderer.invoke('app:openSsh', url),
   sshTerminalInput: (id: string, data: string) =>

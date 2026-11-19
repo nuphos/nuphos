@@ -1,11 +1,12 @@
 import { AppError } from '@/lib/errors'
-import { deviceAccessDeps, requireDeviceAccess } from './box-access'
+import { deviceAccessDeps } from './box-access'
 import type { DeviceAccessDeps } from './box-access'
 import { z } from 'zod'
 
 import { tunnelBus } from './local-runtime/bus'
 import { runtimePresenceStore } from './local-runtime/presence'
-import { DeviceRuntimeSocket } from './local-runtime/socket'
+import { DeviceRuntimeSocket, UNSUPPORTED_CLOSE_CODE } from './local-runtime/socket'
+import { requireShellAccess } from './manage-access'
 
 import type { DeviceRuntimeSocketDeps } from './local-runtime/socket'
 
@@ -20,6 +21,7 @@ export type LocalExecDispatchOutcome =
   | { status: 'ok'; result: z.infer<typeof resultSchema> }
   | { status: 'timeout' }
   | { status: 'device_disconnected' }
+  | { status: 'unsupported' }
 
 /** One command and result on the existing device tunnel; no second presence
  * connection, result POST, Redis result key, or polling loop. */
@@ -39,7 +41,8 @@ export async function dispatchLocalExec(
 
   if (!(await access.role(userId, options.teamId)))
     throw new AppError(404, 'device_not_found', 'Device is not available')
-  const device = await requireDeviceAccess(userId, options.teamId, deviceId, 'use', access)
+  const purpose = options.purpose ?? 'exec'
+  const device = await requireShellAccess(userId, options.teamId, deviceId, purpose, access)
 
   if (!device.allowLocalExec) throw new AppError(404, 'device_not_found', 'Device is not available')
   const socket = new DeviceRuntimeSocket(
@@ -48,7 +51,7 @@ export async function dispatchLocalExec(
       actorId: userId,
       deviceId,
       teamId: options.teamId,
-      purpose: options.purpose ?? 'exec',
+      purpose,
     },
     options.deps ?? { bus: tunnelBus(), presence: runtimePresenceStore() },
   )
@@ -69,8 +72,10 @@ export async function dispatchLocalExec(
     socket.addEventListener('open', () => {
       socket.send(command)
     })
-    socket.addEventListener('close', () => {
-      finish({ status: 'device_disconnected' })
+    socket.addEventListener('close', (event) => {
+      finish({
+        status: event.code === UNSUPPORTED_CLOSE_CODE ? 'unsupported' : 'device_disconnected',
+      })
     })
     socket.addEventListener('message', (event) => {
       if (settled) return

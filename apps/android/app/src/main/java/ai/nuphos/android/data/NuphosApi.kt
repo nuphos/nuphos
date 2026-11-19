@@ -34,6 +34,11 @@ object NuphosApi {
             override val message = serverMessage ?: "Nuphos returned an unexpected response ($code)."
         }
 
+        /** Two-factor authentication: the sign-in continues with this challenge and a code. */
+        data class MfaRequired(val challenge: String) : Failure() {
+            override val message = "Enter the code from your authenticator app."
+        }
+
         data object InvalidResponse : Failure() {
             private fun readResolve(): Any = InvalidResponse
             override val message = "Nuphos returned something we could not read."
@@ -60,9 +65,11 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, pendingDecision)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision, includeOnboarding)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -74,7 +81,9 @@ object NuphosApi {
         search: String? = null,
         includeArchived: Boolean = false,
         channels: Boolean = false,
+        bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): List<Pair<String, String>> {
         return buildList {
             add("teamId" to teamId)
@@ -87,8 +96,11 @@ object NuphosApi {
             if (!includeArchived) add("archived" to "exclude")
             // Chats are their own listing: the server never mixes them with agents.
             if (channels) add("kind" to "channel")
+            // Only Bots, wherever they fall in the history.
+            if (bots) add("bots" to "true")
             // Only conversations with an open question, each with every parent above it.
             if (pendingDecision) add("pendingDecision" to "true")
+            if (includeOnboarding) add("includeOnboarding" to "true")
         }
     }
 
@@ -145,13 +157,6 @@ object NuphosApi {
     }
 
     @Serializable
-    private data class ShareApprovalEnvelope(val status: String? = null)
-
-    /** Whether the caller's conversation on a teammate's shared computer waits for its owner; null when never asked. */
-    suspend fun ownShareApproval(token: String, sessionId: String): String? =
-        get<ShareApprovalEnvelope>("agent/devices/share-approvals/mine", token, listOf("sessionId" to sessionId), timeoutSeconds = 15).status
-
-    @Serializable
     private data class ErrorEnvelope(val error: Inner? = null) {
         @Serializable
         data class Inner(val message: String? = null)
@@ -185,7 +190,9 @@ object NuphosApi {
                 response.isSuccessful -> runCatching {
                     Http.json.decodeFromString<T>(body)
                 }.getOrElse { throw Failure.InvalidResponse }
-                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized) -> throw Failure.Unauthorized
+                // A step-up refusal the user cancelled (StepUp.kt) is not a signed-out session.
+                response.code == 401 || (response.code == 403 && forbiddenIsUnauthorized && !StepUp.needsCode(body)) ->
+                    throw Failure.Unauthorized
                 else -> {
                     val message = runCatching {
                         Http.json.decodeFromString<ErrorEnvelope>(body).error?.message

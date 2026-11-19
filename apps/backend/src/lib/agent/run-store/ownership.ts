@@ -8,6 +8,8 @@ import {
   ABANDONED_GUARD_GRACE_MS,
   ACTIVE_RUN_TTL_SEC,
   activeRunKey,
+  activeRunMember,
+  ACTIVE_RUNS_KEY,
   CANCELLATION_REQUEST_TTL_SEC,
   cancellationKey,
   OWNER_HEARTBEAT_MS,
@@ -49,10 +51,11 @@ export function startAgentRunOwnership(
   // A turn the runtime started fills a free guard but never takes one over
   // from a backend turn, so the guard keeps naming the turn that claimed it.
   const setField = options.runtimeOwned ? 'hsetnx' : 'hset'
+  const member = activeRunMember(userId, sessionId)
   const write = () =>
     withRedis((c) =>
       c
-        .pipeline()
+        .multi()
         .set(oKey, replicaId, 'EX', OWNER_TTL_SEC)
         [setField](aKey, 'streamId', streamId)
         [setField](aKey, 'actorUserId', options.actorUserId ?? userId)
@@ -62,6 +65,7 @@ export function startAgentRunOwnership(
         // The hash rides the heartbeat, so a live run keeps refreshing it; only
         // an unreleased run lets it lapse (self-healing the lock).
         .expire(aKey, ACTIVE_RUN_TTL_SEC)
+        .sadd(ACTIVE_RUNS_KEY, member)
         // The resumable SSE buffer stays attachable for the full 2h window.
         .expire(key, RUN_KEY_TTL_SEC)
         .exec(),
@@ -120,14 +124,17 @@ export function startAgentRunOwnership(
         `
           local current = redis.call('HGET', KEYS[1], ARGV[1])
           if current == ARGV[2] then
+            redis.call('SREM', KEYS[2], ARGV[3])
             return redis.call('DEL', KEYS[1])
           end
           return 0
         `,
-        1,
+        2,
         aKey,
+        ACTIVE_RUNS_KEY,
         'streamId',
         streamId,
+        member,
       )
     })
 
@@ -227,17 +234,20 @@ async function sweepAbandonedGuard(
               at = tonumber(ARGV[5]), abandonedStreamId = ARGV[1]
             }))
           end
+          redis.call('SREM', KEYS[4], ARGV[6])
           return redis.call('DEL', KEYS[1])
         `,
-        3,
+        4,
         aKey,
         ownerKey(userId, streamId),
         RUNTIME_HANDOFFS_KEY,
+        ACTIVE_RUNS_KEY,
         streamId,
         ACTIVE_RUN_TTL_SEC * 1_000 - ABANDONED_GUARD_GRACE_MS,
         userId,
         sessionId,
         Date.now(),
+        activeRunMember(userId, sessionId),
       ),
     )
 
@@ -279,21 +289,4 @@ export async function getActiveAgentRunForSession(userId: string, sessionId: str
   }
 
   return { streamId, startedAt, actorUserId, runtimeOwned: runtimeOwned === '1' }
-}
-
-/** Bounded scan; recovery must also work while every desktop is disconnected. */
-export async function sweepAbandonedAgentRuns(cursor = '0'): Promise<string> {
-  if (!redisEnabled()) return '0'
-  const page = await withRedis((redis) =>
-    redis.scan(cursor, 'MATCH', 'atlas:agentrun-active:*', 'COUNT', 1_000, 'TYPE', 'hash'),
-  )
-
-  if (!page) return cursor
-  for (const key of page[1]) {
-    const match = /^atlas:agentrun-active:([^:]+):([^:]+)$/.exec(key)
-
-    if (match) await getActiveAgentRunForSession(match[1]!, match[2]!)
-  }
-
-  return page[0]
 }

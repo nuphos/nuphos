@@ -17,7 +17,7 @@ import type {
   LiveActivityStore,
   LiveActivityToken,
 } from './live-activities'
-import type { PushConversation } from './notify'
+import type { PushConversation } from './notification-identity'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
 let sessions: Map<string, LiveActivitySession>
@@ -47,7 +47,10 @@ const runtime = (
   extra: Partial<SessionExecutionState> = {},
 ) => ({ schemaVersion: 2, state, ...extra }) as SessionExecutionState
 const RUNNING = runtime('active', { phase: 'running_tools' })
-const APPROVAL = runtime('active', { phase: 'waiting_permission', permissionWaits: 1 })
+const APPROVAL = runtime('active', {
+  phase: 'waiting_for_input',
+  requests: [{ waitId: 'w', kind: 'agent-permission', createdAt: 1 }],
+})
 const IDLE = runtime('idle', { phase: 'idle' })
 const record = (sessionId: string, state: SessionExecutionState) =>
   recordLiveActivityState(deps, sessionId, state)

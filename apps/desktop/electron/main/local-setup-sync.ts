@@ -1,4 +1,4 @@
-// "Sync my setup": mirror this computer's Claude Code skills and ~/.claude/CLAUDE.md
+// "Sync my setup": mirror this computer's skill folders and ~/.claude/CLAUDE.md
 // into the signed-in user's personal skills and personal Instructions for a team,
 // so every runtime they use starts with the same context their own CLI has. The
 // decisions live in local-setup-plan.ts; this module reads disk and calls the API,
@@ -31,10 +31,11 @@ import {
   readTeam,
   saveHashCache,
   stateKey,
+  syncFolders,
   updateTeam,
 } from './local-setup-state.ts'
-import { linksReviewed, snapshotLocalSkills } from './local-setup-snapshot.ts'
-import { listLocalSkills, outsideFiles, readSkillFile } from './local-skills.ts'
+import { linksReviewed, skillsOfFolders, snapshotLocalSkills } from './local-setup-snapshot.ts'
+import { codexSkillsDir, outsideFiles, readSkillFile } from './local-skills.ts'
 
 import type { RemoteObject } from './local-setup-plan.ts'
 import type { LocalSetupResult, LocalSetupStatus } from './local-setup-state.ts'
@@ -101,6 +102,8 @@ async function syncInstruction(
 
 const running = new Map<string, Promise<LocalSetupResult>>()
 
+const inFolder = (folder: string) => (skill: { folder?: string }) => skill.folder === folder
+
 /** Upload one file and record its hash for its skill the moment the store has it. */
 async function uploadFile(
   teamId: string,
@@ -126,10 +129,16 @@ async function uploadFile(
 
 async function runSync(teamId: string): Promise<LocalSetupResult> {
   const key = await stateKey(teamId)
-  const snapshot = await snapshotLocalSkills(readHashCache(), readTeam(key).approvedLinks ?? {})
+  const folders = syncFolders(readTeam(key))
+  const snapshot = await snapshotLocalSkills(
+    folders,
+    readHashCache(),
+    readTeam(key).approvedLinks ?? {},
+    readTeam(key).sources,
+  )
   const local = snapshot.skills
 
-  saveHashCache(snapshot.hashes, path.join(claudeDir(), 'skills'))
+  saveHashCache(snapshot.hashes, folders)
   const listing = (await teamSkillsListObjects(teamId, 'personal')) as { objects: RemoteObject[] }
   const plan = planSkillSync(local, readTeam(key).skills, listing.objects)
   const entries = new Map(local.map((skill) => [skill.name, skill.entries]))
@@ -185,14 +194,23 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
       })
     }
   }
+  const sources: Record<string, string> = {}
+
   // A fully synced skill's record is exactly its current files, so deleted ones drop out.
   updateTeam(key, (team) => {
     for (const name of plan.synced) {
       if (failed.has(name)) continue
-      const files = local.find((skill) => skill.name === name)?.files ?? []
+      const skill = local.find((candidate) => candidate.name === name)
 
-      team.skills[name] = Object.fromEntries(files.map((file) => [file.relPath, file.sha256]))
+      team.skills[name] = Object.fromEntries(
+        (skill?.files ?? []).map((file) => [file.relPath, file.sha256]),
+      )
+      if (skill) sources[name] = skill.folder
     }
+    // A held skill (its folder not readable this pass) keeps its folder for the next.
+    const held = Object.entries(team.sources ?? {}).filter(([name]) => name in team.skills)
+
+    team.sources = { ...Object.fromEntries(held), ...sources }
   })
 
   const instruction = await syncInstruction(teamId, key)
@@ -201,9 +219,10 @@ async function runSync(teamId: string): Promise<LocalSetupResult> {
     syncedSkills: plan.synced.length - failed.size,
     uploadedFiles: uploaded,
     removedSkills: removed,
-    skipped: plan.skipped,
+    skipped: [...plan.skipped, ...snapshot.clashes],
     failed: [...failed].toSorted((a, b) => a.localeCompare(b)),
     ...instruction,
+    sources,
   }
 
   updateTeam(key, (team) => {
@@ -234,12 +253,17 @@ export async function syncLocalSetupAfter(teamId: string): Promise<LocalSetupRes
 
 export async function localSetupStatus(teamId: string): Promise<LocalSetupStatus> {
   const team = readTeam(await stateKey(teamId))
-  const skills = (await listLocalSkills()).filter((skill) => skill.source === 'claude')
+  const folders = syncFolders(team)
+  const { skills, clashes } = await skillsOfFolders(folders)
 
   return {
     autoSync: team.autoSync,
     running: running.has(teamId),
-    localSkills: skills.length,
+    folders: folders.map((folder) => ({
+      path: folder,
+      skills: skills.filter(inFolder(folder)).length + clashes.filter(inFolder(folder)).length,
+    })),
+    codexFolder: codexSkillsDir(),
     linkedSkills: skills
       .filter((skill) => outsideFiles(skill).length > 0)
       .map((skill) => ({

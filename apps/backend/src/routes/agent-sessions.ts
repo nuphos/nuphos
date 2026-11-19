@@ -17,7 +17,7 @@ import {
 } from '@/lib/dashboards/panel-principal'
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
-import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
+import { calledToolName, fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
 import { betterStackScoped } from '@/routes/agent-sessions/betterstack'
@@ -29,7 +29,6 @@ import {
 import { cnCloudScoped } from '@/routes/agent-sessions/cn-clouds'
 import { projectScoped } from '@/routes/agent-sessions/gcp'
 import { asanaScoped, jiraScoped, linearScoped } from '@/routes/agent-sessions/issue-trackers'
-import { previewPlans } from '@/routes/agent-sessions/plans'
 import { plaudScoped } from '@/routes/agent-sessions/plaud'
 import { posthogScoped } from '@/routes/agent-sessions/posthog'
 import { resendScoped, sentryScoped } from '@/routes/agent-sessions/resend-sentry'
@@ -192,6 +191,8 @@ async function serveMcp(
   } catch {
     return c.json(fail(null, -32700, 'Parse error'), 400)
   }
+  // Every tool is called on the same path, so the access log needs its name.
+  c.set('toolName', calledToolName(payload))
 
   const { status, body } = await handleMcpHttpPayload(payload, tools, surface)
 
@@ -209,7 +210,6 @@ teamScoped.get('/mcp-tools', sseUnsupported)
 
 // Script-backed native Claude Code skill. The same conversation-scoped bearer
 // as the MCP mounts authenticates these REST calls; Plan itself is not an MCP.
-teamScoped.route('/plans', previewPlans)
 
 // Mount under team:
 //   /agent-sessions/:sessionId/teams/:teamId/...

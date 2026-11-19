@@ -1,5 +1,8 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.ui.draw.drawWithContent
@@ -99,8 +102,6 @@ fun AgentPage(
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
-    var settingUpRuntime by androidx.compose.runtime.saveable.rememberSaveable(store.selectedTeam?.id) { mutableStateOf(false) }
-    if (settingUpRuntime) FirstRuntimeSetup { settingUpRuntime = false }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(store, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -125,23 +126,23 @@ fun AgentPage(
     botArchiveTarget?.let { ArchiveBotDialog(store, it) { botArchiveTarget = null } }
     BotArchiveIssueDialog(store)
     if (store.rowActionError != null && archiveTarget == null && renameTarget == null) AlertDialog(
-        onDismissRequest = { store.clearRowActionError() }, title = { Text("Action failed") },
+        onDismissRequest = { store.clearRowActionError() }, title = { Text(stringResource(R.string.agent_action_failed)) },
         text = { Text(store.rowActionError.orEmpty()) },
-        confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload() } }) { Text("Refresh") } },
+        confirmButton = { TextButton(onClick = { store.clearRowActionError(); scope.launch { store.reload() } }) { Text(stringResource(R.string.agent_refresh)) } },
     )
     archiveTarget?.takeIf { store.canArchive(it) }?.let { target ->
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { archiveTarget = null; store.clearRowActionError() } },
-            title = { Text(if (target.isArchived) "Restore agent?" else "Archive agent?") },
+            title = { Text(stringResource(if (target.isArchived) R.string.agent_restore_task_title else R.string.agent_archive_task_title)) },
             text = { Column {
-                Text(if (target.isArchived) "Move this agent to Active." else "It leaves the Tasks list. Open it again to restore it.")
+                Text(stringResource(if (target.isArchived) R.string.agent_restore_task_body else R.string.agent_archive_task_body))
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy, onClick = { scope.launch {
                 store.archive(target, !target.isArchived)
                 if (store.rowActionError == null) archiveTarget = null
-            } }) { Text(if (busy) "Saving…" else if (target.isArchived) "Restore" else "Archive") } },
-            dismissButton = { TextButton(enabled = !busy, onClick = { archiveTarget = null; store.clearRowActionError() }) { Text("Cancel") } },
+            } }) { Text(stringResource(if (busy) R.string.agent_saving else if (target.isArchived) R.string.agent_restore else R.string.agent_archive)) } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { archiveTarget = null; store.clearRowActionError() }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
@@ -149,22 +150,22 @@ fun AgentPage(
         var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
-            title = { Text("Rename agent") },
+            title = { Text(stringResource(R.string.agent_rename_task)) },
             text = { Column {
                 OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
-                    enabled = !busy, label = { Text("Title") }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
+                    enabled = !busy, label = { Text(stringResource(R.string.agent_title)) }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
                 store.rowActionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(enabled = !busy && ai.nuphos.android.data.ConversationActions.validTitle(title) != null,
-                onClick = { scope.launch { if (store.rename(target, title)) renameTarget = null } }) { Text(if (busy) "Saving…" else "Save") } },
-            dismissButton = { TextButton(enabled = !busy, onClick = { renameTarget = null; store.clearRowActionError() }) { Text("Cancel") } },
+                onClick = { scope.launch { if (store.rename(target, title)) renameTarget = null } }) { Text(stringResource(if (busy) R.string.agent_saving else R.string.agent_save)) } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { renameTarget = null; store.clearRowActionError() }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 
     var unlinkTarget by remember(store, revision, consentRevision, authGeneration) { mutableStateOf<AgentConversation?>(null) }
     if (store.watchError != null) AlertDialog(onDismissRequest = { store.clearWatchError() },
-        title = { Text("Watch update failed") }, text = { Text(store.watchError.orEmpty()) },
-        confirmButton = { TextButton(onClick = { store.clearWatchError(); scope.launch { store.refreshWatchState() } }) { Text("Refresh") } })
+        title = { Text(stringResource(R.string.agent_watch_failed)) }, text = { Text(store.watchError.orEmpty()) },
+        confirmButton = { TextButton(onClick = { store.clearWatchError(); scope.launch { store.refreshWatchState() } }) { Text(stringResource(R.string.agent_refresh)) } })
     val target = unlinkTarget
     if (target != null && store.canUnlink(target)) {
         UnlinkConfirmation(target, store.unlinkingSessionId == target.sessionId, store.unlinkError,
@@ -184,7 +185,7 @@ fun AgentPage(
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
     val tree = remember(store.conversations, foldedIds, account) {
-        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false)
+        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false, byFamily = true)
     }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
@@ -202,7 +203,7 @@ fun AgentPage(
             SearchField(
                 value = store.search,
                 onValueChange = store::updateSearch,
-                placeholder = "Search tasks",
+                placeholder = stringResource(R.string.search_chats),
                 onCancel = {
                     store.updateSearch("")
                     onSearchingChange(false)
@@ -211,8 +212,8 @@ fun AgentPage(
         }
         if (store.phase == AgentStore.Phase.Loaded && store.phaseError != null) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Could not refresh agents. Showing last loaded history.", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                Button(onClick = { scope.launch { store.reload() } }) { Text("Retry history") }
+                Text(stringResource(R.string.agent_refresh_failed), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = { scope.launch { store.reload() } }) { Text(stringResource(R.string.agent_retry_history)) }
             }
         }
         PullToRefreshBox(
@@ -225,31 +226,30 @@ fun AgentPage(
                     RefreshableHistoryState {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            Text("Loading agents…", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.loading_chats), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 store.phase == AgentStore.Phase.Failed -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.WifiOff,
-                        title = "Couldn't load agents",
+                        title = stringResource(R.string.couldnt_load_chats),
                         body = store.phaseError.orEmpty(),
-                        action = "Try again",
+                        action = stringResource(R.string.try_again),
                         onAction = { scope.launch { store.reload() } },
                     ) }
                 }
                 // With any task, the list stays, as on iOS.
                 store.hasRuntimes == false && store.conversations.isEmpty() && store.search.isEmpty() -> {
-                    RefreshableHistoryState { FirstRuntimePrompt(
-                        if (store.selectedTeam?.isAdministrator == true) ({ settingUpRuntime = true }) else null) }
+                    RefreshableHistoryState { FirstRuntimePrompt() }
                 }
                 store.conversations.isEmpty() -> {
                     RefreshableHistoryState { EmptyState(
                         icon = Icons.Outlined.ChatBubbleOutline,
-                        title = if (store.search.isNotEmpty()) "No matches" else "No tasks yet",
-                        body = if (store.search.isNotEmpty()) "No tasks match your search."
-                            else if (showComposer) "Start a task from the bar below."
-                            else "Start a task in the pane beside this list.",
+                        title = stringResource(if (store.search.isNotEmpty()) R.string.no_matches else R.string.no_chats),
+                        body = stringResource(if (store.search.isNotEmpty()) R.string.agent_no_search_matches
+                            else if (showComposer) R.string.no_chats_body
+                            else R.string.agent_start_task_beside),
                     ) }
                 }
                 else -> {
@@ -289,7 +289,7 @@ fun AgentPage(
                         if (store.hasMore) {
                             item(key = "history:more") {
                                 TextButton(onClick = { scope.launch { store.loadMore() } }, modifier = Modifier.fillMaxWidth()) {
-                                    Text("Load more agents")
+                                    Text(stringResource(R.string.agent_load_more_tasks))
                                 }
                             }
                         }
@@ -315,6 +315,7 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 @Composable
 internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
+    val levelDescription = stringResource(R.string.agent_sub_agent_level, row.depth)
     val line = MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.fillMaxWidth().drawWithContent {
         drawContent()
@@ -341,7 +342,7 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
             drawLine(line, Offset(start, size.height - 0.5.dp.toPx()), Offset(end, size.height - 0.5.dp.toPx()), 1.dp.toPx())
         }
     }.padding(start = (depth * 32).dp).semantics {
-        stateDescription = "Sub-agent level ${row.depth}"; this.selected = selected
+        stateDescription = levelDescription; this.selected = selected
     }) {
         ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot)
     }
@@ -349,15 +350,20 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
 
 @Composable
 internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
+    val rename = stringResource(R.string.agent_rename)
+    val watch = stringResource(if (conversation.watching == true) R.string.agent_unwatch else R.string.agent_watch)
+    val unlink = stringResource(if (unlinking) R.string.agent_unlinking else R.string.agent_unlink)
+    val bot = stringResource(if (conversation.isBot) R.string.agent_turn_into_task else R.string.agent_make_bot)
+    val archive = stringResource(if (conversation.isArchived) R.string.agent_restore else if (conversation.isBot) R.string.agent_archive_bot else R.string.agent_archive)
     val actions = buildList {
-        if (onRename != null) add(ConversationRowAction("rename", "Rename", Icons.Outlined.Edit, !actionBusy, onRename))
-        if (onWatch != null) add(ConversationRowAction("watch", if (conversation.watching == true) "Unwatch" else "Watch",
+        if (onRename != null) add(ConversationRowAction("rename", rename, Icons.Outlined.Edit, !actionBusy, onRename))
+        if (onWatch != null) add(ConversationRowAction("watch", watch,
             if (conversation.watching == true) Icons.Outlined.NotificationsOff else Icons.Outlined.Notifications, !watchBusy && !actionBusy, onWatch))
-        if (onUnlink != null) add(ConversationRowAction("unlink", if (unlinking) "Unlinking…" else "Unlink", Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))
+        if (onUnlink != null) add(ConversationRowAction("unlink", unlink, Icons.Outlined.LinkOff, !unlinking && !actionBusy, onUnlink))
         // iOS's "Make this a Bot" and "Turn into a Task", beside Archive as there.
-        if (onSetBot != null) add(ConversationRowAction("bot", if (conversation.isBot) "Turn into a Task" else "Make this a Bot",
+        if (onSetBot != null) add(ConversationRowAction("bot", bot,
             if (conversation.isBot) Icons.Outlined.PersonRemove else Icons.Outlined.SmartToy, !actionBusy, onSetBot))
-        if (onArchive != null) add(ConversationRowAction("archive", if (conversation.isArchived) "Restore" else if (conversation.isBot) "Archive Bot" else "Archive",
+        if (onArchive != null) add(ConversationRowAction("archive", archive,
             if (conversation.isArchived) Icons.Outlined.Unarchive else Icons.Outlined.Archive, !actionBusy, onArchive))
     }
     ConversationRowActions(conversation.sessionId, actions, interactions, onClick) { surface, more ->
@@ -379,12 +385,13 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
                     }
                 }
                 if (threads > 0) {
+                    val foldState = stringResource(if (folded) R.string.agent_collapsed else R.string.agent_expanded)
                     TextButton(onClick = onToggle, colors = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant), modifier = Modifier.semantics {
-                        stateDescription = if (folded) "Collapsed" else "Expanded"
+                        stateDescription = foldState
                     }) {
                         Text("$threads")
                         Icon(if (folded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-                            contentDescription = "${if (folded) "Show" else "Hide"} $threads sub-agents")
+                            contentDescription = pluralStringResource(if (folded) R.plurals.agent_show_sub_agents else R.plurals.agent_hide_sub_agents, threads, threads))
                     }
                 }
                 if (status == "Running") {
@@ -392,11 +399,12 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
                 } else if (status != null && status != "Unread") {
                     Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape).semantics { stateDescription = status })
                 } else if (status == "Unread" || HistoryStatus.unread(conversation)) {
-                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape).semantics { stateDescription = "Unread reply" })
+                    val unread = stringResource(R.string.agent_unread_reply)
+                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape).semantics { stateDescription = unread })
                 }
                 Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (conversation.isArchived) {
-                    Icon(Icons.Outlined.Archive, contentDescription = "Archived", tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Outlined.Archive, contentDescription = stringResource(R.string.agent_archived), tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -408,13 +416,13 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
 internal fun UnlinkConfirmation(target: AgentConversation, busy: Boolean, error: String?, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Unlink agent?") },
+        title = { Text(stringResource(R.string.agent_unlink_task_title)) },
         text = { Column {
-            Text("“${target.displayTitle}” will appear on its own in the agent list. Its messages and sharing permissions will stay the same.")
+            Text(stringResource(R.string.agent_unlink_task_body, target.displayTitle))
             if (error != null) Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp))
         } },
-        confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(if (busy) "Unlinking…" else "Unlink") } },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") } },
+        confirmButton = { TextButton(onClick = onConfirm, enabled = !busy) { Text(stringResource(if (busy) R.string.agent_unlinking else R.string.agent_unlink)) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -481,7 +489,7 @@ fun NewChatComposer(nav: NavHostController) {
     // The notice opens the picker itself, since the chip it refers to
     // sits in the composer at the bottom of the page.
     if (selection?.reselectionRequired == true) TextButton(onClick = { setupVisible = true }, enabled = setup != null && auth.aiAllowed, modifier = Modifier.padding(horizontal = 4.dp)) {
-        Text("Select an available runtime before starting a new agent.")
+        Text(stringResource(R.string.agent_select_runtime_before_start))
     }
     val draftAuth = ai.nuphos.android.ui.LocalAuthSession.current
     val draftAccount = draftAuth.user?.id

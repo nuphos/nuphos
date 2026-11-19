@@ -8,8 +8,47 @@ import { buildSaasConnectorRows } from '../../views/cloud/team-home-rows-saas'
 import { connectorRowFor } from '../../views/connector-info/connectorRowMatch'
 import { DEFAULT_GITLAB_NAV } from '../../views/gitlabNav'
 
-import type { ScopeRenderContext } from './context'
+import type { ScopeContentProps } from './context'
+import type { ConnectorDetailRef } from '../../lib/appRoutes'
 import type { ConnectorInfoAction } from '../../views/connector-info/ConnectorInfoPage'
+
+/** What a connector's detail needs from the workspace: the team's bindings,
+ *  and the pages its actions open. */
+export type ConnectorInfoContext = Pick<
+  ScopeContentProps,
+  | 'scope'
+  | 'accounts'
+  | 'databaseConnections'
+  | 'githubInstallations'
+  | 'gitlabBindings'
+  | 'grafanaInstances'
+  | 'onAccountsChanged'
+  | 'enterCluster'
+  | 'setGithubNav'
+  | 'setRepoProvider'
+  | 'setGitlabNav'
+  | 'setGrafanaInstance'
+  | 'setLinearNav'
+  | 'onSelectActive'
+  | 'onOpenAwsAccountResources'
+  | 'onOpenAwsAccountRoles'
+  | 'onOpenGcpProjectResources'
+  | 'onOpenGcpProjectServiceAccounts'
+  | 'onOpenCloudflareAccountResources'
+  | 'onOpenCloudflareAccountIam'
+  | 'onOpenDatabaseConnectionOverview'
+  | 'onOpenDatabaseConnection'
+  | 'onOpenAzureSubscriptionApps'
+  | 'onOpenLinodeAccount'
+  | 'onOpenHetznerAccount'
+  | 'onOpenTencentAccount'
+  | 'onOpenAliyunAccount'
+  | 'onOpenVolcengineAccount'
+  | 'onOpenBetterStackIntegration'
+  | 'onOpenUptimeKumaInstance'
+  | 'onOpenTailscaleClient'
+  | 'onOpenZeaburProvider'
+> & { connectorDetail: ConnectorDetailRef | null }
 
 const primary = (label: string, onOpen: () => void): ConnectorInfoAction => ({
   label,
@@ -23,7 +62,7 @@ const secondary = (label: string, onOpen: () => void): ConnectorInfoAction => ({
 })
 
 export function connectorInfoActions(
-  ctx: ScopeRenderContext,
+  ctx: ConnectorInfoContext,
   connectorId: string,
 ): ConnectorInfoAction[] {
   const { connectorDetail, scope } = ctx
@@ -170,7 +209,7 @@ export function connectorInfoActions(
 }
 
 /** The connector-list row for one connection of the open detail page. */
-function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
+function connectorInfoRow(ctx: ConnectorInfoContext, connectorId: string) {
   const { accounts, connectorDetail, databaseConnections, scope } = ctx
 
   if (!accounts || !connectorDetail || scope.kind !== 'team') return
@@ -232,7 +271,7 @@ function connectorInfoRow(ctx: ScopeRenderContext, connectorId: string) {
 }
 
 export function connectorInfoDisconnectAction(
-  ctx: ScopeRenderContext,
+  ctx: ConnectorInfoContext,
   connectorId: string,
 ): (() => Promise<void>) | undefined {
   return connectorInfoRow(ctx, connectorId)?.onDelete
@@ -240,7 +279,7 @@ export function connectorInfoDisconnectAction(
 
 /** What the connection needs before it works again, or undefined when it is healthy. */
 export function connectorInfoAttention(
-  ctx: ScopeRenderContext,
+  ctx: ConnectorInfoContext,
   connectorId: string,
 ): string | undefined {
   return connectorInfoRow(ctx, connectorId)?.attention

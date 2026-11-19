@@ -71,8 +71,9 @@ export function reportedSeries<Series extends { key: RuntimeMetricKey }>(
 }
 
 /** A draining usage bar is green while healthy, amber when it runs low and red once it is spent. */
+// Data, as every usage meter: green is the running dot's alone.
 export const QUOTA_FILL_CLASS: Record<QuotaTone, string> = {
-  ok: 'bg-success',
+  ok: 'bg-data-1',
   warning: 'bg-warning',
   exhausted: 'bg-error',
 }
@@ -88,13 +89,13 @@ export const QUOTA_LABEL_CLASS: Record<QuotaTone, string> = {
 export function runtimeRemovalDescription(instance: RuntimeInstance): string {
   if (instance.kind === 'managed')
     return t(
-      'This permanently deletes the runtime, its disks, workspaces, and sign-in, and stops agents running on it. Your agent history stays in Nuphos. Move any workspace you want to keep to another runtime before removing this one.',
+      'This permanently deletes the runtime, its disks, workspaces, and sign-in, and stops tasks running on it. Your task history stays in Nuphos. Move any workspace you want to keep to another runtime before removing this one.',
     )
   const local = instance.local
 
   if (!local)
     return t(
-      'This disconnects the external runtime. Its files remain on the external machine. Your agents stay in Nuphos and can be moved to another runtime with their history.',
+      'This disconnects the external runtime. Its files remain on the external machine. Your tasks stay in Nuphos and can be moved to another runtime with their history.',
     )
   if (!local.instanceId && !local.box)
     return t(
@@ -103,22 +104,22 @@ export function runtimeRemovalDescription(instance: RuntimeInstance): string {
     )
   if (local.online === false)
     return t(
-      '{device} is offline. The agent leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.',
+      '{device} is offline. The runtime leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.',
       { device: local.deviceLabel },
     )
   if (local.instanceId)
     return t(
-      'This removes the agent and its sign-in from {device}. Your conversation history stays in Nuphos.',
+      'This removes the runtime and its sign-in from {device}. Your conversation history stays in Nuphos.',
       { device: local.deviceLabel },
     )
 
   return instance.provider === 'codex'
     ? t(
-        'This signs {name} out on {device} and deletes its settings there. Agents on it stop working; their history stays in Nuphos.',
+        'This signs {name} out on {device} and deletes its settings there. Tasks on it stop working; their history stays in Nuphos.',
         { name: instance.label, device: local.deviceLabel },
       )
     : t(
-        'This signs {name} out on {device} and deletes its CLI history and settings there. Agents on it stop working; their history stays in Nuphos.',
+        'This signs {name} out on {device} and deletes its CLI history and settings there. Tasks on it stop working; their history stays in Nuphos.',
         { name: instance.label, device: local.deviceLabel },
       )
 }

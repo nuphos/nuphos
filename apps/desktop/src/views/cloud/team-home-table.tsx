@@ -163,7 +163,7 @@ export function IntegrationCatalog({
 
   return (
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-[760px] px-7 py-9 selectable">
+      <div className="w-full px-8 pb-8 pt-2 selectable">
         <header className="mb-8">
           <h1 className="text-[24px] font-medium tracking-[-0.025em] text-main">
             {t('Connectors')}

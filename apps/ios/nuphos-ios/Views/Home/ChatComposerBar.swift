@@ -48,6 +48,8 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
     @State private var mentionResults: [AgentConversation] = []
+    /// The `@Title`s picked into the draft, and the links they are sent as.
+    @State private var mentionLinks: [String: URL] = [:]
     #if canImport(UIKit)
     @State private var pasteHandler = ComposerPaste()
     #endif
@@ -60,6 +62,14 @@ struct ChatComposerBar<Controls: View>: View {
 
     private var hasText: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     private var hasPayload: Bool { hasText || !attachments.isEmpty }
+    /// An input method has text it has not committed yet.
+    private var composing: Bool {
+        #if canImport(UIKit)
+        pasteHandler.textView?.markedTextRange != nil
+        #else
+        false
+        #endif
+    }
     private var expanded: Bool { focused || hasPayload }
     private var hasControls: Bool { Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
@@ -185,7 +195,7 @@ struct ChatComposerBar<Controls: View>: View {
             Task {
                 for item in items {
                     if let attachment = await ComposerAttachment.load(item, temporaryDirectory: temporaryDirectory) { attachments.append(attachment) }
-                    else { attachmentError = "Couldn’t prepare this photo or video. Try a different one or choose it from Files." }
+                    else { attachmentError = String(localized: "Couldn’t prepare this photo or video. Try a different one or choose it from Files.") }
                 }
             }
         }
@@ -239,42 +249,80 @@ struct ChatComposerBar<Controls: View>: View {
             }
     }
 
+    /// Where UITextView puts its text: an 8 pt container inset and 5 pt line padding.
+    private static var textInset: EdgeInsets { EdgeInsets(top: 8, leading: 5, bottom: 8, trailing: 5) }
+
+    /// A text view, not a vertical text field: a text field ends editing on
+    /// a hardware keyboard's Return, which also threw away what an input
+    /// method had not committed yet (#2154). A text view leaves Return to the
+    /// input method. Only the hidden text sizes it, a full line wide and one to
+    /// eight lines tall, since the text view would grow with its draft; the
+    /// trailing space keeps an empty draft one line tall and counts a final
+    /// line break as a line.
     private var field: some View {
-        TextField(prompt, text: $text, axis: .vertical)
+        Text(text + " ")
             .lineLimit(1...8)
-            .font(.body)
-            .foregroundStyle(Theme.heading)
-            .focused($focused)
-            // The field keeps a drag for itself once there is a draft to
-            // scroll or select in; empty, a pull down on it closes too.
-            .simultaneousGesture(pullDown, isEnabled: !hasText)
-            #if canImport(UIKit)
-            .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
-                guard let textView = note.object as? UITextView else { return }
-                // Focus lands a moment later; it tells this field from others.
-                // Checked once, a slow focus update left the field without the
-                // handler, so an image paste did nothing.
-                Task { @MainActor in
-                    for _ in 0..<10 {
-                        if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) }; return }
-                        try? await Task.sleep(for: .milliseconds(50))
+            .padding(Self.textInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .hidden()
+            .overlay {
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text(prompt)
+                            .lineLimit(1)
+                            .foregroundStyle(.tertiary)
+                            .padding(Self.textInset)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
                     }
+                    TextEditor(text: $text)
+                        .scrollContentBackground(.hidden)
+                        .focused($focused)
+                        .accessibilityLabel(Text(prompt))
+                        // The numeric keypad's Enter may arrive as its own key.
+                        .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
+                            guard ComposerReturn.on(press.modifiers, composing: composing) == .send
+                            else { return .ignored }
+                            send(keepingFocus: true)
+                            return .handled
+                        }
                 }
             }
-            #endif
-            .onChange(of: focusRequest) { focused = true }
-            .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
-                guard requested, let submission = editRequest.wrappedValue else { return }
-                text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
-                attachments.insert(contentsOf: submission.attachments, at: 0)
-                editRequest.wrappedValue = nil
-                focused = true
+        // The text view's own inset, taken back so the text sits where the field's did.
+        .padding(.horizontal, -Self.textInset.leading)
+        .padding(.vertical, -Self.textInset.top)
+        .font(.body)
+        .foregroundStyle(Theme.heading)
+        // The field keeps a drag for itself once there is a draft to
+        // scroll or select in; empty, a pull down on it closes too.
+        .simultaneousGesture(pullDown, isEnabled: !hasText)
+        #if canImport(UIKit)
+        .onReceive(NotificationCenter.default.publisher(for: UITextView.textDidBeginEditingNotification)) { note in
+            guard let textView = note.object as? UITextView else { return }
+            // Focus lands a moment later; it tells this field from others.
+            // Checked once, a slow focus update left the field without the
+            // handler, so an image paste did nothing.
+            Task { @MainActor in
+                for _ in 0..<10 {
+                    if focused, textView.isFirstResponder { pasteHandler.attach(to: textView) { paste($0) }; return }
+                    try? await Task.sleep(for: .milliseconds(50))
+                }
             }
-            .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
-                Button("OK", role: .cancel) { dictationError = nil }
-            } message: {
-                Text(dictationError ?? "")
-            }
+        }
+        #endif
+        .onChange(of: focusRequest) { focused = true }
+        .onChange(of: editRequest.wrappedValue != nil, initial: true) { _, requested in
+            guard requested, let submission = editRequest.wrappedValue else { return }
+            text = [submission.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n")
+            attachments.insert(contentsOf: submission.attachments, at: 0)
+            editRequest.wrappedValue = nil
+            focused = true
+        }
+        .alert("Voice input failed", isPresented: Binding(get: { dictationError != nil }, set: { if !$0 { dictationError = nil } })) {
+            Button("OK", role: .cancel) { dictationError = nil }
+        } message: {
+            Text(dictationError ?? "")
+        }
     }
 
     // MARK: Mentions
@@ -296,7 +344,7 @@ struct ChatComposerBar<Controls: View>: View {
     private func mentionRow(symbol: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: symbol)
+                LucideIcon(systemName: symbol)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.muted)
                 Text(title)
@@ -316,7 +364,9 @@ struct ChatComposerBar<Controls: View>: View {
         guard let source = mentions,
               let link = SessionLink.url(teamId: conversation.teamId ?? source.teamId, sessionId: conversation.sessionId)
         else { return }
-        text = SessionMention.insert(link.absoluteString, into: text)
+        let name = "@" + (conversation.title.isEmpty ? conversation.sessionId : conversation.title)
+        mentionLinks[name] = link
+        text = SessionMention.insert(name, into: text)
         mentionResults = []
     }
 
@@ -327,7 +377,7 @@ struct ChatComposerBar<Controls: View>: View {
         #if os(iOS)
         if voiceTeamId != nil {
             Button(action: startDictation) {
-                Image(systemName: "mic")
+                LucideIcon("mic")
                     .font(.system(size: 17, weight: .medium))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.body)
@@ -346,7 +396,7 @@ struct ChatComposerBar<Controls: View>: View {
     private func dictationBar(_ dictation: VoiceDictation) -> some View {
         HStack(spacing: 10) {
             Button(action: cancelDictation) {
-                Image(systemName: "xmark")
+                LucideIcon("x")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.heading)
@@ -370,7 +420,7 @@ struct ChatComposerBar<Controls: View>: View {
             }
 
             Button { finishDictation(thenSend: false) } label: {
-                Image(systemName: "stop.fill")
+                LucideIcon("square")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.heading)
@@ -381,7 +431,7 @@ struct ChatComposerBar<Controls: View>: View {
             .accessibilityLabel("Finish voice input")
 
             Button { finishDictation(thenSend: true) } label: {
-                Image(systemName: "arrow.up")
+                LucideIcon("arrow-up")
                     .font(Theme.Text.secondary.weight(.bold))
                     .frame(width: 34, height: 34)
                     .foregroundStyle(Theme.chatCanvas)
@@ -473,11 +523,11 @@ struct ChatComposerBar<Controls: View>: View {
                    }) {
                     text += string
                 } else if !allowsAttachments {
-                    attachmentError = "Send attachments after this turn; it takes text now."
+                    attachmentError = String(localized: "Send attachments after this turn; it takes text now.")
                 } else if let attachment = await ComposerAttachment.load(pasted: provider, temporaryDirectory: temporaryDirectory) {
                     attachments.append(attachment)
                 } else {
-                    attachmentError = "Couldn’t paste this item. Try choosing it from Files."
+                    attachmentError = String(localized: "Couldn’t paste this item. Try choosing it from Files.")
                 }
             }
         }
@@ -485,7 +535,7 @@ struct ChatComposerBar<Controls: View>: View {
 
     private func attachButton(_ symbol: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: symbol)
+            LucideIcon(systemName: symbol)
                 .font(.system(size: 17, weight: .medium))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.body)
@@ -515,7 +565,7 @@ struct ChatComposerBar<Controls: View>: View {
         HStack(spacing: 6) {
             if action != .stop, isStreaming, canStop, let onStop {
                 Button(action: onStop) {
-                    Image(systemName: ComposerAction.stop.systemImage)
+                    LucideIcon(systemName: ComposerAction.stop.systemImage)
                         .font(Theme.Text.secondary.weight(.bold))
                         .frame(width: 34, height: 34)
                         .foregroundStyle(Theme.heading)
@@ -533,7 +583,7 @@ struct ChatComposerBar<Controls: View>: View {
         return Button {
             if action == .stop { onStop?() } else { send() }
         } label: {
-            Image(systemName: action.systemImage)
+            LucideIcon(systemName: action.systemImage)
                 .font(Theme.Text.secondary.weight(.bold))
                 .frame(width: 34, height: 34)
                 .foregroundStyle(Theme.chatCanvas)
@@ -552,9 +602,9 @@ struct ChatComposerBar<Controls: View>: View {
     /// take what has been typed.
     private var filled: Bool { action == .stop || hasPayload }
 
-    private func send() {
+    private func send(keepingFocus: Bool = false) {
         guard !preparingSubmission, canSend, hasPayload, allowsAttachments || attachments.isEmpty else { return }
-        let draft = ComposerSubmission(text: text.trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
+        let draft = ComposerSubmission(text: SessionMention.expand(text, links: mentionLinks).trimmingCharacters(in: .whitespacesAndNewlines), attachments: attachments)
         preparingSubmission = true
         Task {
             defer { preparingSubmission = false }
@@ -581,8 +631,9 @@ struct ChatComposerBar<Controls: View>: View {
                 }.value
                 guard canSend, allowsAttachments || submission.attachments.isEmpty else { return }
                 text = ""
+                mentionLinks = [:]
                 attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
-                focused = false
+                focused = keepingFocus
                 onSend(submission)
             } catch {
                 attachmentError = error.localizedDescription
@@ -643,11 +694,11 @@ struct ComposerChip: View {
             if let logo {
                 BrandLogo(name: logo, size: 16)
             } else if let systemImage {
-                Image(systemName: systemImage).font(.system(size: 11, weight: .semibold))
+                LucideIcon(systemName: systemImage).font(.system(size: 11, weight: .semibold))
             }
             Text(title).font(.system(size: 12, weight: .medium)).lineLimit(1)
             if showsChevron {
-                Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
+                LucideIcon("chevron-down").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.muted)
             }
         }
         .foregroundStyle(isActive ? Theme.heading : Theme.body)
@@ -677,7 +728,7 @@ struct BrandLogo: View {
     ZStack(alignment: .bottom) {
         Theme.canvas.ignoresSafeArea()
         ChatComposerBar(text: $text, onSend: { _ in }) {
-            ComposerChip(systemImage: "key", title: "Credentials")
+            ComposerChip(systemImage: "person.badge.key", title: "Credentials")
             ComposerChip(title: "Auto Mode")
         }
     }
@@ -690,11 +741,20 @@ struct BrandLogo: View {
 /// those become attachments, as with the Paste button, and text stays plain.
 final class ComposerPaste: NSObject, UITextPasteDelegate {
     private var onAttach: ([NSItemProvider]) -> Void = { _ in }
+    private(set) weak var textView: UITextView?
 
     func attach(to textView: UITextView, onAttach: @escaping ([NSItemProvider]) -> Void) {
         self.onAttach = onAttach
+        self.textView = textView
         textView.allowsEditingTextAttributes = true
         textView.pasteDelegate = self
+        #if DEBUG
+        // UI tests: uncommitted input method text, as Zhuyin leaves ㄋㄧˇ
+        // before a candidate is chosen.
+        if CommandLine.arguments.contains("-preview-marked-text"), textView.text.isEmpty {
+            textView.setMarkedText("ㄋㄧˇ", selectedRange: NSRange(location: 3, length: 0))
+        }
+        #endif
     }
 
     func textPasteConfigurationSupporting(_ textPasteConfigurationSupporting: any UITextPasteConfigurationSupporting,

@@ -25,7 +25,6 @@ private struct RuntimePicker: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var expanded: String?
     @State private var initialized = false
-    @State private var showSetup = false
     @State private var managing = false
     @State private var pendingLocal: RuntimeInstance?
 
@@ -38,26 +37,26 @@ private struct RuntimePicker: View {
     /// listed, greyed with the reason, so a closed laptop does not look missing.
     private var choices: [RuntimeInstance] {
         let listed = store.runtimes.filter { ready($0) || $0.tier == .myComputers }
+        // Only its owner moves a conversation.
         guard let session, !session.isOwner else { return listed }
-        return listed.filter { $0.kind == "managed" }
+        return []
     }
     private var boxes: [SelectorBox] { SelectorBox.grouped(choices, devices: store.agentDevices) }
-    private var administrator: Bool { store.selectedTeam?.isAdministrator == true }
-    private var browsing: Bool { !showSetup && !managing && scenePhase == .active }
+    private var browsing: Bool { !managing && scenePhase == .active }
 
     var body: some View {
         NavigationStack {
             Group {
                 if !store.runtimesLoaded, let error = store.runtimesError {
                     ContentUnavailableView {
-                        Label("Couldn't load runtimes", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load runtimes", image: "lucide-wifi-off")
                     } description: { Text(error) } actions: {
                         Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
                     }
                 } else if !store.runtimesLoaded {
                     ProgressView("Loading runtimes…").tint(Theme.muted)
                 } else if choices.isEmpty {
-                    ContentUnavailableView("No runtimes", systemImage: "cpu", description: Text("Set up a cloud runtime here, or open Nuphos on your computer to connect a runtime."))
+                    ContentUnavailableView("No runtimes", image: "lucide-cpu", description: Text("Open Nuphos on your computer to add a Box or connect your own computer."))
                 } else { boxList }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -66,19 +65,15 @@ private struct RuntimePicker: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", systemImage: "xmark") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
-                }
-                if administrator {
-                    ToolbarItem(placement: .primaryAction) { Button("Add runtime", systemImage: "plus") { showSetup = true } }
+                    DesignButton("Close", image: "lucide-x") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
                 }
             }
-            .navigationDestination(isPresented: $showSetup) { if let team = store.selectedTeam { AgentSetupView(team: team) } }
             .navigationDestination(isPresented: $managing) { RuntimesPage().navigationTitle("Runtimes") }
             .alert("Move to \(pendingLocal?.label ?? "")?", isPresented: Binding(get: { pendingLocal != nil }, set: { if !$0 { pendingLocal = nil } }), presenting: pendingLocal) { runtime in
                 Button("Move") { onMove(runtime); dismiss() }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("This runtime runs on your computer. After the move, people in this conversation can reply only if they can use this computer; the others can still read it.")
+                Text("This runtime runs on your computer. After the move, people in this task can reply only if they can use this computer; the others can still read it.")
             }
             .task(id: store.selectedTeam?.id) {
                 initialized = false
@@ -93,7 +88,7 @@ private struct RuntimePicker: View {
             .onChange(of: store.runtimes) { _, _ in openCurrentBox() }
         }
         .tint(Theme.heading)
-        .onChange(of: showSetup || managing) { _, open in if open { detent = .large } }
+        .onChange(of: managing) { _, open in if open { detent = .large } }
     }
 
     private var boxList: some View {
@@ -126,7 +121,7 @@ private struct RuntimePicker: View {
                 }
                 Section {
                     Button { managing = true } label: {
-                        Label("Manage computers and runtimes", systemImage: "slider.horizontal.3").font(.system(size: 14)).foregroundStyle(Theme.body)
+                        Label("Manage computers and runtimes", image: "lucide-sliders-horizontal").font(.system(size: 14)).foregroundStyle(Theme.body)
                     }
                 }.listRowBackground(Theme.surface)
             }
@@ -167,7 +162,7 @@ struct SelectorBoxHeader: View {
     private var metrics: AgentDevice.Metrics? { metricsUnavailable ? nil : box.device?.liveMetrics }
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(systemName: box.isComputer ? "laptopcomputer" : box.id == "cloud" ? "cloud" : "shippingbox")
+            LucideIcon(systemName: box.isComputer ? "laptopcomputer" : box.id == "cloud" ? "cloud" : "shippingbox")
                 .font(.system(size: 20)).frame(width: 28).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
@@ -191,7 +186,7 @@ struct SelectorBoxHeader: View {
             }
             Spacer(minLength: 6)
             if showsChevron {
-                Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                LucideIcon(systemName: expanded ? "chevron.down" : "chevron.right")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
             }
         }
@@ -210,7 +205,7 @@ struct SelectorBoxHeader: View {
 private struct SelectorMeter: View {
     let title: String
     let value: Double
-    private var tint: Color { value >= 95 ? Color(hex: 0xC22929) : value >= 80 ? Theme.warning : Color(hex: 0x745DF3) }
+    private var tint: Color { value >= 95 ? Theme.attention : value >= 80 ? Theme.warning : Theme.link }
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 3) {
@@ -247,7 +242,7 @@ struct SelectorAgentRow: View {
                 }
             }
             Spacer(minLength: 4)
-            if selected { Image(systemName: "checkmark").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
+            if selected { LucideIcon("check").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading) }
         }.frame(minHeight: 48).contentShape(Rectangle())
             .accessibilityElement(children: .combine)
     }
@@ -289,7 +284,7 @@ struct ModelSettingsSheet: View {
             Group {
                 if let config, !config.options.isEmpty {
                     List {
-                        if let hint = session?.pendingModelSettings.isEmpty == false ? "Changes apply after this reply." : config.hint {
+                        if let hint = session?.pendingModelSettings.isEmpty == false ? String(localized: "Changes apply after this reply.") : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
                         if let error {
@@ -311,7 +306,7 @@ struct ModelSettingsSheet: View {
                                             }
                                             Spacer()
                                             if choice.value == (session?.pendingModelSettings[option.id] ?? option.currentValue) {
-                                                Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
+                                                LucideIcon("check").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                                             }
                                         }
                                         .contentShape(Rectangle())
@@ -326,14 +321,14 @@ struct ModelSettingsSheet: View {
                     .scrollContentBackground(.hidden)
                 } else if let error {
                     ContentUnavailableView {
-                        Label("Couldn't load model settings", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load model settings", image: "lucide-wifi-off")
                     } description: {
                         Text(error)
                     } actions: {
                         Button("Try again") { Task { await refresh() } }.buttonStyle(.bordered)
                     }
                 } else if let config {
-                    ContentUnavailableView(config.modelTitle, systemImage: "slider.horizontal.3", description: Text(config.hint ?? ""))
+                    ContentUnavailableView(config.modelTitle, image: "lucide-sliders-horizontal", description: Text(config.hint ?? ""))
                 } else {
                     ProgressView("Getting model settings…").tint(Theme.muted)
                 }
@@ -363,14 +358,14 @@ private struct QuotaLine: View {
         if let window = quota.tightest {
             HStack(spacing: 6) {
                 QuotaGauge(window: window).frame(width: 44)
-                Text([window.leftPercent == 0 ? "Limit reached" : "\(window.leftPercent)% left", reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(window.labelTint ?? Theme.muted)
             }
             .accessibilityElement(children: .combine)
         } else if quota.needsSignIn {
-            Text("\(Image(systemName: "exclamationmark.circle.fill")) Sign in required")
+            Text("\(Image("lucide-circle-alert")) Sign in required")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.warning)
         }
@@ -380,9 +375,10 @@ private struct QuotaLine: View {
         guard let date, date > .now else { return nil }
         let minutes = Int(date.timeIntervalSinceNow / 60)
         if minutes < 24 * 60 {
-            return minutes < 60 ? "resets in \(max(1, minutes))m" : "resets in \(minutes / 60)h \(minutes % 60)m"
+            return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
         }
-        return "resets " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(locale)))")
     }
 }
 

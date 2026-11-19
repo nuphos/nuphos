@@ -39,3 +39,11 @@ export type LocalEntry = {
   size: number
   contentType: string | null
 }
+
+/** Internal create/finalize transport; capabilities never enter a tool result. */
+export type PostTransfer = <T>(
+  teamId: string,
+  sessionId: string | undefined,
+  suffix: string,
+  body?: unknown,
+) => Promise<T>

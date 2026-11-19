@@ -51,17 +51,16 @@ export type TurnNotifierDeps = {
   now: () => number
 }
 
-export type { PushConversation } from './notification-identity'
-export { conversationTitle } from './turn-outcome'
-export { SESSION_COALESCE_MS, USER_PUSHES_PER_MINUTE } from './admit'
 export const BADGE_DEBOUNCE_MS = 5_000
 
 type Alert = {
   title: string
   body: string
+  subtitle?: string
   sessionId?: string
   teamId?: string
-  aps?: typeof SESSION_ALERT_APS
+  aps?: Partial<typeof SESSION_ALERT_APS>
+  speaker?: ReturnType<typeof notificationIdentity> // Not the conversation it opens: a Bot in a channel.
 }
 
 type Delivery = {
@@ -94,15 +93,16 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     push: Alert,
     conversation?: PushConversation | null,
   ): Promise<void> {
-    const { sessionId, teamId, aps, ...alert } = push
+    const { sessionId, teamId, aps, speaker, ...alert } = push
     const projectId = deps.fcmProject?.()
     const badge = await deps.unreadCount(userId)
+    const agentIdentity = conversation ? (speaker ?? notificationIdentity(conversation)) : undefined
 
     if (sessionId && teamId && deps.sendFcm && projectId)
       await sendAndroidAlert(
         devices,
         projectId,
-        { userId, teamId, sessionId, ...alert, badge },
+        { userId, teamId, sessionId, ...alert, badge, ...(agentIdentity ? { agentIdentity } : {}) },
         deps.sendFcm,
         (token) => deps.devices.removeToken(token),
       )
@@ -117,7 +117,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
           ...aps,
         },
         accountId: userId,
-        ...(conversation ? { agentIdentity: notificationIdentity(conversation) } : {}),
+        ...(agentIdentity ? { agentIdentity } : {}),
         ...(sessionId ? { sessionId } : {}),
         ...(teamId ? { teamId } : {}),
       },
@@ -289,7 +289,7 @@ export function notifyApprovalRequested(run: NotifiableRun): void {
 /** Each user's devices, rate limited like any push; see sign-in-request.ts. */
 export function notifyNudge(
   userIds: string[],
-  push: { sessionId: string; teamId: string; title: string; body: string },
+  push: Alert & { sessionId: string; teamId: string },
 ): void {
   for (const userId of userIds)
     background('push.nudge_failed', () => defaultNotifier().nudge(userId, push))

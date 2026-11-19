@@ -2,6 +2,7 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 
 import { t } from '../../../i18n'
+import { quotaSharedWith } from '../../../lib/runtimeQuota'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
@@ -27,12 +28,12 @@ import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 
-/** Amber from 80%, red from 95%. */
+/** Data fill, as the agents' usage meters, turning warning from 80% and error from 95%. */
 function meterTone(value: number) {
   if (value >= 95) return { bar: 'bg-error', text: 'text-error' }
   if (value >= 80) return { bar: 'bg-warning', text: 'text-warning' }
 
-  return { bar: 'bg-action-primary/90', text: 'text-secondary' }
+  return { bar: 'bg-data-1', text: 'text-secondary' }
 }
 
 function percent(value: number) {
@@ -65,7 +66,7 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
               {percent(value)}
             </span>
           </span>
-          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-state-selected">
+          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-surface-sunken">
             <span
               className={clsx('block h-full rounded-full', meterTone(value).bar)}
               style={{ width: percent(value) }}
@@ -77,9 +78,15 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
   )
 }
 
-/** Whose a teammate's shared computer is, quietly; nothing on the viewer's own. */
-function SharedBy({ text }: { text: string | null }) {
-  return text && <span className="block truncate text-[11px] text-tertiary">{text}</span>
+/** A quiet extra line: whose a teammate's shared computer is, or which agents share a quota. */
+function QuietLine({ text }: { text: string | null }) {
+  return (
+    text && (
+      <span title={text} className="block truncate text-[11px] text-tertiary">
+        {text}
+      </span>
+    )
+  )
 }
 
 /** One agent: picks it, or starts its fix when it cannot take a turn. */
@@ -149,6 +156,7 @@ function AgentRow({
           </span>
           <RuntimeUsageBar quota={quotas?.get(instance.id)} />
         </span>
+        <QuietLine text={quotaSharedWith(quotas?.get(instance.id))} />
       </span>
     </MenuItem>
   )
@@ -209,7 +217,7 @@ export function SelectorBoxMenu({
               · {problem?.reason ?? t('Offline')}
             </span>
           </span>
-          <SharedBy text={sharedBy} />
+          <QuietLine text={sharedBy} />
         </span>
       </MenuItem>
     )
@@ -225,7 +233,7 @@ export function SelectorBoxMenu({
               <span className="truncate font-medium">{group.label}</span>
               {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
-            <SharedBy text={sharedBy} />
+            <QuietLine text={sharedBy} />
             {metrics && <SelectorBoxMeters metrics={metrics} />}
           </span>
         </span>
@@ -246,7 +254,7 @@ export function SelectorBoxMenu({
             <MenuSubmenuTrigger chevron={<ChevronRight className="h-3 w-3" />}>
               <span className="flex items-center gap-2 text-secondary">
                 <LogIn className="h-3.5 w-3.5" />
-                {t('Sign in to another agent…')}
+                {t('Sign in to another runtime…')}
               </span>
             </MenuSubmenuTrigger>
             <MenuContent className="w-72">

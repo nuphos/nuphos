@@ -1,31 +1,13 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
 import { callJson } from '../agent/http.ts'
 import { logLocalTool, normalizeToolError } from '../agent/local-exec.ts'
 import { deviceRegistrationAllowed } from '../api-endpoint.ts'
+import { dialBackend } from '../backend-socket.ts'
 
+import { machineModel } from './device-identity-core.ts'
 import { readDeviceIdentity, setDeviceLabel } from './device-identity.ts'
 import { isDev } from './env.ts'
 
 import type { DeviceIdentity } from './device-identity-core.ts'
-
-let model: Promise<string | undefined> | undefined
-
-/** "MacBook Pro", "Mac mini"…: what the Boxes list draws this computer as. Read once, off the main thread. */
-function machineModel(): Promise<string | undefined> {
-  model ??=
-    process.platform === 'darwin'
-      ? promisify(execFile)('/usr/sbin/system_profiler', ['SPHardwareDataType'], {
-          timeout: 5_000,
-        }).then(
-          ({ stdout }) => /Model Name:\s*(.+)/u.exec(stdout)?.[1]?.trim() || undefined,
-          () => undefined,
-        )
-      : Promise.resolve(undefined)
-
-  return model
-}
 
 // Local exec is available on every signed-in device while Desktop is open.
 async function syncRegistration(identity: DeviceIdentity): Promise<void> {
@@ -54,6 +36,13 @@ async function syncRegistration(identity: DeviceIdentity): Promise<void> {
 
 export function syncDeviceRegistration(): Promise<void> {
   return syncRegistration(readDeviceIdentity())
+}
+
+/** Dials this computer's tunnel. A 404 means it is no longer registered, so it registers again for the redial. */
+export function dialDeviceTunnel(url: URL | string, headers: Record<string, string>): WebSocket {
+  return dialBackend(url, headers, (status) => {
+    if (status === 404) void syncDeviceRegistration()
+  })
 }
 
 export function getDeviceIdentity(): DeviceIdentity {

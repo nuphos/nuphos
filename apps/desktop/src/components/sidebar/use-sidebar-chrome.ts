@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import {
   DEFAULT_COLLAPSED_GROUPS,
-  DEFAULT_SIDEBAR_WIDTH,
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
   SIDEBAR_WIDTH_KEY,
   loadGroupState,
   readGroupStateRaw,
+  storedFoldCollapsed,
+  storedSidebarWidth,
   subscribeGroupState,
   writeGroupFold,
 } from './state'
@@ -15,15 +16,11 @@ import {
 import type { Section } from './types'
 import type { UIEvent } from 'react'
 
+/** Integration groups open only by hand, and only until the team changes. */
+const foldedAtRest = (title: string) => DEFAULT_COLLAPSED_GROUPS.has(title)
+
 export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collapsed: boolean }) {
-  const [width, setWidth] = useState<number>(() => {
-    if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH
-    const v = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
-
-    if (!v || Number.isNaN(v)) return DEFAULT_SIDEBAR_WIDTH
-
-    return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, v))
-  })
+  const [width, setWidth] = useState(storedSidebarWidth)
   const [dragging, setDragging] = useState(false)
   // When collapsed, hovering the window's left edge slides the sidebar out as a
   // floating overlay. `peek` tracks that hover; reset whenever collapse toggles
@@ -39,18 +36,16 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
   // a fold is the user's own toggle, in this window or another.
   const groupStateRaw = useSyncExternalStore(subscribeGroupState, readGroupStateRaw, () => null)
   const groupState = useMemo(() => loadGroupState(teamId, groupStateRaw), [teamId, groupStateRaw])
-  // Ephemeral expansion of the always-folded integration groups: lives only
-  // in memory and resets on team switch, so those groups are folded at rest.
-  const [openedIntegrationGroups, setOpenedIntegrationGroups] = useState<Set<string>>(
-    () => new Set(),
-  )
-  // Reset on team switch during render — the documented "storing information
-  // from previous renders" pattern (cf. SidebarNavStack).
+  // Ephemeral expansion of the always-folded integration groups: lives only in
+  // memory and resets on team switch, so those groups are folded at rest.
+  const [openedAtRest, setOpenedAtRest] = useState<Set<string>>(() => new Set())
+  // Reset during render — the documented "storing information from previous
+  // renders" pattern (cf. SidebarNavStack).
   const [seededTeamId, setSeededTeamId] = useState(teamId)
 
   if (seededTeamId !== teamId) {
     setSeededTeamId(teamId)
-    setOpenedIntegrationGroups(new Set())
+    setOpenedAtRest(new Set())
   }
   const isGroupCollapsed = useCallback(
     (section: Pick<Section, 'title' | 'defaultCollapsed'>) => {
@@ -59,11 +54,11 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
       if (!section.title) return false
       const title = section.title
 
-      return DEFAULT_COLLAPSED_GROUPS.has(title)
-        ? !openedIntegrationGroups.has(title)
-        : (groupState[title] ?? (section.defaultCollapsed ? 'closed' : 'open')) === 'closed'
+      return foldedAtRest(title)
+        ? !openedAtRest.has(title)
+        : storedFoldCollapsed(groupState, { ...section, title })
     },
-    [groupState, openedIntegrationGroups],
+    [groupState, openedAtRest],
   )
 
   useEffect(() => {
@@ -93,8 +88,8 @@ export function useSidebarChrome({ teamId, collapsed }: { teamId: string; collap
       const title = section.title
 
       if (!title) return
-      if (DEFAULT_COLLAPSED_GROUPS.has(title)) {
-        setOpenedIntegrationGroups((prev) => {
+      if (foldedAtRest(title)) {
+        setOpenedAtRest((prev) => {
           const next = new Set(prev)
 
           if (next.has(title)) next.delete(title)

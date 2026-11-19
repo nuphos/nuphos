@@ -120,6 +120,10 @@ export abstract class OpenAbAcpLifecycle {
   ): Promise<Record<string, unknown>> {
     return this.call('_openab/session/requests', { ...params, sessionId })
   }
+  /** Ends the session on the runtime: its agent stops and the process exits. */
+  closeSession(sessionId: string): Promise<Record<string, unknown>> {
+    return this.call('session/close', { sessionId })
+  }
   getSessionExecutionState(sessionId: string): Promise<Record<string, unknown>> {
     return this.call('_openab/session/state', { sessionId })
   }
@@ -132,6 +136,10 @@ export abstract class OpenAbAcpLifecycle {
       sessionId,
       ...(restore ? { restore } : {}),
     })
+  }
+  /** What a new session would offer, read from an agent the runtime starts and stops. */
+  getAgentConfigOptions(model?: string): Promise<Record<string, unknown>> {
+    return this.call('_openab/agent/config_options', model ? { model } : {}, {}, 60_000)
   }
   setSessionConfigOption(
     sessionId: string,

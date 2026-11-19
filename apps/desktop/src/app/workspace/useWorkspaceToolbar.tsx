@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
 
 import { LINEAR_PAGE_KEY } from '../../lib/linearNav'
-import { planNumberFromFilter } from '../../lib/planRoute'
 
 import { computeIdentitySegment } from './identitySegment'
 import { computeRootIntegrations } from './rootIntegrations'
 
+import type { tabFields } from './tabFields'
 import type { WorkspaceAccountsResult } from './useWorkspaceAccounts'
 import type { WorkspaceActiveTabResult } from './useWorkspaceActiveTab'
 import type { WorkspaceAgentLinksResult } from './useWorkspaceAgentLinks'
@@ -24,6 +24,7 @@ import type { WorkspaceProps } from './workspaceProps'
 import type { BreadcrumbSegment } from '../../components/Toolbar'
 import type { ToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import type { LinearNavState } from '../../lib/app-routes/types'
+import type { Scope } from '../../types'
 import type { GithubNavState } from '../../views/GithubView'
 
 type Args = WorkspaceProps &
@@ -52,6 +53,8 @@ function isLinearIssueDetail(active: string, linearNav: LinearNavState | null): 
 
 const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.new-tab',
+  // Only single Plans remain, opened from links.
+  'team.plans',
   'team.browser',
   'team.desktop',
   'team.terminal',
@@ -67,6 +70,107 @@ const UNFILTERABLE_PAGE_KEYS = new Set([
   'team.integrations',
 ])
 
+/**
+ * The team picker belongs to the persistent left rail. The workspace header
+ * starts directly at the current page; it no longer needs a redundant Home.
+ */
+export function toolbarSegmentsOf(active: string, breadcrumb: BreadcrumbSegment[]) {
+  return active === 'team.files' || active === 'team.artifact' ? [] : breadcrumb.slice(1)
+}
+
+/** Whether the page's body is a list the shared search box can filter. */
+export function showsListControls(
+  scope: Scope | null,
+  page: Pick<
+    ReturnType<typeof tabFields>,
+    | 'active'
+    | 'target'
+    | 'sshTerminal'
+    | 'awsDetail'
+    | 'architectureDetail'
+    | 'designDetail'
+    | 'connectorDetail'
+    | 'nuphosDashboard'
+    | 'githubNav'
+    | 'linearNav'
+  >,
+): boolean {
+  const { active } = page
+  // The alarm drill-down has no filterable list (lambda/log-group details do —
+  // their Logs tabs consume the filter), so hide the stale list controls there.
+  const inAlarmDetail = active === 'aws.cloudwatch-alarms' && page.awsDetail?.kind === 'alarm'
+  // Pages whose body is not a filterable list — a search box there would type
+  // into nothing. Everything else inside a scope gets the shared filter, the
+  // settings-nav lists (bound roles / apps / service accounts) included: they
+  // all ship working filter logic, it just used to be unreachable.
+  const isUnfilterablePage =
+    // PR detail has its own title, state and tabs; search/filter controls do
+    // not operate on its conversation or diff and only add a dead second row.
+    isGithubPullDetail(active, page.githubNav) ||
+    isLinearIssueDetail(active, page.linearNav) ||
+    UNFILTERABLE_PAGE_KEYS.has(active)
+
+  return (
+    Boolean(scope) &&
+    !page.target &&
+    !page.sshTerminal &&
+    !inAlarmDetail &&
+    !page.architectureDetail &&
+    !page.designDetail &&
+    // The connector drill-down swaps the table out for a provider info page.
+    !page.connectorDetail &&
+    // The dashboard list page is a filterable list; an open dashboard is not.
+    !page.nuphosDashboard &&
+    !isUnfilterablePage
+  )
+}
+
+/** One toolbar's primary action and the portal targets its page renders controls into. */
+export function useToolbarSlots() {
+  // The active list view publishes its primary action (e.g. "Create bucket")
+  // here so it renders on the toolbar's filter row instead of a separate
+  // per-view bar. Cleared automatically when that view unmounts/deactivates.
+  const [toolbarPrimaryAction, setToolbarPrimaryAction] = useState<ToolbarPrimaryAction | null>(
+    null,
+  )
+  // Always-present portal targets on the toolbar's controls row: a left region
+  // (next to search — filters/tabs/pickers) and a right region (actions). Any
+  // active view renders its own controls into them via useToolbarSlot(); the
+  // occupancy flags let the row appear for those views without App special-
+  // casing which pages carry their own controls.
+  const [toolbarLeftEl, setToolbarLeftEl] = useState<HTMLElement | null>(null)
+  const [toolbarRightEl, setToolbarRightEl] = useState<HTMLElement | null>(null)
+  const [toolbarHeaderRightEl, setToolbarHeaderRightEl] = useState<HTMLElement | null>(null)
+  const [toolbarLeftOccupied, setToolbarLeftOccupied] = useState(false)
+  const [toolbarRightOccupied, setToolbarRightOccupied] = useState(false)
+  const [toolbarHeaderRightOccupied, setToolbarHeaderRightOccupied] = useState(false)
+  const setToolbarSlotOccupied = useCallback((side: 'left' | 'right', occupied: boolean) => {
+    ;(side === 'left' ? setToolbarLeftOccupied : setToolbarRightOccupied)(occupied)
+  }, [])
+  const toolbarSlots = useMemo(
+    () => ({
+      left: toolbarLeftEl,
+      right: toolbarRightEl,
+      headerRight: toolbarHeaderRightEl,
+      setOccupied: setToolbarSlotOccupied,
+      setHeaderRightOccupied: setToolbarHeaderRightOccupied,
+    }),
+    [toolbarLeftEl, toolbarRightEl, toolbarHeaderRightEl, setToolbarSlotOccupied],
+  )
+
+  return {
+    toolbarPrimaryAction,
+    setToolbarPrimaryAction,
+    setToolbarLeftEl,
+    setToolbarRightEl,
+    setToolbarHeaderRightEl,
+    toolbarHeaderRightOccupied,
+    toolbarLeftOccupied,
+    toolbarRightOccupied,
+    toolbarSlots,
+  }
+}
+
 export function useWorkspaceToolbar(a: Args) {
   const {
     databaseConnectionsByTeam,
@@ -75,7 +179,6 @@ export function useWorkspaceToolbar(a: Args) {
     gitlabNamespacesByTeam,
     scope,
     active,
-    filter,
     target,
     architectureDetail,
     designDetail,
@@ -114,37 +217,19 @@ export function useWorkspaceToolbar(a: Args) {
     () => computeIdentitySegment({ scope, accounts, active, updateActiveTab }),
     [accounts, active, scope, updateActiveTab],
   )
-  // The team picker belongs to the persistent left rail. The workspace header
-  // starts directly at the current page; it no longer needs a redundant Home.
-  const toolbarSegments =
-    active === 'team.files' || active === 'team.artifact' ? [] : breadcrumb.slice(1)
-  // The alarm drill-down has no filterable list (lambda/log-group details do —
-  // their Logs tabs consume the filter), so hide the stale list controls there.
-  const inAlarmDetail = active === 'aws.cloudwatch-alarms' && awsDetail?.kind === 'alarm'
-  const inPlanDetail = active === 'team.plans' && Boolean(planNumberFromFilter(filter))
-  // Pages whose body is not a filterable list — a search box there would type
-  // into nothing. Everything else inside a scope gets the shared filter, the
-  // settings-nav lists (bound roles / apps / service accounts) included: they
-  // all ship working filter logic, it just used to be unreachable.
-  const isUnfilterablePage =
-    // PR detail has its own title, state and tabs; search/filter controls do
-    // not operate on its conversation or diff and only add a dead second row.
-    isGithubPullDetail(active, githubNav) ||
-    isLinearIssueDetail(active, linearNav) ||
-    UNFILTERABLE_PAGE_KEYS.has(active)
-  const showListControls =
-    Boolean(scope) &&
-    !target &&
-    !sshTerminal &&
-    !inAlarmDetail &&
-    !inPlanDetail &&
-    !architectureDetail &&
-    !designDetail &&
-    // The connector drill-down swaps the table out for a provider info page.
-    !connectorDetail &&
-    // The dashboard list page is a filterable list; an open dashboard is not.
-    !nuphosDashboard &&
-    !isUnfilterablePage
+  const toolbarSegments = toolbarSegmentsOf(active, breadcrumb)
+  const showListControls = showsListControls(scope, {
+    active,
+    target,
+    sshTerminal,
+    awsDetail,
+    architectureDetail,
+    designDetail,
+    connectorDetail,
+    nuphosDashboard,
+    githubNav,
+    linearNav,
+  })
   // The search box refines the page rather than leaving it, so it rewrites the
   // current history entry (a few pages encode the filter into their URL) —
   // Back must exit the page, not replay keystrokes.
@@ -154,36 +239,7 @@ export function useWorkspaceToolbar(a: Args) {
     },
     [updateActiveTab],
   )
-  // The active list view publishes its primary action (e.g. "Create bucket")
-  // here so it renders on the toolbar's filter row instead of a separate
-  // per-view bar. Cleared automatically when that view unmounts/deactivates.
-  const [toolbarPrimaryAction, setToolbarPrimaryAction] = useState<ToolbarPrimaryAction | null>(
-    null,
-  )
-  // Always-present portal targets on the toolbar's controls row: a left region
-  // (next to search — filters/tabs/pickers) and a right region (actions). Any
-  // active view renders its own controls into them via useToolbarSlot(); the
-  // occupancy flags let the row appear for those views without App special-
-  // casing which pages carry their own controls.
-  const [toolbarLeftEl, setToolbarLeftEl] = useState<HTMLElement | null>(null)
-  const [toolbarRightEl, setToolbarRightEl] = useState<HTMLElement | null>(null)
-  const [toolbarHeaderRightEl, setToolbarHeaderRightEl] = useState<HTMLElement | null>(null)
-  const [toolbarLeftOccupied, setToolbarLeftOccupied] = useState(false)
-  const [toolbarRightOccupied, setToolbarRightOccupied] = useState(false)
-  const [toolbarHeaderRightOccupied, setToolbarHeaderRightOccupied] = useState(false)
-  const setToolbarSlotOccupied = useCallback((side: 'left' | 'right', occupied: boolean) => {
-    ;(side === 'left' ? setToolbarLeftOccupied : setToolbarRightOccupied)(occupied)
-  }, [])
-  const toolbarSlots = useMemo(
-    () => ({
-      left: toolbarLeftEl,
-      right: toolbarRightEl,
-      headerRight: toolbarHeaderRightEl,
-      setOccupied: setToolbarSlotOccupied,
-      setHeaderRightOccupied: setToolbarHeaderRightOccupied,
-    }),
-    [toolbarLeftEl, toolbarRightEl, toolbarHeaderRightEl, setToolbarSlotOccupied],
-  )
+  const slots = useToolbarSlots()
 
   return {
     rootIntegrations,
@@ -191,15 +247,7 @@ export function useWorkspaceToolbar(a: Args) {
     toolbarSegments,
     showListControls,
     setActiveFilter,
-    toolbarPrimaryAction,
-    setToolbarPrimaryAction,
-    setToolbarLeftEl,
-    setToolbarRightEl,
-    setToolbarHeaderRightEl,
-    toolbarHeaderRightOccupied,
-    toolbarLeftOccupied,
-    toolbarRightOccupied,
-    toolbarSlots,
+    ...slots,
   }
 }
 

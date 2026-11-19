@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { readSwrCache } from '../../lib/swrCache'
-import { agentSessionsCacheKey } from '../sidebar/state'
+import { queryClient } from '../../lib/query/client'
+import { queryKeys } from '../../lib/query/keys'
 
 import { afterFailedCheck } from './channelKindRetry'
 
@@ -21,9 +21,9 @@ export function markChannel(sessionId: string, channel = true) {
 
 function cached(teamId: string, sessionId: string): boolean | undefined {
   if (known.has(sessionId)) return known.get(sessionId)
-  const listed = readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))?.find(
-    (conversation) => conversation.sessionId === sessionId,
-  )
+  const listed = queryClient
+    .getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId))
+    ?.find((conversation) => conversation.sessionId === sessionId)
 
   return listed ? listed.kind === 'channel' : undefined
 }

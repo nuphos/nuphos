@@ -2,7 +2,12 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 
 import { useWorkspacePane } from '../WorkspacePaneContext'
 
-import { selectCurrentBucket, selectHistoryStep, selectScope } from './workspaceState'
+import {
+  selectCurrentBucket,
+  selectHistoryStep,
+  selectMainPageTab,
+  selectScope,
+} from './workspaceState'
 import { createWorkspaceStore } from './workspaceStore'
 import { hydrateWorkspaceState, persistWorkspaceStore } from './workspaceStorePersistence'
 
@@ -39,12 +44,14 @@ export function useWorkspaceStore() {
     selectedSessionId: state.sessionId,
     newChatRequest: state.newChatRequest,
     mainPageOpen: state.mainPageOpen,
+    mainPageTab: selectMainPageTab(state),
     selectedSessionReadOnly: state.sessionReadOnly,
     workspaceScope: selectScope(state),
     canGoBack: selectHistoryStep(state, -1) !== null,
     canGoForward: selectHistoryStep(state, 1) !== null,
     surfaceHistory: state.surfaceHistory,
     surfaceHistoryIndex: state.surfaceHistoryIndex,
+    connectorsDialog: state.connectorsDialog,
   }
 }
 

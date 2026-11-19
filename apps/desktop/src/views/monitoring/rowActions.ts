@@ -1,4 +1,9 @@
-import { faArrowUpRightFromSquare, faEye, faLink, faTrash } from '@fortawesome/free-solid-svg-icons'
+import {
+  ExternalLink as ExternalLinkIcon,
+  Eye as EyeIcon,
+  Link as LinkIcon,
+  Trash2 as Trash2Icon,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { t } from '../../i18n/index.ts'
@@ -31,7 +36,7 @@ export function menuItems(
     {
       key: 'copy-link',
       label: t('Copy link'),
-      icon: faLink,
+      icon: LinkIcon,
       onSelect: copyRowLink,
     },
   ]
@@ -40,7 +45,7 @@ export function menuItems(
     items.push({
       key: 'watch',
       label: t('Watch with Agent'),
-      icon: faEye,
+      icon: EyeIcon,
       onSelect: () => onWatch(row),
     })
   }
@@ -48,7 +53,7 @@ export function menuItems(
     items.push({
       key: 'open',
       label: t('Open in {provider}', { provider: PROVIDER_LABEL[row.provider] }),
-      icon: faArrowUpRightFromSquare,
+      icon: ExternalLinkIcon,
       onSelect: () => void api.appOpenExternal(row.providerUrl!),
     })
   }
@@ -57,7 +62,7 @@ export function menuItems(
     items.push({
       key: 'delete',
       label: t('Delete'),
-      icon: faTrash,
+      icon: Trash2Icon,
       destructive: true,
       confirm: t(
         'Delete "{name}" from {provider}? This removes it in the provider itself and cannot be undone.',

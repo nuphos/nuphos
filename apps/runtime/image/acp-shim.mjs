@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness), and for Pi behind the pi-acp
+// adapter. Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -15,9 +16,12 @@ import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
+import { openCodeRefusal } from './opencode-session.mjs'
+import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -82,6 +86,52 @@ export const PROVIDERS = {
     instruct: null,
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
+    // A refused turn never ends on its own: see opencode-session.mjs.
+    refusal: (env, sessionId, since) =>
+      openCodeRefusal(
+        env.XDG_DATA_HOME || join(env.HOME || homedir(), '.local', 'share'),
+        sessionId,
+        since,
+      ),
+  },
+  hermes: {
+    command: ['hermes', 'acp'],
+    // A profile, and so a background daemon, of the session home's own: see hermes-session.mjs.
+    home: (runtimeHome, sessionHome) => ({
+      HERMES_HOME: hermesProfile(runtimeHome, sessionHome ?? runtimeHome),
+    }),
+    // Hermes reads no _meta: the instructions lead the first prompt.
+    instruct: null,
+    serialPrompts: true,
+  },
+  dsh: {
+    command: ['dsh', '--profile', 'acp'],
+    // Its login (.credentials.yaml), profiles and sessions, in the runtime home.
+    home: (runtimeHome) => ({ DSH_HOME: join(runtimeHome, '.dsh') }),
+    instruct: null,
+    serialPrompts: true,
+    // DSH resumes a session without replaying it, and has no session/load; OpenAB only
+    // loads, so a load is sent as a resume.
+    loadAsResume: true,
+  },
+  pi: {
+    // Pi speaks its own RPC, not ACP: pi-acp, installed beside this file, runs the CLI.
+    adapter: true,
+    command: [
+      process.execPath,
+      fileURLToPath(new URL('./node_modules/pi-acp/dist/index.js', import.meta.url)),
+    ],
+    // An agent directory of the session home's own: see pi-session.mjs.
+    home: (runtimeHome, sessionHome, runtimeEnv) => ({
+      PI_CODING_AGENT_DIR: piAgentDir(runtimeHome, sessionHome ?? runtimeHome),
+      PI_ACP_PI_COMMAND: runtimeEnv.NUPHOS_AGENT_EXECUTABLE || 'pi',
+    }),
+    // pi-acp passes a session's MCP servers nowhere; Pi reads them from its agent directory.
+    mcpServers: (env, servers) => writePiMcpServers(env.PI_CODING_AGENT_DIR, servers),
+    // pi-acp ends a failed turn as if Pi had replied; Pi's session file says why it failed.
+    turnError: (env, sessionId) => piTurnError(env.PI_CODING_AGENT_DIR, sessionId),
+    instruct: null,
+    serialPrompts: true,
   },
 }
 
@@ -106,7 +156,7 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
     ...runtimeEnv,
     ...env,
     ...sessionHome,
-    ...PROVIDERS[provider].home(runtimeHome),
+    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME, runtimeEnv),
   }
 }
 
@@ -117,8 +167,16 @@ function shareFromRuntimeHome(path, sessionHome, runtimeHome) {
   mkdirSync(dirname(link), { recursive: true, mode: 0o700 })
   try {
     lstatSync(link)
-  } catch {
-    symlinkSync(join(runtimeHome, path), link)
+    return
+  } catch {}
+  try {
+    // A junction on Windows, where a symlink needs Developer Mode or an administrator.
+    symlinkSync(join(runtimeHome, path), link, 'junction')
+  } catch (error) {
+    // Unshared, the agent starts without the runtime's login there; the turn still runs.
+    process.stderr.write(
+      `nuphos: could not share ${path} with the runtime home: ${error.message}\n`,
+    )
   }
 }
 
@@ -146,6 +204,21 @@ export function sessionState(sessionId, state) {
   }
 }
 
+/** Says in the conversation why the provider turned the turn down. */
+function refusal(sessionId, why) {
+  return {
+    jsonrpc: '2.0',
+    method: 'session/update',
+    params: {
+      sessionId,
+      update: {
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: `The model provider refused the request: ${why}` },
+      },
+    },
+  }
+}
+
 function toolUpdate(sessionId, toolCallId, status, meta) {
   return {
     jsonrpc: '2.0',
@@ -167,11 +240,19 @@ export function runShim({
   output = process.stdout,
   runtimeEnv = process.env,
   spawnAgent = (command, env) =>
-    spawn(command[0], command.slice(1), { env, stdio: ['pipe', 'pipe', 'inherit'] }),
+    spawn(command[0], command.slice(1), {
+      env,
+      stdio: ['pipe', 'pipe', 'inherit'],
+      windowsHide: true,
+    }),
   onExit = (code) => process.exit(code),
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
   settleMs = 1000,
+  // How often an open turn checks whether its provider refused it (spec.refusal), once
+  // the agent has sent nothing for the session for `refusalQuietMs`.
+  refusalPollMs = 1500,
+  refusalQuietMs = 15_000,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -192,8 +273,13 @@ export function runShim({
   const tasks = new Map()
   const internal = new Map()
   const transforms = new Map()
+  // Prompts ended because their provider refused them; the agent's answer to the cancel closes them.
+  const refused = new Set()
+  // When the agent last sent anything for each session.
+  const heard = new Map()
   let initialize
   let agent
+  let agentEnvironment
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
@@ -202,8 +288,11 @@ export function runShim({
     agent?.kill('SIGTERM')
     // A computer running the agent locally names its own CLI, which may be off PATH.
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
-    const child = spawnAgent([env.NUPHOS_AGENT_EXECUTABLE || command, ...args], env)
+    // An adapter runs the CLI itself, named to it in its home's environment.
+    const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
+    const child = spawnAgent([executable, ...args], env)
     agent = child
+    agentEnvironment = env
     // The agent is the session: when it ends, so does this process.
     child.on('exit', (code) => {
       if (agent === child) onExit(code ?? 1)
@@ -242,11 +331,17 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
+    if (sessionId) heard.set(sessionId, Date.now())
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
+      const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
+      if (failure) write(refusal(promptSession, failure))
+      // Cancelled by this process, not by the person: the turn ended with the refusal.
+      if (refused.delete(message.id) && message.result)
+        message = { ...message, result: { ...message.result, stopReason: 'end_turn' } }
       forward(message)
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
@@ -313,6 +408,28 @@ export function runShim({
     forward(message)
   }
   const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
+  const watchRefusal = (id, sessionId) => {
+    // The clock the agent's log shares; a second's slack for the prompt reaching it first.
+    const since = Date.now() - 1000
+    heard.set(sessionId, Date.now())
+    const timer = setInterval(() => {
+      if (prompts.get(id) !== sessionId) return clearInterval(timer)
+      // A turn the agent is still answering is not refused.
+      if (Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      let why
+      try {
+        why = spec.refusal(agentEnvironment, sessionId, since)
+      } catch {
+        // Whatever cannot be read leaves the turn as it is.
+      }
+      if (!why) return
+      clearInterval(timer)
+      refused.add(id)
+      write(refusal(sessionId, why))
+      send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
+    }, refusalPollMs)
+    timer.unref?.()
+  }
   const request = (method, params) =>
     new Promise((resolve, reject) => {
       const id = `nuphos-shim-${String(++nextId)}`
@@ -342,6 +459,7 @@ export function runShim({
       _meta: meta,
       mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
     }
+    spec.mcpServers?.(agentEnvironment, params.mcpServers)
     if (params.sessionId) opening.add(params.sessionId)
     transforms.set(message.id, async (reply) => {
       opening.delete(params.sessionId)
@@ -378,7 +496,21 @@ export function runShim({
         },
       }
       initialize = message
+      if (spec.loadAsResume)
+        transforms.set(message.id, async (reply) => {
+          const capabilities = reply.result?.agentCapabilities
+          if (!capabilities) return reply
+          return {
+            ...reply,
+            result: {
+              ...reply.result,
+              agentCapabilities: { ...capabilities, loadSession: true },
+            },
+          }
+        })
     }
+    if (spec.loadAsResume && message.method === 'session/load')
+      message = { ...message, method: 'session/resume' }
     if (['session/new', 'session/load', 'session/resume'].includes(message.method))
       return openSession(message)
     const sessionId = message.params?.sessionId
@@ -398,6 +530,7 @@ export function runShim({
   const sendPrompt = (message) => {
     const sessionId = message.params.sessionId
     prompts.set(message.id, sessionId)
+    if (spec.refusal) watchRefusal(message.id, sessionId)
     write(sessionState(sessionId, 'active'))
     const text = pendingInstructions.get(sessionId)
     pendingInstructions.delete(sessionId)

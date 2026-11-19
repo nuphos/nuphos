@@ -126,7 +126,7 @@ export function InstructionEditorDialog({
       open={target !== null}
       onClose={onClose}
       title={target ? dialogTitle(target) : ''}
-      description={t('Markdown. Injected at the start of every new agent.')}
+      description={t('Markdown. Injected at the start of every new task.')}
       width={640}
       closeOnBackdrop={readOnly}
       footer={
@@ -177,7 +177,7 @@ export function InstructionEditorDialog({
               maxLength={limits.contentChars}
               rows={14}
               placeholder={t(
-                '- Always open a Plan before changing production.\n- Reply in English.',
+                '- Always ask before deleting a production resource.\n- Reply in English.',
               )}
               className={clsx(inputClasses, 'h-auto resize-y py-2 font-mono text-[12.5px]')}
             />

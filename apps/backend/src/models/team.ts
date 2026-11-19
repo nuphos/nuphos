@@ -59,7 +59,10 @@ export type TeamByosBindings = {
   // Optional for the same reason; readers use `doc.huaweiAccounts ?? []`.
   huaweiAccounts?: HuaweiAccountBinding[]
   grafanaInstances: GrafanaInstanceBinding[]
-  githubInstallations: GithubInstallationBinding[]
+  // Optional: team docs first created by an older bind route, whose hand-written
+  // insert defaults left it out, have no such field. Readers use
+  // `doc.githubInstallations ?? []`.
+  githubInstallations?: GithubInstallationBinding[]
   gitlabAccounts: GitlabBinding[]
   cloudflareAccounts: CloudflareAccountBinding[]
   linodeAccounts: LinodeAccountBinding[]
@@ -164,6 +167,10 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: Date
   rejectedAt?: Date
+  /** When an invitation email last went out; unset while none has. */
+  lastSentAt?: Date
+  /** The role its person joins with; older invitations have none and join as editors. */
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = {
@@ -236,19 +243,20 @@ export const teamHomeLayouts = (): Collection<TeamHomeLayout> =>
   db().collection<TeamHomeLayout>('team_home_layouts')
 
 /**
- * The agents a member's conversations move to, in order, when the one they run
- * on is out of usage or broken. One document per member and team.
+ * The runtime a conversation moves to when the one it runs on is out of usage
+ * or broken. One document per runtime, shared by the team.
  */
-export type UserTeamRuntimeFallback = {
+export type TeamRuntimeFallback = {
   _id: ObjectId
   teamId: ObjectId
-  userId: string
-  runtimeIds: string[]
+  runtimeId: string
+  fallbackRuntimeId: string
   updatedAt: Date
+  updatedBy: string
 }
 
-export const userTeamRuntimeFallbacks = (): Collection<UserTeamRuntimeFallback> =>
-  db().collection<UserTeamRuntimeFallback>('user_team_runtime_fallbacks')
+export const teamRuntimeFallbacks = (): Collection<TeamRuntimeFallback> =>
+  db().collection<TeamRuntimeFallback>('team_runtime_fallbacks')
 
 /**
  * One-time backfill for the Aliyun AccessKey → RAM-role-OIDC migration. Legacy

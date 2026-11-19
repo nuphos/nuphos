@@ -6,8 +6,10 @@ import { ZipArchive } from 'archiver'
 import { resolveChannelAttachment } from '../agent/channels'
 import { getFileTransfer } from '../atlas'
 
+import { readBoundedFile } from './read'
 import { safeZipEntryName, toNodeStream } from './zip'
 
+import type { FileBytesArgs } from './read'
 import type { TransferGroup } from './types'
 
 let downloadTmpSeq = 0
@@ -57,6 +59,12 @@ export async function downloadOne(args: {
 
   if (!file?.downloadUrl) throw new Error('File is not ready to download')
   await downloadTo(file.downloadUrl, args.destPath)
+}
+
+// Read one ready file's bytes for an in-app preview. All S3 traffic stays in
+// the main process; the read is capped so a large file is never read whole.
+export function readOne(args: FileBytesArgs): Promise<Uint8Array | null> {
+  return readBoundedFile(args, resolveDownloads)
 }
 
 // Download every ready file and stream them into a single cross-platform zip

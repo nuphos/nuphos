@@ -69,7 +69,7 @@ export async function findScopeInstructions(
 
 function assertCanWrite(actor: InstructionActor, scope: InstructionScope): void {
   if (scope === 'team' && !canManageTeamInstructions(actor.role)) {
-    throw new AppError(403, 'forbidden', 'Only team administrators can change team instructions')
+    throw new AppError(403, 'forbidden', 'Viewers cannot change team instructions')
   }
 }
 

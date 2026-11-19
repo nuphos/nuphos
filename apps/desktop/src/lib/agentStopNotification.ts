@@ -52,9 +52,10 @@ export function stripMarkdown(input: string): string {
   s = s.replace(/\[([^[\]]*)\]\([^)]*\)/g, '$1')
   // Inline code: `code` -> code
   s = s.replace(/(?=(`+))\1([^`]+)`+/g, '$2')
-  // Bold/italic: **x**, __x__, *x*, _x_, ~~x~~
-  s = s.replace(/(\*\*|__)(.*?)\1/g, '$2')
-  s = s.replace(/([*_])(.*?)\1/g, '$2')
+  // Bold/italic: **x**, __x__, *x*, _x_, ~~x~~. An underscore inside a word
+  // marks no emphasis, so NUPHOS_AGENT_HOME keeps its underscores.
+  s = s.replace(/\*\*(.*?)\*\*|(?<!\w)__(.*?)__(?!\w)/g, '$1$2')
+  s = s.replace(/\*(.*?)\*|(?<!\w)_(.*?)_(?!\w)/g, '$1$2')
   s = s.replace(/~~(.*?)~~/g, '$1')
   // Headings, blockquotes, list markers at line starts.
   s = s.replace(/^\s{0,3}#{1,6}\s+/gm, '')
@@ -182,7 +183,7 @@ function stopNotificationBody(
     // the question the same way an open conversation's would.
     return (
       describeStoppedTurn(messages) ??
-      t('The agent stopped while it was closed — open it to see what happened.')
+      t('The task stopped while it was closed — open it to see what happened.')
     )
   }
   if (outcome.kind === 'failed') {
@@ -190,8 +191,8 @@ function stopNotificationBody(
     // box and telemetry; a notification gets the human sentence only.
     const cause = outcome.cause.split('\n')[0]?.trim()
 
-    return cause || t('The agent stopped with an error.')
+    return cause || t('The task stopped with an error.')
   }
 
-  return describeStoppedTurn(messages) ?? t('The agent finished without a text response.')
+  return describeStoppedTurn(messages) ?? t('Finished without a text response.')
 }

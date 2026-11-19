@@ -76,6 +76,13 @@ export const errorHandler: ErrorHandler = (err, c) => {
       400,
     )
   }
+  // Hono's error when Bun's server.upgrade refuses, which it does once the client has
+  // already gone (a computer redialing its tunnel). The client left, so this is no 5xx.
+  if (err instanceof Error && err.message === 'Failed to upgrade WebSocket') {
+    rememberErrorCode(c, 'client_closed')
+
+    return new Response(null, { status: 499 })
+  }
   const cloudStatus = detectCloudErrorStatus(err)
 
   if (cloudStatus !== null && cloudStatus >= 400 && cloudStatus < 500) {

@@ -64,6 +64,7 @@ test('AskUserQuestion registers a decision and tells Claude the answer comes lat
       label: 'Region',
       category: 'preference',
       question: 'Which region?',
+      body: 'Which region?',
       options: ['us-east-1', 'eu-west-1'],
     },
   })
@@ -147,7 +148,8 @@ test('request_user_input answers every question with the next step', async () =>
   assert.deepEqual(calls[0].body.params.arguments, {
     label: 'Database',
     category: 'preference',
-    question: '1. Which database? (Postgres / MySQL)\n2. Project name?',
+    question: 'Which database?',
+    body: '1. Which database? (Postgres / MySQL)\n2. Project name?',
   })
 })
 
@@ -159,7 +161,10 @@ test('decision arguments stay within request_user_decision limits', () => {
     },
   ])
 
-  assert.equal(args.question.length, 1000)
+  // One line in the card; the whole question in its body.
+  assert.equal(args.question.length, 120)
+  assert.ok(args.question.endsWith('…'))
+  assert.equal(args.body, 'q'.repeat(2000))
   assert.equal(args.label.length, 80)
   assert.equal(args.options.length, 5)
   assert.ok(args.options.every((option) => option.length === 300))

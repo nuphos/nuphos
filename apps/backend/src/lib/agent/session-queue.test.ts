@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
+import Redis from 'ioredis'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useBoxWake } from '@/lib/test/doubles/box-wake'
@@ -16,6 +17,7 @@ import {
   buildPendingUserMessage,
   clearPendingUserMessages,
   enqueuePendingUserMessage,
+  QUEUED_SESSIONS_KEY,
 } from './pending-messages'
 import {
   hasQueuedTranscriptMessage,
@@ -49,6 +51,7 @@ const conversation = {
   participantIds: ['teammate'],
 } as AgentConversation
 let runtimeSend = true
+let runtimeDetached = false
 let released = 0
 const runs: Parameters<TurnRunner['runAgentForTrigger']>[0][] = []
 const launched: PendingUserMessage[] = []
@@ -67,6 +70,8 @@ let conversationRuntime = 'managed-1'
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
     fakeRedis ? op(fakeRedis) : null) as never,
+  // One replica per backstop tick is covered in queue-backstop.test.ts.
+  claimRun: async () => true,
 })
 
 useIdentity({
@@ -96,11 +101,14 @@ useBoxWake({
   },
 })
 useSessionExecutionState({
-  conversationExecutionState: async () => ({
-    schemaVersion: 2,
-    state: runtimeSend ? 'idle' : 'active',
-    actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
-  }),
+  conversationExecutionState: async () =>
+    runtimeDetached
+      ? { state: 'disconnected' }
+      : {
+          schemaVersion: 2,
+          state: runtimeSend ? 'idle' : 'active',
+          actions: { send: runtimeSend, cancel: !runtimeSend, steer: !runtimeSend },
+        },
 })
 
 function chatTurn(text: string): QueuedChatTurn {
@@ -136,6 +144,7 @@ beforeEach(() => {
   boxOffline = false
   wakes.length = 0
   runtimeSend = true
+  runtimeDetached = false
   released = 0
   runs.length = 0
   launched.length = 0
@@ -373,6 +382,139 @@ for (const failure of [
   })
 }
 
+test('a send that keeps failing to start is retried for the grace, then kept with the reason', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new Error('runtime lookup failed')
+    },
+  })
+  await queue(human('broken'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  // The first failure starts the grace.
+  expect(await waiting()).toEqual(['broken', 'next'])
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.offlineSince).toBeString()
+
+  // Still failing a minute later: its sender is told, and the queue moves on.
+  await clearPendingUserMessages(OWNER, SESSION)
+  await queue(
+    { ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  // The notice says so in its own words: an internal error's text is for the log only.
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(notice).toContain('the server could not start it. Send it again.')
+  expect(notice).not.toContain('runtime lookup failed')
+})
+
+test('a server error past the grace is reported in plain words, not its own text', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(503, 'runtime_unavailable', 'Unavailable')
+    },
+  })
+  await queue({ ...human('broken'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
+
+  const notice = JSON.stringify(kept[0]?.messages[1]?.parts)
+
+  expect(await waiting()).toEqual([])
+  expect(notice).toContain('the server could not start it. Send it again.')
+  expect(notice).not.toContain('Unavailable')
+})
+
+test('a busy runtime or a pending approval is waited for past the grace', async () => {
+  for (const failure of [
+    new AppError(409, 'runtime_not_accepting_message', 'Busy'),
+    new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
+  ]) {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await clearPendingUserMessages(OWNER, SESSION)
+    await queue({ ...human('patient'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['patient'])
+    expect(kept).toEqual([])
+  }
+})
+
+test('a queued send waits out a reconnecting computer, then is kept with the reason', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+    },
+  })
+  await queue(human('blip'), human('next'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['blip', 'next'])
+  expect(kept).toEqual([])
+  expect(head?.offlineSince).toBeString()
+
+  // Still offline a minute later: it is gone, and the sender is told.
+  await clearPendingUserMessages(OWNER, SESSION)
+  await queue(
+    { ...human('gone'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('is offline')
+})
+
+test('a queue whose runtime does not answer waits for it to reattach, then runs', async () => {
+  runtimeDetached = true
+  await queue(human('during the blip'), agent('behind'))
+  await startQueuedTurn(OWNER, SESSION)
+
+  const [head] = await listPendingUserMessages(OWNER, SESSION)
+
+  // Nothing started and failed: both still wait, the head counted against the grace.
+  expect(launched).toHaveLength(0)
+  expect(runs).toHaveLength(0)
+  expect(kept).toEqual([])
+  expect(await waiting()).toEqual(['during the blip', 'behind'])
+  expect(head?.offlineSince).toBeString()
+
+  runtimeDetached = false
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched.map((item) => item.renderedText)).toEqual(['during the blip'])
+  expect(await waiting()).toEqual(['behind'])
+})
+
+test('a runtime that has not reattached after the grace: the sender is told', async () => {
+  runtimeDetached = true
+  await queue(
+    { ...human('gone'), offlineSince: new Date(Date.now() - 61_000).toISOString() },
+    human('next'),
+  )
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(launched).toHaveLength(0)
+  expect(await waiting()).toEqual(['next'])
+  expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('did not reconnect')
+})
+
 test('two releases racing for one session start its head once', async () => {
   let held = false
 
@@ -410,7 +552,19 @@ test('with Redis, a take removes exactly its own messages and a requeue sets no 
 
       return 1
     },
-    lpush: async (_key: string, ...values: string[]) => list.unshift(...values),
+    multi: () => {
+      const write = {
+        lpush: (_key: string, ...values: string[]) => {
+          list.unshift(...values)
+
+          return write
+        },
+        sadd: () => write,
+        exec: async () => [],
+      }
+
+      return write
+    },
     ttl: async () => ttl,
     expire: async (_key: string, seconds: number) => expiries.push(seconds),
   }
@@ -525,6 +679,126 @@ test('after a restart the backstop starts a waiting queue, at most once per inte
   }
 })
 
+test('with Redis, the backstop finds a waiting queue without scanning the keyspace', async () => {
+  const lists = new Map<string, string[]>()
+  const sets = new Map<string, Set<string>>()
+  const commands: string[] = []
+  const members = (key: string) => sets.get(key) ?? sets.set(key, new Set()).get(key)!
+  const store: Record<string, (...args: never[]) => Promise<unknown>> = {
+    // The enqueue script: KEYS = queue, index; ARGV = message, wake-up key, index entry.
+    eval: async (
+      script: string,
+      _keys: number,
+      key: string,
+      index: string,
+      raw: string,
+      _wakeUp: string,
+      member: string,
+    ) => {
+      // The backstop drops the entry of a queue that is gone: ARGV = index entry.
+      if (script.startsWith("if redis.call('EXISTS'"))
+        return lists.has(key) ? 0 : Number(members(index).delete(raw))
+      members(index).add(member)
+      lists.set(key, [...(lists.get(key) ?? []), raw])
+
+      return 1
+    },
+    lrange: async (key: string) => lists.get(key) ?? [],
+    // Synchronous, like ioredis: commands queue on it until exec().
+    pipeline: (() => {
+      const reads: string[] = []
+      const write: { lrange: (key: string) => unknown; exec: () => Promise<unknown[]> } = {
+        lrange: (key: string) => {
+          reads.push(key)
+
+          return write
+        },
+        exec: async () => reads.map((key) => [null, lists.get(key) ?? []]),
+      }
+
+      return write
+    }) as never,
+    exists: async (key: string) => (lists.has(key) ? 1 : 0),
+    del: async (key: string) => Number(lists.delete(key)),
+    sadd: async (key: string, ...values: string[]) => values.map((v) => members(key).add(v)),
+    srem: async (key: string, ...values: string[]) => values.map((v) => members(key).delete(v)),
+    sscan: async (key: string) => ['0', [...members(key)]],
+    scan: async () => ['0', [...lists.keys()]],
+  }
+  const started: string[] = []
+  const enabled = config.redis.enabled
+
+  fakeRedis = new Proxy(store, {
+    get: (target, name: string) => {
+      commands.push(name)
+
+      return target[name]
+    },
+  })
+  config.redis.enabled = true
+  installQueuedTurnStarter(async (_userId, sessionId) => {
+    started.push(sessionId)
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, 'indexed-session', human('left waiting'))
+    await sweepQueuedSessions('0')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(started.filter((id) => id === 'indexed-session')).toEqual(['indexed-session'])
+    expect(commands).not.toContain('scan')
+    // An emptied queue leaves the index.
+    await clearPendingUserMessages(OWNER, 'indexed-session')
+    await sweepQueuedSessions('0')
+    expect([...sets.values()].flatMap((set) => [...set])).toEqual([])
+  } finally {
+    installQueuedTurnStarter(startQueuedTurn)
+    fakeRedis = null
+    config.redis.enabled = enabled
+  }
+})
+
+// Lua and MULTI need a real Redis; CI sets TEST_REDIS_URL.
+const realRedis = process.env.TEST_REDIS_URL ? new Redis(process.env.TEST_REDIS_URL) : null
+
+test.skipIf(!realRedis)(
+  'a queue and its index entry are stored in one write, so nothing between them can hide the queue',
+  async () => {
+    const client = realRedis!
+    const sessions = ['atomic-enqueue', 'atomic-requeue']
+    const started: string[] = []
+    const enabled = config.redis.enabled
+
+    // A separate index write fails, as if the replica died right after the queue write.
+    fakeRedis = new Proxy(client, {
+      get: (target, name) => {
+        if (name === 'sadd') throw new Error('replica died after the queue write')
+        const value: unknown = Reflect.get(target, name)
+
+        return typeof value === 'function' ? value.bind(target) : value
+      },
+    })
+    config.redis.enabled = true
+    installQueuedTurnStarter(async (_userId, sessionId) => {
+      started.push(sessionId)
+    })
+    try {
+      await enqueuePendingUserMessage(OWNER, 'atomic-enqueue', human('left waiting'))
+      await requeuePendingAtHead(OWNER, 'atomic-requeue', [human('put back')])
+      await sweepQueuedSessions('0')
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(sessions.filter((id) => !started.includes(id))).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+      fakeRedis = null
+      config.redis.enabled = enabled
+      for (const sessionId of sessions) {
+        await client.del(`atlas:agentrun-pending:${OWNER}:${sessionId}`)
+        await client.srem(QUEUED_SESSIONS_KEY, `${OWNER}:${sessionId}`)
+      }
+      client.disconnect()
+    }
+  },
+)
+
 const REFUSED = 'refused-session'
 const delivery = (messageId: string) =>
   startConversationTurn(
@@ -614,6 +888,74 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
     await clearPendingUserMessages(OWNER, REFUSED)
   }
 })
+
+test('a queued turn refused again and again waits minutes, on every replica, before rereading its history', async () => {
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      throw refusal('Running tools…')
+    },
+  })
+  try {
+    // Two quick refusals already; this try is the third.
+    await enqueuePendingUserMessage(OWNER, REFUSED, { ...agent('stuck'), attempts: 2 })
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const [head] = await listPendingUserMessages(OWNER, REFUSED)
+
+    expect(head?.attempts).toBe(3)
+    expect(Date.parse(head?.retryAfter ?? '') - Date.now()).toBeGreaterThan(4 * 60_000)
+
+    // Another replica's backstop or a release starts the queue: no turn runs.
+    await startQueuedTurn(OWNER, REFUSED)
+    expect(runs).toHaveLength(1)
+    expect(await refusedWaiting()).toHaveLength(1)
+  } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
+test('a release starts a queue waiting out refusals at once, since the runtime is free', async () => {
+  const session = 'released-session'
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, session)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (runs.length === 1) throw refusal('Running tools…')
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    await enqueuePendingUserMessage(OWNER, session, { ...agent('stuck'), attempts: 2 })
+    await startQueuedTurn(OWNER, session)
+    // The refusal's own releases and the backstop all wait it out.
+    sessionReleased(OWNER, session)
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 5_100))
+    expect(runs).toHaveLength(1)
+    expect((await listPendingUserMessages(OWNER, session))[0]?.retryAfter).toBeDefined()
+
+    // The session's next run ends: its release starts the head straight away.
+    sessionReleased(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(runs).toHaveLength(2)
+    expect(await listPendingUserMessages(OWNER, session)).toEqual([])
+  } finally {
+    await clearPendingUserMessages(OWNER, session)
+  }
+}, 10_000)
 
 test('a send held for a sign-in waits while the ask is open, and runs as its sender once settled', async () => {
   signInRequest = {

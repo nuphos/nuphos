@@ -1,13 +1,16 @@
 import clsx from 'clsx'
 import { Plus } from 'lucide-react'
+import { useRef } from 'react'
 
 import { t } from '../../i18n'
 
+import { BOTS_SECTION, foldKey, unpinnedChatItems } from './chat-sections'
+import { AddProjectButton } from './project-actions'
 import { SidebarSectionList } from './sections-list'
-import { SidebarArchiveSection } from './SidebarArchiveSection'
 import { SidebarBotPins } from './SidebarBotPins'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { taskPageSections } from './task-page-sections'
+import { useTaskReflow } from './useTaskReflow'
 
 import type { Item, Section } from './types'
 import type { ComponentProps, UIEventHandler } from 'react'
@@ -23,6 +26,9 @@ export function SidebarPageList({
   listProps: Omit<ComponentProps<typeof SidebarSectionList>, 'sections'>
   onScroll: UIEventHandler<HTMLElement>
 }) {
+  const taskList = useRef<HTMLElement | null>(null)
+
+  useTaskReflow(taskList)
   const source = sections.filter((section) =>
     page === 0 ? section.title === 'Channels' : section.title === 'Tasks',
   )
@@ -30,23 +36,34 @@ export function SidebarPageList({
     page === 1
       ? taskPageSections(source.flatMap((section) => section.items))
       : sections.filter((section) => section.title === 'Channels' || section.title === 'Favorites')
-  const pinned = (item: Item) => Boolean(listProps.favoriteMatch(item))
+  // Only a Bot or chat pins; an older Task pin stays stored but is no Bot.
+  const pinned = (item: Item) =>
+    Boolean((item.bot || item.channel) && listProps.favoriteMatch(item))
   const visible = shown
     .filter((section) => section.title !== 'Tasks' || section.items.length > 0 || section.loading)
     .map((section) => ({
       ...section,
       ...(section.title === 'Tasks' || section.title === 'Channels' ? { title: undefined } : {}),
-      ...(section.title === 'Channels' && { items: section.items.filter((item) => !pinned(item)) }),
+      ...(section.title === 'Channels' && {
+        items: unpinnedChatItems(section.items, pinned),
+      }),
     }))
   const empty =
     source.every((section) => !section.loading) &&
     shown.every((section) => section.items.length === 0)
+  // Bots drops its title to hide its heading, so its row folds take back the Bots scope.
+  const scoped = (fold: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+    page === 0 && fold.title?.startsWith('agent-session:')
+      ? { ...fold, title: foldKey({ title: BOTS_SECTION }, fold.title) }
+      : fold
   const props = {
     ...listProps,
     isGroupCollapsed: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
       section.title === 'Tasks' || section.title === 'Channels'
         ? false
-        : listProps.isGroupCollapsed(section),
+        : listProps.isGroupCollapsed(scoped(section)),
+    toggleGroup: (section: Pick<Section, 'title' | 'defaultCollapsed'>) =>
+      listProps.toggleGroup(scoped(section)),
   }
   const list = <SidebarSectionList {...props} sections={visible} />
 
@@ -63,17 +80,21 @@ export function SidebarPageList({
         {page === 0 ? (
           source[0]?.action
         ) : (
-          <button
-            title={t('New task')}
-            aria-label={t('New task')}
-            onClick={() => listProps.onSelect('team.agent')}
-            className="flex size-7 items-center justify-center rounded-lg text-tertiary hover:bg-state-hover hover:text-main"
-          >
-            <Plus className="size-4" strokeWidth={1.8} />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <AddProjectButton teamId={listProps.scope.teamId} />
+            <button
+              title={t('New task')}
+              aria-label={t('New task')}
+              onClick={() => listProps.onSelect('team.agent')}
+              className="flex size-7 items-center justify-center rounded-lg text-tertiary hover:bg-state-hover hover:text-main"
+            >
+              <Plus className="size-4" strokeWidth={1.8} />
+            </button>
+          </div>
         )}
       </div>
       <nav
+        ref={taskList}
         onScroll={onScroll}
         className={clsx(
           'px-2.5 pb-2',
@@ -88,6 +109,7 @@ export function SidebarPageList({
             onPlace={listProps.botPins?.place}
             pinned={pinned}
             toggle={listProps.toggleFavorite}
+            onItemMenu={listProps.onItemMenu}
             onSelect={listProps.onSelect}
             teamId={listProps.scope.teamId}
           >
@@ -107,11 +129,6 @@ export function SidebarPageList({
           </div>
         )}
       </nav>
-      {page === 1 && (
-        <div className="shrink-0 px-2.5 pb-1">
-          <SidebarArchiveSection listProps={listProps} />
-        </div>
-      )}
     </div>
   )
 }

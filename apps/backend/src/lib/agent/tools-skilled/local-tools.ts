@@ -11,7 +11,7 @@ import { isActiveTeamMember } from '../devices/store'
 import { clientToolWithLabel, withLabel } from './labeling'
 import { createLocalExecAudit } from './local-tools-audit'
 
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 export type LocalExecDevice = {
   /** Persistent transport owner, distinct from the acting viewer of a Box. */
@@ -98,19 +98,6 @@ export function createLocalTools(localToolsEnabled: boolean): Record<string, unk
     },
   )
 
-  localTools.upload_attachment = clientToolWithLabel(
-    'Transfer a file the user attached to the conversation into the Nuphos file-transfer store so you can pull it into the sandbox. ' +
-      'Attached images are shown to you as vision (you can see them), but their bytes are NOT in the sandbox. ' +
-      'When the user wants the actual file moved or saved — e.g. `kubectl cp` an attached image into a pod, or write it to disk — call this with the `attachmentId` from the "[Attached image …]" note in the message to get a transfer groupId, then pull it: ' +
-      'bash skills/file-transfer/scripts/transfer-pull.sh "$TEAM" <groupId> ./uploads. ' +
-      'Returns { ok: true, groupId, fileName }. No re-approval prompt — the user already attached the file, so transferring it is implied consent.',
-    {
-      attachmentId: z
-        .string()
-        .describe('The attachmentId from the "[Attached image …]" note in the user message'),
-    },
-  )
-
   localTools.port_forward_list = clientToolWithLabel(
     "List active port-forwards on the user's machine. Returns every forward the desktop is currently running, " +
       'whether opened by you (via port_forward_start) or by the user from the UI. ' +
@@ -136,7 +123,7 @@ export function describeDevices(devices: LocalExecDevice[]): string {
 }
 
 /** Wakes a paused Box for a command: null once it is up, else why not. A plan refusal (402) says why. */
-async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | undefined) {
+export async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | undefined) {
   if (!wake) return null
   const woke = await wake().catch((error: unknown) =>
     error instanceof AppError && error.status === 402 ? error.message : false,
@@ -149,6 +136,14 @@ async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean>) | un
     reason: 'device_unavailable' as const,
     error: `Device ${deviceId} is a Box that could not be resumed; try again shortly.`,
   }
+}
+
+/** A Box's `nuphos agent` has no terminal, so it is never offered one; say so when it is named. */
+function noTerminal(device: string | undefined, devices: LocalExecDevice[]): string {
+  const others = devices.length ? ` Terminals can open on: ${describeDevices(devices)}.` : ''
+  const subject = device ? `Device ${device} cannot` : 'No selected device can'
+
+  return `${subject} open a terminal: a Box's \`nuphos agent\` does not support terminals, and an offline computer cannot open one. Use local_exec on a Box instead.${others}`
 }
 
 /**
@@ -183,6 +178,12 @@ export function createLocalExecTool(
       }): Promise<LocalExecToolResult> => {
         const requestedAt = new Date()
 
+        if (
+          purpose === 'terminal' &&
+          (device || devices.length === 0) &&
+          !pickDevice(devices, device)
+        )
+          return { error: noTerminal(device, devices) }
         if (devices.length === 0) {
           return {
             error:
@@ -262,22 +263,28 @@ export function createLocalExecTool(
 
           return outcome.result
         }
-        if (outcome.status === 'device_disconnected') {
-          await audit(deviceId, command, requestedAt, {
-            outcome: 'device_offline',
-            dispatchedAt,
-            operationId,
-          })
+        const { error, ...failure } = {
+          device_disconnected: {
+            outcome: 'device_offline' as const,
+            error: 'Device disconnected while the command was running.',
+          },
+          unsupported: {
+            outcome: 'rejected' as const,
+            reason: 'unsupported',
+            error:
+              purpose === 'terminal'
+                ? `Device ${deviceId} does not support terminals; use local_exec there instead.`
+                : `Device ${deviceId} does not support local commands.`,
+          },
+          timeout: {
+            outcome: 'timeout' as const,
+            error: 'Timed out waiting for the device to run the command.',
+          },
+        }[outcome.status]
 
-          return { error: 'Device disconnected while the command was running.' }
-        }
-        await audit(deviceId, command, requestedAt, {
-          outcome: 'timeout',
-          dispatchedAt,
-          operationId,
-        })
+        await audit(deviceId, command, requestedAt, { ...failure, dispatchedAt, operationId })
 
-        return { error: 'Timed out waiting for the device to run the command.' }
+        return { error }
       },
     },
     {

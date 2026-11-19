@@ -1,4 +1,5 @@
 import { CONNECTOR_INFO_PROVIDERS } from '../lib/appRoutes.ts'
+import { isTeamIntegrationsActive } from '../lib/connectorScopeCrumb.ts'
 import { parseDesktopFilter } from '../lib/desktopScreens.ts'
 import { isTeamId } from '../lib/teamId.ts'
 import { renamedTeamNavKey } from '../lib/teamOverviewNav.ts'
@@ -147,6 +148,24 @@ function withKnownConnectorDetail(snapshot: NavigationSnapshot): NavigationSnaps
   return { ...snapshot, connectorDetail: null }
 }
 
+// Connectors is a dialog over the page now, not a page of its own; a tab saved
+// on it (or on its legacy `team.accounts` key) reopens on the agent home.
+function withoutConnectorsPage(snapshot: NavigationSnapshot): NavigationSnapshot {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- untrusted storage
+  if (snapshot.scope?.kind !== 'team' || !isTeamIntegrationsActive(snapshot.active)) {
+    return snapshot
+  }
+
+  return {
+    ...snapshot,
+    active: 'team.agent',
+    agentSessionId: null,
+    filter: '',
+    connectorDetail: null,
+    addIntegrationOpen: false,
+  }
+}
+
 type LegacyNavigationSnapshot = NavigationSnapshot & {
   costDashboard?: NuphosDashboardRef | null
   linearIssue?: { bindingId: string; identifier: string; title?: string } | null
@@ -158,7 +177,10 @@ export function withRenamedPage(snapshot: LegacyNavigationSnapshot): NavigationS
   const { costDashboard, linearIssue, ...rest } = snapshot
   const renamed = renamedTeamNavKey(snapshot.active)
   // A tab saved on a page that now lives in Settings has nothing to show; it reopens as Inbox.
-  const active = settingsSectionForPage(renamed) ? 'team.inbox' : renamed
+  const active =
+    settingsSectionForPage(renamed) || renamed === 'team.triggers' || renamed === 'team.schedule'
+      ? 'team.inbox'
+      : renamed
 
   if (active === snapshot.active && costDashboard === undefined && linearIssue === undefined) {
     return snapshot
@@ -190,6 +212,7 @@ export function restorePersistedTab(persisted: PersistedWorkspaceTab): Workspace
   const entries = (Array.isArray(persisted.navHistory) ? persisted.navHistory : [])
     .map(withRenamedPage)
     .map(withKnownConnectorDetail)
+    .map(withoutConnectorsPage)
   const navHistory = entries.filter(hasDesktopTarget)
   const current = Math.min(Math.max(0, persisted.navHistoryIndex ?? 0), entries.length - 1)
 

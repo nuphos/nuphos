@@ -20,6 +20,7 @@ import { boxToolModule } from './boxes'
 import { connectorToolModule } from './connectors'
 import { decisionToolModule } from './decisions'
 import { channelToolModule } from './channels'
+import { meetingToolModule } from './meetings'
 import { kubeconfigToolModule } from './kubeconfig'
 import { localBrowserToolModule } from './local-browser'
 import { localCuaToolModule } from './local-cua'
@@ -172,6 +173,7 @@ const EXTRA_MODULES: ModuleFactory[] = [
   () => Promise.resolve(sessionResourceToolModule()),
   () => Promise.resolve(threadToolModule()),
   () => Promise.resolve(channelToolModule()),
+  () => Promise.resolve(meetingToolModule()),
   (ctx) => Promise.resolve(connectorToolModule(ctx)),
   (ctx) => Promise.resolve(boxToolModule(ctx)),
   () => Promise.resolve(decisionToolModule()),

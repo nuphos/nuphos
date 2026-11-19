@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useRef } from 'react'
 
-import { api } from '../../../api'
+import { api } from '../../../api.ts'
 import { t } from '../../../i18n/index.ts'
-import { toast } from '../../ui/toast'
+import { toast } from '../../ui/toast.ts'
 
-import { finalizeIncompleteTools } from './clientTools'
-import { EMPTY_CREDENTIAL_ACCESS } from './constants'
+import { finalizeIncompleteTools } from './clientTools.ts'
+import { EMPTY_CREDENTIAL_ACCESS } from './constants.ts'
 import {
   normalizeCredentialAccess,
   credentialOptionsCount,
   defaultCredentialAccess,
   credentialSelectionSignature,
-} from './credentialAccess'
-import { runLoadEarlierMessages } from './loadEarlierMessages'
-import { runOpenConversation } from './openConversation'
-import { fromPersistedMessages } from './persistence'
-import { INTERRUPTED_TOOL_MESSAGE, uid } from './stall'
+} from './credentialAccess.ts'
+import { forkImport } from './dispatchTurn.ts'
+import { afterForkStored } from './forkStored.ts'
+import { runLoadEarlierMessages } from './loadEarlierMessages.ts'
+import { runOpenConversation } from './openConversation.ts'
+import { fromPersistedMessages } from './persistence.ts'
+import { INTERRUPTED_TOOL_MESSAGE, uid } from './stall.ts'
+import { announceTimelineChange } from './timelineEvents.ts'
+import { toPersistedMessages } from './toUiMessages.ts'
 
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
@@ -64,9 +68,7 @@ export function useConversationOpen(acc: Acc) {
     uploadingTabsRef,
   } = acc
 
-  // Monotonic open token: every conversation open/fork invalidates any slower
-  // in-flight one, so a stale response can never clobber the newer tab (e.g.
-  // a plan-continue fork landing a writable tab over a read-only audit view).
+  // A newer open or fork invalidates slower responses.
   const openGenerationRef = useRef(0)
 
   /** Release the in-flight marker, unless a newer open already claimed it. */
@@ -74,10 +76,7 @@ export function useConversationOpen(acc: Acc) {
     if (pendingOpenRef.current === sessionId) pendingOpenRef.current = null
   }, [])
 
-  // Audit read-only transitions for a tab that already exists.
-  // Forcing marks the tab so an interactive reopen can restore writability;
-  // backend-imposed read-only (foreign/Slack) is never marked and never
-  // restored.
+  // Only an audit-forced read-only state may be restored to writable.
   const setTabAuditReadOnly = useCallback((sessionId: string, next: boolean) => {
     const target = tabsRef.current.find((t) => t.sessionId === sessionId)
 
@@ -151,31 +150,36 @@ export function useConversationOpen(acc: Acc) {
 
   // An edited message waits here until its fork is committed: dispatchTurn
   // reads the tab back from tabsRef, which only updates after the render.
-  const editResendRef = useRef<{ tabId: string; text: string } | null>(null)
+  const editResendRef = useRef<{ tabId: string; text: string; sourceSessionId: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     const pending = editResendRef.current
+    const fork = pending && tabs.find((tab) => tab.id === pending.tabId)
 
-    if (!pending || !tabs.some((tab) => tab.id === pending.tabId)) return
+    if (!pending || !fork) return
     editResendRef.current = null
+    // Once the server has the fork, the original links to it: the edit ran there.
     void dispatchTurn(pending.tabId, pending.text, [])
-  }, [tabs, dispatchTurn])
+      .then(() =>
+        afterForkStored(forkImport(pending.tabId), () =>
+          api.agentRecordEditFork(pending.sourceSessionId, fork.sessionId, teamId),
+        ),
+      )
+      .catch((err: unknown) => {
+        console.warn('[edit] could not link the original agent to its fork', err)
+      })
+  }, [tabs, dispatchTurn, teamId])
 
-  // Fork a (possibly someone else's) conversation into a NEW session the current
-  // user owns: copy the transcript for full context, but mint a fresh sessionId
-  // and mark it writable. The original is never touched; the new turn (e.g. the
-  // plan's Approve) persists under the current user. Used to continue a plan
-  // from the Plans page and by the titlebar's Fork chat — works for any team
-  // member, since team conversations are team-readable but only the owner can
-  // write to the original. With `edit`, the fork stops before that message and
-  // then sends the edited text in its place.
+  // Store a new owned copy before opening it. Edits copy only the earlier
+  // history, then send the replacement; ordinary forks link back from the source.
   const forkConversation = useCallback(
     async (sourceSessionId: string, edit?: { messageId: string; text: string }) => {
       const generation = ++openGenerationRef.current
 
-      // A newer fork replaces any edit still waiting on an earlier one.
       editResendRef.current = null
-      setOpeningConversation({ sessionId: sourceSessionId, title: t('Forking agent…') })
+      setOpeningConversation({ sessionId: sourceSessionId, title: t('Forking…') })
       try {
         const detail = await api.agentGetConversation(sourceSessionId, teamId)
 
@@ -192,14 +196,13 @@ export function useConversationOpen(acc: Acc) {
 
         if (edit && cut < 0) {
           setOpeningConversation(null)
-          toast.error(t('Could not edit message'), t('That message is no longer in this agent.'))
+          toast.error(t('Could not edit message'), t('That message is no longer in this task.'))
 
           return
         }
         const messages = edit ? transcript.slice(0, cut) : transcript
         const tab: Tab = {
           id: uid(),
-          // New session — the fork belongs entirely to the current user.
           sessionId: uid(),
           title: detail.title,
           messages,
@@ -210,19 +213,14 @@ export function useConversationOpen(acc: Acc) {
           streamStartedAt: null,
           error: null,
           autoResumeAttempts: 0,
-          // Don't copy the source's credential selection — those ids may belong to
-          // the original owner and 403 on this user's agentStart. Default to the
-          // current user's own available credentials.
+          // Source credentials may belong to someone else; use the caller's defaults.
           credentialAccess: normalizeCredentialAccess(
             credentialOptionsCount(credentialOptions) > 0
               ? defaultCredentialAccess(credentialOptions)
               : EMPTY_CREDENTIAL_ACCESS,
           ),
-          // A fork is the caller's own writable session, regardless of who created
-          // the source conversation.
           readOnly: false,
-          // It runs where its own source ran; a teammate's runtime may not be
-          // the caller's to use, so that fork takes the default instead.
+          // Keep the source runtime only when it belongs to the caller.
           ...(detail.isOwner === false
             ? {}
             : {
@@ -231,15 +229,34 @@ export function useConversationOpen(acc: Acc) {
                 runtimeLabel: detail.runtimeLabel,
               }),
           slackThread: null,
-          unsaved: true,
+          unsaved: false,
         }
+
+        await api.agentSyncConversationTranscript({
+          sessionId: tab.sessionId,
+          agentRuntime: tab.agentRuntime,
+          runtimeId: tab.runtimeId,
+          teamId,
+          title: tab.title,
+          messages: toPersistedMessages(messages),
+          import: true,
+        })
+        if (!edit) {
+          try {
+            await api.agentRecordFork(sourceSessionId, tab.sessionId, teamId)
+            announceTimelineChange(sourceSessionId)
+          } catch (err) {
+            toast.apiError(t('Could not link the fork to its source'), err)
+          }
+        }
+        if (openGenerationRef.current !== generation) return
 
         credentialAccessRef.current.set(tab.sessionId, tab.credentialAccess)
         lastCredentialSyncedRef.current.set(
           tab.sessionId,
           credentialSelectionSignature(tab.credentialAccess),
         )
-        if (edit) editResendRef.current = { tabId: tab.id, text: edit.text }
+        if (edit) editResendRef.current = { tabId: tab.id, text: edit.text, sourceSessionId }
         setTabs([tab])
         setActiveId(tab.id)
         setOpeningConversation(null)
@@ -250,20 +267,17 @@ export function useConversationOpen(acc: Acc) {
           return
         }
         setOpeningConversation(null)
-        toast.apiError(t('Could not fork agent'), err)
+        toast.apiError(t('Could not fork'), err)
       }
     },
     [credentialOptions, teamId],
   )
 
-  // One-shot: fork the requested conversation when the parent asks. The ref
-  // guards Strict Mode's double-invoke and any re-render before the parent
-  // clears the prop, so we never mint two forks for the same request.
+  // Consume each parent request once, including under Strict Mode.
   const consumedForkRef = useRef<string | null>(null)
 
   useEffect(() => {
-    // Reset once the parent clears the prop, so forking the SAME source again
-    // (a different plan, a retry, or a re-click) isn't permanently suppressed.
+    // Clearing the request allows the same source to be forked again.
     if (!pendingForkSessionId) {
       consumedForkRef.current = null
 

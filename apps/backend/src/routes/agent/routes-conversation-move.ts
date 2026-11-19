@@ -79,7 +79,12 @@ agent.post('/conversations/:sessionId/runtime', async (c) => {
     )
   const moved = await moveConversationRuntime(conversation, body.runtimeId, userId)
 
-  if (gap?.computer && !(await addTeamUse(gap.computer, conversation.teamId ?? '', gap.needing)))
+  const by = { actorUserId: userId, via: 'conversation_move' as const }
+
+  if (
+    gap?.computer &&
+    !(await addTeamUse(gap.computer, conversation.teamId ?? '', gap.needing, by))
+  )
     throw new AppError(404, 'device_not_found', 'Device is not available')
 
   return c.json(moved)

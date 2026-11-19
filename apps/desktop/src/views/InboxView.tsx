@@ -1,38 +1,23 @@
-import clsx from 'clsx'
 import { Inbox } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 
-import { AgentPanel } from '../components/agent/AgentPanel'
-import { conversationQuestions } from '../components/agent/panel/replyTarget'
-import { chatOfBot } from '../components/channels/botChannel'
 import { EmptyState } from '../components/EmptyState'
-import { agentSessionsCacheKey } from '../components/sidebar/state'
-import { useElementSize } from '../grafana/useElementSize'
+import { toast } from '../components/ui/toast'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { useSwrCache } from '../lib/swrCache'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
-import { inboxQuestions, openQuestion } from './inbox/inboxItems'
-import { QuestionRail } from './inbox/QuestionRail'
-import { ShareApprovalRequests } from './inbox/ShareApprovalRequests'
+import { openQuestion } from './inbox/inboxItems'
+import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
+import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
-import {
-  answerInChat,
-  answerQuestion,
-  useAnsweredOnDevice,
-  useInboxListing,
-} from './inbox/useInbox'
-import { useShareApprovals } from './inbox/useShareApprovals'
+import { snoozeQuestion } from './inbox/dismissQuestion'
+import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
+import { useInboxQuestions } from './inbox/useInboxQuestions'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { AgentConversation } from '../api/agent-types'
-import type { JournalChatTarget } from '../lib/journalEvent'
-
-// Below this the page shows the list alone, and a row opens its conversation.
-const TWO_PANE_MIN_WIDTH = 720
-const RAIL_WIDTH = 340
+import type { HeldReply } from './inbox/useInbox'
 
 type Props = {
   teamId: string
@@ -41,15 +26,16 @@ type Props = {
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
   onOpenConversation: (sessionId: string) => void
+  /** Opens a link in a question's text, as the conversation does. */
+  onOpenLink: (href: string, beside: boolean) => boolean
 }
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above every open question waiting on the viewer, one row each, the same rows
- * the sidebar badge counts. The reader shows the selected question as a card:
- * a choice, or a short reply typed on the card, answers it. Its conversation,
- * with the full composer, stays hidden until asked for; only delivery or
- * dismissal clears a question.
+ * above one open question at a time, the one the sidebar's Inbox list opens.
+ * Answering it opens the next, and wakes the agent that asked once its Undo
+ * window passes, or at once when the viewer leaves; a dismissal waits out the same window.
+ * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -58,35 +44,13 @@ export function InboxView({
   onCount,
   onLoading,
   onOpenConversation,
+  onOpenLink,
 }: Props) {
   const { isActive } = useWorkspaceTab()
-  const { ref, width } = useElementSize<HTMLDivElement>()
-  const twoPane = width === 0 || width >= TWO_PANE_MIN_WIDTH
-  const listing = useInboxListing(teamId, refreshKey).data ?? null
-  // The sidebar's conversations: where a Bot's chat is.
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId))
-  const [selected, setSelected] = useState<{ id: string; index: number } | null>(null)
-  // The reader shows the question; the transcript only when asked for, at the question.
-  const [showConversation, setShowConversation] = useState(false)
-  // "Other…" opens the conversation to type the answer in its composer.
-  const [typeAnswer, setTypeAnswer] = useState(false)
-  const [locate, setLocate] = useState<{ sessionId: string; target: JournalChatTarget } | null>(
-    null,
-  )
-  // Another team's selection is no answer for this one.
-  const [shownTeamId, setShownTeamId] = useState(teamId)
-
-  if (shownTeamId !== teamId) {
-    setShownTeamId(teamId)
-    setSelected(null)
-  }
-  const shareApprovals = useShareApprovals(teamId)
-  const mentions = useChannelMentions(teamId) ?? []
-  const railRef = useRef<HTMLDivElement>(null)
-  const readerRef = useRef<HTMLDivElement>(null)
-  // A question answered here leaves the Inbox and the badge at once, before the listing does.
-  const answered = useAnsweredOnDevice()
-  const all = listing ? inboxQuestions(listing, answered) : null
+  const all = useInboxQuestions(teamId, refreshKey)
+  const selected = useInboxSelection(teamId)
+  // An invite is only announced, never listed.
+  const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
   const needle = query.trim().toLowerCase()
   const rows = all?.filter(
     ({ conversation, request }) =>
@@ -96,162 +60,124 @@ export function InboxView({
       ),
   )
   const open = rows ? openQuestion(rows, selected) : undefined
+  const openId = open?.request.id
+  const at = open && rows ? rows.indexOf(open) : -1
 
-  useEffect(() => onLoading?.(listing === null), [listing, onLoading])
+  // What opens stays open: a question listed later never takes its place.
+  useEffect(() => {
+    if (openId) selectInboxQuestion(teamId, openId)
+  }, [teamId, openId])
+  useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
-  const select = useCallback((row: InboxQuestion | undefined, list: readonly InboxQuestion[]) => {
-    setShowConversation(false)
-    setLocate(null)
-    setSelected(row ? { id: row.request.id, index: list.indexOf(row) } : null)
-  }, [])
-  const consumeLocate = useCallback(() => setLocate(null), [])
+  const move = useCallback(
+    (row: InboxQuestion | undefined) => {
+      if (row) selectInboxQuestion(teamId, row.request.id)
+    },
+    [teamId],
+  )
 
-  // Enter or → moves from the list into the card's reply field,
-  // or the conversation's composer when it is shown; Esc comes back.
+  // ↑ and ↓ open the question above or below, unless a field has the caret.
   useEffect(() => {
-    if (!isActive || !twoPane) return
+    if (!isActive || !rows) return
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       const target = event.target as HTMLElement | null
-      const typing =
-        Boolean(target?.isContentEditable) ||
-        Boolean(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      const inRail = !target || target === document.body || railRef.current?.contains(target)
 
-      if (event.key === 'Escape' && typing && readerRef.current?.contains(target)) {
-        event.preventDefault()
-        railRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.focus()
-
+      if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? ''))
         return
-      }
-      if ((event.key === 'Enter' || event.key === 'ArrowRight') && !typing && inRail) {
-        // The first match can be a hidden copy; the field is the one that takes focus.
-        const composers = readerRef.current?.querySelectorAll<HTMLElement>('[aria-label="Message"]')
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+      const index = at + (event.key === 'ArrowDown' ? 1 : -1)
+      const next = index >= 0 ? rows.at(index) : undefined
 
-        for (const composer of composers ?? []) {
-          composer.focus()
-          if (document.activeElement === composer) {
-            event.preventDefault()
-
-            return
-          }
-        }
-      }
+      if (!next) return
+      event.preventDefault()
+      move(next)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isActive, twoPane])
+  }, [isActive, rows, at, move])
 
-  const empty = all !== null && all.length === 0
-  const caughtUp = empty && shareApprovals.approvals.length === 0 && mentions.length === 0
-  const sessionId = open?.conversation.sessionId
+  // Leaving the Inbox sends the answer still waiting out its Undo window.
+  useEffect(() => {
+    if (!isActive) return
 
-  const openTranscript = () => {
-    setShowConversation(true)
-    if (open)
-      setLocate({
-        sessionId: open.conversation.sessionId,
-        target: {
-          toolCallId: open.request.id,
-          question: open.request.question,
-          options: open.request.options,
+    return sendHeldAnswer
+  }, [isActive])
+
+  const answer = (row: InboxQuestion, reply: HeldReply) => {
+    // The answered question leaves the list, and the one that takes its place opens.
+    const dismissed = 'dismissed' in reply
+
+    move(rows?.at(at + 1) ?? rows?.at(at - 1))
+    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
+      toast.error(
+        dismissed ? t('Could not dismiss question') : t('Could not send your answer'),
+        reason,
+      ),
+    )
+
+    toast.success(
+      dismissed
+        ? t('Dismissed')
+        : t('Answered “{answer}”', {
+            answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
+          }),
+      undefined,
+      {
+        timeoutMs: ANSWER_UNDO_MS,
+        dedupe: false,
+        action: {
+          label: t('Undo'),
+          // Once sent, the answer stays: the question is not opened again.
+          onClick: () => {
+            if (undo()) selectInboxQuestion(teamId, row.request.id)
+          },
         },
-      })
+      },
+    )
   }
+
+  const caughtUp = all?.length === 0 && mentions.length === 0
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <ShareApprovalRequests teamId={teamId} {...shareApprovals} />
-      <ChannelMentions mentions={mentions} onOpen={onOpenConversation} />
-      <div ref={ref} className="flex min-h-0 flex-1">
-        {caughtUp && (
-          <EmptyState
-            icon={Inbox}
-            title={t("You're all caught up")}
-            description={t(
-              'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
-            )}
-          />
-        )}
-        {rows && !empty && (
-          <div
-            ref={railRef}
-            className={clsx(
-              'flex h-full min-h-0 flex-col',
-              twoPane ? 'flex-shrink-0' : 'min-w-0 flex-1',
-            )}
-            style={twoPane ? { width: RAIL_WIDTH } : undefined}
-          >
-            <QuestionRail
-              rows={rows}
-              openId={twoPane ? open?.request.id : undefined}
-              keyboardNavigation={isActive && twoPane}
-              onSelect={(row) =>
-                twoPane ? select(row, rows) : onOpenConversation(row.conversation.sessionId)
-              }
-            />
-          </div>
-        )}
-        {twoPane && open && sessionId && (
-          <div ref={readerRef} className="flex min-w-0 flex-1 flex-col">
-            <DecisionCard
-              key={open.request.id}
-              teamId={teamId}
-              sessionId={sessionId}
-              title={open.conversation.title}
-              request={open.request}
-              canManage={Boolean(open.conversation.canManage) && !open.conversation.readOnly}
-              showingConversation={showConversation}
-              onAnswer={(text) => {
-                // A Bot's own question is answered in its chat, where the answer shows.
-                const chat = chatOfBot(known, sessionId)
-
-                void (chat
-                  ? answerInChat(teamId, chat, open.request.id, text)
-                  : answerQuestion(teamId, sessionId, open.request.id, text))
-              }}
-              onShowConversation={() => {
-                setTypeAnswer(false)
-                openTranscript()
-              }}
-              onReply={() => {
-                setTypeAnswer(true)
-                if (!showConversation) openTranscript()
-                else
-                  readerRef.current?.querySelector<HTMLElement>('[contenteditable="true"]')?.focus()
-              }}
-              onHideConversation={() => setShowConversation(false)}
-              onOpenConversation={() => onOpenConversation(sessionId)}
-            />
-            {/* The conversation, with its full composer, once asked for. */}
-            {showConversation && (
-              <div className="flex min-h-0 flex-1 flex-col">
-                <AgentPanel
-                  key="inbox"
-                  variant="page"
-                  open
-                  focusComposerOnOpen={typeAnswer}
-                  teamId={teamId}
-                  sessionId={sessionId}
-                  decisionReplyTo={open.request.id}
-                  openQuestions={conversationQuestions(open.conversation)}
-                  pendingLocate={locate}
-                  onLocateConsumed={consumeLocate}
-                  onSessionChange={(id) =>
-                    select(
-                      rows?.find((row) => row.conversation.sessionId === id),
-                      rows ?? [],
-                    )
-                  }
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <ChannelMentions
+        mentions={mentions}
+        onOpen={(sessionId) =>
+          openListed(teamId, { sessionId, kind: 'channel' }, onOpenConversation)
+        }
+      />
+      {caughtUp && (
+        <EmptyState
+          icon={Inbox}
+          title={t("You're all caught up")}
+          description={t(
+            'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
+          )}
+        />
+      )}
+      {open && (
+        <DecisionCard
+          key={open.request.id}
+          teamId={teamId}
+          conversation={open.conversation}
+          bot={open.bot}
+          request={open.request}
+          keys={isActive}
+          onAnswer={(reply) => answer(open, reply)}
+          onSnooze={(until) => {
+            // The snoozed question leaves the list, and its neighbour opens, as after an answer.
+            move(rows?.at(at + 1) ?? rows?.at(at - 1))
+            void snoozeQuestion(teamId, open.conversation.sessionId, open.request.id, until)
+          }}
+          onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
+          onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
+          onOpenLink={onOpenLink}
+        />
+      )}
     </div>
   )
 }

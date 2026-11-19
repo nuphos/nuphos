@@ -47,15 +47,6 @@ export const CLOUDFLARE_DETAIL_ACTIVE: Record<CloudflareResourceDetailRef['kind'
   kv: 'cloudflare.kv',
 }
 
-/**
- * An open Triggers form. The trigger/group name rides along so the breadcrumb
- * can name what is being edited without waiting for the page to load it.
- */
-export type TriggerFormRef =
-  | { kind: 'create' }
-  | { kind: 'edit'; triggerId: string; name: string; returnToDetail?: boolean }
-  | { kind: 'group'; groupId: string; name: string }
-
 // Connector basic-info drill-down (providers without a dedicated in-app view).
 // Encoded into the URL as /connectors/<provider>/<id>.
 export type ConnectorDetailRef = {

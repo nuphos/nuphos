@@ -1,3 +1,5 @@
+import { nearestBot } from '../../lib/nearestBot.ts'
+
 import { doneGroup, nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
@@ -6,9 +8,21 @@ import type { ReactNode } from 'react'
 /** The internal title of the Bots group (chats); the sidebar labels it Bots. */
 export const BOTS_SECTION = 'Channels'
 
-/** A Bot's nested task folds independently from its copy in Tasks. */
+/** Bot tree fold keys stay scoped to the Bots section. */
 export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
+}
+
+/** A Bot tree fold, not its done group: folded until opened by hand, then remembered per team. */
+export function isBotTreeFold(title: string): boolean {
+  return title.startsWith('bots:') && !title.endsWith(':done')
+}
+
+/** The stored folds of a Bots row: its tree and its done group. */
+export function botFoldTitles(sessionId: string): string[] {
+  const tree = foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
+
+  return [tree, `${tree}:done`]
 }
 
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
@@ -46,21 +60,59 @@ export function withChatSections(
     agents.items.flatMap((item) => item.channelAgentIds ?? item.botChannelOf ?? []),
   )
   const sessionOf = (item: Item) => item.key.replace('agent-session:', '')
+  const copies = new Set(agents.items.filter((item) => item.botNested).map((item) => item.key))
   const isChat = (item: Item) =>
     item.channel || item.botNested || (item.bot && !chatted.has(sessionOf(item)))
-  const chats = agents.items.filter(isChat).map((item) => ({
-    ...item,
-    description: undefined,
-    // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
-    ...(item.bot && {
-      iconNode: item.face,
-      ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
-    }),
-  }))
+  // Read ancestry from the original rows, before Bot-chat copies reparent them.
+  const originals = new Map(
+    agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
+  )
+  const owners = new Map(
+    [...originals].map(([key, item]) => [
+      key,
+      nearestBot(
+        item.parentKey,
+        (parent) => originals.get(parent),
+        (row) => Boolean(row.bot),
+        (row) => row.parentKey,
+      ),
+    ]),
+  )
+  const chatByBot = new Map<string, string>()
+
+  for (const item of agents.items) {
+    if (!item.channel) continue
+    for (const botId of item.channelAgentIds ?? (item.botChannelOf ? [item.botChannelOf] : []))
+      if (!chatByBot.has(botId)) chatByBot.set(botId, item.key)
+  }
+  const chats = agents.items
+    .filter((item) => isChat(item) || (owners.get(item.key) && !copies.has(item.key)))
+    .map((item) => {
+      const owner = owners.get(item.key)
+
+      return {
+        ...item,
+        description: undefined,
+        ...(owner &&
+          !item.botNested && {
+            botNested: true,
+            task: true,
+            // The Bot's own row is replaced by its chat; descendants keep their parents.
+            ...(item.parentKey === owner.key && {
+              parentKey: chatByBot.get(sessionOf(owner)) ?? item.parentKey,
+            }),
+          }),
+        // Bots shows faces: a Bot not yet in its chat wears its own, as its chat will.
+        ...(item.bot && {
+          iconNode: item.face,
+          ...(openBot && !item.readOnlyChat && { onActivate: () => openBot(sessionOf(item)) }),
+        }),
+      }
+    })
   // A Task is one line: its runtime icon and title, no latest message.
   const tasks = projects(
     agents.items
-      .filter((item) => !item.channel && !item.bot && !item.botNested)
+      .filter((item) => !item.channel && !item.bot && !item.botNested && !owners.get(item.key))
       .map(({ preview: _preview, time: _time, ...item }) => ({ ...item, task: true })),
   )
 
@@ -72,6 +124,24 @@ export function withChatSections(
         ]
       : [section],
   )
+}
+
+/** A pinned Bot owns its whole tree; no descendant becomes an orphaned list root. */
+export function unpinnedChatItems(items: Item[], pinned: (item: Item) => boolean): Item[] {
+  const byKey = new Map(items.map((item) => [item.key, item]))
+
+  return items.filter((item) => {
+    const seen = new Set<string>()
+    let row: Item | undefined = item
+
+    while (row && !seen.has(row.key)) {
+      if (pinned(row)) return false
+      seen.add(row.key)
+      row = row.parentKey ? byKey.get(row.parentKey) : undefined
+    }
+
+    return true
+  })
 }
 
 const CHAT_SECTIONS = new Set<string | undefined>([BOTS_SECTION, 'Agents', 'Tasks'])
@@ -91,4 +161,26 @@ export function withSectionActions(
 
     return action ? { ...section, action } : section
   })
+}
+
+/** Assemble the chat navigation in one place for the full and compact sidebar. */
+export function decorateChatSections(options: {
+  sections: Section[]
+  openBot: (botId: string) => void
+  projects: (tasks: Item[]) => Item[]
+  favorites: Item[]
+  compact: boolean
+  actions: Partial<Record<string, ReactNode>>
+}): Section[] {
+  const sections = withChatSections(options.sections, options.openBot, options.projects)
+
+  if (options.favorites.length)
+    sections.splice(1, 0, { title: 'Favorites', items: options.favorites })
+
+  return withSectionActions(
+    options.compact
+      ? sections.filter((section, index) => index === 0 || isChatSection(section))
+      : sections,
+    options.actions,
+  )
 }

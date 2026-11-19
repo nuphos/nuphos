@@ -8,7 +8,8 @@ import path from 'node:path'
 
 import type { Dirent, Stats } from 'node:fs'
 
-export type LocalSkillSource = 'claude' | 'codex'
+/** `folder`: one the member added to Sync my setup. */
+export type LocalSkillSource = 'claude' | 'codex' | 'folder'
 
 export type LocalSkillInfo = {
   /** `<source>/<name>` — a name can exist under both agents. */
@@ -57,14 +58,8 @@ const MAX_DEPTH = 6
 const MAX_ENTRIES = 5_000
 const SKIP_ENTRIES = new Set(['.git', '.DS_Store', 'node_modules'])
 
-function skillRoots(): { source: LocalSkillSource; dir: string }[] {
-  const home = os.homedir()
-
-  return [
-    { source: 'claude', dir: path.join(home, '.claude', 'skills') },
-    { source: 'codex', dir: path.join(home, '.agents', 'skills') },
-  ]
-}
+/** Where Codex keeps its skills, the folder Sync my setup offers to add. */
+export const codexSkillsDir = () => path.join(os.homedir(), '.agents', 'skills')
 
 /** The `description:` of a SKILL.md, read from its leading frontmatter block. */
 export function skillDescription(markdown: string): string | null {
@@ -245,14 +240,15 @@ async function describeSkill(
   name: string,
 ): Promise<LocalSkillInfo | null> {
   const root = path.join(dir, name)
+
+  // Without a SKILL.md the directory is not a skill (the store keys on it too), nor walked.
+  if (!(await fs.stat(path.join(root, 'SKILL.md')).catch(() => null))?.isFile()) return null
   const entries = await localSkillEntries(root)
   const skillMd = entries.find((entry) => entry.relPath === 'SKILL.md')
 
-  // Without a SKILL.md the directory is not a skill — the store keys on it too.
-  if (!skillMd) return null
-  const markdown = await readSkillFile(skillMd).catch(() => null)
-
   // One the CLI could not read either: not a skill, and sync would fail on it.
+  const markdown = skillMd && (await readSkillFile(skillMd).catch(() => null))
+
   if (!markdown) return null
   const realRoot = await fs.realpath(root).catch(() => root)
   // Only the entry itself: a linked home or skills directory would flag every skill.
@@ -277,24 +273,28 @@ async function describeSkill(
   }
 }
 
-export async function listLocalSkills(): Promise<LocalSkillInfo[]> {
-  const found = await Promise.all(
-    skillRoots().map(async ({ source, dir }) => {
-      const names = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
-      const skills = await Promise.all(
-        names
-          // A linked root is fine: localSkillEntries walks where it resolves to.
-          .filter(
-            (entry) =>
-              (entry.isDirectory() || entry.isSymbolicLink()) &&
-              /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.name),
-          )
-          .map((entry) => describeSkill(source, dir, entry.name)),
+/** The skills directly under `dir`: each a folder with a SKILL.md. */
+export async function listSkillsIn(dir: string, source: LocalSkillSource) {
+  const names = await fs.readdir(dir, { withFileTypes: true }).catch(() => [])
+  const skills = await Promise.all(
+    names
+      // A linked root is fine: localSkillEntries walks where it resolves to.
+      .filter(
+        (entry) =>
+          (entry.isDirectory() || entry.isSymbolicLink()) &&
+          /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(entry.name),
       )
-
-      return skills.filter((skill): skill is LocalSkillInfo => skill !== null)
-    }),
+      .map((entry) => describeSkill(source, dir, entry.name)),
   )
+
+  return skills.filter((skill): skill is LocalSkillInfo => skill !== null)
+}
+
+export async function listLocalSkills(): Promise<LocalSkillInfo[]> {
+  const found = await Promise.all([
+    listSkillsIn(path.join(os.homedir(), '.claude', 'skills'), 'claude'),
+    listSkillsIn(codexSkillsDir(), 'codex'),
+  ])
 
   return found.flat().sort((a, b) => a.name.localeCompare(b.name))
 }

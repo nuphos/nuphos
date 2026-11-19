@@ -7,6 +7,8 @@
 // One setting, "Send crash reports and usage data" (default on, saved on this
 // computer), gates crash reports and both PostHog clients. Usage data stops at
 // once; Crashpad's own upload consent follows at the next launch.
+// Usage data goes to Nuphos's own analytics, so it is only sent while the
+// backend is Nuphos Cloud. Crash reports go to the backend itself.
 // Electron itself adds ver, _version, platform and
 // process_type; we add arch, a hashed device id (rate limiting only) and the
 // heap / uptime numbers that tell a slow leak from a sudden spike.
@@ -18,7 +20,8 @@ import { getHeapStatistics } from 'node:v8'
 import { app, BrowserWindow, crashReporter, ipcMain } from 'electron'
 
 import { captureMainException, setMainAnalyticsEnabled } from './analytics.ts'
-import { apiUrl } from './api-endpoint.ts'
+import { apiUrl, isNuphosCloud } from './api-endpoint.ts'
+import { authSession } from './auth-session.ts'
 import { readDeviceIdentity } from './main/device-identity.ts'
 import { isDev } from './main/env.ts'
 
@@ -26,7 +29,9 @@ const ANNOTATE_EVERY_MS = 60_000
 const mb = (bytes: number) => String(Math.round(bytes / 1024 / 1024))
 const settingFile = () => path.join(app.getPath('userData'), 'diagnostics.json')
 let sendDiagnostics = true
-let crashpadStarted = false
+// The backend Crashpad uploads to. It is read once, at start.
+let crashpadApi: string | undefined
+const sendsUsage = () => sendDiagnostics && isNuphosCloud()
 
 function readSendDiagnostics(): boolean {
   try {
@@ -38,11 +43,20 @@ function readSendDiagnostics(): boolean {
 
 function applySendDiagnostics(send: boolean): void {
   sendDiagnostics = send
-  setMainAnalyticsEnabled(send)
-  // Crashpad reads upload consent only at start (a runtime setUploadToServer
-  // never reaches it), and skips every report while consent is off. After a
-  // mid-session switch off, flag crashes so the backend drops them unstored.
-  if (crashpadStarted) crashReporter.addExtraParameter('upload_off', send ? '0' : '1')
+  setMainAnalyticsEnabled(sendsUsage())
+  // Crashpad reads upload consent and its backend only at start (a runtime
+  // setUploadToServer never reaches it), and skips every report while consent
+  // is off. After a mid-session switch off, or a move to another backend, flag
+  // crashes so the backend that still receives them drops them unstored.
+  if (crashpadApi)
+    crashReporter.addExtraParameter('upload_off', send && apiUrl() === crashpadApi ? '0' : '1')
+}
+
+/** Applies the setting now, and tells the renderers whether usage data is still sent. */
+function changeSendDiagnostics(send: boolean): void {
+  applySendDiagnostics(send)
+  for (const win of BrowserWindow.getAllWindows())
+    win.webContents.send('diagnostics:changed', sendsUsage())
 }
 
 /** Saves the setting and applies it now to crash reports and both PostHog clients. */
@@ -50,9 +64,7 @@ export function setSendDiagnostics(value: unknown): boolean {
   if (typeof value !== 'boolean') throw new Error('Invalid diagnostics setting')
   mkdirSync(app.getPath('userData'), { recursive: true })
   writeFileSync(settingFile(), JSON.stringify({ send: value }), { mode: 0o600 })
-  applySendDiagnostics(value)
-  for (const win of BrowserWindow.getAllWindows())
-    win.webContents.send('diagnostics:changed', value)
+  changeSendDiagnostics(value)
 
   return value
 }
@@ -62,6 +74,12 @@ export function watchCrashes(): void {
   // Synchronous so the renderer knows before its analytics starts.
   ipcMain.on('diagnostics:enabled', (event) => {
     event.returnValue = sendDiagnostics
+  })
+  ipcMain.on('diagnostics:usage', (event) => {
+    event.returnValue = sendsUsage()
+  })
+  authSession.subscribe((next, prev) => {
+    if (next.api !== prev.api) changeSendDiagnostics(sendDiagnostics)
   })
   // uncaughtExceptionMonitor (not uncaughtException) observes the crash WITHOUT
   // suppressing Node's default print-stack-and-exit behavior.
@@ -85,7 +103,7 @@ export function watchCrashes(): void {
       device: createHash('sha256').update(readDeviceIdentity().deviceId).digest('hex').slice(0, 32),
     },
   })
-  crashpadStarted = true
+  crashpadApi = apiUrl()
   const startedAt = Date.now()
   const annotate = () => {
     const heap = getHeapStatistics()

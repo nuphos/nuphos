@@ -7,7 +7,6 @@ import {
   planToPayload,
   planToProgress,
 } from '../../components/agent/plan-tool/planData'
-import { usePlanRetry } from '../../components/agent/plan-tool/usePlanRetry'
 import { PlanTool } from '../../components/agent/PlanTool'
 import { emitPlanUpdated, usePlan } from '../../components/agent/planUpdates'
 import { Button } from '../../components/ui/button'
@@ -24,7 +23,6 @@ type Props = {
 
 export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
   const { plan, loading } = usePlan(planId, teamId)
-  const retryState = usePlanRetry(plan, teamId)
   const payload = useMemo(() => (plan ? planToPayload(plan) : null), [plan])
   const progress = useMemo(() => (plan ? planToProgress(plan) : []), [plan])
 
@@ -97,11 +95,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
             approvalProgress={plan.approvalProgress}
             executionError={plan.executionError}
             canApprove={plan.status === 'proposed' && isPlanReadyForApproval(plan)}
-            canRetry={plan.status === 'failed' && !plan.actions?.length}
             onApprove={approvePlan}
-            onRetry={retryState.retry}
-            retrying={retryState.retrying}
-            retryError={retryState.retryError}
             embedded
             headerAction={openChatAction}
           />

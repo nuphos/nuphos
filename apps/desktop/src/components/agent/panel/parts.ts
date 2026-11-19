@@ -30,9 +30,6 @@ export type ImageAttachmentPart = {
   url: string // data: URL (downscaled in the main process when oversized)
   fileName: string
   path?: string
-  // Opaque handle the agent can pass to the upload_attachment tool to transfer
-  // the actual file into the sandbox on demand.
-  attachmentId?: string
 }
 // Files the user uploaded to the Nuphos transfer store. The bytes
 // live in S3; the agent pulls them into its sandbox via the file-transfer
@@ -207,8 +204,8 @@ export type TurnInterruptedPart = {
   reason: 'cancelled' | 'timeout' | 'error'
   message: string
   createdAt: string
-  /** The agent itself could not run the turn: out of usage, signed out, or offline. */
-  cause?: 'usage_limit' | 'auth' | 'offline'
+  /** The agent itself could not run the turn: out of usage, signed out, offline, or its CLI would not start. */
+  cause?: 'usage_limit' | 'auth' | 'offline' | 'cli'
   /** Identical failed turns in a row this line stands for (display only). */
   repeats?: number
 }

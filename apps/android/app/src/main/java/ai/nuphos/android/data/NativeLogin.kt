@@ -116,7 +116,11 @@ class NativeLogin internal constructor(
         try {
             checkOpen()
             return call.execute().use { response ->
-                if (!response.isSuccessful) throw IOException("Secure sign-in is unavailable. Please try again.")
+                if (!response.isSuccessful) {
+                    val error = runCatching { Http.json.parseToJsonElement(response.body.string()).jsonObject["error"]?.jsonObject }.getOrNull()
+                    mfaChallenge(error)?.let { throw NuphosApi.Failure.MfaRequired(it) }
+                    throw IOException("Secure sign-in is unavailable. Please try again.")
+                }
                 Http.json.parseToJsonElement(response.body.string()).jsonObject
             }
         } finally { activeCall = null }

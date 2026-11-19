@@ -13,10 +13,12 @@ MCP surface for either agent runtime, without patching another upstream bundle.
 
 1. Create a thread with a bounded task, completion condition, and a request to
    report back. The tool creates a visible conversation with the same owner,
-   team, runtime, credential selection, and permission mode (Full Access or Auto
-   Mode), then starts its first turn the same way a message typed into a new chat
-   does. The source can later change it, or any other conversation the owner has
-   in the team, with `update_thread`: switch it
+   team, runtime and credential selection, then starts its first turn the same
+   way a message typed into a new chat does. It always runs in the permission
+   mode (Full Access or Auto Mode) of the conversation at the top of its
+   parents, and that mode cannot be changed on the thread. The source can later
+   change it, or any other conversation the owner has in the team, with
+   `update_thread`: switch a conversation with no parent
    between the two modes (Full Access requires the source itself to be in Full
    Access) or move it, with its history, to another agent picked from
    `list_agent_runtimes`, for example when it hits that agent's usage limit.
@@ -47,6 +49,13 @@ or restores it with `archived=false`. The current conversation is supported.
 The tool verifies source ownership, current membership, and target ownership
 and team. Archiving does not cancel an active turn; any new turn restores the
 conversation: a human message, a thread message, or a bound resource or Trigger event.
+
+`stop_thread` stops the running turn of another conversation the actor owns in
+the current team, through the same path as that conversation's Stop button
+(`POST /agent/conversations/:sessionId/cancel-runtime`), with the same checks as
+`send_message_to_thread`. It first drops the messages agents queued for the
+conversation, so the stop does not start the next one; messages people sent
+stay. History stays.
 
 The Redis trigger scheduler must be running: there is no detached-process
 fallback. Queue acceptance means **queued**, not completed. A stalled job that

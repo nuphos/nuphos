@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 
+import { ChatColumn } from './ChatColumn'
 import { FeedbackCommentDialog } from './conversationBanners'
 import { isOwnMessage } from './conversationFollow'
 import { ConversationMessageList } from './conversationMessageList'
@@ -130,7 +131,7 @@ export function Conversation({
               onClick={onDockToSidebar}
               className="h-7 w-7 rounded-md text-tertiary hover:text-main hover:bg-state-hover flex items-center justify-center transition-colors"
               title={t('Move to sidebar')}
-              aria-label={t('Move agent to sidebar')}
+              aria-label={t('Move to sidebar')}
             >
               <PanelRightOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>
@@ -146,32 +147,33 @@ export function Conversation({
         onTouchMove={handleTouchMove}
         className={clsx(
           'h-full overflow-auto scrollbar-thin pb-4 selectable',
-          sidebar ? 'px-2.5' : 'px-3',
           hasHeaderOverlay ? 'pt-16' : 'pt-4',
         )}
       >
-        <ConversationMessageList
-          tab={tab}
-          teamId={teamId}
-          currentUrl={currentUrl}
-          lastMsg={lastMsg}
-          now={now}
-          statusLabel={displayStatusLabel}
-          sendingFeedback={sendingFeedback}
-          hasEarlier={hasEarlier}
-          captureEarlierAnchor={captureEarlierAnchor}
-          onLoadEarlier={onLoadEarlier}
-          onStop={onStop}
-          onApprovePlan={onApprovePlan}
-          onRejectPlan={onRejectPlan}
-          activePlanCanAct={activePlanCanAct}
-          onOpenNuphosLink={onOpenNuphosLink}
-          onOpenAgentSettings={onOpenAgentSettings}
-          onEditMessage={onEditMessage}
-          isTeamAdmin={isTeamAdmin}
-          onMessageFeedback={onMessageFeedback}
-          onRequestFeedbackComment={setFeedbackCommentFor}
-        />
+        <ChatColumn sidebar={sidebar}>
+          <ConversationMessageList
+            tab={tab}
+            teamId={teamId}
+            currentUrl={currentUrl}
+            lastMsg={lastMsg}
+            now={now}
+            statusLabel={displayStatusLabel}
+            sendingFeedback={sendingFeedback}
+            hasEarlier={hasEarlier}
+            captureEarlierAnchor={captureEarlierAnchor}
+            onLoadEarlier={onLoadEarlier}
+            onStop={onStop}
+            onApprovePlan={onApprovePlan}
+            onRejectPlan={onRejectPlan}
+            activePlanCanAct={activePlanCanAct}
+            onOpenNuphosLink={onOpenNuphosLink}
+            onOpenAgentSettings={onOpenAgentSettings}
+            onEditMessage={onEditMessage}
+            isTeamAdmin={isTeamAdmin}
+            onMessageFeedback={onMessageFeedback}
+            onRequestFeedbackComment={setFeedbackCommentFor}
+          />
+        </ChatColumn>
       </div>
       <TurnRail messages={tab.messages} scrollRef={ref} onBeforeJump={lockScrollToHistory} />
       {jump.show && <JumpToLatestButton unseen={jump.unseen} onClick={scrollToBottom} />}

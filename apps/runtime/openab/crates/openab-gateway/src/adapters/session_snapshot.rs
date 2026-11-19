@@ -29,7 +29,6 @@ impl SessionSnapshots {
             .or_else(|| provider["state"].as_str())
             .unwrap_or("unknown");
         let operation = provider["operation"].as_str().unwrap_or("none");
-        let permissions = provider["permissionWaits"].as_u64().unwrap_or(0);
         let tools: Vec<Value> = provider["tools"]
             .as_object()
             .map(|tools| tools.values().cloned().collect())
@@ -54,7 +53,7 @@ impl SessionSnapshots {
             tasks.values().any(|task| {
                 !matches!(
                     task["state"].as_str(),
-                    Some("completed" | "failed" | "stopped")
+                    Some("completed" | "failed" | "cancelled" | "stopped")
                 )
             })
         });
@@ -71,12 +70,12 @@ impl SessionSnapshots {
             .unwrap_or_default();
         // An owed continuation is not busy: a person's prompt runs first and the
         // continuation waits for the provider to go idle again.
-        let busy = resuming
-            || request_pending
-            || executing
-            || operation != "none"
-            || permissions > 0
-            || !requests.is_empty();
+        let busy =
+            resuming || request_pending || executing || operation != "none" || !requests.is_empty();
+        // A person is only ever shown as needed through a registered request: that
+        // record is what clients render and answer. A relayed permission no client
+        // registered (still in flight, auto-allowed, or stranded on a connection
+        // that went silent) is part of the running turn, not a wait on anyone.
         // A pending request with an idle provider is either about to start or
         // being released after the provider finished. Only the previous
         // snapshot of this request can tell which: it saw the provider run.
@@ -108,8 +107,6 @@ impl SessionSnapshots {
                     .unwrap_or("Waiting for input")
                     .to_string(),
             )
-        } else if permissions > 0 {
-            ("waiting_for_permission", "Waiting for approval".to_string())
         } else if provider["gateway"]["steering"].as_u64().unwrap_or(0) > 0 {
             ("steering", "Sending your message…".to_string())
         } else if resuming {
@@ -176,11 +173,12 @@ impl SessionSnapshots {
                 "finishing",
                 "Waiting for the runtime to finish the request…".to_string(),
             )
-        } else if let Some(error) = provider
+        } else if provider
             .pointer("/gateway/lastOutcome/error/message")
-            .and_then(Value::as_str)
+            .is_some()
         {
-            ("failed", format!("Request failed: {error}"))
+            // Why it failed is the turn's own notice; the agent's raw error is not for people.
+            ("failed", "Request failed".to_string())
         } else if provider
             .pointer("/gateway/lastOutcome/result/stopReason")
             .and_then(Value::as_str)
@@ -242,7 +240,7 @@ impl SessionSnapshots {
             "providerDetails": provider["providerDetails"], "asyncTasks": provider["asyncTasks"], "automation": automation,
             "commands": provider["commands"],
             "lastOutcome": provider["gateway"]["lastOutcome"],
-            "permissionWaits": permissions, "tools": tools, "requests": requests,
+            "tools": tools, "requests": requests,
             "actions": {"send": send, "cancel": busy && phase != "cancelling" && phase != "configuring", "steer": provider["steeringSupported"] == true && executing && !matches!(phase, "cancelling" | "configuring" | "loading"), "reply": phase != "cancelling" && requests.iter().any(|request| request["kind"] != "client-tool")}
         });
         let mut registry = self.0.lock().unwrap_or_else(|e| e.into_inner());
@@ -276,6 +274,17 @@ mod tests {
             snapshots.project("t", json!({"state":"idle"}), false)["commands"],
             Value::Null
         );
+    }
+    #[test]
+    fn a_cancelled_background_task_is_over() {
+        let phase = |state: &str| {
+            let provider = json!({"state":"idle","asyncTasks":{"t":{"id":"t","state":state}}});
+            SessionSnapshots::default().project("s", provider, false)["phase"].clone()
+        };
+        assert_eq!(phase("running"), "background_tools");
+        for over in ["completed", "failed", "cancelled", "stopped"] {
+            assert_eq!(phase(over), "idle", "{over}");
+        }
     }
     #[test]
     fn native_steering_capability_is_runtime_owned() {
@@ -320,6 +329,25 @@ mod tests {
         assert_eq!(running["actions"]["send"], false);
     }
     #[test]
+    fn a_failed_request_is_labelled_without_the_agent_error() {
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{"error":{
+            "code":-32603,"message":"Internal error: You've hit your usage limit"}}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_eq!(snapshot["phase"], "failed");
+        assert_eq!(snapshot["label"], "Request failed");
+    }
+
+    #[test]
+    fn a_successful_request_is_not_labelled_failed() {
+        // The gateway records every finished prompt as {result, error}; a success has a null error.
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{
+            "result":{"stopReason":"end_turn"},"error":null}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_ne!(snapshot["phase"], "failed");
+        assert_ne!(snapshot["label"], "Request failed");
+    }
+
+    #[test]
     fn gateway_wait_is_visible_even_after_provider_idle() {
         let states = SessionSnapshots::default();
         let pending = states.project("a", json!({"state":"idle"}), true);
@@ -347,12 +375,25 @@ mod tests {
         assert_eq!(state["state"], "idle");
     }
     #[test]
-    fn permission_cancel_and_unfamiliar_states_are_never_hidden() {
+    fn approval_is_shown_only_for_a_registered_request() {
         let states = SessionSnapshots::default();
-        assert_eq!(
-            states.project("a", json!({"state":"active","permissionWaits":1}), true)["phase"],
-            "waiting_for_permission"
+        let relayed = states.project(
+            "a",
+            json!({"state":"active","tools":{"t":{"id":"t"}}}),
+            true,
         );
+        assert_eq!(relayed["label"], "Running tools…");
+        let registered = states.project(
+            "a",
+            json!({"state":"active","requests":[{"waitId":"w","kind":"agent-permission"}]}),
+            true,
+        );
+        assert_eq!(registered["label"], "Waiting for approval");
+        assert_eq!(registered["actions"]["reply"], true);
+    }
+    #[test]
+    fn cancel_and_unfamiliar_states_are_never_hidden() {
+        let states = SessionSnapshots::default();
         let stopping = states.project(
             "a",
             json!({"state":"active","operation":"cancelling"}),

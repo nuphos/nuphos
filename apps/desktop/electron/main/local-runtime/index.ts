@@ -8,29 +8,39 @@ import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
-import { dialBackend } from '../../backend-socket.ts'
+import { keychainFor } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
-import { syncDeviceRegistration } from '../device-controller.ts'
+import { dialDeviceTunnel, syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
+import { getUpdaterState, installUpdate, readyUpdate, watchUpdater } from '../updater.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli, readAgentUsage } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { readAgentUsage } from './agent-cli-usage.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
-import { agentEnv, readBundle } from './config.ts'
+import { readBundle } from './config.ts'
+import {
+  PROVIDER_KEYCHAIN_SERVICE,
+  readCustomProviders,
+  saveCustomProvider,
+  withProviderKey,
+  withProviderStatus,
+} from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
+import { appUpdateStatus, withAppUpdate } from './app-update-request.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
-import { probeLocalModels } from './model-probe.ts'
+import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
@@ -55,9 +65,11 @@ function bundleRoot(): string {
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
+const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
+const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 
-export async function userEnv(): Promise<NodeJS.ProcessEnv> {
-  return { ...process.env, ...((await resolveShellEnv()) ?? {}) }
+export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
+  return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}) }
 }
 
 function broadcastState(): void {
@@ -78,40 +90,26 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return apiUrl()
   },
   userEnv,
-  probeCli: probeAgentCli,
+  probeCli: withProviderStatus(probeAgentCli, providerKeys),
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir(), userId),
   writeCliCache: (userId, cli) => writeCliCache(dataDir(), userId, cli),
   onChange: broadcastState,
   prepareAgentHome,
   registerDevice: () => syncDeviceRegistration(),
-  createProcess: () => new OpenabProcess(),
-  probeModels: ({ provider, workspace, env, cliPath, agentHome }) => {
-    const bundle = findBundle()
-    const adapter = bundle?.adapters[provider]
-
-    if (!bundle || !adapter) return Promise.reject(new Error('The local runtime is not bundled'))
-
-    return probeLocalModels({
-      nodeExecPath: process.execPath,
-      adapter: adapter.entry,
-      cwd: workspace,
-      env: agentEnv({
-        provider,
-        bundle,
-        adapter,
-        nodeExecPath: process.execPath,
-        cliPath,
-        agentHome,
-        workspace,
-        openabHome: workspace,
-        port: 0,
-        authKey: '',
-        env,
-      }),
+  createProcess: () => withProviderKey(new OpenabProcess(), providerKeys),
+  probeModels: bundledModelProbe(findBundle, providerKeys),
+  createTunnel: (runtime, runtimeStatus, onChange, agentInstances) => {
+    // Its owner updates this Nuphos from another computer (app-update-request.ts).
+    const status = () => ({
+      ...runtimeStatus(),
+      app: appUpdateStatus(app.getVersion(), getUpdaterState()),
     })
-  },
-  createTunnel: (runtime, status, onChange, instances) => {
+    const instances = withAppUpdate(agentInstances, {
+      ready: readyUpdate,
+      install: installUpdate,
+    })
+
     tunnel = new RuntimeTunnelClient({
       instances,
       sampleMetrics: readDeviceMetrics,
@@ -123,7 +121,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
 
         if (!token) throw new Error('Not signed in')
 
-        return dialBackend(tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim), {
+        return dialDeviceTunnel(tunnelUrlFor(api, readDeviceIdentity().deviceId, reclaim), {
           authorization: `Bearer ${token}`,
           [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE,
         })
@@ -151,6 +149,17 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return tunnel
   },
   log: logLocalTool,
+})
+
+// The tunnel status names the app's update: announce a change, not every progress tick.
+let announcedApp = ''
+
+watchUpdater(() => {
+  const next = JSON.stringify(appUpdateStatus(app.getVersion(), getUpdaterState()))
+
+  if (next === announcedApp) return
+  announcedApp = next
+  tunnel?.sendStatus()
 })
 
 const logins = localLogins({
@@ -234,16 +243,32 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
   const bundle = findBundle()
   const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
   const devBundle = devBuild() && incomplete ? devBundleHint(bundleRoot()) : undefined
+  const state = controller.state()
 
   return {
-    ...controller.state(),
+    ...state,
     detectionDisabled: !deviceRegistrationAllowed(isDev),
     sleepPrevention: sleep.sleepState(),
     claudeLogin: logins.state('claude-code'),
     codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
     ...(devBundle ? { devBundle } : {}),
+    ...(state.userId ? { customProviders: readCustomProviders(ownDir(state.userId)) } : {}),
   }
+}
+
+/** Saves this account's provider for one agent, or with null removes it, then restarts it. */
+export async function setLocalCustomProvider(
+  provider: unknown,
+  value: unknown,
+): Promise<LocalRuntimeState> {
+  const { userId } = controller.state()
+
+  if (!userId) throw new Error('Sign in to Nuphos first.')
+  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value)
+  await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
+
+  return getLocalRuntimeState()
 }
 
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {

@@ -27,7 +27,6 @@ class RuntimeDetailStoreTest {
             return if (wrongIdentity) result.copy(id = "other") else result
         }
         override suspend fun remove(runtimeId: String): Boolean { removals++; failure?.let { throw it }; return deleting }
-        override suspend fun create(provider: String, label: String?): AgentRuntime = error("unused")
         override suspend fun start(runtimeId: String): RuntimeLogin = error("unused")
         override suspend fun login(runtimeId: String): RuntimeLogin = error("unused")
         override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin = error("unused")

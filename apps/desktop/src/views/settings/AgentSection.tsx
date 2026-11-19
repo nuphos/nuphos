@@ -19,6 +19,7 @@ import { ReorderableSections } from './ReorderableSections'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
 import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
 import { AGENT_SECTION_IDS, AGENT_SECTION_LABELS } from './sectionOrderPresentation'
+import { TokenUsage } from './TokenUsage'
 import { useSectionOrder } from './useSectionOrder'
 
 import type { CSSProperties, KeyboardEvent } from 'react'
@@ -83,7 +84,8 @@ export function AgentSection({
   const { isActive } = useWorkspaceTab()
   const panelShown = isActive && aside !== null && selected !== undefined
 
-  useToolbarPrimaryAction(isActive && isAdmin ? t('Add computer') : null, () => setAdding(true))
+  // Any member may add their own computer; the dialog offers a Box only to administrators.
+  useToolbarPrimaryAction(isActive ? t('Add computer') : null, () => setAdding(true))
   useEffect(() => {
     onCount(instances.length)
   }, [instances.length, onCount])
@@ -137,6 +139,7 @@ export function AgentSection({
               usage: instances.length > 0 && (
                 <div className="t-agents-reveal">
                   <RuntimeQuotaHistory teamId={teamId} instances={instances} onSelect={select} />
+                  <TokenUsage teamId={teamId} instances={instances} />
                 </div>
               ),
               // The retry banner stands in for the list when the catalog failed to load.
@@ -148,7 +151,6 @@ export function AgentSection({
                   onSelect={select}
                   loading={catalog.loading}
                   filtered={filter.trim() !== ''}
-                  isAdmin={isAdmin}
                 />
               ),
             }}

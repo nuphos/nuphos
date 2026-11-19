@@ -1,6 +1,6 @@
 ---
 name: file-transfer
-description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip).
+description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip), or save them straight onto a selected computer with local_download.
 ---
 
 # File transfer
@@ -64,23 +64,9 @@ bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> <dest-dir>
 If some files are still uploading/failed the script reports them; re-run to
 pick up late arrivals.
 
-The same command pulls a group pushed by one of your sub-agents (or their
-sub-agents), so you can review what a thread produced.
-
-### Attached images (vision) you need as actual files
-
-Images the user attaches are shown to you as **vision** — you can see them, but
-their bytes are NOT in the sandbox. When the user wants the actual image file
-moved or saved (e.g. `kubectl cp` it into a pod, or write it to disk), call the
-**`upload_attachment`** tool with the `attachmentId` from the `[Attached image …]`
-note in the message. It returns a `groupId`; pull it like any other upload:
-
-```bash
-bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
-```
-
-Never ask the user to re-upload an image they already attached — use
-`upload_attachment`.
+The same command pulls any group of your team by its id, whoever pushed it:
+another conversation, a sub-agent or a sibling thread. To hand files to
+another conversation, push them and send it the groupId.
 
 ### Folder / multi-file uploads come as one archive
 
@@ -134,29 +120,43 @@ need to know how the transfer works.
 - **A large directory / many files** → `zip` it here first and push the
   single archive. This avoids hundreds of separate objects and is faster.
 
-### Files on the user's device (`local_exec`)
+### Files on a selected computer
 
-`transfer-push.sh` only runs in the sandbox, but the upload URLs it gets are
-presigned, so the device can PUT the bytes itself — no copying the file into
-the sandbox. Create the group here, PUT from the device, finalize here:
+When the person names a file on their computer, use **local_upload** with its
+absolute path (or `~/path`) and the selected device ID. It uses the computer's
+internal uploader and returns only `groupId`, `fileName` and `size`, as soon
+as the upload starts. Immediately pull that group into the agent workspace; the
+pull waits for the upload to arrive:
 
 ```bash
-# 1. Sandbox (ft helper from Auth): one entry per file. `size` must be the
-#    exact byte count — finalize rejects a mismatch. Read it on the device:
-#    `stat -f%z` (macOS), `stat -c%s` (Linux), `(Get-Item f).Length` (Windows).
-ft POST "" -d '{"direction":"download","files":[{"fileName":"menu.png","relPath":"menu.png","size":48213,"contentType":"image/png"}]}'
-# → { groupId, files: [{ relPath, uploadUrl }] }
-
-# 2. Device, via local_exec, for each file:
-curl -fsS -X PUT -H "Content-Type: image/png" --upload-file ~/shots/menu.png '<uploadUrl>'
-
-# 3. Sandbox: the card appears once the group is ready.
-ft POST "/<groupId>/finalize"
+bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
 ```
 
-Each `uploadUrl` can overwrite its file until it expires (~15 min), and it is
-in the transcript. Run steps 2 and 3 back to back, and never repeat the URL in
-replies, issues, or logs. The usual limits apply (see Failure handling).
+This needs an online, selected computer with local exec allowed and an updated
+Desktop or CLI host. It does not need an AWS login or a CLI transfer command.
+Only one regular file is supported; directories are not uploaded by this tool.
+The store's existing size/TTL limits apply. If the pull says the file is still
+uploading, run it again; if it says the upload failed, start `local_upload`
+again. Report a missing file, offline/old host, or transfer failure directly.
+
+Signed URLs stay inside the trusted implementation. Never put them in
+`local_exec` arguments, tool results, transcript, logs or replies. Encoding a
+command does not hide its capability. Do not stage files through GitHub releases
+or another external service. Do not ask the person to drag the same file into
+chat when `local_upload` can import it.
+
+When the person asks for a file **on** their computer ("save it to my laptop"),
+push it first, then use **local_download** with the `groupId` the push printed,
+an absolute target path (or `~/path`) and the selected device ID:
+
+```bash
+bash skills/file-transfer/scripts/transfer-push.sh <TEAM> ./out/deck.html
+```
+
+The computer fetches the file itself and answers `{path, size}` once it is
+written. If it answers `file_exists`, ask the person before calling again with
+`overwrite: true`. If it answers `update_required`, tell them to update Nuphos
+on that computer. Pass `fileName` when the group holds several files.
 
 ## Failure handling
 
@@ -165,6 +165,12 @@ The scripts surface explicit errors: `file_too_large`, `too_many_files`,
 `transfer_not_found`. If the store is unconfigured (`503
 file_transfer_unconfigured`), tell the user file transfer isn't enabled on
 this deployment rather than retrying.
+
+`file_transfer_rate_limited` (429) means the team used its hourly transfer
+limit. Do not retry: retries fail the same way until the hour turns. Tell the
+user the limit was reached and when it resets (the error's message, or
+`retryAfter` from `local_upload`), and offer to work with what is already in
+the sandbox.
 
 ## Safety
 

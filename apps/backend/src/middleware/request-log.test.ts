@@ -13,6 +13,12 @@ const signIn: MiddlewareHandler = async (c, next) => {
   await next()
 }
 
+// Stands in for the MCP mount, which names the tool it was asked to call.
+const callTool: MiddlewareHandler = async (c, next) => {
+  c.set('toolName', 'meeting_join')
+  await next()
+}
+
 function buildApp(lines: Record<string, unknown>[]) {
   const app = new Hono()
 
@@ -69,4 +75,15 @@ test('a request made by a signed-in user logs who made it', async () => {
   await app.request('/ok')
   expect(lines[0]).toMatchObject({ path: '/signed-in', status: 200, user_id: 'user-1' })
   expect(lines[1]?.user_id).toBeUndefined()
+})
+
+test('an MCP tool call logs which tool it was', async () => {
+  const lines: Record<string, unknown>[] = []
+  const app = buildApp(lines)
+
+  app.post('/mcp-tools', callTool, (c) => c.json({ ok: true }))
+  await app.request('/mcp-tools', { method: 'POST' })
+  await app.request('/ok')
+  expect(lines[0]).toMatchObject({ path: '/mcp-tools', tool_name: 'meeting_join' })
+  expect(lines[1]?.tool_name).toBeUndefined()
 })

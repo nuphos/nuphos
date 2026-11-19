@@ -1,3 +1,8 @@
+import type { BoxStatus } from './box-types.ts'
+import type { LocalAgentProvider } from './local-agent-providers.ts'
+
+export type { LocalAgentProvider }
+
 export type DeviceIdentity = {
   deviceId: string
   label: string
@@ -34,9 +39,6 @@ export type DeviceExecAuditPage = {
   nextCursor: string | null
 }
 
-/** This computer's own agent CLI; team runtimes can run more (`AgentProvider`). */
-export type LocalAgentProvider = 'claude-code' | 'codex' | 'grok' | 'antigravity' | 'opencode'
-
 /** The agents this app signs in itself, through their own CLI login; the rest sign in from Nuphos. */
 export type CliLoginProvider = 'claude-code' | 'codex'
 
@@ -59,8 +61,9 @@ export type AgentCliStatus =
       loggedIn: boolean | null
       account?: string
       plan?: string
-      /** Signed in with an API key rather than an account. */
+      /** Signed in with an API key, or the host of a custom provider, rather than an account. */
       apiKey?: true
+      customProvider?: string
       /** Lives inside an app bundle, which updates it. */
       bundled?: true
     }
@@ -108,6 +111,9 @@ export type LocalRuntimeState = {
   instances?: LocalAgentInstance[]
   workspace: string | null
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
+  customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
   devBundle?: DevBundleHint
 }
@@ -132,7 +138,6 @@ export type LocalRuntimeActivityPage = {
 /** `connecting`: the machine runs but its host has not joined yet. */
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 
-/** A Box: a device Nuphos runs in a sandbox for its owner. */
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
@@ -147,10 +152,9 @@ export type LocalShareInput = {
   managerIds?: string[]
 }
 
-/** A computer's share in one team, the most the team's administrators allow, and its managers. */
+/** A computer's share in one team and its managers. */
 export type LocalAgentShareState = {
   share: LocalShareInput
-  ceiling: LocalShareLevel
   /** Absent from older backends. */
   managerIds?: string[]
 }
@@ -179,21 +183,8 @@ export type LocalShareApproval = {
   requestedAt: string
 }
 
-/** Who may use a Box besides the team's admins, who always may. */
-export type BoxAccess = { everyone: boolean; userIds: string[] }
+export type { BoxAccess, BoxStatus } from './box-types.ts'
 
-export type BoxStatus = {
-  provider: 'instabox'
-  /** Only for those who manage the Box. */
-  access?: BoxAccess
-  /** Set once the machine exists. */
-  sandboxId?: string
-  state: BoxState
-  /** While an update restarts its host: when it began. Absent from older backends. */
-  updateStartedAt?: string
-}
-
-/** One of the signed-in user's devices; `box` is set when Nuphos hosts it. */
 export type DeviceMetrics = {
   sampledAt: string
   cpuPercent: number
@@ -227,6 +218,9 @@ export type AgentDevice = {
   box?: BoxStatus
   /** A Box's displays of the viewer's own conversations, besides its own :1. */
   desktops?: { display: number; sessionId: string; title: string }[]
+  desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
+  app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
+  outdated?: 'desktop' | 'cli' // Which Nuphos on it is older than the backend supports.
 }
 
 export type AgentDeviceList = {

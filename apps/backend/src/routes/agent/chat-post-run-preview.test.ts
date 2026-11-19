@@ -6,13 +6,14 @@
 // constants ↔ run-pump-helpers cycle initializes in production order.
 import '@/routes/agent'
 
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import type { SlackBoundTurnDelivery } from './chat-slack-bound'
 import type { InternalChatCtx } from './types'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'
 import type { UIMessage } from 'ai'
 
+import { queuedRefusal, refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
 import { useChatSlackBound } from '@/lib/test/doubles/chat-slack-bound'
@@ -59,7 +60,7 @@ useChatSlackBound({
 
 const { appendAgentRunFrame } = await import('./run-frames')
 
-useChatPreviewTurn({
+const installPreviewTurn = useChatPreviewTurn({
   runClaudeCodePreviewChatTurn: (args) => {
     seen.previewArgs.push(args)
     appendAgentRunFrame(args.run, 'data: {"type":"text-delta","delta":"hi"}\n\n')
@@ -70,6 +71,53 @@ useChatPreviewTurn({
 
 const { launchAcceptedChatTurn } = await import('./chat-post-run')
 const { createAgentRun } = await import('./run-registry')
+
+const chatEvents = (calls: unknown[][]) =>
+  calls
+    .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+    .filter((entry) => String(entry.event).startsWith('agent.chat.'))
+
+/** Runs a turn that ends with `error` and returns what it logged, by level. */
+async function logsOfTurnEndingWith(id: string, error: Error) {
+  const log = spyOn(console, 'log').mockImplementation(() => {})
+  const fail = spyOn(console, 'error').mockImplementation(() => {})
+
+  installPreviewTurn({ runClaudeCodePreviewChatTurn: () => Promise.reject(error) })
+  const run = createAgentRun('user-1', id, `stream-${id}`)
+  const messages = [
+    { id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+  ] as UIMessage[]
+
+  try {
+    launchAcceptedChatTurn({
+      run,
+      chatCtx: {
+        userId: 'user-1',
+        nuphosToken: 'tok',
+        requestId: 'r',
+        streamId: `stream-${id}`,
+      } as InternalChatCtx,
+      chatSpan: { end: () => {} } as never,
+      body: { id, messages },
+      teamId: 'team-1',
+      messages,
+      firstMessage: 'hello',
+      locale: 'en',
+      credentialAccess: undefined,
+      credentialAccessRequested: false,
+      chatRuntime: { runtime: 'claude-code', endpoint: ENDPOINT },
+      releaseClaim: () => {},
+      slack: null,
+      storedTurn: { isNew: false },
+    })
+    await settled(() => run.done)
+
+    return { run, info: chatEvents(log.mock.calls), errors: chatEvents(fail.mock.calls) }
+  } finally {
+    log.mockRestore()
+    fail.mockRestore()
+  }
+}
 
 async function settled(predicate: () => boolean) {
   for (let attempt = 0; attempt < 50 && !predicate(); attempt++) await Bun.sleep(2)
@@ -215,6 +263,33 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
     expect(seen.previewArgs[0]).toMatchObject({ sessionId: 'conv-stored', teamId: 'team-1' })
   })
 
+  test('a message left waiting in the queue is logged as queued, not as a failed request', async () => {
+    const queued = queuedRefusal(refusal('Responding…'), { id: 'queued' }) as Error
+    const { run, info, errors } = await logsOfTurnEndingWith('conv-queued', queued)
+
+    expect(errors).toEqual([])
+    expect(info).toContainEqual(
+      expect.objectContaining({
+        level: 'info',
+        event: 'agent.chat.request.queued',
+        error_status: 409,
+        provider_error_code: 'message_queued',
+      }),
+    )
+    // The client still hears the same answer.
+    expect(run.frames.some((frame) => frame.includes('message_queued'))).toBe(true)
+  })
+
+  test('a refusal with nothing queued is still logged as a failed request', async () => {
+    const { errors } = await logsOfTurnEndingWith('conv-refused', refusal('Responding…'))
+
+    expect(errors.map((entry) => entry.event)).toEqual([
+      'agent.chat.request.error',
+      'agent.chat.run.error_frame_appended',
+    ])
+    expect(errors[0]).toMatchObject({ level: 'error', error_status: 409 })
+  })
+
   test('an explicit reply reaches the turn naming its question, for resolving at admission', async () => {
     const run = createAgentRun('user-1', 'conv-reply', 'stream-reply')
     const messages = [
@@ -234,7 +309,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
         id: 'conv-reply',
         messages,
         decisionReplyTo: 'nuphos-q1',
-        clientCapabilities: { decisionReplies: true },
       },
       teamId: 'team-1',
       messages,
@@ -248,9 +322,6 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
     })
 
     await settled(() => seen.previewArgs.length === 1)
-    expect(seen.previewArgs[0]).toMatchObject({
-      explicitDecisionReplies: true,
-      decisionReplyTo: 'nuphos-q1',
-    })
+    expect(seen.previewArgs[0]).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
   })
 })

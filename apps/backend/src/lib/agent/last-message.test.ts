@@ -3,14 +3,26 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { agentMessages } from './db'
+import { agentConversations, agentMessages } from './db'
 import { lastMessage } from './last-message'
 
 import type * as dbActual from '@/lib/db'
 
 let memory = portabilityDb()
 
-useDb({ db: () => memory })
+// Which collections a call opened, to tell whether it looked anything else up.
+const opened: string[] = []
+
+useDb({
+  db: () => ({
+    ...memory,
+    collection: (name: string) => {
+      opened.push(name)
+
+      return memory.collection(name)
+    },
+  }),
+})
 
 const chat = { sessionId: 'chat', userId: 'me' }
 const channel = { ...chat, kind: 'channel' }
@@ -73,7 +85,7 @@ describe('lastMessage', () => {
       { type: 'text', text: '**Done**, all green.' },
     ])
 
-    expect(await lastMessage(chat, 'me')).toEqual({ text: '**Done**, all green.' })
+    expect(await lastMessage(chat, 'me')).toEqual({ text: 'Done, all green.' })
   })
 
   test('a file-only message has empty text', async () => {
@@ -99,10 +111,41 @@ describe('lastMessage', () => {
     expect(await lastMessage(channel, 'me')).toEqual({ text: 'ok', from: 'Code Reviewer' })
   })
 
+  test('a group chat names an agent by its current title, and only a group chat looks it up', async () => {
+    await agentConversations().insertOne({
+      sessionId: 'a1',
+      userId: 'me',
+      teamId: 'team',
+      title: 'Account Manager',
+    } as never)
+    await post([{ type: 'text', text: 'ok' }], { type: 'agent', id: 'a1', name: 'CSM' })
+
+    expect(await lastMessage({ ...channel, teamId: 'team' }, 'me')).toEqual({
+      text: 'ok',
+      from: 'Account Manager',
+    })
+    opened.length = 0
+    expect(await lastMessage({ ...chat, teamId: 'team' }, 'me')).toEqual({ text: 'ok' })
+    expect(opened).not.toContain('agent_conversations')
+  })
+
   test("the viewer's own post and a 1:1 chat carry no sender", async () => {
     await post([{ type: 'text', text: 'hi' }], { type: 'user', id: 'me', name: 'Me' })
     expect(await lastMessage(channel, 'me')).toEqual({ text: 'hi' })
     expect(await lastMessage(chat, 'ann')).toEqual({ text: 'hi' })
+  })
+
+  test('markdown reads as plain text, a link cut short included', async () => {
+    await post([
+      {
+        type: 'text',
+        text: `Fixed in [CLI 0.17.1](https://x.io/r) by \`npm i\`. ${'a'.repeat(230)} [docs](https://x.io/docs/long`,
+      },
+    ])
+
+    expect((await lastMessage(chat, 'me'))?.text).toBe(
+      `Fixed in CLI 0.17.1 by npm i. ${'a'.repeat(230)} docs`,
+    )
   })
 
   test('long text is cut short', async () => {

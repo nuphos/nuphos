@@ -17,7 +17,6 @@ export type ConnectorCategoryId =
   | 'source-control'
   | 'project-management'
   | 'document'
-  | 'email'
   | 'messaging'
 
 export type ConnectorCategory = {
@@ -42,9 +41,32 @@ export type ConnectorCategory = {
 }
 
 export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
+  // Everyday tools lead; the engineering categories follow, even though a
+  // team like ours binds far more of them.
+  {
+    id: 'messaging',
+    label: t('Communication'),
+    catalog: ['slack', 'discord', 'lark', 'resend'],
+  },
+  {
+    id: 'project-management',
+    label: t('Projects & tasks'),
+    catalog: ['linear', 'jira', 'asana', 'trello'],
+  },
+  {
+    id: 'document',
+    label: t('Docs & knowledge'),
+    catalog: ['notion', 'plaud'],
+  },
+  {
+    id: 'source-control',
+    label: t('Code'),
+    foldedAtRest: true,
+    catalog: ['github', 'gitlab'],
+  },
   {
     id: 'infrastructure',
-    label: t('Infrastructure'),
+    label: t('Cloud'),
     foldedAtRest: true,
     catalog: [
       'aws',
@@ -64,7 +86,7 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   },
   {
     id: 'observability',
-    label: t('Observability'),
+    label: t('Monitoring'),
     foldedAtRest: true,
     catalog: ['betterstack', 'uptime-kuma', 'grafana', 'sentry', 'posthog'],
     sidebarOnly: ['gcp-monitoring'],
@@ -78,41 +100,15 @@ export const CONNECTOR_CATEGORIES: ConnectorCategory[] = [
   },
   {
     id: 'networking',
-    label: t('Networking'),
+    label: t('Network'),
     foldedAtRest: true,
     catalog: ['tailscale'],
   },
   {
     id: 'compliance',
-    label: t('Compliance'),
+    label: t('Security & compliance'),
     foldedAtRest: true,
     catalog: ['vanta', 'secureframe', 'sonarqube'],
-  },
-  {
-    id: 'source-control',
-    label: t('Source control'),
-    foldedAtRest: true,
-    catalog: ['github', 'gitlab'],
-  },
-  {
-    id: 'project-management',
-    label: t('Project management'),
-    catalog: ['linear', 'jira', 'asana', 'trello'],
-  },
-  {
-    id: 'document',
-    label: t('Document'),
-    catalog: ['notion', 'plaud'],
-  },
-  {
-    id: 'email',
-    label: t('Email'),
-    catalog: ['resend'],
-  },
-  {
-    id: 'messaging',
-    label: t('Messaging'),
-    catalog: ['slack', 'discord', 'lark'],
   },
 ]
 

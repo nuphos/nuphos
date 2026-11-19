@@ -1,0 +1,40 @@
+<resources>
+    <string name="plans_title_fallback">プラン</string>
+    <string name="plans_back">戻る</string>
+    <string name="plans_actions">アクション</string>
+    <string name="plans_mark_unplanned">計画外にする</string>
+    <string name="plans_plan_number">プラン %1$s</string>
+    <string name="plans_untitled">無題のプラン</string>
+    <string name="plans_still_building">エージェントがまだこのプランを作成中です。承認できるようになる前に、ステップ、コスト、リスクが揃います。</string>
+    <string name="plans_decisions">判断事項</string>
+    <string name="plans_steps">ステップ</string>
+    <string name="plans_cost">コスト</string>
+    <string name="plans_cost_one_time">"一時費用  %1$s"</string>
+    <string name="plans_cost_monthly">"月額  %1$s"</string>
+    <string name="plans_cost_savings">"削減額  %1$s"</string>
+    <string name="plans_risk">リスク</string>
+    <string name="plans_risk_worst_case">"最悪の場合  %1$s"</string>
+    <string name="plans_approval">承認</string>
+    <string name="plans_approval_requester">リクエスト者 %1$s</string>
+    <string name="plans_approval_team">チーム %1$d/%2$d</string>
+    <string name="plans_loading">プランを読み込み中…</string>
+    <string name="plans_unplan_confirm_title">プラン %1$s を計画外にしますか？</string>
+    <string name="plans_unplan_confirm_body">プランは参照用に残りますが、今後は実行されません。</string>
+    <string name="plans_error_title">問題が発生しました</string>
+    <string name="plans_ok">OK</string>
+    <string name="plans_approval_notice_title">プランの承認</string>
+    <string name="plans_approval_already_recorded">このプランへのあなたの承認はすでに記録されています。</string>
+    <string name="plans_approve_failed">プランを承認できませんでした。</string>
+    <plurals name="plans_step_count">
+        <item quantity="other">%1$d ステップ</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="other">ジョブ %1$d 件</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="other">コマンド %1$d 件</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="other">%1$d 件の承認を記録しました。</item>
+    </plurals>
+</resources>

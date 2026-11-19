@@ -20,14 +20,8 @@ export const cloudInfraChannels = {
     atlas.listAwsClusters(teamId, accountId, roleId),
   'atlas:getAwsIamPermissions': (_e: unknown, teamId: string, accountId: string, roleId?: string) =>
     atlas.getAwsIamPermissions(teamId, accountId, roleId),
-  'atlas:listPermissionGrantProposals': (_e: unknown, teamId: string) =>
-    atlas.listPermissionGrantProposals(teamId),
   'atlas:getPermissionGrantProposal': (_e: unknown, teamId: string, id: string) =>
     atlas.getPermissionGrantProposal(teamId, id),
-  'atlas:approvePermissionGrantProposal': (_e: unknown, teamId: string, id: string) =>
-    atlas.approvePermissionGrantProposal(teamId, id),
-  'atlas:rejectPermissionGrantProposal': (_e: unknown, teamId: string, id: string) =>
-    atlas.rejectPermissionGrantProposal(teamId, id),
   'atlas:getGcpIamPermissions': (
     _e: unknown,
     teamId: string,

@@ -1,4 +1,8 @@
-import { agentConversations } from './shared'
+import { randomUUID } from 'node:crypto'
+
+import { withTransaction } from '@/lib/db'
+
+import { agentConversations, agentMessages } from './shared'
 
 import type { GeneralAccess } from './access'
 import type { AgentConversation } from './shared'
@@ -35,17 +39,21 @@ export function pushTimelineEvent(event: ConversationTimelineEvent) {
 }
 
 /**
- * Bring teammates in on someone's behalf and record who did it. Each id is a
+ * Bring teammates in on someone's behalf, record who did it, and give each an
+ * entry kept like an @mention's, which their desktop announces. Each id is a
  * separate conditional write, so only a person who was actually absent gets an
- * "invited" event — re-inviting a participant, the owner, or racing another
- * invite of the same person adds nothing twice.
+ * "invited" event and an entry — re-inviting a participant, the owner, or
+ * racing another invite of the same person adds nothing twice.
  */
 export async function inviteConversationParticipants(
   sessionId: string,
-  actorId: string,
+  actor: { id: string; name: string },
   userIds: readonly string[],
 ): Promise<AgentConversation | null> {
   for (const id of new Set(userIds)) {
+    const at = new Date()
+    const entry = { messageId: `invite:${randomUUID()}`, at, by: actor }
+
     await agentConversations().updateOne(
       { sessionId, userId: { $ne: id }, participantIds: { $ne: id } },
       {
@@ -53,11 +61,12 @@ export async function inviteConversationParticipants(
           participantIds: id,
           ...pushTimelineEvent({
             kind: 'participant_invited',
-            at: new Date(),
-            actorId,
+            at,
+            actorId: actor.id,
             targetId: id,
           }),
         },
+        $set: { [`mentions.${id}`]: entry },
       },
     )
   }
@@ -86,6 +95,8 @@ export async function removeConversationParticipant(
     { sessionId, participantIds: userId },
     {
       $pull: { participantIds: userId },
+      // Their mention or invite entry here goes with them.
+      $unset: { [`mentions.${userId}`]: '' },
       $push: pushTimelineEvent({
         kind: 'participant_removed',
         at: new Date(),
@@ -96,6 +107,46 @@ export async function removeConversationParticipant(
   )
 
   return await agentConversations().findOne({ sessionId })
+}
+
+/**
+ * A group chat's owner leaving: whoever joined it first owns it from then on.
+ * A chat keeps its posts under its owner, so they move with it. Answers null when
+ * nobody else is in the chat to hand it to.
+ */
+export async function handOverChannel(
+  channel: AgentConversation,
+): Promise<AgentConversation | null> {
+  const owner = channel.userId
+  const next = conversationParticipantIds(channel)[1]
+
+  if (!next) return null
+  await withTransaction(async (session) => {
+    const moved = await agentConversations().updateOne(
+      { sessionId: channel.sessionId, userId: owner, participantIds: next },
+      {
+        $set: { userId: next },
+        $pull: { participantIds: { $in: [owner, next] } },
+        $unset: { [`mentions.${owner}`]: '' },
+        $push: pushTimelineEvent({
+          kind: 'participant_removed',
+          at: new Date(),
+          actorId: owner,
+          targetId: owner,
+        }),
+      },
+      { session },
+    )
+
+    if (moved.matchedCount === 0) return
+    await agentMessages().updateMany(
+      { sessionId: channel.sessionId, userId: owner },
+      { $set: { userId: next } },
+      { session },
+    )
+  })
+
+  return await agentConversations().findOne({ sessionId: channel.sessionId })
 }
 
 /**

@@ -33,7 +33,7 @@ test('current-turn transfers use the sender and conversation scope, including re
     const transfer = { type: 'transfer-upload', groupId: 'group', status: 'ready' }
 
     for (const part of [transfer, { type: 'data-attachment', data: transfer }]) {
-      expect(await runtimeAttachments([part], scope, [])).toEqual([
+      expect(await runtimeAttachments([part], scope)).toEqual([
         { name: 'report.txt', url: 'https://store.example/signed', size: 6 },
       ])
     }
@@ -73,7 +73,6 @@ test('materialization is a no-op for text turns and exposes only paths to the mo
       },
     ])
     expect(JSON.stringify(text)).not.toContain('https://store.example/signed')
-    expect(JSON.stringify(text)).not.toContain('upload_attachment')
     // Runtime jobs need the operator credential; a turn only carries its transport endpoint.
     expect(route.mock.calls[0]).toEqual([
       'team',
@@ -161,7 +160,6 @@ test('folder archives retain extraction instructions through the ACP text bounda
         },
       ],
       scope,
-      [],
     )
 
     expect(files[0]!.archive).toBe(true)

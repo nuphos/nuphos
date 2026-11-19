@@ -1,56 +1,21 @@
-import clsx from 'clsx'
-import { AlertCircle, Ban, ClipboardList, Settings2, ShieldCheck } from 'lucide-react'
-import { createPortal } from 'react-dom'
+import { ClipboardList } from 'lucide-react'
 
-import { ContextMenu } from '../components/ContextMenu'
-import { DetailSidebarTransition } from '../components/DetailSidebarTransition'
 import { EmptyState } from '../components/EmptyState'
-import { Table } from '../components/Table'
-import { Button } from '../components/ui/button'
 import { t } from '../i18n'
 import { planNumberFromFilter } from '../lib/planRoute'
 
-import { PlanApprovalPolicyModal } from './plans/PlanApprovalPolicyModal'
-import { PermissionRequestDetail } from './plans/PlanCells'
-import { buildPlanColumns } from './plans/planColumns'
 import { PlanDetailView } from './plans/PlanDetailView'
-import { usePlanRowActions } from './plans/usePlanRowActions'
-import { usePlansCore } from './plans/usePlansCore'
-import { usePlansSelection } from './plans/usePlansSelection'
-
-import type { Row } from './plans/planRows'
 
 type Props = {
   teamId: string
-  refreshKey: number
-  /**
-   * Toolbar search text. Plan deep links (/teams/T/plans/<number>) land here
-   * as the bare plan number, which opens that plan's standalone detail page.
-   */
+  /** A Plan deep link (/teams/T/plans/<number>) lands here as the bare plan number. */
   filter?: string
-  /** Navigate between the Plans list and a standalone Plan detail page. */
-  onOpenPlan: (planNumber: string) => void
-  onCount?: (n: number) => void
-  onLoading?: (loading: boolean) => void
   /** Open a plan in the agent chat (surfaces it in the chat's side panel). */
   onOpenInChat?: (planId: string) => void
-  /** Viewer is a team administrator — gates approving permission-grant rows. */
-  isTeamAdmin?: boolean
-  /** Open a fresh agent chat and auto-send the given prompt. */
-  onOpenAgentChat?: (prompt: string, options?: { send?: boolean }) => void
 }
 
-export function PlansView({
-  teamId,
-  refreshKey,
-  filter = '',
-  onOpenPlan,
-  onCount,
-  onLoading,
-  onOpenInChat,
-  isTeamAdmin = false,
-  onOpenAgentChat,
-}: Props) {
+/** One Plan, opened from a link. Agents now ask for approval in the Inbox, so there is no list. */
+export function PlansView({ teamId, filter = '', onOpenInChat }: Props) {
   const planNumber = planNumberFromFilter(filter)
 
   if (planNumber) {
@@ -58,225 +23,10 @@ export function PlansView({
   }
 
   return (
-    <PlansListView
-      teamId={teamId}
-      refreshKey={refreshKey}
-      filter={filter}
-      onOpenPlan={onOpenPlan}
-      onCount={onCount}
-      onLoading={onLoading}
-      onOpenInChat={onOpenInChat}
-      isTeamAdmin={isTeamAdmin}
-      onOpenAgentChat={onOpenAgentChat}
+    <EmptyState
+      icon={ClipboardList}
+      title={t('Plans')}
+      description={t('Agents now ask for approval in the Inbox.')}
     />
-  )
-}
-
-function PlansListView({
-  teamId,
-  refreshKey,
-  filter = '',
-  onOpenPlan,
-  onCount,
-  onLoading,
-  onOpenInChat,
-  isTeamAdmin = false,
-  onOpenAgentChat,
-}: Props) {
-  const core = usePlansCore({ teamId, refreshKey, filter, onCount, onLoading, isTeamAdmin })
-  const {
-    state,
-    setState,
-    proposals,
-    members,
-    loadingMore,
-    setLoadingMore,
-    selectedId,
-    setSelectedId,
-    fetchedPlan,
-    setFetchedPlan,
-    menu,
-    setMenu,
-    showDismissed,
-    setShowDismissed,
-    approvalPolicy,
-    policyOpen,
-    setPolicyOpen,
-    policyMode,
-    setPolicyMode,
-    policyQuorum,
-    setPolicyQuorum,
-    policySaving,
-    reload,
-    openPolicy,
-    savePolicy,
-    rows,
-    dismissedSlot,
-    configureSlot,
-  } = core
-  const { loadMore, selectedRow, membersById } = usePlansSelection({
-    teamId,
-    filter,
-    state,
-    setState,
-    proposals,
-    members,
-    loadingMore,
-    setLoadingMore,
-    selectedId,
-    setSelectedId,
-    fetchedPlan,
-    setFetchedPlan,
-  })
-  const { copyProposalLink, buildMenu } = usePlanRowActions({
-    teamId,
-    reload,
-    setState,
-    setFetchedPlan,
-    onOpenInChat,
-  })
-
-  if (state.kind === 'error') {
-    return (
-      <div className="px-6 py-8 flex items-start gap-2 text-[12px] text-status-danger">
-        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" strokeWidth={1.8} />
-        <span>{t('Failed to load plans: {message}', { message: state.message })}</span>
-      </div>
-    )
-  }
-
-  const hasMore = state.kind === 'ready' && state.hasMore
-
-  // Permission requests still use their compact review sidebar. Plans navigate
-  // to their own page so the execution detail gets the full workspace width.
-  return (
-    <div className="flex-1 flex min-h-0">
-      <PlanApprovalPolicyModal
-        open={policyOpen}
-        saving={policySaving}
-        mode={policyMode}
-        quorum={policyQuorum}
-        onModeChange={setPolicyMode}
-        onQuorumChange={setPolicyQuorum}
-        onClose={() => setPolicyOpen(false)}
-        onSave={() => void savePolicy()}
-      />
-      {menu && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          items={buildMenu(menu.row)}
-          onClose={() => setMenu(null)}
-        />
-      )}
-      <div
-        className={clsx(
-          'flex flex-col min-h-0',
-          selectedRow ? 'flex-1 min-w-0 border-r border-line-control/60' : 'flex-1 min-w-0',
-        )}
-      >
-        {dismissedSlot &&
-          createPortal(
-            <button
-              type="button"
-              onClick={() => setShowDismissed((v) => !v)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] text-tertiary transition-colors hover:bg-state-hover hover:text-secondary"
-            >
-              <Ban className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {showDismissed ? t('Hide dismissed') : t('Show dismissed')}
-            </button>,
-            dismissedSlot,
-          )}
-        {configureSlot &&
-          createPortal(
-            <Button size="sm" type="button" onClick={openPolicy}>
-              <Settings2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-              {t('Configure')}
-            </Button>,
-            configureSlot,
-          )}
-        <div className="flex flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6 py-2">
-          <ShieldCheck className="h-3.5 w-3.5 text-primary" strokeWidth={1.8} />
-          <span className="text-[12px] text-secondary">{t('Plan approval')}</span>
-          <span className="text-[11.5px] text-tertiary">
-            {approvalPolicy
-              ? approvalPolicy.minimumOtherApprovals === 0
-                ? t('Requester only')
-                : t('Requester + {count} other member(s)', {
-                    count: String(approvalPolicy.minimumOtherApprovals),
-                  })
-              : t('Loading…')}
-          </span>
-        </div>
-        {state.kind === 'ready' &&
-        state.plans.length === 0 &&
-        proposals.length === 0 &&
-        !filter.trim() ? (
-          <EmptyState
-            icon={ClipboardList}
-            title={t('Plans')}
-            description={t(
-              'When you ask the agent to do something that needs confirmation, it drafts a plan here for the team to review and approve. Plans are shared, so anyone with access can weigh in.',
-            )}
-            agentAction={{
-              label: t('Ask the agent to plan a change'),
-              prompt:
-                'Help me plan a change — ask me what I want to do, then draft a plan for the team to review.',
-            }}
-            onOpenAgentChat={onOpenAgentChat}
-          />
-        ) : (
-          <Table<Row>
-            loading={state.kind === 'loading'}
-            rows={rows}
-            rowKey={(r) => r.id}
-            storageKey="team-plans"
-            onPrimaryAction={(r) => {
-              if (r.kind === 'plan') {
-                onOpenPlan(String(r.plan.number))
-
-                return
-              }
-              setSelectedId(r.id === selectedId ? null : r.id)
-            }}
-            onRowContextMenu={(r, e) => setMenu({ row: r, x: e.clientX, y: e.clientY })}
-            empty={
-              filter.trim()
-                ? t('No plans match the current search.')
-                : t('No plans to show — dismissed plans are hidden.')
-            }
-            columns={buildPlanColumns(membersById)}
-          />
-        )}
-        {hasMore && (
-          <div className="px-6 py-3 border-t border-line-control/60 flex-shrink-0">
-            <button
-              type="button"
-              onClick={() => void loadMore()}
-              disabled={loadingMore}
-              className="w-full px-3 py-2 text-[12px] text-secondary hover:text-main rounded border border-line-control/60 hover:border-line-control/60 disabled:opacity-50"
-            >
-              {loadingMore ? t('Loading…') : t('Load more')}
-            </button>
-          </div>
-        )}
-      </div>
-      {selectedRow?.kind === 'permission' && (
-        <DetailSidebarTransition
-          onClose={() => setSelectedId(null)}
-          className="flex-shrink-0 w-[44%] min-w-[380px] max-w-[680px] flex flex-col bg-surface-canvas min-h-0 overflow-hidden"
-        >
-          {(requestClose) => (
-            <PermissionRequestDetail
-              proposalId={selectedRow.id}
-              teamId={teamId}
-              canApprove={isTeamAdmin}
-              onCopyLink={() => copyProposalLink(selectedRow.id)}
-              onClose={requestClose}
-            />
-          )}
-        </DetailSidebarTransition>
-      )}
-    </div>
   )
 }

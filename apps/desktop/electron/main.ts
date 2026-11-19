@@ -3,7 +3,7 @@
 import { userDataDir } from './main/app-paths'
 import path from 'node:path'
 
-import { app, BrowserWindow, ipcMain, nativeTheme, net } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, net, session } from 'electron'
 
 import {
   initMainAnalytics,
@@ -11,7 +11,9 @@ import {
   captureMainException,
   shutdownMainAnalytics,
 } from './analytics'
+import { apiUrl } from './api-endpoint'
 import * as asanaInstall from './asana-install'
+import { routeBackendSocketsThroughSystemProxy } from './backend-socket'
 import * as cloudflareInstall from './cloudflare-install'
 import { watchCrashes } from './crash-reporter'
 import * as discordInstall from './discord-install'
@@ -58,12 +60,15 @@ import { prepareFirstLaunch } from './main/first-launch'
 import './main/account-leave'
 import { initLocalRuntime, stopLocalRuntime } from './main/local-runtime'
 import { resumeLocalSetupSync } from './main/local-setup-watch'
+import { initMainLocale, onMainLocaleChange } from './main/i18n-electron.ts'
 import { installApplicationMenu } from './main/menu'
 import { applyAppIcon, readAppIcon } from './main/app-icon'
+import { teardownOnQuit } from './main/quit-teardown'
 import { readPersistedThemeSource } from './main/theme'
 import { initAutoUpdaterEvents, startUpdatePolling, stopUpdatePolling } from './main/updater'
 import { initBrowserSessions } from './main/browser-sessions'
-import { initWindowSessionChannels, markAppQuitting } from './main/window-session'
+import { initWindowChannels } from './main/window-channels'
+import { markAppQuitting } from './main/window-session'
 import { focusedAppWindow, restoreWindows, showMainWindow } from './main/windows'
 import * as podExec from './pod-exec'
 import * as plaudInstall from './plaud-install'
@@ -161,57 +166,47 @@ app.on('open-url', (event, url) => {
   handleDeepLink(url)
 })
 
-let quitCaptured = false
-let quitTeardownRan = false
-let nodeShellCleanupAwaited = false
+initWindowChannels()
 
-initWindowSessionChannels()
-
-app.on('before-quit', (e) => {
+app.on('before-quit', () => {
   markAppQuitting()
-  if (!quitTeardownRan) {
-    quitTeardownRan = true
-    if (!quitCaptured) {
-      quitCaptured = true
-      captureMain('app_quit')
-    }
-    githubInstall.cancelAllPending()
-    gitlabInstall.cancelAllPending()
-    cloudflareInstall.cancelAllPending()
-    linearInstall.cancelAllPending()
-    jiraInstall.cancelAllPending()
-    asanaInstall.cancelAllPending()
-    sentryInstall.cancelAllPending()
-    posthogInstall.cancelAllPending()
-    plaudInstall.cancelAllPending()
-    slackInstall.cancelAllPending()
-    discordInstall.cancelAllPending()
-    k8s.stopAllPortForwards()
-    terminal.closeAllSshSessions()
-    localTerminals.closeAll()
-    runtimeTerminals.closeAll()
-    runtimeDesktops.closeAll()
-    // Closes exec sessions and triggers deletion of any node-shell pods.
-    podExec.closeAllPodExecSessions()
-    stopUpdatePolling()
-    // Fire-and-forget flush; the single in-flight batch (flushAt: 1) drains before exit.
-    void shutdownMainAnalytics()
-  }
-  // Hold the quit briefly so in-flight node-shell pod deletions can land —
+})
+
+// Nothing stops before will-quit: a window can still cancel the quit after before-quit,
+// and the app then lives on without its runtime, its computer offline.
+teardownOnQuit(app, () => {
+  captureMain('app_quit')
+  githubInstall.cancelAllPending()
+  gitlabInstall.cancelAllPending()
+  cloudflareInstall.cancelAllPending()
+  linearInstall.cancelAllPending()
+  jiraInstall.cancelAllPending()
+  asanaInstall.cancelAllPending()
+  sentryInstall.cancelAllPending()
+  posthogInstall.cancelAllPending()
+  plaudInstall.cancelAllPending()
+  slackInstall.cancelAllPending()
+  discordInstall.cancelAllPending()
+  k8s.stopAllPortForwards()
+  terminal.closeAllSshSessions()
+  localTerminals.closeAll()
+  runtimeTerminals.closeAll()
+  runtimeDesktops.closeAll()
+  // Closes exec sessions and triggers deletion of any node-shell pods.
+  podExec.closeAllPodExecSessions()
+  stopUpdatePolling()
+  // Fire-and-forget flush; the single in-flight batch (flushAt: 1) drains before exit.
+  void shutdownMainAnalytics()
+
+  // Hold the exit briefly so in-flight node-shell pod deletions can land —
   // otherwise the app can exit before the API server removes a privileged pod.
-  // Bounded by a timeout so quit never hangs; re-quit after it settles.
-  if (!nodeShellCleanupAwaited) {
-    nodeShellCleanupAwaited = true
-    e.preventDefault()
-    void Promise.allSettled([podExec.awaitNodeShellCleanup(2000), stopLocalRuntime()]).finally(() =>
-      app.quit(),
-    )
-  }
+  // Bounded by a timeout so quit never hangs.
+  return Promise.allSettled([podExec.awaitNodeShellCleanup(2000), stopLocalRuntime()])
 })
 
 app
   .whenReady()
-  .then(async () => {
+  .then(() => {
     routeFetchThroughChromium(net)
     // Before any window exists: web-contents-created only fires for contents created
     // after registration, or the first window never gets the will-attach-webview hook.
@@ -220,7 +215,10 @@ app
     void resolveShellEnv()
     initMainAnalytics()
     startDevBackendHealthProbe()
-    initLocalRuntime()
+    // The tunnel's first dial must already know the proxy.
+    void routeBackendSocketsThroughSystemProxy(session.defaultSession, apiUrl()).finally(
+      initLocalRuntime,
+    )
     captureMain('app_launched', {
       version: app.getVersion(),
       platform: process.platform,
@@ -241,14 +239,13 @@ app
       }
     })
     installApplicationMenu()
+    onMainLocaleChange(installApplicationMenu)
+    void initMainLocale()
     if (isDev && devSuffix && process.platform === 'darwin') {
       app.dock?.setBadge(process.env.ATLAS_DEV_SUFFIX ?? '')
     }
     registerAppProtocolHandler()
 
-    await k8s.init().catch((e: unknown) => {
-      console.warn('initial kube auto-connect failed:', e)
-    })
     restoreWindows()
     flushPendingDeepLinks()
     app.on('activate', () => {

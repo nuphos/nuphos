@@ -1,5 +1,4 @@
 import { t } from '../../i18n/index.ts'
-import { monitoringWatchGroupMemberKey } from '../../lib/monitoringWatch'
 
 import type { MonitoringOverviewRow } from '../../types'
 
@@ -9,7 +8,7 @@ export type ProviderFilter = 'all' | MonitoringOverviewRow['provider']
 export const POLL_INTERVAL_MS = 30_000
 
 export function monitoringRowKey(row: MonitoringOverviewRow): string {
-  return monitoringWatchGroupMemberKey(row)
+  return JSON.stringify([row.provider, row.integrationId, row.kind, row.providerResourceId])
 }
 
 export const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [

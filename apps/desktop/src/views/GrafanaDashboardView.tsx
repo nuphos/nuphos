@@ -22,7 +22,7 @@ type Props = {
 export function GrafanaDashboardView({ target: targetProp, uid }: Props) {
   // Keep-alive keeps inactive tabs mounted; passing isActive gates the portal
   // (and occupancy) so only the active tab drives the shared toolbar row.
-  const { refreshKey, pollTick, isActive } = useWorkspaceTab()
+  const { refreshKey, isActive } = useWorkspaceTab()
   const controlsSlot = useToolbarSlot('right', isActive)
   // The parent recreates the target object on every render (and it re-renders
   // on a 5s tab poll); pin its identity so panels don't refetch spuriously.
@@ -45,7 +45,7 @@ export function GrafanaDashboardView({ target: targetProp, uid }: Props) {
     setSelTexts,
     openRows,
     setOpenRows,
-  } = useGrafanaDashboard(target, uid, refreshKey, pollTick)
+  } = useGrafanaDashboard(target, uid, refreshKey)
 
   const { linkForRow } = useWorkspaceRowLink()
   const getPanelLink = useCallback(

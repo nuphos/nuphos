@@ -22,7 +22,7 @@ useAgentDeviceStore({
 })
 
 describe('buildPreviewSystemPrompt', () => {
-  test('routes Plan, architecture, and Dashboards through native skills', async () => {
+  test('routes architecture and Dashboards through native skills and risky changes through approval decisions', async () => {
     const prompt = await buildPreviewSystemPrompt({
       userId: 'user-1',
       teamId: 'team-1',
@@ -32,7 +32,8 @@ describe('buildPreviewSystemPrompt', () => {
     })
 
     expect(prompt).toContain('installed in `.claude/skills`')
-    expect(prompt).toContain('native `nuphos-plan` skill')
+    expect(prompt).toContain('call `request_user_decision` with category `approval`')
+    expect(prompt).not.toContain('nuphos-plan')
     expect(prompt).toContain('native `architecture-diagram` skill FIRST')
     expect(prompt).toContain('native `nuphos-dashboards` skill FIRST')
     expect(prompt).toContain('canonical Nuphos REST APIs')
@@ -88,7 +89,7 @@ test('Codex receives native skill paths and its runtime identity', async () => {
   expect(prompt).toContain('running as Codex')
   expect(prompt).toContain('installed in `.agents/skills`')
   expect(prompt).toContain('nuphos-credentials')
-  expect(prompt).toContain('nuphos-plan')
+  expect(prompt).toContain('## Approval before risky cloud changes')
   expect(prompt).not.toContain('Claude Code')
   expect(prompt).toContain('## Workspace')
   expect(prompt).toContain('This is the Codex runtime')

@@ -1,6 +1,12 @@
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
+import { notificationIdentity } from '@/lib/push/notification-identity'
 import { notifyNudge } from '@/lib/push/notify'
+import { plainText, truncate } from '@/lib/push/turn-outcome'
+import { readingWatchers } from '@/lib/push/watchers'
 
+import { chatName } from './db/archive'
+import { inviteConversationParticipants } from './db/participants'
 import { agentConversations } from './db/shared'
 import { canReplyIn } from './devices/conversation-computer'
 import { senderLabel } from './message-metadata'
@@ -94,7 +100,8 @@ export async function noteMentions(
   )
   if (mentioned.length === 0) return
   // An unnamed chat's name is each reader's own view; the push goes to all of them alike.
-  const where = conversation.title ? ` in ${conversation.title}` : ''
+  const name = chatName(conversation)
+  const where = name ? ` in ${name}` : ''
 
   notifyNudge(mentioned, {
     sessionId: conversation.sessionId,
@@ -102,4 +109,55 @@ export async function noteMentions(
     title: `${senderLabel(sender)} mentioned you${where}`,
     body: message.text.slice(0, PUSH_BODY_CHARS),
   })
+}
+
+/** The poster's face on an alert that opens a channel: mutable-content wakes the iOS extension that draws it. */
+export const botFace = (bot: Parameters<typeof notificationIdentity>[0] | null) =>
+  bot ? { speaker: notificationIdentity(bot), aps: { 'mutable-content': 1 } } : {}
+
+/**
+ * A channel post's pushes: the people it @mentions, and for an agent's post the
+ * people watching the channel. channel_post is where a channel-woken turn
+ * speaks, so its end pushes nothing (see `runEnded`). The post is stored by
+ * now, so a failure here is logged and never fails the post.
+ */
+export async function notePost(
+  channel: AgentConversation & { teamId: string },
+  post: Mentioning,
+  byAgent: boolean,
+): Promise<void> {
+  try {
+    await noteMentions(channel, post)
+    if (!byAgent) return
+    const bot = await agentConversations().findOne({ sessionId: post.metadata.sender.id })
+
+    // A nudge still alerts someone who cannot read the conversation, so they are left out here.
+    notifyNudge(await readingWatchers(channel), {
+      sessionId: channel.sessionId,
+      teamId: channel.teamId,
+      title: senderLabel(post.metadata.sender),
+      ...(chatName(channel) ? { subtitle: chatName(channel) } : {}),
+      body: truncate(plainText(post.text)) || 'File',
+      ...botFace(bot),
+    })
+  } catch (error) {
+    logError('agent.channel.post_notify_failed', error, { channel_id: channel.sessionId })
+  }
+}
+
+/**
+ * Bring teammates into a conversation on someone's behalf. Each person actually
+ * added gets an entry kept like a mention's, so their desktop announces the invite.
+ */
+export async function inviteToConversation(
+  teamId: string,
+  sessionId: string,
+  actorId: string,
+  userIds: readonly string[],
+): Promise<AgentConversation | null> {
+  if (userIds.length === 0) return await agentConversations().findOne({ sessionId })
+  const actor = (await getTeamMembers(teamId)).find((member) => member.id === actorId)
+  const name = (actor && mentionName(actor)) || 'Someone'
+
+  return await inviteConversationParticipants(sessionId, { id: actorId, name }, userIds)
 }

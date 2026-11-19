@@ -162,7 +162,7 @@ export function teamPageLocation(
   // step reads the segment as a session id (it shipped that way for Skills
   // once). Plans is top-level for the same reason.
   if (active === 'team.triggers') {
-    return pageLocation(`/teams/${pathSegment(scope.teamId)}/triggers`)
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/inbox`)
   }
   if (active === 'team.inbox') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/inbox`)
@@ -203,7 +203,7 @@ export function teamPageLocation(
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/monitoring`)
   }
   if (active === 'team.schedule') {
-    return pageLocation(`/teams/${pathSegment(scope.teamId)}/schedule`)
+    return pageLocation(`/teams/${pathSegment(scope.teamId)}/inbox`)
   }
   if (active === 'team.members') {
     return pageLocation(`/teams/${pathSegment(scope.teamId)}/settings/members`)

@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +17,7 @@ import ai.nuphos.android.session.BotArchive
 /** Asks before Archive Bot, then waits for it, since the Bot and its chats are several requests. */
 @Composable
 fun ArchiveBotDialog(store: AgentStore, botId: String, onDismiss: () -> Unit) {
-    val bot = store.conversations.firstOrNull { it.sessionId == botId }
+    val bot = store.botRow(botId)
     var started by remember(botId) { mutableStateOf(false) }
     val busy = store.archivingBotId == botId
     // Done, or reported by the dialog below.
@@ -23,20 +25,21 @@ fun ArchiveBotDialog(store: AgentStore, botId: String, onDismiss: () -> Unit) {
     if (bot == null || (!started && !store.canArchiveBot(botId))) { LaunchedEffect(Unit) { onDismiss() }; return }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Archive Bot?") },
-        text = { Text("“${bot.displayTitle}” and your chats with it are archived together.") },
+        title = { Text(stringResource(R.string.agent_archive_bot_title)) },
+        text = { Text(stringResource(R.string.agent_archive_bot_body, bot.displayTitle)) },
         confirmButton = { TextButton(enabled = !busy, onClick = { started = true; store.archiveBot(botId) }) {
-            Text(if (busy) "Archiving…" else "Archive")
+            Text(stringResource(if (busy) R.string.agent_archiving else R.string.agent_archive))
         } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
-private fun BotArchive.State.words() = when (this) {
-    BotArchive.State.Archived -> "archived"
-    BotArchive.State.NotArchived -> "not archived"
-    BotArchive.State.Unknown -> "unknown, as its request didn't get an answer"
-}
+@Composable
+private fun BotArchive.State.words() = stringResource(when (this) {
+    BotArchive.State.Archived -> R.string.agent_bot_state_archived
+    BotArchive.State.NotArchived -> R.string.agent_bot_state_not_archived
+    BotArchive.State.Unknown -> R.string.agent_bot_state_unknown
+})
 
 /** What Archive Bot couldn't finish, said plainly, until it's dismissed. No chat content, only where things stand. */
 @Composable
@@ -54,29 +57,26 @@ fun BotArchiveIssueDialog(store: AgentStore) {
     val restored = reason == BotArchive.RESTORED
     AlertDialog(
         onDismissRequest = {},
-        title = { Text(if (partial != null) "Archive Bot didn't finish" else if (restored) "Chats restored" else "Bot not archived") },
+        title = { Text(stringResource(if (partial != null) R.string.agent_archive_bot_unfinished else if (restored) R.string.agent_chats_restored else R.string.agent_bot_not_archived)) },
         text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(reason)
             if (partial != null) {
-                Text("“${issue.botTitle}”: ${partial.bot.words()}.", style = MaterialTheme.typography.bodyMedium)
-                if (leftArchived + leftUnknown > 0) Text(buildString {
-                    append("Your chats with it: ")
-                    append(listOfNotNull(
-                        leftArchived.takeIf { it > 0 }?.let { "$it archived" },
-                        leftUnknown.takeIf { it > 0 }?.let { "$it unknown" },
-                    ).joinToString(", "))
-                    append(".")
+                Text(stringResource(R.string.agent_bot_archive_state, issue.botTitle, partial.bot.words()), style = MaterialTheme.typography.bodyMedium)
+                if (leftArchived + leftUnknown > 0) Text(when {
+                    leftArchived > 0 && leftUnknown > 0 -> stringResource(R.string.agent_bot_chats_archived_unknown, leftArchived, leftUnknown)
+                    leftArchived > 0 -> stringResource(R.string.agent_bot_chats_archived, leftArchived)
+                    else -> stringResource(R.string.agent_bot_chats_unknown, leftUnknown)
                 }, style = MaterialTheme.typography.bodyMedium)
             }
         } },
         confirmButton = {
             Row {
-                if (leftArchived + leftUnknown > 0) TextButton(enabled = !busy, onClick = { store.restoreBotChats() }) { Text("Restore chats") }
+                if (leftArchived + leftUnknown > 0) TextButton(enabled = !busy, onClick = { store.restoreBotChats() }) { Text(stringResource(R.string.agent_restore_chats)) }
                 if (!restored && store.canArchiveBot(issue.botId)) TextButton(enabled = !busy, onClick = { store.archiveBot(issue.botId) }) {
-                    Text(if (busy) "Working…" else "Try again")
+                    Text(stringResource(if (busy) R.string.agent_working else R.string.try_again))
                 }
             }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = { store.dismissBotArchiveIssue() }) { Text("OK") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = { store.dismissBotArchiveIssue() }) { Text(stringResource(R.string.agent_ok)) } },
     )
 }

@@ -4,7 +4,9 @@ import { z } from 'zod'
 import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
-import { ACTIVITY_RANGES, getTeamActivity } from '@/lib/agent/team-activity'
+import { ACTIVITY_RANGES, getTeamActivity, withOwnTitles } from '@/lib/agent/team-activity'
+import { mergeOthersPrivate, usageNames } from '@/lib/agent/usage-names'
+import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
 import { zv } from '@/lib/validate'
@@ -67,8 +69,10 @@ import {
   requireUserOrConversationAuth,
 } from '@/routes/teams/conversation-auth'
 import { registerTeamInvitationRoutes } from '@/routes/teams/invitations'
-import { registerLocalAgentSharingRoutes } from '@/routes/teams/local-agent-sharing'
+import { registerBindingShareRoutes } from '@/routes/teams/binding-share'
 import { registerTeamManagementRoutes } from '@/routes/teams/management'
+import { registerTeamImportRoutes } from '@/routes/teams/migration-import'
+import { registerTeamMigrationRoutes } from '@/routes/teams/migration'
 import { registerTeamsRootRoutes } from '@/routes/teams/root'
 import { tencentAccountsRoutes } from '@/routes/tencent-accounts'
 import { trelloIntegrationsRoutes } from '@/routes/trello-integrations'
@@ -82,6 +86,7 @@ import { zeaburProvidersRoutes } from '@/routes/zeabur-providers'
 import { registerRuntimeLoginRoutes } from './teams/runtime-login'
 import { registerSignInRequestRoutes } from './teams/sign-in-requests'
 
+import type { UsageDimension } from '@/lib/agent/usage-query'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
 
@@ -89,6 +94,7 @@ export const teamsRoutes = new Hono<{ Variables: ConversationTeamAuthVariables }
 teamsRoutes.use('*', requireUserOrConversationAuth)
 
 registerTeamsRootRoutes(teamsRoutes)
+registerTeamImportRoutes(teamsRoutes)
 
 const activityQuerySchema = z.object({
   range: z.enum(Object.keys(ACTIVITY_RANGES) as [keyof typeof ACTIVITY_RANGES]).default('7d'),
@@ -100,6 +106,24 @@ const statsQuerySchema = activityQuerySchema.extend({
   timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').default('UTC'),
 })
 
+// `a,b` lists: the dimensions to group by, and each dimension's allowed values.
+const csv = z
+  .string()
+  .max(4000)
+  .transform((value) => value.split(',').filter(Boolean))
+const usageQuerySchema = z
+  .object({
+    from: z.coerce.date(),
+    to: z.coerce.date(),
+    bucket: z.enum(USAGE_BUCKETS).optional(),
+    timeZone: z.string().max(64).refine(isTimeZone, 'Unknown time zone').optional(),
+    groupBy: csv.pipe(z.array(z.enum(USAGE_DIMENSIONS)).max(3)).default(''),
+    ...Object.fromEntries(USAGE_DIMENSIONS.map((dimension) => [dimension, csv.optional()])),
+  })
+  .refine(({ from, to }) => from < to && to.getTime() - from.getTime() <= 400 * 86_400_000, {
+    message: 'The range must run forward and span at most 400 days',
+  })
+
 const teamScoped = new Hono<{
   Variables: TeamAuthVariables & ConversationTeamAuthVariables
 }>()
@@ -108,7 +132,8 @@ teamScoped.use('*', requireTeamMember())
 teamScoped.use('*', dispatchConversationTeamApi)
 
 registerTeamManagementRoutes(teamScoped)
-registerLocalAgentSharingRoutes(teamScoped)
+registerTeamMigrationRoutes(teamScoped)
+registerBindingShareRoutes(teamScoped)
 registerTeamInvitationRoutes(teamScoped)
 registerAgentRuntimeRoutes(teamScoped)
 registerExternalRuntimeRoute(teamScoped)
@@ -117,17 +142,61 @@ registerSignInRequestRoutes(teamScoped)
 registerClaudeCodeRuntimeRoutes(teamScoped, 'codex')
 registerClaudeCodeRuntimeRoutes(teamScoped)
 
-teamScoped.get('/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
-teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) =>
-  c.json(await getTeamActivity(c.get('teamId'), c.req.valid('query').range)),
+teamScoped.get('/usage', async (c) =>
+  c.json(
+    await getTeamUsageSeries(c.get('teamId'), {
+      userId: c.get('userId'),
+      teamRole: c.get('teamRole'),
+    }),
+  ),
 )
+// Every member sees the whole team's activity and stats; only an administrator
+// sees the titles of other members' sessions.
+teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) => {
+  const activity = await getTeamActivity(c.get('teamId'), c.req.valid('query').range)
+
+  return c.json(
+    c.get('teamRole') === 'ADMINISTRATOR' ? activity : withOwnTitles(activity, c.get('userId')),
+  )
+})
 teamScoped.get('/agent-stats', zv('query', statsQuerySchema), async (c) =>
   c.json(
     await getAgentStats(c.get('teamId'), { viewerId: c.get('userId'), ...c.req.valid('query') }),
   ),
 )
+// The team's token usage, grouped and filtered by any dimension; names follow the viewer's role.
+teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
+  const { from, to, bucket, timeZone, groupBy, ...rest } = c.req.valid('query')
+  // The schema spreads the dimension lists in, so their keys are lost to the type.
+  const lists: Partial<Record<UsageDimension, string[]>> = rest
+  const filters = Object.fromEntries(
+    USAGE_DIMENSIONS.flatMap((dimension) => {
+      const values = lists[dimension]
+
+      return values?.length ? [[dimension, values]] : []
+    }),
+  )
+
+  const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
+  // Other members' private conversations show as one row, never apart.
+  const rows = await mergeOthersPrivate(
+    c.get('teamId'),
+    viewer,
+    groupBy,
+    await queryTeamUsage(c.get('teamId'), { from, to, bucket, timeZone, groupBy, filters }),
+  )
+
+  return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
+})
 // Read-only compatibility for saved dashboard scripts and older desktop clients.
-teamScoped.get('/billing/usage', async (c) => c.json(await getTeamUsageSeries(c.get('teamId'))))
+teamScoped.get('/billing/usage', async (c) =>
+  c.json(
+    await getTeamUsageSeries(c.get('teamId'), {
+      userId: c.get('userId'),
+      teamRole: c.get('teamRole'),
+    }),
+  ),
+)
 // The team's Box vCPU limit and use, for the Boxes section.
 teamScoped.get('/box-usage', async (c) => c.json(await boxUsageView(c.get('teamId'))))
 teamScoped.get(
@@ -144,7 +213,7 @@ teamScoped.get(
 )
 teamScoped.route('/favorites', sidebarFavoritesRoutes)
 teamScoped.route('/home-layout', homeLayoutRoutes)
-teamScoped.route('/runtime-fallback', runtimeFallbackRoutes)
+teamScoped.route('/runtime-fallbacks', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
 

@@ -1,3 +1,7 @@
+import { hostname } from 'node:os'
+
+import { runPasskeyCeremony } from '../auth/passkey.ts'
+
 import { call } from './client'
 
 import type { MfaSetup, MfaStatus } from '../../src/types/team'
@@ -42,4 +46,29 @@ export async function disableMfa(code: string): Promise<void> {
 /** Step-up: a current code makes this session recently verified again. */
 export async function reauthMfa(code: string): Promise<void> {
   await call('POST', '/auth/mfa/reauth', { code }, { retry: false })
+}
+
+/** Step-up with a passkey, through nuphos.ai in the browser. */
+export async function reauthWithPasskey(): Promise<void> {
+  const options = await call('POST', '/auth/mfa/passkey-options', undefined, { retry: false })
+  const passkey = await runPasskeyCeremony('get', options)
+
+  await call('POST', '/auth/mfa/reauth', { passkey }, { retry: false })
+}
+
+/** Adds a passkey, named after this computer. */
+export async function addPasskey(): Promise<void> {
+  const options = await call('POST', '/auth/mfa/passkeys/options', undefined, { retry: false })
+  const response = await runPasskeyCeremony('create', options)
+
+  await call(
+    'POST',
+    '/auth/mfa/passkeys',
+    { response, name: hostname().slice(0, 64) },
+    { retry: false },
+  )
+}
+
+export async function removePasskey(id: string, code: string): Promise<void> {
+  await call('DELETE', `/auth/mfa/passkeys/${encodeURIComponent(id)}`, { code }, { retry: false })
 }

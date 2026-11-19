@@ -15,6 +15,7 @@ const teamId = new ObjectId()
 const userId = new ObjectId().toHexString()
 const shared = { zeaburId: 'shared-team', kind: 'team' as const, name: 'Zeabur Inc.' }
 let bindings: ZeaburProviderBinding[] = []
+let teamRole: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR'
 let writes = 0
 let decrypted: string[] = []
 
@@ -72,7 +73,7 @@ const app = new Hono<{ Variables: TeamAuthVariables }>()
 app.onError(errorHandler)
 app.use('*', async (c, next) => {
   c.set('teamId', teamId.toHexString())
-  c.set('teamRole', 'ADMINISTRATOR')
+  c.set('teamRole', teamRole)
   await next()
 })
 app.route('/', zeaburProvidersRoutes)
@@ -84,6 +85,7 @@ async function readProviders(response: Response) {
   return body.providers
 }
 beforeEach(() => {
+  teamRole = 'ADMINISTRATOR'
   bindings = [
     binding([{ zeaburId: 'user-a', kind: 'user', name: 'Yuanlin' }, shared], 'first'),
     binding(
@@ -158,3 +160,25 @@ test('single-binding POST projection is compatible and unknown credentials remai
   expect(decrypted).toEqual([])
   expect(writes).toBe(0)
 })
+
+for (const role of ['ADMINISTRATOR', 'EDITOR', 'VIEWER'] as const) {
+  test(`${role} credential use is separate from connector management`, async () => {
+    teamRole = role
+    const credentials = await app.request('/shared-team/credentials')
+
+    expect(credentials.status).toBe(role === 'VIEWER' ? 403 : 200)
+    if (role !== 'ADMINISTRATOR') {
+      expect((await app.request('/shared-team', { method: 'DELETE' })).status).toBe(403)
+      expect(
+        (
+          await app.request('/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: 'fixture-token' }),
+          })
+        ).status,
+      ).toBe(403)
+      expect(writes).toBe(0)
+    }
+  })
+}

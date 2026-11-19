@@ -9,24 +9,29 @@ import org.junit.Assert.*
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ConversationAgentMoveTest {
-    // Keep permission lookups synchronous: real IO can resume after resetMain between tests.
     @Before fun setup() { Dispatchers.setMain(UnconfinedTestDispatcher()) }
     @After fun cleanup() { Dispatchers.resetMain() }
-    private val target = AgentRuntime("new", "codex", "New", "active", "managed")
+    private val target = AgentRuntime("new", "codex", "New", "active", "external")
     private fun detail(owner: Boolean = true, manage: Boolean? = null, busy: Boolean = false) = AgentConversationDetail(
         isOwner = owner, canManage = manage, runtimeId = "old", agentRuntime = "codex", runtimeLabel = "Old",
         activeRun = if (busy) AgentConversationDetail.ActiveRun("busy") else null,
         messages = listOf(ChatMessage(id = "history", parts = listOf(ChatPart.Text(text = "Retained history")))))
-    @Test fun managerCanMoveButCannotChooseLocalAndFailurePreservesIdentityAndHistory() = runTest {
-        val saved = detail(owner = false, manage = true)
+    @Test fun onlyTheOwnerMovesAndFailurePreservesIdentityAndHistory() = runTest {
+        // The server moves a conversation only for its owner, whoever else manages it.
+        val managed = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true },
+            readDetail = { _, _, _ -> detail(owner = false, manage = true) }, moveRuntime = { _, _, _, _ -> throw AssertionError("Not the owner") })
+        managed.load()
+        for (kind in listOf("local", "external")) {
+            try { managed.moveAgent(target.copy(kind = kind)); fail("Teammate denied") } catch (_: IllegalArgumentException) {}
+        }
+        managed.disposeForConsent()
+        val saved = detail()
         var calls = 0
         val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> saved },
             moveRuntime = { _, _, _, _ -> calls++; throw IllegalStateException("Unavailable") })
         session.load()
         assertTrue(session.canMoveAgent)
         val before = session.messages
-        try { session.moveAgent(target.copy(kind = "local")); fail("Local denied") } catch (_: IllegalArgumentException) {}
-        assertEquals(0, calls)
         try { session.moveAgent(target); fail("Failure expected") } catch (_: IllegalStateException) {}
         assertEquals(1, calls)
         assertEquals("old", session.runtimeId)

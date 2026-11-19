@@ -1,33 +1,66 @@
-// Gmail and Google Drive through Composio-managed auth, for teams that have
-// not added their own Google OAuth client. Composio holds the Google grant;
+// Gmail, Google Drive and Google Calendar through Composio-managed auth, for
+// teams that have not added their own Google OAuth client. Composio holds the Google grant;
 // Nuphos keeps only the connected account id and runs tools through it with
 // its own server-side API key. https://docs.composio.dev/docs/authenticating-users
-import { config } from '@/config'
-import { composioRequest as call } from '@/lib/composio'
+import { composioAuthConfigId, composioRequest as call } from '@/lib/composio'
 import { AppError } from '@/lib/errors'
 import { personalCredentialPendingOAuth } from '@/models'
 
 import type { GoogleProvider } from './google'
 import type { PersonalCredentialPendingOAuth } from '@/models'
 
-const PROFILE: Record<GoogleProvider, { tool: string; email: (data: unknown) => unknown }> = {
+const PROFILE: Record<
+  GoogleProvider,
+  { toolkit: string; tool: string; email: (data: unknown) => unknown }
+> = {
   gmail: {
+    toolkit: 'gmail',
     tool: 'GMAIL_GET_PROFILE',
     email: (d) => (d as { emailAddress?: unknown }).emailAddress,
   },
   'google-drive': {
+    toolkit: 'googledrive',
     tool: 'GOOGLEDRIVE_GET_ABOUT',
     email: (d) => (d as { user?: { emailAddress?: unknown } }).user?.emailAddress,
   },
+  'google-calendar': {
+    toolkit: 'googlecalendar',
+    tool: 'GOOGLECALENDAR_GET_CURRENT_USER',
+    email: (d) => (d as { email?: unknown }).email,
+  },
 }
 
-// The same reach as a team-client grant. Its gmail.modify scope cannot permanently delete
-// mail, so those tools are refused. Its Drive scope is full `drive`, which can delete files
-// and empty the trash, so Drive keeps those tools.
+// The managed Gmail config uses Composio's default scopes, which include full
+// https://mail.google.com/ and so could permanently delete mail. A team-client
+// grant (gmail.modify) cannot, so these tools are refused here to keep the same
+// reach: trash instead. Drive is full `drive` on both paths, which can delete
+// files and empty the trash, so Drive keeps those tools.
 const BLOCKED = new Set([
   'GMAIL_DELETE_MESSAGE',
   'GMAIL_DELETE_THREAD',
   'GMAIL_BATCH_DELETE_MESSAGES',
+])
+
+// The managed Calendar config uses Composio's default scopes, which can also share,
+// create and delete whole calendars. A team-client grant is calendar.events only,
+// so here only event tools run, plus the profile and clock tools.
+const CALENDAR_TOOLS = new Set([
+  'GOOGLECALENDAR_BATCH_EVENTS',
+  'GOOGLECALENDAR_CREATE_EVENT',
+  'GOOGLECALENDAR_DELETE_EVENT',
+  'GOOGLECALENDAR_EVENTS_GET',
+  'GOOGLECALENDAR_EVENTS_IMPORT',
+  'GOOGLECALENDAR_EVENTS_INSTANCES',
+  'GOOGLECALENDAR_EVENTS_LIST',
+  'GOOGLECALENDAR_EVENTS_MOVE',
+  'GOOGLECALENDAR_FIND_EVENT',
+  'GOOGLECALENDAR_GET_CURRENT_DATE_TIME',
+  'GOOGLECALENDAR_GET_CURRENT_USER',
+  'GOOGLECALENDAR_PATCH_EVENT',
+  'GOOGLECALENDAR_QUICK_ADD',
+  'GOOGLECALENDAR_REMOVE_ATTENDEE',
+  'GOOGLECALENDAR_SYNC_EVENTS',
+  'GOOGLECALENDAR_UPDATE_EVENT',
 ])
 
 /** The toolkit an agent's tool belongs to, so it can only use the member's own connection for it. */
@@ -35,16 +68,9 @@ export function composioToolProvider(tool: string): GoogleProvider | null {
   if (BLOCKED.has(tool)) return null
   if (/^GMAIL_[A-Z0-9_]+$/u.test(tool)) return 'gmail'
   if (/^GOOGLEDRIVE_[A-Z0-9_]+$/u.test(tool)) return 'google-drive'
+  if (CALENDAR_TOOLS.has(tool)) return 'google-calendar'
 
   return null
-}
-
-/** The auth config members connect this provider through, when Composio is configured. */
-export function composioAuthConfig(provider: GoogleProvider): string | null {
-  const { apiKey, gmailAuthConfigId, googleDriveAuthConfigId } = config.byos.composio
-  const id = provider === 'gmail' ? gmailAuthConfigId : googleDriveAuthConfigId
-
-  return apiKey && id ? id : null
 }
 
 /** Connected accounts are per Nuphos team and member, like the team-client grants. */
@@ -60,7 +86,7 @@ export async function createComposioLink(args: {
     'POST',
     '/connected_accounts/link',
     {
-      auth_config_id: composioAuthConfig(args.provider),
+      auth_config_id: await composioAuthConfigId(PROFILE[args.provider].toolkit),
       user_id: args.composioUserId,
       callback_url: args.callbackUrl,
     },

@@ -15,6 +15,7 @@ import Foundation
         await aLateRejectionAfterSignOutStaysSignedOut()
         await aLateFailureAfterSignOutShowsNoError()
         await aLateAnswerAfterSignOutStaysSignedOut()
+        await aSignInWithTwoFactorWaitsForTheCode()
         print("Auth session launch check passed")
     }
 
@@ -70,6 +71,26 @@ import Foundation
         precondition(!session.aiConsentAccepted)
         precondition(session.user?.id == "u-bob")
         AccountAPI.consentReply = nil
+    }
+
+    private static func aSignInWithTwoFactorWaitsForTheCode() async {
+        Keychain.items = [:]
+        NuphosAPI.me = { token in NuphosUser(id: "u-\(token)", email: "", name: "", username: "", avatarURL: "") }
+        let session = AuthSession()
+        AccountAPI.mfaChallenge = "challenge"
+        await signIn(session, as: "carol")
+        precondition(session.user == nil)
+        precondition(session.mfaChallenge?.token == "challenge")
+        precondition(session.savedAccounts.active == nil)
+
+        var refused = false
+        do { try await session.verifyMfa(code: "000000") } catch { refused = true }
+        precondition(refused && session.user == nil && session.mfaChallenge != nil)
+
+        try? await session.verifyMfa(code: "654321")
+        precondition(session.user?.id == "u-carol")
+        precondition(session.mfaChallenge == nil)
+        AccountAPI.mfaChallenge = nil
     }
 
     private static func signIn(_ session: AuthSession, as name: String) async {

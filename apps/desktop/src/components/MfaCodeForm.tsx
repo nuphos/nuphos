@@ -13,13 +13,16 @@ import { toast } from './ui/toast'
  * Asks for a code from the authenticator app, or a recovery code instead. A
  * full six-digit code submits by itself. `onSubmit` throws when the code is
  * refused; the field then shakes and the backend's reason shows in a toast.
+ * With `onPasskey`, a passkey can answer instead (it runs in the browser).
  */
 export function MfaCodeForm({
   onSubmit,
+  onPasskey,
   submitLabel,
   autoFocus = true,
 }: {
   onSubmit: (code: string) => Promise<void>
+  onPasskey?: () => Promise<void>
   submitLabel: string
   autoFocus?: boolean
 }) {
@@ -50,6 +53,20 @@ export function MfaCodeForm({
   // One submit at a time: the auto-submit and an Enter or click right after it send one request.
   const submitLatest = useStableCallback(submit)
   const [submitOnce] = useState(() => singleFlight(submitLatest))
+
+  async function answerWithPasskey() {
+    if (busy || !onPasskey) return
+    setBusy(true)
+    try {
+      await onPasskey()
+    } catch (e) {
+      toast.apiError(t('That passkey didn’t work'), e, {
+        fallback: t('Check your internet connection and try again.'),
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   function switchMode() {
     setRecovery(!recovery)
@@ -109,6 +126,18 @@ export function MfaCodeForm({
       >
         {recovery ? t('Use your authenticator app') : t('Use a recovery code')}
       </Button>
+      {onPasskey && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => void answerWithPasskey()}
+          className="self-start titlebar-no-drag"
+        >
+          {t('Use a passkey')}
+        </Button>
+      )}
     </form>
   )
 }

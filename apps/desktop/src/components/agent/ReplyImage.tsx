@@ -4,12 +4,26 @@ import { api } from '../../api'
 import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
+import { MediaPreview } from './panel/MediaPreview'
 import { ImageLightbox } from './panel/messageInline'
-import { MEDIA_BOX } from './panel/transferDownloads'
+import { MEDIA_FRAME, viewerKind } from './panel/transferDownloads'
 
+import type { PdfSource } from './panel/MediaPreview'
+import type { LightboxImage } from './panel/messageInline'
 import type { FileTransferGroup } from '../../types'
 
-const FRAME = `block rounded-lg border border-line-control bg-surface-sheet ${MEDIA_BOX}`
+/** What the lightbox shows this reply full size: a PDF is framed from its record, anything else is its own link. */
+function lightboxItem(
+  file: FileTransferGroup['files'][number],
+  url: string,
+  kind: ReturnType<typeof viewerKind>,
+  source: Omit<PdfSource, 'fileId' | 'size'>,
+): LightboxImage {
+  if (kind === 'pdf')
+    return { fileName: file.fileName, pdf: { ...source, fileId: file.id, size: file.size } }
+
+  return { url, fileName: file.fileName, video: kind === 'video' }
+}
 
 /**
  * Any other markdown or HTML image (GitHub bodies and comments included):
@@ -104,46 +118,50 @@ export function ReplyImage({
     setAttempt((n) => n + 1)
   }
   const file = group?.files.find((item) => item.status === 'ready' && item.downloadUrl)
-
-  if (!teamId || error || (group && !file))
-    return (
-      <span role="status">
-        {t('Image unavailable or expired.')}{' '}
-        <button type="button" onClick={retry}>
-          {t('Retry')}
-        </button>
-      </span>
-    )
-  if (!group || !file?.downloadUrl)
-    return (
-      <span
-        role="status"
-        aria-label={t('Loading {name}', { name: alt ?? t('image') })}
-        className={`my-2 ${FRAME}`}
-      />
-    )
-  if (Date.parse(group.expiresAt) <= now)
-    return <span role="status">{t('Image expired — files are no longer available.')}</span>
+  const url = file?.downloadUrl
+  // Which viewer takes it; a file nothing renders in place keeps the image slot.
+  const kind = file ? viewerKind(file.fileName, file.contentType) : null
   const download = () => {
+    if (!teamId || !file) return
     void api
       .fileTransferDownloadOne({ teamId, groupId, fileId: file.id, fileName: file.fileName })
       .catch(() => toast.error(t('Could not download image')))
   }
 
+  if (!teamId || error || (group && !file))
+    return (
+      <span role="status">
+        {kind !== null ? t('Preview unavailable') : t('Image unavailable or expired.')}{' '}
+        <button type="button" onClick={retry}>
+          {t('Retry')}
+        </button>
+        {kind !== null && (
+          <button type="button" className="ml-1" onClick={download}>
+            {t('Download')}
+          </button>
+        )}
+      </span>
+    )
+  if (!group || !file || !url)
+    return (
+      <span
+        role="status"
+        aria-label={t('Loading {name}', { name: alt ?? t('image') })}
+        className={`my-2 ${MEDIA_FRAME}`}
+      />
+    )
+  if (Date.parse(group.expiresAt) <= now)
+    return <span role="status">{t('Image expired — files are no longer available.')}</span>
+
   return (
     <span className="my-2 block">
-      <button
-        type="button"
-        onClick={() => setPreview(0)}
-        aria-label={t('Preview {name}', { name: alt ?? file.fileName })}
-      >
-        <img
-          src={file.downloadUrl}
-          alt={alt ?? file.fileName}
-          className={`object-cover ${FRAME}`}
-          onError={() => setError(true)}
-        />
-      </button>
+      <MediaPreview
+        file={file}
+        kind={kind}
+        alt={alt}
+        onOpen={() => setPreview(0)}
+        onError={() => setError(true)}
+      />
       <span className="block text-xs text-tertiary">
         {t('Available until {time}.', { time: new Date(group.expiresAt).toLocaleString() })}{' '}
         <button type="button" onClick={download}>
@@ -151,7 +169,7 @@ export function ReplyImage({
         </button>
       </span>
       <ImageLightbox
-        images={[{ url: file.downloadUrl, fileName: file.fileName }]}
+        images={[lightboxItem(file, url, kind, { teamId, groupId })]}
         index={preview}
         onIndexChange={setPreview}
         onDownload={download}

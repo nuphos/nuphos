@@ -27,7 +27,16 @@ export type RemoteObject = { key: string; size: number }
 export type SkippedSkill = {
   name: string
   reason:
-    'too_large' | 'too_many_files' | 'name_taken' | 'over_budget' | 'unreadable' | 'needs_review'
+    | 'too_large'
+    | 'too_many_files'
+    | 'name_taken'
+    | 'over_budget'
+    | 'unreadable'
+    | 'needs_review'
+    | 'name_clash'
+  /** For `name_clash`: the folder whose copy stays here, and the earlier one that syncs. */
+  folder?: string
+  syncedFrom?: string
 }
 
 export type SkillSyncPlan = {

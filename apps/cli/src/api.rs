@@ -44,13 +44,19 @@ impl ApiError {
             .and_then(|e| e["message"].as_str())
             .map(String::from)
             .unwrap_or_else(|| format!("Nuphos returned status {}.", status.as_u16()));
+        // The terminal cannot ask for the code; a fresh sign-in counts as a recent check.
+        let message = if code.as_deref() == Some("reauth_required") {
+            "This needs a recent two-factor check. Do it in the Nuphos app, or run `nuphos login` again.".to_string()
+        } else {
+            message
+        };
         ApiError { status: status.as_u16(), code, message }
     }
 
     /// For `/auth/me`: the server rejected the token, as opposed to a network
     /// failure that says nothing about it.
     pub fn is_rejected_token(&self) -> bool {
-        self.status == 401 || self.status == 403
+        self.status == 401 || (self.status == 403 && self.code.as_deref() != Some("reauth_required"))
     }
 }
 
@@ -157,6 +163,37 @@ impl Api {
         Ok(v["conversations"].as_array().cloned().unwrap_or_default())
     }
 
+    /// My Bots in the team: conversations with an avatar, newest activity first.
+    /// Follows `nextCursor` for up to `BOT_PAGES` pages; the flag says more remain.
+    pub async fn bots(&self, team: &str) -> Result<(Vec<Value>, bool), ApiError> {
+        const BOT_PAGES: usize = 10;
+        let mut bots = Vec::new();
+        let mut cursor: Option<String> = None;
+        for _ in 0..BOT_PAGES {
+            let mut query = vec![
+                ("teamId", team),
+                ("limit", "100"),
+                ("scope", "mine"),
+                ("sort", "activity"),
+                ("archived", "exclude"),
+                ("bots", "true"),
+            ];
+            query.extend(cursor.as_deref().map(|c| ("cursor", c)));
+            let v = self.call(Method::GET, "/agent/conversations", &query, None).await?;
+            bots.extend(v["conversations"].as_array().cloned().unwrap_or_default());
+            match v["nextCursor"].as_str().filter(|_| v["hasMore"] == true) {
+                Some(next) => cursor = Some(next.to_string()),
+                None => return Ok((bots, false)),
+            }
+        }
+        Ok((bots, true))
+    }
+
+    /// Creates a Bot in Full Access: `{ sessionId, title, avatar }`.
+    pub async fn create_bot(&self, team: &str, body: &Value) -> Result<Value, ApiError> {
+        self.call(Method::POST, "/agent/bots", &[("teamId", team)], Some(body)).await
+    }
+
     /// The sidebar favorites, pinned conversations among them: `{ entries, revision }`.
     pub async fn favorites(&self, team: &str) -> Result<Value, ApiError> {
         self.call(Method::GET, &format!("/teams/{team}/favorites"), &[], None).await
@@ -190,10 +227,24 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
-    /// A Nuphos-managed Cloud agent; administrators only.
-    pub async fn create_runtime(&self, team: &str, provider: &str) -> Result<Value, ApiError> {
-        let body = json!({ "provider": provider });
-        self.call(Method::POST, &format!("/teams/{team}/agent-runtimes"), &[], Some(&body)).await
+    /// A Task's Triggers, or with no Task the caller's own (the backend
+    /// returns a bare array of up to 100).
+    pub async fn triggers(&self, team: &str, session: Option<&str>) -> Result<Vec<Value>, ApiError> {
+        let mut query = vec![("teamId", team)];
+        if let Some(session) = session {
+            query.push(("targetSessionId", session));
+        }
+        let v = self.call(Method::GET, "/agent/triggers", &query, None).await?;
+        Ok(v.as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn trigger(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}"), &[("teamId", team)], None).await
+    }
+
+    /// A Trigger's token spend over the last 7 days.
+    pub async fn trigger_usage(&self, team: &str, id: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/agent/triggers/{id}/usage"), &[("teamId", team)], None).await
     }
 
     /// `{ online, … }` — whether the agent answers yet.

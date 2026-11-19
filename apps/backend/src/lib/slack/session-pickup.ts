@@ -29,9 +29,8 @@ export type SlackSessionPickupThread = {
 
 export type SlackSessionPickupResult = {
   // 'already_bound' means the session had a Slack thread before this call
-  // (a previous pickup, a slack_post root, or an incident notification) — the
-  // caller gets its link instead of an error, since "continue in Slack" is
-  // satisfied either way.
+  // (a previous pickup or a slack_post root) — the caller gets its link
+  // instead of an error, since "continue in Slack" is satisfied either way.
   status: 'bound' | 'already_bound'
   thread: SlackSessionPickupThread
 }

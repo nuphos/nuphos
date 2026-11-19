@@ -8,7 +8,7 @@ import { pushTimelineEvent } from '@/lib/agent/db/participants'
 import { systemSender } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
-import { userTeamRuntimeFallbacks } from '@/models'
+import { teamRuntimeFallbacks } from '@/models'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
@@ -43,14 +43,16 @@ export function runtimeFailed(error: unknown): boolean {
 }
 
 /**
- * Where a turn sent by `actorId` may run. Only the owner runs on their own
- * computers; anyone else's turn resolves as them, so it needs a hosted agent.
- * A teammate's shared computer is never chosen without a person choosing it.
+ * Where a turn sent by `actorId` may run, among the agents they may use. Only the owner
+ * runs on their own computers; anyone may run on a Box or a team agent. A teammate's shared
+ * computer is never chosen without a person choosing it.
  */
 function usableBy(instance: RuntimeInstance, conversation: Conversation, actorId: string) {
-  if (instance.kind === 'local') return actorId === conversation.userId && !instance.local?.shared
+  if (instance.kind !== 'local') return true
 
-  return actorId === conversation.userId || instance.kind === 'managed'
+  return (
+    !instance.local?.shared && (actorId === conversation.userId || Boolean(instance.local?.box))
+  )
 }
 
 /** A Box asleep is woken by the turn; moving away would strand its files. */
@@ -78,13 +80,18 @@ function recentlyFailed(conversation: AgentConversation, now = Date.now()): stri
   return failed && now - failed.at.getTime() < FAILED_FOR_MS ? failed.failed : []
 }
 
+/** The agents after the conversation's own, each the fallback of the one before, until one repeats. */
 async function fallbackList(conversation: Conversation): Promise<string[]> {
-  const doc = await userTeamRuntimeFallbacks().findOne({
-    teamId: new ObjectId(conversation.teamId),
-    userId: conversation.userId,
-  })
+  const docs = await teamRuntimeFallbacks()
+    .find({ teamId: new ObjectId(conversation.teamId) })
+    .toArray()
+  const next = new Map(docs.map((doc) => [doc.runtimeId, doc.fallbackRuntimeId]))
+  const list = [conversation.runtimeId]
 
-  return doc?.runtimeIds ?? []
+  for (let id = next.get(conversation.runtimeId); id && !list.includes(id); id = next.get(id))
+    list.push(id)
+
+  return list.slice(1)
 }
 
 function placed(conversation: AgentConversation | null): conversation is Conversation {
@@ -92,7 +99,7 @@ function placed(conversation: AgentConversation | null): conversation is Convers
 }
 
 /**
- * Moves the conversation to the first agent in its owner's fallback list that
+ * Moves the conversation to the first agent in its fallback list that
  * is usable: not the current one, not low on usage, not failed within the hour,
  * and accepted by the move itself (enabled, online, ready). Returns the moved
  * conversation, or null when nothing was moved. When the turn cannot run where
@@ -105,7 +112,7 @@ async function fallBack(
   options: { actorId: string; claimed: boolean },
 ): Promise<AgentConversation | null> {
   const { teamId, userId, runtimeId } = conversation
-  const instances = await listRuntimeInstances(teamId, userId)
+  const instances = await listRuntimeInstances(teamId, options.actorId)
   const listed = list.flatMap((id) =>
     instances.filter(
       (instance) => instance.id === id && usableBy(instance, conversation, options.actorId),
@@ -156,7 +163,7 @@ async function fallBack(
 
 /**
  * Before a turn: moves a conversation whose agent is unreachable or low on
- * usage down its owner's fallback list. `actorId` sends the turn; `claimed`
+ * usage down its fallback list. `actorId` sends the turn; `claimed`
  * says the caller holds the session's run claim. Never throws; a failed
  * fallback leaves it where it is.
  */

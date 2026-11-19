@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { fallbackTitle } from './title-fallback'
+import { fallbackTitle, isUnnamedTask } from './title-fallback'
 
 describe('fallbackTitle', () => {
   test('keeps a short message intact', () => {
@@ -51,5 +51,23 @@ describe('fallbackTitle', () => {
 
   test('keeps a message that is only an image token as it is', () => {
     expect(fallbackTitle('[Image #1]')).toBe('[Image #1]')
+  })
+})
+
+describe('isUnnamedTask', () => {
+  const firstMessage =
+    '[Image #1] can you look at why the deploy keeps failing on staging since Monday'
+
+  test('a task still named after its first message is unnamed', () => {
+    expect(isUnnamedTask({ title: fallbackTitle(firstMessage), firstMessage })).toBe(true)
+  })
+
+  test('a name anyone gave it, or a renamed one, is kept', () => {
+    expect(isUnnamedTask({ title: 'Staging deploy failures', firstMessage })).toBe(false)
+    expect(
+      isUnnamedTask({ title: fallbackTitle(firstMessage), firstMessage, titleManuallySet: true }),
+    ).toBe(false)
+    // A Bot starts with its own name and no first message.
+    expect(isUnnamedTask({ title: 'New Bot', firstMessage: '' })).toBe(false)
   })
 })

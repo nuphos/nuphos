@@ -3,6 +3,7 @@ package ai.nuphos.android.ui.login
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,7 +90,8 @@ fun LoginScreen(
                     ),
                 ),
         )
-        key(origin) {
+        val challenge = auth.mfaChallenge
+        if (challenge != null) MfaLoginContent(auth) else key(origin) {
             EmailLoginContent(
                 busy = busy,
                 error = (auth.state as? AuthSession.State.SignedOut)?.error,
@@ -114,22 +116,32 @@ fun LoginScreen(
                         Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
                             color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
                         TextButton(onClick = { showServer = true }, enabled = !busy) {
-                            Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) "Nuphos Cloud · Server settings" else "$origin · Server settings")
+                            Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) stringResource(R.string.shell_server_cloud_settings)
+                                else stringResource(R.string.shell_server_custom_settings, origin))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.welcome_body), style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                        if (auth.savedAccounts.isNotEmpty()) {
+                            Spacer(Modifier.height(16.dp))
+                            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
+                                ai.nuphos.android.ui.profile.SavedAccountsList(auth, allowAdding = false)
+                            }
+                        }
+                        if (auth.addingFrom != null) TextButton(onClick = auth::cancelAddAccount, enabled = !busy) {
+                            Text(stringResource(R.string.shell_cancel_adding_account))
+                        }
                     }
                 },
                 alternatives = {
                     when (val current = options) {
                         ProviderOptions.Loading -> Unit
                         ProviderOptions.Failed -> TextButton(onClick = ::refresh, enabled = !busy,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)) { Text("Retry sign-in options") }
+                            modifier = Modifier.align(Alignment.CenterHorizontally)) { Text(stringResource(R.string.shell_retry_sign_in_options)) }
                         is ProviderOptions.Ready -> if (current.providers.isNotEmpty()) {
                             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 HorizontalDivider(Modifier.weight(1f))
-                                Text("or", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                Text(stringResource(R.string.shell_or), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 12.dp))
                                 HorizontalDivider(Modifier.weight(1f))
                             }
@@ -138,7 +150,7 @@ fun LoginScreen(
                                     onClick = { activity?.let { auth.signIn(it, provider) } },
                                     enabled = !busy && activity != null,
                                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                                ) { Text("Continue with ${provider.title}", style = MaterialTheme.typography.titleMedium) }
+                                ) { Text(stringResource(R.string.shell_continue_with, provider.title), style = MaterialTheme.typography.titleMedium) }
                             }
                         }
                     }
@@ -172,5 +184,34 @@ fun SplashScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(24.dp))
             LoadingIndicator()
         }
+    }
+}
+
+/** The last step of a sign-in to an account with two-factor authentication on. */
+@Composable
+private fun MfaLoginContent(auth: ai.nuphos.android.session.AuthSession) {
+    androidx.activity.compose.BackHandler { auth.cancelMfa() }
+    Column(Modifier.fillMaxSize().padding(24.dp).padding(top = 72.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(stringResource(R.string.shell_two_factor_title), style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onBackground)
+        Text(stringResource(R.string.shell_two_factor_body), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val activity = androidx.activity.compose.LocalActivity.current
+        val expiredMessage = stringResource(R.string.shell_sign_in_expired)
+        ai.nuphos.android.ui.MfaCodeForm(stringResource(R.string.sign_in), onSubmit = { code ->
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
+                // A refused code comes back here; a success leaves this screen.
+                auth.verifyMfa(code) { message -> done.resumeWith(Result.failure(Exception(message))) }
+            }
+        }, passkey = if (activity == null) null else ({
+            val challenge = auth.mfaChallenge ?: throw IllegalStateException(expiredMessage)
+            val answer = ai.nuphos.android.data.Passkeys.answer(
+                activity, ai.nuphos.android.data.AccountApi("").signInPasskeyOptions(challenge),
+            )
+            kotlinx.coroutines.suspendCancellableCoroutine<Unit> { done ->
+                auth.verifyMfaPasskey(answer) { message -> done.resumeWith(Result.failure(Exception(message))) }
+            }
+        }))
+        TextButton(onClick = auth::cancelMfa) { Text(stringResource(R.string.shell_back_to_sign_in)) }
     }
 }

@@ -11,6 +11,7 @@ import App from './App.tsx'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ToastProvider } from './components/ui/ToastProvider'
 import { ThemeProvider } from './hooks/ThemeProvider'
+import { locale } from './i18n'
 import { initAnalytics, track } from './lib/analytics'
 import { showFirstLaunchIntro } from './lib/firstLaunchIntro'
 import { isMac } from './lib/platform'
@@ -56,6 +57,11 @@ if (import.meta.hot) import.meta.hot.dispose(() => offFullScreen?.())
 
 onZoomOrResize()
 window.addEventListener('resize', onZoomOrResize)
+
+// The menu bar and notifications come from the main process, which follows this.
+window.api.appSetLocale(locale).catch((err: unknown) => {
+  console.warn('[i18n] could not report the language to the main process', err)
+})
 
 // Claim once in the main process so reloads and extra windows cannot replay.
 if (await window.api.claimFirstLaunchIntro?.().catch(() => false)) showFirstLaunchIntro()

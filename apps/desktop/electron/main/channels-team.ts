@@ -2,13 +2,13 @@ import * as atlas from '../atlas'
 import * as discordInstall from '../discord-install'
 import * as slackInstall from '../slack-install'
 
+import { dashboardChannels } from './channels-dashboards'
 import { designChannels } from './channels-designs'
 import { skillChannels } from './channels-skills'
+import { migrationChannels } from './channels-team-migration'
 
-import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type {
   AgentProvider,
-  CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
   RuntimeQuotaHistoryRange,
@@ -16,6 +16,7 @@ import type {
 } from '../../src/types/runtime'
 
 export const teamChannels = {
+  ...migrationChannels,
   'atlas:getTeamGoogleClient': (_e: unknown, teamId: string) => atlas.getTeamGoogleClient(teamId),
   'atlas:setTeamGoogleClient': (
     _e: unknown,
@@ -42,8 +43,6 @@ export const teamChannels = {
   'atlas:listRuntimeQuotas': (_e: unknown, teamId: string) => atlas.listRuntimeQuotas(teamId),
   'atlas:getRuntimeQuotaHistory': (_e: unknown, teamId: string, range: RuntimeQuotaHistoryRange) =>
     atlas.getRuntimeQuotaHistory(teamId, range),
-  'atlas:createRuntimeInstance': (_e: unknown, teamId: string, input: CreateRuntimeInput) =>
-    atlas.createRuntimeInstance(teamId, input),
   'atlas:probeExternalRuntimeProvider': (
     _e: unknown,
     teamId: string,
@@ -102,7 +101,6 @@ export const teamChannels = {
     runtimeId: string,
     hours: number,
   ) => atlas.getRuntimeInstanceMetrics(teamId, runtimeId, hours),
-
   'atlas:listTeams': () => atlas.listTeams(),
   'atlas:getSidebarFavorites': (_e: unknown, teamId: string) => atlas.getSidebarFavorites(teamId),
   'atlas:putSidebarFavorites': (
@@ -113,8 +111,12 @@ export const teamChannels = {
   ) => atlas.putSidebarFavorites(teamId, entries, expectedRevision),
   'atlas:getHomeLayout': (_e: unknown, teamId: string) => atlas.getHomeLayout(teamId),
   'atlas:getRuntimeFallback': (_e: unknown, teamId: string) => atlas.getRuntimeFallback(teamId),
-  'atlas:putRuntimeFallback': (_e: unknown, teamId: string, runtimeIds: string[]) =>
-    atlas.putRuntimeFallback(teamId, runtimeIds),
+  'atlas:putRuntimeFallback': (
+    _e: unknown,
+    teamId: string,
+    runtimeId: string,
+    fallbackRuntimeId: string | null,
+  ) => atlas.putRuntimeFallback(teamId, runtimeId, fallbackRuntimeId),
   'atlas:getTeamActivity': (_e: unknown, teamId: string, range: string) =>
     atlas.getTeamActivity(teamId, range),
   'atlas:putHomeLayout': (
@@ -132,57 +134,7 @@ export const teamChannels = {
     atlas.archSaveDiagram(teamId, diagramId, patch),
   'arch:deleteDiagram': (_e: unknown, teamId: string, diagramId: string) =>
     atlas.archDeleteDiagram(teamId, diagramId),
-  // --- Dashboards ---
-  'dashboards:list': (_e: unknown, teamId: string) => atlas.dashboardsList(teamId),
-  'dashboards:create': (_e: unknown, teamId: string, input: unknown) =>
-    atlas.dashboardsCreate(teamId, input),
-  'dashboards:get': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    viewRange?: DashboardViewRange,
-  ) => atlas.dashboardsGet(teamId, dashboardId, viewRange),
-  'dashboards:update': (_e: unknown, teamId: string, dashboardId: string, input: unknown) =>
-    atlas.dashboardsUpdate(teamId, dashboardId, input),
-  'dashboards:delete': (_e: unknown, teamId: string, dashboardId: string) =>
-    atlas.dashboardsDelete(teamId, dashboardId),
-  'dashboards:refresh': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    force?: boolean,
-    viewRange?: DashboardViewRange,
-  ) => atlas.dashboardsRefresh(teamId, dashboardId, force, viewRange),
-  'dashboards:createPanel': (_e: unknown, teamId: string, dashboardId: string, input: unknown) =>
-    atlas.dashboardsCreatePanel(teamId, dashboardId, input),
-  'dashboards:updatePanel': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    input: unknown,
-  ) => atlas.dashboardsUpdatePanel(teamId, dashboardId, panelId, input),
-  'dashboards:deletePanel': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
-    atlas.dashboardsDeletePanel(teamId, dashboardId, panelId),
-  'dashboards:executePanel': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    force?: boolean,
-    viewRange?: DashboardViewRange,
-  ) => atlas.dashboardsExecutePanel(teamId, dashboardId, panelId, force, viewRange),
-  'dashboards:getAlert': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
-    atlas.dashboardsGetAlert(teamId, dashboardId, panelId),
-  'dashboards:saveAlert': (
-    _e: unknown,
-    teamId: string,
-    dashboardId: string,
-    panelId: string,
-    input: unknown,
-  ) => atlas.dashboardsSaveAlert(teamId, dashboardId, panelId, input),
-  'dashboards:deleteAlert': (_e: unknown, teamId: string, dashboardId: string, panelId: string) =>
-    atlas.dashboardsDeleteAlert(teamId, dashboardId, panelId),
+  ...dashboardChannels,
   ...skillChannels,
   ...designChannels,
   'voice:transcribe': (
@@ -218,8 +170,6 @@ export const teamChannels = {
     role: atlas.TeamRole,
   ) => atlas.updateTeamMemberRole(teamId, memberId, role),
   'atlas:listMyInvitations': () => atlas.listMyInvitations(),
-  'atlas:inviteTeamMember': (_e: unknown, teamId: string, inviteeEmail: string) =>
-    atlas.inviteTeamMember(teamId, inviteeEmail),
   'atlas:acceptInvitation': (_e: unknown, invitationId: string) =>
     atlas.acceptInvitation(invitationId),
   'atlas:rejectInvitation': (_e: unknown, invitationId: string) =>

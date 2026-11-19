@@ -3,15 +3,16 @@ import { useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { agentAvatarPick, pickAgentAvatar } from '../../lib/agentAvatarChoices'
+import { agentAvatarPick, pickAgentAvatar, receiveAgentAvatars } from '../../lib/agentAvatarChoices'
+import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { botAvatarFile, botAvatarName } from '../../lib/botAvatars'
 import { closeChangeBotAvatar, useChangeBotAvatarRequest } from '../../lib/changeBotAvatar'
+import { AvatarPicker } from '../../views/settings/AvatarPicker'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
 import { AgentAvatarGrid } from './AgentAvatarGrid'
-import { BotAvatarImage } from './BotAvatarImage'
 
 import type { BotAvatarFile } from '../../lib/botAvatars'
 import type { ChangeBotAvatarRequest } from '../../lib/changeBotAvatar'
@@ -23,21 +24,33 @@ export function ChangeBotAvatarHost() {
   return request ? <ChangeBotAvatarDialog key={request.botId} request={request} /> : null
 }
 
-/** A Bot's face, picked again from the grid "+ New Bot" offers. */
+/** A Bot's face, picked again from the grid "+ New Bot" offers, or an uploaded photo. */
 function ChangeBotAvatarDialog({
   request: { teamId, botId, title },
 }: {
   request: ChangeBotAvatarRequest
 }) {
-  const [current] = useState(() => botAvatarFile(botId, agentAvatarPick(botId)))
-  const [picked, setPicked] = useState<BotAvatarFile>(current)
+  // A Bot wearing a photo has no character picked, so any tile is a change.
+  const [photo] = useState(() => trustedAvatarURL(agentAvatarPick(botId)))
+  const [current] = useState(() =>
+    photo ? undefined : botAvatarFile(botId, agentAvatarPick(botId)),
+  )
+  const [picked, setPicked] = useState(current)
   const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [busy, setBusy] = useState(false)
   const shown = preview ?? picked
 
+  async function upload(image: Uint8Array) {
+    const requestedAt = Date.now()
+    const { avatar } = await api.agentUploadConversationAvatar(botId, image, teamId)
+
+    receiveAgentAvatars([{ sessionId: botId, avatar }], requestedAt)
+    closeChangeBotAvatar()
+  }
+
   async function save() {
     if (busy) return
-    if (picked === current) {
+    if (!picked || picked === current) {
       closeChangeBotAvatar()
 
       return
@@ -61,6 +74,8 @@ function ChangeBotAvatarDialog({
       title={t('Change avatar')}
       appearance="prompt"
       width={440}
+      // The first control is the face: focused, it would open covered by "Change photo".
+      focusFirstControl={false}
       onClose={closeChangeBotAvatar}
     >
       <form
@@ -70,8 +85,13 @@ function ChangeBotAvatarDialog({
           void save()
         }}
       >
+        <AvatarPicker
+          src={shown ? `/bot-avatars/${shown}` : photo}
+          name={title ?? ''}
+          onUpload={upload}
+        />
+        <AgentAvatarGrid value={picked} onChange={setPicked} onPreview={setPreview} />
         <div className="flex items-center gap-3">
-          <BotAvatarImage file={shown} className="size-10 shrink-0 object-contain" />
           <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-main">{title}</span>
           <Button
             type="button"
@@ -87,7 +107,6 @@ function ChangeBotAvatarDialog({
             {t('Save')}
           </Button>
         </div>
-        <AgentAvatarGrid value={picked} onChange={setPicked} onPreview={setPreview} />
       </form>
     </Modal>
   )

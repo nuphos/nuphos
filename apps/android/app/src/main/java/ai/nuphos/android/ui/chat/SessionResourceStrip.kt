@@ -35,6 +35,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.R
 import ai.nuphos.android.model.SessionResource
+import ai.nuphos.android.model.openFirst
+import androidx.compose.ui.res.stringResource
 
 /** Only PRs/issues already linked by the agent. No binding or editing controls. */
 @Composable
@@ -46,7 +48,14 @@ fun SessionResourceStrip(
 ) {
     val uriHandler = LocalUriHandler.current
     var openFailed by remember(resources) { mutableStateOf(false) }
+    // Merged and closed links no longer need attention, so they fold into one
+    // chip after the open ones, as on Desktop.
+    var showFinished by remember { mutableStateOf(false) }
+    val (open, finished) = remember(resources) { resources.openFirst() }
+    // Never dispatch arbitrary schemes or URLs containing credentials.
+    val openLink: (String) -> Boolean = { url -> runCatching { uriHandler.openUri(url) }.isSuccess }
     if (resources.isEmpty() && !loading && !failed) return
+    val loadingLabel = stringResource(R.string.chat_resources_loading)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (resources.isNotEmpty()) LazyRow(
@@ -54,62 +63,88 @@ fun SessionResourceStrip(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
             ) {
-                items(resources, key = { it.id }) { resource ->
-                    val url = resource.safeUrl
-                    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-                    val tone = when {
-                        url == null -> MaterialTheme.colorScheme.onSurfaceVariant
-                        resource.provider != "github" -> MaterialTheme.colorScheme.onSurfaceVariant
-                        resource.state == "merged" -> MaterialTheme.colorScheme.primary
-                        resource.state == "closed" -> MaterialTheme.colorScheme.error
-                        resource.state == "open" -> if (dark) Color(0xFF80D69A) else Color(0xFF216E39)
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Surface(
-                        onClick = {
-                            // Never dispatch arbitrary schemes or URLs containing credentials.
-                            if (url != null) openFailed = runCatching { uriHandler.openUri(url) }.isFailure
-                        },
-                        enabled = url != null,
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.semantics(mergeDescendants = true) {
-                            contentDescription = "${resource.providerLabel}, ${resource.title}, ${resource.state}" +
-                                if (url == null) ", link unavailable" else ""
-                        },
-                    ) {
-                        Row(
-                            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                painterResource(if (resource.provider == "github") R.drawable.ic_resource_github else R.drawable.ic_resource_linear),
-                                contentDescription = null, modifier = Modifier.size(14.dp),
-                                tint = if (resource.provider == "github") MaterialTheme.colorScheme.onSurface else Color(0xFF5E6AD2),
-                            )
-                            Text(resource.chip, style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.widthIn(max = 160.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(resource.state.replaceFirstChar { it.titlecase() }, color = tone,
-                                style = MaterialTheme.typography.labelMedium, modifier = Modifier.widthIn(max = 160.dp),
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            if (url == null) Text("Link unavailable", style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                items(open, key = { it.id }) { ResourceChip(it) { url -> openFailed = !openLink(url) } }
+                if (finished.isNotEmpty()) item(key = "finished") {
+                    FinishedChip(SessionResource.finishedLabel(finished), showFinished) { showFinished = !showFinished }
                 }
+                if (showFinished) items(finished, key = { it.id }) { ResourceChip(it) { url -> openFailed = !openLink(url) } }
             }
             if (loading) {
-                CircularProgressIndicator(Modifier.padding(16.dp).size(18.dp).semantics { contentDescription = "Loading linked resources" }, strokeWidth = 2.dp)
+                CircularProgressIndicator(Modifier.padding(16.dp).size(18.dp).semantics { contentDescription = loadingLabel }, strokeWidth = 2.dp)
             } else if (failed) {
-                Text("Linked resources unavailable", Modifier.padding(start = 16.dp).weight(1f),
+                Text(stringResource(R.string.chat_resources_unavailable), Modifier.padding(start = 16.dp).weight(1f),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onRefresh) { Text("Retry") }
+                TextButton(onClick = onRefresh) { Text(stringResource(R.string.chat_retry)) }
             } else {
-                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, "Refresh linked resources") }
+                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, stringResource(R.string.chat_resources_refresh)) }
             }
         }
-        if (openFailed) Text("Could not open this link.", Modifier.padding(horizontal = 16.dp),
+        if (openFailed) Text(stringResource(R.string.chat_resource_open_failed), Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+    }
+}
+
+@Composable
+private fun ResourceChip(resource: SessionResource, onOpen: (String) -> Unit) {
+    val url = resource.safeUrl
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val tone = when {
+        url == null -> MaterialTheme.colorScheme.onSurfaceVariant
+        resource.provider != "github" -> MaterialTheme.colorScheme.onSurfaceVariant
+        resource.state == "merged" -> MaterialTheme.colorScheme.primary
+        resource.state == "closed" -> MaterialTheme.colorScheme.error
+        resource.state == "open" -> if (dark) Color(0xFF80D69A) else Color(0xFF216E39)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val description = if (url == null) stringResource(R.string.chat_resource_description_link_unavailable, resource.providerLabel, resource.title, resource.state)
+        else "${resource.providerLabel}, ${resource.title}, ${resource.state}"
+    Surface(
+        onClick = { if (url != null) onOpen(url) },
+        enabled = url != null,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = description
+        },
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                painterResource(if (resource.provider == "github") R.drawable.ic_resource_github else R.drawable.ic_resource_linear),
+                contentDescription = null, modifier = Modifier.size(14.dp),
+                tint = if (resource.provider == "github") MaterialTheme.colorScheme.onSurface else Color(0xFF5E6AD2),
+            )
+            Text(resource.chip, style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.widthIn(max = 160.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(resource.state.replaceFirstChar { it.titlecase() }, color = tone,
+                style = MaterialTheme.typography.labelMedium, modifier = Modifier.widthIn(max = 160.dp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (url == null) Text(stringResource(R.string.chat_resource_link_unavailable), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** The one chip standing for every finished link; tapping it shows or hides them. */
+@Composable
+private fun FinishedChip(label: String, expanded: Boolean, onToggle: () -> Unit) {
+    val description = if (expanded) stringResource(R.string.chat_resources_hide_finished, label) else stringResource(R.string.chat_resources_show_finished, label)
+    Surface(
+        onClick = onToggle,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.semantics(mergeDescendants = true) {
+            contentDescription = description
+        },
+    ) {
+        Text(
+            label,
+            Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

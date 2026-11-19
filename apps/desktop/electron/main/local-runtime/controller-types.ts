@@ -1,16 +1,19 @@
 import path from 'node:path'
 
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { connectionOf } from './tunnel-streams.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstance } from './agent-instances.ts'
 import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { CustomProvider, CustomProviderAgent } from './custom-provider.ts'
 import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+import type { LocalConnection } from './tunnel-streams.ts'
 
 export type LocalAgentState = {
   /** This build ships the agent for this platform. */
@@ -28,6 +31,8 @@ export type LocalRuntimeState = {
   workspace: string | null
   /** Who this computer's agents belong to right now. */
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: LocalConnection
 }
 
 /** Desktop IPC contract, including account login and device-local sleep state. */
@@ -36,6 +41,8 @@ export type LocalRuntimeViewState = LocalRuntimeState & {
   deviceId: string
   sleepPrevention: SleepState
   devBundle?: DevBundleHint
+  /** This account's own model providers; the keys stay in the credential store. */
+  customProviders?: Partial<Record<CustomProviderAgent, CustomProvider>>
   claudeLogin: ReturnType<LocalAgentLogin['state']>
   codexLogin: ReturnType<LocalAgentLogin['state']>
 }
@@ -67,7 +74,8 @@ export type LocalRuntimeControllerDeps = {
   nodeExecPath: string
   /** Where this app reaches Nuphos; the agents on this computer use the same address. */
   backendUrl: string
-  userEnv: () => Promise<NodeJS.ProcessEnv>
+  /** `fresh` reads the shell again instead of reusing what it said when the app started. */
+  userEnv: (fresh?: boolean) => Promise<NodeJS.ProcessEnv>
   probeCli: (
     provider: LocalAgentProvider,
     env: NodeJS.ProcessEnv,
@@ -96,10 +104,12 @@ export type LocalRuntimeControllerDeps = {
   createTunnel: (
     runtime: (provider: LocalAgentProvider, instanceId?: string) => RunningRuntime | null,
     status: () => LocalRuntimeTunnelStatus,
-    onChange: (connected: boolean, superseded: boolean) => void,
+    onChange: (connected: boolean, superseded: boolean, revoked?: boolean) => void,
     instances?: (request: unknown) => Promise<unknown>,
   ) => RuntimeTunnel
   log?: (message: string, data?: Record<string, unknown>) => void
+  /** The vendor's installer an added agent missing its CLI runs once; `installAgentCli` unless replaced. */
+  installCli?: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<void>
   /** A Box: Nuphos owns the whole computer, so its default agents' logins are Nuphos's
    *  to delete. A person's computer never removes them; their CLIs keep their logins. */
   ownsMachine?: boolean
@@ -118,6 +128,8 @@ export type Agent = {
   restartAttempt: number
   restartTimer?: ReturnType<typeof setTimeout>
   generation: number
+  /** The look for a CLI that was missing, while it runs. */
+  recheck?: Promise<void>
 }
 
 /** Everything a user's local agents keep lives under their own directory. */
@@ -162,9 +174,11 @@ export function tunnelStatusOf(
         loggedIn: agent.cli.loggedIn,
         ...(agent.cli.apiKey ? { apiKey: true } : {}),
       },
-      ...(agent.usage !== undefined && agent.usageAt
+      // An account's usage says nothing about a custom provider: unknown, not a stale figure.
+      ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
         ? { usage: agent.usage, usageAt: agent.usageAt }
         : {}),
+      ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
       ...(agent.models ? { models: agent.models } : {}),
     }
@@ -255,6 +269,7 @@ export function runtimeStateOf(
   superseded: boolean,
   userId: string | null,
   instances?: LocalRuntimeState['instances'],
+  revoked = false,
 ): LocalRuntimeState {
   const bundle = deps.bundle()
 
@@ -267,6 +282,7 @@ export function runtimeStateOf(
     }),
     workspace: userId ? userDir(deps.dataDir(), userId, 'workspace') : null,
     userId,
+    ...(userId ? { connection: connectionOf(online, superseded, revoked) } : {}),
   }
 }
 

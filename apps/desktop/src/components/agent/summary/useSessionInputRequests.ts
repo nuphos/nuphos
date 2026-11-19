@@ -2,13 +2,10 @@ import { useEffect } from 'react'
 
 import { getRuntimeStates, subscribeRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { refreshInputRequests, runtimeStatesKey } from '../../../lib/inputRequestRefresh.ts'
-import { useSwrCache } from '../../../lib/swrCache.ts'
 import { useAnsweredOnDevice, useInboxListing } from '../../../views/inbox/useInbox.ts'
-import { agentSessionsCacheKey } from '../../sidebar/state.ts'
+import { useAgentSessions } from '../../sidebar/agentSessions.ts'
 
 import { openQuestionsUnder, relatedSessionIds } from './sessionInputRequests.ts'
-
-import type { AgentConversation } from '../../../api/agent-types'
 
 /**
  * The open questions of a session and every agent under it that the viewer may
@@ -16,13 +13,13 @@ import type { AgentConversation } from '../../../api/agent-types'
  * pending listing alone, so they never draw a cached row's old question. Cached
  * rows only say who sits under whom.
  */
-export function useSessionInputRequests(sessionId: string | null, teamId: string | undefined) {
+export function useSessionInputRequests(sessionId: string | null, teamId: string) {
   // Opening another session shows the last listing at once, and reloads it.
   // Streams, replies, dismissals, focus and runtime changes reload it at once.
-  const listing = useInboxListing(teamId ?? '', sessionId)
+  const listing = useInboxListing(teamId, sessionId, true)
   const pending = listing.data ?? null
   const failed = listing.isError
-  const known = useSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId ?? ''))
+  const known = useAgentSessions(teamId).data
   const answered = useAnsweredOnDevice()
   const rows = [...(known ?? []), ...(pending ?? [])]
   // Shared sessions: whoever may reply in a conversation may answer its questions.

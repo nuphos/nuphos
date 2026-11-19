@@ -13,10 +13,17 @@ export function threadFoldsAway({
   conversation,
   runtimeState,
   open,
+  unread = false,
 }: {
   conversation: Pick<AgentConversation, 'inputRequests'>
   runtimeState: RuntimeExecution | undefined
+  unread?: boolean
   open: boolean
 }): boolean {
-  return !open && !subAgentRunFailed(runtimeState) && !isSubAgentActive(conversation, runtimeState)
+  return (
+    !unread &&
+    !open &&
+    !subAgentRunFailed(runtimeState) &&
+    !isSubAgentActive(conversation, runtimeState)
+  )
 }

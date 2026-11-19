@@ -170,9 +170,7 @@ export function MetricCardView({
   } else if (stats) {
     body = <def.Body stats={stats} onOpenConversation={onOpenConversation} />
   } else if (failed) {
-    body = (
-      <div className="py-1 text-[12px] text-status-warning">{t("Couldn't load agent stats")}</div>
-    )
+    body = <div className="py-1 text-[12px] text-status-warning">{t("Couldn't load stats")}</div>
   }
 
   return (
@@ -267,7 +265,7 @@ export function SessionName({
   onOpen?: (sessionId: string, title: string) => void
 }) {
   if (!session) return <span className="text-tertiary">{t('a private session')}</span>
-  const title = session.title || t('Untitled agent')
+  const title = session.title || t('Untitled task')
 
   if (!onOpen) return <span className="text-secondary">{title}</span>
 

@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { FileTransferGroup, MonitoringOverview } from '../types/app-misc.ts'
 import type { UptimeKumaInstance, UptimeKumaMonitor } from '../types/infra-integrations.ts'
 
@@ -11,6 +12,7 @@ export type WindowMonitoringApi = {
       password?: string | null
       authToken?: string | null
     },
+    share?: BindingShare,
   ): Promise<UptimeKumaInstance>
   atlasUpdateUptimeKumaInstance(
     teamId: string,
@@ -67,10 +69,17 @@ export type WindowMonitoringApi = {
     teamId: string
     sessionId?: string
   }): Promise<{ groups: FileTransferGroup[] }>
+  /** A file's bytes for an in-app preview; null over the cap, expired, missing or empty. */
+  fileTransferReadOne(args: {
+    teamId: string
+    groupId: string
+    fileId: string
+    maxBytes: number
+  }): Promise<Uint8Array<ArrayBuffer> | null>
   fileTransferRevealInFolder(path: string): Promise<void>
   readImageAttachment(
     path: string,
-  ): Promise<{ mediaType: string; url: string; fileName: string; attachmentId: string } | null>
+  ): Promise<{ mediaType: string; url: string; fileName: string } | null>
   attachmentDirectoryPaths(paths: string[]): Promise<string[]>
   fileTransferDownloadOne(args: {
     teamId: string

@@ -1,12 +1,12 @@
 import { getReadableConversation } from '@/lib/agent/db'
+import { recordSecretSite, siteAskedFor } from '@/lib/agent/db/pending-decision'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
 import { answerInputRequest } from '@/lib/agent/plan-decision'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionReleased } from '@/lib/agent/session-released'
-import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-tools'
+import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-secrets'
 import {
-  cancelConversationRuntime,
   conversationExecutionState,
   putConversationSecret,
   steerConversationRuntime,
@@ -17,7 +17,7 @@ import { logEvent } from '@/lib/observability'
 
 import { agent } from './router'
 import { takeOwnQueued } from './routes-conversation-queue'
-import { cancelSessionRun } from './run-cancel'
+import { stopConversationTurn } from './run-cancel'
 import { resolveVerifiedTeamId, readTeamIdCandidate } from './team-scope'
 
 agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
@@ -29,18 +29,8 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   if (!(await canReplyIn(conversation, userId)))
     throw new AppError(403, 'conversation_read_only', 'You can only view this conversation')
-  // Stop ends what a waiting message is behind: the runtime's turn, and a run
-  // the backend still holds for the session, which a dropped runtime
-  // connection can leave without the other. Then the queue goes.
-  const runStopped = await cancelSessionRun(conversation.userId, sessionId)
+  const status = await stopConversationTurn(conversation)
 
-  try {
-    await cancelConversationRuntime(conversation)
-  } catch (error) {
-    if (!runStopped) throw error
-  } finally {
-    sessionReleased(conversation.userId, sessionId)
-  }
   logEvent('info', 'agent.runtime.cancel_requested', {
     trace_id: c.get('requestId'),
     auth_source: 'authenticated_http',
@@ -48,9 +38,14 @@ agent.post('/conversations/:sessionId/cancel-runtime', async (c) => {
     team_id: teamId,
     session_id: sessionId,
     runtime_id: conversation.runtimeId,
+    status,
   })
 
-  return c.json({ ok: true, status: 'requested' })
+  return c.json(
+    status === 'runtime_unreachable'
+      ? { ok: true, status, message: "The runtime didn't respond; the turn was stopped here." }
+      : { ok: true, status },
+  )
 })
 
 agent.post('/conversations/:sessionId/steer', async (c) => {
@@ -173,6 +168,10 @@ agent.post('/conversations/:sessionId/secrets', async (c) => {
   if (!SECRET_NAME.test(name) || !value || value.length > 16_384)
     throw new AppError(400, 'invalid_request', 'A valid name and a value up to 16 KB are required')
   const path = await putConversationSecret(conversation, { name, value, userId })
+  // Asked for a website's form: `fill` will enter this file only on that site.
+  const site = siteAskedFor(conversation, name)
+
+  if (site) await recordSecretSite(sessionId, userId, { path, site })
 
   logEvent('info', 'agent.secret.saved', {
     trace_id: c.get('requestId'),

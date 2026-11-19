@@ -1,14 +1,10 @@
 import { AlertTriangle, CircleCheck, CircleSlash, Clock } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import { Table } from '../components/Table'
-import { listAlertRules } from '../grafana/client'
-import { useSilentRefresh } from '../hooks/useSilentRefresh'
-import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
+import { useGrafanaAlertRules } from '../lib/query/grafana'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
-
-import { useResetOnKey } from './useResetOnKey'
 
 import type { Column } from '../components/Table'
 import type { AlertRuleSummary, AlertState, GrafanaTarget } from '../grafana/client'
@@ -21,33 +17,7 @@ type Props = {
 }
 
 export function GrafanaAlertListView({ target, filter, onCount }: Props) {
-  const [items, setItems] = useState<AlertRuleSummary[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useResetOnKey(`${target.teamId}|${target.instanceId}`, () => {
-    setItems(null)
-    setError(null)
-  })
-
-  useEffect(() => {
-    let cancelled = false
-
-    listAlertRules(target)
-      .then((rows) => {
-        if (!cancelled) setItems(rows)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(String(e instanceof Error ? e.message : e))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [target.teamId, target.instanceId])
-
-  const { pollTick } = useWorkspaceTab()
-
-  useSilentRefresh(() => listAlertRules(target), pollTick, setItems, setError)
+  const { data: items, error } = useGrafanaAlertRules(target)
 
   const effectiveFilter = (filter ?? '').trim().toLowerCase()
 
@@ -69,7 +39,7 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
   }, [items, effectiveFilter])
 
   useEffect(() => {
-    if (items === null) return
+    if (!items) return
     onCount?.(filtered.length)
   }, [items, filtered.length, onCount])
 
@@ -159,11 +129,11 @@ export function GrafanaAlertListView({ target, filter, onCount }: Props) {
     },
   ]
 
-  if (error) {
+  if (!items && error) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-error text-[12.5px] max-w-lg text-center whitespace-pre-wrap">
-          {error}
+          {error.message}
         </div>
       </div>
     )

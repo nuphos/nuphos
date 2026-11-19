@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 
-import { readAgentUsage } from './agent-cli.ts'
+import { readAgentUsage } from './agent-cli-usage.ts'
 
 const realFetch = globalThis.fetch
 

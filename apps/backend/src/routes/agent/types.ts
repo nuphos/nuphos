@@ -1,9 +1,8 @@
 import type { AgentCredentialSelection } from './types-credentials'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { SpanLike } from '@/lib/agent/tracing'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
-import type { SlackTriggerNotificationContext } from '@/lib/slack/incident-notifications'
 import type { UIMessage } from 'ai'
 
 export type AgentChatBody = {
@@ -42,8 +41,8 @@ export type AgentChatBody = {
   decisionReplyTo?: string
   clientCapabilities?: {
     localTools?: boolean
-    /** Questions are resolved explicitly by id, separately from ordinary messages. */
-    decisionReplies?: boolean
+    /** The client draws the secure input card for a secret the agent asks for, as the phone apps do. */
+    secretCard?: boolean
     /** The client reads a 202 for a queued message. Without it, a queued send gets an SSE that ends at once. */
     serverQueue?: boolean
   }
@@ -64,6 +63,7 @@ export type InternalChatCtx = {
   locale: string
   currentUrl: string | null
   localToolsEnabled: boolean
+  secretCardEnabled?: boolean
   // Kubeconfig context the desktop's current workspace tab is bound to (sent
   // via X-Atlas-Kube-Context). Plumbed into the system prompt so the agent
   // knows which `context` to pass to typed K8s tools like port_forward_start
@@ -80,9 +80,6 @@ export type InternalChatCtx = {
   // Session origin for the trigger tools' self-replication guard: sessions
   // fired BY a trigger must not create new triggers. Interactive channels are 'user'.
   agentOrigin: AgentSessionOrigin
-  // Present only for monitoring-trigger runs. This server-owned context lets
-  // slack_post coordinate one incident across otherwise separate deliveries.
-  triggerNotification?: SlackTriggerNotificationContext
   // Names the chat client this turn is read in ("a Slack thread", "a Lark
   // chat"). Stated to the model rather than left for it to infer from the
   // rendered message, for the same reason isInApp exists: an inference buried
@@ -107,6 +104,10 @@ export type AgentRun = {
   /** Every message the turn started with was a channel's wake-up notice. */
   channelWoken?: boolean
   frames: string[]
+  /** The last runtime snapshot this run carried, to drop an unchanged repeat. */
+  lastRuntimeSnapshot?: string
+  /** The slash commands a snapshot last carried; later ones leave unchanged ones out. */
+  lastRuntimeCommands?: string
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined
   // when the run aborts/errors before onFinish fires, which is exactly the
@@ -119,8 +120,6 @@ export type AgentRun = {
   /** The runtime parked this turn on a blocking decision of this kind. */
   awaitingDecision?: string
   approvalPushed?: boolean
-  /** Queued messages this turn took into its prompt. */
-  queuedMessageIds?: string[]
   activityRecorded?: Promise<void>
   abortController: AbortController
   subscribers: Set<AgentRunSubscriber>

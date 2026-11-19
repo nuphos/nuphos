@@ -1,5 +1,6 @@
 package ai.nuphos.android.session
 
+import ai.nuphos.android.R
 import kotlinx.coroutines.ensureActive
 
 import android.content.Context
@@ -37,6 +38,7 @@ class AgentStore(
     enum class Phase { Idle, Loading, Loaded, Failed }
 
     val pageSize = 30
+    private val strings = context.resources
     private val prefs = context.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE)
 
     var teams: List<Team> by mutableStateOf(emptyList())
@@ -143,10 +145,16 @@ class AgentStore(
         private set
     var channelsLoaded by mutableStateOf(false)
         private set
+    /** The viewer's own Bots, listed by the server rather than found in the loaded history. */
+    var bots by mutableStateOf<List<AgentConversation>>(emptyList())
+        private set
+
+    /** The title of one of the viewer's Bots or tasks the store has loaded. */
+    fun title(sessionId: String): String? = (bots + conversations).firstOrNull { it.sessionId == sessionId }?.title
     private var channelGeneration = 0
 
     /** The Bots page: every chat, and each Bot without one yet. */
-    val botsList: List<AgentConversation> get() = botsList(channels, conversations)
+    val botsList: List<AgentConversation> get() = botsList(channels, bots)
 
     var openingBotId by mutableStateOf<String?>(null)
         private set
@@ -222,7 +230,7 @@ class AgentStore(
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (!current()) return null
                 if (runtimes.isEmpty()) {
-                    newBotError = "This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot."
+                    newBotError = strings.getString(R.string.shell_bot_no_runtime)
                     return null
                 }
             }
@@ -232,6 +240,8 @@ class AgentStore(
             newBotWaitingForChat = bot
             BotFaces.learn(bot, avatar)
             reload()
+            // Bots lists it from its own listing, so it shows even if its chat below fails.
+            loadChannels()
             if (!current()) return null
             val chat = makeBotChat(team, bot, ::current) ?: return null
             newBotWaitingForChat = null
@@ -239,8 +249,8 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (current()) newBotError = if (newBotWaitingForChat != null) "The Bot was created, but its chat didn't open. Try again."
-                else "Couldn't create this Bot. Try again."
+            if (current()) newBotError = if (newBotWaitingForChat != null) strings.getString(R.string.shell_bot_chat_failed)
+                else strings.getString(R.string.shell_bot_create_failed)
             return null
         } finally {
             if (workspaceRevision == workspace) creatingBot = false
@@ -264,19 +274,30 @@ class AgentStore(
         fun current() = !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
             workspaceRevision == workspace && generation == channelGeneration
         try {
-            val rows = kotlinx.coroutines.coroutineScope {
-                listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
+            val (rows, botRows) = kotlinx.coroutines.coroutineScope {
+                val chats = listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
                     async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
-                }.flatMap { it.await() }
+                }
+                // A failed Bots read keeps the Bots shown and still refreshes the chats.
+                val botPage = async {
+                    try {
+                        NuphosApi.conversations(token, team.id, limit = 100, search = query, bots = true).rows
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                chats.flatMap { it.await() } to botPage.await()
             }
             if (!current()) return
+            if (botRows != null) bots = botRows.filter { (it.teamId ?: team.id) == team.id }
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
             BotFaces.learn(channels)
             channelsLoaded = true
-            // The Bots without a chat come from the history, so its absence says nothing yet.
-            if (phase == Phase.Loaded) rememberHasChats()
+            rememberHasChats()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -340,10 +361,14 @@ class AgentStore(
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
         return channelSessions.getOrPut(team.id to sessionId) {
-            ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: "Chat",
+            ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: strings.getString(R.string.shell_chat_fallback_title),
                 ChannelSession.Api(token, team.id, sessionId))
                 // The list row's icon shows at once; the chat's own load keeps it current.
-                .also { it.faces = channel(sessionId)?.faces.orEmpty() }
+                .also { session ->
+                    val row = channel(sessionId)
+                    session.faces = row?.faces.orEmpty()
+                    session.botId = row?.botId
+                }
         }
     }
 
@@ -354,7 +379,7 @@ class AgentStore(
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
         inbox?.takeIf { it.first == team.id }?.let { return it.second }
-        return OpenQuestions(OpenQuestions.Api(token, team.id)) { bot -> conversations.firstOrNull { it.botId == bot }?.sessionId }
+        return OpenQuestions(OpenQuestions.Api(token, team.id))
             .also { inbox = team.id to it }
     }
 
@@ -364,6 +389,7 @@ class AgentStore(
         hasRuntimes = null
         channelGeneration++
         channels = emptyList()
+        bots = emptyList()
         channelsLoaded = false
         unfinishedBotChats.clear()
         openingBotId = null
@@ -450,7 +476,7 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (valid()) rowActionError = e.message ?: "Could not rename this agent. Try again."
+            if (valid()) rowActionError = e.message ?: strings.getString(R.string.shell_rename_failed)
             return false
         } finally {
             if (workspaceRevision == workspace) rowActionSessionId = null
@@ -483,7 +509,7 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (valid()) rowActionError = "Action failed. Refresh the list and try again."
+            if (valid()) rowActionError = strings.getString(R.string.shell_action_failed)
         } finally {
             if (workspaceRevision == revision) rowActionSessionId = null
         }
@@ -525,7 +551,7 @@ class AgentStore(
         val chat = openBotChat(current.sessionId)
         if (chat == null && botChatError != null && valid()) {
             clearBotChatError()
-            rowActionError = "This is a Bot now, but its chat couldn't be opened. Open it from Bots to try again."
+            rowActionError = strings.getString(R.string.shell_bot_now_chat_failed)
         }
         return chat?.takeIf { valid() }
     }
@@ -537,9 +563,12 @@ class AgentStore(
         get() = BotArchiveIssues.of(token)?.takeIf { !disposed && it.teamId == selectedTeam?.id }
     fun dismissBotArchiveIssue() = BotArchiveIssues.clear(token)
 
+    /** A Bot by id: from the history, or from the Bots listing when its page isn't loaded yet. */
+    fun botRow(botId: String) = conversations.firstOrNull { it.sessionId == botId } ?: bots.firstOrNull { it.sessionId == botId }
+
     /** The owner's own Bot, listed and not archived. Its chats go with it. */
-    fun canArchiveBot(botId: String) = conversations.firstOrNull { it.sessionId == botId }?.let { bot ->
-        currentActionRow(bot) != null && bot.isBot && !bot.isArchived && bot.isOwner == true && bot.readOnly != true
+    fun canArchiveBot(botId: String) = botRow(botId)?.let { bot ->
+        selectedTeam != null && bot.isBot && !bot.isArchived && bot.isOwner == true && bot.readOnly != true
     } == true && !disposed && hasAiAccess()
 
     fun archiveBot(botId: String) = runBotArchive(botId) { it.run(botId) }
@@ -557,7 +586,7 @@ class AgentStore(
         val team = selectedTeam?.id ?: return
         if (disposed || !hasAiAccess() || archivingBotId != null || rowActionSessionId != null) return
         if (requireListed && !canArchiveBot(botId)) return
-        val botTitle = title ?: conversations.first { it.sessionId == botId }.displayTitle
+        val botTitle = title ?: botRow(botId)?.displayTitle ?: return
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         val signedIn = token
@@ -608,7 +637,7 @@ class AgentStore(
             try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
             } catch (_: Exception) {
                 if (!disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision)
-                    watchError = "Could not refresh watch status. Try again."
+                    watchError = strings.getString(R.string.shell_watch_refresh_failed)
             }
         }
     }
@@ -643,10 +672,10 @@ class AgentStore(
                 try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
                 } catch (_: Exception) { if (session.loaded) refreshFailed = true }
             }
-            if (current() && refreshFailed) watchError = "Watch change saved, but status could not refresh. Refresh and try again."
+            if (current() && refreshFailed) watchError = strings.getString(R.string.shell_watch_saved_refresh_failed)
         } catch (e: kotlinx.coroutines.CancellationException) { throw e
         } catch (e: Exception) {
-            if (current()) watchError = "Could not update watch status. Refresh and try again."
+            if (current()) watchError = strings.getString(R.string.shell_watch_update_failed)
         } finally {
             writeEnded()
         }
@@ -688,10 +717,10 @@ class AgentStore(
             throw e
         } catch (e: Exception) {
             if (isCurrent()) unlinkError = when {
-                e is NuphosApi.Failure.Unauthorized -> "Your session has expired. Please sign in again."
+                e is NuphosApi.Failure.Unauthorized -> strings.getString(R.string.shell_session_expired)
                 e is ai.nuphos.android.data.AgentChatApi.Conflict.Other && e.status in setOf(403, 404) ->
-                    "This agent is unavailable or you no longer have permission to unlink it."
-                else -> "Could not unlink agent. Try again."
+                    strings.getString(R.string.shell_unlink_forbidden)
+                else -> strings.getString(R.string.shell_unlink_failed)
             }
         } finally {
             if (isCurrent()) unlinkingSessionId = null
@@ -914,7 +943,6 @@ class AgentStore(
             nextCursor = page.nextCursor
             hasMore = page.hasMore
             phase = Phase.Loaded
-            if (channelsLoaded) rememberHasChats()
             phaseError = null
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -927,7 +955,7 @@ class AgentStore(
                 isReloading = false
                 if (phase == Phase.Loading) {
                     phase = if (hasLoadedHistory) Phase.Loaded else Phase.Failed
-                    if (!hasLoadedHistory) phaseError = "Agent list refresh was interrupted. Try again."
+                    if (!hasLoadedHistory) phaseError = strings.getString(R.string.shell_task_list_interrupted)
                 }
             }
         }

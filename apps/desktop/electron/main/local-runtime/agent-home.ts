@@ -16,6 +16,7 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 
+import { applyCodexProvider, claudeProviderSettings } from './custom-provider.ts'
 import { prepareShimHome } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -149,6 +150,7 @@ export function prepareCodexHome(
           mode: 0o600,
         },
       )
+    applyCodexProvider(userDir, config)
 
     return home
   } catch {
@@ -207,10 +209,11 @@ export function prepareClaudeHome(userDir: string, workspace: string): string | 
   try {
     mkdirSync(home, { recursive: true, mode: 0o700 })
     const file = path.join(home, 'settings.json')
+    const own = claudeProviderSettings(userDir) ?? apiKeyEnv(file)
 
     writeFileSync(
       file,
-      `${JSON.stringify({ ...claudeHomeSettings(workspace), ...apiKeyEnv(file) }, null, 2)}\n`,
+      `${JSON.stringify({ ...claudeHomeSettings(workspace), ...own }, null, 2)}\n`,
       { mode: 0o600 },
     )
 

@@ -86,7 +86,10 @@ export function AppAlertDialog({
               <AlertDialogPrimitive.Title className="text-[14px] font-semibold text-main">
                 {title}
               </AlertDialogPrimitive.Title>
-              <AlertDialogPrimitive.Description className="mt-1 text-[13px] leading-relaxed text-secondary">
+              <AlertDialogPrimitive.Description
+                render={<div />}
+                className="mt-1 text-[13px] leading-relaxed text-secondary"
+              >
                 {description}
               </AlertDialogPrimitive.Description>
               {error && (

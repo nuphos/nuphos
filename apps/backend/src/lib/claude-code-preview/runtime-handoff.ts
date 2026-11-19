@@ -1,10 +1,8 @@
 import { getConversationBySessionId } from '@/lib/agent/db'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
-import {
-  getActiveAgentRunForSession,
-  sweepAbandonedAgentRuns,
-} from '@/lib/agent/run-store/ownership'
+import { getActiveAgentRunForSession } from '@/lib/agent/run-store/ownership'
+import { backfillRunIndexes, sweepAbandonedAgentRuns } from '@/lib/agent/run-store/run-index'
 import { ownerKey } from '@/lib/agent/run-store/shared'
 import { sweepQueuedSessions } from '@/lib/agent/session-released'
 import { isShuttingDown } from '@/lib/lifecycle'
@@ -230,6 +228,9 @@ export function startRuntimeHandoffAdoption(): () => void {
   }
   const timer = setInterval(tick, ADOPT_INTERVAL_MS)
 
+  void backfillRunIndexes().catch((error: unknown) => {
+    logError('agent.run_index.backfill_failed', error)
+  })
   tick()
 
   return () => {

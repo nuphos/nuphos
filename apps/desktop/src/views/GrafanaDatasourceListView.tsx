@@ -1,15 +1,12 @@
 import { ChevronRight, Database, Route } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 
 import { Table } from '../components/Table'
 import { Button } from '../components/ui/button'
-import { listDatasources, isLokiDatasource, isTempoDatasource } from '../grafana/client'
-import { useSilentRefresh } from '../hooks/useSilentRefresh'
-import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { isLokiDatasource, isTempoDatasource } from '../grafana/client'
 import { t } from '../i18n'
+import { useGrafanaDatasources } from '../lib/query/grafana'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
-
-import { useResetOnKey } from './useResetOnKey'
 
 import type { Column } from '../components/Table'
 import type { DatasourceSummary, GrafanaTarget } from '../grafana/client'
@@ -29,33 +26,7 @@ export function GrafanaDatasourceListView({
   onOpenTraceExplorer,
   onOpenLogExplorer,
 }: Props) {
-  const [items, setItems] = useState<DatasourceSummary[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useResetOnKey(`${target.teamId}|${target.instanceId}`, () => {
-    setItems(null)
-    setError(null)
-  })
-
-  useEffect(() => {
-    let cancelled = false
-
-    listDatasources(target)
-      .then((rows) => {
-        if (!cancelled) setItems(rows)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(String(e instanceof Error ? e.message : e))
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [target.teamId, target.instanceId])
-
-  const { pollTick } = useWorkspaceTab()
-
-  useSilentRefresh(() => listDatasources(target), pollTick, setItems, setError)
+  const { data: items, error } = useGrafanaDatasources(target)
 
   const effectiveFilter = (filter ?? '').trim().toLowerCase()
 
@@ -160,11 +131,11 @@ export function GrafanaDatasourceListView({
     },
   ]
 
-  if (error) {
+  if (!items && error) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-error text-[12.5px] max-w-lg text-center whitespace-pre-wrap">
-          {error}
+          {error.message}
         </div>
       </div>
     )

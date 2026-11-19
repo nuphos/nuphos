@@ -1,23 +1,24 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, session } from 'electron'
 
-import { regionShortcut } from '../../src/lib/regionShortcut'
+import { apiUrl } from '../api-endpoint'
 import * as k8s from '../k8s'
 import * as podExec from '../pod-exec'
 import * as terminal from '../terminal'
 import { raiseWindow } from '../window-raise'
 
 import { flushPendingDeepLinks } from './deep-links'
-import { guardFilePreviewFrames } from './file-preview-guard'
 import { APP_NAME, isDev } from './env'
+import { guardFilePreviewFrames } from './file-preview-guard'
 import { closeBrowserTabs } from './local-runtime/browser-tabs'
 import { openExternal } from './open-external'
 import { initSidebarGestures } from './sidebar-gestures'
-import { liveSessionShortcut } from './session-shortcuts'
+import { sidebarShortcutAction } from './sidebar-shortcuts'
 import { lastClosedWindow, placementFor, readSavedWindows, trackWindow } from './window-session'
 import { MIN_WINDOW_SIZE } from './window-session-core'
+import { windowShortcut } from './window-shortcuts'
 import { titleBarOverlayFor } from './window-titlebar'
 import { trafficLightPositionFor, zoom, zoomStepForKey } from './zoom'
 
@@ -101,6 +102,9 @@ export function dispatchAppShortcut(action: AppShortcut) {
 
 /** Reopens the windows the last run left open, or one default window. */
 export function restoreWindows() {
+  // Connect to the backend while the window loads, so its first request skips
+  // the DNS lookup and TLS handshake.
+  session.defaultSession.preconnect({ url: apiUrl(), numSockets: 1 })
   const saved = readSavedWindows()
 
   if (saved.length === 0) createWindow(null)
@@ -210,8 +214,7 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
     flushPendingDeepLinks(win)
   })
 
-  // A queued deep link raised this window; retry as soon as it is usable again
-  // (the new document's listeners attach shortly after focus).
+  // Flush queued deep links once the window regains focus.
   win.on('focus', () => {
     flushPendingDeepLinks(win)
   })
@@ -221,12 +224,13 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
     const key = input.key.toLowerCase()
     const code = input.code
     const commandOrControl = input.meta || input.control
-    // ⌘ alone on macOS, where ⌃J and ⌃K are terminal keys; Ctrl alone elsewhere.
     const modOnly =
       process.platform === 'darwin' ? input.meta && !input.control : input.control && !input.meta
     // Session-menu combos (⌥⌘R, ⇧⌘A, …) match the physical key, and F6 has no
     // modifier at all, so they run before the bail-out below. F6 must leave a terminal.
-    const sessionAction = liveSessionShortcut(win.webContents, input) ?? regionShortcut(input)
+    const sessionAction =
+      sidebarShortcutAction(input, process.platform === 'darwin') ??
+      windowShortcut(win.webContents, input)
 
     if (sessionAction) {
       event.preventDefault()
@@ -245,8 +249,7 @@ export function createWindow(restore: SavedWindow | null = lastClosedWindow()): 
       return
     }
 
-    // preventDefault also stops the matching macOS menu accelerator from
-    // firing, so each combo dispatches exactly once.
+    // Prevent duplicate delivery from the matching macOS menu accelerator.
     const sendShortcut = (action: AppShortcut) => {
       event.preventDefault()
       win.webContents.send('app:shortcut', action)

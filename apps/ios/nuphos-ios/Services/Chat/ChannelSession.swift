@@ -14,6 +14,8 @@ final class ChannelSession {
     private(set) var title: String
     /// The chat's icon: the members other than the viewer that it shows.
     var faces: [ChatFace] = []
+    /// The Bot this is the 1:1 chat of; nil in a group chat, even one with only a Bot in it.
+    var botId: String?
     private(set) var stored: [ChannelPost] = []
     private(set) var events: [AgentConversationDetail.TimelineEvent] = []
     private(set) var agents: [ChannelAgent] = []
@@ -33,13 +35,6 @@ final class ChannelSession {
     var unsent: ComposerSubmission?
     /// The post the next one answers, quoted above the composer.
     var replying: ChannelReply?
-    /// The question the next post answers instead, quoted as `replying`: its card's "Other…".
-    private var answering: BotQuestion?
-
-    func reply(to question: BotQuestion) {
-        answering = question
-        replying = question.quote
-    }
     var sendError: String?
     /// In a Bot's chat: the open questions of the Bot and of every agent under it.
     let questions: OpenQuestions
@@ -88,7 +83,9 @@ final class ChannelSession {
             await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
-            if !loaded { loadError = error.localizedDescription; loaded = true }
+            // Cancelled (the chat closed, the app left the foreground): not a
+            // failure, and not loaded, so the next poll reads it (#3620).
+            if !loaded, !Task.isCancelled { loadError = error.localizedDescription; loaded = true }
         }
     }
 
@@ -98,9 +95,12 @@ final class ChannelSession {
         sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar) }
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
+        botId = detail.botId
         revision = detail.channelRevision
         loadError = nil
         loaded = true
@@ -134,45 +134,19 @@ final class ChannelSession {
 
     /// A Bot's chat reads the pending listing, as the desktop's does; any other chat has none.
     func refreshQuestions() async {
-        guard let bot = faces.botId else { return }
+        guard let bot = botId else { return }
         await questions.refresh { BotQuestions.under(bot: bot, rows: $0) }
     }
 
-    /// The Bot's own question is answered by a post here, shown at once as any
-    /// post is, so the answer is the viewer's message in this chat. An agent
-    /// under the Bot takes it in its own conversation.
-    func answer(_ question: BotQuestion, with text: String) {
-        guard question.sessionId == faces.botId else {
-            Task { await questions.answer(question, with: text) }
-            return
-        }
-        let id = UUID().uuidString.lowercased()
-        sending.append(ChannelPost(
-            id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
-            text: text, sentAt: .now, replyTo: nil, sending: true))
-        lastSubmittedRowID = "post.\(id)"
-        Task {
-            await questions.answer(question, with: text) { [self] in
-                do {
-                    try await Self.postAnswer(token: token, teamId: teamId, channelId: channelId, text: text,
-                                              id: id, to: question.request.id)
-                } catch {
-                    sending.removeAll { $0.id == id }
-                    throw error
-                }
-                await refresh(force: true)
-            }
-        }
+    /// Answers a question in this chat: the server wakes the agent that asked, which replies
+    /// where it asked; no message is sent.
+    func answer(_ question: BotQuestion, with answer: DecisionAnswer) {
+        Task { await questions.answer(question, with: answer) }
     }
 
-    /// A post in a Bot's chat naming the Bot's question it answers.
-    static func postAnswer(token: String, teamId: String, channelId: String, text: String, id: String,
-                           to requestId: String) async throws {
-        let body: [String: JSONValue] = [
-            "text": .string(text), "id": .string(id), "decisionReplyTo": .string(requestId)]
-        _ = try await AgentChatAPI.send(
-            "POST", "agent/conversations/\(channelId)/channel-messages",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue.object(body))
+    /// Dismisses a question unanswered, as the desktop's Dismiss does: the agent that asked is told.
+    func dismiss(_ question: BotQuestion) {
+        Task { await questions.dismiss(question) }
     }
 
     // MARK: - Posting
@@ -181,15 +155,7 @@ final class ChannelSession {
     func send(_ submission: ComposerSubmission) {
         let text = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !submission.attachments.isEmpty else { return }
-        // Words under a quoted question are its answer, as its options are; with files, a post quoting nothing.
-        let question = answering.flatMap { replying == $0.quote ? $0 : nil }
-        answering = nil
-        if let question, submission.attachments.isEmpty {
-            replying = nil
-            answer(question, with: text)
-            return
-        }
-        let reply = question == nil ? replying : nil
+        let reply = replying
         replying = nil
         let key = ([reply?.id ?? "", text] + submission.attachments.map(\.name)).joined(separator: "\n")
         let id = retry?.key == key ? retry!.id : UUID().uuidString.lowercased()

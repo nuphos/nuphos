@@ -1,5 +1,5 @@
 import { CheckCircle2, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../api'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -8,10 +8,10 @@ import { useSilentTick } from '../hooks/useSilentRefresh'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
+import { useGrafanaInstances } from '../lib/query/grafana'
 import { useLinkOnlyRowMenu, useWorkspaceRowLink } from '../lib/workspaceRowLink'
 
 import { BindGrafanaDialog } from './BindGrafanaDialog'
-import { useResetOnKey } from './useResetOnKey'
 
 import type { Column } from '../components/Table'
 import type { GrafanaInstance } from '../types'
@@ -25,41 +25,12 @@ type Props = {
 }
 
 export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onPick }: Props) {
-  const [instances, setInstances] = useState<GrafanaInstance[] | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const { data: instances, error, refetch } = useGrafanaInstances(teamId)
   const [bindOpen, setBindOpen] = useState(false)
   const [unbindTarget, setUnbindTarget] = useState<GrafanaInstance | null>(null)
-  // Guards against an in-flight list call clobbering newer state when the user
-  // switches teams or rebinds quickly.
-  const reqRef = useRef(0)
+  const { isActive } = useWorkspaceTab()
 
-  const reload = useCallback(() => {
-    const req = ++reqRef.current
-
-    api
-      .atlasListGrafanaInstances(teamId)
-      .then((rows) => {
-        if (req !== reqRef.current) return
-        setInstances(rows)
-        setError(null)
-      })
-      .catch((e: unknown) => {
-        if (req !== reqRef.current) return
-        setError(String(e instanceof Error ? e.message : e))
-      })
-  }, [teamId])
-
-  useResetOnKey(`${teamId}|${String(refreshKey)}`, () => {
-    setInstances(null)
-    setError(null)
-  })
-
-  useEffect(() => {
-    reload()
-  }, [reload, refreshKey])
-  const { pollTick, isActive } = useWorkspaceTab()
-
-  useSilentTick(reload, pollTick)
+  useSilentTick(() => void refetch(), refreshKey)
 
   const filtered = useMemo(() => {
     const list = instances ?? []
@@ -142,17 +113,17 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
     },
   ]
 
-  if (error) {
+  if (!instances && error) {
     return (
       <div className="flex-1 flex items-center justify-center px-4">
         <div className="text-error text-[12.5px] max-w-lg text-center whitespace-pre-wrap">
-          {error}
+          {error.message}
         </div>
       </div>
     )
   }
 
-  if (instances === null) {
+  if (!instances) {
     return (
       <div className="flex-1 flex items-center justify-center text-tertiary text-[12.5px]">
         {t('Loading…')}
@@ -186,7 +157,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
           onClose={() => setBindOpen(false)}
           onBound={() => {
             setBindOpen(false)
-            reload()
+            void refetch()
           }}
         />
       )}
@@ -203,7 +174,7 @@ export function ObservabilityHomeView({ teamId, filter, refreshKey, onCount, onP
           onClose={() => setUnbindTarget(null)}
           onConfirm={async () => {
             await api.atlasUnbindGrafanaInstance(teamId, unbindTarget.id)
-            reload()
+            void refetch()
           }}
         />
       )}

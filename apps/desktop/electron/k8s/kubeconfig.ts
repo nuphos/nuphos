@@ -1,5 +1,3 @@
-import * as k8s from '@kubernetes/client-node'
-
 import {
   buildApiClients,
   clientCache,
@@ -9,6 +7,7 @@ import {
   withAuthRetry,
 } from './client'
 import { contextRefreshers, parseCredentialExpiry } from './context-refreshers'
+import { k8sLib } from './lib'
 
 import type { RefreshedCredential } from './context-refreshers'
 
@@ -66,7 +65,7 @@ export async function loadKubeconfigYaml(
   onRefresh?: () => Promise<RefreshedCredential>,
   expiresAt?: string | null,
 ): Promise<string> {
-  const tmpKc = new k8s.KubeConfig()
+  const tmpKc = new k8sLib.KubeConfig()
 
   tmpKc.loadFromString(yamlText)
   // Resolve to a context name that actually exists in the YAML: prefer the
@@ -105,7 +104,7 @@ export async function loadKubeconfigYaml(
     existing.credentialExpiresAt = credentialExpiresAt
     rebuildApiClients(existing)
   } else {
-    const kc = new k8s.KubeConfig()
+    const kc = new k8sLib.KubeConfig()
 
     kc.loadFromString(yamlText)
     kc.setCurrentContext(contextName)

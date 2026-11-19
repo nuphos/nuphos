@@ -34,5 +34,25 @@ export type AgentDecisionApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
+    reason?: string,
   ): Promise<{ ok: boolean; resolved: boolean }>
+  agentSnoozeDecision(
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ): Promise<{ ok: boolean; snoozedUntil: string | null }>
+  agentAnswerDecision(
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    answer: DecisionAnswer,
+  ): Promise<{ ok: boolean }>
+}
+
+/** A person's answer to a question: picked options, typed text, or one per question. */
+export type DecisionAnswer = {
+  choices?: string[]
+  text?: string
+  questions?: { choices?: string[]; text?: string }[]
 }

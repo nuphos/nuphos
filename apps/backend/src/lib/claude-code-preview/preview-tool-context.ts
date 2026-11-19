@@ -2,7 +2,7 @@
 // chat seam. Tool handlers run on the backend (any replica) while the turn's
 // run lives on the replica serving the SSE stream; frames reach it through
 // the run-frame bridge.
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { ToolHandler } from '@/lib/mcp/protocol'
 
 export type PreviewToolContext = {
@@ -19,6 +19,8 @@ export type PreviewToolContext = {
   locale: string
   /** Whether the client driving this turn can run tools on the user's machine. */
   localTools?: boolean
+  /** Whether that client draws the secure input card, as the phone apps do without local tools. */
+  secretCard?: boolean
   /** Architecture diagram the desktop tab has open, when any. */
   diagramId?: string
   /** Slack thread the conversation is bound to, when any. */

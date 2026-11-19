@@ -25,7 +25,7 @@ function ActivityRow({
   teamName: string
   onOpenConversation?: (sessionId: string) => void
 }) {
-  const title = entry.conversationTitle ?? t('Untitled agent')
+  const title = entry.conversationTitle ?? t('Untitled task')
 
   return (
     <div className="border-t border-line-control/60 bg-surface px-4 py-2.5 first:border-t-0">
@@ -113,7 +113,7 @@ export function LocalRuntimeActivity({
       <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
     )
   else if (entries.length === 0)
-    body = <p className={EMPTY_CLASSES}>{t('No agent has run on this computer yet.')}</p>
+    body = <p className={EMPTY_CLASSES}>{t('Nothing has run on this computer yet.')}</p>
   else
     body = (
       <>
@@ -160,7 +160,7 @@ export function LocalRuntimeActivity({
       </div>
       {body}
       <p className="mt-2 text-[11px] text-tertiary">
-        {t('Every agent that ran here, by team. Kept for 90 days.')}
+        {t('Every Bot and task that ran here, by team. Kept for 90 days.')}
       </p>
     </div>
   )

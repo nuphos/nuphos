@@ -21,7 +21,7 @@ import { claimAgentRunOrEnqueue } from './claim-or-enqueue'
 import { answeringIds } from './decision-reply'
 import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 import { queuedChatBody } from './session-queue-body'
-import { queueForOfflineBox } from './session-queue-offline'
+import { queueForOfflineComputer } from './session-queue-offline'
 import { queueForSignIn } from './session-queue-sign-in'
 import {
   admitQueueableChat,
@@ -171,7 +171,7 @@ test('a busy session queues the message with the context its device sent it with
     expect(
       (
         await admit('later', {
-          context: { locale: 'en', localTools: true, kubeContext: 'prod', decisionReplies: true },
+          context: { locale: 'en', localTools: true, kubeContext: 'prod' },
         })
       )?.mode,
     ).toBe('queued')
@@ -190,7 +190,6 @@ test('a busy session queues the message with the context its device sent it with
       localTools: true,
       kubeContext: 'prod',
       locale: 'en',
-      decisionReplies: true,
     },
   })
 })
@@ -267,7 +266,18 @@ test('a send to an offline Box queues at once, even on a free session without a 
   ])
 })
 
-test('a send queues only for the Box its runtime resolution authorized', async () => {
+test('a send whose runtime does not answer its status waits for it, never refused', async () => {
+  const attached = { ...conversation, claudeCodePreview: {} } as AgentConversation
+  const admitted = await admit('blip', {
+    conversation: attached,
+    snapshot: { state: 'disconnected' },
+  })
+
+  expect(admitted?.mode).toBe('queued')
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual(['blip'])
+})
+
+test('a send queues only for the computer its runtime resolution authorized', async () => {
   const offline = (runtimeId?: string) =>
     new AppError(409, 'runtime_offline', 'offline', runtimeId ? { runtimeId } : undefined)
   const send = (id: string, pinned?: string) => ({
@@ -292,25 +302,25 @@ test('a send queues only for the Box its runtime resolution authorized', async (
 
   woken.length = 0
   stamped.length = 0
-  await expect(queueForOfflineBox(new Error('boom'), send('a'))).rejects.toThrow('boom')
+  await expect(queueForOfflineComputer(new Error('boom'), send('a'))).rejects.toThrow('boom')
   // No authorized placement (a body-named Box, another team's): nothing is woken.
   const unplaced = offline()
 
-  await expect(queueForOfflineBox(unplaced, send('a'))).rejects.toBe(unplaced)
+  await expect(queueForOfflineComputer(unplaced, send('a'))).rejects.toBe(unplaced)
   expect(woken).toEqual([])
+  // A computer that is not a Box has nothing to resume: it queues while its tunnel redials.
   boxOffline = false
-  const awake = offline('box-a')
-
-  await expect(queueForOfflineBox(awake, send('a', 'box-a'))).rejects.toBe(awake)
+  expect(await queueForOfflineComputer(offline('box-a'), send('laptop', 'box-a'))).toBeNull()
   boxOffline = true
   // Pinned to A, the body asking for B: A is woken and kept, B is ignored.
-  expect(await queueForOfflineBox(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
+  expect(await queueForOfflineComputer(offline('box-a'), send('pinned', 'box-a'))).toBeNull()
   expect(woken).toEqual(['box-a', 'box-a'])
   expect(stamped).toEqual([])
   // An unpinned conversation keeps the Box chosen here for the queue to start it on.
-  expect(await queueForOfflineBox(offline('box-a'), send('unpinned'))).toBeNull()
+  expect(await queueForOfflineComputer(offline('box-a'), send('unpinned'))).toBeNull()
   expect(stamped).toEqual(['box-a'])
   expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual([
+    'laptop',
     'pinned',
     'unpinned',
   ])
@@ -536,19 +546,36 @@ test('an ordinary duplicate persisted input still releases its claim without lau
   expect(historyReads).toBe(0)
 })
 
+test('a queued phone message keeps that its sender draws the secure input card', () => {
+  const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
+  const phone = { clientCapabilities: { localTools: false, secretCard: true } }
+
+  expect(queuedChatContext(c, 'en', phone, undefined)).toMatchObject({
+    localTools: false,
+    secretCard: true,
+  })
+  expect(queuedChatContext(c, 'en', {}, undefined)).not.toHaveProperty('secretCard')
+  const chat = { streamId: 'stream-p', message: message('queued-phone'), locale: 'en' }
+
+  expect(
+    queuedChatBody('conv-1', 'team-1', { ...chat, localTools: false, secretCard: true })
+      .clientCapabilities,
+  ).toEqual({ localTools: false, secretCard: true })
+})
+
 test('a queued answer keeps the question it names and is admitted naming it', () => {
   const c = { req: { header: () => {} } } as unknown as Parameters<typeof queuedChatContext>[0]
   const context = queuedChatContext(
     c,
     'en',
     {
-      clientCapabilities: { localTools: true, decisionReplies: true },
+      clientCapabilities: { localTools: true },
       decisionReplyTo: 'nuphos-q1',
     },
     undefined,
   )
 
-  expect(context).toMatchObject({ decisionReplies: true, decisionReplyTo: 'nuphos-q1' })
+  expect(context).toMatchObject({ decisionReplyTo: 'nuphos-q1' })
   // An id the resolve route would refuse is not carried at all.
   expect(
     queuedChatContext(c, 'en', { decisionReplyTo: 'x'.repeat(201) }, undefined),
@@ -559,14 +586,12 @@ test('a queued answer keeps the question it names and is admitted naming it', ()
     message: input,
     locale: 'en',
     localTools: true,
-    decisionReplies: true,
     decisionReplyTo: 'nuphos-q1',
   })
 
   expect(body).toMatchObject({
     id: 'conv-1',
     decisionReplyTo: 'nuphos-q1',
-    clientCapabilities: { decisionReplies: true },
   })
   expect(
     queuedChatBody('conv-1', 'team-1', {
@@ -673,17 +698,7 @@ test('an answer taken back, or never queued, leaves its question answerable', as
   }
 })
 
-test('an answer to a question already answered or dismissed is refused', async () => {
-  for (const status of ['answered', 'dismissed'] as const) {
-    await expect(answer(`late-${status}`, status)).rejects.toMatchObject({
-      status: 409,
-      code: 'decision_already_answered',
-    })
-  }
-  expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
-})
-
-test('an answer to a question this conversation does not list is left to the turn', async () => {
+test('an answer to a question this conversation does not list, or no longer lists, is left to the turn', async () => {
   const done = busy()
 
   try {

@@ -173,3 +173,100 @@ test('a model that fails once is retried and listed', async () => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// Grok Build answers session/new with its reasoning effort but no model picker.
+const EFFORT_ONLY_ADAPTER = `
+  import readline from 'node:readline';
+  for await (const line of readline.createInterface({ input: process.stdin })) {
+    const { id, method } = JSON.parse(line);
+    const result = method === 'initialize' ? {} : {
+      sessionId: 'test', configOptions: [
+        { id: 'reasoning_effort', category: 'thought_level', currentValue: 'high',
+          options: [{ value: 'xhigh', name: 'Extra high' }, { value: 'high', name: 'High' }] },
+      ],
+    };
+    console.log(JSON.stringify({ id, result }));
+  }
+`
+
+test('a runtime with an effort control but no model list is read, not reported as a failure', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+
+  writeFileSync(adapter, EFFORT_ONLY_ADAPTER)
+  try {
+    const catalog = await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: {},
+    })
+
+    // The composer's effort picker stays available; only the model list is absent.
+    assert.equal(catalog.controlsOnly, true)
+    assert.deepEqual(catalog.models, [])
+    // What the runtime did advertise is kept, or the backend has nothing to offer.
+    assert.deepEqual(
+      catalog.controls.default?.effort.map((choice) => choice.value),
+      ['xhigh', 'high'],
+    )
+    assert.equal(catalog.controls.default?.defaultEffort, 'high')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a runtime that offers no controls at all is still a failed read', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+
+  writeFileSync(
+    adapter,
+    `
+    import readline from 'node:readline';
+    for await (const line of readline.createInterface({ input: process.stdin })) {
+      const { id, method } = JSON.parse(line);
+      const result = method === 'initialize' ? {} : { sessionId: 'test', configOptions: [] };
+      console.log(JSON.stringify({ id, result }));
+    }
+  `,
+  )
+  try {
+    await assert.rejects(
+      probeLocalModels({ nodeExecPath: process.execPath, adapter, cwd: dir, env: {} }),
+      /did not advertise any models/,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('an effort level with no choices to pick is not a catalog', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+
+  writeFileSync(
+    adapter,
+    `
+    import readline from 'node:readline';
+    for await (const line of readline.createInterface({ input: process.stdin })) {
+      const { id, method } = JSON.parse(line);
+      const result = method === 'initialize' ? {} : {
+        sessionId: 'test', configOptions: [
+          { id: 'reasoning_effort', category: 'thought_level', currentValue: 'high', options: [] },
+        ],
+      };
+      console.log(JSON.stringify({ id, result }));
+    }
+  `,
+  )
+  try {
+    // Reporting a catalog here would open the empty popover this read exists to avoid.
+    await assert.rejects(
+      probeLocalModels({ nodeExecPath: process.execPath, adapter, cwd: dir, env: {} }),
+      /did not advertise any models/,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -2,9 +2,10 @@
 
 The manual **Android release artifacts** workflow builds and signs an Android
 App Bundle (AAB), then uploads it with its R8 mapping file and releases it to
-the Play **production** track at full rollout. It touches no testing track,
-publishes no GitHub Release, and changes no other platform's version. The signed
-AAB also stays downloadable as an artifact.
+the Play **production** track at full rollout. It touches no testing track and
+changes no other platform's version. Once Play accepts the bundle, it tags the
+released commit `android-v<version_name>` and publishes a GitHub Release for that
+tag, not marked as latest. The signed AAB also stays downloadable as an artifact.
 
 ## Administrator setup
 

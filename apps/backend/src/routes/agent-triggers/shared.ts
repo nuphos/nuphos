@@ -1,3 +1,5 @@
+import { config } from '@/config'
+import { stripTrailingSlashes } from '@/lib/agent/text-scan'
 import { AppError } from '@/lib/errors'
 import { resolveVerifiedTeamId } from '@/routes/agent'
 
@@ -71,4 +73,20 @@ export async function jsonObjectBody(c: {
   }
 
   return parsed as Record<string, unknown>
+}
+
+export function webhookUrlFor(triggerId: string | undefined): string | undefined {
+  if (!triggerId) return undefined
+  // Prefer the public origin: NUPHOS_BACKEND_URL is the cluster-INTERNAL base
+  // in production (it exists so sandboxes can call the backend), which external
+  // webhook senders can't reach. auth.publicBaseUrl is the deploy's public
+  // origin — but skip its localhost fallback (local dev with no
+  // NUPHOS_AUTH_BASE_URL), where backendUrl (e.g. a dev tunnel) is the
+  // reachable one.
+  const publicBase = config.auth.publicBaseUrl
+  const raw =
+    publicBase && !/\/\/localhost[:/]/i.test(publicBase) ? publicBase : config.agent.backendUrl
+  const base = raw ? stripTrailingSlashes(raw) : undefined
+
+  return base ? `${base}/webhooks/${triggerId}` : `/webhooks/${triggerId}`
 }

@@ -29,6 +29,8 @@ export type DiscoverableTeam = {
 
 export type BindingAccess = {
   memberAllowList: string[]
+  /** The member who connected the binding; absent on bindings connected before it was kept. */
+  ownerUserId?: string | null
   updatedAt: string | null
   updatedBy: string | null
 }
@@ -56,6 +58,8 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: string
   rejectedAt?: string
+  inviteUrl?: string
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = { label: string; key?: string; href?: string }
@@ -114,16 +118,32 @@ export async function getAgentStats(teamId: string, query: AgentStatsQuery): Pro
   )
 }
 
-/** The caller's ordered fallback agents; an empty list turns fallback off. */
-export async function getRuntimeFallback(teamId: string): Promise<unknown> {
-  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallback`)
+/** Team token usage grouped by one dimension and/or a time bucket; members get only their own. */
+export async function queryTeamUsage(
+  teamId: string,
+  query: Record<string, string>,
+): Promise<unknown> {
+  return call(
+    'GET',
+    `/teams/${encodeURIComponent(teamId)}/usage/query?${new URLSearchParams(query).toString()}`,
+  )
 }
 
-export async function putRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<unknown> {
+/** Each runtime's fallback in the team, by runtime id. */
+export async function getRuntimeFallback(teamId: string): Promise<unknown> {
+  return call('GET', `/teams/${encodeURIComponent(teamId)}/runtime-fallbacks`)
+}
+
+/** Null clears the runtime's fallback. */
+export async function putRuntimeFallback(
+  teamId: string,
+  runtimeId: string,
+  fallbackRuntimeId: string | null,
+): Promise<unknown> {
   return call(
     'PUT',
-    `/teams/${encodeURIComponent(teamId)}/runtime-fallback`,
-    { runtimeIds },
+    `/teams/${encodeURIComponent(teamId)}/runtime-fallbacks/${encodeURIComponent(runtimeId)}`,
+    { fallbackRuntimeId },
     { retry: false },
   )
 }
@@ -242,20 +262,6 @@ export async function listMyInvitations(): Promise<TeamInvitation[]> {
   const data = await call<{ invitations: TeamInvitation[] }>('GET', '/invitations')
 
   return data.invitations ?? []
-}
-
-export async function inviteTeamMember(
-  teamId: string,
-  inviteeEmail: string,
-): Promise<TeamInvitation> {
-  const data = await call<{ invitation: TeamInvitation }>(
-    'POST',
-    `/teams/${teamId}/invitations`,
-    { inviteeEmail },
-    { retry: false },
-  )
-
-  return data.invitation
 }
 
 export async function acceptInvitation(invitationId: string): Promise<TeamInvitation> {

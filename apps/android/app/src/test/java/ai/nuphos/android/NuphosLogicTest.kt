@@ -4,8 +4,11 @@ import ai.nuphos.android.data.NuphosWeb
 import ai.nuphos.android.model.HistoryTime
 import ai.nuphos.android.model.PlanLink
 import ai.nuphos.android.ui.components.MarkdownStreamUpdate
+import ai.nuphos.android.ui.components.bareUrlEnd
+import ai.nuphos.android.ui.components.containsMarkdownTable
 import ai.nuphos.android.ui.components.markdownStreamUpdate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -102,5 +105,32 @@ class NuphosLogicTest {
         assertEquals(MarkdownStreamUpdate.None, markdownStreamUpdate("Hello", "Hello"))
         assertEquals(MarkdownStreamUpdate.Append(" world"), markdownStreamUpdate("Hello", "Hello world"))
         assertEquals(MarkdownStreamUpdate.Restart, markdownStreamUpdate("Hello world", "Hi"))
+    }
+
+    @Test
+    fun bareUrlEndsBeforeFullWidthPunctuation() {
+        val pr = "https://github.com/nuphos/nuphos/pull/2595"
+        for (tail in listOf("（Fixes", "，下一句", "。", "、b", "：", "「x」", "\u3000next")) {
+            assertEquals(tail, pr.length, bareUrlEnd(pr + tail))
+        }
+        for (url in listOf(pr, "https://zh.wikipedia.org/wiki/台灣", "https://example.com/a?b=c,d")) {
+            assertEquals(url, url.length, bareUrlEnd(url))
+        }
+    }
+
+    @Test
+    fun markdownTablesAreFoundByTheirDelimiterRow() {
+        for (table in listOf(
+            "| A | B |\n| --- | --- |\n| 1 | 2 |",
+            "Status:\n\nService | State\n:--- | ---:\nBackend | Healthy",
+            "| Only |\n|:-:|",
+        )) assertTrue(table, containsMarkdownTable(table))
+        for (text in listOf(
+            "Plain words",
+            "A | pipe in a sentence",
+            "Above\n---\nA setext heading",
+            "- a list\n- --- item",
+            "| A | B |\nno delimiter",
+        )) assertFalse(text, containsMarkdownTable(text))
     }
 }

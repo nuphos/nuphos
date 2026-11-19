@@ -3,17 +3,20 @@
 // `_meta.systemPrompt`. Sandbox-only sections (bash/skill tools, setup
 // scripts) are adapted to the native runtime equivalents it actually has.
 
+import { getConversationBySessionId } from '@/lib/agent/db'
+import { OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
+import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
-import { inferUserFacingLanguage } from '@/lib/agent/language'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
+import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
 import { loadInstructionsBlock } from '@/lib/instructions/prompt'
 import {
   buildDiagramMessage,
   buildKubeContextMessage,
   buildNuphosLinksMessage,
-  buildPlanToolMessage,
+  buildTurnRulesMessage,
 } from '@/routes/agent/chat-system-messages'
 import { MODEL_OUTPUT_BUDGET_TOKENS } from '@/routes/agent/constants'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
@@ -40,8 +43,6 @@ export type PreviewPromptArgs = {
   teamId: string
   sessionId: string
   locale: string
-  /** Latest user texts, newest first — drives the user-facing language. */
-  userTexts?: string[]
   kubeContext?: string
   diagramId?: string
   currentUrl?: string | null
@@ -60,7 +61,7 @@ const runtimeNote = (where: string) =>
     '- This is a conversation principal rather than a general user session, but it is accepted by the ordinary `/teams/...` APIs. The backend applies this conversation’s team and credential selection automatically. A 403 means that operation or resource is outside the conversation’s capabilities; do not test or search for another token.',
     '- `nuphos-credentials`: use `list_credentials` to refresh the live selection. Use `get_credential` only when a provider skill has no setup script; never put a returned secret on a command line. Selection is per conversation: a credential under `notSelected` is bound to the team but not enabled here. When a task needs one that is not selected or not connected, call `request_user_decision` with category `integration` and its provider in `providers` (for the member\'s own credential, provider `personal`, its (provider, id) pair in `credentials` instead, e.g. `{provider: "personal", id: "github"}`), rather than reporting it missing; in the Desktop app the user connects or selects it from a card below your message. Once it is selected, by the user or by a parent agent, the question is answered and a new message tells you to continue. Never ask in a free-text question to tick a credential in the picker.',
     '- `nuphos-tools`: host-control operations such as decisions, local Desktop actions, team-skill authoring, memory, charts, and channel replies. Nuphos Dashboards, architecture diagrams, triggers, one-shot schedules, databases, knowledge, and instructions use their native skills and canonical Nuphos REST APIs.',
-    '- When progress needs an answer only the user can provide, call `nuphos-tools.request_user_decision` with the actual question and optional choices. You need not end the turn: continue with work that does not depend on the answer, which arrives as a new message. This registers a question in the Needs your input panel, where the user can reply to each agent separately. A question written only in chat, a channel post or a thread reply is not registered there, so ask every choice, approval or missing piece of information with this tool, wherever you are talking, and say at most one short sentence pointing to the card. Use the same tool for every agent provider; do not ask for routine choices you can resolve yourself.',
+    '- When progress needs an answer only the user can provide, call `nuphos-tools.request_user_decision` with the question as one short line, its context in `body`, and optional choices. You need not end the turn: continue with work that does not depend on the answer, which arrives as a new message. This registers a question in the Needs your input panel, where the user can reply to each agent separately. A question written only in chat, a channel post or a thread reply is not registered there, so ask every choice, approval or missing piece of information with this tool, wherever you are talking, and say at most one short sentence pointing to the card. Use the same tool for every agent provider; do not ask for routine choices you can resolve yourself.',
     '',
     'Kubernetes: `~/.kube/config` starts empty. Before the first kubectl/helm/flux/argocd call, call `get_kubeconfig` (in `nuphos-tools`) and write the returned YAML to `~/.kube/config` with mode 0600. It holds one context per cluster the selected credentials reach — EKS, GKE, on-prem, and the other providers — and no current-context, so pass `--context <name>` (helm: `--kube-context`) on every call. Call it again and rewrite the file when kubectl reports an authentication error, a connection timeout, connection refused or no such host (the cluster’s API endpoint may have moved), or when a cluster the user just connected is missing. Re-fetch once; if the same error persists, report it instead of fetching again. Do not use `gcloud container clusters get-credentials`, other provider kubeconfig commands, or the kubectl skill’s `sync-clusters.sh`.',
   ].join('\n')
@@ -77,9 +78,6 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
-
-const PLAN_RUNTIME_NOTE =
-  'For Plan work, use the native `nuphos-plan` skill and its bundled semantic scripts. The create script renders the approval card and returns the persisted Plan immediately; finish every card section in the same turn, then stop for approval.'
 
 const DASHBOARDS_RUNTIME_NOTE =
   'For Nuphos Dashboards work (the Dashboards page of script-driven panels, not Grafana), use Claude Code’s native `nuphos-dashboards` skill FIRST, then build or update the dashboard through its API script exactly as that skill instructs.'
@@ -100,6 +98,33 @@ async function urlContextSection(currentUrl: string | null | undefined): Promise
   } catch {
     return null
   }
+}
+
+const TASK_NAME_NOTE =
+  '## Naming this task\nThis task is still named after its first message, cut short. Once you understand what it is about, call rename_conversation once with only_if_unnamed: true and a short title: a few words, in the language of the user’s messages, that say what the task is about. Do not rename it again unless asked.'
+
+/** The naming note while a task still has its first message for a name. */
+async function taskNameSection(sessionId: string): Promise<string | null> {
+  const conversation = await getConversationBySessionId(sessionId)
+
+  return conversation && isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
+}
+
+/**
+ * The channels this conversation is in. Whatever wakes a turn, the people there
+ * see only its posts, so the reminder rides on every turn, not on a channel wake.
+ */
+async function channelsSection(sessionId: string): Promise<string | null> {
+  const channels = await agentConversations()
+    .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
+    .project<{ sessionId: string }>({ _id: 0, sessionId: 1 })
+    .toArray()
+
+  if (channels.length === 0) return null
+  // Ids only: a title is free text the channel's creator, maybe not the owner, chose.
+  const ids = channels.map((channel) => channel.sessionId).join(', ')
+
+  return `## Channels you are in\nYou are a member of the channels ${ids}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post. ${OWNER_DECISION_NOTE}`
 }
 
 /** Build credential context and permission recovery guidance together. */
@@ -130,26 +155,22 @@ async function credentialAndPermissionWallSections(
 
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
-  const [base, cloudAccess, urlContext, instructions, where] = await Promise.all([
-    getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
-    credentialAndPermissionWallSections(args).catch(() => ({
-      credentials: '',
-      permissionWall: '',
-    })),
-    urlContextSection(args.currentUrl),
-    loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
-    runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
-  ])
-  const userFacingLanguage = inferUserFacingLanguage(args.userTexts ?? [], args.locale)
-  const planMessage = buildPlanToolMessage({
-    isInApp: !args.slackThread,
-    slackOriginated: Boolean(args.slackThread),
-    userFacingLanguage,
-    nativeClaudeSkills: true,
-  })
+  const [base, cloudAccess, urlContext, instructions, where, taskName, channels] =
+    await Promise.all([
+      getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
+      credentialAndPermissionWallSections(args).catch(() => ({
+        credentials: '',
+        permissionWall: '',
+      })),
+      urlContextSection(args.currentUrl),
+      loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
+      runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
+      taskNameSection(args.sessionId).catch(() => null),
+      channelsSection(args.sessionId).catch(() => null),
+    ])
 
   // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
-  // Codex, Antigravity and OpenCode read the `.agents/skills` link to it.
+  // Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
   const provider = args.provider ?? 'claude-code'
   const nativeText = (text: string | null) =>
     text === null || provider === 'claude-code'
@@ -176,9 +197,11 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     buildKubeContextMessage(args.kubeContext),
     nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     urlContext,
-    nativeText(`${planMessage}\n\n${PLAN_RUNTIME_NOTE}`),
+    buildTurnRulesMessage(),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
+    taskName,
+    channels,
     previewChannelPromptSection({ teamId: args.teamId, slackThread: args.slackThread }),
     nativeText(buildNuphosLinksMessage(args.teamId, { nativeClaudeSkills: true })),
     instructions,

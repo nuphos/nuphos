@@ -1,4 +1,3 @@
-import { localShareCeiling } from '@/lib/agent/devices/local-share-types'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { db } from '@/lib/db'
 
@@ -26,12 +25,15 @@ export type NuphosUserDoc = {
   profileEdited?: boolean
   appleID?: string
   googleID?: string
+  oidcID?: string
   /** Where the account came from, set once at signup (signup-source.ts). */
   signupSource?: SignupSource
   /** Optional two-factor authentication (mfa.ts). */
   mfa?: UserMfa
   mfaPending?: UserMfaPending
   mfaFailures?: { count: number; since: Date }
+  /** A passkey ceremony's challenge for this account (mfa-passkeys.ts). */
+  passkeyChallenge?: { value: string; createdAt: Date }
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date
@@ -48,8 +50,8 @@ export type NuphosTeamDoc = {
   allowedEmailDomains?: string[]
   /** Stored value; the retired `nuphos` and absent both map to Claude Code. */
   agentRuntime?: string
-  /** The most a member may grant when sharing their own computer; unset is `approve`. */
-  localAgentSharing?: string
+  /** Unset is `private`. */
+  bindingShareDefault?: string
   members: {
     userId: ObjectId
     role: NuphosTeamRole
@@ -95,7 +97,7 @@ export function mapTeam(team: NuphosTeamDoc): NuphosTeam {
     contactEmails: team.contactEmails,
     allowedEmailDomains: team.allowedEmailDomains ?? [],
     agentRuntime: runtimeProvider(team.agentRuntime),
-    localAgentSharing: localShareCeiling(team.localAgentSharing),
+    bindingShareDefault: team.bindingShareDefault === 'team' ? 'team' : 'private',
     createdAt: team.createdAt.toISOString(),
     billing: summarizeBilling(),
   }

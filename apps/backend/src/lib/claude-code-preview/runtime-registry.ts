@@ -1,17 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
-import { config } from '@/config'
-import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
 
 import { isValidOpenAbTransportKey } from './gate'
 import { isAllowedRemoteOpenAbUrl, isInternalRuntimeUrl } from './runtime-backend-url'
-import { placementNamespace } from './runtime-controllers'
-import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
 import { revokePairedBinding } from './runtime-pairing-client'
-import { runtimeDeletions } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import {
   invalidateRuntimeSecretCache,
@@ -21,7 +15,6 @@ import {
   storedAuthKey,
 } from './runtime-registry-credentials'
 
-import type { KubeClient } from './kube-client'
 import type { RuntimePairing } from './runtime-pairing-client'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
@@ -45,7 +38,7 @@ export type ClaudeCodeRuntimeDoc = {
   hostedSlot?: number
   /** A row of the retired provisioner model, which nothing resolves any more. */
   managedBy?: 'provisioner'
-  /** Envelope-encrypted ACP transport key; a hosted pod's Kubernetes Secret derives from it. */
+  /** Envelope-encrypted ACP transport key. */
   authKeyEnvelope?: EncryptedEnvelope
   /** Envelope-encrypted operator credential, when it is not derived from the password. */
   controlKeyEnvelope?: EncryptedEnvelope
@@ -126,7 +119,6 @@ export async function registerTeamRuntime(args: {
   hostedSlot?: number
   deploymentImage?: string
   pairing?: RuntimePairing
-  kube?: KubeClient
 }): Promise<ClaudeCodeRuntime> {
   const url = args.url.trim()
   const authKey = args.authKey.trim()
@@ -178,11 +170,7 @@ export async function setTeamRuntimeStatus(
   return doc ? toPublic(doc) : null
 }
 
-export async function removeTeamRuntime(
-  teamId: string,
-  id: string,
-  kube?: KubeClient,
-): Promise<boolean> {
+export async function removeTeamRuntime(teamId: string, id: string): Promise<boolean> {
   const doc = await runtimes().findOne({ _id: id, teamId })
 
   if (!doc) return false
@@ -191,63 +179,17 @@ export async function removeTeamRuntime(
 
   invalidateRuntimeSecretCache(teamId, id)
   await revokePairedBinding(doc)
-  // Removing the row revokes the key; the Secret is only a leftover artifact.
-  await deleteRuntimeAuthSecret(teamId, id, kube).catch((err: unknown) => {
-    logError('openab.runtime_credential.secret_cleanup_failed', err, {
-      team_id: teamId,
-      runtime_id: id,
-    })
-  })
 
   return result.deletedCount === 1
-}
-
-/** Every runtime Nuphos deploys, across teams, for the provisioner. */
-export async function listHostedRuntimes(
-  provider: OpenAbProvider,
-): Promise<ClaudeCodeRuntimeDoc[]> {
-  const docs = await runtimes()
-    .find({ hostedBy: 'nuphos', ...CURRENT })
-    .sort({ createdAt: 1, _id: 1 })
-    .toArray()
-
-  return docs.filter((doc) => runtimeProvider(doc.provider) === provider)
-}
-
-/** The hosted runtime a team reaches at `url`, if Nuphos deploys one there. */
-export async function findHostedRuntime(
-  teamId: string,
-  url: string,
-): Promise<ClaudeCodeRuntimeDoc | null> {
-  return runtimes().findOne({ teamId, url, hostedBy: 'nuphos', ...CURRENT })
 }
 
 export async function renameTeamRuntime(teamId: string, id: string, label: string): Promise<void> {
   await runtimes().updateOne({ _id: id, teamId }, { $set: { label, updatedAt: new Date() } })
 }
 
-/** Through a joined pod's tunnel the key names the purpose; the host holds the real keys. */
-function tunnelEndpoint(
-  doc: ClaudeCodeRuntimeDoc,
-  provider: OpenAbProvider,
-  purpose: 'transport' | 'control',
-): TeamRuntimeEndpoint | undefined {
-  if (!doc.hostedBy || !doc.device || (provider !== 'claude-code' && provider !== 'codex'))
-    return undefined
-
-  return {
-    url: doc.url,
-    authKey: purpose,
-    runtimeId: doc._id,
-    ...(provider === 'claude-code' ? {} : { provider }),
-    tunnelUrl: localRuntimeUrl({ ...doc.device, provider }, doc.teamId),
-  }
-}
-
 /** Eligible endpoints, oldest first. Callers select an explicit instance or the first endpoint. */
 export async function resolveTeamRuntimeEndpoints(
   teamId: string,
-  kube?: KubeClient,
   provider: OpenAbProvider = 'claude-code',
   purpose: 'transport' | 'control' = 'transport',
 ): Promise<TeamRuntimeEndpoint[]> {
@@ -255,35 +197,16 @@ export async function resolveTeamRuntimeEndpoints(
     .find({ teamId, status: 'active', ...CURRENT })
     .sort({ createdAt: 1, _id: 1 })
     .toArray()
-  const deleting = new Set(
-    (
-      await runtimeDeletions()
-        .find({ teamId, completedAt: { $exists: false } }, { projection: { _id: 1 } })
-        .toArray()
-    ).map((job) => job._id),
-  )
   const endpoints: TeamRuntimeEndpoint[] = []
 
   for (const doc of docs) {
-    if (runtimeProvider(doc.provider) !== provider || deleting.has(doc._id)) continue
-    // The registry is shared across environments; a hosted runtime is reachable only
-    // from the one that deploys it.
-    if (
-      doc.hostedBy &&
-      placementNamespace(doc.url) !== config.claudeCodeRuntimeProvisioner.namespace
-    )
-      continue
-    const tunnel = tunnelEndpoint(doc, provider, purpose)
-
-    if (tunnel) {
-      endpoints.push(tunnel)
-      continue
-    }
+    // Nuphos-hosted runtimes are retired (#2401): nothing dials them any more.
+    if (runtimeProvider(doc.provider) !== provider || doc.hostedBy) continue
     const stored =
       purpose === 'transport'
         ? storedAuthKey(doc.authKeyEnvelope)
         : storedAuthKey(doc.controlKeyEnvelope)
-    const authKey = stored ?? (await resolvedRuntimeAuthKey(doc.teamId, doc._id, kube, purpose))
+    const authKey = stored ?? (await resolvedRuntimeAuthKey(doc.teamId, doc._id, purpose))
 
     if (authKey && isValidOpenAbTransportKey(authKey))
       endpoints.push({

@@ -1,10 +1,13 @@
-import { BrowserWindow } from 'electron'
+import path from 'node:path'
+
+import { app, BrowserWindow } from 'electron'
 
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
+import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
@@ -43,13 +46,41 @@ const VIEWPORT = { width: 1440, height: 900 }
  * is shown it (`show`). The page is the window's own: a hidden window paints it
  * for a capture, where a view inside one has nothing to capture.
  */
-const tabs = new Map<WebContents, { conversation: string; window: BrowserWindow }>()
+const tabs = new Map<
+  WebContents,
+  { conversation: string; window: BrowserWindow; opener?: WebContents }
+>()
 
 /** The browser tabs this conversation opened. */
 function browserTabs(conversation: string): WebContents[] {
   return [...tabs].flatMap(([contents, tab]) =>
     tab.conversation === conversation ? [contents] : [],
   )
+}
+
+/**
+ * Makes `window` one of `conversation`'s tabs. A popup its page opens is one too,
+ * hidden with it (webview-guard.ts), so the agent drives it like any tab and it
+ * comes on screen with its opener.
+ */
+function track(window: BrowserWindow, conversation: string, opener?: WebContents): void {
+  const contents = window.webContents
+
+  tabs.set(contents, { conversation, window, opener })
+  // Its downloads are saved with no save dialog, which the agent could not answer.
+  saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
+  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
+  // like a background tab, so an idle tab costs no battery.
+  window.once('ready-to-show', () => {
+    if (!window.isVisible()) {
+      window.showInactive()
+      window.hide()
+    }
+    window.setOpacity(1)
+  })
+  extensionHost()?.extensions.addTab(contents, window)
+  window.on('closed', () => tabs.delete(contents))
+  contents.on('did-create-window', (popup) => track(popup, conversation, contents))
 }
 
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
@@ -70,17 +101,7 @@ function openTab(url: string, conversation: string): WebContents {
   })
   const contents = window.webContents
 
-  tabs.set(contents, { conversation, window })
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
-  extensionHost()?.extensions.addTab(contents, window)
+  track(window, conversation)
   // Closing a shown tab hides it again, as the conversation still drives it.
   // A quit closes it for real, or the app never exits and an update never installs.
   window.on('close', (event) => {
@@ -88,12 +109,17 @@ function openTab(url: string, conversation: string): WebContents {
     event.preventDefault()
     window.hide()
   })
-  window.on('closed', () => tabs.delete(contents))
   contents.loadURL(url).catch(() => {
     // A failed load leaves the tab on its error page, which `describe` reports.
   })
 
   return contents
+}
+
+/** Puts a tab on screen, with the sign-in popups its page opened, and theirs, above it. */
+function show(contents: WebContents): void {
+  raiseWindow(tabs.get(contents)?.window)
+  for (const [popup, tab] of tabs) if (tab.opener === contents) show(popup)
 }
 
 /** Ends every agent tab, for when the app's last window closes where that quits it. */
@@ -151,16 +177,12 @@ function onPage<T>(
       stop()
       reject(new Error(message))
     }
-    const onNavigation = (details: {
-      url: string
-      isMainFrame: boolean
-      isSameDocument: boolean
-    }) => {
-      if (details.isMainFrame && !details.isSameDocument)
-        fail(
-          `The tab navigated to ${details.url} before the script finished, so its result is lost. Run eval again on the new page.`,
-        )
-    }
+    // On commit, not start: a link to a file starts a navigation that becomes a download and
+    // never replaces the page, so the script still finishes.
+    const onNavigation = (_event: unknown, url: string) =>
+      fail(
+        `The tab navigated to ${url} before the script finished, so its result is lost. Run eval again on the new page.`,
+      )
     const onGone = () => fail('The tab closed or crashed during the call.')
     const timer = setTimeout(
       () => fail(`The call did not finish within ${String(ms / 1000)}s.`),
@@ -168,12 +190,12 @@ function onPage<T>(
     )
     const stop = () => {
       clearTimeout(timer)
-      contents.off('did-start-navigation', onNavigation)
+      contents.off('did-navigate', onNavigation)
       contents.off('destroyed', onGone)
       contents.off('render-process-gone', onGone)
     }
 
-    if (untilNavigation) contents.on('did-start-navigation', onNavigation)
+    if (untilNavigation) contents.on('did-navigate', onNavigation)
     contents.on('destroyed', onGone)
     contents.on('render-process-gone', onGone)
     work.finally(stop).then(resolve, reject)
@@ -184,7 +206,8 @@ function onPage<T>(
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
   if (!call.session) return failed('session is required.')
-  if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
+  if (call.action === 'tabs')
+    return withDownloadNews(call.session, text(browserTabs(call.session).map(describe)))
   if (call.action === 'dock') return dockMirrorOf(call)
   if (call.action === 'focus') return focusDockTab(call)
   // The iPhone closes a dock tab by its workspace id; an agent closes its own tab.
@@ -230,12 +253,12 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return result
     })
 
-    return text(value === undefined ? 'undefined' : value)
+    return withDownloadNews(call.session, text(value === undefined ? 'undefined' : value))
   }
   const window = tabs.get(contents)?.window
 
   if (call.action === 'show') {
-    raiseWindow(window)
+    show(contents)
 
     return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
   }

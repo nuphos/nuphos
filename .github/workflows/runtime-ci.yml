@@ -11,6 +11,10 @@ on:
       - apps/runtime/**
       - .github/workflows/runtime-*.yml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -53,13 +57,48 @@ jobs:
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --no-openab
 
+  codex-restore:
+    name: Codex session restore (${{ matrix.os }})
+    # A real codex-acp session, dropped by the pool and restored with
+    # session/load, on the platforms Desktop runs it (#3371).
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: apps/runtime
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      # The toolchain the Desktop and CLI releases build openab with (prepare.mjs).
+      - name: Install Rust
+        run: rustup toolchain install 1.99.0 --profile minimal
+      - name: Install and patch the pinned Codex ACP adapter
+        run: |
+          npm ci --ignore-scripts --prefix image/codex-acp
+          cd image/codex-acp && node patch-adapter.mjs node_modules/@agentclientprotocol/codex-acp/dist/index.js
+      - name: Restore a dropped Codex session
+        run: |
+          adapter="$PWD/image/codex-acp/node_modules/@agentclientprotocol/codex-acp/dist/index.js"
+          codex=$(find "$PWD/image/codex-acp/node_modules/@openai" -type f \( -path '*/bin/codex' -o -path '*/bin/codex.exe' \) | head -1)
+          if command -v cygpath >/dev/null; then adapter=$(cygpath -w "$adapter"); codex=$(cygpath -w "$codex"); fi
+          export OPENAB_E2E_CODEX_ACP="$adapter" OPENAB_E2E_CODEX="$codex"
+          cd openab && cargo +1.99.0 test --locked -p openab-core --test codex_restore_e2e -- --nocapture
+
   image:
     name: Runtime image (${{ matrix.provider }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
-        provider: [claude-code, codex, grok, antigravity, opencode]
+        provider: [claude-code, codex, grok, antigravity, opencode, hermes, dsh]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

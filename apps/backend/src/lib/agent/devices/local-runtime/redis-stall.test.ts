@@ -50,7 +50,7 @@ describe('local runtime tunnel during a Redis stall', () => {
     stalled = false
     // Pub/sub that never delivers once Redis stalls.
     const bus: TunnelBus = {
-      publish: () => (stalled ? new Promise(() => {}) : Promise.resolve()),
+      publish: () => (stalled ? new Promise(() => {}) : Promise.resolve(1)),
       subscribe: () => Promise.resolve(() => {}),
     }
     const frames: BackendFrame[] = []
@@ -78,6 +78,9 @@ describe('local runtime tunnel during a Redis stall', () => {
     )
 
     try {
+      // The tunnel holds the computer once it has spoken; the stall comes after.
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(5)
       stalled = true
       const before = frames.filter((frame) => frame.t === 'ping').length
 
@@ -104,14 +107,17 @@ describe('local runtime tunnel during a Redis stall', () => {
         },
       },
       {
-        bus: { publish: () => Promise.resolve(), subscribe: () => Promise.resolve(() => {}) },
+        bus: { publish: () => Promise.resolve(1), subscribe: () => Promise.resolve(() => {}) },
         presence,
         isMember: async () => true,
-        heartbeatMs: 60_000,
+        heartbeatMs: 5,
       },
     )
 
     try {
+      // This tunnel takes the computer with its first frame, then another connection does.
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
       await presence.claim('u1', 'd1', 'someone-else')
       tunnel.receive(JSON.stringify({ t: 'pong' }))
       await tick(10)
@@ -140,7 +146,7 @@ describe('local runtime tunnel during a Redis stall', () => {
       {
         // Publishes succeed, but a half-open subscriber delivers nothing back.
         bus: {
-          publish: () => Promise.resolve(),
+          publish: () => Promise.resolve(1),
           subscribe: () => Promise.resolve(() => {}),
           reconnect: () => {
             reconnects += 1

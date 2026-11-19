@@ -1,18 +1,20 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { buildTriggerRunStamp } from './conversation-trigger-run'
+import { withRedisLogContext } from '@/lib/redis-op-log'
+
 import { postChannelMessage } from './channel-chat'
+import { buildTriggerRunStamp } from './conversation-trigger-run'
 import { executeConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
-import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
+import { isRetiredTriggerShape } from './trigger-db'
 import { resolveExecutionAuthorization } from './trigger-executor-authorization'
 import { readReportedStatus, resolveMessageTemplate } from './trigger-executor-context'
+import { TRIGGER_SENDER_PREFIX, recordTriggerRan } from './trigger-missed-runs'
 
 import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { AgentTrigger } from './trigger-db'
-import type { TriggerGroupMember } from './trigger-group-db'
 
 export { resolveMessageTemplate } from './trigger-executor-context'
 
@@ -27,7 +29,6 @@ type TriggerFireOptions = {
   deliveryId?: string
   /** Stable per fire (the BullMQ job id), so a redelivered fire is not delivered twice. */
   fireId?: string
-  groupMember?: TriggerGroupMember
 }
 
 export async function executeTrigger(
@@ -48,7 +49,6 @@ export async function executeTrigger(
   const runStamp = buildTriggerRunStamp({
     triggerId,
     runKind: options.runKind,
-    ...(options.groupMember ? { groupMember: options.groupMember } : {}),
     ...(options.fireId ? { fireId: options.fireId } : {}),
   })
 
@@ -68,7 +68,7 @@ function triggerMetadata(trigger: AgentTrigger): MessageMetadata {
   const triggerId = trigger._id!.toHexString()
 
   return systemSender(
-    `trigger:${triggerId}`,
+    `${TRIGGER_SENDER_PREFIX}${triggerId}`,
     trigger.name,
     `/teams/${trigger.teamId}/triggers/${triggerId}`,
   )
@@ -93,26 +93,27 @@ async function deliverToTargetSession(
 
   if (target.kind === 'channel') {
     await postChannelMessage(target, { id: messageId, text, metadata: triggerMetadata(trigger) })
+    await recordTriggerRan(triggerId)
   } else
-    await executeConversationTurn(
-      {
-        userId: target.userId,
-        // resolveExecutionAuthorization paused the Trigger unless this is its team.
-        teamId: target.teamId!,
-        targetSessionId: sessionId,
-        messageId,
-        locale: target.metadata?.locale ?? 'en-US',
-        trigger: delivery.trigger,
-      },
-      target,
-      text,
-      'agent.resource',
-      triggerMetadata(trigger),
+    // The turn records the run once it has run (runTurn), which may be later, from the queue.
+    // A Redis op that fails during it names this session and route.
+    await withRedisLogContext({ session_id: sessionId, route: 'agent.resource' }, () =>
+      executeConversationTurn(
+        {
+          userId: target.userId,
+          // resolveExecutionAuthorization paused the Trigger unless this is its team.
+          teamId: target.teamId!,
+          targetSessionId: sessionId,
+          messageId,
+          locale: target.metadata?.locale ?? 'en-US',
+          trigger: delivery.trigger,
+        },
+        target,
+        text,
+        'agent.resource',
+        triggerMetadata(trigger),
+      ),
     )
-  await agentTriggers().updateOne(
-    { _id: trigger._id },
-    { $set: { lastRunAt: new Date(), updatedAt: new Date() } },
-  )
 }
 
 /**
@@ -134,19 +135,6 @@ function templateContext(
       firedAt: new Date().toISOString(),
       ...(options.deliveryId ? { deliveryId: options.deliveryId } : {}),
       ...(reportedStatus ? { reportedStatus } : {}),
-      ...(options.groupMember
-        ? {
-            group: {
-              member: {
-                key: options.groupMember.key,
-                provider: options.groupMember.provider,
-                integrationId: options.groupMember.integrationId,
-                kind: options.groupMember.kind,
-                resourceId: options.groupMember.resourceId,
-              },
-            },
-          }
-        : {}),
     },
     ...(webhookPayload !== undefined ? { payload: webhookPayload } : {}),
   }

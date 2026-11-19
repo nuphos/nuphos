@@ -66,7 +66,7 @@ export async function startPersonalCredentialOAuth(
   const state = randomBytes(24).toString('base64url')
   const expiresAt = new Date(Date.now() + PENDING_TTL_MS)
   const teamId = isGoogleProvider(provider)
-    ? await googleTeamFor(userId, provider, requestedTeamId)
+    ? await googleTeamFor(userId, requestedTeamId)
     : undefined
   const flow = await pkceFlow(provider, teamId)
 

@@ -30,10 +30,10 @@ struct SavedAccount: Codable, Identifiable, Equatable {
                 registry = try JSONDecoder().decode(Registry.self, from: Data(raw.utf8))
                 hasRegistry = true
             }
-        } catch { self.error = "Saved accounts could not be read. Try again before adding an account." }
+        } catch { self.error = String(localized: "Saved accounts could not be read. Try again before adding an account.") }
         for account in registry.accounts {
             if let token = account.token, !NuphosAPI.rememberOrigin(account.origin, token: token) {
-                error = "This session is saved for more than one server. Sign in with a fresh session."
+                error = String(localized: "This session is saved for more than one server. Sign in with a fresh session.")
             }
         }
     }

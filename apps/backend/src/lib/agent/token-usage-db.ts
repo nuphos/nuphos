@@ -60,6 +60,13 @@ export type AgentTokenUsageRecord = {
   triggerId?: string
   triggerKind?: ConversationTriggerRunKind
   triggerFireId?: string
+  /** Who sent an agent-runtime turn: the human sender, or the owner when automated. */
+  actorUserId?: string
+  /** Where an agent-runtime turn came from: `app`, `slack.agent`, `agent.thread`, … */
+  turnSource?: string
+  /** The team runtime that ran the turn, and the member's computer when it was local. */
+  runtimeId?: string
+  deviceId?: string
   // Absent on rows written before pool accounting shipped.
   billing?: UsageBillingClass
   // Frozen when the call is recorded so exact cycle-boundary accounting does
@@ -104,6 +111,16 @@ export async function setupTokenUsageIndexes(): Promise<void> {
   } catch (err) {
     logError('agent.token_usage.indexes_create_failed', err)
   }
+  // Backs getTriggerUsage. Not awaited: building it scans the whole collection,
+  // and until it exists the query is only slower, so boot must not wait for it.
+  void c
+    .createIndex(
+      { triggerId: 1, createdAt: -1 },
+      { background: true, partialFilterExpression: { triggerId: { $exists: true } } },
+    )
+    .catch((err: unknown) => {
+      logError('agent.token_usage.trigger_index_failed', err)
+    })
 }
 
 export function cleanRecord<T extends Record<string, unknown>>(record: T): T {

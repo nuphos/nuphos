@@ -1,18 +1,10 @@
-import type { isSlackTriggerNotificationConfigurationCurrent } from '@/lib/agent/trigger-db'
 import type { SlackOutboundDestination } from '@/lib/slack/destinations'
-import type {
-  SlackIncidentPlacement,
-  SlackIncidentReservation,
-  SlackIncidentReserveResult,
-  SlackTriggerNotificationContext,
-} from '@/lib/slack/incident-notifications'
 import type { ObjectId } from 'mongodb'
 
 export type SlackOutboundArgs = {
   userId: string
   conversationId: string
   teamId?: string | null
-  triggerNotification?: SlackTriggerNotificationContext
 }
 
 export type SlackOutboundContext = {
@@ -32,8 +24,6 @@ export type SlackOutboundContext = {
     destination: SlackOutboundDestination
     text: string
     bindConversation: boolean
-    /** Omit to start a thread; pass a threadTs to reply in an existing one. */
-    replyToThread?: string
     /** Opens a replyable thread under the new root and gives it a conversation
      *  of its own. Takes precedence over bindConversation. */
     replyThread?: { text: string }
@@ -45,10 +35,9 @@ export type SlackOutboundContext = {
           channelId: string
           label: string
         }
-        delivery: 'root' | 'thread_update' | 'suppressed'
-        messageTs?: string
-        rootThreadTs?: string
-        suppressedReason?: string
+        delivery: 'root'
+        messageTs: string
+        rootThreadTs: string
         threadBound: boolean
         /** Present when replyThread was requested. `opened: false` means the
          *  report was delivered but the thread is not replyable — reported, not
@@ -79,7 +68,6 @@ export type SlackOutboundDependencies = {
     botToken: string,
   ) => Promise<{ slackUserId: string } | null>
   canViewPrivateChannels: (userId: string, teamId: string) => Promise<boolean>
-  isTriggerConfigurationCurrent: typeof isSlackTriggerNotificationConfigurationCurrent
   getThreadBySessionId: (sessionId: string) => Promise<{ slackChannelId: string } | null>
   bindThread: (input: {
     slackWorkspaceId: string
@@ -102,21 +90,6 @@ export type SlackOutboundDependencies = {
   /** The conversation a forked reply thread gets. Injected so a test can assert
    *  which session a thread was handed, rather than matching a random uuid. */
   newSessionId: () => string
-  /** Threads this alert has used, so a reply can be checked against its own
-   *  history rather than only the most recent thread. */
-  listAlertThreads: (input: {
-    teamId: string
-    triggerId: string
-    incidentScope: string
-  }) => Promise<string[]>
-  rebindThreadSession: (input: {
-    slackWorkspaceId: string
-    slackChannelId: string
-    slackThreadTs: string
-    sessionId: string
-    teamId: string
-    agentUserId: string
-  }) => Promise<void>
   listChannels: (token: string) => Promise<{ id: string; name: string; isPrivate: boolean }[]>
   getChannel: (
     token: string,
@@ -129,31 +102,6 @@ export type SlackOutboundDependencies = {
     text: string
     threadTs?: string
   }) => Promise<{ channel?: string | { id?: string }; ts?: string }>
-  reserveIncident: (input: {
-    teamId: string
-    slackWorkspaceId: string
-    slackChannelId: string
-    triggerId: string
-    incidentScope?: string
-    placement: SlackIncidentPlacement
-    contentHash: string
-    sessionId: string
-    triggerConfigRevision: number
-    threadBelongsToAlert?: boolean
-  }) => Promise<SlackIncidentReserveResult>
-  completeIncident: (
-    reservation: SlackIncidentReservation,
-    result: { threadTs: string; text?: string; startedNewThread?: boolean },
-  ) => Promise<void>
-  recordIncidentDelivery: (
-    reservation: SlackIncidentReservation,
-    result: {
-      rootThreadTs: string
-      agentUserId: string
-      createdBySlackUserId?: string
-    },
-  ) => Promise<void>
-  abortIncident: (reservation: SlackIncidentReservation) => Promise<void>
 }
 
 export type SlackWorkspaceGrant = {

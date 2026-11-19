@@ -5,8 +5,12 @@ import type { GeneralAccess } from '../../src/api/agent-types'
 
 // Agent reads that no longer fit in channels-agent.ts or channels-team.ts (max-lines).
 export const agentReadChannels = {
+  'agent:answerDecision': (_e: unknown, ...args: Parameters<typeof agent.answerDecision>) =>
+    agent.answerDecision(...args),
   'atlas:getAgentStats': (_e: unknown, teamId: string, query: atlas.AgentStatsQuery) =>
     atlas.getAgentStats(teamId, query),
+  'atlas:queryTeamUsage': (_e: unknown, teamId: string, query: Record<string, string>) =>
+    atlas.queryTeamUsage(teamId, query),
   'agent:getSessionResources': (_e: unknown, sessionId: string, teamId: string) =>
     agent.getSessionResources(sessionId, teamId),
   'agent:unlinkSessionResource': (
@@ -15,6 +19,14 @@ export const agentReadChannels = {
     teamId: string,
     resourceId: string,
   ) => agent.unlinkSessionResource(sessionId, teamId, resourceId),
+  'agent:recordFork': (_e: unknown, ...args: Parameters<typeof agent.recordFork>) =>
+    agent.recordFork(...args),
+  'agent:recordEditFork': (
+    _e: unknown,
+    sessionId: string,
+    forkSessionId: string,
+    teamId?: string,
+  ) => agent.recordEditFork(sessionId, forkSessionId, teamId),
   'agent:markConversationRead': (_e: unknown, sessionId: string, seq: number, teamId?: string) =>
     agent.markConversationRead(sessionId, seq, teamId),
   'agent:checkConversationMove': (
@@ -50,4 +62,10 @@ export const agentReadChannels = {
     avatar: string | null,
     teamId?: string,
   ) => agent.setConversationAvatar(sessionId, avatar, teamId),
+  'agent:uploadConversationAvatar': (
+    _e: unknown,
+    sessionId: string,
+    image: Uint8Array,
+    teamId?: string,
+  ) => agent.uploadConversationAvatar(sessionId, image, teamId),
 }

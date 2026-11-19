@@ -51,6 +51,9 @@ enum LocalAgentTests {
         let config = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"dormant","options":[{"id":"model","name":"Model","kind":"model","currentValue":"default","options":[{"value":"default","name":"Default","description":"Alpha"},{"value":"a","name":"Alpha"},{"value":"b","name":"Beta"}]},{"id":"effort","name":"Effort","kind":"effort","currentValue":"high","options":[{"value":"high","name":"High"}]},{"id":"fast","name":"Fast","kind":"fast","currentValue":"on","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
         precondition(config.modelTitle == "Alpha" && config.isEditable && config.isFast)
         precondition(config.hint == nil)
+        // #3427: a started conversation offers fast before its session confirms a value; that is not fast.
+        let unconfirmed = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"ready","options":[{"id":"fast","name":"Fast","kind":"fast","currentValue":"","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
+        precondition(!unconfirmed.isFast, "An unconfirmed fast setting is not fast")
         print("Model discovery, retained settings, and queued selection transitions passed")
     }
 
@@ -134,5 +137,7 @@ enum LocalAgentTests {
         precondition(antigravity.providerName == "Antigravity" && RuntimeInstance.Provider.logo("antigravity") == "logo-antigravity")
         let opencode = agent(#"{"id":"rt_4","provider":"opencode","label":"Team OpenCode","status":"active","kind":"managed"}"#)
         precondition(opencode.providerName == "OpenCode" && RuntimeInstance.Provider.logo("opencode") == "logo-opencode")
+        let dsh = agent(#"{"id":"rt_5","provider":"dsh","label":"Team DSH","status":"active","kind":"managed"}"#)
+        precondition(dsh.providerName == "DeepSeek Harness" && RuntimeInstance.Provider.logo("dsh") == "logo-deepseek")
     }
 }

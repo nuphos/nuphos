@@ -104,7 +104,7 @@ impl Default for SessionState {
         Self(Mutex::new(json!({
             "epoch": uuid::Uuid::new_v4().to_string(), "revision": 0,
             "state": "unknown", "providerState": "unknown", "operation": "none",
-            "tools": {}, "asyncTasks": {}, "providerDetails": null, "permissionWaits": 0, "activity": "working"
+            "tools": {}, "asyncTasks": {}, "providerDetails": null, "activity": "working"
         })))
     }
 }
@@ -140,7 +140,6 @@ impl SessionState {
             if state == "interrupted" {
                 end_unstarted_tools(snapshot);
                 snapshot["operation"] = json!("none");
-                snapshot["permissionWaits"] = json!(0);
             }
             snapshot["providerState"] = json!(state);
         });
@@ -156,17 +155,6 @@ impl SessionState {
                 // Keep background tools visible across turns, but reset model activity.
                 snapshot["activity"] = json!("working");
             }
-        });
-    }
-
-    pub fn permission_wait(&self, waiting: bool) {
-        self.change(|snapshot| {
-            let count = snapshot["permissionWaits"].as_u64().unwrap_or(0);
-            snapshot["permissionWaits"] = json!(if waiting {
-                count + 1
-            } else {
-                count.saturating_sub(1)
-            });
         });
     }
 
@@ -500,15 +488,12 @@ mod tests {
         assert_eq!(state.snapshot()["operation"], "none");
     }
     #[test]
-    fn provider_idle_does_not_hide_a_pending_prompt_or_permission() {
+    fn provider_idle_does_not_hide_a_pending_prompt() {
         let state = SessionState::default();
         state.operation("prompt");
-        state.permission_wait(true);
         state.set("idle");
         let waiting = state.snapshot();
         assert_eq!(waiting["operation"], "prompt");
-        assert_eq!(waiting["permissionWaits"], 1);
-        state.permission_wait(false);
         state.operation("none");
         assert!(state.snapshot()["revision"].as_u64() > waiting["revision"].as_u64());
     }

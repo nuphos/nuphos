@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">Search monitoring</string>
+    <string name="monitoring_clear_filters">Clear filters</string>
+    <string name="monitoring_refresh">Refresh</string>
+    <string name="monitoring_all_providers">All providers</string>
+    <string name="monitoring_all_statuses">All statuses</string>
+    <string name="monitoring_select_team">Select a team to view monitoring.</string>
+    <string name="monitoring_loading">Loading monitoring…</string>
+    <string name="monitoring_access_denied">Monitoring access denied. Check your team membership.</string>
+    <string name="monitoring_load_failed">Could not load monitoring. %1$s</string>
+    <string name="monitoring_stale">Stale data — refresh failed. %1$s</string>
+    <string name="monitoring_provider_errors_title">Some providers could not be loaded</string>
+    <string name="monitoring_hide_provider_errors">Hide provider errors</string>
+    <string name="monitoring_show_provider_errors">Show provider errors</string>
+    <string name="monitoring_empty_title">No monitoring checks</string>
+    <string name="monitoring_empty_body">Supported checks from Better Stack, Grafana and GCP appear here.</string>
+    <string name="monitoring_open_connectors">Open Connectors</string>
+    <string name="monitoring_no_matching_checks">No matching checks</string>
+    <string name="monitoring_detail_status">Status: %1$s</string>
+    <string name="monitoring_detail_provider">Provider: %1$s</string>
+    <string name="monitoring_detail_connector">Connector: %1$s</string>
+    <string name="monitoring_detail_last_incident">Last incident: %1$s</string>
+    <string name="monitoring_detail_kind">Kind: %1$s</string>
+    <string name="monitoring_detail_resource">Resource: %1$s</string>
+    <string name="monitoring_detail_target">Target: %1$s</string>
+    <string name="monitoring_open_provider">Open provider</string>
+    <string name="monitoring_open_provider_failed">Could not open the provider link.</string>
+    <string name="monitoring_close">Close</string>
+</resources>

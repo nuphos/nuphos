@@ -37,13 +37,27 @@ struct AgentThreadBadge: View {
     private var key: String { "\(teamId)/\(reference.id)" }
     private var detail: AgentConversationDetail? { agents.details[key] }
     private var observation: RuntimeObservation? { store.observations.value(team: teamId, session: reference.id) }
-    private var status: String {
-        guard detail != nil else { return agents.unavailable.contains(key) ? "Unavailable" : "" }
-        guard let observation, !observation.unavailable else { return "Unavailable" }
-        if observation.paused { return "Stopped" }
-        if (observation.snapshot["permissionWaits"]?.numberValue ?? 0) > 0 { return "Needs input" }
-        if observation.turnActive || observation.backgroundRunning { return "Running" }
-        return "Done"
+    private enum Status {
+        case unavailable, stopped, needsInput, running, done
+
+        var label: LocalizedStringKey {
+            switch self {
+            case .unavailable: "Unavailable"
+            case .stopped: "Stopped"
+            case .needsInput: "Needs input"
+            case .running: "Running"
+            case .done: "Done"
+            }
+        }
+    }
+
+    private var status: Status? {
+        guard detail != nil else { return agents.unavailable.contains(key) ? .unavailable : nil }
+        guard let observation, !observation.unavailable else { return .unavailable }
+        if observation.paused { return .stopped }
+        if observation.awaitsPerson { return .needsInput }
+        if observation.turnActive || observation.backgroundRunning { return .running }
+        return .done
     }
 
     var body: some View {
@@ -53,15 +67,15 @@ struct AgentThreadBadge: View {
             HStack(spacing: 6) {
                 AgentAvatar(agentId: reference.id, runtime: detail?.agentRuntime, size: 20)
                 Text(reference.verb).foregroundStyle(Theme.muted)
-                Text(detail?.title ?? reference.title ?? "Agent")
+                Text(detail?.title ?? reference.title ?? String(localized: "Agent"))
                     .fontWeight(.medium).foregroundStyle(Theme.heading).lineLimit(1)
-                if !status.isEmpty {
-                    if status == "Running" { ProgressView().controlSize(.mini) }
-                    Text(status)
-                        .foregroundStyle(status == "Needs input" ? Theme.warning : Theme.muted)
+                if let status {
+                    if status == .running { ProgressView().controlSize(.mini) }
+                    Text(status.label)
+                        .foregroundStyle(status == .needsInput ? Theme.warning : Theme.muted)
                         .fixedSize()
                 }
-                Image(systemName: "chevron.right")
+                LucideIcon("chevron-right")
                     .font(Theme.Text.micro.weight(.bold)).foregroundStyle(Theme.muted).opacity(0.35)
                 Spacer(minLength: 0)
             }

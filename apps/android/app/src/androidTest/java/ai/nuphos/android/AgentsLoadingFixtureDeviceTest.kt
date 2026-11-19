@@ -5,7 +5,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -31,6 +31,7 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** All HTTP requests are intercepted; no credentials or server are used. */
 @RunWith(AndroidJUnit4::class)
@@ -87,7 +88,6 @@ class AgentsLoadingFixtureDeviceTest {
     private val favoritesRelease = CountDownLatch(1)
     private val network = object : ExternalResource() {
         override fun before() {
-            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
             savedLastTeam = app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).getString("nuphos.workspace.lastTeamId", null)
             InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -113,8 +113,9 @@ class AgentsLoadingFixtureDeviceTest {
                             readSeq = JsonValue.Number(listRead.toDouble()), unread = JsonValue.Bool(owner && listActivity > listRead),
                             runtimeState = if (backgroundPhase) JsonValue.parse("""{"schemaVersion":2,"state":"active","phase":"background_tools","epoch":"a","revision":2}""") else row().runtimeState)
                         val fail = failList
-                        // Chats are listed from the same path at the same time; only the history request is held.
-                        if (holdNextList && req.url.queryParameter("kind") != "channel") { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
+                        // Chats, Bots and open questions are read from the same path at the same time; only the history request is held.
+                        val history = req.url.queryParameterNames.none { it in setOf("kind", "bots", "pendingDecision") }
+                        if (holdNextList && history) { holdNextList = false; listHeld.countDown(); check(listRelease.await(10, TimeUnit.SECONDS)) }
                         if (req.url.queryParameter("cursor") == "following-page") { followingHeld.countDown(); check(followingRelease.await(10, TimeUnit.SECONDS)) }
                         if (crossTeamPins) {
                             val isPage = req.url.queryParameter("cursor") != null
@@ -209,8 +210,8 @@ class AgentsLoadingFixtureDeviceTest {
     @Test fun coldHistoryHasLoadingButNoFakeRowsOrEmptyMessage() {
         holdNextList = true; render()
         compose.waitUntil(5_000) { listHeld.count == 0L }
-        waitText("Loading agents…")
-        compose.onNodeWithText("Loading agents…").assertIsDisplayed()
+        waitText("Loading tasks…")
+        compose.onNodeWithText("Loading tasks…").assertIsDisplayed()
         compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         listRelease.countDown(); waitText("History fixture")
@@ -221,15 +222,15 @@ class AgentsLoadingFixtureDeviceTest {
         compose.runOnIdle { store.refresh() }
         compose.waitUntil(5_000) { listHeld.count == 0L }
         compose.onNodeWithText("History fixture").assertIsDisplayed()
-        compose.onNodeWithText("Loading agents…").assertDoesNotExist()
+        compose.onNodeWithText("Loading tasks…").assertDoesNotExist()
         listRelease.countDown()
-        waitText("Could not refresh agents. Showing last loaded history.")
+        waitText("Could not refresh tasks. Showing last loaded history.")
         compose.onNodeWithText("History fixture").assertIsDisplayed()
         failList = false; compose.onNodeWithText("Retry history").performClick()
         compose.waitUntil(5_000) { store.phaseError == null }
     }
     @Test fun initialFailureRemainsVisibleAndRetryRecovers() {
-        failList = true; render(); waitText("Couldn't load agents")
+        failList = true; render(); waitText("Couldn't load tasks")
         compose.onNodeWithText("No tasks yet").assertDoesNotExist()
         failList = false; compose.onNodeWithText("Try again").performClick()
         waitText("History fixture")
@@ -251,7 +252,7 @@ class AgentsLoadingFixtureDeviceTest {
         compose.waitUntil(5_000) { listHeld.count == 0L }
         failList = true
         compose.runOnIdle { store.updateSearch("different"); assertTrue(store.conversations.isEmpty()) }
-        waitText("Couldn't load agents")
+        waitText("Couldn't load tasks")
         listRelease.countDown()
         compose.onNodeWithText("History fixture").assertDoesNotExist()
         compose.onNodeWithText("No matches").assertDoesNotExist()

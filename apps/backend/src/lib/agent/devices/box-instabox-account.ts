@@ -2,6 +2,8 @@
 // team bound itself (`box.accountId`). A team's account is billed by instabox,
 // so Nuphos's vCPU limit applies only to the deployment's (see startBox).
 
+import { setTimeout as sleep } from 'node:timers/promises'
+
 import { DEFAULT_API_URL } from '@insforge/instabox-sdk'
 import { ObjectId } from 'mongodb'
 
@@ -10,7 +12,12 @@ import { decryptInstaboxSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { teamByosBindings } from '@/models/team'
 
-import { QUICK_TIMEOUT_MS, REQUEST_TIMEOUT_MS, connection } from './box-instabox-client'
+import {
+  QUICK_TIMEOUT_MS,
+  REQUEST_TIMEOUT_MS,
+  RETRY_AFTER_MS,
+  connection,
+} from './box-instabox-client'
 
 import type { AgentDeviceBox } from './store'
 import type { InstaboxAccountBinding } from '@/models/bindings-integrations'
@@ -39,7 +46,11 @@ export async function boxConnection(box: BoxAccountRef, timeoutMs: number): Prom
   const account = await findInstaboxAccount(box.teamId, box.accountId)
 
   if (!account)
-    throw new AppError(409, 'box_unavailable', "The Box's instabox account is no longer bound")
+    throw new AppError(
+      409,
+      'box_unavailable',
+      "This computer's instabox account is no longer connected to the team",
+    )
 
   return {
     apiKey: decryptInstaboxSecret(account.encryptedApiKey),
@@ -47,6 +58,26 @@ export async function boxConnection(box: BoxAccountRef, timeoutMs: number): Prom
     requestTimeoutMs: Math.min(timeoutMs, REQUEST_TIMEOUT_MS),
     operationTimeoutMs: timeoutMs,
   }
+}
+
+/**
+ * The account, read again once on a reset connection or a 502–504, as the SDK reads its own.
+ * Never after a timeout, which already waited its full budget.
+ */
+async function readMe(apiUrl: string, apiKey: string, retried = false): Promise<Response> {
+  try {
+    const response = await fetch(`${apiUrl}/v1/me`, {
+      headers: { 'X-API-Key': apiKey },
+      signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
+    })
+
+    if (retried || response.status < 502 || response.status > 504) return response
+  } catch (error) {
+    if (retried || (error instanceof Error && error.name === 'TimeoutError')) throw error
+  }
+  await sleep(RETRY_AFTER_MS)
+
+  return readMe(apiUrl, apiKey, true)
 }
 
 /** The sizes an instabox key may start, smallest first: its account's `allowedSpecs`. */
@@ -57,10 +88,7 @@ export async function accountSizes({
   apiKey: string
   apiUrl?: string
 }): Promise<BoxSize[]> {
-  const response = await fetch(`${apiUrl}/v1/me`, {
-    headers: { 'X-API-Key': apiKey },
-    signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
-  })
+  const response = await readMe(apiUrl, apiKey)
 
   if (response.status === 401 || response.status === 403)
     throw new AppError(400, 'invalid_instabox_api_key', 'The instabox API key is not valid')

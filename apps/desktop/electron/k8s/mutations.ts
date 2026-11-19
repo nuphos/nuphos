@@ -3,9 +3,10 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import * as k8s from '@kubernetes/client-node'
-
 import { getClients, withAuthRetry } from './client'
+import { k8sLib } from './lib'
+
+import type * as k8s from '@kubernetes/client-node'
 
 export function deletePod(context: string, namespace: string, name: string) {
   return withAuthRetry(context, async () => {
@@ -53,7 +54,7 @@ export function deleteResource(
     const resolvedApiVersion = apiVersion || DELETE_API_VERSIONS[kind]
 
     if (!resolvedApiVersion) throw new Error(`Unsupported delete kind: ${kind}`)
-    const objectApi = k8s.KubernetesObjectApi.makeApiClient(kc)
+    const objectApi = k8sLib.KubernetesObjectApi.makeApiClient(kc)
     const spec: k8s.KubernetesObject = {
       apiVersion: resolvedApiVersion,
       kind,
@@ -124,7 +125,7 @@ export function cordonNode(context: string, name: string, cordoned: boolean) {
 
     await coreApi.patchNode(
       { name, body: { spec: { unschedulable: cordoned } } },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }
@@ -151,7 +152,7 @@ export function restartWorkload(
         },
       },
     }
-    const opts = k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.StrategicMergePatch)
+    const opts = k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.StrategicMergePatch)
 
     // `kind` arrives over IPC, so the union type doesn't hold at runtime —
     // fail closed on anything unrecognized instead of patching a Deployment.
@@ -188,7 +189,7 @@ export function scaleDeployment(
           },
         },
       },
-      k8s.setHeaderOptions('Content-Type', k8s.PatchStrategy.MergePatch),
+      k8sLib.setHeaderOptions('Content-Type', k8sLib.PatchStrategy.MergePatch),
     )
   })
 }

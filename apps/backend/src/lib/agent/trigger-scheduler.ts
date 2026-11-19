@@ -1,27 +1,26 @@
 import { Queue, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
-import { CRON_TIME_ZONE } from '@/lib/cron'
+import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
+import { serving } from '@/lib/event-loop-stall'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
 import { closeThreadQueue } from './thread-queue'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
+import { startMissedRunDetector, stopMissedRunDetector } from './trigger-missed-runs'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
-// Straight to the two section modules, not the trigger-service barrel: the
-// barrel would also pull create/update/transfer into our graph and widen the
-// cycle below to files we never touch.
-import { performTriggerCleanup } from './trigger-service/cleanup'
-// Runtime-only cycle with trigger-service/read (it schedules through us, we
-// sweep through it) — both sides defer usage to call time, so module eval is
-// safe.
+// Straight to the section module, not the trigger-service barrel: the barrel
+// would also pull create/update/transfer into our graph and widen the cycle
+// below to files we never touch. Runtime-only cycle with trigger-service/read
+// (it schedules through us, we sweep through it) — both sides defer usage to
+// call time, so module eval is safe.
 import { expireTriggers } from './trigger-service/read'
 
 export { buildBullMQConnection } from './trigger-scheduler-setup'
 
 const EXPIRY_SWEEP_JOB = 'expire-triggers'
-const PROVIDER_CLEANUP_JOB = 'cleanup-trigger-provider'
 
 let _queue: Queue | undefined
 let _worker: Worker | undefined
@@ -41,47 +40,92 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker = new Worker(
     AGENT_TRIGGER_QUEUE,
-    async (job) => {
-      if (job.name === 'resource-session-turn') {
-        const { executeResourceTurn } = await import('./resource-turn')
+    // A stall during a job names it, as it names the requests being served.
+    async (job) =>
+      serving('job', job.name, async () => {
+        if (job.name === 'task-report') {
+          const { deliverTaskReport } = await import('./task-report-delivery')
 
-        await executeResourceTurn(job.data)
+          await deliverTaskReport(job.data.reportId)
 
-        return
-      }
-      if (job.name === EXPIRY_SWEEP_JOB) {
-        const expired = await expireTriggers()
+          return
+        }
+        if (job.name === 'recover-task-reports') {
+          const { recoverTaskReports } = await import('./task-reports')
 
-        if (expired > 0) logEvent('info', 'agent.trigger.expiry_sweep', { expired })
+          await recoverTaskReports()
 
-        return
-      }
-      if (job.name === PROVIDER_CLEANUP_JOB) {
+          return
+        }
+        if (job.name === 'resource-session-turn') {
+          const { executeResourceTurn } = await import('./resource-turn')
+
+          await executeResourceTurn(job.data)
+
+          return
+        }
+        if (job.name === 'answer-delivery') {
+          const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
+
+          await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
+
+          return
+        }
+        if (job.name === EXPIRY_SWEEP_JOB) {
+          const expired = await expireTriggers()
+
+          if (expired > 0) logEvent('info', 'agent.trigger.expiry_sweep', { expired })
+
+          return
+        }
         const { triggerId } = job.data as { triggerId: string }
+        const trigger = await agentTriggers().findOne({ _id: new ObjectId(triggerId) })
 
-        await performTriggerCleanup(triggerId)
-
-        return
-      }
-      const { triggerId } = job.data as { triggerId: string }
-      const trigger = await agentTriggers().findOne({ _id: new ObjectId(triggerId) })
-
-      if (!trigger?.enabled) return
-      // Belt-and-braces: the hourly sweep is the primary expiry path, but a
-      // fire that races it must not execute an already-expired trigger.
-      if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
-      if (trigger.triggerType !== 'cron') return
-      await executeTrigger(trigger, undefined, {
-        runKind: 'scheduled',
-        ...(job.id ? { fireId: job.id } : {}),
-      })
-    },
+        if (!trigger?.enabled) return
+        // Belt-and-braces: the hourly sweep is the primary expiry path, but a
+        // fire that races it must not execute an already-expired trigger.
+        if (trigger.expiresAt && trigger.expiresAt.getTime() <= Date.now()) return
+        if (trigger.triggerType !== 'cron') return
+        // Recorded before the turn so a long or failing turn still counts as fired.
+        // A missed run is over only once a turn has run (recordTriggerRan).
+        await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastFiredAt: new Date() } })
+        await executeTrigger(trigger, undefined, {
+          runKind: 'scheduled',
+          ...(job.id ? { fireId: job.id } : {}),
+        })
+      }),
     { connection, concurrency: 3 },
   )
 
   _worker.on('failed', (job, err) => {
     logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id })
+    if (job?.name === 'task-report') {
+      void import('./task-reports')
+        .then(({ taskReports }) =>
+          taskReports().updateOne(
+            { _id: job.data.reportId },
+            {
+              $set: {
+                deliveryError:
+                  'Report notification failed; inspect the parent conversation and queue before retrying.',
+              },
+            },
+          ),
+        )
+        .catch((error: unknown) => {
+          logError('agent.task_report.failure_record_failed', error)
+        })
+    }
   })
+
+  await _queue.upsertJobScheduler(
+    'task-report-recovery',
+    { every: 60_000 },
+    {
+      name: 'recover-task-reports',
+      opts: { removeOnComplete: 1, removeOnFail: 10 },
+    },
+  )
 
   const cronTriggers = await agentTriggers()
     .find({ ...liveTriggerShapeFilter, triggerType: 'cron', enabled: true })
@@ -94,26 +138,6 @@ export async function initTriggerScheduler(): Promise<boolean> {
   }
   const removedOrphanCount = await removeOrphanJobSchedulers()
 
-  // Recover deletions claimed before a process restart. The cleanup worker is
-  // idempotent and the persisted receipt remains the source of truth.
-  const deletingTriggers = await agentTriggers()
-    .find({ cleanupStatus: 'deleting' }, { projection: { _id: 1 } })
-    .toArray()
-  let resumedCleanupCount = 0
-
-  for (const trigger of deletingTriggers) {
-    if (!trigger._id) continue
-    try {
-      if (await scheduleTriggerCleanup(trigger._id.toString())) {
-        resumedCleanupCount += 1
-      }
-    } catch (err) {
-      logError('agent.trigger.provider_cleanup_recovery_failed', err, {
-        trigger_id: trigger._id.toString(),
-      })
-    }
-  }
-
   // Hourly expiry sweep: disables triggers whose expiresAt has passed.
   await _queue.upsertJobScheduler(
     'trigger-expiry-sweep',
@@ -121,9 +145,10 @@ export async function initTriggerScheduler(): Promise<boolean> {
     { name: EXPIRY_SWEEP_JOB, opts: { attempts: 1, removeOnComplete: 24, removeOnFail: 24 } },
   )
 
+  startMissedRunDetector()
+
   logEvent('info', 'agent.trigger_scheduler.initialized', {
     cron_trigger_count: cronTriggers.length,
-    resumed_cleanup_count: resumedCleanupCount,
     removed_orphan_schedule_count: removedOrphanCount,
   })
 
@@ -131,6 +156,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 }
 
 export async function stopTriggerWorkers(): Promise<void> {
+  stopMissedRunDetector()
   await _worker?.close()
   _worker = undefined
 }
@@ -153,7 +179,8 @@ async function _upsertJobScheduler(
 ): Promise<void> {
   await _queue!.upsertJobScheduler(
     `trigger:${triggerId}`,
-    { pattern: cronExpression, tz: timeZone },
+    // Within the scheduled minute: hourly Triggers otherwise all start at :00:00 together.
+    { pattern: spreadWithinMinute(triggerId, cronExpression), tz: timeZone },
     {
       name: 'run-trigger',
       data: { triggerId },
@@ -197,21 +224,4 @@ export async function scheduleCronTrigger(
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
   if (!_queue) return
   await _queue.removeJobScheduler(`trigger:${triggerId}`)
-}
-
-/** Returns false when Redis is disabled so the caller can run synchronously. */
-export async function scheduleTriggerCleanup(triggerId: string): Promise<boolean> {
-  if (!_queue) return false
-  await _queue.add(
-    PROVIDER_CLEANUP_JOB,
-    { triggerId },
-    {
-      jobId: `provider-cleanup-${triggerId}`,
-      attempts: 1,
-      removeOnComplete: true,
-      removeOnFail: true,
-    },
-  )
-
-  return true
 }

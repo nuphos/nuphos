@@ -38,8 +38,8 @@ struct CredentialCatalog: Equatable, Sendable {
         let detail: String?
         /// A device that is offline or has local exec off. Shown only while selected, so it can be unticked.
         var offline = false
-        /// Picked by "Select all" and a new chat's defaults: online, and not the member's own credential.
-        var selectable: Bool { !offline && provider.selectionKey != "personalCredentialIds" }
+        /// Picked by "Select all": online.
+        var selectable: Bool { !offline }
     }
 
     static let providers: [Provider] = [
@@ -108,6 +108,35 @@ struct CredentialCatalog: Equatable, Sendable {
         CredentialCatalog(sections: sections.filter { scope.includes($0.provider.selectionKey) })
     }
 
+    /// The backend's `CONNECTABLE_PROVIDERS`: the selection key an integration question's provider is answered by.
+    static let connectKeys: [String: String] = [
+        "github": "githubInstallationIds", "gitlab": "gitlabBindingIds", "linear": "linearWorkspaceIds",
+        "jira": "jiraSiteIds", "asana": "asanaAccountIds", "sentry": "sentryAccountIds",
+        "posthog": "posthogIntegrationIds", "plaud": "plaudAccountIds", "grafana": "grafanaInstanceIds",
+        "sonarqube": "sonarqubeIntegrationIds", "notion": "notionIntegrationIds", "upstash": "upstashAccountIds",
+        "resend": "resendIntegrationIds", "trello": "trelloIntegrationIds", "cloudflare": "cloudflareAccountIds",
+        "betterstack": "betterStackIntegrationIds", "uptime-kuma": "uptimeKumaInstanceIds",
+        "tailscale": "tailscaleClientIds", "zeabur": "zeaburIds", "vanta": "vantaIntegrationIds",
+        "secureframe": "secureframeIntegrationIds", "aws": "awsRoleIds", "gcp": "gcpServiceAccountIds",
+        "azure": "azureAccountIds", "linode": "linodeAccountIds", "hetzner": "hetznerAccountIds",
+        "tencent": "tencentAccountIds", "aliyun": "aliyunAccountIds", "volcengine": "volcengineAccountIds",
+        "huawei": "huaweiAccountIds", "onprem-k8s": "onpremClusterIds",
+    ]
+
+    /// Only what answers a question asking for `providers`, as the server decides: a credential of
+    /// that kind, or the member's own one of that name. Nil keeps everything.
+    func answering(_ providers: [String]?) -> CredentialCatalog {
+        guard let providers else { return self }
+        let keys = Set(providers.compactMap { Self.connectKeys[$0] })
+        return CredentialCatalog(sections: sections.compactMap { section in
+            let items = section.items.filter {
+                keys.contains($0.provider.selectionKey)
+                    || ($0.provider.selectionKey == "personalCredentialIds" && providers.contains($0.id))
+            }
+            return items.isEmpty ? nil : (section.provider, items)
+        })
+    }
+
     static func platformName(_ platform: String) -> String {
         switch platform {
         case "darwin": "macOS"
@@ -164,17 +193,18 @@ struct CredentialSelection: Equatable, Sendable {
         }
     }
 
-    /// Every usable credential but the member's own GitHub / Linear, which a chat acts as only when
-    /// picked, as the desktop's `allCredentialAccess`.
+    /// Every usable credential, the member's own GitHub / Linear included, as the desktop's Select all.
     mutating func selectAll(in catalog: CredentialCatalog) {
         for item in catalog.allItems where item.selectable && !contains(item) { toggle(item) }
     }
 
     /// What a conversation starts with when nobody has chosen: everything
-    /// usable except Resend, whose mail is irreversible and so stays opt-in.
+    /// usable except Resend, whose mail is irreversible and so stays opt-in, and
+    /// the member's own GitHub / Linear, which a chat acts as only when picked.
     /// Mirrors the desktop's `defaultCredentialAccess`.
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
+        ids["personalCredentialIds"] = []
         ids["resendIntegrationIds"] = []
         ids["trelloIntegrationIds"] = []
     }

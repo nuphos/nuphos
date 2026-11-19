@@ -29,10 +29,7 @@ export {
   upsertSlackChannelMapping,
   upsertSlackUserMapping,
 } from '@/lib/slack/agent-bot/mappings'
-export {
-  bindSlackAgentThread,
-  rebindSlackAgentThreadSession,
-} from '@/lib/slack/agent-bot/thread-binding'
+export { bindSlackAgentThread } from '@/lib/slack/agent-bot/thread-binding'
 export {
   appendSlackThreadMessage,
   getOrCreateSlackAgentThread,

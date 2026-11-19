@@ -88,6 +88,8 @@ export type Tab = {
   timelineEvents?: import('../../../api/agent-types').AgentTimelineEvent[]
   /** The runtime's guess at the next prompt; Tab accepts it. */
   promptSuggestion?: string | null
+  /** Answered questions still waiting for the agent, refreshed with every detail read. */
+  waitingAnswers?: import('../../../api/agent-types').AgentConversation['waitingAnswers']
   /** When this tab loaded the session; timeline events after it animate in. */
   openedAt?: number
   /** The server has stored this session: a frame of its run arrived, or it was
@@ -126,6 +128,8 @@ export type Tab = {
   // MAX_AUTO_RESUME_ATTEMPTS to stop transport-level retry loops.
   autoResumeAttempts: number
   credentialAccess: AgentCredentialSelection
+  // A Task under a Bot uses that conversation's selection and has no picker of its own.
+  credentialSource?: { sessionId: string }
   // Absolute transcript index of messages[0]. > 0 when the conversation was
   // opened with a paginated tail and earlier messages exist server-side; every
   // send/sync forwards it as `baseIndex` so the backend hydrates the stored

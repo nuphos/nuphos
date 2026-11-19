@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import { sweepAbandonedAgentRuns } from './run-store/ownership'
+import { sweepAbandonedAgentRuns } from './run-store/run-index'
 
 import type { real as realRedis } from '@/lib/test/doubles/redis'
 
@@ -27,13 +27,16 @@ process.env.MONGODB_URI ??= 'mongodb://localhost:27017'
 type Entry =
   | { type: 'string'; value: string; expireAt: number | null }
   | { type: 'hash'; value: Map<string, string>; expireAt: number | null }
+  | { type: 'stream'; value: string[]; expireAt: number | null }
 
 class FakeRedis {
   private store = new Map<string, Entry>()
+  private sets = new Map<string, Set<string>>()
   private now = 0
 
   reset() {
     this.store.clear()
+    this.sets.clear()
     this.now = 0
   }
 
@@ -79,10 +82,25 @@ class FakeRedis {
     return Promise.resolve(this.live(key) ? 1 : 0)
   }
 
-  // No stream type in the fake: the resume tests only exercise runs whose
-  // Redis stream never existed, so an empty range is always correct.
-  xrange(_key: string, _start: string, _end: string): Promise<[string, string[]][]> {
-    return Promise.resolve([])
+  // Only what the mirror writes: one `f` field per entry, no trimming.
+  xadd(key: string, ...args: string[]): Promise<string> {
+    let e = this.live(key)
+
+    if (!e || e.type !== 'stream') {
+      e = { type: 'stream', value: [], expireAt: null }
+      this.store.set(key, e)
+    }
+    e.value.push(args[args.length - 1]!)
+
+    return Promise.resolve(`${String(e.value.length)}-0`)
+  }
+
+  xrange(key: string, _start: string, _end: string): Promise<[string, string[]][]> {
+    const e = this.live(key)
+
+    if (!e || e.type !== 'stream') return Promise.resolve([])
+
+    return Promise.resolve(e.value.map((frame, i) => [`${String(i + 1)}-0`, ['f', frame]]))
   }
 
   del(key: string): Promise<number> {
@@ -150,10 +168,36 @@ class FakeRedis {
 
   // Only the run-store Lua scripts reach here; branch on their shape rather
   // than interpreting Lua. They compare ownership before refreshing/deleting.
+  smembers(key: string): Promise<string[]> {
+    return Promise.resolve([...(this.sets.get(key) ?? [])])
+  }
+
+  sadd(key: string, ...members: string[]): Promise<number> {
+    const set = this.sets.get(key) ?? this.sets.set(key, new Set()).get(key)!
+
+    members.forEach((member) => set.add(member))
+
+    return Promise.resolve(members.length)
+  }
+
+  srem(key: string, ...members: string[]): Promise<number> {
+    return Promise.resolve(members.filter((member) => this.sets.get(key)?.delete(member)).length)
+  }
+
+  sscan(key: string): Promise<[string, string[]]> {
+    return Promise.resolve(['0', [...(this.sets.get(key) ?? [])]])
+  }
+
   eval(script: string, numKeys: number, ...args: string[]): Promise<number> {
     const keys = args.slice(0, numKeys)
     const argv = args.slice(numKeys)
     const key = keys[0]!
+    // A guard deleted by a script leaves the index in the same script.
+    const unindex = () => void this.srem(keys.at(-1)!, argv.at(-1)!)
+
+    if (script.startsWith("if redis.call('EXISTS'")) {
+      return this.live(key) ? Promise.resolve(0) : this.srem(keys[1]!, argv[0]!)
+    }
 
     if (script.includes('HSETNX')) {
       const e = this.live(key)
@@ -186,6 +230,7 @@ class FakeRedis {
         )
       }
       this.store.delete(key)
+      unindex()
 
       return Promise.resolve(1)
     }
@@ -194,6 +239,7 @@ class FakeRedis {
 
       if (e && e.type === 'hash' && e.value.get(argv[0]!) === argv[1]) {
         this.store.delete(key)
+        unindex()
 
         return Promise.resolve(1)
       }
@@ -216,37 +262,41 @@ class FakeRedis {
     return Promise.resolve(0)
   }
 
-  scan(): Promise<[string, string[]]> {
-    return Promise.resolve([
-      '0',
-      [...this.store.keys()].filter(
-        (key) => key.startsWith('atlas:agentrun-active:') && this.live(key)?.type === 'hash',
-      ),
-    ])
-  }
-
   pipeline() {
     const ops: [string, unknown[]][] = []
     const rec: Record<string, (...a: unknown[]) => unknown> = {}
 
-    for (const method of ['set', 'hset', 'hsetnx', 'expire', 'del']) {
+    for (const method of [
+      'set',
+      'hset',
+      'hsetnx',
+      'expire',
+      'del',
+      'xadd',
+      'exists',
+      'sadd',
+      'hmget',
+      'smembers',
+    ]) {
       rec[method] = (...a: unknown[]) => {
         ops.push([method, a])
 
         return rec
       }
     }
+    // ioredis writes a pipeline's commands in order when it is executed, so a
+    // command issued after `exec()` lands after all of them.
     rec.exec = async () => {
-      const results: [null, unknown][] = []
+      const pending = ops.map(([method, a]) => (this as any)[method](...a) as Promise<unknown>)
 
-      for (const [method, a] of ops) {
-        results.push([null, await (this as any)[method](...a)])
-      }
-
-      return results
+      return (await Promise.all(pending)).map((result): [null, unknown] => [null, result])
     }
 
     return rec
+  }
+
+  multi() {
+    return this.pipeline()
   }
 }
 
@@ -262,8 +312,11 @@ useRedis({
 })
 
 const {
+  expireAgentRunMirror,
   flushGuardWrites,
+  mirrorAgentRunFrame,
   getActiveAgentRunForSession,
+  getActiveAgentRunsForSessions,
   requestAgentRunCancellation,
   reserveActiveAgentRunForSession,
   startAgentRunOwnership,
@@ -413,6 +466,36 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
     }
   })
 
+  test('many sessions are read in one pipeline, without a read per live one', async () => {
+    const release = await claimSession()
+    const hmget = redis.hmget.bind(redis)
+    const fullReads: string[] = []
+
+    redis.hmget = (key: string, ...fields: string[]) => {
+      fullReads.push(key)
+
+      return hmget(key, ...fields)
+    }
+    try {
+      const runs = await getActiveAgentRunsForSessions([
+        { userId: USER, sessionId: 'quiet' },
+        { userId: USER, sessionId: SESSION },
+        { userId: 'u2', sessionId: SESSION },
+      ])
+
+      expect(runs.map((run) => run?.streamId ?? null)).toEqual([null, STREAM, null])
+      expect(fullReads).toEqual([
+        `atlas:agentrun-active:${USER}:quiet`,
+        `atlas:agentrun-active:${USER}:${SESSION}`,
+        `atlas:agentrun-active:u2:${SESSION}`,
+      ])
+    } finally {
+      redis.hmget = hmget
+      release()
+      await flush()
+    }
+  })
+
   test('a clean finish releases the guard immediately', async () => {
     const releaseOwnership = await claimSession()
 
@@ -543,6 +626,52 @@ describe('redis resume orphan fast-fail', () => {
     await reader.cancel()
     await drain.catch(() => {})
   }, 15_000)
+})
+
+const frame = (payload: object) => `data: ${JSON.stringify(payload)}\n\n`
+const replay = async (streamId: string, from: number) =>
+  (await streamAgentRunFromRedis(USER, streamId, from))!.text()
+
+describe('run stream buffer', () => {
+  const image = 'A'.repeat(200_000)
+  const frames = [
+    frame({ type: 'text-delta', id: 't', delta: 'looking at the screenshots' }),
+    frame({ type: 'tool-output-available', toolCallId: 'read-1', output: image }),
+    frame({ type: 'tool-output-available', toolCallId: 'ask-1', output: { requestId: 'r1' } }),
+    frame({ type: 'atlas-stream-done' }),
+  ]
+
+  test('a finished run still replays to a reconnecting client, then leaves Redis', async () => {
+    for (const f of frames) mirrorAgentRunFrame(USER, 'finished', f)
+    expireAgentRunMirror(USER, 'finished')
+    await flush()
+
+    const full = await replay('finished', 0)
+
+    expect(full).toContain('looking at the screenshots')
+    expect(full).toContain('"requestId":"r1"')
+    expect(full).toContain('atlas-stream-done')
+    // The oversized output is left out but its frame, and the card it closes, is not.
+    expect(full).toContain('"toolCallId":"read-1","output":{"omitted":true')
+    expect(full).not.toContain('A'.repeat(1_000))
+
+    const tail = await replay('finished', 2)
+
+    expect(tail).not.toContain('looking at the screenshots')
+    expect(tail).toContain('"requestId":"r1"')
+    expect(tail).toContain('atlas-stream-done')
+
+    redis.advance(5 * 60 * 1000 + 1)
+    expect(await redis.exists('atlas:agentrun:u1:finished')).toBe(0)
+  }, 15_000)
+
+  test('a live run keeps its buffer for the full attach window', async () => {
+    mirrorAgentRunFrame(USER, 'live', frames[0]!)
+    await flush()
+    redis.advance(5 * 60 * 1000 + 1)
+
+    expect(await redis.exists('atlas:agentrun:u1:live')).toBe(1)
+  })
 })
 
 describe('crashed replica recovery', () => {

@@ -1,6 +1,8 @@
 import { Fragment } from 'react'
 
+import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
+import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
 import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
@@ -54,25 +56,46 @@ export function Rule({ children, title }: { children: ReactNode; title?: string 
 export function TimelineEventLine({
   event,
   reveal = false,
+  teamId,
+  onOpenNuphosLink,
 }: {
   event: AgentTimelineEvent
   reveal?: boolean
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
 }) {
-  const line = <EventLine event={event} />
+  const line = <EventLine event={event} teamId={teamId} onOpenNuphosLink={onOpenNuphosLink} />
 
   return reveal ? <PlanRevealSection revealKey={event.at}>{line}</PlanRevealSection> : line
 }
 
-function EventLine({ event }: { event: AgentTimelineEvent }) {
+function EventLine({
+  event,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
   const title = new Date(event.at).toLocaleString()
   const { actor, target, from, to } = event
 
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
+  if (event.kind === 'message_edited' || event.kind === 'conversation_forked')
+    return (
+      <ForkedLine
+        event={{ ...event, actor }}
+        title={title}
+        teamId={teamId}
+        onOpenNuphosLink={onOpenNuphosLink}
+      />
+    )
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>
-        {t('No agent in your fallback list could take over')}
+        {t('No fallback runtime could take over')}
         {event.skipped?.length ? (
           <span className="truncate">
             ({event.skipped.map((entry) => `${entry.label}: ${entry.reason}`).join(', ')})
@@ -93,11 +116,17 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
     return (
       <Rule title={title}>
         {from
-          ? fill(t('{actor} moved this agent from {from} to {to}'), {
+          ? fill(t('{actor} moved this task from {from} to {to}'), {
               ...people,
               from: <Runtime runtime={from} />,
             })
-          : fill(t('{actor} moved this agent to {to}'), people)}
+          : fill(t('{actor} moved this task to {to}'), people)}
+        {event.retrying ? (
+          <>
+            <span aria-hidden>·</span>
+            {fill(t('Retrying on {to}'), people)}
+          </>
+        ) : null}
       </Rule>
     )
   }
@@ -105,17 +134,17 @@ function EventLine({ event }: { event: AgentTimelineEvent }) {
   const people = { actor: <Person person={actor} />, target: <Person person={target} /> }
 
   if (event.kind === 'participant_invited')
-    return <Rule title={title}>{fill(t('{actor} invited {target} into this agent'), people)}</Rule>
+    return <Rule title={title}>{fill(t('{actor} invited {target} into this task'), people)}</Rule>
   if (target.id === actor.id)
-    return <Rule title={title}>{fill(t('{actor} left this agent'), people)}</Rule>
+    return <Rule title={title}>{fill(t('{actor} left this task'), people)}</Rule>
 
-  return <Rule title={title}>{fill(t('{actor} removed {target} from this agent'), people)}</Rule>
+  return <Rule title={title}>{fill(t('{actor} removed {target} from this task'), people)}</Rule>
 }
 
 const FALLBACK_LINE = {
-  quota: t('{from} was low on usage, so this agent moved to {to}'),
-  offline: t('{from} was unreachable, so this agent moved to {to}'),
-  failure: t('{from} failed a turn, so this agent moved to {to}'),
+  quota: t('{from} was low on usage, so this task moved to {to}'),
+  offline: t('{from} was unreachable, so this task moved to {to}'),
+  failure: t('{from} failed a turn, so this task moved to {to}'),
 }
 
 /** Puts the people and runtimes into a translated sentence where its
@@ -135,9 +164,50 @@ export function MovingSessionLine({ label }: { label: string }) {
     <PlanRevealSection revealKey={label}>
       <div role="status">
         <Rule>
-          <LoadingText>{t('Moving this agent to {label}…', { label })}</LoadingText>
+          <LoadingText>{t('Moving this task to {label}…', { label })}</LoadingText>
         </Rule>
       </div>
     </PlanRevealSection>
+  )
+}
+
+/** Fork destinations are private to their creator, so only they get Open. */
+function ForkedLine({
+  event,
+  title,
+  teamId,
+  onOpenNuphosLink,
+}: {
+  event: AgentTimelineEvent & { actor: NonNullable<AgentTimelineEvent['actor']> }
+  title: string
+  teamId?: string
+  onOpenNuphosLink?: (href: string) => boolean
+}) {
+  const viewerId = useCurrentUser()?.id
+  const forkUrl =
+    teamId && event.forkSessionId && viewerId === event.actor.id
+      ? toAbsoluteAtlasUrl(`/teams/${teamId}/agent/${event.forkSessionId}`)
+      : null
+
+  return (
+    <Rule title={title}>
+      {fill(
+        event.kind === 'conversation_forked'
+          ? t('{actor} forked this conversation')
+          : t('{actor} edited a message and ran it in a new task'),
+        {
+          actor: <Person person={event.actor} />,
+        },
+      )}
+      {forkUrl && onOpenNuphosLink && (
+        <button
+          type="button"
+          onClick={() => onOpenNuphosLink(forkUrl)}
+          className="shrink-0 font-medium text-secondary hover:underline"
+        >
+          {t('Open')}
+        </button>
+      )}
+    </Rule>
   )
 }

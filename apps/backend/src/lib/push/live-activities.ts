@@ -4,7 +4,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
 import { liveActivityStore } from './live-activity-store'
-import { conversationTitle } from './notify'
+import { conversationTitle } from './turn-outcome'
 import { watcherCanRead } from './watchers'
 
 import type { ApnsCredentials, ApnsRequest, ApnsResponse } from './apns'
@@ -16,7 +16,7 @@ import type {
   LiveActivityStore,
   LiveActivityToken,
 } from './live-activity-store'
-import type { PushConversation } from './notify'
+import type { PushConversation } from './notification-identity'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
 export type {
@@ -41,7 +41,7 @@ export function liveActivityPhase(state: SessionExecutionState): LiveActivityPha
   if (state.schemaVersion !== 2 || state.state === 'disconnected' || state.state === 'unsupported')
     return 'unavailable'
   if (state.phase === 'resume_disconnected') return 'stopped'
-  if ((state.permissionWaits ?? 0) > 0) return 'approval'
+  if (state.requests?.some((request) => request.kind !== 'client-tool')) return 'approval'
   if (state.state === 'active' || state.phase === 'background_tools') return 'running'
 
   return 'done'

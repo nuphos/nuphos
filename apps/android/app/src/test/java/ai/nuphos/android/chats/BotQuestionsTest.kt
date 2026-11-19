@@ -9,20 +9,29 @@ import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.model.AgentConversationsPage
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ComposerAttachment
-import ai.nuphos.android.model.ComposerSubmission
 import ai.nuphos.android.model.CredentialCatalog
 import ai.nuphos.android.model.CredentialSelection
+import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
 import ai.nuphos.android.session.OpenQuestions
+import ai.nuphos.android.ui.chats.cardReplies
 import ai.nuphos.android.ui.chats.isLongBody
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.*
 import org.junit.Test
 
 class BotQuestionsTest {
+    @Test fun setupPreferencesStayInChat() {
+        val bot = AgentConversation(sessionId = "setup", title = "Setup", isOwner = true, botOnboarding = "active",
+            inputRequests = listOf(InputRequest("purpose", "preference", "What should I own?", null, null)))
+        assertTrue(BotQuestions.open(listOf(bot)).isEmpty())
+        assertEquals(1, BotQuestions.under("setup", listOf(bot)).size)
+        assertEquals(1, BotQuestions.open(listOf(bot.copy(botOnboarding = "completed"))).size)
+    }
+
     private fun row(id: String, parent: String? = null, owner: Boolean = true, vararg asks: Pair<String, String>) =
         AgentConversation(sessionId = id, title = id, isOwner = owner, parentSessionId = parent,
             inputRequests = asks.map { (requestId, at) -> InputRequest(requestId, "approval", "Ship?", listOf("Yes", "No"), at) }
@@ -79,28 +88,30 @@ class BotQuestionsTest {
 
     private class FakeTransport : ChannelSession.Transport {
         var pending = listOf<AgentConversation>()
+        /** (session, what was said, request), and the body each answer sent. */
         val answers = mutableListOf<Triple<String, String, String>>()
+        val bodies = mutableListOf<JsonValue>()
         var failAnswer = false
         var faces = """[{"id":"bot-1","name":"Release Lead","agent":{"avatar":"05"}}]"""
+        var group = false
         override suspend fun detail(tail: Int): AgentConversationDetail =
-            Http.json.decodeFromString("""{"kind":"channel","title":"Release Lead","faces":$faces,"messages":[]}""")
+            Http.json.decodeFromString("""{"kind":"channel","title":"Release Lead","faces":$faces,"group":$group,"messages":[]}""")
         override suspend fun agents() = emptyList<ChannelAgent>()
         override suspend fun attachment(groupId: String) = TransferDownloadGroup(groupId, "2099-01-01T00:00:00Z", emptyList())
         override suspend fun upload(attachments: List<ComposerAttachment>) = "group"
         val posted = mutableListOf<Pair<String, String?>>()
         var failPost = false
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
-            posted += text to decisionReplyTo
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
+            posted += text to replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
         }
         override suspend fun pending() = pending
-        override suspend fun answer(sessionId: String, text: String, requestId: String) {
-            answers += Triple(sessionId, text, requestId)
+        override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {
+            val fields = (answer as JsonValue.Obj).value
+            val said = (fields["choices"] as? JsonValue.Arr)?.value?.firstOrNull() ?: fields["text"]
+            answers += Triple(sessionId, (said as? JsonValue.Str)?.value.orEmpty(), requestId)
+            bodies += answer
             if (failAnswer) throw NuphosApi.Failure.Http(500, "Synthetic answer failure")
-        }
-        val chatAnswers = mutableListOf<Triple<String, String, String>>()
-        override suspend fun answerInChat(chatId: String, text: String, requestId: String) {
-            chatAnswers += Triple(chatId, text, requestId)
         }
     }
 
@@ -114,34 +125,15 @@ class BotQuestionsTest {
         assertFalse(session.questions.any { it.id == canary.id })
         testScheduler.advanceUntilIdle()
         assertEquals(listOf(Triple("canary", "Yes", "q-canary")), transport.answers)
+        // An option is sent as the choice; no message is posted.
+        assertEquals(JsonValue.obj("choices" to JsonValue.Arr(listOf(JsonValue.Str("Yes")))), transport.bodies.single())
+        assertTrue(transport.posted.isEmpty())
         // Until the listing drops it, an answered question stays hidden.
         session.refreshQuestions()
         assertFalse(session.questions.any { it.id == canary.id })
         transport.pending = listing.filter { it.sessionId != "canary" }
         session.refreshQuestions()
         assertEquals(listOf("q-docs", "q-bot"), session.questions.map { it.request.id })
-    }
-
-    @Test fun wordsUnderAQuotedQuestionAnswerIt() = runTest {
-        val transport = FakeTransport().apply { pending = listing }
-        val session = ChannelSession("team", "chat-release", "Chat", transport)
-        session.refresh(force = true)
-        session.refreshQuestions()
-        val own = session.questions.single { it.sessionId == "bot-1" }
-        session.reply(own)
-        assertEquals(own.quote, session.replying)
-        assertTrue(session.send(ComposerSubmission("Ship it on Monday"), "me", "Me", null, this, newId = { "answer-1" }))
-        testScheduler.advanceUntilIdle()
-        // Answered as its options answer it, not posted quoting it.
-        assertEquals(listOf("Ship it on Monday" to "q-bot"), transport.posted)
-        assertNull(session.replying)
-        // With the quote cancelled, the words are an ordinary post.
-        session.reply(session.questions.single { it.sessionId == "canary" })
-        session.replying = null
-        session.send(ComposerSubmission("Hello"), "me", "Me", null, this, newId = { "post-2" })
-        testScheduler.advanceUntilIdle()
-        assertEquals("Hello" to null, transport.posted.last())
-        assertTrue(transport.answers.isEmpty())
     }
 
     @Test fun anIntegrationIsAnsweredByTheConversationsWholeSelection() = runTest {
@@ -207,6 +199,76 @@ class BotQuestionsTest {
         assertNull(inbox.failures[own.id])
     }
 
+    @Test fun anIntegrationNamingNoProviderTakesWordsAndItsPickerOffersOnlyWhatAnswersIt() = runTest {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        // Naming no provider, it is answered in words, never by a picker no selection can answer it from.
+        val unnamed = ask("""{"id":"q","category":"integration","question":"Play Console?"}""")
+        assertFalse(unnamed.connectable)
+        assertTrue(unnamed.typed)
+        assertEquals(emptyList<Pair<String, String>>(), cardReplies(unnamed))
+        assertFalse(ask("""{"id":"q","category":"integration","question":"?","providers":[]}""").connectable)
+        val gcp = ask("""{"id":"q-gcp","category":"integration","question":"GCP?","providers":["gcp"]}""")
+        assertFalse(gcp.typed)
+        // The picker: the providers' kinds and the member's own of that name, nothing else.
+        val team = CredentialCatalog(JsonValue.parse(
+            """{"awsRoles":[{"roleId":"aws","accountId":"1"}],"gcpServiceAccounts":[{"serviceAccountId":"sa","projectId":"p"}],""" +
+                """"githubInstallations":[{"installationId":"166","accountLogin":"o"}],"personalCredentials":[{"provider":"github","login":"octocat"}]}""")!!,
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
+        assertEquals(listOf("sa"), team.answering(listOf("gcp")).allItems.map { it.id })
+        assertEquals(setOf("166", "github"), team.answering(listOf("github")).allItems.map { it.id }.toSet())
+        assertTrue(team.answering(listOf("play-console")).isEmpty)
+        assertEquals(4, team.answering(null).allItems.size)
+        // A save the server does not answer it with says so on the card.
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending() = listOf(AgentConversation(sessionId = "agent-ops", title = "Release ops",
+                isOwner = true, inputRequests = listOf(gcp.request)))
+        })
+        inbox.select(CredentialSelection(), gcp)
+        assertEquals("The selection adds no credential this question asks for.", inbox.failures[gcp.id])
+    }
+
+    @Test fun aSecretQuestionCarriesItsSecureInputCardsPart() {
+        val key = BotQuestion("agent-ops", "Release ops", InputRequest("q-key", "credential", "Paste the key", secretName = "API_KEY"))
+        assertEquals("API_KEY", key.secretPart?.secretRequest?.name)
+        assertEquals("q-key", key.secretPart?.decisionRequestId)
+        // A sign-in status card names no secret: answered with its options instead.
+        assertNull(BotQuestion("s", "t", InputRequest("q", "credential", "Signed in?", listOf("Signed in"))).secretPart)
+    }
+
+    @Test fun aFormRequestCarriesItsFieldsAndSite() {
+        val form = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
+            """{"id":"q","category":"credential","question":"The lookup needs these.","secretName":"CLINIC_LOOKUP",
+               "fields":[{"name":"NATIONAL_ID","label":"ID number"},{"name":"BIRTH_DATE","label":"Date of birth"}],
+               "site":"www.clinic.example"}"""))
+        val secret = form.secretPart?.secretRequest
+        assertEquals(listOf("NATIONAL_ID", "BIRTH_DATE"), secret?.fields?.map { it.name })
+        assertEquals(listOf("ID number", "Date of birth"), secret?.fields?.map { it.label })
+        assertEquals("www.clinic.example", secret?.site)
+    }
+
+    @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
+        fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
+        // A sign-in status card: a credential with options and no secret is answered with them.
+        val signedIn = ask("""{"id":"q","category":"credential","question":"Sign in?","options":["Signed in","Not now"]}""")
+        assertEquals(listOf("Signed in", "Not now"), cardReplies(signedIn)?.map { it.first })
+        assertFalse(signedIn.typed)
+        // An integration naming no provider keeps its options and its words.
+        val play = ask("""{"id":"q","category":"integration","question":"Play review?","options":["I check","Wait"]}""")
+        assertEquals(listOf("I check", "Wait"), cardReplies(play)?.map { it.first })
+        assertTrue(play.typed)
+        // A question with a markdown body and no options is answered in words.
+        val repo = ask("""{"id":"q","category":"preference","question":"Which repo?","body":"**Done**: `x`"}""")
+        assertEquals(emptyList<Pair<String, String>>(), cardReplies(repo))
+        assertTrue(repo.typed)
+        // Only a secret or a connection is answered in its own card, never by "answer it in the task".
+        assertNull(cardReplies(ask("""{"id":"q","category":"credential","question":"Key?","secretName":"API_KEY"}""")))
+        assertNull(cardReplies(ask("""{"id":"q","category":"integration","question":"GCP?","providers":["gcp"]}""")))
+        for (question in listOf(signedIn, play, repo)) {
+            assertTrue(question.request.question.isNotEmpty())
+            assertTrue(question.typed || cardReplies(question).orEmpty().isNotEmpty())
+        }
+    }
+
     @Test fun anInboxSaveSendsOnlyTheKindsTheConversationHad() = runTest {
         val own = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(
             """{"id":"q-own","category":"integration","question":"?","credentials":[{"provider":"personal","id":"github"}]}"""))
@@ -234,31 +296,46 @@ class BotQuestionsTest {
         assertTrue(ask("preference").typed)
         assertFalse(ask("approval", planId = "p1").typed)
         assertFalse(ask("credential").typed)
-        assertFalse(ask("integration").typed)
+        // An integration question naming nothing to select, e.g. a service with no connector, takes words.
+        assertTrue(ask("integration").typed)
         assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)
     }
 
-    @Test fun theBotsOwnQuestionIsAnsweredByAPostInItsChat() = runTest {
+    @Test fun theBotsOwnQuestionIsAnsweredThroughTheServerNotByAPost() = runTest {
         val transport = FakeTransport().apply { pending = listing }
         val session = ChannelSession("team", "chat-release", "Chat", transport)
         session.refresh(force = true)
         session.refreshQuestions()
         val own = session.questions.single { it.sessionId == "bot-1" }
-        session.answer(own, "Yes", this, viewerId = "me", newId = { "answer-1" })
-        // The card leaves and the answer is the viewer's post at once.
+        session.answer(own, "Done.", this)
         assertFalse(session.questions.any { it.id == own.id })
-        assertEquals("Yes", session.posts.single { it.id == "answer-1" }.text)
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf("Yes" to "q-bot"), transport.posted)
-        assertTrue(transport.answers.isEmpty())
-        // A post that fails takes its bubble away and brings the card back.
-        val again = ChannelSession("team", "chat-release", "Chat", transport.apply { failPost = true; pending = listing })
-        again.refresh(force = true)
-        again.refreshQuestions()
-        again.answer(again.questions.single { it.sessionId == "bot-1" }, "Yes", this, newId = { "answer-2" })
-        testScheduler.advanceUntilIdle()
-        assertTrue(again.questions.any { it.sessionId == "bot-1" })
-        assertTrue(again.posts.none { it.id == "answer-2" })
+        assertEquals(listOf(Triple("bot-1", "Done.", "q-bot")), transport.answers)
+        // Words that are not an option are sent as text.
+        assertEquals(JsonValue.obj("text" to JsonValue.Str("Done.")), transport.bodies.single())
+        assertTrue(transport.posted.isEmpty())
+    }
+
+    @Test fun aBotsChatChoosesAnIntegrationsCredentialsAsTheInboxDoesAndKeepsOnlyItsQuestions() = runTest {
+        val gcp = AgentConversation(sessionId = "docs", title = "docs", isOwner = true, parentSessionId = "bot-1",
+            inputRequests = listOf(InputRequest("q-gcp", "integration", "Select a GCP project", null, providers = listOf("gcp"))))
+        val elsewhere = row("other", null, true, "q-other" to "2026-11-09T03:04:00Z")
+        val saved = mutableListOf<String>()
+        val source = object : OpenQuestions.Source {
+            var rows = listOf(gcp, row("bot-1"), elsewhere)
+            override suspend fun pending() = rows
+            override suspend fun credentials(sessionId: String) = JsonValue.parse("""{"gcpServiceAccountIds":[]}""")
+            override suspend fun saveCredentials(sessionId: String, access: JsonValue) { saved += sessionId }
+        }
+        val chat = OpenQuestions(source)
+        chat.refresh { BotQuestions.under("bot-1", it) }
+        val ask = chat.list.single()
+        assertTrue(ask.connectable)
+        // The server has not answered it yet: the card stays, says why, and the chat still lists only the Bot's.
+        chat.select(requireNotNull(chat.storedSelection(ask)), ask)
+        assertEquals(listOf("docs"), saved)
+        assertEquals(listOf("q-gcp"), chat.list.map { it.request.id })
+        assertNotNull(chat.failures[ask.id])
     }
 
     @Test fun aFailedAnswerBringsTheCardBack() = runTest {
@@ -291,6 +368,15 @@ class BotQuestionsTest {
         assertTrue(session.questions.isEmpty())
     }
 
+    @Test fun aGroupChatWithOnlyABotIsNotTheBotsChat() = runTest {
+        val transport = FakeTransport().apply { pending = listing; group = true }
+        val session = ChannelSession("team", "chat-group", "Group", transport)
+        session.refresh(force = true)
+        session.refreshQuestions()
+        assertNull(session.botId)
+        assertTrue(session.questions.isEmpty())
+    }
+
     @Test fun theInboxListsEveryOwnQuestionOnceAndAnswersIt() = runTest {
         val rows = listOf(
             row("deploy", "bot-1", true, "q-2" to "2026-11-09T03:02:00Z", "q-1" to "2026-11-09T03:01:00Z"),
@@ -313,13 +399,59 @@ class BotQuestionsTest {
         assertTrue(inbox.failures.isEmpty())
     }
 
-    @Test fun theInboxAnswersABotsOwnQuestionInItsChat() = runTest {
-        val transport = FakeTransport().apply { pending = listOf(row("bot-1", null, true, "q-3" to "2026-11-09T03:03:00Z")) }
-        val inbox = OpenQuestions(transport) { bot -> "chat-$bot" }
+    // Several questions in one card, as the backend sends them: `body` ends with the questions written out.
+    private val twoQuestions = Http.json.decodeFromString(InputRequest.serializer(), """
+        {"id":"q-form","category":"preference","question":"Two things to settle",
+         "body":"Context first.\n\n---\n\n**1. Send the draft?**\n- Send\n- Hold\n\n**2. Which regions?** (any number)\n- us\n- eu",
+         "questions":[{"question":"Send the draft?","options":["Send","Hold"]},
+                      {"question":"Which regions?","options":["us","eu"],"multiSelect":true}]}
+    """)
+
+    @Test fun aSeveralQuestionCardIsAFormWithoutTheWrittenOutList() {
+        val question = BotQuestion("s", "Support", twoQuestions)
+        assertEquals(listOf("Send the draft?", "Which regions?"), question.form?.map { it.question })
+        assertEquals(true, question.form?.last()?.multiSelect)
+        // The list the backend writes for clients without forms is dropped; the agent's own text stays.
+        assertEquals("Context first.", question.ownBody)
+    }
+
+    @Test fun aMultiSelectQuestionIsAFormAndASingleChoiceKeepsItsOneTapOptions() {
+        val many = InputRequest("q", "preference", "Which?", listOf("a", "b"), multiSelect = true)
+        assertEquals(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), BotQuestion("s", "t", many).form)
+        assertNull(BotQuestion("s", "t", InputRequest("q", "preference", "Which?", listOf("a", "b"))).form)
+        // Never for a question only a connection or a plan answers.
+        assertNull(BotQuestion("s", "t", many.copy(category = "integration", providers = listOf("gcp"))).form)
+        assertNull(BotQuestion("s", "t", many.copy(planId = "p")).form)
+    }
+
+    @Test fun anAgentsOwnSeparatorStaysInTheBody() {
+        val request = twoQuestions.copy(body = "Mine\n\n---\n\nStill mine")
+        assertEquals("Mine\n\n---\n\nStill mine", BotQuestion("s", "t", request).ownBody)
+    }
+
+    @Test fun theFormSendsOneAnswerPerQuestionAsDesktopDoes() {
+        val questions = twoQuestions.questions!!
+        val answer = BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("us", "eu")), listOf("", ""))
+        assertEquals("""{"questions":[{"choices":["Send"]},{"choices":["us","eu"]}]}""", answer.compact)
+        // Typed words take the place of the picks; one question is answered on its own.
+        assertEquals("""{"questions":[{"text":"Hold until Monday"},{"choices":["eu"]}]}""",
+            BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
+        assertEquals("""{"choices":["a","b"]}""",
+            BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
+    }
+
+    @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {
+        val transport = FakeTransport().apply {
+            pending = listOf(AgentConversation(sessionId = "s", title = "Support", isOwner = true, inputRequests = listOf(twoQuestions)))
+        }
+        val inbox = OpenQuestions(transport)
         inbox.refresh()
-        inbox.answer(inbox.list.single(), "Ship it", this)
+        val card = inbox.list.single()
+        val body = BotQuestion.formAnswer(card.form!!, listOf(listOf("Hold"), listOf("us")), listOf("", ""))
+        inbox.answer(card, body, this)
+        assertTrue(inbox.list.isEmpty())
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(Triple("chat-bot-1", "Ship it", "q-3")), transport.chatAnswers)
-        assertTrue(transport.answers.isEmpty())
+        assertEquals(listOf(body), transport.bodies)
+        assertTrue(inbox.failures.isEmpty())
     }
 }

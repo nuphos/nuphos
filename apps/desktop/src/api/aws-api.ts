@@ -14,14 +14,8 @@ export const awsApi = {
     window.api.atlasListAwsClusters(teamId, accountId, roleId),
   atlasGetAwsIamPermissions: (teamId: string, accountId: string, roleId?: string) =>
     window.api.atlasGetAwsIamPermissions(teamId, accountId, roleId),
-  atlasListPermissionGrantProposals: (teamId: string) =>
-    window.api.atlasListPermissionGrantProposals(teamId),
   atlasGetPermissionGrantProposal: (teamId: string, id: string) =>
     window.api.atlasGetPermissionGrantProposal(teamId, id),
-  atlasApprovePermissionGrantProposal: (teamId: string, id: string) =>
-    window.api.atlasApprovePermissionGrantProposal(teamId, id),
-  atlasRejectPermissionGrantProposal: (teamId: string, id: string) =>
-    window.api.atlasRejectPermissionGrantProposal(teamId, id),
   atlasGetGcpIamPermissions: (teamId: string, projectId: string, serviceAccountId?: string) =>
     window.api.atlasGetGcpIamPermissions(teamId, projectId, serviceAccountId),
   atlasGetCloudflareIamPermissions: (teamId: string, accountId: string) =>

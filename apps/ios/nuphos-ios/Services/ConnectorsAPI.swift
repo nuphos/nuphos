@@ -94,6 +94,14 @@ enum ConnectorsAPI {
     private static func raw<B: Encodable>(
         _ method: String, _ path: String, token: String, body: B?, timeout: TimeInterval
     ) async throws -> Data {
+        try await StepUp.retrying(token: token) {
+            try await rawOnce(method, path, token: token, body: body, timeout: timeout)
+        }
+    }
+
+    private static func rawOnce<B: Encodable>(
+        _ method: String, _ path: String, token: String, body: B?, timeout: TimeInterval
+    ) async throws -> Data {
         var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: path))
         request.httpMethod = method
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -114,6 +122,8 @@ enum ConnectorsAPI {
             return data
         case 401:
             throw NuphosAPI.Failure.unauthorized
+        case 403 where NuphosAPI.needsStepUp(data):
+            throw NuphosAPI.Failure.reauthRequired
         default:
             let message = (try? JSONDecoder().decode(ErrorEnvelope.self, from: data))?.error?.message
             throw NuphosAPI.Failure.http(http.statusCode, message: message)

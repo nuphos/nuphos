@@ -1,12 +1,12 @@
 import {
-  faPlus,
-  faRotateLeft,
-  faRotateRight,
-  faCheck,
-  faSpinner,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+  Plus as PlusIcon,
+  RotateCcw as RotateCcwIcon,
+  RotateCw as RotateCwIcon,
+  Check as CheckIcon,
+  LoaderCircle as LoaderCircleIcon,
+} from 'lucide-react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { PRIMARY } from './helpers'
@@ -74,16 +74,16 @@ export function Toolbar({
       {editing && (
         <>
           <button onClick={onUndo} disabled={!canUndo} title={t('Undo')} style={btn}>
-            <FontAwesomeIcon icon={faRotateLeft} className="w-4 h-4" />
+            <UiIcon size={16} icon={RotateCcwIcon} className="w-4 h-4" />
           </button>
           <button onClick={onRedo} disabled={!canRedo} title={t('Redo')} style={btn}>
-            <FontAwesomeIcon icon={faRotateRight} className="w-4 h-4" />
+            <UiIcon size={16} icon={RotateCwIcon} className="w-4 h-4" />
           </button>
           <button
             onClick={onAddNode}
             style={{ ...btn, width: 'auto', padding: '5px 10px', gap: 6 }}
           >
-            <FontAwesomeIcon icon={faPlus} className="w-4 h-4" /> {t('Node')}
+            <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" /> {t('Node')}
           </button>
         </>
       )}
@@ -118,9 +118,9 @@ export function Toolbar({
         }}
       >
         {saveState === 'saving' && (
-          <FontAwesomeIcon icon={faSpinner} spin className="w-3.5 h-3.5" />
+          <UiIcon size={14} icon={LoaderCircleIcon} spin className="w-3.5 h-3.5" />
         )}
-        {saveState === 'saved' && <FontAwesomeIcon icon={faCheck} className="w-3.5 h-3.5" />}
+        {saveState === 'saved' && <UiIcon size={14} icon={CheckIcon} className="w-3.5 h-3.5" />}
         {saveState === 'saving' ? t('Saving…') : saveState === 'saved' ? t('Saved') : ''}
       </span>
     </div>
@@ -164,7 +164,7 @@ export function ViewTabs({ views, activeViewId, editing, onSelectView, onAddView
       ))}
       {editing && (
         <button onClick={onAddView} title={t('New view')} style={{ ...tab, opacity: 0.7 }}>
-          <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
+          <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" />
         </button>
       )}
     </div>

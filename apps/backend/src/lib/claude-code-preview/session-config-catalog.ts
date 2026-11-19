@@ -1,6 +1,6 @@
 import type { RuntimeDefaults } from './openab-acp-session'
 import type { RuntimeModelCatalog } from './runtime-models'
-import type { SessionConfigOption } from './session-config-options'
+import type { SessionConfigOption, SessionConfigState } from './session-config-options'
 
 /** The runtime's own choices as session options; a pick it still offers is the current value. */
 export function catalogSessionConfig(
@@ -21,7 +21,18 @@ export function catalogSessionConfig(
     options: choices.map(({ value, name, description }) => ({ value, name, description })),
   })
 
-  if (!catalog.models.length) return []
+  const settings = [
+    ...(controls?.effort.length
+      ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
+      : []),
+    ...(controls?.fast.length
+      ? [option('fast', 'Fast', controls.fast, controls.defaultFast ?? 'off')]
+      : []),
+  ]
+
+  // Grok Build lists its reasoning effort but no models: its effort is still a
+  // setting this conversation picks, and the pick applies when the session starts.
+  if (!catalog.models.length) return settings
 
   return [
     option(
@@ -30,12 +41,7 @@ export function catalogSessionConfig(
       catalog.models.map(({ id, name, description }) => ({ value: id, name, description })),
       controls?.modelId ?? 'default',
     ),
-    ...(controls?.effort.length
-      ? [option('effort', 'Effort', controls.effort, controls.defaultEffort ?? 'default')]
-      : []),
-    ...(controls?.fast.length
-      ? [option('fast', 'Fast', controls.fast, controls.defaultFast ?? 'off')]
-      : []),
+    ...settings,
   ]
 }
 
@@ -53,7 +59,7 @@ export async function offeredSessionConfig(
   if (!catalog?.models.length) catalog = await catalogFor()
   const offered = catalogSessionConfig(catalog, pick)
   const options = confirmedOnly
-    ? offered.flatMap((option) => {
+    ? offered.map((option) => {
         // Claude Code's "default" model is listed as the model it stands for.
         const value =
           option.kind === 'model' && pick.model === 'default'
@@ -62,9 +68,8 @@ export async function offeredSessionConfig(
         const confirmed =
           value !== undefined && option.options.some((choice) => choice.value === value)
 
-        if (confirmed) return [{ ...option, currentValue: value }]
-
-        return option.kind === 'model' ? [{ ...option, currentValue: '' }] : []
+        // An unconfirmed setting stays offered, without claiming a value.
+        return { ...option, currentValue: confirmed ? value : '' }
       })
     : offered
   const kept = Object.fromEntries(
@@ -74,4 +79,27 @@ export async function offeredSessionConfig(
   ) as RuntimeDefaults
 
   return { options, kept }
+}
+
+/**
+ * A model the runtime's list lacks but the session itself last reported running
+ * (a Task started on its parent's model, on a computer whose list is behind) is
+ * named from that report instead of left blank.
+ */
+export function namedModel(
+  state: SessionConfigState,
+  attachment: { sessionConfig?: SessionConfigOption[] },
+): SessionConfigState {
+  const running = attachment.sessionConfig?.find(
+    (option) => option.kind === 'model' && option.currentValue,
+  )
+
+  if (!running) return state
+
+  return {
+    ...state,
+    options: state.options.map((option) =>
+      option.kind === 'model' && !option.currentValue ? running : option,
+    ),
+  }
 }

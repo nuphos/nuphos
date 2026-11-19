@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { t } from '../../../i18n/index.ts'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices.ts'
 import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl'
 
 import type { SlashCommand } from './composerSlashCommands'
@@ -17,13 +18,14 @@ export function usePanelSlashCommands(c: PanelViewCtx): SlashCommand[] {
 
   return useMemo(
     () => [
-      { id: 'new', title: t('New agent'), description: t('Start a new agent'), run: startNewChat },
+      { id: 'new', title: t('New task'), description: t('New task'), run: startNewChat },
       ...(forkableSessionId
         ? [
             {
               id: 'fork',
-              title: t('Fork agent'),
-              description: t('Fork this agent'),
+              ...(agentAvatarPick(forkableSessionId)
+                ? { title: t('Fork Bot'), description: t('Fork this Bot') }
+                : { title: t('Fork task'), description: t('Fork this task') }),
               run: () => void forkConversation(forkableSessionId),
             },
           ]

@@ -11,6 +11,7 @@ import {
   MY_PREFERENCES_DEFAULT_SECTION,
   USER_SETTINGS_DEFAULT_SECTION,
 } from '../../views/settings/settingsNav'
+import { useComputerAccessNotices } from '../../views/settings/useComputerAccessNotices'
 
 import { sidebarSurface } from './store/workspaceState'
 
@@ -24,7 +25,6 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsInitialSection,
     openSettingsSection,
     setShortcutsHelpOpen,
-    setSlackBindRequested,
     sidebarCollapsed,
     toggleSidebarCollapsed,
     activeTab,
@@ -55,7 +55,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     onSidebarOpenPath,
     handleLogout,
     selectedSessionId,
-    mainPageOpen,
+    mainPageTab,
     workspaceActions,
   } = ws
 
@@ -87,10 +87,6 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     if (selectedSessionId === sessionId)
       workspaceActions.selectSession(null, { keepMainPage: true })
   })
-  const connectSlack = useStableCallback(() => {
-    onSidebarSelect('team.integrations')
-    setSlackBindRequested(true)
-  })
   const goBack = useStableCallback(() => navigateHistory(-1))
   const goForward = useStableCallback(() => navigateHistory(1))
   const history = useMemo(
@@ -111,6 +107,9 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
     setSettingsInitialSection(null)
     setSettingsOpen(true)
   })
+  const openComputers = useStableCallback(() => openSettingsSection('workspace.computers'))
+
+  useComputerAccessNotices(currentTeam?.id, ws.teams, openComputers)
   const openMyPreferences = useStableCallback(() =>
     openSettingsSection(MY_PREFERENCES_DEFAULT_SECTION),
   )
@@ -127,7 +126,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
   const pageHasOwnNavigation =
     sidebarView(scope, ws.sidebarActive, grafanaInstance, sidebarRepositoryNav).level > 0
   const { dynamicNavigation, active, chatShown } = sidebarSurface(
-    mainPageOpen,
+    mainPageTab?.active ?? null,
     ws.workspaceDockExpanded && pageHasOwnNavigation,
     ws.sidebarActive,
   )
@@ -155,10 +154,11 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         repositoryNav={sidebarRepositoryNav}
         rootIntegrations={rootIntegrations}
         rootIntegrationsLoading={!accounts}
+        connectorsOpen={ws.connectorsDialog !== null}
         slackConnected={
           Boolean(accounts?.slackInstallation) || (accounts?.slackLinkedChannels?.count ?? 0) > 0
         }
-        onConnectSlack={connectSlack}
+        onConnectSlack={ws.connectSlack}
         celebrating={landingCelebration}
         canGoBack={canGoBack}
         canGoForward={canGoForward}
@@ -167,6 +167,7 @@ export function WorkspaceSidebarPanel({ ws, user }: { ws: WorkspaceController; u
         history={history}
         onSidebarBack={inDatasourceExplorer || sidebarBack ? sidebarBackToParent : undefined}
         hierarchy={breadcrumb}
+        onOpenComputers={currentTeam ? openComputers : undefined}
         onOpenSettings={currentTeam ? openSettings : undefined}
         onOpenMyPreferences={currentTeam ? openMyPreferences : undefined}
         onOpenUserSettings={openUserSettings}

@@ -35,8 +35,18 @@ final class AuthSession {
     private(set) var aiConsentAccepted = false
     private(set) var aiConsentVersion: String?
     private(set) var aiConsentError: String?
+    /// A sign-in that needs the account's second factor: its challenge, and the
+    /// backend it came from. The sign-in screen asks for the code.
+    private(set) var mfaChallenge: (token: String, origin: String)?
 
-    let savedAccounts = SavedAccounts()
+    let savedAccounts: SavedAccounts = {
+        #if DEBUG && targetEnvironment(simulator)
+        if CommandLine.arguments.contains("-preview-saved-account") {
+            return SavedAccounts(read: { nil }, write: { _ in })
+        }
+        #endif
+        return SavedAccounts()
+    }()
     private(set) var generation = 0
     private(set) var accountError: String?
     private(set) var addingAccount = false
@@ -80,7 +90,9 @@ final class AuthSession {
         // `-preview-home` launch argument: render the home screen with a
         // sample user, for UI work without a real sign-in.
         #if targetEnvironment(simulator)
-        if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
+        if CommandLine.arguments.contains("-clear-preview") {
+            UserDefaults.standard.removeObject(forKey: "previewResponses")
+        } else if let fixture = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"] {
             UserDefaults.standard.set(fixture, forKey: "previewResponses")
         }
         let previewFixture = UserDefaults.standard.string(forKey: "previewResponses")
@@ -102,6 +114,9 @@ final class AuthSession {
             aiConsentAccepted = !CommandLine.arguments.contains("-preview-consent")
             aiConsentVersion = AccountAPI.aiConsentVersion
             state = .signedIn(.preview)
+            if CommandLine.arguments.contains("-preview-saved-account") {
+                try? savedAccounts.save(user: .preview, token: "preview-only", origin: NuphosAPI.baseURL.absoluteString)
+            }
             return
         }
         #endif
@@ -140,7 +155,7 @@ final class AuthSession {
         } catch {
             guard generation == expected, token == saved else { return }
             if self.user == nil {
-                state = .signedOut(error: "We could not reach Nuphos. Check your connection and try again.")
+                state = .signedOut(error: String(localized: "We could not reach Nuphos. Check your connection and try again."))
             }
         }
     }
@@ -175,10 +190,12 @@ final class AuthSession {
                 ])
                 await complete(token: result.token, expected: expected, origin: origin)
             case .failure(let message): state = .signedOut(error: message)
-            case nil: state = .signedOut(error: "Unexpected sign-in response. Please try again.")
+            case nil: state = .signedOut(error: String(localized: "Unexpected sign-in response. Please try again."))
             }
         } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
             if generation == expected { state = .signedOut(error: nil) }
+        } catch NuphosAPI.Failure.mfaRequired(let challenge) {
+            if generation == expected { askForMfa(challenge, origin: origin) }
         } catch {
             if generation == expected { state = .signedOut(error: error.localizedDescription) }
         }
@@ -235,7 +252,7 @@ final class AuthSession {
         guard let saved = account.token else { return }
         if savedAccounts.active?.id == id, token == saved, user?.id == account.user.id { return }
         do { try savedAccounts.select(id) }
-        catch { accountError = "We could not save the account selection. Try again."; return }
+        catch { accountError = String(localized: "We could not save the account selection. Try again."); return }
         resetIdentity()
         addingAccount = false
         returnAccountID = nil
@@ -258,13 +275,13 @@ final class AuthSession {
         } catch NuphosAPI.Failure.unauthorized {
             guard generation == expected else { return }
             do { try savedAccounts.invalidate(id) }
-            catch { state = .signedOut(error: "We could not remove the expired session. Try again."); return }
+            catch { state = .signedOut(error: String(localized: "We could not remove the expired session. Try again.")); return }
             token = nil
-            state = .signedOut(error: "This account's session expired. Sign in again.")
+            state = .signedOut(error: String(localized: "This account's session expired. Sign in again."))
         } catch {
             guard generation == expected else { return }
             token = nil
-            state = .signedOut(error: "We could not open this account. Check your connection and try again.")
+            state = .signedOut(error: String(localized: "We could not open this account. Check your connection and try again."))
         }
     }
 
@@ -272,7 +289,7 @@ final class AuthSession {
         guard let account = savedAccounts.accounts.first(where: { $0.id == id }) else { return }
         if savedAccounts.active?.id == id, token != nil { signOut(); return }
         do { try savedAccounts.remove(id) }
-        catch { accountError = "We could not remove this saved account. Try again."; return }
+        catch { accountError = String(localized: "We could not remove this saved account. Try again."); return }
         let cleanup = pushCleanup
         if let token = account.token { Task { await cleanup?.value; await AccountAPI.endSession(token: token) } }
     }
@@ -346,12 +363,12 @@ final class AuthSession {
             guard generation == expected, self.token == token else { return }
             aiConsentVersion = result.version
             aiConsentAccepted = result.accepted && result.version == AccountAPI.aiConsentVersion
-        } catch { if generation == expected { aiConsentError = error.localizedDescription } }
+        } catch { if generation == expected, !Task.isCancelled { aiConsentError = error.localizedDescription } }
     }
 
     func setAIConsent(accepted: Bool) async throws {
         guard let token, let version = aiConsentVersion, version == AccountAPI.aiConsentVersion else {
-            throw NuphosAPI.Failure.http(409, message: "Please update Nuphos to read the latest AI notice.")
+            throw NuphosAPI.Failure.http(409, message: String(localized: "Please update Nuphos to read the latest AI notice."))
         }
         let expected = generation
         let result: AccountAPI.Consent = try await AccountAPI.request("ai-consent", method: "PUT", token: token, body: ["version": version, "accepted": accepted])
@@ -375,11 +392,43 @@ final class AuthSession {
             let path = newPassword != nil ? "password/set" : password ? "password/sign-in" : "email/verify-code"
             let result: AccountAPI.SignIn = try await AccountAPI.request(path, method: "POST", body: body)
             await complete(token: result.token, expected: expected, origin: origin)
+        } catch NuphosAPI.Failure.mfaRequired(let challenge) {
+            if generation == expected { askForMfa(challenge, origin: origin) }
         } catch {
             if generation == expected { state = .signedOut(error: error.localizedDescription) }
             throw error
         }
     }
+
+    private func askForMfa(_ challenge: String, origin: String) {
+        mfaChallenge = (challenge, origin)
+        state = .signedOut(error: nil)
+    }
+
+    /// The second step of a sign-in that asked for it: an authenticator or
+    /// recovery code. Throws when the code is refused, so the screen can say so.
+    func verifyMfa(code: String) async throws { try await verifyMfa(["code": code]) }
+
+    /// The same step answered with a passkey (`Passkeys.answer`).
+    func verifyMfa(passkey: [String: Any]) async throws { try await verifyMfa(["passkey": passkey]) }
+
+    private func verifyMfa(_ answer: [String: Any]) async throws {
+        guard let challenge = mfaChallenge, state != .signingIn else { return }
+        let expected = generation
+        state = .signingIn
+        do {
+            let result: AccountAPI.SignIn = try await AccountAPI.request(
+                "mfa/verify", method: "POST", body: answer.merging(["mfaToken": challenge.token]) { a, _ in a }
+            )
+            mfaChallenge = nil
+            await complete(token: result.token, expected: expected, origin: challenge.origin)
+        } catch {
+            if generation == expected { state = .signedOut(error: nil) }
+            throw error
+        }
+    }
+
+    func cancelMfa() { mfaChallenge = nil }
 
     // MARK: - Signed in
 
@@ -424,7 +473,7 @@ final class AuthSession {
         let ended = token
         if let id = savedAccounts.active?.id {
             do { try savedAccounts.remove(id) }
-            catch { accountError = "We could not sign out. Try again."; return }
+            catch { accountError = String(localized: "We could not sign out. Try again."); return }
         }
         Analytics.shared.track("logout")
         resetIdentity()
@@ -457,8 +506,8 @@ final class AuthSession {
 
         var errorDescription: String? {
             switch self {
-            case .noCallback: "The sign-in window closed before finishing. Please try again."
-            case .couldNotStart: "We could not open the sign-in window. Please try again."
+            case .noCallback: String(localized: "The sign-in window closed before finishing. Please try again.")
+            case .couldNotStart: String(localized: "We could not open the sign-in window. Please try again.")
             }
         }
     }

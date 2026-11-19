@@ -13,7 +13,8 @@ import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 // The list reports each row's runtime status from the stored push and the run
 // store only; it never opens a runtime connection.
 const runs = new Map<string, { streamId: string; startedAt: string }>()
-const runLookups: string[] = []
+// Each entry is one read of the run store, naming the sessions it asked about.
+const runLookups: string[][] = []
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useIdentity({ getTeamMembers: async () => [] })
@@ -21,14 +22,29 @@ useSlackAgentBot({ getSlackAgentThreadsBySessionIds: async () => [] })
 useDb({
   db: () =>
     ({
-      collection: () => ({ find: () => ({ toArray: async () => [] }) }),
+      collection: () => {
+        // Empty, and chainable the way a chat's faces and preview read it.
+        const cursor = {
+          sort: () => cursor,
+          limit: () => cursor,
+          project: () => cursor,
+          toArray: async () => [],
+        }
+
+        return { find: () => cursor, findOne: async () => null }
+      },
     }) as never,
 })
 useAgentRunStore({
   getActiveAgentRunForSession: async (_userId: string, sessionId: string) => {
-    runLookups.push(sessionId)
+    runLookups.push([sessionId])
 
     return (runs.get(sessionId) ?? null) as never
+  },
+  getActiveAgentRunsForSessions: async (sessions: { sessionId: string }[]) => {
+    runLookups.push(sessions.map(({ sessionId }) => sessionId))
+
+    return sessions.map(({ sessionId }) => runs.get(sessionId) ?? null) as never
   },
 })
 
@@ -91,7 +107,19 @@ test('a stored idle snapshot is listed as-is without asking the run store', asyn
   expect(idle?.runtimeState.state).toBe('idle')
   expect(busy?.runtimeState.state).toBe('active')
   expect(busy?.activeRun).toMatchObject({ streamId: 'stream-2' })
-  expect(runLookups).toEqual(['busy'])
+  expect(runLookups).toEqual([['busy']])
+})
+
+test('a page asks the run store once, not once per row', async () => {
+  runs.set('b', { streamId: 'stream-b', startedAt: '2026-10-14T18:00:00.000Z' })
+  const rows = await list('a', 'b', 'c')
+
+  expect(runLookups).toEqual([['a', 'b', 'c']])
+  expect(rows.map((row) => row.runtimeState.state)).toEqual(['dormant', 'active', 'dormant'])
+  expect(rows[1]?.activeRun).toEqual({
+    streamId: 'stream-b',
+    startedAt: '2026-10-14T18:00:00.000Z',
+  })
 })
 
 test('a running turn names the channels it answers; a resting row names none', async () => {
@@ -146,4 +174,18 @@ test('a row leaves out what only the open conversation or the server reads', asy
   ]) {
     expect(row).not.toHaveProperty(field)
   }
+})
+
+test("a group chat says so, so a client never takes it for a Bot's 1:1 chat", async () => {
+  const [group, chat] = (await serializeConversationList(
+    [
+      { ...conversation('group'), kind: 'channel', group: true, agentSessionIds: [] },
+      { ...conversation('chat'), kind: 'channel', agentSessionIds: [] },
+    ],
+    { userId: 'user-a' } as never,
+    'team-a',
+  )) as Record<string, unknown>[]
+
+  expect(group?.group).toBe(true)
+  expect(chat?.group).toBeUndefined()
 })

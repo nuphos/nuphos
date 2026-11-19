@@ -1,5 +1,3 @@
-import * as k8s from '@kubernetes/client-node'
-
 import {
   credentialExpiresAt,
   getKubeConfig,
@@ -22,7 +20,9 @@ import {
   scopeKeyFor,
   sendStatus,
 } from './k8s-watch-shared'
+import { k8sLib } from './k8s/lib'
 
+import type * as k8s from '@kubernetes/client-node'
 import type { InformerEntry, Scope, WatchChangeKind, WatchRow } from './k8s-watch-shared'
 
 export async function ensureInformer(scope: Scope): Promise<InformerEntry> {
@@ -60,7 +60,7 @@ export async function ensureInformer(scope: Scope): Promise<InformerEntry> {
 export function createInformerEntry(scope: Scope, scopeKey: string): InformerEntry {
   const config = REGISTRY[scope.kind]
   const kc = getKubeConfig(scope.context)
-  const informer = k8s.makeInformer<k8s.KubernetesObject>(
+  const informer = k8sLib.makeInformer<k8s.KubernetesObject>(
     kc,
     config.listPath(scope.namespace),
     config.listFn(scope.context, scope.namespace),

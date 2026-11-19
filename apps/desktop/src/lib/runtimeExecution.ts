@@ -22,7 +22,6 @@ export type RuntimeExecution = {
   operation?: string
   requestPending?: boolean
   requests?: RuntimeRequest[]
-  permissionWaits?: number
   tools?: {
     id: string
     status?: string

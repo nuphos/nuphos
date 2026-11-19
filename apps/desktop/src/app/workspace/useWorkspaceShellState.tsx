@@ -2,6 +2,7 @@ import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
 import { emptyNavigation } from '../../lib/appRoutes'
 
+import { connectorsDialogFor } from './store/connectorsDialog'
 import { selectScope } from './store/workspaceState'
 
 import {} from '../../views/SettingsPage'
@@ -13,6 +14,7 @@ import { useWorkspacePane } from './WorkspacePaneContext'
 import type { PersistedWorkspaceTab } from '../../app/workspacePersistence'
 import type { AccountSet, AgentPromptSeed } from '../../app/workspaceTabState'
 import type { AgentSessionSnapshot } from '../../components/agent/AgentPanel'
+import type { ConnectorDetailRef } from '../../lib/appRoutes'
 import type { JournalChatTarget } from '../../lib/journalEvent'
 import type {
   AtlasCluster,
@@ -118,10 +120,25 @@ export function useWorkspaceShellState() {
     },
     [workspaceActions, workspaceStore],
   )
-  // One-shot request from the sidebar Slack promo: navigate the active tab to
-  // the connectors page and have it open the Slack bind dialog on arrival.
+  // Connectors opens over whatever the pane shows, on one connector's detail
+  // when given, and leaves the page behind it where it was.
+  const openConnectors = useCallback(
+    (detail: ConnectorDetailRef | null = null) =>
+      workspaceActions.setConnectorsDialog(connectorsDialogFor(detail)),
+    [workspaceActions],
+  )
+  // One-shot request from the sidebar Slack promo: open Connectors and have it
+  // open the Slack bind dialog on arrival.
   const [slackBindRequested, setSlackBindRequested] = useState(false)
   const handleSlackBindRequested = useCallback(() => setSlackBindRequested(false), [])
+  const connectSlack = useCallback(() => {
+    openConnectors()
+    setSlackBindRequested(true)
+  }, [openConnectors])
+  // Bumped when the Connectors dialog changes a binding. The dialog has no tab
+  // of its own whose refreshKey would refetch the team's connectors.
+  const [connectorsRefreshKey, setConnectorsRefreshKey] = useState(0)
+  const refreshConnectors = useCallback(() => setConnectorsRefreshKey((n) => n + 1), [])
   const pane = useWorkspacePane()
 
   const sessionSearchOpen = pane?.sessionSearchOpen ?? false
@@ -225,8 +242,11 @@ export function useWorkspaceShellState() {
     setShortcutsHelpOpen,
     closedTabSnapshotsRef,
     slackBindRequested,
-    setSlackBindRequested,
     handleSlackBindRequested,
+    connectSlack,
+    connectorsRefreshKey,
+    refreshConnectors,
+    openConnectors,
     sidebarCollapsed,
     toggleSidebarCollapsed,
     workspaceDockExpanded,

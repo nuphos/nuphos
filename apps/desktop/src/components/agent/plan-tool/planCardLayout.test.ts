@@ -13,31 +13,22 @@ test('a folded plan awaiting approval still shows its approve bar', () => {
     folded: true,
     decision: 'pending',
     canApprove: true,
-    canRetry: false,
-    status: 'proposed',
   })
 
   assert.deepEqual(regions, {
     bodyOpen: false,
-    showRetry: false,
     showApproveBar: true,
     showActionBar: true,
   })
 })
 
 test('folding does not change which actions are offered', () => {
-  const base = {
-    decision: 'pending',
-    canApprove: false,
-    canRetry: true,
-    status: 'failed',
-  } as const
+  const base = { decision: 'pending', canApprove: true } as const
   const folded = planCardRegions({ ...base, folded: true })
   const open = planCardRegions({ ...base, folded: false })
 
   assert.equal(folded.bodyOpen, false)
   assert.equal(open.bodyOpen, true)
-  assert.equal(folded.showRetry, true)
   assert.equal(folded.showActionBar, open.showActionBar)
 })
 
@@ -46,8 +37,6 @@ test('a decided plan keeps its status line under the folded header', () => {
     folded: true,
     decision: 'approved',
     canApprove: true,
-    canRetry: false,
-    status: 'approved',
   })
 
   assert.equal(regions.showApproveBar, false)
@@ -59,8 +48,6 @@ test('an idle plan without actions renders no action bar', () => {
     folded: true,
     decision: 'pending',
     canApprove: false,
-    canRetry: false,
-    status: 'proposed',
   })
 
   assert.equal(regions.showActionBar, false)

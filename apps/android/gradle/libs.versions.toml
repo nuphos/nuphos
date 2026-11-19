@@ -15,6 +15,7 @@ coil = "3.2.0"
 serialization = "1.8.1"
 coroutines = "1.10.2"
 browser = "1.9.0"
+credentials = "1.6.0"
 securityCrypto = "1.1.0-alpha06"
 kotlinxDatetime = "0.7.1"
 markdownRenderer = "0.44.0"
@@ -41,6 +42,8 @@ androidx-compose-material3-adaptive-navigation-suite = { group = "androidx.compo
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 androidx-browser = { group = "androidx.browser", name = "browser", version.ref = "browser" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 coil-svg = { group = "io.coil-kt.coil3", name = "coil-svg", version.ref = "coil" }

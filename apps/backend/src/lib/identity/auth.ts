@@ -19,6 +19,7 @@ export async function setupIdentityIndexes(): Promise<void> {
     users().createIndex({ email: 1 }, { unique: true, background: true }),
     users().createIndex({ appleID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ googleID: 1 }, { unique: true, sparse: true, background: true }),
+    users().createIndex({ oidcID: 1 }, { unique: true, sparse: true, background: true }),
     users().createIndex({ username: 1 }, { unique: true, background: true }),
     teams().createIndex({ ownerID: 1 }, { background: true }),
     teams().createIndex({ 'members.userId': 1 }, { background: true }),

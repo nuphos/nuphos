@@ -5,6 +5,7 @@ import { openEc2Ssh, openLightsailSsh } from '../../app/workspace/sshTabOpenAws'
 import { openGceSsh } from '../../app/workspace/sshTabOpenGce'
 import { restorePersistedTab } from '../../app/workspacePersistence'
 import { pageLocationForTab, tabOpenedFrom } from '../../app/workspaceTabFactory'
+import { isTeamIntegrationsActive } from '../../lib/connectorScopeCrumb'
 import { isTeamManagementKey } from '../../lib/teamOverviewNav'
 import { settingsSectionForPage } from '../../views/settings/settingsNav'
 
@@ -88,6 +89,8 @@ export function useWorkspaceSidebarNav(a: Args) {
 
   // Chats and management pages are what the main pane shows; every other key
   // navigates the page it was triggered from, or opens beside it on cmd-click.
+  // Connectors goes the main page's way too, where the store turns it into its
+  // dialog over the page, even with no tab open to navigate.
   const onSidebarOpenKey = useCallback(
     (key: string, favoriteLabel: string | null, newTab: boolean) => {
       const settingsSection = settingsSectionForPage(key)
@@ -107,7 +110,7 @@ export function useWorkspaceSidebarNav(a: Args) {
 
         return
       }
-      if (isTeamManagementKey(key)) {
+      if (isTeamManagementKey(key) || isTeamIntegrationsActive(key)) {
         openManagementPage(key)
 
         return

@@ -1,4 +1,5 @@
 import { appendTranscriptMessages } from '@/lib/agent/db'
+import { waitingNote } from '@/lib/agent/waiting-answers'
 import { openInputRequests } from '@/lib/agent/db/pending-decision'
 import { persistedImagePart } from '@/lib/agent/image-parts'
 import { stripInlineFileData } from '@/lib/agent/inbound-files'
@@ -7,6 +8,7 @@ import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
 import { withCostUsd } from '@/lib/agent/model-pricing'
 import { AppError } from '@/lib/errors'
 
+import type { WaitingAnswer } from '@/lib/agent/waiting-answers'
 import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import type { AgentClientMeta, AgentConversation, AgentCredentialAccess } from '@/lib/agent/db'
 import type { ConversationInputRequests } from '@/lib/agent/db/pending-decision'
@@ -230,6 +232,7 @@ export async function persistAcceptedConversationTurn(args: {
   agentRuntime?: NonNullable<AgentConversation['agentRuntime']>
   runtimeId?: string
   runtimeLabel?: string
+  parentSessionId?: string
 }): Promise<{ isNew: boolean } | null> {
   const transcriptMessages = uiMessagesToTranscript(args.messages)
 
@@ -252,6 +255,7 @@ export async function persistAcceptedConversationTurn(args: {
     agentRuntime: args.agentRuntime,
     runtimeId: args.runtimeId,
     runtimeLabel: args.runtimeLabel,
+    parentSessionId: args.parentSessionId,
   })
 }
 
@@ -271,11 +275,18 @@ export function serializeConversationDoc(
     // kept before inputRequests; it is no longer read or sent.
     pendingDecision: _pendingDecision,
     inputRequests: _inputRequests,
+    // Sent as the line each answered card shows, never the answer it holds.
+    waitingAnswers,
     ...rest
   } = conversation
   const open = openInputRequests(conversation as ConversationInputRequests, answering)
 
   if (open.length > 0) rest.inputRequests = open
+  if (Array.isArray(waitingAnswers) && waitingAnswers.length > 0)
+    rest.waitingAnswers = (waitingAnswers as WaitingAnswer[]).map((waiting) => ({
+      requestId: waiting.requestId,
+      note: waitingNote(waiting, (conversation.runtimeLabel as string | undefined) || 'the agent'),
+    }))
 
   if (rest.tokenUsage && typeof rest.tokenUsage === 'object') {
     rest.tokenUsage = withCostUsd(rest.tokenUsage as AgentTokenUsageSummary)

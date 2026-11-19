@@ -2,7 +2,9 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { LocalDownloadStream } from './download-stream.ts'
 import { LocalFileStream } from './file-stream.ts'
+import { LocalUploadStream } from './upload-stream.ts'
 
 import type { LocalRuntimeState } from './controller-types.ts'
 import type { SocketEvent, SocketLike } from './tunnel-client.ts'
@@ -128,6 +130,8 @@ export class LocalAttachmentStream implements SocketLike {
 /** Desktop and CLI hosts share exactly the same fixed-program file operations. */
 export function localFileConnectors(state: () => LocalRuntimeState, bundle: string) {
   return {
+    connectUpload: () => new LocalUploadStream(),
+    connectDownload: () => new LocalDownloadStream(),
     connectAttachments: (instanceId?: string) =>
       LocalAttachmentStream.open(state(), bundle, instanceId),
     connectFile: (instanceId?: string) => LocalFileStream.open(state(), instanceId),

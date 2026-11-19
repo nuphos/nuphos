@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
@@ -9,27 +10,30 @@ import { toast } from '../../components/ui/toast'
 import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn } from './agentPresentation'
+import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
+import { editsRuntime } from './runtimeFallback'
+import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
+import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
-import { removeRuntime } from './runtimeRemoval'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
+import { removeRuntime } from './runtimeRemoval'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
 import { RuntimeUsageBar } from './RuntimeUsageBar'
+import { useAgentDevices } from './useAgentDevices'
 
-import type { PolledRuntimeStatus } from './RuntimeOverview'
+import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
-
-const STATUS_POLL_MS = 10_000
-const STARTING_POLL_MS = 2_000
 
 /** Details for the agent selected in the left-hand list. */
 export function RuntimeInstanceCard({
@@ -45,41 +49,20 @@ export function RuntimeInstanceCard({
 }) {
   const [signingIn, setSigningIn] = useState(false)
   const [cliSigningIn, setCliSigningIn] = useState(false)
-  const signIn = localSignIn(instance, useThisComputer())
+  const thisComputer = useThisComputer()
+  const computer = useAgentDevices(() => 0, teamId, {
+    teamId,
+    enabled: instance.local !== undefined,
+  }).list?.devices.find((device) => device.deviceId === instance.local?.deviceId)
+  const manages = managesRuntime(instance, computer, isAdmin)
+  const signIn = manages ? localSignIn(instance, thisComputer) : undefined
   const [editing, setEditing] = useState(false)
   const [confirmRemoval, setConfirmRemoval] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [runtime, setRuntime] = useState<PolledRuntimeStatus | null>(null)
-  const [statusError, setStatusError] = useState(false)
-  const [updateRevision, setUpdateRevision] = useState(0)
+  const queryClient = useQueryClient()
+  const statusKey = queryKeys.runtimeStatus(teamId, instance.id)
+  const { data: runtime = null, isError: statusError } = useRuntimeStatusQuery(teamId, instance.id)
   const enabled = instance.status === 'active'
-
-  useEffect(() => {
-    let cancelled = false
-    let timer: ReturnType<typeof setTimeout> | undefined
-    // An agent that is starting is watched closely, so Sign in appears the moment it can.
-    const poll = () =>
-      void api.atlasGetRuntimeInstanceStatus(teamId, instance.id).then(
-        (status) => {
-          if (cancelled) return
-          setRuntime({ ...status, fetchedAtMs: Date.now() })
-          setStatusError(false)
-          timer = setTimeout(poll, status.online ? STATUS_POLL_MS : STARTING_POLL_MS)
-        },
-        () => {
-          if (cancelled) return
-          setStatusError(true)
-          timer = setTimeout(poll, STATUS_POLL_MS)
-        },
-      )
-
-    poll()
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [teamId, instance.id, enabled, updateRevision])
 
   const changed = () => window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   const mutate = async (action: () => Promise<unknown>) => {
@@ -103,7 +86,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  const canEdit = isAdmin && instance.kind !== 'development' && !instance.deletion
+  const canEdit = editsRuntime(instance, manages)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
@@ -157,6 +140,7 @@ export function RuntimeInstanceCard({
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
               {AGENT_PROVIDER[instance.provider].label}
+              {AGENT_PROVIDER[instance.provider].preview && <PreviewTag />}
               {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
@@ -204,7 +188,8 @@ export function RuntimeInstanceCard({
         onUpdate={async () => {
           const result = await api.atlasRequestRuntimeUpdate(teamId, instance.id)
 
-          setRuntime(
+          queryClient.setQueryData<PolledRuntimeStatus>(
+            statusKey,
             (previous) =>
               previous && {
                 ...previous,
@@ -218,14 +203,15 @@ export function RuntimeInstanceCard({
                 },
               },
           )
-          setUpdateRevision((value) => value + 1)
+          // Read again now; a read already on its way predates the request and is dropped.
+          void queryClient.invalidateQueries({ queryKey: statusKey })
         }}
       />
       <div className="divide-y divide-line-control/60 border-t border-line-control/60">
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              t('Removing the runtime and its files. Agent history stays in Nuphos.')}
+              t('Removing the runtime and its files. Task history stays in Nuphos.')}
           </p>
         ) : (
           <>
@@ -260,9 +246,23 @@ export function RuntimeInstanceCard({
               <RuntimeUsageSection quota={quota} />
             </div>
             <div className="px-5 py-6">
+              <RuntimeFallbackPicker teamId={teamId} instance={instance} canEdit={canEdit} />
+            </div>
+            <div className="px-5 py-6">
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
+            {instance.local && ownSignedInCli(instance) && (
+              <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
+                {t(
+                  'This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.',
+                  {
+                    provider: AGENT_PROVIDER[instance.provider].label,
+                    device: instance.local.deviceLabel,
+                  },
+                )}
+              </p>
+            )}
           </>
         )}
       </div>

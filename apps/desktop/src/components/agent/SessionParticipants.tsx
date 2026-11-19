@@ -79,7 +79,7 @@ export function SessionParticipants({
         .then((result) => {
           if (!cancelled) apply(result)
         })
-        .catch((err: unknown) => toast.apiError(t('Failed to load agent participants'), err))
+        .catch((err: unknown) => toast.apiError(t('Failed to load participants'), err))
     const reloadIfThisSession = (event: Event) => {
       if ((event as CustomEvent<string>).detail === sessionId) void load()
     }
@@ -220,7 +220,7 @@ export function SessionParticipants({
           'text-[12px] font-medium text-secondary transition-colors',
           'data-[popup-open]:bg-state-selected data-[popup-open]:text-main hover:bg-state-hover hover:text-main',
         )}
-        title={t('Share this agent with a teammate')}
+        title={t('Share with a teammate')}
       >
         <ShareButtonFace participants={everyone} compact={compact} />
       </Popover.Trigger>

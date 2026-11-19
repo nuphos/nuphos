@@ -1,3 +1,4 @@
+import { FileOutput as FileOutputIcon, MessageSquare } from 'lucide-react'
 // Standalone Audit log page: cross-conversation view of the
 // tamper-evident agent journal plus resource mutation events. Answers the
 // auditor's question — "who changed what, when" — without inventing
@@ -9,8 +10,6 @@
 // Rows link back to their conversation; narrative rendering is shared with
 // the in-chat journal panel (JournalEventBody / lib/journalEvent).
 
-import { faFileExport } from '@fortawesome/free-solid-svg-icons'
-import { MessageSquare } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -79,7 +78,7 @@ export function AuditLogView({
   // Journal detail panel (the audit "open" action) — read-only, no side
   // effects; a row click must never fork or navigate into the chat.
   const [selected, setSelected] = useState<SelectedJournal | null>(null)
-  const { pollTick, isActive } = useWorkspaceTab()
+  const { isActive } = useWorkspaceTab()
   // Filters (tab / scope / mutations / range) ride the toolbar's left slot and
   // the compliance Export sits in the right slot. Gate on
   // isActive so a keep-alive'd background tab never leaks its controls.
@@ -107,7 +106,6 @@ export function AuditLogView({
     range,
     refreshKey,
     needle,
-    pollTick,
     onCount,
     onLoading,
   })
@@ -144,7 +142,7 @@ export function AuditLogView({
           {
             key: 'export',
             label: t('Export selected'),
-            icon: faFileExport,
+            icon: FileOutputIcon,
             disabled: exporting,
             onClick: () => exportComplianceRecords([...selectedSessionIds]),
           },

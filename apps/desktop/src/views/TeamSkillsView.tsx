@@ -268,6 +268,7 @@ export function TeamSkillsView({
       </div>
       {selectedSkill && (
         <SkillDetailPane
+          teamId={teamId}
           skill={selectedSkill}
           scope={scope}
           files={skillFiles}

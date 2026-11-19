@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import './chat-preview-autonomous-runs'
 
 import { recordLocalRuntimeTurn } from '@/lib/agent/devices/local-runtime/activity'
-import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { takeSteerSender } from '@/lib/agent/steer-senders'
 import {
   previewRuntimeObservability,
@@ -18,7 +17,7 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 import { watchPreviewTurnPauses } from '@/lib/claude-code-preview/preview-turn-pause'
 import { fallBackAfterFailure } from '@/lib/claude-code-preview/runtime-fallback'
-import { isRuntimeRefusal, queuedRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { queuedRefusal, resentAfter } from '@/lib/claude-code-preview/runtime-refusal'
 import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
@@ -39,7 +38,7 @@ import {
   lostToReattach,
 } from './chat-preview-handoff'
 import { carriedUserMessages, preparePreviewTurn } from './chat-preview-prepare'
-import { createPreviewRunState, createPreviewToolLog } from './chat-preview-run'
+import { createPreviewRunState, createPreviewToolLog, requeueUnsent } from './chat-preview-run'
 import { handlePreviewToolUpdate, trackSteerCutOff } from './chat-preview-tool-update'
 import { appendAgentRunError, appendAgentRunPhase } from './run-frames'
 import { turnSnapshots } from './turn-snapshots'
@@ -248,8 +247,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
 
       return 'connection-lost'
     }
-    if ((args.clientResendsRefusal || args.queued) && isRuntimeRefusal(err))
-      await requeueTurnQueue(userId, sessionId, prepared.carried, args.queued)
+    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered)
     else await persistInterrupted(err)
 
     state.unbind()
@@ -265,7 +263,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
   if (state.signal.aborted && !(state.signal.reason instanceof RunHandoff)) {
     pauses.abort()
     try {
-      await persistInterrupted(state.signal.reason)
+      if (!(await prompt).unsent || !(await requeueUnsent(args, prepared.carried, steered, true)))
+        await persistInterrupted(state.signal.reason)
     } finally {
       await clearActiveTurn()
     }

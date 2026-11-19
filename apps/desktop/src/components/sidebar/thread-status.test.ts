@@ -20,10 +20,10 @@ test('a done thread folds away unless it is open', () => {
   assert.equal(threadFoldsAway({ ...base, open: true }), false)
 })
 
-test('an unread reply does not keep a done thread listed', () => {
+test('an unread reply keeps a completed thread listed', () => {
   const unread = { ...base, unread: true }
 
-  assert.equal(threadFoldsAway(unread), true)
+  assert.equal(threadFoldsAway(unread), false)
 })
 
 test('a running or asking thread stays listed', () => {

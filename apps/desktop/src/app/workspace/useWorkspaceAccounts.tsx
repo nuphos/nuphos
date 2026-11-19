@@ -39,6 +39,7 @@ export function useWorkspaceAccounts(a: Args) {
     scope,
     active,
     refreshKey,
+    connectorsRefreshKey,
     sshTerminal,
     loadEc2InstancesForAccount,
     loadLightsailInstancesForAccount,
@@ -76,7 +77,7 @@ export function useWorkspaceAccounts(a: Args) {
       cancelled = true
       window.removeEventListener('nuphos:databases-changed', load)
     }
-  }, [teamId, refreshKey, setDatabaseConnectionsByTeam])
+  }, [teamId, refreshKey, connectorsRefreshKey, setDatabaseConnectionsByTeam])
 
   useEffect(() => {
     if (!scope) return

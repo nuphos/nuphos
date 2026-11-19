@@ -102,12 +102,17 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         collection.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(collection)
         // The composer rides the keyboard layout guide and the collection runs
-        // on under it, inset by its height, so rows scroll beneath the
-        // composer's edge effect instead of being cut at its top. One keyboard
-        // source moves both, inside the keyboard's own animation and
+        // on under it, inset by its height, so rows are not cut at its top.
+        // The composer's see-through glass sits on the canvas, and rows fade
+        // out just above it, so nothing shows through the draft. The nav bar
+        // gets the same at the top. One keyboard source moves the composer
+        // and the collection, inside the keyboard's own animation and
         // interactive drag, and nothing else moves them.
+        let topFade = CanvasFade(edge: .top), bottomFade = CanvasFade(edge: .bottom)
+        view.addSubview(topFade)
+        view.addSubview(bottomFade)
         addChild(composer)
-        composer.view.backgroundColor = .clear
+        composer.view.backgroundColor = UIColor(Theme.chatCanvas)
         // Its own changes (focus, attachments, a long draft) report a new size
         // to this controller, which measures it again.
         composer.sizingOptions = .preferredContentSize
@@ -115,12 +120,6 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
         composer.view.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 26, *) {
-            let edge = UIScrollEdgeElementContainerInteraction()
-            edge.scrollView = collection
-            edge.edge = .bottom
-            composer.view.addInteraction(edge)
-        }
         view.addSubview(composer.view)
         composer.didMove(toParent: self)
         NSLayoutConstraint.activate([
@@ -132,6 +131,14 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             composer.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             composer.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             composerHeight,
+            topFade.topAnchor.constraint(equalTo: view.topAnchor),
+            topFade.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: CanvasFade.fade),
+            topFade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            topFade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomFade.heightAnchor.constraint(equalToConstant: CanvasFade.fade),
+            bottomFade.bottomAnchor.constraint(equalTo: composer.view.topAnchor),
+            bottomFade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomFade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
         addChild(placeholder)
         placeholder.view.backgroundColor = .clear
@@ -150,7 +157,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             return cell
         }
         var config = UIButton.Configuration.filled()
-        config.image = UIImage(systemName: "arrow.down")
+        config.image = UIImage(named: "lucide-arrow-down")
         config.cornerStyle = .capsule
         config.baseBackgroundColor = .secondarySystemBackground
         config.baseForegroundColor = .label
@@ -905,6 +912,37 @@ private final class RotationLayoutView: UIView {
     }
 }
 
+/// The chat canvas behind a bar, fading out over its last points toward the
+/// transcript, so rows fade away at the bar instead of showing through it.
+private final class CanvasFade: UIView {
+    static let fade: CGFloat = 16
+    private let gradient = CAGradientLayer()
+
+    init(edge: UIRectEdge) {
+        super.init(frame: .zero)
+        backgroundColor = UIColor(Theme.chatCanvas)
+        isUserInteractionEnabled = false
+        translatesAutoresizingMaskIntoConstraints = false
+        gradient.colors = [UIColor.black.cgColor, UIColor.clear.cgColor]
+        if edge == .bottom {
+            gradient.startPoint = CGPoint(x: 0.5, y: 1)
+            gradient.endPoint = CGPoint(x: 0.5, y: 0)
+        }
+        layer.mask = gradient
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradient.frame = bounds
+        gradient.locations = [NSNumber(value: Double(max(0, 1 - Self.fade / max(bounds.height, 1)))), 1]
+        CATransaction.commit()
+    }
+}
+
 /// Explicit width-constrained measurement is essential for the embedded
 /// Markdown UIView; an estimated hosting-configuration height can otherwise
 /// let a long answer draw over the next cell.
@@ -990,11 +1028,11 @@ private struct TranscriptDisclosureFixture: View {
     var body: some View {
         DisclosureGroup(isExpanded: $expanded) {
             ForEach(0..<12) { index in
-                Text("Command \(index): expanded content below the stationary step title.")
+                Text(verbatim: "Command \(index): expanded content below the stationary step title.")
                     .padding(.vertical, 8)
             }
         } label: {
-            Text("Step 1 — expand downward")
+            Text(verbatim: "Step 1 — expand downward")
                 .background(TranscriptStepMarkerView(marker: marker))
         }
         .disclosureGroupStyle(PlanStepDisclosureStyle())
@@ -1013,10 +1051,10 @@ private struct TranscriptResizingFixture: View {
     @State private var loaded = false
     var body: some View {
         VStack(alignment: .leading) {
-            Text("Asynchronously loaded plan")
+            Text(verbatim: "Asynchronously loaded plan")
             if loaded {
                 ForEach(0..<12) { index in
-                    Text("Step \(index): Card content must push the following message down.")
+                    Text(verbatim: "Step \(index): Card content must push the following message down.")
                         .padding(.vertical, 6)
                 }
             } else { ProgressView() }

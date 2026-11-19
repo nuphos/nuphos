@@ -2,7 +2,6 @@ import { ipcRenderer } from 'electron'
 
 import type { SessionConfigPick } from '../../src/api/session-config-types'
 import type {
-  CreateRuntimeInput,
   PairExternalRuntimeInput,
   RegisterExternalRuntimeInput,
   UpdateRuntimeInput,
@@ -43,8 +42,6 @@ export const runtimeApi = {
   atlasListRuntimeQuotas: (teamId: string) => ipcRenderer.invoke('atlas:listRuntimeQuotas', teamId),
   atlasGetRuntimeQuotaHistory: (teamId: string, range: string) =>
     ipcRenderer.invoke('atlas:getRuntimeQuotaHistory', teamId, range),
-  atlasCreateRuntimeInstance: (teamId: string, input: CreateRuntimeInput) =>
-    ipcRenderer.invoke('atlas:createRuntimeInstance', teamId, input),
   atlasProbeExternalRuntimeProvider: (teamId: string, url: string, password: string) =>
     ipcRenderer.invoke('atlas:probeExternalRuntimeProvider', teamId, url, password),
   atlasRegisterExternalRuntime: (teamId: string, input: RegisterExternalRuntimeInput) =>

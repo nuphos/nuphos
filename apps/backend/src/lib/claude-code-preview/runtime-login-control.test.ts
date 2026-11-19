@@ -287,8 +287,9 @@ describe('an added agent whose CLI is missing', () => {
     const error = await localAgentNotInstalled(runtimeId, reporting(false))
 
     expect(error).toMatchObject({ status: 409, code: 'runtime_not_installed' })
-    expect(error?.message).toStartWith('OpenCode is not installed')
-    expect(error?.message).toContain('`opencode`')
+    expect(error?.message).toBe(
+      'OpenCode is not installed on the computer running this agent. Install it there as https://opencode.ai/docs describes, then try again.',
+    )
   })
 
   test('says nothing when the CLI is there or the agent is not reported', async () => {
@@ -297,5 +298,59 @@ describe('an added agent whose CLI is missing', () => {
       await localAgentNotInstalled(runtimeId, { get: () => Promise.resolve(null) }),
     ).toBeUndefined()
     expect(await localAgentNotInstalled('shared-runtime', reporting(false))).toBeUndefined()
+  })
+})
+
+describe('an added agent whose CLI its computer installs', () => {
+  const instance = '11111111-1111-4111-8111-111111111111'
+  const runtimeId = `local_owner_box_claude-code_${instance}`
+  const added = { runtimeId } as never
+
+  test('its sign-in waits past the usual start for as long as the install runs', async () => {
+    let attempts = 0
+    let announced = 0
+    const client = await acquireStarting(
+      'team',
+      added,
+      new AbortController().signal,
+      async () => {
+        attempts++
+        if (attempts < 7) throw new Error('The local agent is not running')
+
+        return 'client' as never
+      },
+      // Shorter than the install (half a second a try), so only the install keeps it waiting.
+      1_000,
+      () => Promise.resolve(attempts < 6),
+      () => announced++,
+    )
+
+    expect(client).toBe('client' as never)
+    expect(announced).toBe(5)
+  })
+
+  test('a failed install gives the installer’s own reason', async () => {
+    const error = await localAgentNotInstalled(runtimeId, {
+      get: () =>
+        Promise.resolve({
+          conn: 'c1',
+          seenAt: Date.now(),
+          status: {
+            agents: {},
+            instances: [
+              {
+                instanceId: instance,
+                provider: 'claude-code',
+                cli: { installed: false, loggedIn: false, installError: 'curl: (6) no network' },
+              },
+            ],
+          },
+        } as never),
+    })
+
+    expect(error).toMatchObject({ status: 409, code: 'runtime_install_failed' })
+    expect(error?.message).toBe(
+      'Could not install Claude Code on the computer running this agent: curl: (6) no network',
+    )
   })
 })

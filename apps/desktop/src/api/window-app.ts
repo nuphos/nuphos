@@ -44,6 +44,10 @@ import type {
   UpdaterState,
   UserInfo,
 } from '../types/team.ts'
+import type { SocialOption } from '../types/app-misc.ts'
+
+/** Whether the OS opens Nuphos at login (macOS and Windows releases only). */
+export type LoginItemState = { supported: boolean; openAtLogin: boolean }
 
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
@@ -67,11 +71,15 @@ export type WindowAppApi = {
   atlasNewMfaRecoveryCodes(code: string): Promise<string[]>
   atlasDisableMfa(code: string): Promise<void>
   atlasReauthMfa(code: string): Promise<void>
+  authMfaVerifyPasskey(mfaToken: string): Promise<UserInfo>
+  atlasReauthWithPasskey(): Promise<void>
+  atlasAddPasskey(): Promise<void>
+  atlasRemovePasskey(id: string, code: string): Promise<void>
   authUploadAvatar(image: Uint8Array): Promise<UserInfo>
   apiUrlSync(): string
   authRemoveAvatar(): Promise<UserInfo>
   authStatus(): Promise<AuthStatus>
-  authSocialProviders(): Promise<SocialProvider[]>
+  authSocialProviders(): Promise<SocialOption[]>
   authLogin(provider: SocialProvider): Promise<UserInfo>
   authLogout(): Promise<void>
   authCancel(): Promise<void>
@@ -85,14 +93,19 @@ export type WindowAppApi = {
   analyticsSetTeam(teamId: string | null): Promise<void>
   sendDiagnostics(): boolean
   setSendDiagnostics(send: boolean): Promise<boolean>
-  onSendDiagnosticsChanged(listener: (send: boolean) => void): () => void
+  sendUsageData(): boolean
+  onSendUsageDataChanged(listener: (send: boolean) => void): () => void
   appGetVersion(): Promise<string>
   appSetApiEndpoint(url: string | null): Promise<string>
   appGetPlatform(): Promise<string>
   appSelectAsciiInputSource(): Promise<void>
+  /** The menu bar and notifications follow the language the windows show. */
+  appSetLocale(locale: string): Promise<void>
   appSetNativeTheme(source: 'system' | 'light' | 'dark'): Promise<void>
   appGetAppIcon(): Promise<string>
   appSetAppIcon(icon: string): Promise<void>
+  appGetLoginItem(): Promise<LoginItemState>
+  appSetLoginItem(openAtLogin: boolean): Promise<LoginItemState>
   onNativeThemeUpdated(cb: (payload: { shouldUseDarkColors: boolean }) => void): () => void
   getZoomFactor(): number
   notifyZoom(): void
@@ -123,6 +136,8 @@ export type WindowAppApi = {
   updaterGetState(): Promise<UpdaterState>
   updaterCheck(): Promise<void>
   updaterInstall(): Promise<void>
+  updaterGetAutoInstall(): Promise<{ enabled: boolean }>
+  updaterSetAutoInstall(enabled: boolean): Promise<{ enabled: boolean }>
   onUpdaterStatus(cb: (state: UpdaterState) => void): () => void
   changelogGetState(): Promise<ChangelogState>
   onChangelogStatus(cb: (state: ChangelogState) => void): () => void
@@ -149,6 +164,7 @@ export type WindowAppApi = {
   designsApplyOps(teamId: string, designId: string, ops: DesignOp[]): Promise<Design>
   designsDelete(teamId: string, designId: string): Promise<void>
   dashboardsList(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
+  dashboardsFormerMembers(teamId: string): Promise<import('../dashboards/schema').NuphosDashboard[]>
   dashboardsCreate(
     teamId: string,
     input: import('../dashboards/schema').CreateDashboardInput,
@@ -236,6 +252,8 @@ export type WindowAppApi = {
     reviewed: { relPath: string; realPath: string }[],
   ): Promise<LocalSetupResult>
   localSetupSetAutoSync(teamId: string, enabled: boolean): Promise<void>
+  localSetupSetFolders(teamId: string, folders: string[]): Promise<LocalSetupResult>
+  localSetupSources(teamId: string): Promise<Record<string, string>>
   teamSkillsImportLocal(
     teamId: string,
     scope: SkillScope | undefined,

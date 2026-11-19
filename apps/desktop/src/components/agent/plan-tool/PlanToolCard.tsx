@@ -24,8 +24,6 @@ type Props = {
    *  plan that's mid-execution can still expose Chat (= interrupt) without
    *  showing a no-op Approve. */
   canApprove?: boolean
-  /** Whether a failed plan can be reset back to proposed. */
-  canRetry?: boolean
   /** Whether the Chat button should be shown. Independent of `canApprove`. */
   canChat?: boolean
   /** Called when the user clicks Approve — agent should keep executing. */
@@ -34,10 +32,6 @@ type Props = {
    *  revises against the reason) or `'delete'` (Reject — discard it). The reason
    *  is optional for delete. Gated like Approve. */
   onReject?: (reason: string, mode: 'revise' | 'delete') => void
-  /** Called when the user clicks Retry — resets a failed plan to proposed. */
-  onRetry?: () => void
-  retrying?: boolean
-  retryError?: string | null
   /** Called when the user clicks Chat — agent should stop and let the user redirect. */
   onChat?: () => void
   /**
@@ -85,12 +79,8 @@ type Props = {
 export const PlanTool = memo(function PlanTool({
   payload,
   canApprove = true,
-  canRetry = false,
   onApprove,
   onReject,
-  onRetry,
-  retrying = false,
-  retryError,
   progress,
   status,
   approvalProgress,
@@ -125,12 +115,10 @@ export const PlanTool = memo(function PlanTool({
   )
   const showBuildingPlan = status === 'proposed' && !planComplete
 
-  const { bodyOpen, showRetry, showApproveBar, showActionBar } = planCardRegions({
+  const { bodyOpen, showApproveBar, showActionBar } = planCardRegions({
     folded,
     decision,
     canApprove,
-    canRetry,
-    status,
   })
 
   const actionBar = showActionBar ? (
@@ -138,12 +126,8 @@ export const PlanTool = memo(function PlanTool({
       state={decisionState}
       floating={floating}
       showApproveBar={showApproveBar}
-      showRetry={showRetry}
       approvalProgress={approvalProgress}
       onReject={onReject}
-      onRetry={onRetry}
-      retrying={retrying}
-      retryError={retryError}
     />
   ) : null
 

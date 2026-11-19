@@ -13,6 +13,7 @@ import { transferLinkedFile } from './linked-file-transfer.ts'
 import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
+import { refreshRunningModels } from './local-runtime/agent-models.ts'
 import {
   cancelLocalClaudeLogin,
   cancelLocalCodexLogin,
@@ -24,6 +25,7 @@ import {
   startLocalCodexLogin,
   submitLocalClaudeLoginCode,
   applyLocalApiKey,
+  setLocalCustomProvider,
   userEnv,
 } from './local-runtime/index.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
@@ -51,6 +53,8 @@ export const deviceChannels = {
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:applyApiKey': (_e: unknown, provider: unknown, key: unknown) =>
     applyLocalApiKey(provider, key),
+  'localRuntime:setCustomProvider': (_e: unknown, provider: unknown, value: unknown) =>
+    setLocalCustomProvider(provider, value),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {
@@ -82,6 +86,8 @@ export const deviceChannels = {
     await shell.openExternal(pathToFileURL(target).href)
   },
   'localRuntime:refresh': () => refreshLocalRuntime(),
+  // An opened model picker: true when a running agent's list changed.
+  'localRuntime:refreshModels': () => refreshRunningModels(),
   // Running agents keep their version; the next one started picks up the update.
   'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {
     await updateAgentCli(provider, await userEnv())

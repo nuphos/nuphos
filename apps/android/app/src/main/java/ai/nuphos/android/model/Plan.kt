@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.Instants
 import ai.nuphos.android.data.JsonValue
 import java.time.Instant
@@ -8,7 +9,7 @@ data class Plan(
     val id: String,
     val teamId: String? = null,
     val number: Int? = null,
-    val title: String = "Plan",
+    val title: String = Words(R.string.plans_title_fallback),
     val overview: String = "",
     var status: String = "proposed",
     val steps: List<Step> = emptyList(),
@@ -85,7 +86,6 @@ data class Plan(
 
     val isActive: Boolean get() = status in setOf("proposed", "approved", "executing")
     val isCancellable: Boolean get() = isActive
-    val isDismissed: Boolean get() = status == "rejected" || status == "cancelled"
 
     val isReadyForApproval: Boolean
         get() {
@@ -177,32 +177,6 @@ data class Plan(
         }
     }
 }
-
-data class PlanListPage(
-    val plans: List<Plan>,
-    val nextCursor: String?,
-    val hasMore: Boolean,
-)
-
-data class PlanApprovalRequirement(
-    val requesterApprovalRequired: Boolean = true,
-    val minimumOtherApprovals: Int = 0,
-) {
-    constructor(json: JsonValue) : this(
-        requesterApprovalRequired = json["requesterApprovalRequired"]?.boolValue ?: true,
-        minimumOtherApprovals = json["minimumOtherApprovals"]?.numberValue?.toInt() ?: 0,
-    )
-
-    val summary: String
-        get() = if (minimumOtherApprovals == 0) {
-            "Requester only"
-        } else {
-            val s = if (minimumOtherApprovals == 1) "" else "s"
-            "Requester + $minimumOtherApprovals other member$s"
-        }
-}
-
-data class PlanRoute(val planId: String)
 
 data class PlanChatTarget(
     val planId: String,

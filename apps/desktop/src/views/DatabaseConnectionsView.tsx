@@ -223,6 +223,7 @@ function DatabaseDetail({
         )}
         {active === 'database.settings' && (
           <ConnectionSettingsSection
+            teamId={teamId}
             connection={connection}
             busy={busy}
             isTeamAdmin={isTeamAdmin}

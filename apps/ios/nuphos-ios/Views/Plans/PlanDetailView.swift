@@ -1,15 +1,14 @@
 import SwiftUI
 
 /// A plan on its own page — the desktop `PlanSidePanel`: header, decisions,
-/// steps with live command status, cost, risk, approvals, and the actions
-/// the library offers (approve, continue in chat, mark as unplanned).
+/// steps with live command status, cost, risk, approvals, and its actions
+/// (approve, continue in chat, mark as unplanned).
 /// Polls while the plan is active.
 struct PlanDetailView: View {
     @Environment(PlansStore.self) private var plans
     let planId: String
-    /// The plan's team when it is not the library's (a link in a chat).
-    var teamId: String?
-    /// Replaces the library's plain PATCH — in a chat, approving also tells
+    let teamId: String
+    /// Replaces the plain PATCH — in a chat, approving also tells
     /// the agent to proceed, so the session's approve is used instead.
     var approve: ((Plan) async throws -> Plan)?
     /// Off when the page is shown inside the conversation it points at.
@@ -46,7 +45,7 @@ struct PlanDetailView: View {
                 .safeAreaInset(edge: .bottom, spacing: 0) { actionBar(plan) }
             } else if let loadError {
                 ContentUnavailableView {
-                    Label("Couldn't load plan", systemImage: "wifi.exclamationmark")
+                    Label("Couldn't load plan", image: "lucide-wifi-off")
                 } description: {
                     Text(loadError)
                 } actions: {
@@ -58,7 +57,7 @@ struct PlanDetailView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.canvas)
-        .navigationTitle(plan?.displayNumber ?? "Plan")
+        .navigationTitle(plan?.displayNumber ?? String(localized: "Plan"))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -67,16 +66,16 @@ struct PlanDetailView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         if showsChatActions, let target = PlanChatTarget(plan: plan) {
-                            Button { chatTarget = target } label: { Label(target.buttonTitle, systemImage: "bubble.left") }
+                            Button { chatTarget = target } label: { Label(target.buttonTitle, image: "lucide-message-circle") }
                         }
                         if plan.isCancellable {
                             Divider()
                             Button(role: .destructive) { confirmUnplan = true } label: {
-                                Label("Mark as unplanned", systemImage: "nosign")
+                                Label("Mark as unplanned", image: "lucide-ban")
                             }
                         }
                     } label: {
-                        Label("Plan actions", systemImage: "ellipsis")
+                        Label("Plan actions", image: "lucide-ellipsis")
                     }
                 }
             }
@@ -111,7 +110,7 @@ struct PlanDetailView: View {
     }
 
     private func sectionTitle(_ title: LocalizedStringKey, systemImage: String, tint: Color = Theme.brandText) -> some View {
-        Label(title, systemImage: systemImage)
+        DesignLabel(title, systemImage: systemImage)
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(tint)
     }
@@ -130,11 +129,11 @@ struct PlanDetailView: View {
                     .lineLimit(1)
             }
             HStack(alignment: .top, spacing: 8) {
-                Image(systemName: "list.clipboard")
+                LucideIcon("clipboard-list")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.body)
                     .padding(.top, 2)
-                Text(plan.title.isEmpty ? "Untitled plan" : plan.title)
+                Text(plan.title.isEmpty ? String(localized: "Untitled plan") : plan.title)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.heading)
                     .textSelection(.enabled)
@@ -152,7 +151,7 @@ struct PlanDetailView: View {
                 }
                 if let createdAt = plan.createdAt {
                     if plans.member(plan.createdBy) != nil { Text("·") }
-                    Text(HistoryTime.format(createdAt) == "now" ? "just now" : "\(HistoryTime.format(createdAt)) ago")
+                    Text(HistoryTime.format(createdAt) == "now" ? String(localized: "just now") : String(localized: "\(HistoryTime.format(createdAt)) ago"))
                 }
             }
             .font(.system(size: 12))
@@ -161,8 +160,13 @@ struct PlanDetailView: View {
     }
 
     private func counts(_ plan: Plan) -> String {
-        var parts = ["\(plan.steps.count) step\(plan.steps.count == 1 ? "" : "s")", "\(plan.totalJobs) job\(plan.totalJobs == 1 ? "" : "s")"]
-        if plan.totalCommands > 0 { parts.append("\(plan.totalCommands) command\(plan.totalCommands == 1 ? "" : "s")") }
+        var parts = [
+            plan.steps.count == 1 ? String(localized: "1 step") : String(localized: "\(plan.steps.count) steps"),
+            plan.totalJobs == 1 ? String(localized: "1 job") : String(localized: "\(plan.totalJobs) jobs"),
+        ]
+        if plan.totalCommands > 0 {
+            parts.append(plan.totalCommands == 1 ? String(localized: "1 command") : String(localized: "\(plan.totalCommands) commands"))
+        }
         return parts.joined(separator: " · ")
     }
 
@@ -220,7 +224,7 @@ struct PlanDetailView: View {
                 Text("Mitigations").font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted)
                 ForEach(Array(plan.riskMitigations.enumerated()), id: \.offset) { _, m in
                     HStack(alignment: .top, spacing: 6) {
-                        Image(systemName: "shield").font(.system(size: 11)).foregroundStyle(Theme.muted).padding(.top, 2)
+                        LucideIcon("shield").font(.system(size: 11)).foregroundStyle(Theme.muted).padding(.top, 2)
                         Text(m).font(.system(size: 13)).foregroundStyle(Theme.body).textSelection(.enabled)
                     }
                 }
@@ -233,18 +237,20 @@ struct PlanDetailView: View {
             sectionTitle("Approval", systemImage: "checkmark.shield")
             if let p = plan.approvalProgress {
                 HStack(spacing: 10) {
-                    approvalChip("Requester", done: p.requesterApproved, required: p.requesterApprovalRequired)
-                    approvalChip("Team \(p.otherApprovals)/\(p.minimumOtherApprovals)", done: p.otherApprovals >= p.minimumOtherApprovals, required: p.minimumOtherApprovals > 0)
+                    approvalChip(String(localized: "Requester"), done: p.requesterApproved, required: p.requesterApprovalRequired)
+                    approvalChip(String(localized: "Team \(p.otherApprovals)/\(p.minimumOtherApprovals)"), done: p.otherApprovals >= p.minimumOtherApprovals, required: p.minimumOtherApprovals > 0)
                 }
                 if plan.status == "proposed" {
                     Text(p.remaining == 0
                          ? "Approval gate met."
-                         : "Waiting for \(p.remaining) more required approval\(p.remaining == 1 ? "" : "s").")
+                         : p.remaining == 1
+                         ? "Waiting for 1 more required approval."
+                         : "Waiting for \(p.remaining) more required approvals.")
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
                 }
             } else {
-                Text("\(plan.approvalCount) approval\(plan.approvalCount == 1 ? "" : "s") recorded.")
+                Text(plan.approvalCount == 1 ? "1 approval recorded." : "\(plan.approvalCount) approvals recorded.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.muted)
             }
@@ -252,7 +258,7 @@ struct PlanDetailView: View {
     }
 
     private func approvalChip(_ title: String, done: Bool, required: Bool) -> some View {
-        Label(title, systemImage: done ? "checkmark.circle.fill" : "circle")
+        DesignLabel(title, systemImage: done ? "checkmark.circle.fill" : "circle")
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(done ? Color.green : (required ? Theme.body : Theme.muted))
     }
@@ -276,7 +282,7 @@ struct PlanDetailView: View {
                     Button {
                         Task { await approve(plan) }
                     } label: {
-                        Label("Approve", systemImage: "checkmark")
+                        Label("Approve", image: "lucide-check")
                             .frame(maxWidth: .infinity)
                     }
                     .prominentButton()
@@ -286,7 +292,7 @@ struct PlanDetailView: View {
                     Button {
                         chatTarget = chat
                     } label: {
-                        Label(chat.buttonTitle, systemImage: "bubble.left")
+                        Label(chat.buttonTitle, image: "lucide-message-circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -313,7 +319,7 @@ struct PlanDetailView: View {
                 updated = try await plans.approve(plan)
             }
             if updated.status != "approved", updated.approvalCount == plan.approvalCount {
-                notice = "Your approval is already recorded on this plan."
+                notice = String(localized: "Your approval is already recorded on this plan.")
             }
         } catch {
             notice = error.localizedDescription
@@ -325,7 +331,7 @@ struct PlanDetailView: View {
             fetched = try await plans.fetch(planId, teamId: teamId)
             loadError = nil
         } catch {
-            if plan == nil { loadError = error.localizedDescription }
+            if plan == nil, !Task.isCancelled { loadError = error.localizedDescription }
         }
     }
 
@@ -385,7 +391,7 @@ private struct PlanStepDisclosure: View {
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 4)
                     if !step.jobs.isEmpty {
-                        Image(systemName: "chevron.right")
+                        LucideIcon("chevron-right")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Theme.muted)
                             .rotationEffect(.degrees(open ? 90 : 0))
@@ -438,11 +444,11 @@ private struct PlanStepDisclosure: View {
         case "running":
             ProgressView().controlSize(.small).frame(width: 20, height: 20)
         case "done":
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(.green).frame(width: 20, height: 20)
+            LucideIcon("circle-check").font(.system(size: 18)).foregroundStyle(Theme.success).frame(width: 20, height: 20)
         case "failed":
-            Image(systemName: "xmark.circle.fill").font(.system(size: 18)).foregroundStyle(.red).frame(width: 20, height: 20)
+            LucideIcon("circle-x").font(.system(size: 18)).foregroundStyle(.red).frame(width: 20, height: 20)
         case "partial":
-            Image(systemName: "circle.lefthalf.filled").font(.system(size: 18)).foregroundStyle(Theme.muted).frame(width: 20, height: 20)
+            LucideIcon("contrast").font(.system(size: 18)).foregroundStyle(Theme.muted).frame(width: 20, height: 20)
         default:
             Text("\(index)")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -456,9 +462,9 @@ private struct PlanStepDisclosure: View {
     private func commandIcon(_ status: String?) -> some View {
         switch status {
         case "running": ProgressView().controlSize(.mini).frame(width: 12)
-        case "done": Image(systemName: "checkmark.circle.fill").font(.system(size: 12)).foregroundStyle(.green)
-        case "failed": Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(.red)
-        default: Image(systemName: "circle").font(.system(size: 12)).foregroundStyle(Theme.muted)
+        case "done": LucideIcon("circle-check").font(.system(size: 12)).foregroundStyle(Theme.success)
+        case "failed": LucideIcon("circle-x").font(.system(size: 12)).foregroundStyle(.red)
+        default: LucideIcon("circle").font(.system(size: 12)).foregroundStyle(Theme.muted)
         }
     }
 }
@@ -481,4 +487,76 @@ struct PlanLinkSheet: View {
         }
         .presentationDetents([.large])
     }
+}
+
+/// "Continue in chat" / "Open in chat": the conversation a plan was
+/// proposed in. Legacy plans without one get no button, like the desktop.
+struct PlanChatTarget: Identifiable, Hashable {
+    let planId: String
+    let sessionId: String
+    let title: String
+    let buttonTitle: LocalizedStringKey
+
+    var id: String { planId + sessionId }
+
+    init?(plan: Plan) {
+        guard let sessionId = plan.sourceConversationId, !sessionId.isEmpty else { return nil }
+        planId = plan.id
+        self.sessionId = sessionId
+        title = plan.title
+        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in agent" : "Open agent"
+    }
+
+    static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id }
+    func hash(into hasher: inout Hasher) { hasher.combine(id) }
+}
+
+/// Owns the `ChatSession` for a plan's source conversation.
+struct PlanConversationView: View {
+    @Environment(AgentStore.self) private var store
+    let target: PlanChatTarget
+    @State private var session: ChatSession?
+
+    var body: some View {
+        Group {
+            if let session {
+                ConversationView(session: session, sourcePage: "plan")
+                    .readWhileShown(session)
+            } else {
+                Theme.canvas
+            }
+        }
+        .onAppear {
+            guard session == nil else { return }
+            session = store.session(sessionId: target.sessionId, title: target.title)
+        }
+    }
+}
+
+/// Reads and polls a conversation pushed from a plan while it is shown and
+/// the app active.
+private struct ReadWhileShown: ViewModifier {
+    let session: ChatSession
+    @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var reader = UUID()
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { shown = true; update() }
+            .onDisappear { shown = false; update() }
+            .onChange(of: scenePhase) { _, _ in update() }
+    }
+
+    private func update() {
+        let open = shown && scenePhase == .active
+        store.unread.setReading(open, reader: reader, team: session.teamId, session: session.sessionId)
+        if open { store.follow(session) } else { store.unfollow(session) }
+    }
+}
+
+private extension View {
+    /// Read and followed while on screen and the app active.
+    func readWhileShown(_ session: ChatSession) -> some View { modifier(ReadWhileShown(session: session)) }
 }

@@ -10,12 +10,8 @@ describe('agent-sessions runtime mounts', () => {
     expect(source).toContain("teamScoped.post('/mcp', ")
     expect(source).toContain("teamScoped.post('/mcp-tools', ")
     expect(source).toContain("teamScoped.get('/mcp-tools', sseUnsupported)")
-    expect(source).toContain("teamScoped.route('/plans', previewPlans)")
     expect(source.indexOf("teamScoped.use('*', requireTeamMember())")).toBeLessThan(
       source.indexOf("teamScoped.post('/mcp-tools'"),
-    )
-    expect(source.indexOf("teamScoped.use('*', requireTeamMember())")).toBeLessThan(
-      source.indexOf("teamScoped.route('/plans'"),
     )
     expect(servers).toContain("name: 'nuphos-tools',")
     expect(servers).toContain(': `${mount}/mcp-tools`')

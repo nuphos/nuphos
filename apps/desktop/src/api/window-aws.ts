@@ -55,16 +55,7 @@ export type WindowAwsApi = {
     accountId: string,
     roleId?: string,
   ): Promise<AwsIamPermissions>
-  atlasListPermissionGrantProposals(teamId: string): Promise<PermissionGrantProposalView[]>
   atlasGetPermissionGrantProposal(teamId: string, id: string): Promise<PermissionGrantProposalView>
-  atlasApprovePermissionGrantProposal(
-    teamId: string,
-    id: string,
-  ): Promise<PermissionGrantProposalView>
-  atlasRejectPermissionGrantProposal(
-    teamId: string,
-    id: string,
-  ): Promise<PermissionGrantProposalView>
   atlasGetGcpIamPermissions(
     teamId: string,
     projectId: string,

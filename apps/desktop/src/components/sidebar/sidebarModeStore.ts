@@ -13,7 +13,7 @@ export function sidebarMode(teamId: string, fallback: SidebarPage): SidebarPage 
   try {
     const saved = localStorage.getItem(key(teamId))
 
-    if (saved === '0' || saved === '1') page = Number(saved) as SidebarPage
+    if (saved === '0' || saved === '1' || saved === '2') page = Number(saved) as SidebarPage
   } catch {
     /* Storage is optional. */
   }

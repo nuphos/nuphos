@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { t } from '../../i18n/index.ts'
+import { agentAvatarPick } from '../../lib/agentAvatarChoices.ts'
 import { archiveChat } from '../../lib/archiveChat'
 import { offerArchiveUndo } from '../../lib/archiveUndo'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
@@ -21,7 +22,10 @@ export function useArchiveSession({ sessionId, teamId, title }: ArchiveTarget) {
       announceChatArchived({ sessionId, teamId })
       offerArchiveUndo({ sessionId, teamId, title, ...(botSessionId ? { noun: 'bot' } : {}) })
     } catch (err) {
-      toast.apiError(t('Could not archive agent'), err)
+      toast.apiError(
+        agentAvatarPick(sessionId) ? t('Could not archive Bot') : t('Could not archive task'),
+        err,
+      )
     } finally {
       setArchiving(false)
     }

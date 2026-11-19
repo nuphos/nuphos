@@ -121,6 +121,7 @@ export async function getConversationTranscriptForAgent(
     title: string
     createdAt: Date
     messageCount: number
+    instructions?: string
   }
   lines: string[]
   turnDiagnostics: Awaited<ReturnType<typeof transcriptTurnDiagnostics>>
@@ -158,6 +159,7 @@ export async function getConversationTranscriptForAgent(
       title: conversation.title,
       createdAt: conversation.createdAt,
       messageCount: conversation.messageCount,
+      instructions: conversation.instructions,
     },
     lines: page.map((message) =>
       compactTranscriptLine(message, { includeToolDetails: options.includeToolDetails }),

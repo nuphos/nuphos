@@ -21,6 +21,7 @@ enum NuphosAPI {
     enum Failure: LocalizedError {
         case unauthorized
         case http(Int, message: String?)
+        case mfaRequired(token: String)
     }
 
     /// Answers `/auth/me` for a token; set by each test.
@@ -36,11 +37,17 @@ enum AccountAPI {
 
     /// The token the email sign-in hands out.
     nonisolated(unsafe) static var signInToken = ""
+    /// Set, the email sign-in asks for this two-factor challenge instead.
+    nonisolated(unsafe) static var mfaChallenge: String?
 
     nonisolated(unsafe) static var consentReply: ((String) async throws -> Consent)?
 
     static func request<T: Decodable>(_ path: String, method: String = "GET", token: String? = nil, body: [String: Any]? = nil, upload: Data? = nil) async throws -> T {
         if path == "ai-consent", let consentReply { return try await consentReply(token ?? "") as! T }
+        if path == "email/verify-code", let mfaChallenge { throw NuphosAPI.Failure.mfaRequired(token: mfaChallenge) }
+        if path == "mfa/verify", body?["mfaToken"] as? String != mfaChallenge || body?["code"] as? String != "654321" {
+            throw NuphosAPI.Failure.http(401, message: "That code is not valid")
+        }
         let json: Any = path == "ai-consent"
             ? ["version": aiConsentVersion, "accepted": true]
             : ["token": signInToken, "user": ["id": "u-\(signInToken)"]]

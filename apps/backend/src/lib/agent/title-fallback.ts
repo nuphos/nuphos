@@ -45,3 +45,18 @@ export function fallbackTitle(message: string): string {
 
   return `${truncated}...`
 }
+
+/**
+ * Whether a task still has the name it got from its first message, so its own
+ * agent may name it: nobody renamed it, and no one (a Bot's maker, a thread's
+ * opener, the agent itself) gave it another title.
+ */
+export function isUnnamedTask(conversation: {
+  title?: string
+  firstMessage?: string
+  titleManuallySet?: boolean
+}): boolean {
+  const { title, firstMessage, titleManuallySet } = conversation
+
+  return !titleManuallySet && Boolean(firstMessage) && title === fallbackTitle(firstMessage ?? '')
+}

@@ -9,11 +9,15 @@ import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosPosthog } from '@/lib/test/doubles/byos-posthog'
 import { useByosPosthogOAuth } from '@/lib/test/doubles/byos-posthog-oauth'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
 
 import type { PosthogDiscovery } from '@/lib/byos/posthog'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { PosthogIntegrationBinding, PosthogPendingOAuth } from '@/models'
+
+// A new binding's default share reads the team; these tests run without one.
+useIdentity({ getTeamMembership: async () => null })
 
 const TEAM_ID = new ObjectId()
 const USER_ID = new ObjectId().toHexString()
@@ -314,8 +318,10 @@ describe('GET /posthog-app', () => {
       scopedTeams: [2],
       encryptedAccessToken: seal('pha_1'),
       encryptedRefreshToken: seal('phr_1'),
-      access: { memberAllowList: ['*'] },
+      // Private to whoever connected it until they share it.
+      access: { memberAllowList: [pushed.access?.ownerUserId] },
     })
+    expect(pushed.access?.ownerUserId).toBeString()
     expect(pushed.projects.map((project) => project.id)).toEqual([2, 3])
     expect(pending).toHaveLength(0)
   })
@@ -347,6 +353,28 @@ describe('GET /posthog-app', () => {
     expect(replaced.label).toBe('Product')
     expect(replaced.projects.map((project) => project.id)).toEqual([3])
     expect(replaced.encryptedAccessToken).toEqual(seal('pha_1'))
+  })
+
+  test("reconnecting another member's private binding replaces and revokes nothing", async () => {
+    const existing = storedBinding({
+      access: {
+        memberAllowList: ['someone-else'],
+        ownerUserId: 'someone-else',
+        updatedAt: new Date(),
+        updatedBy: 'someone-else',
+      },
+    })
+
+    stored = [existing]
+    await post('/team/start-oauth', {
+      label: 'ignored',
+      region: 'us',
+      integrationId: existing.id.toHexString(),
+    })
+    await app().request(`/posthog-app/callback?state=${pending[0]!._id}&code=c2`)
+
+    expect(updates).toHaveLength(0)
+    expect(revoked).toHaveLength(0)
   })
 
   test('re-authorizing replaces the grant atomically and revokes the old tokens', async () => {

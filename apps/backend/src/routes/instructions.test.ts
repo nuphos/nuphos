@@ -7,7 +7,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useModels } from '@/lib/test/doubles/models'
 import { createFakeInstructionsCollection } from '@/lib/test/fake-instructions-collection'
 
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
+import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { NuphosTeamRole } from '@/lib/identity'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
@@ -96,14 +96,28 @@ describe('instructions API', () => {
     expect(listing.canManageTeam).toBe(false)
   })
 
-  test('non-administrators cannot create, edit, or delete team instructions', async () => {
+  test('editors create, edit, and delete team instructions', async () => {
     const created = await create({ scope: 'team', title: 'Policy', content: 'Never drop tables.' })
     const { id } = (await created.json()) as { id: string }
 
     as('editor-user', 'EDITOR')
+    expect((await list()).canManageTeam).toBe(true)
+    expect((await create({ scope: 'team', title: 'Tone', content: 'Be brief.' })).status).toBe(201)
+    expect((await patch(id, { enabled: false })).status).toBe(200)
+    expect(collection.docs.find((doc) => doc.title === 'Policy')?.enabled).toBe(false)
+    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(204)
+    expect(collection.docs.map((doc) => doc.title)).toEqual(['Tone'])
+  })
+
+  test('viewers cannot create, edit, or delete team instructions', async () => {
+    const created = await create({ scope: 'team', title: 'Policy', content: 'Never drop tables.' })
+    const { id } = (await created.json()) as { id: string }
+
+    as('viewer-user', 'VIEWER')
     expect((await create({ scope: 'team', title: 'x', content: 'y' })).status).toBe(403)
     expect((await patch(id, { enabled: false })).status).toBe(403)
     expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403)
+    expect(collection.docs).toHaveLength(1)
     expect(collection.docs[0]?.enabled).toBe(true)
   })
 

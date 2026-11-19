@@ -1,140 +1,296 @@
-import clsx from 'clsx'
-import { useState } from 'react'
+import { X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
-import { api } from '../../api'
-import { parseConnectRequest } from '../../components/agent/panel/connectCardModel'
+import { MessageResponse } from '../../components/agent/MessageResponse'
+import { AnswerField } from '../../components/agent/panel/AnswerField'
+import {
+  parseChoiceRequest,
+  parseConnectRequest,
+} from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { DecisionTitle } from '../../components/agent/panel/DecisionTitle'
 import { botChatQuestion } from '../../components/channels/botChatQuestion'
 import { BotChatQuestion } from '../../components/channels/BotChatQuestions'
 import { useBotCredentials } from '../../components/channels/useBotCredentials'
-import { toast } from '../../components/ui/toast'
+import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
-import { refreshInputRequests } from '../../lib/inputRequestRefresh'
 
-import { markAsDone } from './inboxItems'
+import { AnswerFailure } from './AnswerFailure'
+import { KeyHint } from './KeyHint'
+import { QuestionSource } from './QuestionRail'
+import { SnoozeMenu } from './SnoozeMenu'
+import { useAnswerFailure } from './useInbox'
 
-import type { AgentInputRequest } from '../../api/agent-types'
+import type { DecisionAnswer } from '../../api/agent-chat-types'
+import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
+import type { ReactNode } from 'react'
+
+// An option button's look, which Snooze and Dismiss share.
+const OPTION = 'h-auto min-h-8 whitespace-normal py-1.5 text-left'
 
 /**
- * One open question, with what the agent wrote to decide it from. A choice, or
- * "Done." for a to-do, is sent as the reply to this question. A secret is the
- * secure card the conversation and a Bot's chat draw, which sends only where the
- * value was saved. An integration is the Connect card, which selects it in the
- * asking conversation's credentials, and that answers it, for whoever may change
- * them. "Other…" types the answer in the conversation's composer, which only
- * comes with the conversation.
+ * The Inbox's open question, read as a page: who asked and when, the question
+ * as its headline and what the agent wrote to decide it from. A choice is a row
+ * of buttons, or "Other…" to answer in words; the answer wakes the agent that
+ * asked, and no message is sent. Several questions at once, a secret or an
+ * integration keep the card the conversation draws: a secret sends only where
+ * its value was saved, and an integration is selected in the asking
+ * conversation's credentials, by whoever may change them. Snooze sets it aside
+ * until a time; Dismiss closes it, with a reason for the agent if one is given.
  */
 export function DecisionCard({
   teamId,
-  sessionId,
-  title,
+  conversation,
+  bot,
   request,
-  canManage,
-  showingConversation,
+  keys,
   onAnswer,
-  onShowConversation,
-  onReply,
-  onHideConversation,
-  onOpenConversation,
+  onSnooze,
+  onDismiss,
+  onOpenSource,
+  onOpenLink,
 }: {
   teamId: string
-  sessionId: string
-  title: string | undefined
+  conversation: AgentConversation
+  /** The Bot it works under, when a Bot's task asked: the Inbox lists it there. */
+  bot: AgentConversation | undefined
   request: AgentInputRequest
-  /** Whether the viewer may change the asking conversation's credentials. */
-  canManage: boolean
-  /** With the transcript shown below, the card takes less of the reader. */
-  showingConversation: boolean
-  onAnswer: (text: string) => void
-  onShowConversation: () => void
-  /** Opens the conversation with its composer answering this question. */
-  onReply: () => void
-  onHideConversation: () => void
-  onOpenConversation: () => void
+  /** Its keys are live: 1–9 choose, Esc closes "Other…". */
+  keys: boolean
+  onAnswer: (answer: DecisionAnswer) => void
+  onSnooze: (until: Date) => void
+  onDismiss: (reason: string) => void
+  onOpenSource: (source: AgentConversation) => void
+  /** Opens a link in the question's text, as the conversation does. */
+  onOpenLink: (href: string, beside: boolean) => boolean
 }) {
-  // Answers go through the conversation; the card itself only dismisses.
-  const [dismissing, setDismissing] = useState(false)
+  const { sessionId } = conversation
+  const source = bot ?? conversation
+  const canManage = Boolean(conversation.canManage) && !conversation.readOnly
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
-  // The card a Bot's chat and the transcript draw; what it can't answer is answered in the conversation.
-  const { answerable } = botChatQuestion(request, credentials !== undefined)
-
-  async function dismiss() {
-    setDismissing(true)
-    try {
-      await api.agentResolveDecision(sessionId, request.id, teamId, 'dismissed')
-      refreshInputRequests()
-    } catch (error) {
-      toast.apiError(t('Could not dismiss question'), error)
-    } finally {
-      setDismissing(false)
-    }
-  }
+  const { part, typed } = botChatQuestion(request)
+  const choice = parseChoiceRequest(part.input)
+  // A plain choice is answered on the page; anything else on its own card.
+  const plain =
+    choice !== null &&
+    !choice.multiSelect &&
+    !choice.questions?.length &&
+    (choice.options.length > 0 || typed)
+  const [other, setOther] = useState(false)
+  const [dismissing, setDismissing] = useState(false)
+  const [reason, setReason] = useState('')
+  // Snooze and Dismiss, as two more of the options' buttons.
+  const asides = (
+    <>
+      <SnoozeMenu className={OPTION} onSnooze={onSnooze} />
+      {!dismissing && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className={OPTION}
+          onClick={() => {
+            setOther(false)
+            setDismissing(true)
+          }}
+        >
+          <X aria-hidden className="size-3.5" />
+          {t('Dismiss')}
+        </Button>
+      )}
+    </>
+  )
 
   return (
-    <div
-      className={clsx(
-        'flex min-h-0 flex-col gap-3 overflow-y-auto px-6 pb-5 pt-4',
-        showingConversation ? 'max-h-[45%] shrink-0 border-b border-line-control/60' : 'flex-1',
-      )}
-    >
-      <div className="flex items-center gap-2 text-[12px] text-tertiary">
-        <span className="min-w-0 flex-1 truncate">{title || t('Untitled agent')}</span>
-        <button
-          type="button"
-          onClick={showingConversation ? onHideConversation : onShowConversation}
-          className="shrink-0 hover:text-main"
-        >
-          {showingConversation ? t('Hide conversation') : t('Show conversation')}
-        </button>
-        <button type="button" onClick={onOpenConversation} className="shrink-0 hover:text-main">
-          {t('Open agent conversation')}
-        </button>
-      </div>
-      <section>
-        <BotChatQuestion
-          request={{ sessionId, title: title ?? '', inputRequest: request }}
-          teamId={teamId}
-          credentials={credentials}
-          onAnswer={onAnswer}
-          onReply={onReply}
-          fullBody
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <article className="mx-auto flex w-full max-w-[640px] flex-col px-6 pb-10 pt-12">
+        <QuestionSource
+          conversation={source}
+          askedAt={request.askedAt}
+          updatedAt={request.updatedAt}
+          onOpen={() => onOpenSource(source)}
         />
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {markAsDone(request) && (
-            <button type="button" onClick={() => onAnswer('Done.')} className={primaryButton}>
-              {t('Mark as done')}
-            </button>
+        {plain ? (
+          <>
+            <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">
+              {request.question}
+            </DecisionTitle>
+            {choice.body && (
+              <MessageResponse
+                className="selectable mt-3 text-[13.5px] text-secondary"
+                streaming={false}
+                onLinkClick={onOpenLink}
+              >
+                {choice.body}
+              </MessageResponse>
+            )}
+            <ChoiceRow
+              requestId={request.id}
+              teamId={teamId}
+              options={choice.options}
+              typed={typed}
+              keys={keys}
+              other={other}
+              onOther={(open) => {
+                setOther(open)
+                if (open) setDismissing(false)
+              }}
+              onAnswer={onAnswer}
+            >
+              {asides}
+            </ChoiceRow>
+          </>
+        ) : (
+          <div className="mt-3 flex flex-col gap-3">
+            <BotChatQuestion
+              request={{ sessionId, title: conversation.title, inputRequest: request }}
+              teamId={teamId}
+              credentials={credentials}
+              onAnswer={(answer) => onAnswer(answer)}
+              onLinkClick={onOpenLink}
+              fullBody
+            />
+            {/* The conversation's own picker, as its composer has it: a personal
+                credential, or one of several, is chosen here. */}
+            {credentials && (
+              <div>
+                <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
+              </div>
+            )}
+            {/* Only its owner selects a conversation's credentials; anyone else answers there. */}
+            {connect && !canManage && (
+              <span className="text-[12px] text-tertiary">
+                {t('Only the owner of this conversation can connect this.')}
+              </span>
+            )}
+            <div className="flex flex-wrap items-center gap-2">{asides}</div>
+          </div>
+        )}
+        {dismissing && (
+          <div className="mt-4">
+            <AnswerField
+              text={reason}
+              onText={setReason}
+              onSend={onDismiss}
+              onClose={() => setDismissing(false)}
+              label={t('Reason (optional)')}
+              // The server takes a reason of up to 1,000 characters.
+              maxLength={1_000}
+              action={t('Dismiss')}
+              optional
+            />
+          </div>
+        )}
+        <footer className="mt-4 flex items-center gap-3 text-[11.5px] text-tertiary">
+          {other || dismissing ? (
+            <>
+              <KeyHint keys={['↵']} label={dismissing ? t('Dismiss') : t('Send')} />
+              <KeyHint keys={['esc']} label={t('Close')} />
+            </>
+          ) : (
+            <>
+              <KeyHint keys={['↑', '↓']} label={t('Navigate')} />
+              {plain && choice.options.length > 0 && (
+                <KeyHint
+                  keys={choice.options.slice(0, 2).map((_, index) => String(index + 1))}
+                  label={t('Choose')}
+                />
+              )}
+            </>
           )}
-          {/* The conversation's own picker, as its composer has it: a personal
-              credential, or one of several, is chosen here. */}
-          {credentials && (
-            <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
-          )}
-          {/* Only its owner selects a conversation's credentials; anyone else answers there. */}
-          {connect && !canManage && (
-            <span className="text-[12px] text-tertiary">
-              {t('Only the owner of this conversation can connect this.')}
-            </span>
-          )}
-          {!answerable && (
-            <button type="button" onClick={onShowConversation} className={primaryButton}>
-              {t('Answer in the conversation')}
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={dismissing}
-            onClick={() => void dismiss()}
-            className="ml-auto text-[11px] text-tertiary hover:text-main"
-          >
-            {dismissing ? t('Dismissing...') : t('Dismiss question')}
-          </button>
-        </div>
-      </section>
+        </footer>
+      </article>
     </div>
   )
 }
 
-const primaryButton =
-  'rounded-md border border-line-control px-3 py-1.5 text-[12px] text-main outline-none hover:bg-state-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:opacity-50'
+/**
+ * The options as a row of buttons, the first the likely answer, and "Other…"
+ * last, which opens a field to answer in words.
+ */
+function ChoiceRow({
+  requestId,
+  teamId,
+  options,
+  typed,
+  keys,
+  other,
+  onOther,
+  onAnswer,
+  children,
+}: {
+  requestId: string
+  teamId: string
+  options: string[]
+  /** It may be answered in words. */
+  typed: boolean
+  keys: boolean
+  other: boolean
+  onOther: (open: boolean) => void
+  onAnswer: (answer: DecisionAnswer) => void
+  /** Snooze and Dismiss, after the options and "Other…". */
+  children: ReactNode
+}) {
+  const failure = useAnswerFailure(requestId)
+  const [draft, setDraft] = useState('')
+
+  useEffect(() => {
+    if (!keys || other) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? ''))
+        return
+      const option = /^[1-9]$/.test(event.key) ? options[Number(event.key) - 1] : undefined
+
+      if (option === undefined) return
+      event.preventDefault()
+      onAnswer({ choices: [option] })
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [keys, other, options, onAnswer])
+
+  return (
+    <div className="mt-5 flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {options.map((option, index) => (
+          <Button
+            key={option}
+            variant={index === 0 ? 'primary' : 'secondary'}
+            size="sm"
+            className={OPTION}
+            onClick={() => onAnswer({ choices: [option] })}
+          >
+            {option}
+          </Button>
+        ))}
+        {typed && (
+          <Button
+            variant="secondary"
+            size="sm"
+            className={other ? `${OPTION} !bg-state-hover` : OPTION}
+            aria-expanded={other}
+            onClick={() => onOther(!other)}
+          >
+            {options.length > 0 ? t('Other…') : t('Reply…')}
+          </Button>
+        )}
+        {children}
+      </div>
+      {other && (
+        <AnswerField
+          text={draft}
+          onText={setDraft}
+          onSend={(text) => onAnswer({ text })}
+          onClose={() => onOther(false)}
+          voiceTeamId={teamId}
+        />
+      )}
+      {failure && <AnswerFailure message={failure} />}
+    </div>
+  )
+}

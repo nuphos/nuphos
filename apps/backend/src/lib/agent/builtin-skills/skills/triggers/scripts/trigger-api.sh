@@ -10,7 +10,8 @@ team_id=$1
 method=$2
 resource=${3-}
 body=${4-}
-[[ -z "$resource" || "$resource" == /* ]] || resource="/$resource"
+# A bare query ("?targetSessionId=...") stays on the collection path.
+[[ -z "$resource" || "$resource" == /* || "$resource" == \?* ]] || resource="/$resource"
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 request="$script_dir/../../_runtime/scripts/nuphos-api.sh"

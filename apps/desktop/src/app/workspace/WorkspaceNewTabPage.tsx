@@ -16,6 +16,7 @@ import { RUNTIME_TERMINAL_FILTER } from '../../views/TerminalView'
 
 import { browserAddressOption } from './browserAddressOption'
 import { NewTabEmptyState } from './NewTabEmptyState'
+import { browsableOptions, useNewTabFolds } from './newTabFolds'
 import { HistoryIcon, LauncherIcon, NewTabGroupSection, NewTabOptionRow } from './NewTabOptions'
 import { useSessionDesktopItems } from './useSessionDesktopItems'
 
@@ -36,7 +37,14 @@ type Props = {
   onOpenKey: (key: string, favoriteLabel: string | null, newTab: boolean) => void
 }
 
-type OptionGroup = { title: string; favorites?: boolean; options: NewTabOption[] }
+type OptionGroup = {
+  key: string
+  title: string
+  favorites?: boolean
+  /** Recent and Favorites start open; the rest fold until opened. */
+  defaultCollapsed?: boolean
+  options: NewTabOption[]
+}
 
 const RECENT_LIMIT = 6
 const sameTitle = (a: NewTabOption, b: NewTabOption) =>
@@ -60,6 +68,7 @@ export function WorkspaceNewTabPage({
   const { conversationId } = useWorkspaceTab()
   const history = useDockHistory(userId, teamId)
   const desktopItems = useSessionDesktopItems(teamId, conversationId)
+  const folds = useNewTabFolds(teamId)
 
   useEffect(() => {
     if (!focusSearch) return
@@ -71,10 +80,12 @@ export function WorkspaceNewTabPage({
     return () => window.cancelAnimationFrame(frame)
   }, [focusSearch])
 
-  const liveSections = useMemo<Section[]>(
+  const liveSections = useMemo<(Section & { key: string })[]>(
     () =>
       groupByConnectorCategory(rootIntegrations).map(({ category, items }) => ({
+        key: category.id,
         title: category.label,
+        defaultCollapsed: category.foldedAtRest,
         items,
       })),
     [rootIntegrations],
@@ -118,22 +129,34 @@ export function WorkspaceNewTabPage({
       item.onActivate ? item.onActivate(newTab) : onOpenKey(item.key, null, newTab),
   })
   const itemOptions = (items: Item[]) => items.filter((item) => item.enabled).map(itemOption)
-  const historyOption = (entry: DockHistoryEntry): NewTabOption => ({
+  const historyOption = (entry: DockHistoryEntry, searchLabel?: string): NewTabOption => ({
     id: `history:${entry.href}`,
     label: entry.title,
-    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? t('Recent'),
+    detail: new URLSearchParams(entry.href.split('?')[1]).get('url') ?? searchLabel,
     icon: <HistoryIcon />,
     fallbackMatch: true,
     frecency: frecency(entry, now),
     open: (newTab) => onOpenPath?.(entry.href, entry.title, newTab),
   })
-  const recent = searchDockHistory(history, '', now).map(historyOption)
+  const recent = searchDockHistory(history, '', now).map((entry) => historyOption(entry))
   const groups: OptionGroup[] = [
-    { title: t('Recent'), options: recent.slice(0, RECENT_LIMIT) },
-    { title: t('Favorites'), favorites: true, options: itemOptions(favoriteItems) },
-    { title: t('Workspace'), options: itemOptions([...workspaceItems, ...desktopItems]) },
+    { key: 'recent', title: t('Recent'), options: recent.slice(0, RECENT_LIMIT) },
+    {
+      key: 'favorites',
+      title: t('Favorites'),
+      favorites: true,
+      options: itemOptions(favoriteItems),
+    },
+    {
+      key: 'workspace',
+      title: t('Workspace'),
+      defaultCollapsed: true,
+      options: itemOptions([...workspaceItems, ...desktopItems]),
+    },
     ...liveSections.map((section) => ({
+      key: `connectors:${section.key}`,
       title: section.title ?? '',
+      defaultCollapsed: section.defaultCollapsed,
       options: itemOptions(section.items),
     })),
   ]
@@ -151,7 +174,7 @@ export function WorkspaceNewTabPage({
               frecency: recent.find((entry) => sameTitle(entry, option))?.frecency,
             })),
             ...searchDockHistory(history, query, now)
-              .map(historyOption)
+              .map((entry) => historyOption(entry, t('Recent')))
               .filter((entry) => !launcherOptions.some((option) => sameTitle(entry, option))),
           ],
           query,
@@ -159,7 +182,7 @@ export function WorkspaceNewTabPage({
         addressOption,
         query,
       )
-    : groups.flatMap((group) => group.options)
+    : browsableOptions(groups, folds.isCollapsed)
   const active = Math.min(activeIndex, options.length - 1)
   const visibleGroups = groups.filter((group) => group.options.length > 0)
   const noConnectors = !searching && liveSections.length === 0
@@ -237,14 +260,21 @@ export function WorkspaceNewTabPage({
             ) : (
               visibleGroups.map((group) => {
                 const start = groupStart
+                const collapsed = folds.isCollapsed(group)
 
-                groupStart += group.options.length
+                if (!collapsed) groupStart += group.options.length
 
                 return (
                   <NewTabGroupSection
-                    key={group.title}
+                    key={group.key}
                     title={group.title}
                     favorites={group.favorites}
+                    count={group.options.length}
+                    collapsed={collapsed}
+                    onToggle={() => {
+                      folds.toggle(group)
+                      setActiveIndex(0)
+                    }}
                   >
                     {group.options.map((option, offset) =>
                       renderRow(option, start + offset, group.favorites),

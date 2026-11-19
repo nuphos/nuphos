@@ -1,21 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
-import { api } from '../../api'
 import { t } from '../../i18n'
+import { useRuntimeMetricsQuery } from '../../lib/query/runtime'
 
 import { MetricChart, RangeSwitch } from './MetricChart'
 import { PanelHeading } from './RuntimePanel'
 import { reportedSeries } from './runtimePresentation'
 
 import type { RuntimeMetricKey } from './runtimePresentation'
-import type { RuntimeMetricSample } from '../../types/runtime'
 
 const WINDOWS = [
   { hours: 1, label: t('1h') },
   { hours: 6, label: t('6h') },
   { hours: 24, label: t('24h') },
 ] as const
-const POLL_MS = 30_000
 
 function gibibytes(value: number): string {
   return `${(value / 2 ** 30).toFixed(value < 10 * 2 ** 30 ? 1 : 0)} GiB`
@@ -32,7 +30,7 @@ const METRICS: {
   { key: 'cpuMillicores', title: 'CPU', format: (v) => `${v.toFixed(v < 10 ? 1 : 0)}m` },
   { key: 'memoryBytes', title: t('Memory'), format: (v) => `${(v / 2 ** 20).toFixed(0)} MiB` },
   { key: 'diskUsedBytes', title: t('Disk'), format: gibibytes, capacityKey: 'diskTotalBytes' },
-  { key: 'sessions', title: t('Agents'), format: (v) => String(Math.round(v)) },
+  { key: 'sessions', title: t('Bots and tasks'), format: (v) => String(Math.round(v)) },
 ]
 
 function timeLabel(at: number | string): string {
@@ -44,31 +42,7 @@ function timeLabel(at: number | string): string {
  *  reported something: an older runtime image may predate usage reporting. */
 export function RuntimeMetricsCharts({ teamId, runtimeId }: { teamId: string; runtimeId: string }) {
   const [hours, setHours] = useState<(typeof WINDOWS)[number]['hours']>(1)
-  const [samples, setSamples] = useState<RuntimeMetricSample[] | null>(null)
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    const load = () =>
-      void api.atlasGetRuntimeInstanceMetrics(teamId, runtimeId, hours).then(
-        (metrics) => {
-          if (cancelled) return
-          setSamples(metrics.samples)
-          setFailed(false)
-        },
-        () => {
-          if (!cancelled) setFailed(true)
-        },
-      )
-
-    load()
-    const timer = setInterval(load, POLL_MS)
-
-    return () => {
-      cancelled = true
-      clearInterval(timer)
-    }
-  }, [teamId, runtimeId, hours])
+  const { data: samples, isError: failed } = useRuntimeMetricsQuery(teamId, runtimeId, hours)
 
   const first = samples?.[0]
   const last = samples?.at(-1)

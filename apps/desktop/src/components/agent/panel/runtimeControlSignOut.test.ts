@@ -7,6 +7,7 @@ import {
   runtimeGone,
   selectedAgentName,
   selectedAgentReachability,
+  shouldSwitchAgent,
 } from './runtimeControlSignOut.ts'
 
 import type { RuntimeControl } from './RuntimeSelector'
@@ -123,6 +124,19 @@ test('sending sets up an agent only when the team surely has none to run', () =>
   assert.equal(noAgentToRun([], false, 'offline'), false)
 })
 
+test('an agent gone from someone’s computer says the computer may no longer be shared', () => {
+  const gone: RuntimeControl = {
+    value: { id: 'local_maya_mac-1', provider: 'claude-code', label: 'Claude Code in Maya’s Mac' },
+    options: [],
+    unavailable: true,
+  }
+
+  assert.equal(
+    runtimeControlSendBlock(gone),
+    'Claude Code in Maya’s Mac is no longer available. It was removed, or its computer is no longer shared with you.',
+  )
+})
+
 test("a conversation whose agent is gone can't send, and says why", () => {
   const gone: RuntimeControl = {
     value: { id: 'rt-removed', provider: 'claude-code', label: 'Build agent' },
@@ -139,5 +153,25 @@ test("a conversation whose agent is gone can't send, and says why", () => {
   assert.equal(
     runtimeGone({ ...gone, value: { provider: 'claude-code', label: 'Claude Code' } }),
     false,
+  )
+})
+
+test('a conversation on an offline computer offers another runtime to whoever may move it', () => {
+  const offline = control({ online: false })
+
+  assert.equal(shouldSwitchAgent(offline), true)
+  // Someone who cannot move the conversation has nothing to switch to.
+  assert.equal(shouldSwitchAgent({ ...offline, onSelect: undefined }), false)
+  // Online, or only signed out: its own fix stays.
+  assert.equal(shouldSwitchAgent(control({ online: true })), false)
+  assert.equal(shouldSwitchAgent(control({ online: true, signedIn: false })), false)
+  // A gone agent already offered it.
+  assert.equal(
+    shouldSwitchAgent({
+      value: { id: 'rt-removed', provider: 'claude-code', label: 'Build agent' },
+      options: [],
+      unavailable: true,
+    }),
+    true,
   )
 })

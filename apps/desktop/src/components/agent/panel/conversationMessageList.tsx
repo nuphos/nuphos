@@ -12,7 +12,7 @@ import {
 import { conversationActivity } from './activity'
 import { AssistantMessage } from './AssistantMessage'
 import { toolAnchorIds } from './chatTarget'
-import { DecisionAnswersContext, decisionAnswers } from './decisionAnswers'
+import { DecisionCardsProvider } from './DecisionCardsProvider'
 import { AgentHomeAnimation } from './homeAnimation'
 import { OpenQuestionCards } from './OpenQuestionCards'
 import { CollapsedWorkView, LoadingText } from './partChrome'
@@ -143,8 +143,8 @@ function MessageList({
   )
 
   return (
-    // Match the composer's column and inner padding so messages stay inside its edges.
-    <div className="mx-auto w-full max-w-[760px] space-y-4 px-3">
+    // The composer's inner padding, so messages stay inside its edges.
+    <div className="flex flex-col gap-4 px-3">
       {hasEarlier && (
         <div
           // Read by SessionFindBar: part of the conversation is not in the DOM.
@@ -194,7 +194,7 @@ function MessageList({
               <div
                 key={m.id}
                 data-message-id={m.id}
-                className="transition-shadow"
+                className="mt-4 transition-shadow first:mt-0" // A new turn: the room goes above it.
                 style={wrapperStyle}
               >
                 <UserMessage
@@ -222,6 +222,8 @@ function MessageList({
                   key={`${event.at}-${event.text}`}
                   event={event}
                   reveal={Date.parse(event.at) > openedAt}
+                  teamId={teamId}
+                  onOpenNuphosLink={onOpenNuphosLink}
                 />
               ))}
               {activity.before.has(m.id) && (
@@ -250,6 +252,8 @@ function MessageList({
           key={`${event.at}-${event.text}`}
           event={event}
           reveal={Date.parse(event.at) > openedAt}
+          teamId={teamId}
+          onOpenNuphosLink={onOpenNuphosLink}
         />
       ))}
       <OpenQuestionCards tab={tab} now={now} />
@@ -286,11 +290,9 @@ function MessageList({
 
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
-  const answers = useMemo(() => decisionAnswers(props.tab.messages), [props.tab.messages])
-
   return (
-    <DecisionAnswersContext.Provider value={answers}>
+    <DecisionCardsProvider messages={props.tab.messages} waiting={props.tab.waitingAnswers}>
       <MessageList {...props} />
-    </DecisionAnswersContext.Provider>
+    </DecisionCardsProvider>
   )
 }

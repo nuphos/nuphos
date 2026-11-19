@@ -4,12 +4,11 @@ import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 import type { SessionResource } from '../session-resources'
 import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
-import type { ConversationInputRequests } from './pending-decision'
+import type { ConversationTaskState } from '../task-state'
 import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
-import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
+import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
-import type { AgentSessionOrigin } from '@/lib/agent/tools-triggers-shared'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
@@ -29,15 +28,8 @@ export type ConversationPreviewAttachment = {
   runtimeUrl: string
 }
 
-/**
- * The attachment as the runtime sees it. A legacy `forceNew` marker names a
- * session id the runtime never issued — moves used to mint one — so it means
- * "no session here". Every reader that would hand the id to a runtime must go
- * through this, or it gets a 500 on a conversation that is merely unstarted.
- *
- * No migration clears the marker: normalizing here is what makes it harmless,
- * and the next prompt overwrites the whole attachment anyway.
- */
+// Legacy forceNew attachments name sessions the runtime never issued.
+// Normalize them for every reader; the next prompt replaces the attachment.
 export function liveAttachment(
   conversation: Pick<AgentConversation, 'claudeCodePreview'> | null | undefined,
 ): ConversationPreviewAttachment | null {
@@ -58,11 +50,12 @@ export type ConversationPreviewContext = {
   activeTurnOrigin?: AgentSessionOrigin
   /** Whether that turn's client declared it can run local (Desktop) tools. */
   localTools?: boolean
+  secretCard?: boolean
   /** The runtime's guess at the next user prompt; '' while the ended turn awaits one. */
   promptSuggestion?: string
 }
 
-export type AgentConversation = ConversationInputRequests & {
+export type AgentConversation = ConversationTaskState & {
   _id?: ObjectId
   sessionId: string // Frontend-generated UUID
   userId: string // Nuphos user id
@@ -140,6 +133,8 @@ export type AgentConversation = ConversationInputRequests & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
+  /** `started` is the legacy one-time introduction, not an active setup lifecycle. */
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   metadata?: {
     locale?: string
     provider?: string

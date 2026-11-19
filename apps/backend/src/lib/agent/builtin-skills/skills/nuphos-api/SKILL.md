@@ -16,7 +16,7 @@ Skills have no agent REST route: list them with the `nuphos-tools` MCP tool `ski
 When writing a final answer that mentions a concrete Nuphos resource and the user would benefit from opening it in the desktop UI, search the GUI route catalog instead of guessing the URL:
 
 ```bash
-rg -i "s3|bucket|ec2|grafana|pod|deployment|github|plan" skills/nuphos-api/references/gui-routes.md
+rg -i "s3|bucket|ec2|grafana|pod|deployment|github" skills/nuphos-api/references/gui-routes.md
 ```
 
 Use the matching route template from `skills/nuphos-api/references/gui-routes.md` only when you have every required id listed on that row. If the catalog has no matching route or an id is missing, do not invent a Nuphos URL.
@@ -40,13 +40,13 @@ bash skills/nuphos-api/scripts/openapi.sh --path cloud-run-services
 bash skills/nuphos-api/scripts/openapi.sh --path credentials
 
 # Print one operation with parameters, requestBody, and responses.
-bash skills/nuphos-api/scripts/openapi.sh --operation plans.create
+bash skills/nuphos-api/scripts/openapi.sh --operation agentSessions.get
 
 # Save and print the full OpenAPI JSON.
 bash skills/nuphos-api/scripts/openapi.sh --raw
 
 # Reuse the cached schema when the API is temporarily unreachable.
-bash skills/nuphos-api/scripts/openapi.sh --no-refresh --path plans
+bash skills/nuphos-api/scripts/openapi.sh --no-refresh --path clusters
 ```
 
 The script fetches `${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/openapi.json`, caches it at `/tmp/nuphos-openapi.json`, and prints a compact summary by default so the agent can inspect the live contract without reading a huge JSON blob in every turn. If refresh fails but a cache exists, it falls back to the cached schema.
@@ -90,7 +90,7 @@ In a conversation principal (`NUPHOS_SESSION_ID` set) the allow-list is the
 whole story: admin-only routes, `GET /teams/:teamId` itself, and every route
 that creates, edits, or removes a cloud/integration binding are denied no
 matter what role the signed-in user holds. Checking the role proves nothing —
-there is no token or plan approval that turns them on.
+there is no token or approval that turns them on.
 
 So on `403 conversation_api_forbidden`, do not report it as missing permissions
 and do not ask for the API to be opened. Say plainly that agents cannot perform
@@ -110,7 +110,7 @@ If the work requires external credentials or capabilities outside Nuphos API acc
 1. For a Nuphos API task, fetch the latest OpenAPI schema with `scripts/openapi.sh`. For provider credential setup or a provider-specific workflow, load that provider skill and use its semantic scripts instead.
 2. Pick the matching operation from the live schema.
 3. Use `ac` to call the endpoint with `$NUPHOS_TOKEN`.
-4. For mutations, create a plan first instead of executing immediately.
+4. For a destructive or high-risk mutation, ask for approval with `request_user_decision` (category `approval`) before executing it.
 5. For read-only questions, call the API directly and summarize the result.
 
 The sandbox has `jq`; use it for JSON formatting and filtering instead of

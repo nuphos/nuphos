@@ -1,6 +1,7 @@
 import type {
   AgentDeviceListOptions,
   BoxAccess,
+  CliLoginProvider,
   LocalAgentProvider,
   LocalRuntimeState,
   LocalShareInput,
@@ -16,6 +17,10 @@ export const deviceApi = {
   deviceListAudit: (before?: string) => window.api.deviceListAudit(before),
   localRuntimeApplyApiKey: (provider: 'claude-code' | 'codex', key: string | null) =>
     window.api.localRuntimeApplyApiKey(provider, key),
+  localRuntimeSetCustomProvider: (
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+  ) => window.api.localRuntimeSetCustomProvider(provider, value),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
@@ -28,6 +33,7 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
+  localRuntimeRefreshModels: () => window.api.localRuntimeRefreshModels(),
   localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>
     window.api.localRuntimeUpdateAgent(provider),
   localRuntimeInstallAgent: (provider: LocalAgentProvider) =>
@@ -53,6 +59,9 @@ export const deviceApi = {
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    window.api.deviceAppUpdate(deviceId, teamId),
+  boxClearCaches: (deviceId: string, teamId: string) => window.api.boxClearCaches(deviceId, teamId),
   boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),
@@ -76,6 +85,8 @@ export const deviceApi = {
   boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
     window.api.boxSetAccess(deviceId, teamId, access),
   localShareGet: (deviceId: string, teamId: string) => window.api.localShareGet(deviceId, teamId),
+  deviceAccessHistory: (deviceId: string, teamId: string, before?: string) =>
+    window.api.deviceAccessHistory(deviceId, teamId, before),
   localShareSet: (deviceId: string, teamId: string, input: LocalShareInput) =>
     window.api.localShareSet(deviceId, teamId, input),
   localShareApprovals: (teamId: string) => window.api.localShareApprovals(teamId),
@@ -88,6 +99,8 @@ export const deviceApi = {
     window.api.localShareUntrust(deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     window.api.localShareNotify(approvalId, teamId, title, body),
+  computerNotifyShared: (key: string, teamId: string, title: string, body: string) =>
+    window.api.computerNotifyShared(key, teamId, title, body),
   runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
     window.api.runtimeSignInAsk(teamId, runtimeId, sessionId),
   runtimeSignInSettle: (teamId: string, runtimeId: string) =>

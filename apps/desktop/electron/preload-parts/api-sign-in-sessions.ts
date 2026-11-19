@@ -24,4 +24,9 @@ export const signInSessionsApi = {
   atlasNewMfaRecoveryCodes: (code: string) => ipcRenderer.invoke('atlas:newMfaRecoveryCodes', code),
   atlasDisableMfa: (code: string) => ipcRenderer.invoke('atlas:disableMfa', code),
   atlasReauthMfa: (code: string) => ipcRenderer.invoke('atlas:reauthMfa', code),
+  authMfaVerifyPasskey: (mfaToken: string) => ipcRenderer.invoke('auth:mfaVerifyPasskey', mfaToken),
+  atlasReauthWithPasskey: () => ipcRenderer.invoke('atlas:reauthWithPasskey'),
+  atlasAddPasskey: () => ipcRenderer.invoke('atlas:addPasskey'),
+  atlasRemovePasskey: (id: string, code: string) =>
+    ipcRenderer.invoke('atlas:removePasskey', id, code),
 }

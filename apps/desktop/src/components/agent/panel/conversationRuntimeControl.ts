@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { decideErrorToast } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices.ts'
 import { localAgentMoveWarning, moveNotice } from '../../../lib/localAgentSharing'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
@@ -16,6 +17,48 @@ import type { RuntimeInstance } from '../../../types/runtime'
 export function useConversationRuntimeControl(c: PanelViewCtx): {
   runtimeControl: RuntimeControl | undefined
 } {
+  return {
+    runtimeControl: useSessionRuntimeControl({
+      ...c,
+      update: (patch) =>
+        c.setTabs((previous) =>
+          previous.map((entry) => (entry.id === c.activeTab?.id ? { ...entry, ...patch } : entry)),
+        ),
+    }),
+  }
+}
+
+type RuntimeTab = Pick<
+  NonNullable<PanelViewCtx['activeTab']>,
+  | 'id'
+  | 'sessionId'
+  | 'agentRuntime'
+  | 'runtimeId'
+  | 'runtimeLabel'
+  | 'movingTo'
+  | 'readOnly'
+  | 'foreign'
+  | 'streaming'
+  | 'timelineEvents'
+>
+type SessionRuntimeContext = Pick<
+  PanelViewCtx,
+  | 'teamId'
+  | 'isTeamAdmin'
+  | 'runtimeInstances'
+  | 'runtimeInstancesLoading'
+  | 'runtimeInstancesError'
+  | 'runtimeQuotas'
+  | 'onOpenAgentSettings'
+  | 'currentUser'
+  | 'refreshHistory'
+> & {
+  activeTab: RuntimeTab | null
+  update: (patch: Partial<RuntimeTab>) => void
+}
+
+/** Shared move flow for a Task and its Bot chat, including host-trust confirmation. */
+export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeControl | undefined {
   const {
     activeTab: tab,
     teamId,
@@ -25,25 +68,21 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     runtimeInstancesError,
     runtimeQuotas,
     onOpenAgentSettings,
+    refreshHistory,
+    update: setTab,
   } = c
   const sessionId = tab?.sessionId
   const tabId = tab?.id
   const provider = tab?.agentRuntime ?? 'claude-code'
   const moving = Boolean(tab?.movingTo)
-  const { setTabs, refreshHistory } = c
-  const setTab = useCallback(
-    (patch: Partial<NonNullable<typeof tab>>) =>
-      setTabs((previous) =>
-        previous.map((entry) => (entry.id === tabId ? { ...entry, ...patch } : entry)),
-      ),
-    [setTabs, tabId],
-  )
+  const moveInFlight = useRef(false)
 
   const move = useCallback(
     async (runtimeId: string, grantComputerUse?: boolean) => {
       const target = runtimeInstances.find((instance) => instance.id === runtimeId)
+      const bot = Boolean(sessionId && agentAvatarPick(sessionId))
 
-      if (moving) return
+      if (moving || moveInFlight.current) return
       if (!sessionId || !tabId || !teamId || !target) {
         console.warn('[agent] conversation move skipped', {
           sessionId,
@@ -52,12 +91,16 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
           runtimeId,
           found: Boolean(target),
         })
-        toast.error(t('Could not move this agent'), t('This agent is not ready to move.'))
+        toast.error(
+          bot ? t('Could not move this Bot') : t('Could not move this task'),
+          bot ? t('This Bot is not ready to move.') : t('This task is not ready to move.'),
+        )
 
         return
       }
       // The timeline shows a pending line from here until the move's own event
       // replaces it, so the result needs no toast of its own.
+      moveInFlight.current = true
       setTab({ movingTo: target.label })
       try {
         const result = await api.agentMoveConversationRuntime(
@@ -85,13 +128,15 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         setTab({ movingTo: undefined })
         console.warn('[agent] conversation move failed', cause)
         if (decideErrorToast(cause).action === 'show') {
-          toast.apiError(t('Could not move this agent'), cause)
+          toast.apiError(bot ? t('Could not move this Bot') : t('Could not move this task'), cause)
         } else {
           toast.error(
-            t('Could not move this agent'),
+            bot ? t('Could not move this Bot') : t('Could not move this task'),
             t('The runtime did not accept the move. Check your connection and try again.'),
           )
         }
+      } finally {
+        moveInFlight.current = false
       }
     },
     [moving, refreshHistory, runtimeInstances, sessionId, setTab, tabId, teamId],
@@ -107,8 +152,9 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
 
   const runtimeControl = useMemo<RuntimeControl | undefined>(() => {
     if (!sessionId || !teamId || tab?.readOnly) return
-    // A teammate's conversation you cannot manage: its agent's state and fixes, nothing to pick.
-    const canMove = !tab?.foreign || tab.canManage
+    // A teammate's conversation: its agent's state and fixes, nothing to pick, as only its
+    // owner can move it.
+    const canMove = !tab?.foreign
     const current = runtimeInstances.find((instance) => instance.id === tab?.runtimeId)
 
     return {
@@ -121,11 +167,7 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
         label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
         status: current?.status,
       },
-      // Only the owner puts a session on a local or self-hosted agent.
-      options:
-        tab?.foreign && canMove
-          ? runtimeInstances.filter((instance) => instance.kind === 'managed')
-          : runtimeInstances,
+      options: runtimeInstances,
       ...(canMove && {
         onSelect: (runtimeId: string, access) => {
           const target = runtimeInstances.find((instance) => instance.id === runtimeId)
@@ -190,5 +232,5 @@ export function useConversationRuntimeControl(c: PanelViewCtx): {
     onOpenAgentSettings,
   ])
 
-  return { runtimeControl }
+  return runtimeControl
 }

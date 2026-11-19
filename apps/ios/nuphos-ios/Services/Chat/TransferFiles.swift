@@ -44,14 +44,18 @@ enum TransferFiles {
         try? FileManager.default.removeItem(at: root)
     }
 
-    private static func path(_ file: TransferDownloadGroup.File, _ root: URL) -> URL {
+    /// Where `file`'s copy lives, whether or not it has been fetched yet.
+    static func path(_ file: TransferDownloadGroup.File, _ root: URL = defaultRoot) -> URL {
         root.appending(path: file.id).appending(path: file.fileName.replacingOccurrences(of: "/", with: "_"))
     }
 
     private static func download(_ file: TransferDownloadGroup.File, from remote: URL, root: URL, session: URLSession) async throws -> URL {
         let local = path(file, root)
         let (temp, response) = try await session.download(from: remote)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
+        // Only a preview fixture's file link answers without an HTTP status.
+        guard (response as? HTTPURLResponse).map({ (200..<300).contains($0.statusCode) }) ?? remote.isFileURL else {
+            throw URLError(.badServerResponse)
+        }
         try FileManager.default.createDirectory(at: local.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? FileManager.default.removeItem(at: local)
         try FileManager.default.moveItem(at: temp, to: local)

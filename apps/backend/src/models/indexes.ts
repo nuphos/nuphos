@@ -2,6 +2,7 @@ import { MongoServerError } from 'mongodb'
 
 import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
 import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
+import { setupDeviceAccessAuditIndexes } from '@/lib/agent/devices/access-audit'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDeviceGrantIndexes } from '@/lib/agent/devices/device-grants'
@@ -20,9 +21,7 @@ import { setupPlanIndexes } from '@/lib/agent/plans'
 import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
-import { setupTriggerGroupIndexes } from '@/lib/agent/trigger-group-db'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
-import { setupHostedRuntimeSlotIndexes } from '@/lib/claude-code-preview/runtime-instances'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { setupRuntimeQuotaHistoryIndexes } from '@/lib/claude-code-preview/runtime-quota-history'
@@ -43,14 +42,12 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
-import { setupSlackNotificationIncidentIndexes } from '@/lib/slack/incident-notifications'
-import { setupSlackIncidentOccurrenceIndexes } from '@/lib/slack/incident-occurrences'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
   teamHomeLayouts,
   teamInvitations,
-  userTeamRuntimeFallbacks,
+  teamRuntimeFallbacks,
   userTeamSidebarFavorites,
 } from '@/models/team'
 
@@ -91,7 +88,6 @@ export async function setupIndexes(): Promise<void> {
     ['mfa-challenges', setupMfaChallengeIndexes],
     ['device-login', setupDeviceLoginIndexes],
     ['runtime-login', setupRuntimeLoginIndexes],
-    ['hosted-runtime-slots', setupHostedRuntimeSlotIndexes],
     ['runtime-metrics', setupRuntimeMetricIndexes],
     ['runtime-quota-history', setupRuntimeQuotaHistoryIndexes],
     ['box-usage-history', setupBoxUsageHistoryIndexes],
@@ -101,13 +97,10 @@ export async function setupIndexes(): Promise<void> {
     ['token-usage', setupTokenUsageIndexes],
     ['directory', setupDirectoryIndexes],
     ['triggers', setupTriggerIndexes],
-    ['trigger-groups', setupTriggerGroupIndexes],
     ['plans', setupPlanIndexes],
     ['skill-metadata', setupSkillMetadataIndexes],
     ['auto-mode', setupAutoModeIndexes],
     ['slack-agent', setupSlackAgentIndexes],
-    ['slack-incident-occurrences', setupSlackIncidentOccurrenceIndexes],
-    ['slack-notification-incidents', setupSlackNotificationIncidentIndexes],
     ['discord', setupDiscordIndexes],
     ['lark-agent', setupLarkAgentIndexes],
     // Every registered memory provider's setup(), per-provider fail-soft: a
@@ -133,6 +126,7 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-share-orphans', dropOrphanedShareState],
     ['agent-device-join-tokens', setupDeviceJoinTokenIndexes],
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
+    ['agent-device-access-audit', setupDeviceAccessAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
     // Idempotent backfill, not an index; remove once every deployment ran it.
@@ -169,9 +163,9 @@ async function setupHomeLayoutIndexes(): Promise<void> {
 }
 
 async function setupRuntimeFallbackIndexes(): Promise<void> {
-  await userTeamRuntimeFallbacks().createIndex(
-    { teamId: 1, userId: 1 },
-    { unique: true, name: 'user_team_runtime_fallbacks_scope_unique' },
+  await teamRuntimeFallbacks().createIndex(
+    { teamId: 1, runtimeId: 1 },
+    { unique: true, name: 'team_runtime_fallbacks_runtime_unique' },
   )
 }
 

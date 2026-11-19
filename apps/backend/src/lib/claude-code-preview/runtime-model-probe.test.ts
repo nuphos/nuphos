@@ -67,3 +67,54 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('a runtime with effort but no model option reports its effort, not a failure', () => {
+  // Grok Build lists reasoning effort and no model picker. Failing the whole read
+  // here left the composer's picker with nothing to open.
+  const dir = mkdtempSync(join(tmpdir(), 'runtime-models-'))
+
+  try {
+    const adapter = join(dir, 'grok-acp')
+
+    writeFileSync(
+      adapter,
+      `#!/usr/bin/env node
+const readline = require('node:readline');
+readline.createInterface({ input: process.stdin }).on('line', line => {
+  const request = JSON.parse(line);
+  const result = request.method === 'initialize' ? {} : {
+    sessionId: 'disposable', configOptions: [
+      { id: 'reasoning_effort', category: 'thought_level', currentValue: 'high',
+        options: [{value:'high',name:'High'},{value:'low',name:'Low'}] }
+    ]
+  };
+  process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:request.id,result})+'\\n');
+});`,
+      { mode: 0o700 },
+    )
+    // grok's agent is an absolute path into the image, so the fake replaces it whole.
+    const program = RUNTIME_MODEL_PROBE.replaceAll("'/workspace'", JSON.stringify(dir)).replace(
+      "['node', '/opt/acp-shim.mjs', 'grok']",
+      JSON.stringify(['node', adapter]),
+    )
+    const runner = join(dir, 'runner.mjs')
+
+    writeFileSync(runner, program)
+    writeFileSync(join(dir, 'params.json'), JSON.stringify({ provider: 'grok' }))
+    const env = { ...process.env, PATH: `${dir}:${process.env.PATH}` }
+    const result = JSON.parse(
+      execFileSync('node', [runner, dir], { env, encoding: 'utf8', timeout: 5000 }),
+    )
+
+    // No models to pick, but the effort it advertises is kept for the composer.
+    expect(result.models).toEqual([])
+    expect(result.controlsOnly).toBe(true)
+    expect(result.defaultModel).toBe('')
+    expect(result.controls.default.effort.map((choice: { value: string }) => choice.value)).toEqual(
+      ['high', 'low'],
+    )
+    expect(result.controls.default.modelId).toBeUndefined()
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

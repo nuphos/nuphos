@@ -51,12 +51,6 @@ export type PermissionGrantProposalView = {
   decidedByUserId: string | null
 }
 
-export async function listPermissionGrantProposals(
-  teamId: string,
-): Promise<PermissionGrantProposalView[]> {
-  return call<PermissionGrantProposalView[]>('GET', `/teams/${teamId}/permission-grant-proposals`)
-}
-
 export async function getPermissionGrantProposal(
   teamId: string,
   id: string,
@@ -64,25 +58,5 @@ export async function getPermissionGrantProposal(
   return call<PermissionGrantProposalView>(
     'GET',
     `/teams/${teamId}/permission-grant-proposals/${id}`,
-  )
-}
-
-export async function approvePermissionGrantProposal(
-  teamId: string,
-  id: string,
-): Promise<PermissionGrantProposalView> {
-  return call<PermissionGrantProposalView>(
-    'POST',
-    `/teams/${teamId}/permission-grant-proposals/${id}/approve`,
-  )
-}
-
-export async function rejectPermissionGrantProposal(
-  teamId: string,
-  id: string,
-): Promise<PermissionGrantProposalView> {
-  return call<PermissionGrantProposalView>(
-    'POST',
-    `/teams/${teamId}/permission-grant-proposals/${id}/reject`,
   )
 }

@@ -107,7 +107,7 @@ test('each provider follows the newest release that published it', async () => {
   const originalFetch = globalThis.fetch
   const image = (version: string, provider: string) =>
     `ghcr.io/nuphos/runtime:${version}-${provider}`
-  const all = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode']
+  const all = ['claude-code', 'codex', 'grok', 'antigravity', 'opencode', 'dsh']
 
   globalThis.fetch = (async (_url: FetchInput) =>
     Response.json([
@@ -124,53 +124,9 @@ test('each provider follows the newest release that published it', async () => {
     expect((await latestRuntimeRelease('grok'))?.version).toBe('0.2.0')
     expect((await latestRuntimeRelease('antigravity'))?.version).toBe('0.2.0')
     expect((await latestRuntimeRelease('opencode'))?.version).toBe('0.2.0')
+    expect((await latestRuntimeRelease('dsh'))?.version).toBe('0.2.0')
   } finally {
     globalThis.fetch = originalFetch
     resetRuntimeReleaseCache()
-  }
-})
-
-test('in-flight update links resolve the target release across the publishing cutover', async () => {
-  const { runtimeReleaseUrl, RUNTIME_RELEASES_URL } = await import('./runtime-release')
-  const originalFetch = globalThis.fetch
-  const requests: string[] = []
-  let response = new Response(null, { status: 200 })
-
-  globalThis.fetch = (async (url: FetchInput) => {
-    requests.push(url instanceof Request ? url.url : String(url))
-
-    return response
-  }) as typeof fetch
-
-  try {
-    for (const url of [
-      'https://github.com/nuphos/nuphos/releases/tag/runtime-v0.2.0',
-      'https://github.com/zeabur/nuphos-runtime/releases/tag/v0.2.0',
-    ]) {
-      expect(await runtimeReleaseUrl('0.2.0', { version: '0.2.0', url, body: '' })).toBe(url)
-    }
-    expect(requests).toHaveLength(0)
-    expect(await runtimeReleaseUrl('0.1.11', null)).toBe(
-      'https://github.com/nuphos/nuphos/releases/tag/runtime-v0.1.11',
-    )
-    expect(requests.at(-1)).toEndWith('/releases/tags/runtime-v0.1.11')
-    await runtimeReleaseUrl('0.1.11', null)
-    expect(requests).toHaveLength(1)
-
-    response = new Response(null, { status: 404 })
-    expect(
-      await runtimeReleaseUrl('0.1.9', {
-        version: '0.2.0',
-        url: 'https://github.com/nuphos/nuphos/releases/tag/runtime-v0.2.0',
-        body: '',
-      }),
-    ).toBe('https://github.com/zeabur/nuphos-runtime/releases/tag/v0.1.9')
-
-    response = new Response(null, { status: 403 })
-    expect(await runtimeReleaseUrl('0.1.8', null)).toBe(RUNTIME_RELEASES_URL)
-    expect(await runtimeReleaseUrl('invalid', null)).toBe(RUNTIME_RELEASES_URL)
-    expect(RUNTIME_RELEASES_URL).not.toContain('?')
-  } finally {
-    globalThis.fetch = originalFetch
   }
 })

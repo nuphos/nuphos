@@ -421,7 +421,7 @@ describe('partitionCredentials', () => {
       expect(unselected.find((entry) => entry.provider === 'personal')).toMatchObject({
         id: provider,
         selected: false,
-        hint: expect.stringContaining('Standalone personal token access'),
+        hint: expect.stringContaining('adds no permissions'),
       })
       expect(selected.some((entry) => entry.provider === 'personal')).toBe(false)
     },

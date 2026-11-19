@@ -38,17 +38,18 @@ enum DockDestination: Equatable, Hashable, Sendable {
     /// A Browser tab with no page yet: the phone's browser, ready for an address.
     case newBrowser
     case desktop
-    case plans
     case runtimes
     case connectors
     case chat(sessionId: String)
-    /// Files, terminals, Architecture, Designs, Dashboards, Monitoring: Mac only for now. The
+    /// The Runtime terminal: a shell on the computer the conversation runs on, opened here.
+    case terminal
+    /// Files, the Mac's own terminal, Architecture, Designs, Dashboards, Monitoring: Mac only for now. The
     /// Mac opens `href` where there is one, else the page by its key.
     case onMac(page: String, href: String?)
 
     /// The Mac's workspace page keys the iPhone opens itself; the rest open on the Mac.
     private static let phonePages: [String: DockDestination] = [
-        "team.browser": .newBrowser, "team.desktop": .desktop, "team.plans": .plans,
+        "team.browser": .newBrowser, "team.desktop": .desktop,
         "team.runtimes": .runtimes, "team.integrations": .connectors,
     ]
 
@@ -60,6 +61,10 @@ enum DockDestination: Equatable, Hashable, Sendable {
         let page = kind ?? Self.page(ofPath: href)
         if page == "team.agent", let session = Self.segments(href).dropFirst(3).first {
             self = .chat(sessionId: session)
+            return
+        }
+        if page == "team.terminal", Self.segments(href).dropFirst(3).first == "runtime" {
+            self = .terminal
             return
         }
         self = Self.phonePages[page] ?? .onMac(page: page, href: href.isEmpty ? nil : href)
@@ -137,7 +142,6 @@ struct DockWorkspaceItem: Identifiable, Hashable, Sendable {
             .init(page: "team.files", title: "Files", systemImage: "folder"),
             .init(page: "team.terminal", title: "Local terminal", systemImage: "terminal"),
             .init(page: "team.terminal", title: "Runtime terminal", systemImage: "server.rack", path: "/teams/\(team)/terminal/runtime"),
-            .init(page: "team.plans", title: "Plans", systemImage: "list.bullet.clipboard"),
             .init(page: "team.architecture", title: "Architecture", systemImage: "point.3.connected.trianglepath.dotted"),
             .init(page: "team.designs", title: "Designs", systemImage: "paintpalette"),
             .init(page: "team.dashboards", title: "Dashboards", systemImage: "chart.xyaxis.line"),

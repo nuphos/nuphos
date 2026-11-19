@@ -1,19 +1,54 @@
 import type { Item, Section } from './types'
 
-/** Active work stays above the divider; only read, inactive tasks go below. */
-export function taskPageSections(items: Item[]): Section[] {
-  const tasks = items.filter((item) => item.task && !item.bot)
-  const ready = tasks
-    .filter((item) => item.taskState === 'attention')
-    .sort((a, b) => Number(b.dot === 'waiting') - Number(a.dot === 'waiting'))
-  const working = tasks.filter((item) => item.taskState === 'working')
-  const idle = tasks.filter(
-    (item) => item.taskState !== 'attention' && item.taskState !== 'working',
+function attention(items: Item[]): boolean {
+  return items.some(
+    (item) => item.unread || item.taskState === 'attention' || item.dot === 'waiting',
   )
-  const active = [...ready, ...working]
+}
+function latest(items: Item[]): number {
+  return Math.max(0, ...items.map((item) => Date.parse(item.lastActiveAt ?? '') || 0))
+}
 
+/** Keep each project or parent task with its descendants when grouping by status. */
+export function taskPageSections(items: Item[]): Section[] {
+  const rows = items.filter((item) => item.project || (item.task && !item.bot))
+  const byKey = new Map(rows.map((item) => [item.key, item]))
+  const groups = new Map<string, Item[]>()
+
+  for (const item of rows) {
+    let root = item
+    const seen = new Set([root.key])
+
+    while (root.parentKey && byKey.has(root.parentKey) && !seen.has(root.parentKey)) {
+      root = byKey.get(root.parentKey)!
+      seen.add(root.key)
+    }
+    const group = groups.get(root.key) ?? []
+
+    group.push(item)
+    groups.set(root.key, group)
+  }
+  const ordered = [...groups.values()].sort(
+    (a, b) =>
+      Number(b.some((item) => item.dot === 'waiting')) -
+        Number(a.some((item) => item.dot === 'waiting')) || latest(b) - latest(a),
+  )
+  const inbox = ordered.filter(attention).flat()
+  const read = ordered.filter((group) => !attention(group)).flat()
+
+  const firstRead = read.find((item) => !item.parentKey || !byKey.has(item.parentKey))?.key
+
+  // One keyed list lets a row cross the boundary without remounting or replaying its entrance.
   return [
-    { title: 'Tasks', items: active, compact: true },
-    ...(idle.length ? [{ items: idle, compact: true, separator: active.length > 0 }] : []),
+    {
+      title: 'Tasks',
+      compact: true,
+      items: [
+        ...inbox,
+        ...read.map((item) =>
+          inbox.length > 0 && item.key === firstRead ? { ...item, taskDivider: true } : item,
+        ),
+      ],
+    },
   ]
 }

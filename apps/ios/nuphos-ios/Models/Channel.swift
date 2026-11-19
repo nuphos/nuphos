@@ -6,6 +6,8 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     let title: String
     let ownerId: String
     var provider: String? = nil
+    /// Its face, which every member of the chat reads, whoever owns the Bot.
+    var avatar: String? = nil
     var id: String { sessionId }
 }
 
@@ -37,6 +39,8 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
     let replyTo: ChannelReply?
     /// Shown at once, before the chat returns it.
     var sending = false
+    /// The record an answer to an agent's question leaves here: a line from Nuphos, not a post.
+    var isRecord = false
 
     init(id: String, senderId: String, isAgent: Bool, name: String, avatar: URL? = nil, runtime: String? = nil,
          text: String, uploads: [TransferUpload] = [], downloads: [String] = [], sentAt: Date?,
@@ -56,13 +60,15 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
     }
 
     /// Nil for a message without a sender, with nothing to show, or not posted
-    /// by a person or an agent: a chat shows only their posts.
+    /// by a person or an agent: a chat shows only their posts, and the records
+    /// Nuphos leaves (answers to questions, a new owner).
     init?(_ message: ChatMessage) {
         let metadata = message.metadata
         guard let sender = metadata?["sender"], let type = sender["type"]?.stringValue,
-              type == "user" || type == "agent",
-              let senderId = metadata?["sourceSessionId"]?.stringValue ?? sender["id"]?.stringValue,
-              let attributed = message.sender else { return nil }
+              type == "user" || type == "agent" || sender["id"]?.stringValue.map(Self.records.contains) == true,
+              let senderId = metadata?["sourceSessionId"]?.stringValue ?? sender["id"]?.stringValue else { return nil }
+        let attributed = message.sender
+        guard attributed != nil || type == "system" else { return nil }
         let uploads = message.parts.compactMap(TransferUpload.init)
         let downloads = message.parts.compactMap { part -> String? in
             guard case .other(let json) = part, json["type"]?.stringValue == "transfer-download" else { return nil }
@@ -78,10 +84,15 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
         let replyTo = reply?["authorName"]?.stringValue.flatMap { name in
             reply?["text"]?.stringValue.map { ChannelReply(id: reply?["id"]?.stringValue, authorName: name, text: $0) }
         }
-        self.init(id: message.id, senderId: senderId, isAgent: type == "agent", name: attributed.name,
-                  avatar: attributed.avatar, runtime: sender["agentRuntime"]?.stringValue,
+        self.init(id: message.id, senderId: senderId, isAgent: type == "agent", name: attributed?.name ?? "Nuphos",
+                  avatar: attributed?.avatar, runtime: sender["agentRuntime"]?.stringValue,
                   text: text, uploads: uploads, downloads: downloads, sentAt: sentAt, replyTo: replyTo)
+        isRecord = type == "system"
     }
+
+    /// The senders of the records Nuphos leaves in a chat: an answer to a
+    /// question, and a change of owner when the owner leaves.
+    static let records: Set<String> = ["nuphos:decision", "nuphos:chat"]
 
     /// What a reply to this post quotes until the chat stores its own snapshot.
     var asReply: ChannelReply {
@@ -106,6 +117,8 @@ enum ChannelItem: Equatable, Sendable {
     case time(Date)
     /// A line from the chat itself: its loop guard paused agents.
     case paused(String)
+    /// "Yuanlin answered: Question → answer": the record an answer to a question leaves.
+    case record(String)
     /// An agent could not reply: why, and, on the newest line, the fix.
     case replyFailed(AgentConversationDetail.TimelineEvent, actionable: Bool)
     /// Agents in a turn right now.
@@ -133,6 +146,10 @@ extension ChannelPost {
             let timed = ChatTime.showsTimestamp(post.sentAt, after: previous)
             if timed, let sentAt = post.sentAt { rows.append((at: at, id: "time.\(post.id)", item: ChannelItem.time(sentAt))) }
             previous = post.sentAt ?? previous
+            if post.isRecord {
+                rows.append((at: at, id: "record.\(post.id)", item: ChannelItem.record(post.text)))
+                continue
+            }
             let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))
         }

@@ -10,10 +10,8 @@ import {
 import { PanelHeading, PanelStat } from './RuntimePanel'
 import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS, formatUptime } from './runtimePresentation'
 
+import type { PolledRuntimeStatus } from '../../lib/query/runtime'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
-import type { OpenAbRuntimeStatus } from '../../types/team'
-
-export type PolledRuntimeStatus = OpenAbRuntimeStatus & { fetchedAtMs: number }
 
 /** One stat per provider usage window — or, when the agent could not report
  *  them, why. This is where a reason belongs: the composer's chip shows a
@@ -77,7 +75,7 @@ export function RuntimeOverview({
     body = (
       <Note>
         {t(
-          'Nuphos is starting this workspace’s {name} agent; this usually takes about a minute. Sign in once the status changes to Online.',
+          'Nuphos is starting this workspace’s {name} runtime; this usually takes about a minute. Sign in once the status changes to Online.',
           { name: instance.label },
         )}
       </Note>
@@ -94,7 +92,7 @@ export function RuntimeOverview({
         <PanelStat label={t('Uptime')}>
           {runtime.uptimeSeconds === undefined ? '—' : formatUptime(runtime.uptimeSeconds)}
         </PanelStat>
-        <PanelStat label={t('Agents')}>
+        <PanelStat label={t('Bots and tasks')}>
           {runtime.attachedConversations === null
             ? t('Unavailable')
             : String(runtime.attachedConversations)}

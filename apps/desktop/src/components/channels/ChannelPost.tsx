@@ -10,10 +10,11 @@ import { ReplyQuote } from '../agent/panel/ReplyQuote'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
-import { speaksInChannel } from './channelSpeakers'
+import { isChannelRecord, speaksInChannel } from './channelSpeakers'
 import { textOf } from './channelReply'
 import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
+import { ReplyButton } from './ReplyButton'
 
 import type { AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
@@ -40,6 +41,7 @@ export function ChannelMessage({
   links,
   onOpenSession,
   onMenu,
+  onReply,
 }: {
   message: AgentPersistedMessage
   /** When it was posted: the exact time shows on hover. */
@@ -56,11 +58,15 @@ export function ChannelMessage({
   onOpenSession: (sessionId: string) => void
   /** Right-click: the post's menu, unless text is selected to copy. */
   onMenu?: (event: ReactMouseEvent) => void
+  /** Replies to the post from the button beside it on hover; absent where the viewer cannot. */
+  onReply?: () => void
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
   const posted = channelFiles(message)
 
+  // What Nuphos records in the chat (an answer, a new owner): a muted line, never a person's post.
+  if (metadata && isChannelRecord(metadata.sender) && text) return <DecisionRecord text={text} />
   // A channel shows people and agents only; any other sender is not a post.
   if (!metadata || !speaksInChannel(metadata.sender) || (!text && !posted.any)) return null
   const { sender } = metadata
@@ -99,7 +105,8 @@ export function ChannelMessage({
       // The quote sits above the row, so your face stays level with your words.
       <div className="flex w-full flex-col items-end gap-1">
         {quote && <div className="flex max-w-[85%] justify-end pr-[2.375rem]">{quote}</div>}
-        <div className="flex w-full items-start justify-end gap-2.5">
+        <div className="group/post flex w-full items-start justify-end gap-2.5">
+          {onReply && <ReplyButton onReply={onReply} />}
           <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
             {files}
             {text && (
@@ -128,7 +135,7 @@ export function ChannelMessage({
     )
 
   return (
-    <div className="flex w-full items-start gap-2.5">
+    <div className="group/post flex w-full items-start gap-2.5">
       <div className="w-7 shrink-0">
         {first &&
           (agentId ? (
@@ -164,11 +171,6 @@ export function ChannelMessage({
             ) : (
               <span className="truncate font-medium text-secondary">{sender.displayName}</span>
             )}
-            {agentId && (
-              <span className="shrink-0 rounded bg-surface-hover px-1.5 py-0.5 text-[10px] text-tertiary">
-                {t('Agent')}
-              </span>
-            )}
           </div>
         )}
         {quote}
@@ -185,6 +187,18 @@ export function ChannelMessage({
         )}
         {shown({ ...posted, uploads: [] })}
       </div>
+      {onReply && <ReplyButton onReply={onReply} />}
+    </div>
+  )
+}
+
+/** "Yuanlin answered: Which regions? → us-east", one muted line per question. */
+function DecisionRecord({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col py-1 pl-11 text-[12px] text-tertiary" data-decision-record="">
+      {text.split('\n').map((line, index) => (
+        <span key={index}>{line}</span>
+      ))}
     </div>
   )
 }

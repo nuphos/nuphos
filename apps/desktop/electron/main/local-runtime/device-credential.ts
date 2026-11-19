@@ -5,6 +5,8 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { machineModel } from '../device-identity-core.ts'
+
 export type DeviceCredential = {
   apiUrl: string
   userId: string
@@ -18,13 +20,22 @@ export type DeviceCredential = {
 export const ownsMachine = (credential: DeviceCredential | null): boolean =>
   credential?.box === true
 
-export type JoinRequest = { token: string; label: string; platform: string }
+export type JoinRequest = {
+  token: string
+  label: string
+  platform: string
+  model?: string
+}
 
 export const tunnelUrlFor = (apiUrl: string, deviceId: string, reclaim = false) =>
   `${apiUrl}/agent/devices/${encodeURIComponent(deviceId)}/runtime-tunnel${reclaim ? '?reclaim=1' : ''}`
 
-/** A service manager treats this exit as final, so a revoked computer does not restart. */
-export const EXIT_REVOKED = 78
+/**
+ * A service manager treats this exit as final, so a revoked computer does not restart:
+ * systemd by RestartPreventExitStatus=78, and the LaunchAgent, which restarts only a
+ * failed exit, by 0.
+ */
+export const EXIT_REVOKED = process.env.XPC_SERVICE_NAME === 'ai.nuphos.agent' ? 0 : 78
 
 export function deviceCredentialStore(dataDir: string) {
   const file = path.join(dataDir, 'device-credential.json')
@@ -125,7 +136,12 @@ export async function deviceCredentialFor(options: {
   }
   const joined = await joinDevice(
     options.apiUrl,
-    { token: options.joinToken, label: options.label, platform: process.platform },
+    {
+      token: options.joinToken,
+      label: options.label,
+      platform: process.platform,
+      model: await machineModel(),
+    },
     options.headers,
   )
 

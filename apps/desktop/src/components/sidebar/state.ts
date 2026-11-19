@@ -1,9 +1,21 @@
 import { CONNECTOR_CATEGORIES } from '../../lib/connectorCategories.ts'
 
+import { isBotTreeFold } from './chat-sections.ts'
+
 export const MIN_SIDEBAR_WIDTH = 220
 export const MAX_SIDEBAR_WIDTH = 380
 export const DEFAULT_SIDEBAR_WIDTH = 248
 export const SIDEBAR_WIDTH_KEY = 'nuphos.sidebarWidth'
+
+/** The width the person last dragged the sidebar to, within bounds. */
+export function storedSidebarWidth(): number {
+  if (typeof window === 'undefined') return DEFAULT_SIDEBAR_WIDTH
+  const v = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+
+  if (!v || Number.isNaN(v)) return DEFAULT_SIDEBAR_WIDTH
+
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, v))
+}
 // Storage: { [teamId]: { [title]: 'open' | 'closed' } } explicit user
 // overrides, PER TEAM — but only for groups outside DEFAULT_COLLAPSED_GROUPS;
 // the integration groups below are ALWAYS folded at rest and their expansion
@@ -104,11 +116,38 @@ export function writeGroupFold(teamId: string, title: string, value: 'open' | 'c
   for (const listener of groupStateListeners) listener()
 }
 
-export const AGENT_SESSIONS_POLL_MS = 4_000
+/** A stored fold as left by hand; a Bot tree is folded until it is first opened. */
+export function storedFoldCollapsed(
+  state: GroupState,
+  fold: { title: string; defaultCollapsed?: boolean },
+): boolean {
+  const folded = fold.defaultCollapsed === true || isBotTreeFold(fold.title)
 
-export function agentSessionsCacheKey(teamId: string): string {
-  return `sidebar-agent-sessions:${teamId}`
+  return (state[fold.title] ?? (folded ? 'closed' : 'open')) === 'closed'
 }
+
+/** Drops stored folds, as when the row they belong to is archived or deleted. */
+export function forgetGroupFolds(teamId: string, titles: string[]): void {
+  const raw = readGroupStateRaw()
+  const forTeam = loadGroupState(teamId, raw)
+
+  if (!titles.some((title) => title in forTeam)) return
+  const kept = Object.fromEntries(
+    Object.entries(forTeam).filter(([title]) => !titles.includes(title)),
+  )
+
+  try {
+    localStorage.setItem(
+      SIDEBAR_GROUP_STATE_KEY,
+      JSON.stringify({ ...parseGroupStateFile(raw), [teamId]: kept }),
+    )
+  } catch {
+    return
+  }
+  for (const listener of groupStateListeners) listener()
+}
+
+export const AGENT_SESSIONS_POLL_MS = 4_000
 
 export function crdCacheKey(kubeconfigContext: string): string {
   return `sidebar-crds:${kubeconfigContext}`

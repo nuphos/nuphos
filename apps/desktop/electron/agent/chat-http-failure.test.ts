@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
-import { handleChatHttpFailure } from './chat-http-failure.ts'
-import { createChatStreamState } from './chat-shared.ts'
-import {
-  agentHttpProductEvent,
-  agentReauthenticationEvent,
-  formatAgentSseError,
-} from './stream-errors.ts'
+mock.module('../client-version.ts', {
+  namedExports: { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
+})
+
+const { handleChatHttpFailure } = await import('./chat-http-failure.ts')
+const { createChatStreamState } = await import('./chat-shared.ts')
+const { agentHttpProductEvent, agentReauthenticationEvent, formatAgentSseError } =
+  await import('./stream-errors.ts')
 
 test('legacy subscription failures never open a payment flow', () => {
   assert.deepEqual(

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { fetchWakeupTranscriptTail, shouldDeferTranscriptCatchUp } from './conversationCatchUp.ts'
+import {
+  adoptStoredTranscript,
+  fetchWakeupTranscriptTail,
+  shouldDeferTranscriptCatchUp,
+} from './conversationCatchUp.ts'
 
 test('fresh retry owns its transcript during the idle gap with no active backend run', () => {
   assert.equal(shouldDeferTranscriptCatchUp({ streaming: true, streamId: 'retry' }, null), true)
@@ -91,4 +95,15 @@ test('refreshes settled transcripts and checks again after a full-tail fallback'
     ),
     { detail, latest: tab },
   )
+})
+
+test('the stored transcript replaces a live stream error, which it now records', () => {
+  const failed = { error: 'Agent stream failed with runtime_usage_exhausted.', messages: [] }
+  const stored = [{ id: 'reply' }]
+
+  assert.deepEqual(adoptStoredTranscript(failed, { messages: stored, historyBaseIndex: 3 }), {
+    error: null,
+    messages: stored,
+    historyBaseIndex: 3,
+  })
 })

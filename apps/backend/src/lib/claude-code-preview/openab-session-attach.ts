@@ -7,10 +7,7 @@ import {
 import { runtimeAddress, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { logEvent } from '@/lib/observability'
 
-import {
-  assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
-} from './runtime-portability-store'
+import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { storedPick } from './session-config-options'
 import { workspaceDirectory } from './session-context'
 import { RUNTIME_CWD } from './team-openab-runtime'
@@ -42,7 +39,6 @@ export async function attachOpenAbSession(
   workingDirectory?: string
 }> {
   await assertConversationRuntimeAvailable(conversationId)
-  await assertRuntimeNotDeleting(teamId, endpoint.runtimeId, endpoint.url)
   const stored = await getConversationPreviewAttachment(conversationId, teamId)
 
   // The settings a session starts with are fixed with its attachment, so any
@@ -81,7 +77,10 @@ export async function attachOpenAbSession(
 
     return { openabSessionId: stored.openabSessionId, fresh: !alive, defaults, workingDirectory }
   }
-  const openabSessionId = await client.createSession(
+  // The session answers with the settings it actually runs, including the model
+  // it picked on its own. Without them the chip has nothing confirmed to show
+  // until the first turn settles. An explicit pick still went out in `defaults`.
+  const { sessionId: openabSessionId, sessionConfig } = await client.createSession(
     RUNTIME_CWD,
     mcpServers,
     systemPrompt,
@@ -96,6 +95,7 @@ export async function attachOpenAbSession(
     // The computer's own address, whoever's turn made it: an owner's check then matches too.
     runtimeUrl: runtimeAddress(endpoint.url),
     runtimeDefaults: defaults,
+    ...(sessionConfig?.length ? { sessionConfig } : {}),
   })
 
   return { openabSessionId, fresh: true, defaults, workingDirectory }

@@ -20,7 +20,6 @@ export type SessionExecutionState = {
     clientTool?: { toolName: string; input?: unknown; streamId?: string }
     createdAt: number
   }[]
-  permissionWaits?: number
   tools?: {
     id: string
     status?: string

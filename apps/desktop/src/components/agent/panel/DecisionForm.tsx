@@ -3,22 +3,27 @@ import { useState } from 'react'
 import { t } from '../../../i18n'
 import { Button } from '../../ui/button'
 
-import { answerText, formReply, replaceAt, togglePick } from './decisionFormModel'
+import { answerText, formAnswer, replaceAt, togglePick } from './decisionFormModel'
 
 import type { DecisionQuestion } from './decisionFormModel'
+import type { DecisionAnswer } from '../../../api/agent-chat-types'
+import type { ReactNode } from 'react'
 
 /**
  * A card's questions answered together: options toggled (one, or any number
- * with `multiSelect`), or the answer typed in their place, sent as one reply.
+ * with `multiSelect`), or the answer typed in their place, sent as one answer.
+ * `children` end the row of its send button.
  */
 export function DecisionForm({
   questions,
   disabled,
   onSubmit,
+  children,
 }: {
   questions: readonly DecisionQuestion[]
   disabled: boolean
-  onSubmit: (text: string) => void
+  onSubmit: (answer: DecisionAnswer) => void
+  children?: ReactNode
 }) {
   const [picked, setPicked] = useState<string[][]>(() => questions.map(() => []))
   const [typed, setTyped] = useState<string[]>(() => questions.map(() => ''))
@@ -28,10 +33,10 @@ export function DecisionForm({
 
   return (
     <form
-      className="flex flex-col gap-3 border-t border-line-control/60 px-4 py-3"
+      className="flex flex-col gap-3 pt-3"
       onSubmit={(event) => {
         event.preventDefault()
-        onSubmit(formReply(questions, answers))
+        onSubmit(formAnswer(questions, picked, typed))
       }}
     >
       {questions.map((q, index) => (
@@ -48,7 +53,7 @@ export function DecisionForm({
                   variant={picked[index]?.includes(option) ? 'primary' : 'secondary'}
                   size="sm"
                   aria-pressed={picked[index]?.includes(option) ?? false}
-                  className="h-auto min-h-7 whitespace-normal px-2.5 py-1 text-left text-[12.5px]"
+                  className="h-auto min-h-8 whitespace-normal py-1.5 text-left"
                   onClick={() => toggle(index, option, q.multiSelect)}
                 >
                   {option}
@@ -66,14 +71,12 @@ export function DecisionForm({
           />
         </fieldset>
       ))}
-      <Button
-        type="submit"
-        size="sm"
-        className="self-start"
-        disabled={disabled || answers.some((answer) => !answer)}
-      >
-        {t('Send answer')}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button type="submit" size="sm" disabled={disabled || answers.some((answer) => !answer)}>
+          {t('Send answer')}
+        </Button>
+        {children}
+      </div>
     </form>
   )
 }

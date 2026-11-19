@@ -1,3 +1,4 @@
+import type { ConnectorsDialogState } from './connectorsDialog'
 import type { TabBucket } from './workspaceState'
 import type { WorkspaceTabState } from '../../workspaceTabState'
 import type { TabDropPlacement } from '../tabs/tabsTypes'
@@ -51,6 +52,7 @@ export type WorkspaceAction =
   | { type: 'removeTeam'; teamId: string }
   | { type: 'adoptBuckets'; buckets: Readonly<Record<string, TabBucket>> }
   | { type: 'releaseBuckets'; keys: readonly string[] }
+  | { type: 'setConnectorsDialog'; dialog: ConnectorsDialogState | null }
 
 export type WorkspaceStoreDeps = {
   createTab: (teamId: string) => WorkspaceTabState

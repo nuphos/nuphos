@@ -23,13 +23,13 @@ import type {
   RuntimeQuota,
   RuntimeQuotaHistoryRange,
   RuntimeQuotaHistorySeries,
-  CreateRuntimeInput,
   ExternalRuntimeProviderProbe,
   PairExternalRuntimeInput,
   PairedExternalRuntime,
   RegisterExternalRuntimeInput,
   UpdateRuntimeInput,
 } from '../types/runtime'
+import type { TeamImportPreview } from '../types/team-migration'
 import type {
   TeamGoogleClient,
   AtlasTeam,
@@ -48,8 +48,12 @@ import type {
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
+import type { TeamUsageAnswer, TeamUsageQuery } from '../types/usage.ts'
 
 export type WindowTeamApi = {
+  atlasExportTeam(teamId: string): Promise<boolean>
+  atlasPreviewTeamImport(): Promise<TeamImportPreview | null>
+  atlasConfirmTeamImport(token: string, sourceMember?: string): Promise<AtlasTeam>
   atlasGetTeamGoogleClient(teamId: string): Promise<TeamGoogleClient>
   atlasSetTeamGoogleClient(teamId: string, clientId: string, clientSecret: string): Promise<void>
   atlasDeleteTeamGoogleClient(teamId: string): Promise<void>
@@ -68,7 +72,6 @@ export type WindowTeamApi = {
     teamId: string,
     range: RuntimeQuotaHistoryRange,
   ): Promise<RuntimeQuotaHistorySeries[]>
-  atlasCreateRuntimeInstance(teamId: string, input: CreateRuntimeInput): Promise<RuntimeInstance>
   atlasProbeExternalRuntimeProvider(
     teamId: string,
     url: string,
@@ -158,9 +161,14 @@ export type WindowTeamApi = {
   ): Promise<SidebarFavoritesCloudSnapshot>
   atlasGetHomeLayout(teamId: string): Promise<HomeLayouts>
   atlasGetRuntimeFallback(teamId: string): Promise<RuntimeFallback>
-  atlasPutRuntimeFallback(teamId: string, runtimeIds: string[]): Promise<RuntimeFallback>
+  atlasPutRuntimeFallback(
+    teamId: string,
+    runtimeId: string,
+    fallbackRuntimeId: string | null,
+  ): Promise<unknown>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
+  atlasQueryTeamUsage(teamId: string, query: TeamUsageQuery): Promise<TeamUsageAnswer>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',
@@ -181,7 +189,16 @@ export type WindowTeamApi = {
   atlasLeaveTeam(teamId: string): Promise<void>
   atlasUpdateTeamMemberRole(teamId: string, memberId: string, role: TeamRole): Promise<TeamMember>
   atlasListMyInvitations(): Promise<TeamInvitation[]>
-  atlasInviteTeamMember(teamId: string, inviteeEmail: string): Promise<TeamInvitation>
+  /** `emailSent` is false when the email failed or is not set up: the invitation still stands. */
+  atlasInviteTeamMember(
+    teamId: string,
+    inviteeEmail: string,
+    role?: TeamRole,
+  ): Promise<{ invitation: TeamInvitation; emailSent: boolean }>
+  atlasResendTeamInvitation(
+    teamId: string,
+    invitationId: string,
+  ): Promise<{ invitation: TeamInvitation; emailSent: boolean }>
   atlasAcceptInvitation(invitationId: string): Promise<TeamInvitation>
   atlasRejectInvitation(invitationId: string): Promise<TeamInvitation>
   atlasListSlackChannelMappings(teamId: string): Promise<SlackChannelMapping[]>

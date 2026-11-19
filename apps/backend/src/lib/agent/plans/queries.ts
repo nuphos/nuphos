@@ -167,9 +167,8 @@ export async function listPlans(options: {
 }
 
 /**
- * Non-terminal plans attached to a conversation, oldest first. Powers the
- * per-turn plan-state context block and the end-of-turn stop gate, so it uses
- * the same strict scope rule as scopedNumberFilter (team plans by teamId,
+ * Non-terminal plans attached to a conversation, oldest first. Uses the same
+ * strict scope rule as scopedNumberFilter (team plans by teamId,
  * personal plans by createdBy — never a loose fallback).
  */
 export async function listActivePlansForConversation(

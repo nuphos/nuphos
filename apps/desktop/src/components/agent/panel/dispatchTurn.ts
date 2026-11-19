@@ -24,10 +24,13 @@ import type { AgentMessageMention } from '../../../api/agent-types'
 // Each tab's latest fork history import, which a message sent meanwhile waits for.
 const forkImports = new Map<string, Promise<void>>()
 
-export type DispatchTurnCtx = Pick<
+/** The tab's latest fork history import, if it has one. */
+export const forkImport = (tabId: string) => forkImports.get(tabId)
+
+/** `decisionReplyTo`: the question a card's answer names. */
+export type DispatchTurnCtx = { decisionReplyTo?: string } & Pick<
   PanelCtx,
   | 'currentUser'
-  | 'decisionReplyTo'
   | 'credentialAccessRef'
   | 'kubeContextRef'
   | 'sendableCredentialAccess'
@@ -100,7 +103,7 @@ export async function runDispatchTurn(
       ),
     )
     try {
-      uploadPart = await runUpload(tab.sessionId)
+      uploadPart = await runUpload()
     } catch (err) {
       uploadingTabsRef.current.delete(tabId)
       // Patch the card to error against the latest tab state, then persist so

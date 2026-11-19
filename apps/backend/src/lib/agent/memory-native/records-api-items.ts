@@ -114,6 +114,8 @@ export function playbookToItem(
     // only non-default status still surfaces.
     categories: m.status !== 'active' ? [m.status] : [],
     ...(m.rejectedReason ? { disabledReason: m.rejectedReason } : {}),
+    // Whoever removed it, as for a record: restore lets them (or an administrator) bring it back.
+    ...(m.status === 'rejected' && m.updatedBy ? { disabledBy: m.updatedBy } : {}),
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
     convId: m.capsules[0]?.conversationId ?? null,

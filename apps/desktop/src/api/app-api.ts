@@ -38,6 +38,10 @@ export const appApi = {
   atlasNewMfaRecoveryCodes: (code: string) => window.api.atlasNewMfaRecoveryCodes(code),
   atlasDisableMfa: (code: string) => window.api.atlasDisableMfa(code),
   atlasReauthMfa: (code: string) => window.api.atlasReauthMfa(code),
+  authMfaVerifyPasskey: (mfaToken: string) => window.api.authMfaVerifyPasskey(mfaToken),
+  atlasReauthWithPasskey: () => window.api.atlasReauthWithPasskey(),
+  atlasAddPasskey: () => window.api.atlasAddPasskey(),
+  atlasRemovePasskey: (id: string, code: string) => window.api.atlasRemovePasskey(id, code),
   authUploadAvatar: (image: Uint8Array) => window.api.authUploadAvatar(image),
   authRemoveAvatar: () => window.api.authRemoveAvatar(),
   authStatus: () => window.api.authStatus(),
@@ -63,6 +67,8 @@ export const appApi = {
   appSetNativeTheme: (source: 'system' | 'light' | 'dark') => window.api.appSetNativeTheme(source),
   appGetAppIcon: () => window.api.appGetAppIcon(),
   appSetAppIcon: (icon: string) => window.api.appSetAppIcon(icon),
+  appGetLoginItem: () => window.api.appGetLoginItem(),
+  appSetLoginItem: (openAtLogin: boolean) => window.api.appSetLoginItem(openAtLogin),
   onNativeThemeUpdated: (cb: (payload: { shouldUseDarkColors: boolean }) => void) =>
     window.api.onNativeThemeUpdated?.(cb) ?? (() => {}),
   appHideWindow: () => window.api.appHideWindow(),
@@ -97,6 +103,8 @@ export const appApi = {
   updaterGetState: () => window.api.updaterGetState(),
   updaterCheck: () => window.api.updaterCheck(),
   updaterInstall: () => window.api.updaterInstall(),
+  updaterGetAutoInstall: () => window.api.updaterGetAutoInstall(),
+  updaterSetAutoInstall: (enabled: boolean) => window.api.updaterSetAutoInstall(enabled),
   onUpdaterStatus: (cb: (state: UpdaterState) => void) => window.api.onUpdaterStatus(cb),
   changelogGetState: () => window.api.changelogGetState(),
   onChangelogStatus: (cb: (state: ChangelogState) => void) => window.api.onChangelogStatus(cb),
@@ -127,6 +135,7 @@ export const appApi = {
     window.api.designsApplyOps(teamId, designId, ops),
   designsDelete: (teamId: string, designId: string) => window.api.designsDelete(teamId, designId),
   dashboardsList: (teamId: string) => window.api.dashboardsList(teamId),
+  dashboardsFormerMembers: (teamId: string) => window.api.dashboardsFormerMembers(teamId),
   dashboardsCreate: (teamId: string, input: import('../dashboards/schema').CreateDashboardInput) =>
     window.api.dashboardsCreate(teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>
@@ -203,6 +212,9 @@ export const appApi = {
   ) => window.api.localSetupApproveLinks(teamId, name, reviewed),
   localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
     window.api.localSetupSetAutoSync(teamId, enabled),
+  localSetupSetFolders: (teamId: string, folders: string[]) =>
+    window.api.localSetupSetFolders(teamId, folders),
+  localSetupSources: (teamId: string) => window.api.localSetupSources(teamId),
   teamSkillsImportLocal: (
     teamId: string,
     scope: SkillScope | undefined,

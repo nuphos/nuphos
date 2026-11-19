@@ -7,14 +7,13 @@ import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { abandonPendingPreviewWaits } from './decision-waiter'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
-import { steerNotInjected } from './steer-refusal'
+import { steerNotInjected, steerRejected } from './steer-refusal'
 import { steeringText } from './steering-receipt'
 
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -41,7 +40,8 @@ type ExecutionStateConversation = Pick<
   | 'runtimeId'
   | 'claudeCodePreview'
   | 'runtimeMigration'
->
+> &
+  Partial<Pick<AgentConversation, 'messageCount'>>
 
 /** The runtime's own state, plus the desktops the conversation holds on its Box. */
 export async function conversationExecutionState(
@@ -70,13 +70,12 @@ export async function probeExecutionState(
   const attachment = liveAttachment(conversation)
 
   if (!conversation.teamId) return { state: 'disconnected' }
-  // A moved conversation has no attachment by design: the move clears it and the
-  // next prompt creates the session. Probing for one anyway reported
-  // 'disconnected', which the desktop reads as a broken conversation — the status
-  // says "Connection lost" and a queued message parks on "waiting for the agent
-  // to be ready" forever, because only a prompt can change that state. Say what
-  // is actually true. A conversation that has never been moved keeps the probe:
-  // one from before attachments were tracked may still have a live session.
+  // A freshly created Bot has a durable shell but no native Task session yet.
+  // Only its first prompt creates that session; probing a placeholder session
+  // reports a lost connection and prevents clients from sending that prompt.
+  if (!attachment && conversation.messageCount === 0) return READY_FOR_NEXT_MESSAGE
+  // A move clears the attachment; only the next prompt can create its replacement.
+  // Keep probing legacy conversations with history: they may have an untracked session.
   if (!attachment && conversation.runtimeMigration) return READY_FOR_NEXT_MESSAGE
   let client: OpenAbAcpClient | undefined
 
@@ -88,7 +87,7 @@ export async function probeExecutionState(
     if (!endpoint || (attachment && !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl)))
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
-      ...(await reachableRuntimeEndpoint(endpoint)),
+      ...endpoint,
       connectTimeoutMs,
       callTimeoutMs: 3_000,
     })
@@ -132,7 +131,7 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new Error('Conversation runtime changed')
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 3_000,
   })
@@ -244,11 +243,11 @@ export async function steerConversationRuntime(
     throw new Error('Conversation runtime changed')
   // Same delivery as a normal turn: files land on the runtime as local paths.
   const files = steer.groupId
-    ? await runtimeAttachments(
-        [{ type: 'transfer-upload', groupId: steer.groupId }],
-        { teamId: conversation.teamId, userId: steer.userId, sessionId: conversation.sessionId },
-        [],
-      )
+    ? await runtimeAttachments([{ type: 'transfer-upload', groupId: steer.groupId }], {
+        teamId: conversation.teamId,
+        userId: steer.userId,
+        sessionId: conversation.sessionId,
+      })
     : []
   const attachments = await materializeRuntimeAttachments(
     conversation.teamId,
@@ -267,7 +266,7 @@ export async function steerConversationRuntime(
     steer.metadata ??
     (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken))
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 15_000,
   })
@@ -291,7 +290,7 @@ export async function steerConversationRuntime(
   } catch (error) {
     // A refused steer has no receipt to read its sender back.
     await takeSteerSender(conversation.sessionId, messageId)
-    throw error
+    throw steerRejected(error)
   } finally {
     client.close()
   }

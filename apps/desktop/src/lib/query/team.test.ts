@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { QueryObserver } from '@tanstack/react-query'
-
 import { createQueryClient } from './client.ts'
 import { queryKeys } from './keys.ts'
-import { teamMembersQuery, teamMembersReadNow, teamRosterQuery } from './team.ts'
+import { teamMembersQuery, teamRosterQuery } from './team.ts'
 
 import type { TeamMember } from '../../types/team.ts'
 
@@ -67,26 +65,4 @@ test('a fresh answer is reused until the team is refreshed, roster included', as
   await client.query(teamMembersQuery('t1', read))
   await client.query(teamRosterQuery('t1', read))
   assert.deepEqual(calls, ['t1', 't1+removed', 't1', 't1+removed'])
-})
-
-test('a view that decides once from the members waits for a read made now', async () => {
-  const client = createQueryClient()
-  let joined = false
-  const { calls, read } = counted(async () => (joined ? [member('a'), member('b')] : [member('a')]))
-
-  await client.query(teamMembersQuery('t1', read))
-  joined = true
-  const observer = new QueryObserver(client, teamMembersReadNow('t1', read))
-
-  assert.equal(observer.getOptimisticResult(observer.options).isFetchedAfterMount, false)
-  const ids = await new Promise<string[]>((resolve) => {
-    const stop = observer.subscribe((result) => {
-      if (!result.isFetchedAfterMount) return
-      stop()
-      resolve((result.data ?? []).map((entry) => entry.id))
-    })
-  })
-
-  assert.deepEqual(ids, ['a', 'b'])
-  assert.deepEqual(calls, ['t1', 't1'])
 })

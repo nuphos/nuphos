@@ -87,6 +87,25 @@ impl SessionOperations {
             changed.await;
         }
     }
+    /// Resolves once the session is being cancelled. ACP has the client answer every
+    /// pending permission request with `cancelled` after `session/cancel`.
+    pub async fn cancelled(&self, channel: &str) {
+        loop {
+            let changed = self.1.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            if self
+                .0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(channel)
+                .is_some_and(|op| op.cancelling)
+            {
+                return;
+            }
+            changed.await;
+        }
+    }
     pub fn accepted(&self, channel: &str) {
         let mut all = self.0.lock().unwrap_or_else(|e| e.into_inner());
         let operation = all.entry(channel.into()).or_default();
@@ -102,6 +121,7 @@ impl SessionOperations {
         }
         operation.cancelling = true;
         operation.pending += 1;
+        self.1.notify_waiters();
         Some((
             PromptGuard {
                 operations: self.clone(),

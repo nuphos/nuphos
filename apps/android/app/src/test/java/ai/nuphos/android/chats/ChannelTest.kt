@@ -5,6 +5,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -61,6 +62,18 @@ class ChannelTest {
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","parts":[{"type":"text","text":"no sender"}]}""")))
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","metadata":{"sender":{"type":"system","id":"s","displayName":"S"}},"parts":[{"type":"text","text":"x"}]}""")))
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","metadata":{"sender":{"type":"user","id":"d","displayName":"D"}},"parts":[{"type":"text","text":"  "}]}""")))
+    }
+
+    @Test fun answersAndANewOwnerAreRecordsAndOtherNoticesStayHidden() {
+        fun system(id: String, text: String) = message(
+            """{"id":"$id","role":"user","metadata":{"sender":{"type":"system","id":"$id","displayName":"Nuphos"},"sentAt":"2026-11-03T09:20:00Z"},"parts":[{"type":"text","text":"$text"}]}""")
+        val answer = ChannelPost.from(system("nuphos:decision", "Ann answered: Ship? → Ship it"))!!
+        val owner = ChannelPost.from(system("nuphos:chat", "Ann left. Bruce now owns this chat."))!!
+        assertTrue(answer.isRecord); assertTrue(owner.isRecord)
+        assertNull(ChannelPost.from(system("nuphos", "Release Helper finished a turn.")))
+        val items = ChannelPost.items(listOf(owner), emptyList(), emptyList())
+        assertEquals(listOf("time.nuphos:chat", "record.nuphos:chat"), items.map { it.key })
+        assertEquals("Ann left. Bruce now owns this chat.", (items[1] as ChannelItem.Record).text)
     }
 
     @Test fun runsPausedLineAndTypingAreOrdered() {
@@ -133,7 +146,8 @@ class ChannelTest {
                     "\",\"agent\":{\"avatar\":\"" + avatar + "\"}}],\"transcriptUpdatedAt\":\"" + stamp +
                     "\",\"messageCount\":" + count + ",\"activitySeq\":" + (activity ?: count) + ",\"messages\":[" + post + "]}")
         }
-        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listOf(ChannelAgent("agent-ops", "Release ops")) }
+        var listed = listOf(ChannelAgent("agent-ops", "Release ops"))
+        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listed }
         override suspend fun attachment(groupId: String): TransferDownloadGroup {
             attachments += groupId
             if (failAttachment) error("offline")
@@ -148,7 +162,7 @@ class ChannelTest {
             uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
         val replies = mutableListOf<String?>()
-        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?, decisionReplyTo: String?) {
+        override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
             posts += Triple(text, id, upload)
             replies += replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
@@ -169,6 +183,14 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun aTeammatesBotPostsWithItsOwnFace() = runTest {
+        val transport = FakeTransport()
+        transport.listed = listOf(ChannelAgent("teammates-bot", "書記官", ownerId = "teammate", avatar = "07-ada"))
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        assertEquals("07-ada", BotFaces.face("teammates-bot"))
     }
 
     @Test fun renamingTheBotReadsTheChatAgainWithoutAPost() = runTest {

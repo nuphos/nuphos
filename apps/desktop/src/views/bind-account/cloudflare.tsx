@@ -1,8 +1,8 @@
-import { faShieldHalved, faSpinner } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { Shield as ShieldIcon, LoaderCircle as LoaderCircleIcon } from 'lucide-react'
 
 import { CloudLogo } from '../../components/CloudLogo'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
@@ -48,7 +48,7 @@ export function CloudflareConnect({
             key={r.key}
             className="flex items-center gap-2.5 rounded-lg border border-line-control bg-state-selected px-3 py-2"
           >
-            <FontAwesomeIcon icon={r.icon} className="h-3.5 w-3.5 text-[#f38020]" />
+            <UiIcon size={14} icon={r.icon} className="h-3.5 w-3.5 text-[#f38020]" />
             <div className="min-w-0 flex-1">
               <div className="text-[12.5px] leading-none text-main">{r.label}</div>
               <div className="mt-1 text-[10.5px] text-tertiary">{r.hint}</div>
@@ -88,7 +88,7 @@ export function CloudflareConnect({
         <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-white/30" />
         {cloudflareConnecting ? (
           <>
-            <FontAwesomeIcon icon={faSpinner} className="h-4 w-4 animate-spin" />
+            <UiIcon size={16} icon={LoaderCircleIcon} className="h-4 w-4 animate-spin" />
             {t('Waiting for browser authorization…')}
           </>
         ) : (
@@ -100,7 +100,7 @@ export function CloudflareConnect({
       </button>
 
       <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px] text-tertiary">
-        <FontAwesomeIcon icon={faShieldHalved} className="h-3 w-3" />
+        <UiIcon size={14} icon={ShieldIcon} className="h-3.5 w-3.5" />
         {t('Tokens are encrypted and refreshed automatically · revoke anytime in Cloudflare.')}
       </p>
     </div>

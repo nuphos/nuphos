@@ -1,10 +1,22 @@
-import { purgeConversationAttribution } from '@/lib/agent/memory-slots/attribution-store'
-import { purgeConversationPreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
-import { logError } from '@/lib/observability'
+import { pruneAvatars } from '@/lib/identity/avatar-upload'
 
-import { purgeConversationTraces } from '../trace-store/store'
+import { isBotChat } from './archive'
+import { pushTimelineEvent } from './participants'
+import { agentConversations, withTeamScope } from './shared'
 
-import { agentConversations, agentMessages, withTeamScope } from './shared'
+import type { BotChangeSource, ConversationTimelineEvent } from './timeline-events'
+
+/** The record of a face given, changed or (null) taken away: who did it and how. */
+export function botChange(
+  by: { actorId: string } & BotChangeSource,
+  avatar: string | null,
+): ConversationTimelineEvent {
+  return { kind: 'bot_changed', at: new Date(), ...by, ...(avatar === null ? {} : { avatar }) }
+}
+
+// Written in the same update as the face, so one cannot exist without the other.
+const botChanged = (...change: Parameters<typeof botChange>) =>
+  pushTimelineEvent(botChange(...change))
 
 // Refuses to blank a title. The conversation already carries a usable one from
 // insert (`fallbackTitle`); overwriting it with '' leaves every reader falling
@@ -35,23 +47,29 @@ export async function renameConversation(
   const next = title.trim()
 
   if (!next || next.length > 120) return false
+  const chat = await agentConversations().findOne(withTeamScope({ sessionId, userId }, teamId))
+  // A Bot's chat is called by its Bot, so renaming the chat renames the Bot.
+  const target = (chat && isBotChat(chat) && chat.agentSessionIds?.[0]) || sessionId
   const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId }, teamId),
+    withTeamScope({ sessionId: target, userId }, teamId),
     { $set: { title: next, titleManuallySet: true } },
   )
 
   return result.matchedCount > 0
 }
 
-// The character a person picked for this Agent; null goes back to the one its
-// ID selects. Clients own the catalog and ignore a name they do not know.
+// A Bot's new face; null takes it away, so the Bot is a Task again. Only a Bot
+// has a face to change: a Task becomes one through claimBotAvatar. Clients own
+// the catalog and ignore a name they do not know.
 export async function setConversationAvatar(
   sessionId: string,
   avatar: string | null,
+  actorId: string,
 ): Promise<boolean> {
+  const $push = botChanged({ actorId, via: 'avatar_route' }, avatar)
   const result = await agentConversations().updateOne(
-    { sessionId },
-    avatar === null ? { $unset: { avatar: '' } } : { $set: { avatar } },
+    avatar === null ? { sessionId } : { sessionId, avatar: { $exists: true } },
+    avatar === null ? { $unset: { avatar: '' }, $push } : { $set: { avatar }, $push },
   )
 
   return result.matchedCount > 0
@@ -59,16 +77,25 @@ export async function setConversationAvatar(
 
 // "Make this a Bot": the face is set only while there is none, so of two
 // requests racing, exactly one wins and the other sees it already done.
-export async function claimBotAvatar(sessionId: string, avatar: string): Promise<boolean> {
+export async function claimBotAvatar(
+  sessionId: string,
+  avatar: string,
+  actorId: string,
+): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, avatar: { $exists: false } },
-    { $set: { avatar } },
+    { $set: { avatar }, $push: botChanged({ actorId, via: 'make_bot' }, avatar) },
   )
 
   return result.modifiedCount > 0
 }
 
-export type BotSelfUpdate = { title?: string; avatar?: string; instructions?: string }
+export type BotSelfUpdate = {
+  title?: string
+  avatar?: string
+  instructions?: string
+  botOnboarding?: 'completed'
+}
 
 // A Bot (a conversation with an avatar) edits its own name, face and
 // instructions. A Task has no avatar, so this never turns a Task into a Bot.
@@ -77,18 +104,40 @@ export async function updateBotSelf(
   userId: string,
   teamId: string | undefined,
   update: BotSelfUpdate,
+  via: 'update_self' | 'bot_import' = 'update_self',
 ): Promise<boolean> {
-  const result = await agentConversations().updateOne(
-    withTeamScope({ sessionId, userId, avatar: { $exists: true } }, teamId),
+  if (update.botOnboarding && !update.instructions?.trim()) return false
+  const bot = await agentConversations().findOneAndUpdate(
+    withTeamScope(
+      {
+        sessionId,
+        userId,
+        avatar: { $exists: true },
+        ...(update.botOnboarding
+          ? {
+              botOnboarding: 'active',
+              inputRequests: { $not: { $elemMatch: { status: 'open', category: 'preference' } } },
+            }
+          : {}),
+      },
+      teamId,
+    ),
     {
       $set: {
         ...update,
         ...(update.title === undefined ? {} : { titleManuallySet: true }),
       },
+      ...(update.avatar === undefined
+        ? {}
+        : { $push: botChanged({ actorId: userId, via }, update.avatar) }),
     },
+    { projection: { _id: 1 } },
   )
 
-  return result.matchedCount > 0
+  // A photo the Bot wore until now is no longer its face.
+  if (bot && update.avatar !== undefined) await pruneAvatars(bot._id.toHexString())
+
+  return bot !== null
 }
 
 // Nests a conversation under another one, or stops nesting it when
@@ -178,35 +227,4 @@ export async function updateCompactionSummary(
     },
     { $set: { compactionSummary: summary, compactionMessageCount: messageCount } },
   )
-}
-
-export async function deleteConversation(
-  sessionId: string,
-  userId: string,
-  teamId?: string,
-): Promise<boolean> {
-  const result = await agentConversations().deleteOne(withTeamScope({ sessionId, userId }, teamId))
-
-  if (result.deletedCount === 0) return false
-  await agentMessages().deleteMany({ sessionId, userId })
-  // An agent leaves every channel it was in with its session.
-  await agentConversations().updateMany(
-    { agentSessionIds: sessionId },
-    { $pull: { agentSessionIds: sessionId } },
-  )
-  await purgeConversationTraces(sessionId).catch((err: unknown) => {
-    logError('agent.trace.purge_failed', err, { sessionId })
-  })
-  // A6: measurement rows carry PII (userId/teamId/notes) and must die with
-  // the conversation. Fail-open: the conversation is already gone, so a
-  // transient purge error must not 5xx the delete (a retry would then 404);
-  // analytics never blocks a user operation.
-  await purgeConversationAttribution(sessionId).catch((err: unknown) => {
-    logError('memory.attribution_purge_failed', err, { sessionId })
-  })
-  await purgeConversationPreviewMemoryActivity(sessionId).catch((err: unknown) => {
-    logError('memory.preview_activity_purge_failed', err, { sessionId })
-  })
-
-  return true
 }

@@ -1,23 +1,25 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { FileBox } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
+import { agentAvatarPick } from '../../lib/agentAvatarChoices'
 import { archiveChat as archiveChatRequest } from '../../lib/archiveChat'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
 import { onChatTitleChanged } from '../../lib/chatTitleEvents'
 import { customResourceNavigationKey } from '../../lib/customResourceNavigation'
 import { cssDurationMs } from '../../lib/motion'
+import { queryKeys } from '../../lib/query/keys'
 import { readSwrCache, writeSwrCache } from '../../lib/swrCache'
 import { toast } from '../ui/toast'
 
-import { loadSidebarChats } from './load-sidebar-chats'
-import { ARCHIVE_IN_FLIGHT, visibleSidebarChats, withRestoredChats } from './local-archive-guard'
-import { AGENT_SESSIONS_POLL_MS, agentSessionsCacheKey, crdCacheKey } from './state'
+import { removeChat, retitleChat, useAgentSessions } from './agentSessions'
+import { crdCacheKey } from './state'
 import { useChatItems } from './use-chat-items'
 import { useSidebarArchiveEvents } from './use-sidebar-archive-events'
+import { useBotArchiveFocus } from './useBotArchiveFocus'
 
-import type { LocalRestoreGuard } from './local-archive-guard'
 import type { Item, Section } from './types'
 import type { AgentConversation } from '../../api'
 import type { CustomResourceDefinitionItem, Scope } from '../../types'
@@ -108,107 +110,62 @@ export function useSidebarCrdSections({
   }, [active, clusterContext, customResourceDefinitions])
 }
 
-// Agent conversations for the "Chats" section. Cached SWR-style so a
-// remount paints instantly; refreshed when the open session changes (a new
-// chat needs a beat to be persisted before it lists) and every four seconds so
-// runtime execution observations stay fresh. The API returns newest-created first, keeping rows from
-// jumping around when an older chat receives another message.
+// Agent conversations for the "Chats" section, from the shared listing every Chats reader polls.
+// A just-opened session needs a beat to be persisted before it lists, so opening one lists again.
 export function useSidebarChats({
   teamId,
   agentSessionId,
   chatShown,
   onArchived,
+  onBotArchiveSelect,
 }: {
   teamId: string
   agentSessionId: string | null
   chatShown: boolean
   /** A chat left the list for the archive — the caller closes any tab showing it. */
   onArchived?: (sessionId: string) => void
+  onBotArchiveSelect?: (key: string) => void
 }) {
-  const [agentSessions, setAgentSessions] = useState<AgentConversation[]>(
-    () => readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId)) ?? [],
+  const client = useQueryClient()
+  const agentSessions = useAgentSessions(teamId).data ?? NONE
+  const refresh = useCallback(
+    () => void client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) }),
+    [client, teamId],
   )
-  const [seededTeamId, setSeededTeamId] = useState(teamId)
-
-  if (seededTeamId !== teamId) {
-    setSeededTeamId(teamId)
-    setAgentSessions(readSwrCache<AgentConversation[]>(agentSessionsCacheKey(teamId)) ?? [])
-  }
-  // Guards late responses from a previous team after a switch.
-  const currentTeamIdRef = useRef(teamId)
 
   useEffect(() => {
-    currentTeamIdRef.current = teamId
-  }, [teamId])
-  // Rapid archiving races the list refresh: a fetch started before the next
-  // archive can respond seconds later still containing that row, and a whole-
-  // list setState would resurrect it. Two guards: only the latest request may
-  // apply (seq), and rows archived locally stay filtered until a listing
-  // requested after the archive landed (see local-archive-guard).
-  const refreshSeqRef = useRef(0)
-  const refreshingTeamRef = useRef<string | null>(null)
-  const locallyArchivedRef = useRef<Map<string, number>>(new Map())
-  const locallyRestoredRef = useRef<LocalRestoreGuard<AgentConversation>>(new Map())
-  const refreshSessions = useCallback(async () => {
-    // Workspace's loading skeleton intentionally renders the shared Sidebar
-    // with an empty team id. Do not start a team-scoped request until the real
-    // scope arrives; the backend correctly rejects an empty team id.
-    if (!teamId || refreshingTeamRef.current === teamId) return
-    refreshingTeamRef.current = teamId
-    const seq = ++refreshSeqRef.current
+    if (!agentSessionId) return
+    const later = setTimeout(refresh, 1000)
 
-    try {
-      const rows = await loadSidebarChats(
-        (options) => api.agentListConversations(teamId, options),
-        () => currentTeamIdRef.current === teamId && seq === refreshSeqRef.current,
-      )
-
-      if (!rows) return
-      const restored = withRestoredChats(rows, locallyRestoredRef.current, seq)
-      const conversations = visibleSidebarChats(restored, locallyArchivedRef.current, seq)
-
-      writeSwrCache(agentSessionsCacheKey(teamId), conversations)
-      setAgentSessions(conversations)
-    } catch {
-      // Best-effort list — keep showing whatever we already have.
-    } finally {
-      if (seq === refreshSeqRef.current) refreshingTeamRef.current = null
-    }
-  }, [teamId])
-
-  useEffect(() => {
-    if (!teamId) return
-    // A just-created session needs a beat to be persisted before it lists.
-    const initial = setTimeout(() => void refreshSessions(), agentSessionId ? 1000 : 0)
-    const interval = setInterval(() => void refreshSessions(), AGENT_SESSIONS_POLL_MS)
-
-    return () => {
-      clearTimeout(initial)
-      clearInterval(interval)
-    }
-  }, [refreshSessions, agentSessionId, teamId])
+    return () => clearTimeout(later)
+  }, [refresh, agentSessionId])
 
   const [archivingIds, setArchivingIds] = useState<ReadonlySet<string>>(() => new Set())
-
+  const archiving = useRef(new Set<string>())
+  const chatItems = useChatItems({ agentSessions, teamId, chatShown, agentSessionId })
+  const handleArchived = useBotArchiveFocus(() => ({
+    teamId,
+    selectedId: agentSessionId,
+    enabled: Boolean(onBotArchiveSelect),
+    onArchived,
+    onSelect: (key) => onBotArchiveSelect?.(key),
+    items: chatItems,
+    archiving: archivingIds,
+  }))
   const { offerUndo } = useSidebarArchiveEvents({
     teamId,
     sessions: agentSessions,
-    locallyArchivedRef,
-    locallyRestoredRef,
-    refreshSeqRef,
-    setSessions: setAgentSessions,
-    refresh: refreshSessions,
-    onArchived,
+    onArchived: handleArchived,
   })
   const archiveChat = useCallback(
     async (sessionId: string) => {
       // Re-entrancy guard: a second click while the first archive is in
       // flight would duplicate the PATCH and the refresh.
-      if (locallyArchivedRef.current.has(sessionId)) return
+      if (archiving.current.has(sessionId)) return
+      archiving.current.add(sessionId)
       // Collapse the row while the PATCH is in flight; on success remove it
-      // for real, on failure flip data-open back so the row visibly expands
-      // again — a clear "archive failed" instead of a silent reappear.
-      locallyArchivedRef.current.set(sessionId, ARCHIVE_IN_FLIGHT)
+      // for real, on failure the row visibly expands again — a clear
+      // "archive failed" instead of a silent reappear.
       setArchivingIds((prev) => new Set(prev).add(sessionId))
       const collapseDone = new Promise((resolve) =>
         setTimeout(resolve, cssDurationMs('--resize-dur', 300)),
@@ -223,8 +180,8 @@ export function useSidebarChats({
         // Handled below once the collapse finished.
       }
       await collapseDone
-      if (ok) locallyArchivedRef.current.set(sessionId, refreshSeqRef.current)
-      else locallyArchivedRef.current.delete(sessionId)
+      if (ok) await removeChat(client, teamId, sessionId)
+      archiving.current.delete(sessionId)
       setArchivingIds((prev) => {
         const next = new Set(prev)
 
@@ -236,40 +193,38 @@ export function useSidebarChats({
         announceChatArchived({ sessionId, teamId })
         offerUndo(sessionId, botSessionId)
       } else {
-        toast.error(t('Could not archive agent'))
+        toast.error(
+          agentAvatarPick(sessionId) ? t('Could not archive Bot') : t('Could not archive task'),
+        )
       }
     },
-    [teamId, offerUndo],
+    [client, teamId, offerUndo],
   )
 
   const unlinkChat = useCallback(
     async (sessionId: string) => {
       try {
         await api.agentUnlinkConversationParent(sessionId, teamId)
-        void refreshSessions()
+        refresh()
       } catch (err) {
         toast.apiError(t('Could not unlink agent'), err)
       }
     },
-    [teamId, refreshSessions],
+    [teamId, refresh],
   )
 
   useEffect(
     () =>
       onChatTitleChanged((change) => {
-        if (change.teamId !== teamId) return
-        setAgentSessions((previous) =>
-          previous.map((item) =>
-            item.sessionId === change.sessionId ? { ...item, title: change.title } : item,
-          ),
-        )
-        void refreshSessions()
+        if (change.teamId === teamId)
+          void retitleChat(client, teamId, change.sessionId, change.title)
       }),
-    [teamId, refreshSessions],
+    [client, teamId],
   )
 
-  const chatItems = useChatItems({ agentSessions, teamId, chatShown, agentSessionId })
   const newChatActive = chatShown && !agentSessionId
 
   return { agentSessions, chatItems, newChatActive, archiveChat, unlinkChat, archivingIds }
 }
+
+const NONE: AgentConversation[] = []

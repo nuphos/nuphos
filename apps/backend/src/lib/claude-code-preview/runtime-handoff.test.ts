@@ -76,6 +76,7 @@ useRedis({
       hgetall: async () => Object.fromEntries(stored),
       hmget: async () => [activeStream, '0', 'actor'],
       get: async () => (activeStream || restoredOwner ? 'live-replica' : null),
+      set: async () => 'OK',
       eval: async (_script: string, _count: number, _key: string, field: string, raw: string) =>
         stored.get(field) === raw && stored.delete(field) ? 1 : 0,
       hset: async (_key: string, fields: Record<string, string>) => {

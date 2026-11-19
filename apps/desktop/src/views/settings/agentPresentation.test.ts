@@ -8,7 +8,9 @@ import {
   agentRunsOn,
   localRemovalId,
   localSignIn,
+  managesRuntime,
   newAgentAction,
+  ownSignedInCli,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -215,11 +217,20 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
   assert.equal(agentOffline({ ...selfHosted, notReady: true }), false)
 })
 
-test("any computer's default agent can be removed; a person's own is only forgotten", () => {
-  const computer = local('mac-codex', 'mac', true)
-  const box = { ...computer, local: { ...computer.local!, box: { state: 'running' } } }
+test("a person's own default agent is removable only while its CLI is signed out", () => {
+  const signedIn = local('mac-codex', 'mac', true)
+  const computer = local('mac-codex', 'mac', false)
+  const box = { ...signedIn, local: { ...signedIn.local!, box: { state: 'running' } } }
 
+  // Its computer's report lists a signed-in CLI whatever Nuphos forgets (#2846).
+  assert.equal(ownSignedInCli(signedIn), true)
+  assert.equal(localRemovalId(signedIn), undefined)
+  assert.equal(
+    localRemovalId({ ...signedIn, local: { ...signedIn.local!, online: false } }),
+    undefined,
+  )
   // Online or not: a signed-out default Nuphos forgets stays hidden until it signs in again.
+  assert.equal(ownSignedInCli(computer), false)
   assert.equal(localRemovalId(computer), 'codex')
   assert.equal(
     localRemovalId({ ...computer, local: { ...computer.local!, online: true } }),
@@ -229,9 +240,11 @@ test("any computer's default agent can be removed; a person's own is only forgot
     localRemovalId({ ...computer, local: { ...computer.local!, online: false } }),
     'codex',
   )
+  // A Box's default agent and an added agent are deleted on the computer, signed in or not.
+  assert.equal(ownSignedInCli(box as RuntimeInstance), false)
   assert.equal(localRemovalId(box as RuntimeInstance), 'codex')
   assert.equal(
-    localRemovalId({ ...computer, local: { ...computer.local!, instanceId: 'id-1' } }),
+    localRemovalId({ ...signedIn, local: { ...signedIn.local!, instanceId: 'id-1' } }),
     'id-1',
   )
   assert.equal(localRemovalId({ ...computer, kind: 'managed', local: undefined }), undefined)
@@ -244,8 +257,8 @@ test("a computer's agent goes by the name given to it, else its provider's", () 
   assert.equal(agentName({ ...agent, local: { ...agent.local!, agentLabel: 'Review' } }), 'Review')
 })
 
-test("every signed-out agent on the viewer's own computers can sign in; others' cannot", () => {
-  const here = { userId: 'owner', deviceId: 'mac' }
+test('every signed-out agent can sign in, by its own CLI or the runtime sign-in', () => {
+  const here = { deviceId: 'mac' }
   const codex = local('a', 'mac', false)
   const added = { ...codex, local: { ...codex.local!, instanceId: 'x' } }
 
@@ -256,52 +269,63 @@ test("every signed-out agent on the viewer's own computers can sign in; others' 
   // runtime sign-in reaches.
   assert.equal(localSignIn(added, here), 'runtime')
   assert.equal(localSignIn(local('a', 'box1', false), here), 'runtime')
+  assert.equal(localSignIn(local('a', 'box1', false), null), 'runtime')
   assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
-  // Signed in already, or someone else's agent: nothing to offer.
+  // Signed in already, or a team runtime: nothing to offer.
   assert.equal(localSignIn(local('a', 'mac', true), here), undefined)
   assert.equal(localSignIn(local('a', 'box1', true), here), undefined)
-  assert.equal(localSignIn(codex, { ...here, userId: 'other' }), undefined)
-  assert.equal(localSignIn(codex, null), undefined)
   assert.equal(localSignIn(teamAgent('managed'), here), undefined)
 })
 
-const hostAgent = (
-  id: string,
-  provider: RuntimeInstance['provider'],
-  signedIn: boolean | null,
-  agentInstances?: boolean,
-) =>
+test("a computer's owner and managers rename, remove and sign in its agents; its users do not", () => {
+  const agent = local('a', 'box1', false)
+
+  assert.equal(managesRuntime(agent, { access: 'owner' }, false), true)
+  assert.equal(managesRuntime(agent, { access: 'manage' }, false), true)
+  assert.equal(managesRuntime(agent, { access: 'use' }, false), false)
+  // Team roles confer nothing on a computer (box-access.ts).
+  assert.equal(managesRuntime(agent, { access: 'use' }, true), false)
+  // The viewer's own computer, listed without an access field.
+  assert.equal(managesRuntime(agent, {}, false), true)
+  // Not in the computer list yet: no controls the backend could refuse.
+  assert.equal(managesRuntime(agent, undefined, true), false)
+  // A team runtime is its administrators'.
+  assert.equal(managesRuntime(teamAgent('external'), undefined, true), true)
+  assert.equal(managesRuntime(teamAgent('external'), undefined, false), false)
+})
+
+const hostAgent = (id: string, provider: RuntimeInstance['provider'], signedIn: boolean | null) =>
   ({
     id,
     provider,
     kind: 'local',
-    local: { deviceId: 'a', signedIn, agentInstances },
+    local: { deviceId: 'a', signedIn },
   }) as RuntimeInstance
 
 test('New Agent signs in a signed-out agent of that provider before it adds another', () => {
-  const old = [hostAgent('claude', 'claude-code', true), hostAgent('codex', 'codex', null)]
-  const capable = [
-    hostAgent('claude', 'claude-code', true, true),
-    hostAgent('codex', 'codex', null, true),
-  ]
+  const agents = [hostAgent('claude', 'claude-code', true), hostAgent('codex', 'codex', null)]
   const lapsed = [
-    hostAgent('claude', 'claude-code', false, true),
-    hostAgent('claude-2', 'claude-code', true, true),
+    hostAgent('claude', 'claude-code', false),
+    hostAgent('claude-2', 'claude-code', true),
   ]
 
   // A lapsed sign-in is signed in again, never turned into "Claude Code 2".
   // A new computer whose first sign-in was cancelled: its agent is hidden (never signed in), so
   // New runtime is the way back to it.
-  const fresh = hostAgent('claude', 'claude-code', false, true)
+  const fresh = hostAgent('claude', 'claude-code', false)
 
   assert.equal(visibleAgent(fresh), false)
   assert.deepEqual(newAgentAction([fresh], 'claude-code'), { signIn: 'claude' })
   assert.deepEqual(newAgentAction(lapsed, 'claude-code'), { signIn: 'claude' })
-  assert.deepEqual(newAgentAction(capable, 'codex'), { signIn: 'codex' })
-  // Every agent of the provider signed in: a capable host adds one, an older host has none to add.
-  assert.deepEqual(newAgentAction(capable, 'claude-code'), { create: true })
-  assert.deepEqual(newAgentAction(old, 'codex'), { signIn: 'codex' })
-  assert.equal(newAgentAction(old, 'claude-code'), null)
+  assert.deepEqual(newAgentAction(agents, 'codex'), { signIn: 'codex' })
+  // Every agent of the provider signed in: add one.
+  assert.deepEqual(newAgentAction(agents, 'claude-code'), { create: true })
+})
+
+test('New Agent adds one to a computer that lists no agents yet', () => {
+  // Its agents are not running yet, or no agent CLI is installed: nothing says the host is old.
+  assert.deepEqual(newAgentAction([], 'codex'), { create: true })
+  assert.deepEqual(newAgentAction([], 'claude-code'), { create: true })
 })
 
 test('AGY only offers its existing shared sign-in, never a second account', () => {
@@ -309,7 +333,7 @@ test('AGY only offers its existing shared sign-in, never a second account', () =
   const signedIn = {
     id: 'agy',
     provider: 'antigravity',
-    local: { signedIn: true, agentInstances: true },
+    local: { signedIn: true },
   } as RuntimeInstance
 
   assert.equal(newAgentAction([signedIn], 'antigravity'), null)

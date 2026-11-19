@@ -10,6 +10,7 @@ import { t } from '../../i18n'
 
 import { LOCAL_AGENT_CARD, LocalAgentCard } from './LocalAgentCard'
 import { LocalRuntimeActivity } from './LocalRuntimeActivity'
+import { OpenAtLoginSettings } from './OpenAtLoginSettings'
 import { SectionHeader } from './shared'
 import { SleepPreventionSettings } from './SleepPreventionSettings'
 
@@ -96,13 +97,14 @@ export function LocalRuntimeSection({
       <SectionHeader
         title={t('Local runtime')}
         description={t(
-          'Claude Code and Codex on this computer, with your own sign-in, for your own agents only. Always on while Nuphos is open.',
+          'Claude Code and Codex on this computer, with your own sign-in. Your own Bots and tasks use them, and so do teammates you share this computer with. Always on while Nuphos is open.',
         )}
       />
 
       <SkeletonReveal ready={state !== null} skeleton={<LocalAgentSkeleton />}>
         {state && (
           <div className="space-y-5">
+            <OpenAtLoginSettings />
             {state.sleepPrevention?.supported && (
               <SleepPreventionSettings
                 state={state.sleepPrevention}
@@ -117,7 +119,9 @@ export function LocalRuntimeSection({
                 provider={provider}
                 agent={state.agents[provider]}
                 devBundle={state.devBundle}
+                customProvider={state.customProviders?.[provider]}
                 onCheck={() => void refresh()}
+                onState={setState}
               />
             ))}
 

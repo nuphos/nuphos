@@ -156,9 +156,8 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
 
           return
         }
-        // Only the transport dropped. The runtime keeps the agent running and
-        // the session reattaches, so its continuation arrives as the next turn,
-        // as it does for an interactive one (lostToReattach).
+        // The transport dropped and reattaching gave up. The runtime may still
+        // run the agent; the next prompt reattaches it.
         if (update.update.reason === 'runtime_connection_lost') {
           void finishTurn(turn, undefined, CONNECTION_LOST_TOOL_ERROR)
 

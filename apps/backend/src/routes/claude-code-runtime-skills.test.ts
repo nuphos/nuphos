@@ -32,7 +32,6 @@ describe('Claude runtime skills route', () => {
 
     expect(response.status).toBe(200)
     expect(bundle.revision).toHaveLength(64)
-    expect(paths.has('nuphos-plan/SKILL.md')).toBe(true)
     expect(paths.has('architecture-diagram/SKILL.md')).toBe(true)
     expect(paths.has('nuphos-dashboards/SKILL.md')).toBe(true)
     expect(paths.has('plan/SKILL.md')).toBe(false)
@@ -112,6 +111,56 @@ describe('Claude runtime skills route', () => {
       } finally {
         reads.mockRestore()
       }
+    } finally {
+      for (const spy of spies) spy.mockRestore()
+    }
+  })
+
+  test('a skill added, updated or deleted reaches the next request', async () => {
+    const teamId = `team-edit-${String(Date.now())}`
+    const objects = new Map<string, { etag: string; body: string }>()
+    const store = {
+      listUnderPrefix: (prefix: string) =>
+        Promise.resolve(
+          prefix.startsWith('teams/')
+            ? [...objects].map(([name, { etag, body }]) => ({
+                key: `${prefix}${name}/SKILL.md`,
+                etag,
+                size: body.length,
+                lastModified: new Date(0),
+              }))
+            : [],
+        ),
+      getObjectBody: (key: string) =>
+        Promise.resolve(Buffer.from(objects.get(key.split('/').at(-2) ?? '')?.body ?? '')),
+    } as unknown as skillsS3.SkillsS3Client
+    const spies = [
+      spyOn(skillsS3, 'isSkillsS3Configured').mockReturnValue(true),
+      spyOn(skillsS3, 'getSkillsStore').mockReturnValue(store),
+    ]
+    const headers = { Authorization: `Bearer ${mintRuntimeSkillsToken(teamId)}` }
+    const fetchSkill = async () => {
+      const response = await app.request(`/skills/${teamId}`, { headers })
+      const { files } = (await response.json()) as {
+        files: { path: string; contentBase64: string }[]
+      }
+      const file = files.find((f) => f.path === 'edited/SKILL.md')
+
+      return file && Buffer.from(file.contentBase64, 'base64').toString()
+    }
+
+    try {
+      objects.set('other', { etag: 'o1', body: '# other\n' })
+      expect(await fetchSkill()).toBeUndefined()
+
+      objects.set('edited', { etag: 'e1', body: '# first\n' })
+      expect(await fetchSkill()).toBe('# first\n')
+
+      objects.set('edited', { etag: 'e2', body: '# second\n' })
+      expect(await fetchSkill()).toBe('# second\n')
+
+      objects.delete('edited')
+      expect(await fetchSkill()).toBeUndefined()
     } finally {
       for (const spy of spies) spy.mockRestore()
     }

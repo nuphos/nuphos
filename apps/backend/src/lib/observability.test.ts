@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { UptimeKumaApiError } from '@/lib/byos/uptime-kuma'
+import { AppError } from '@/lib/errors'
 import { describeUnknown, errorMessage, normalizeError } from '@/lib/observability'
 
 // The strings these build become `AppError` messages, and `errorHandler` puts
@@ -84,5 +85,21 @@ describe('normalizeError keeps telemetry free of credential-keyed values', () =>
 
     expect(JSON.stringify(normalized)).not.toContain('sk-live-abc123')
     expect(normalized.error_status).toBe(403)
+  })
+})
+
+describe('normalizeError names the runtime an error is about', () => {
+  test('an offline runtime logs its runtime and device ids', () => {
+    const offline = new AppError(409, 'runtime_offline', 'The computer is offline.', {
+      runtimeId: 'runtime-1',
+      deviceId: 'device-1',
+      runtimeLabel: 'Claude Code in Mac',
+    })
+
+    expect(normalizeError(offline)).toMatchObject({
+      provider_error_code: 'runtime_offline',
+      runtime_id: 'runtime-1',
+      device_id: 'device-1',
+    })
   })
 })

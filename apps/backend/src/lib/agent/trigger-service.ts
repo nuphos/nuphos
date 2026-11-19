@@ -1,15 +1,11 @@
 /**
- * Single source of truth for trigger lifecycle operations. Three consumers —
- * the REST routes (desktop UI), the agent's trigger_* tools, and automation
- * (monitoring incidents) — all go through here so validation, secret
- * generation, BullMQ scheduling, rollback, and the per-owner quota are
- * enforced identically no matter who is calling.
+ * Single source of truth for trigger lifecycle operations. The REST routes
+ * (desktop UI and agent sessions) and automation (bot import) all go through
+ * here so validation, secret generation, BullMQ scheduling, rollback, and the
+ * per-owner quota are enforced identically no matter who is calling.
  */
-export { performTriggerCleanup } from './trigger-service/cleanup'
 export { createTrigger } from './trigger-service/create'
 export { deleteTrigger } from './trigger-service/delete'
-export type { DeleteTriggerResult } from './trigger-service/delete'
-export { finalizeTriggerProviderWiring } from './trigger-service/finalize-wiring'
 export {
   assertTriggerCreationQuota,
   resolveTriggerCredentialSelection,
@@ -22,11 +18,5 @@ export type {
   TriggerCallerContext,
   UpdateTriggerPatch,
 } from './trigger-service/shared'
-export { testFireTrigger, testTriggerDestination } from './trigger-service/test-fire'
-export type { TestTriggerDestinationResult } from './trigger-service/test-fire'
-export {
-  assertTransferTargetIsMember,
-  executionPrincipalAssignment,
-  transferTriggerExecutionPrincipal,
-} from './trigger-service/transfer'
+export { testFireTrigger } from './trigger-service/test-fire'
 export { updateTrigger } from './trigger-service/update'

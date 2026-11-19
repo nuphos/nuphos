@@ -1,3 +1,4 @@
+import { divertConnectorsPage } from './connectorsDialog.ts'
 import { finalizeWorkspaceState } from './workspaceNormalize.ts'
 import {
   MAIN_PAGE_BUCKET_KEY,
@@ -156,6 +157,7 @@ const WORKSPACE_LEVEL_ACTIONS = [
   'removeTeam',
   'adoptBuckets',
   'releaseBuckets',
+  'setConnectorsDialog',
 ] as const satisfies readonly WorkspaceAction['type'][]
 
 type WorkspaceLevelAction = Extract<
@@ -272,6 +274,10 @@ function applyAction(
         ? state
         : { ...state, buckets: Object.fromEntries(kept) }
     }
+    case 'setConnectorsDialog':
+      return action.dialog === state.connectorsDialog
+        ? state
+        : { ...state, connectorsDialog: action.dialog }
   }
 }
 
@@ -280,7 +286,7 @@ export function workspaceReducer(
   action: WorkspaceAction,
   deps: WorkspaceStoreDeps,
 ): WorkspaceState {
-  const next = applyAction(state, action, deps)
+  const next = divertConnectorsPage(state, applyAction(state, action, deps))
 
   if (next === state) return state
 

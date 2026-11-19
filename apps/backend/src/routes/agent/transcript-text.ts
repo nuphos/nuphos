@@ -14,17 +14,28 @@ export function getFirstUserMessage(messages: UIMessage[]): string {
 }
 
 /**
- * Text of every user message, newest-first (first text part of each). An
- * unattested message is third-party talk, not the user's: it never steers the
- * language, the recall query or the memory query.
+ * Text of every message a person typed, newest-first (first text part of
+ * each), so it steers the response language. An unattested message is
+ * third-party talk, and an agent's or a system's (a parent agent, a Trigger,
+ * GitHub) is no one's language: neither counts.
  */
-export function getUserMessageTexts(messages: UIMessage[]): string[] {
+export function getUserMessageTexts(
+  messages: readonly Pick<UIMessage, 'role' | 'parts' | 'metadata'>[],
+): string[] {
   const texts: string[] = []
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]
+    const metadata = m && parseMessageMetadata(m.metadata)
 
-    if (!m || m.role !== 'user' || parseMessageMetadata(m.metadata)?.unattested) continue
+    // An unattributed (legacy) message still counts as the user's.
+    if (
+      !m ||
+      m.role !== 'user' ||
+      metadata?.unattested ||
+      (metadata?.sender.type ?? 'user') !== 'user'
+    )
+      continue
     for (const part of m.parts) {
       if (part.type === 'text' && part.text) {
         texts.push(part.text)

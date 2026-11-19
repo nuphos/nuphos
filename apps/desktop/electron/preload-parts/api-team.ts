@@ -1,6 +1,8 @@
 import { ipcRenderer } from 'electron'
 
+import { localSetupApi } from './api-local-setup'
 import { runtimeApi } from './api-runtimes'
+import { teamDataApi } from './api-team-data'
 
 import type { DashboardViewRange } from '../../src/dashboards/schema'
 import type { AgentProvider } from '../../src/types/runtime'
@@ -14,6 +16,9 @@ export const teamApi = {
     ipcRenderer.invoke('atlas:deleteTeamGoogleClient', teamId),
   ...runtimeApi,
   updaterInstall: () => ipcRenderer.invoke('updater:install'),
+  updaterGetAutoInstall: () => ipcRenderer.invoke('updater:getAutoInstall'),
+  updaterSetAutoInstall: (enabled: boolean) =>
+    ipcRenderer.invoke('updater:setAutoInstall', { enabled }),
   onUpdaterStatus: (cb: (state: unknown) => void) => {
     const handler = (_e: unknown, state: unknown) => cb(state)
 
@@ -37,12 +42,14 @@ export const teamApi = {
   atlasGetHomeLayout: (teamId: string) => ipcRenderer.invoke('atlas:getHomeLayout', teamId),
   atlasGetRuntimeFallback: (teamId: string) =>
     ipcRenderer.invoke('atlas:getRuntimeFallback', teamId),
-  atlasPutRuntimeFallback: (teamId: string, runtimeIds: string[]) =>
-    ipcRenderer.invoke('atlas:putRuntimeFallback', teamId, runtimeIds),
+  atlasPutRuntimeFallback: (teamId: string, runtimeId: string, fallbackRuntimeId: string | null) =>
+    ipcRenderer.invoke('atlas:putRuntimeFallback', teamId, runtimeId, fallbackRuntimeId),
   atlasGetTeamActivity: (teamId: string, range: string) =>
     ipcRenderer.invoke('atlas:getTeamActivity', teamId, range),
   atlasGetAgentStats: (teamId: string, query: { range: string; scope: string; timeZone: string }) =>
     ipcRenderer.invoke('atlas:getAgentStats', teamId, query),
+  atlasQueryTeamUsage: (teamId: string, query: Record<string, string>) =>
+    ipcRenderer.invoke('atlas:queryTeamUsage', teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: unknown) =>
     ipcRenderer.invoke('atlas:putHomeLayout', teamId, scope, layout),
   archListDiagrams: (teamId: string) => ipcRenderer.invoke('arch:listDiagrams', teamId),
@@ -70,6 +77,8 @@ export const teamApi = {
     ipcRenderer.invoke('designs:delete', teamId, designId),
   // --- Dashboards ---
   dashboardsList: (teamId: string) => ipcRenderer.invoke('dashboards:list', teamId),
+  dashboardsFormerMembers: (teamId: string) =>
+    ipcRenderer.invoke('dashboards:former-members', teamId),
   dashboardsCreate: (teamId: string, input: unknown) =>
     ipcRenderer.invoke('dashboards:create', teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>
@@ -119,15 +128,7 @@ export const teamApi = {
     scope?: string,
   ) => ipcRenderer.invoke('teamSkills:putObject', teamId, key, file, scope),
   teamSkillsListLocal: () => ipcRenderer.invoke('teamSkills:listLocal'),
-  localSetupStatus: (teamId: string) => ipcRenderer.invoke('localSetup:status', teamId),
-  localSetupSync: (teamId: string) => ipcRenderer.invoke('localSetup:sync', teamId),
-  localSetupApproveLinks: (
-    teamId: string,
-    name: string,
-    reviewed: { relPath: string; realPath: string }[],
-  ) => ipcRenderer.invoke('localSetup:approveLinks', teamId, name, reviewed),
-  localSetupSetAutoSync: (teamId: string, enabled: boolean) =>
-    ipcRenderer.invoke('localSetup:setAutoSync', teamId, enabled),
+  ...localSetupApi,
   teamSkillsImportLocal: (
     teamId: string,
     scope: string | undefined,
@@ -147,9 +148,7 @@ export const teamApi = {
     ipcRenderer.invoke('teamSkills:githubPreview', teamId, source, scope),
   teamSkillsGithubInstall: (teamId: string, input: unknown, scope?: string) =>
     ipcRenderer.invoke('teamSkills:githubInstall', teamId, input, scope),
-  atlasCreateTeam: (name: string) => ipcRenderer.invoke('atlas:createTeam', name),
-  atlasUpdateTeam: (teamId: string, input: { name: string }) =>
-    ipcRenderer.invoke('atlas:updateTeam', teamId, input),
+  ...teamDataApi,
   atlasSetTeamAvatar: (teamId: string, image: Uint8Array | null) =>
     ipcRenderer.invoke('atlas:setTeamAvatar', teamId, image),
   atlasSetTeamEmailDomainDiscovery: (teamId: string, enabled: boolean) =>
@@ -172,8 +171,6 @@ export const teamApi = {
   atlasUpdateTeamMemberRole: (teamId: string, memberId: string, role: string) =>
     ipcRenderer.invoke('atlas:updateTeamMemberRole', teamId, memberId, role),
   atlasListMyInvitations: () => ipcRenderer.invoke('atlas:listMyInvitations'),
-  atlasInviteTeamMember: (teamId: string, inviteeEmail: string) =>
-    ipcRenderer.invoke('atlas:inviteTeamMember', teamId, inviteeEmail),
   atlasAcceptInvitation: (invitationId: string) =>
     ipcRenderer.invoke('atlas:acceptInvitation', invitationId),
   atlasRejectInvitation: (invitationId: string) =>

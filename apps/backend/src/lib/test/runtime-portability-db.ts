@@ -25,7 +25,10 @@ function matches(doc: Doc, query: Doc): boolean {
       if ('$gt' in expected) return actual > expected.$gt
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
-      if ('$in' in expected) return expected.$in.includes(actual)
+      if ('$in' in expected)
+        return Array.isArray(actual)
+          ? actual.some((value) => expected.$in.includes(value))
+          : expected.$in.includes(actual)
     }
 
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
@@ -63,9 +66,14 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     parent[parts[0]!] = value
   }
   for (const key of Object.keys(mutation.$unset ?? {})) {
-    const [head = key, tail] = key.split('.')
+    const [head = key, tail, field] = key.split('.')
 
-    if (tail === undefined) delete doc[key]
+    if (tail === '$' && field) {
+      const element = query[head]?.$elemMatch
+      const entry = doc[head]?.find((candidate: Doc) => matches(candidate, element))
+
+      if (entry) delete entry[field]
+    } else if (tail === undefined) delete doc[key]
     else if (doc[head]) delete doc[head][tail]
   }
   for (const [key, value] of Object.entries<number>(mutation.$max ?? {})) {
@@ -97,7 +105,10 @@ function update(doc: Doc, query: Doc, mutation: Doc) {
     const drop = (entry: unknown) =>
       value && typeof value === 'object' && '$in' in value
         ? value.$in.includes(entry)
-        : entry === value
+        : value && typeof value === 'object'
+          ? Boolean(entry) &&
+            Object.entries(value).every(([field, wanted]) => (entry as Doc)[field] === wanted)
+          : entry === value
 
     doc[key] = (doc[key] ?? []).filter((entry: unknown) => !drop(entry))
   }

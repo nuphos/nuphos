@@ -57,11 +57,10 @@ useTokenRevocation({
 })
 
 describe('credentialsMcpTools', () => {
-  test('session environment supports native Plan and provider scripts with one scoped token', () => {
+  test('session environment gives provider scripts one scoped token', () => {
     expect(
       previewSessionEnv({
         base: 'https://backend.example',
-        mount: 'https://backend.example/agent-sessions/conv-1/teams/team-1',
         token: 'scoped',
         conversationId: 'conv-1',
         teamId: 'team-1',
@@ -76,8 +75,6 @@ describe('credentialsMcpTools', () => {
       NUPHOS_SESSION_ID: 'conv-1',
       TEAM: 'team-1',
       NUPHOS_TEAM_ID: 'team-1',
-      NUPHOS_PLAN_API_BASE: 'https://backend.example/agent-sessions/conv-1/teams/team-1/plans',
-      NUPHOS_PLAN_API_TOKEN: 'scoped',
     })
   })
 
@@ -140,6 +137,20 @@ describe('credentialsMcpTools', () => {
       '/agent-sessions/conv-1/teams/team-1/mcp-tools?tools=abc123',
     )
     expect(await url()).toEndWith('/agent-sessions/conv-1/teams/team-1/mcp-tools')
+  })
+
+  // The runtime routes a server through mcp-http-bridge.mjs, which reads the
+  // renewed token on every call, only when its sole header is a bearer token.
+  test('Nuphos MCP servers declare a bearer Authorization as their only header', async () => {
+    const { mcpServers } = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(mcpServers.length).toBeGreaterThan(0)
+    for (const server of mcpServers)
+      expect(server.headers).toEqual([
+        { name: 'Authorization', value: expect.stringMatching(/^Bearer \S+$/u) },
+      ])
   })
 
   // A live agent keeps the MCP headers it was spawned with for the rest of the

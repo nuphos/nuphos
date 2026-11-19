@@ -4,6 +4,7 @@ mod accounts;
 mod agent;
 mod api;
 mod app;
+mod bots;
 mod cli;
 mod config;
 mod login;
@@ -12,6 +13,7 @@ mod secret;
 mod service;
 mod shared;
 mod transcript;
+mod triggers;
 mod update;
 
 use std::io::{IsTerminal, Read};
@@ -46,20 +48,28 @@ enum Command {
     /// Send a message without the TUI and print the reply (reads stdin if no PROMPT).
     Exec {
         prompt: Option<String>,
-        /// Continue this agent instead of starting one.
+        /// Continue this task instead of starting one.
         #[arg(long)]
         session: Option<String>,
-        /// Runtime for a new agent (id or label).
+        /// Runtime for a new task (id or label).
         #[arg(long = "agent", alias = "runtime")]
         runtime: Option<String>,
         /// Approve commands that need approval (otherwise they are denied).
         #[arg(long)]
         approve: bool,
     },
-    /// Open the TUI on an agent, or pick one.
+    /// Open the TUI on a task, or pick one.
     Resume { session: Option<String> },
-    /// List recent agents, or find them by a word in the title or first message.
+    /// List recent tasks, or find them by a word in the title or first message.
     Conversations { query: Option<String> },
+    /// List a task's Triggers (schedules and webhooks) with their last and next run;
+    /// without SESSION, your own Triggers in the team.
+    #[command(alias = "trigger", args_conflicts_with_subcommands = true)]
+    Triggers {
+        session: Option<String>,
+        #[command(subcommand)]
+        command: Option<TriggersCommand>,
+    },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
         name: Option<String>,
@@ -67,22 +77,37 @@ enum Command {
         #[arg(long, requires = "name")]
         create: bool,
     },
-    /// List runtimes (what agents run on, such as Claude Code; find agents with
-    /// `nuphos conversations`), pick one for new agents (or move --session to it),
-    /// add a Cloud runtime with --create, or sign one in with --login.
+    /// List runtimes (what tasks run on, such as Claude Code; find tasks with
+    /// `nuphos conversations`), move --session to one, pick one for new tasks
+    /// with --default, or sign an existing runtime in with --login.
     #[command(name = "agents", alias = "runtime")]
     Runtime {
         name: Option<String>,
+        /// Move this task to the runtime NAME.
         #[arg(long)]
         session: Option<String>,
-        /// Add a Nuphos-managed Cloud runtime for provider NAME (claude-code, codex, grok, antigravity, opencode) and sign it in.
-        #[arg(long, requires = "name", conflicts_with_all = ["session", "login"])]
-        create: bool,
+        /// Make NAME the runtime every new task in the team starts on.
+        #[arg(long = "default", requires = "name", conflicts_with_all = ["session", "login"])]
+        make_default: bool,
         /// Sign the Cloud runtime NAME in to its provider account.
         #[arg(long, requires = "name", conflicts_with = "session")]
         login: bool,
     },
-    /// Show or set an agent's model and reasoning effort (--session), or list the runtime's models.
+    /// List your Bots in the team, or create one named NAME with --create. A new Bot runs with Full Access.
+    #[command(name = "bots", alias = "bot")]
+    Bots {
+        name: Option<String>,
+        /// Create a Bot named NAME.
+        #[arg(long, requires = "name")]
+        create: bool,
+        /// The new Bot's face, such as 01-vermeer-girl (the desktop's Bot picker shows them).
+        #[arg(long, requires = "create")]
+        avatar: Option<String>,
+        /// Runtime for the new Bot (id or label).
+        #[arg(long = "agent", alias = "runtime", requires = "create")]
+        runtime: Option<String>,
+    },
+    /// Show or set a task's model and reasoning effort (--session), or list the runtime's models.
     Model {
         value: Option<String>,
         #[arg(long)]
@@ -142,6 +167,12 @@ enum Command {
 }
 
 #[derive(Subcommand)]
+enum TriggersCommand {
+    /// What a Trigger spent over the last 7 days (its id or name).
+    Usage { trigger: String },
+}
+
+#[derive(Subcommand)]
 enum TokenCommand {
     /// Device sign-ins and agent tokens, newest first.
     List,
@@ -175,7 +206,18 @@ async fn main() {
     }
 }
 
+/// `agents NAME` alone used to change the default runtime for every new task,
+/// which is what a forgotten `--session` did silently.
+fn check_runtime_pick(command: &Option<Command>) -> Result<()> {
+    if let Some(Command::Runtime { name: Some(name), session: None, make_default: false, login: false }) = command {
+        let name = render::clean(name);
+        bail!("pass `--session ID` to move a task to {name}, or `--default` to start every new task on it");
+    }
+    Ok(())
+}
+
 async fn run(args: Args) -> Result<i32> {
+    check_runtime_pick(&args.command)?;
     let interactive = matches!(args.command, None | Some(Command::Resume { .. }));
     if interactive && !(std::io::stdin().is_terminal() && std::io::stdout().is_terminal()) {
         bail!("the TUI needs a terminal; use `nuphos exec` to send a message from a script");
@@ -268,14 +310,20 @@ async fn run(args: Args) -> Result<i32> {
             cli::exec(&mut ctx, prompt.trim().to_string(), session, runtime, approve).await
         }
         Some(Command::Conversations { query }) => cli::conversations(&ctx, query.as_deref()).await.map(|_| 0),
-        Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
-        Some(Command::Runtime { name: Some(provider), create: true, .. }) => {
-            cli::create_runtime(&mut ctx, &provider).await.map(|_| 0)
+        Some(Command::Triggers { command: Some(TriggersCommand::Usage { trigger }), .. }) => {
+            triggers::usage(&ctx, &trigger).await.map(|_| 0)
         }
+        Some(Command::Triggers { session, .. }) => triggers::list(&ctx, session.as_deref()).await.map(|_| 0),
+        Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
         Some(Command::Runtime { name: Some(name), login: true, .. }) => {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
         }
-        Some(Command::Runtime { name, session, .. }) => cli::runtime(&mut ctx, name, session).await.map(|_| 0),
+        Some(Command::Runtime { name, session, make_default, .. }) => {
+            cli::runtime(&mut ctx, name, session, make_default).await.map(|_| 0)
+        }
+        Some(Command::Bots { name, create, avatar, runtime }) => {
+            bots::bots(&ctx, name, create, avatar, runtime).await.map(|_| 0)
+        }
         Some(Command::Model { value, effort, session }) => {
             cli::model(&mut ctx, value, effort, session).await.map(|_| 0)
         }
@@ -495,7 +543,7 @@ async fn tui(start: app::Start, team: Option<String>) -> Result<i32> {
     if let Some((team_id, session_id)) = app.run(start, team).await? {
         let web = std::env::var("NUPHOS_WEB_URL").unwrap_or_else(|_| "https://nuphos.ai".into());
         let path = render::clean(&format!("/teams/{team_id}/agent/{session_id}"));
-        println!("Agent: {}{path}", web.trim_end_matches('/'));
+        println!("Task: {}{path}", web.trim_end_matches('/'));
         println!("Continue with: nuphos resume {}", render::clean(&session_id));
     }
     Ok(0)
@@ -580,5 +628,71 @@ mod account_args {
         }
         let args = Args::try_parse_from(["nuphos", "--account", "sam@example.com", "team"]).unwrap();
         assert_eq!(args.account.as_deref(), Some("sam@example.com"));
+    }
+}
+
+#[cfg(test)]
+mod runtime_args {
+    use clap::Parser;
+
+    use super::{check_runtime_pick, Args, Command};
+
+    fn check(argv: &[&str]) -> anyhow::Result<()> {
+        check_runtime_pick(&Args::try_parse_from(argv)?.command)
+    }
+
+    #[test]
+    fn managed_creation_is_no_longer_a_command() {
+        for command in ["agents", "runtime"] {
+            assert!(Args::try_parse_from(["nuphos", command, "codex", "--create"]).is_err());
+            let args = Args::try_parse_from(["nuphos", command, "Codex", "--login"]).unwrap();
+            assert!(matches!(args.command, Some(Command::Runtime { login: true, .. })));
+        }
+        assert!(Args::try_parse_from(["nuphos", "team", "Acme", "--create"]).is_ok());
+    }
+
+    #[test]
+    fn a_runtime_name_without_session_or_default_changes_nothing() {
+        let error = check(&["nuphos", "agents", "Codex"]).unwrap_err().to_string();
+        assert!(error.contains("--session") && error.contains("--default"), "{error}");
+    }
+
+    #[test]
+    fn listing_moving_defaulting_and_signing_in_still_parse() {
+        for argv in [
+            &["nuphos", "agents"][..],
+            &["nuphos", "agents", "Codex", "--session", "abc"],
+            &["nuphos", "agents", "Codex", "--default"],
+            &["nuphos", "agents", "Codex", "--login"],
+            &["nuphos", "runtime", "Codex", "--default"],
+        ] {
+            check(argv).unwrap_or_else(|e| panic!("{argv:?}: {e}"));
+        }
+    }
+
+    #[test]
+    fn default_does_not_combine_with_a_session() {
+        assert!(Args::try_parse_from(["nuphos", "agents", "Codex", "--default", "--session", "abc"]).is_err());
+        assert!(Args::try_parse_from(["nuphos", "agents", "--default"]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod triggers_args {
+    use clap::Parser;
+
+    use super::{Args, Command, TriggersCommand};
+
+    #[test]
+    fn a_task_id_lists_its_triggers_and_usage_stays_a_subcommand() {
+        let args = Args::try_parse_from(["nuphos", "triggers", "sess-1"]).unwrap();
+        assert!(matches!(args.command, Some(Command::Triggers { session: Some(s), command: None }) if s == "sess-1"));
+        let args = Args::try_parse_from(["nuphos", "triggers"]).unwrap();
+        assert!(matches!(args.command, Some(Command::Triggers { session: None, command: None })));
+        let args = Args::try_parse_from(["nuphos", "triggers", "usage", "Nightly"]).unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::Triggers { session: None, command: Some(TriggersCommand::Usage { trigger }) }) if trigger == "Nightly"
+        ));
     }
 }

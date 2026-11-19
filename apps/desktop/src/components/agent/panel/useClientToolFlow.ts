@@ -95,12 +95,12 @@ export function useClientToolFlow(acc: Acc) {
           resumeReason: 'client-tool',
         })
       } catch (err) {
-        toast.apiError(t('Failed to continue the agent run'), err)
+        toast.apiError(t('Failed to continue the task'), err)
         fireStopNotification(
           buildAgentStopNotification({
             outcome: {
               kind: 'failed',
-              cause: t('The agent could not be continued after running a local tool.'),
+              cause: t('The task could not be continued after running a local tool.'),
             },
             title: payload.title,
           }),

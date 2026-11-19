@@ -84,6 +84,10 @@ class BotsTest {
         )
         assertEquals(listOf("bot-chat", "waiting", "old-chat"), list.map { it.sessionId })
     }
+    @Test fun theBotsListingAsksTheServerForBotsOnly() {
+        assertEquals("true", NuphosApi.conversationQuery("team", bots = true).toMap()["bots"])
+        assertNull(NuphosApi.conversationQuery("team").toMap()["bots"])
+    }
     @Test fun creatingABotSendsItsNameFaceAndKnownRuntimeOnly() = runBlocking {
         var seen: JsonValue? = null
         val id = BotActions.create("synthetic", "team", "  Ada  ", "07-ada") { method, path, token, query, body ->

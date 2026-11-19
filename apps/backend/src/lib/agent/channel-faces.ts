@@ -1,7 +1,8 @@
-import { parseMessageMetadata } from './message-metadata'
+import { chatName } from './db/archive'
 import { listChannelAgents } from './db/channels'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
+import { parseMessageMetadata } from './message-metadata'
 
 import type { AgentConversation } from './db/shared'
 
@@ -15,7 +16,8 @@ export type ChannelFace = {
 
 type Person = { id: string; name: string; avatarURL?: string }
 
-const FACES = 2
+// The design system's group icon clusters up to three members.
+const FACES = 3
 // Enough recent posts to find who spoke last.
 const RECENT_POSTS = 20
 
@@ -46,7 +48,7 @@ export async function channelMembers(
     members.set(agent.sessionId, {
       id: agent.sessionId,
       name: agent.title,
-      agent: { ...(agent.avatar ? { avatar: agent.avatar } : {}), provider: agent.provider },
+      agent: { avatar: agent.avatar, provider: agent.provider },
     })
   for (const id of conversationParticipantIds(channel)) {
     const person = people.get(id)
@@ -68,10 +70,12 @@ export async function channelMembers(
 /**
  * What a chat's list row and detail carry for the viewer: the `faces` of its
  * icon and, when no one named it, a `title` of everyone else in it. The name
- * is the viewer's own view, so it is never stored. Other conversations carry neither.
+ * is the viewer's own view, so it is never stored. A Bot's own chat is always
+ * named after the Bot, so renaming the Bot renames it. Other conversations carry neither.
  */
 export async function channelFacesField(
-  conversation: Parameters<typeof channelMembers>[0] & { kind?: string; title?: string },
+  conversation: Parameters<typeof channelMembers>[0] &
+    Pick<AgentConversation, 'kind' | 'group'> & { title?: string },
   viewerId: string,
   people: Map<string, Person>,
 ): Promise<{ faces?: ChannelFace[]; title?: string }> {
@@ -85,7 +89,7 @@ export async function channelFacesField(
 
   return {
     faces: faces.slice(0, FACES),
-    ...(conversation.title
+    ...(chatName(conversation)
       ? {}
       : {
           // Alone in it, the viewer sees their own name rather than none.
