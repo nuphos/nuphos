@@ -179,11 +179,11 @@ export const computerScenarios: Scenario[] = [
 
       if (!answer.includes('file_not_found'))
         throw new Error(`local_upload did not report the missing file: ${answer}`)
-      // The finished turn folds its work behind "Worked for Xs"; the row is inside.
-      await page
-        .getByRole('button', { name: /^Worked/ })
-        .last()
-        .click()
+      // The finished turn folds its work behind "Worked for Xs", which counts the failed call.
+      const worked = page.getByRole('button', { name: /^Worked/ }).last()
+
+      await worked.getByText('· 1 failed', { exact: true }).waitFor()
+      await worked.click()
       // A run of one call marks its closed line; the call's own row inside stays hidden.
       const failed = page
         .locator('[data-tool-failed]')

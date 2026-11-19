@@ -6,9 +6,11 @@ import { useState } from 'react'
 import { useTextSwap } from '../../../hooks/useTextSwap'
 import { t } from '../../../i18n'
 
+import { failedWorkCount } from './activity'
+import { toolAnchorIds } from './chatTarget'
 import { formatWorkDuration } from './streamText'
 
-import type { ToolPart } from './parts'
+import type { Part, ToolPart } from './parts'
 import type { ReactNode } from 'react'
 
 export const disclosureControlClass =
@@ -51,6 +53,17 @@ export function ThinkingPartView({ text, live }: { text: string; live: boolean }
   )
 }
 
+/** "· N failed" on a closed line, only "N failed" in red; nothing when no call failed. */
+export function FailedCount({ failed }: { failed: number }) {
+  if (failed === 0) return null
+
+  return (
+    <span className="flex-shrink-0 text-tertiary" data-tool-run-failed>
+      · <span className="text-error">{t('{n} failed', { n: String(failed) })}</span>
+    </span>
+  )
+}
+
 // Codex-style turn fold: once a turn finishes cleanly, its work log
 // (narration, tool runs, thinking) folds behind a "Worked for Xs" disclosure
 // and only the final answer stays visible. Turns that ended abnormally —
@@ -62,16 +75,20 @@ export function CollapsedWorkView({
   label,
   messageIds = [],
   toolCallIds = [],
+  work = [],
 }: {
   seconds: number | null
   label?: string
   messageIds?: string[]
   toolCallIds?: string[]
+  /** A finished turn's work: its calls are anchored, and its failed calls counted on the line. */
+  work?: Part[]
   /** Render work only after disclosure. Historical tool output can be several
    * megabytes, so CSS-only hiding still blocks conversation open on its DOM. */
   children: () => ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const anchors = [...toolCallIds, ...toolAnchorIds(work)]
 
   return (
     <div data-chat-fold="" data-collapsed-activity={label === 'Activity' && !open ? '' : undefined}>
@@ -80,7 +97,7 @@ export function CollapsedWorkView({
           {messageIds.map((id) => (
             <span key={id} data-chat-fold-anchor="" data-message-id={id} />
           ))}
-          {toolCallIds.map((id) => (
+          {anchors.map((id) => (
             <span key={id} data-chat-fold-anchor="" data-tool-call-id={id} />
           ))}
         </div>
@@ -112,6 +129,7 @@ export function CollapsedWorkView({
               (seconds === null
                 ? t('Worked')
                 : t('Worked for {duration}', { duration: formatWorkDuration(seconds) })))}
+          <FailedCount failed={failedWorkCount(work)} />
           <ChevronRight
             className={clsx('h-3.5 w-3.5 transition-transform', open && 'rotate-90')}
             strokeWidth={2}

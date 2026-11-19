@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { t } from '../../../i18n'
 
 import { failedCallCount, toolFailure } from './activity'
-import { disclosureControlClass, LoadingText, ToolElapsedBadge } from './partChrome'
+import { disclosureControlClass, FailedCount, LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel, isCommandTool } from './toolPartUtils'
 import { ToolFailureLabel } from './ToolPartView'
 import { pendingApproval } from './toolRuns'
@@ -102,11 +102,7 @@ export function ToolRunView({
             · {t('{n} calls', { n: String(count) })}
           </span>
         )}
-        {failed > 0 && (
-          <span className="flex-shrink-0 text-tertiary" data-tool-run-failed>
-            · <span className="text-error">{t('{n} failed', { n: String(failed) })}</span>
-          </span>
-        )}
+        <FailedCount failed={failed} />
         <ChevronRight
           className={clsx(
             'h-3.5 w-3.5 flex-shrink-0 transition-all',

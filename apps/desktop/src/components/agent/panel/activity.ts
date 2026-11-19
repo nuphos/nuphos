@@ -58,6 +58,11 @@ export function failedCallCount(parts: ToolPart[]): number {
   return parts.filter((part) => toolFailure(part) !== null).length
 }
 
+/** How many calls failed in a turn's folded work: the sum of its runs' counts. */
+export function failedWorkCount(parts: Part[]): number {
+  return failedCallCount(parts.filter(isPlainToolPart))
+}
+
 export function isRoutineActivity(part: Part): boolean {
   if (part.type === 'text') return !part.text.trim() || part.phase === 'commentary'
   if (part.type === 'reasoning' || part.type === 'step-start') return true

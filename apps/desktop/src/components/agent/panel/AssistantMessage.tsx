@@ -249,7 +249,7 @@ export const AssistantMessage = memo(
           <CollapsedWorkView
             key="fold"
             seconds={workSeconds}
-            toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
+            work={displayParts.slice(recallLead, collapseSplit)}
           >
             {() => renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)}
           </CollapsedWorkView>,
