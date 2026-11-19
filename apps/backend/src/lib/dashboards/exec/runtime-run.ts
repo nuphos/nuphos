@@ -111,6 +111,23 @@ export async function parseRunnerError(
   return null
 }
 
+/** The integration a failed panel found not connected, as the runner named it.
+ * Panel code can forge the envelope, so only a short plain name is kept. */
+export function parseNotConnected(stdout: string): string | null {
+  const idx = stdout.lastIndexOf(ERROR_SENTINEL)
+
+  if (idx === -1) return null
+  try {
+    const line = stdout.slice(idx + ERROR_SENTINEL.length).split('\n', 1)[0] ?? ''
+    const parsed = JSON.parse(line) as { notConnected?: unknown }
+    const name = parsed.notConnected
+
+    return typeof name === 'string' && /^[A-Za-z][A-Za-z ]{0,60}$/.test(name) ? name : null
+  } catch {
+    return null
+  }
+}
+
 export const RUNTIME_BUSY_MESSAGE =
   'The agent is busy with other jobs. Refresh the panel again in a moment.'
 export const RUNTIME_LOST_MESSAGE =
@@ -206,10 +223,13 @@ export async function runOnRuntime(args: {
         ? 'panel process was terminated'
         : `panel exited with code ${String(result.exitCode)}`
 
-    throw new PanelExecError(
-      'nonzero_exit',
-      diagnostic ? `${exitMessage}\n\n${diagnostic}` : exitMessage,
-    )
+    const detail = diagnostic ? `${exitMessage}\n\n${diagnostic}` : exitMessage
+    const integration = parseNotConnected(result.stdout)
+
+    // A known not-connected answer leads with what to reconnect; the log keeps the rest.
+    if (integration)
+      throw new PanelExecError('not_connected', `Not connected: ${integration}\n\n${detail}`)
+    throw new PanelExecError('nonzero_exit', detail)
   }
 
   return { output: parseOutput(result.stdout, panel), durationMs: Date.now() - startedAt }

@@ -277,7 +277,12 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'record_stop') {
     contents.setBackgroundThrottling(true)
 
-    return text(await stopRecording(contents))
+    return text(
+      await stopRecording(contents, {
+        dir: path.join(app.getPath('userData'), 'har'),
+        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+      }),
+    )
   }
   const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 

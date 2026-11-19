@@ -1,8 +1,10 @@
 import { BrowserWindow } from 'electron'
 
-import { CHANGELOG_FEED_URL, parseChangelogFeed } from './changelog-feed'
+import { isNuphosCloud } from '../api-endpoint.ts'
 
-import type { ChangelogEntry } from './changelog-feed'
+import { CHANGELOG_FEED_URL, parseChangelogFeed } from './changelog-feed.ts'
+
+import type { ChangelogEntry } from './changelog-feed.ts'
 
 export type ChangelogState = { kind: 'unavailable' } | { kind: 'ready'; entries: ChangelogEntry[] }
 
@@ -25,6 +27,11 @@ export function getChangelogState(): ChangelogState {
 }
 
 export async function fetchChangelogOnce() {
+  if (!isNuphosCloud()) {
+    setChangelogState({ kind: 'unavailable' })
+
+    return
+  }
   if (fetchInFlight) return
   fetchInFlight = true
   try {
@@ -35,7 +42,8 @@ export async function fetchChangelogOnce() {
     if (!res.ok) throw new Error(`changelog feed http ${String(res.status)}`)
     const entries = parseChangelogFeed(await res.json())
 
-    if (entries && entries.length > 0) setChangelogState({ kind: 'ready', entries })
+    if (isNuphosCloud() && entries && entries.length > 0)
+      setChangelogState({ kind: 'ready', entries })
     else setChangelogState({ kind: 'unavailable' })
   } catch {
     // Expected until the landing-page feed ships, and on any network failure:

@@ -4,7 +4,14 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
-import { computerWithUsage, loadingFree, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import {
+  computerWithUsage,
+  loadingFree,
+  pickRuntime,
+  shootChipResets,
+  shootRuntimeLine,
+  shootUsageResets,
+} from './channel-helpers.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
@@ -68,6 +75,31 @@ export const channelScenarios: Scenario[] = [
           `channel_read returned posts the notice had shown: ${JSON.stringify(repeats)}`,
         )
       }
+    },
+  },
+  {
+    // #3702: a Bot answers one post with replyTo, and its answer quotes that post.
+    name: "a Bot's answer to one post quotes it",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      const response = await fetch(
+        `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
+        {
+          method: 'POST',
+          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            teamId: stack.teamId,
+            text: 'Which regions are down? E2E_REPLY_TO E2E_DELIVERY:reply',
+          }),
+        },
+      )
+
+      if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
+      await page.getByText('POSTED E2E_DELIVERY:reply', { exact: true }).waitFor()
+      // The quote above the answer is a button titled with the post it answers.
+      await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
     },
   },
   {
@@ -231,8 +263,12 @@ export const channelScenarios: Scenario[] = [
         await pickRuntime(page, computer, /^Claude Code/)
         const task = await shootRuntimeLine(page, 'task')
 
+        // #3732: the chip names when its tightest window, the 5-hour one, resets.
+        await shootChipResets(page)
+
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+        await shootUsageResets(page, computer)
       } finally {
         forget()
       }

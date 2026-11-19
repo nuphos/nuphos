@@ -48,7 +48,7 @@ type SectionListProps = {
 function foldLabel(item: Item, folded: boolean): string {
   if (item.project) return folded ? t('Expand') : t('Collapse')
 
-  return folded ? t('Show sub-agents') : t('Hide sub-agents')
+  return folded ? t('Show sub-tasks') : t('Hide sub-tasks')
 }
 
 export function SidebarSectionList({

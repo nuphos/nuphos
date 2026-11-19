@@ -42,7 +42,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Search Bots, tasks and people'), combos: ['mod+k'] },
       { label: t('Switch Bot or task'), combos: ['alt+up', 'alt+down'] },
       {
-        label: t('Agent needing you'),
+        label: t('Bot or task needing you'),
         combos: ['alt+shift+up', 'alt+shift+down'],
       },
       {

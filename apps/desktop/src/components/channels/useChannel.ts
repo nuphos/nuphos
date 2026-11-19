@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useContext } from 'react'
+import { useCallback, useContext, useEffect } from 'react'
 
 import { api } from '../../api.ts'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
@@ -9,7 +9,7 @@ import { queryKeys } from '../../lib/query/keys.ts'
 import { channelRevision } from './channelRevision.ts'
 import { listedConversation } from './channelShared.ts'
 
-import type { AgentConversationDetail, ChannelAgent } from '../../api'
+import type { AgentConversation, AgentConversationDetail, ChannelAgent } from '../../api'
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 
 // Like an open conversation: new posts from people and agents show within a few seconds.
@@ -19,23 +19,58 @@ const TAIL = 200
 
 type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[]; revision: string }
 
-/** A cheap probe first; the messages and agents only when it shows a change. */
+/** With a copy on hand, a cheap probe first and the rest only when it shows a change. */
 export async function loadChannel(client: QueryClient, teamId: string, channelId: string) {
   const last = client.getQueryData<Channel>(queryKeys.channel(teamId, channelId))
+  const all = async () => {
+    const [detail, listed] = await Promise.all([
+      api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
+      api.agentListChannelAgents(channelId, teamId),
+    ])
+
+    return { detail, agents: listed.agents, revision: channelRevision(detail) }
+  }
+
+  if (!last) return all()
   const probe = await api.agentGetConversation(channelId, teamId, {
     tail: 1,
     messages: 'omit',
     runtimeState: 'omit',
   })
-  const revision = channelRevision(probe)
 
-  if (last?.revision === revision) return last
-  const [detail, listed] = await Promise.all([
-    api.agentGetConversation(channelId, teamId, { tail: TAIL, runtimeState: 'omit' }),
-    api.agentListChannelAgents(channelId, teamId),
-  ])
+  return last.revision === channelRevision(probe) ? last : all()
+}
 
-  return { detail, agents: listed.agents, revision }
+/** Loads a Bot chat before it is opened, so it opens from memory. */
+export function prefetchChannel(client: QueryClient, teamId: string, channelId: string) {
+  const queryKey = queryKeys.channel(teamId, channelId)
+
+  // One that failed (a chat left or deleted) is read again only when it is opened.
+  if (client.getQueryState(queryKey)?.status === 'error') return
+  client
+    .query({
+      queryKey,
+      queryFn: () => loadChannel(client, teamId, channelId),
+      gcTime: Infinity,
+      retry: false,
+    })
+    .catch(() => {})
+}
+
+/** The three most recent Bot chats, loaded once the sidebar lists them, so they open from memory. */
+export function usePrefetchRecentChannels(teamId: string, listed: AgentConversation[] | undefined) {
+  const client = useQueryClient()
+  const loaded = listed !== undefined
+
+  useEffect(() => {
+    if (!loaded) return
+    const recent = (client.getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId)) ?? [])
+      .filter((row) => row.kind === 'channel')
+      .sort((a, b) => Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt))
+      .slice(0, 3)
+
+    for (const row of recent) prefetchChannel(client, teamId, row.sessionId)
+  }, [client, teamId, loaded])
 }
 
 /** After a post or an agent change, from any pane showing the channel: fetch it all now. */
@@ -72,6 +107,8 @@ export function useChannel(teamId: string, channelId: string) {
     queryFn: () => loadChannel(client, teamId, channelId),
     enabled: tab ? tab.isActive : true,
     retry: false,
+    // Kept for as long as the app runs: a chat opened an hour ago opens from memory too.
+    gcTime: Infinity,
     refetchInterval: (query) => channelRetryMs(query.state),
   })
 

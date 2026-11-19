@@ -145,10 +145,19 @@ test('a move records where the conversation came from', async () => {
   expect(conversation.runtimeMigration).toMatchObject({ fromRuntimeId: 'old', toRuntimeId: 'new' })
   expect(conversation.previousRuntimeUrls).toEqual(['wss://old/acp'])
   expect(conversation.runtimeId).toBe('new')
-  // What the session's timeline shows, with the labels as they were at the move.
-  expect(conversation.timelineEvents).toMatchObject([
-    { kind: 'runtime_moved', actorId: 'owner', fromLabel: 'Old runtime', toLabel: 'New runtime' },
+  // What the session's history keeps, with the labels as they were at the move.
+  expect(conversation.settingsHistory).toMatchObject([
+    {
+      actorId: 'owner',
+      via: 'runtime_move',
+      runtime: {
+        from: { id: 'old', label: 'Old runtime' },
+        to: { id: 'new', label: 'New runtime', provider: 'claude-code' },
+      },
+    },
   ])
+  // Not in the capped timeline, which could evict it.
+  expect(conversation.timelineEvents ?? []).toEqual([])
 })
 test('an active turn preserves the original placement and releases the operation lock', async () => {
   busy = true
@@ -247,6 +256,18 @@ for (const automatic of [false, true]) {
     expect(conversation.runtimeId).toBe('new')
     expect(conversation.claudeCodePreview).toBeUndefined()
     expect(conversation.initialSessionConfig).toEqual({ model: 'chosen-model', effort: 'high' })
+    // A fallback is no one's move: the system's, with its reason.
+    expect(conversation.settingsHistory).toMatchObject([
+      automatic
+        ? {
+            actorId: 'system',
+            via: 'runtime_fallback',
+            reason: 'quota',
+            runtime: { to: { id: 'new' } },
+          }
+        : { actorId: 'owner', via: 'runtime_move', runtime: { to: { id: 'new' } } },
+    ])
+    expect(conversation.settingsHistory?.[0]).not.toHaveProperty('model')
   })
 }
 
@@ -274,12 +295,31 @@ test('a cross-provider move drops the old choices and stores the effort the dest
   // model is left to the destination's default, which the picker names.
   expect(conversation.initialSessionConfig).toEqual({ effort: 'low' })
   expect(conversation.claudeCodePreview).toBeUndefined()
+  // The other agent starts on its own defaults; the record says what was dropped.
+  expect(conversation.settingsHistory).toMatchObject([
+    {
+      via: 'runtime_move',
+      runtime: { from: { provider: 'claude-code' }, to: { provider: 'codex' } },
+      model: { from: { value: 'chosen-model' } },
+      effort: { from: { value: 'high' }, to: { value: 'low' } },
+    },
+  ])
+  expect(conversation.settingsHistory?.[0]?.model).not.toHaveProperty('to')
 })
 test('a cross-provider move with an unreadable destination catalog stores no stale choices', async () => {
   destinationModels = null
   target.provider = 'codex'
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toBeUndefined()
+  expect(conversation.claudeCodePreview).toBeUndefined()
+})
+test('an agent’s update_thread move names the agent and the person it acts for', async () => {
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner', {
+    by: { actorId: 'owner', agentSessionId: 'manager', via: 'update_thread' },
+  })
+  expect(conversation.settingsHistory).toMatchObject([
+    { actorId: 'owner', agentSessionId: 'manager', via: 'update_thread' },
+  ])
 })
 test('a same-provider move keeps the model and stores the effort it will run on', async () => {
   delete conversation.claudeCodePreview
@@ -309,6 +349,7 @@ test('a model the destination does not offer is left behind; what it offers move
   destinationModels = ['latest-model']
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
   expect(conversation.initialSessionConfig).toEqual({ effort: 'high' })
+  expect(conversation.settingsHistory?.[0]?.model).toEqual({ from: { value: 'chosen-model' } })
 })
 test('an unreadable destination catalog keeps the pick as it was', async () => {
   delete conversation.claudeCodePreview

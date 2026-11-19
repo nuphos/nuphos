@@ -4,11 +4,16 @@ import { ChevronRight } from 'lucide-react'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
-import { quotaNote, quotaWindowLine } from '../../lib/runtimeQuota'
+import {
+  quotaLeftPercent,
+  quotaNote,
+  quotaWindowLine,
+  quotaWindowTone,
+} from '../../lib/runtimeQuota'
 
 import { agentDisplayName, agentOffline, agentRunsOn } from './agentPresentation'
-import { ACCENT_RGB } from './MetricChart'
-import { STATUS_DOT } from './runtimePresentation'
+import { QUOTA_FILL_CLASS, QUOTA_LABEL_CLASS, STATUS_DOT } from './runtimePresentation'
+import { ResetsIn } from './RuntimeUsageBar'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
@@ -16,13 +21,11 @@ import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 export const AGENT_USAGE_COLUMNS =
   'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_16px] gap-5 @3xl:grid-cols-[minmax(0,1.4fr)_160px_minmax(0,1fr)_16px]'
 
-/** Usage fills match MetricChart's violet; the used-up orange is a token the theme leaves alone. */
-export const USED_FILL = `rgb(${ACCENT_RGB})`
+/** The used-up orange is a token the theme leaves alone. */
 export const LIMIT_FILL = 'rgba(var(--color-status-attention), 0.7)'
 
-const percent = (value: number) => `${String(Math.round(value))}%`
-
-/** One agent: who it is, where it runs, and how much of each plan window is used now. */
+/** One agent: who it is, where it runs, and how much of each plan window is left now,
+ *  read the same way as its details panel. */
 export function AgentUsageRow({
   instance,
   quota,
@@ -80,32 +83,46 @@ export function AgentUsageRow({
         {windows.length === 0 ? (
           <span className="block truncate text-[11px] text-tertiary">{note ?? '—'}</span>
         ) : (
-          windows.map((window) => (
-            <span
-              key={window.id}
-              title={quotaWindowLine(window, new Date())}
-              className="flex items-center gap-2 text-[11px]"
-            >
-              <span className="w-14 shrink-0 truncate text-tertiary">{window.label}</span>
-              <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-sunken">
-                <span
-                  className="block h-full rounded-full"
-                  style={{
-                    width: `${String(Math.min(window.usedPercent, 100))}%`,
-                    backgroundColor: window.usedPercent >= 100 ? LIMIT_FILL : USED_FILL,
-                  }}
-                />
-              </span>
+          windows.map((window) => {
+            const left = quotaLeftPercent(window)
+            const tone = quotaWindowTone(window)
+
+            return (
               <span
-                className={clsx(
-                  'w-9 shrink-0 text-right font-mono',
-                  window.usedPercent >= 100 ? 'text-status-attention' : 'text-main',
-                )}
+                key={window.id}
+                title={quotaWindowLine(window, new Date())}
+                className="flex items-center gap-2 text-[11px]"
               >
-                {percent(window.usedPercent)}
+                <span className="w-14 shrink-0 truncate text-tertiary">{window.label}</span>
+                <span
+                  role="progressbar"
+                  aria-label={t('{name} remaining', { name: window.label })}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={left}
+                  // A spent window has no fill left to colour, so its track carries the red.
+                  className={`h-1.5 min-w-0 flex-1 overflow-hidden rounded-full ${tone === 'exhausted' ? 'bg-error/30' : 'bg-surface-sunken'}`}
+                >
+                  <span
+                    className={`block h-full rounded-full ${QUOTA_FILL_CLASS[tone]}`}
+                    style={{ width: `${String(left)}%` }}
+                  />
+                </span>
+                <span
+                  className={clsx(
+                    'w-16 shrink-0 whitespace-nowrap text-right font-mono',
+                    QUOTA_LABEL_CLASS[tone] || 'text-main',
+                  )}
+                >
+                  {t('{percent}% left', { percent: left })}
+                </span>
+                {/* Too narrow for the reset beside the details panel, which shows it. */}
+                <span className="hidden @3xl:contents">
+                  <ResetsIn resetsAt={window.resetsAt} />
+                </span>
               </span>
-            </span>
-          ))
+            )
+          })
         )}
       </span>
       <ChevronRight

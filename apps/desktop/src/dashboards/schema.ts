@@ -30,6 +30,8 @@ export type PanelSnapshotErrorKind =
   | 'runtime_unavailable'
   | 'runtime_outdated'
   | 'author_unavailable'
+  // The message's first line is "Not connected: <integration>".
+  | 'not_connected'
   // Only on snapshots from the retired sandbox executor.
   | 'sandbox_expired'
   | 'internal'
