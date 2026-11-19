@@ -64,3 +64,9 @@ test('an expired group is gone for everyone', async () => {
   groups[0]!.expiresAt = new Date(Date.now() - 1)
   await expect(load('owner', 'producer')).rejects.toThrow('File transfer has expired')
 })
+
+test('a pinned group has no expiry and stays readable', async () => {
+  delete groups[0]!.expiresAt
+
+  expect((await load('owner', 'producer'))._id.equals(groupId)).toBe(true)
+})
