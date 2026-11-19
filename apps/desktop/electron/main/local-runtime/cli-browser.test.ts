@@ -55,8 +55,8 @@ function fakeChromium() {
                 result: {},
                 exceptionDetails: { text: 'Uncaught', exception: { description: 'Error: boom' } },
               }
-            : params.expression === 'finish()'
-              ? { result: { value: Buffer.from('WEBM').toString('base64') } }
+            : String(params.expression).startsWith('finish(')
+              ? { result: { value: JSON.stringify([{ ms: 0, key: true, data: 'VlA4' }]) } }
               : { result: { value: 42 } }
       else if (method === 'Page.captureScreenshot') result = { data: 'SlBFRw==' }
       emit({ id, result, ...(sessionId ? { sessionId } : {}) })
@@ -175,6 +175,6 @@ test('record_start with video records the tab from a helper window and record_st
     video: { file: string }
   }
 
-  assert.equal(readFileSync(stopped.video.file, 'utf8'), 'WEBM')
+  assert.equal(readFileSync(stopped.video.file).subarray(0, 4).toString('hex'), '1a45dfa3')
   assert.ok(chromium.commands.some((c) => c.method === 'Target.closeTarget'))
 })

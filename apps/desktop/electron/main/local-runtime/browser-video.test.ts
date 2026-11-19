@@ -41,19 +41,20 @@ function tab({ failScreencast = false, failScreenshot = false } = {}) {
   return { contents: { id: 3, debugger: debug } as unknown as RecordedTab, debug, frame }
 }
 
-/** A helper page that encodes nothing, but answers `finish()` with a WebM's bytes. */
+/** A helper page that encodes nothing: `finish(ms)` answers with one frame's chunk. */
 function helper({ fail }: { fail?: 'setup' | 'finish' } = {}) {
   const page = {
     scripts: [] as string[],
     closed: false,
     evaluate: (script: string) => {
       page.scripts.push(script)
-      if (fail === 'setup' && script !== 'finish()' && !script.startsWith('draw('))
-        return Promise.reject(new Error('no MediaRecorder'))
-      if (fail === 'finish' && script === 'finish()')
-        return Promise.reject(new Error('encoder crashed'))
+      const finish = script.startsWith('finish(')
 
-      return Promise.resolve(script === 'finish()' ? Buffer.from('WEBM').toString('base64') : null)
+      if (fail === 'setup' && !finish && !script.startsWith('draw('))
+        return Promise.reject(new Error('no VideoEncoder'))
+      if (fail === 'finish' && finish) return Promise.reject(new Error('encoder crashed'))
+
+      return Promise.resolve(finish ? JSON.stringify([{ ms: 0, key: true, data: 'VlA4' }]) : null)
     },
     close: () => {
       page.closed = true
@@ -78,7 +79,7 @@ test('record_start with a helper also records what the tab shows, and record_sto
     method: 'Page.screencastFrameAck',
     params: { sessionId: 1 },
   })
-  assert.ok(page.scripts.includes('draw("AAAA")'))
+  assert.ok(page.scripts.some((s) => s.startsWith('draw("AAAA", ')))
 
   const result = await stopRecording(contents, output)
 
@@ -87,7 +88,11 @@ test('record_start with a helper also records what the tab shows, and record_sto
   const video = result.video && 'file' in result.video ? result.video : undefined
 
   assert.ok(video?.file.endsWith('.webm'))
-  assert.equal(readFileSync(video?.file ?? '', 'utf8'), 'WEBM')
+  // An EBML header, then the frame the helper encoded.
+  const bytes = readFileSync(video?.file ?? '')
+
+  assert.equal(bytes.subarray(0, 4).toString('hex'), '1a45dfa3')
+  assert.ok(bytes.includes('VP8'))
   assert.equal(video?.frames, 1)
   assert.equal(video?.truncated, false)
 })
@@ -113,7 +118,7 @@ test('a video past its frame budget stops taking frames and says it was cut shor
   frame('AAAA', 3) // past it: not drawn
   await new Promise((resolve) => setImmediate(resolve))
   assert.ok(methods(debug).includes('Page.stopScreencast'))
-  assert.equal(page.scripts.filter((s) => s === 'draw("AAAA")').length, 2)
+  assert.equal(page.scripts.filter((s) => s.startsWith('draw("AAAA", ')).length, 2)
 
   const done = await stopVideo(video, join(temp, 'cut.webm'))
 
@@ -153,7 +158,7 @@ test('a video starts with the page as it is at record_start, before any screenca
 
   await startVideo(contents.debugger, () => Promise.resolve(page))
   // A tab that does not repaint sends no frame, and the video would only start at its next change.
-  assert.ok(page.scripts.includes('draw("SHOT")'))
+  assert.ok(page.scripts.includes('draw("SHOT", 0)'))
   assert.ok(
     methods(debug).indexOf('Page.captureScreenshot') <
       methods(debug).indexOf('Page.startScreencast'),
@@ -165,4 +170,16 @@ test('a refused first screenshot still starts the video', async () => {
 
   await startVideo(contents.debugger, () => Promise.resolve(helper()))
   assert.ok(methods(debug).includes('Page.startScreencast'))
+})
+
+test('each frame is encoded at the time it arrived, however late the helper runs', async () => {
+  const { contents, frame } = tab()
+  const page = helper()
+
+  await startVideo(contents.debugger, () => Promise.resolve(page))
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  frame('AAAA', 1)
+  const at = Number(/^draw\("AAAA", (\d+)\)$/.exec(page.scripts.at(-1) ?? '')?.[1])
+
+  assert.ok(at >= 300 && at < 1000, String(at))
 })
