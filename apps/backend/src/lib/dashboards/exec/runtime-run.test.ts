@@ -143,6 +143,45 @@ describe('runOnRuntime', () => {
     expect(err.message).not.toContain(token)
   })
 
+  test('leads with the integration a not-bound answer named, keeping the diagnostic', async () => {
+    const envelope = {
+      message: 'nuphos GET /teams/t/grafana failed: 404',
+      notConnected: 'Grafana instance',
+    }
+    const err = await failure(
+      run(
+        runtime(() =>
+          Promise.resolve({
+            exitCode: 1,
+            stdout: `${ERROR_SENTINEL}${JSON.stringify(envelope)}\n`,
+          }),
+        ),
+      ),
+    )
+
+    expect(err.kind).toBe('not_connected')
+    expect(err.message.split('\n', 1)[0]).toBe('Not connected: Grafana instance')
+    expect(err.message).toContain('panel exited with code 1')
+    expect(err.message).toContain('nuphos GET /teams/t/grafana failed: 404')
+  })
+
+  test('keeps a forged integration name out of the message', async () => {
+    const envelope = { message: 'boom', notConnected: '<img src=x> and a very suspicious name' }
+    const err = await failure(
+      run(
+        runtime(() =>
+          Promise.resolve({
+            exitCode: 1,
+            stdout: `${ERROR_SENTINEL}${JSON.stringify(envelope)}\n`,
+          }),
+        ),
+      ),
+    )
+
+    expect(err.kind).toBe('nonzero_exit')
+    expect(err.message).not.toContain('Not connected')
+  })
+
   test('classifies transport failures', async () => {
     const busy = await failure(
       run(runtime(() => Promise.reject(new OpenAbRpcError('busy', -32005)))),

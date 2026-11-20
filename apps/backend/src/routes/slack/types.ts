@@ -20,6 +20,8 @@ export type SlackAssistantThreadInfo = {
 export type SlackMessageEvent = {
   type?: string
   user?: string
+  // The sender's home workspace; another org's for a Slack Connect member.
+  user_team?: string
   text?: string
   ts?: string
   thread_ts?: string

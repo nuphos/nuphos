@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { LocalBrowserStream } from './browser-stream.ts'
-import { Cdp, launchChromium } from './cli-chromium.ts'
+import { Cdp, launchChromium, recorder } from './cli-chromium.ts'
 import { failed } from './cua-host.ts'
 
 import type { RecordedTab } from './browser-recording.ts'
@@ -25,6 +25,8 @@ type Tab = RecordedTab & {
 const LOAD_TIMEOUT_MS = 20_000
 const CALL_TIMEOUT_MS = 30_000
 const VIEWPORT = { width: 1440, height: 900 }
+/** Each tab is a whole page kept in memory, so a conversation keeps a bounded number open. */
+const MAX_TABS = 10
 /** The actions on one of the conversation's tabs; the rest need a Desktop's screen and dock. */
 const TAB_ACTIONS = new Set([
   'navigate',
@@ -65,13 +67,34 @@ function within<T>(work: Promise<T>, ms = CALL_TIMEOUT_MS): Promise<T> {
 export function createCliBrowser(launch: () => Browser, harDir: string) {
   let connection: Cdp | undefined
   const tabs = new Map<number, Tab>()
+  // Each conversation's tabs share a browser context of their own, so a sign-in or cookie in
+  // one conversation never reaches another on a shared computer; it goes with its last tab.
+  const contexts = new Map<string, Promise<string>>()
+  /** Each conversation's opens still in flight, whose tabs are not in `tabs` yet. */
+  const opening = new Map<string, number>()
   let lastTab = 0
+  const held = (conversation: string) =>
+    [...tabs.values()].filter((t) => t.conversation === conversation).length +
+    (opening.get(conversation) ?? 0)
+
+  const forget = (tab: Tab) => {
+    tabs.delete(tab.id)
+    if (held(tab.conversation) > 0) return
+    const context = contexts.get(tab.conversation)
+
+    contexts.delete(tab.conversation)
+    void context
+      ?.then((browserContextId) =>
+        connection?.send('Target.disposeBrowserContext', { browserContextId }),
+      )
+      .catch(() => {})
+  }
 
   const onEvent: Listener = (method, params, sessionId) => {
     const tab = [...tabs.values()].find((t) => t.sessionId === (params.sessionId ?? sessionId))
 
     if (!tab) return
-    if (method === 'Target.detachedFromTarget') tabs.delete(tab.id)
+    if (method === 'Target.detachedFromTarget') forget(tab)
     if (params.frameId !== tab.targetId) return
     if (method === 'Page.frameStartedLoading') tab.loading = true
     if (method === 'Page.frameStoppedLoading') {
@@ -89,6 +112,7 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
     void browser.exited.then(() => {
       if (connection === cdp) connection = undefined
       tabs.clear()
+      contexts.clear()
       cdp.end()
     })
     connection = cdp
@@ -124,8 +148,32 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
     return { tab: tab.id, url: targetInfo.url, title: targetInfo.title, loading: tab.loading }
   }
   const open = async (cdp: Cdp, conversation: string, url: string) => {
+    opening.set(conversation, (opening.get(conversation) ?? 0) + 1)
+    try {
+      return await openTab(cdp, conversation, url)
+    } finally {
+      const left = (opening.get(conversation) ?? 1) - 1
+
+      if (left > 0) opening.set(conversation, left)
+      else opening.delete(conversation)
+    }
+  }
+  const openTab = async (cdp: Cdp, conversation: string, url: string) => {
+    const context =
+      contexts.get(conversation) ??
+      cdp
+        .send<{ browserContextId: string }>('Target.createBrowserContext')
+        .then(({ browserContextId }) => browserContextId)
+        .catch((error: unknown) => {
+          // The next open tries again instead of waiting on this failure.
+          contexts.delete(conversation)
+          throw error
+        })
+
+    contexts.set(conversation, context)
     const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
       url: 'about:blank',
+      browserContextId: await context,
     })
     const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', {
       targetId,
@@ -161,6 +209,10 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
       return text(await Promise.all(mine.map((t) => describe(connect(), t))))
     if (call.action === 'open') {
       if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
+      if (held(call.session) >= MAX_TABS)
+        return failed(
+          `This conversation already has ${String(MAX_TABS)} tabs open; close one with action "close" first.`,
+        )
       const cdp = connect()
 
       return text(await describe(cdp, await open(cdp, call.session, call.url)))
@@ -200,7 +252,7 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
     }
     if (call.action === 'close') {
       await cdp.send('Target.closeTarget', { targetId: tab.targetId })
-      tabs.delete(tab.id)
+      forget(tab)
 
       return text(`Closed tab ${String(tab.id)}.`)
     }
@@ -230,32 +282,6 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
         { type: 'text', text: JSON.stringify(await describe(cdp, tab)) },
       ],
     }
-  }
-}
-
-/** A page's side of the shared HAR recorder (browser-recording.ts), over its debugging session. */
-function recorder(cdp: Cdp, sessionId: string): RecordedTab['debugger'] {
-  type OnMessage = Parameters<RecordedTab['debugger']['on']>[1]
-  const forwards = new Map<OnMessage, Listener>()
-
-  return {
-    attach: () => {},
-    // Recording ends with the page's network events off again.
-    detach: () => void cdp.send('Network.disable', {}, sessionId).catch(() => {}),
-    isAttached: () => true,
-    sendCommand: (method, params) => cdp.send(method, params, sessionId),
-    on: (_event, listener) => {
-      const forward: Listener = (method, params, from) => {
-        if (from === sessionId) listener({}, method, params)
-      }
-
-      forwards.set(listener, forward)
-      cdp.listeners.add(forward)
-    },
-    off: (_event, listener) => {
-      cdp.listeners.delete(forwards.get(listener)!)
-      forwards.delete(listener)
-    },
   }
 }
 

@@ -61,6 +61,10 @@ export function classifyListClustersError(e: unknown, handle: GcpHandle): AppErr
   const code = (e as { code?: number }).code
   const message = e instanceof Error ? e.message : String(e)
 
+  if ((e as { reason?: unknown } | null)?.reason === 'BILLING_DISABLED') {
+    return new AppError(403, 'gcp_billing_disabled', 'Billing is disabled for this GCP project.')
+  }
+
   const disabled = gcpServiceDisabledInfo(e, {
     service: GKE_SERVICE,
     serviceTitle: GKE_SERVICE_TITLE,

@@ -116,7 +116,8 @@ function watch({
         const read =
           chip === 'runtime x'
             ? String(Math.round(shown?.getBoundingClientRect().left ?? 0))
-            : (shown?.textContent ?? '').trim()
+            : // What it shows: a chip keeps its other labels in it, unseen, to hold its width.
+              ((shown as HTMLElement | undefined)?.innerText ?? '').trim()
 
         return [chip, shown ? read : null]
       }),
