@@ -23,6 +23,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a member’s Trigger list', () =
     await teams().insertOne({
       _id: TEAM,
       name: 'Trigger list',
+      ownerID: MEMBER,
+      createdAt: joinedAt,
       members: [{ userId: MEMBER, role: 'EDITOR', joinedAt }],
     } as never)
     // The oldest is enabled, and 100 disabled ones were created after it.
