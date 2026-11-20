@@ -1,18 +1,12 @@
 import SwiftUI
 
 /// The card that leads a Bot's details, as Desktop's Bot details panel has it
-/// (#2983): its face, name, runtime and model, and the way into the Bot's own Task.
-/// Whoever manages the Bot switches its runtime and model here too.
+/// (#2983): its face, name and runtime, and the way into the Bot's own Task.
 struct BotDetailsCard: View {
     let channel: ChannelSession
-    /// The Bot's own session, whose runtime and model the card shows and switches.
-    let bot: ChatSession
     /// Nil when the viewer cannot open the Bot's own Task.
     let openTask: (() -> Void)?
     @Environment(AgentStore.self) private var store
-    @State private var showRuntimes = false
-    @State private var showModel = false
-    @State private var switchError: String?
 
     private var runtime: String? {
         guard let bot = store.bots.first(where: { $0.sessionId == channel.botId }) else { return nil }
@@ -24,25 +18,6 @@ struct BotDetailsCard: View {
             ChatIcon(faces: channel.faces, title: channel.title, size: 64)
             Text(channel.title).font(.system(.headline, weight: .semibold)).foregroundStyle(Theme.heading).lineLimit(2)
             if let runtime { Text(runtime).font(.caption).foregroundStyle(Theme.muted) }
-            if let model = bot.sessionConfig?.model?.currentLabel {
-                Text(model).font(.caption).foregroundStyle(Theme.muted).accessibilityIdentifier("bot-model")
-            }
-            if bot.canManage {
-                HStack(spacing: 8) {
-                    Button { showRuntimes = true } label: {
-                        Label { Text("Switch runtime") } icon: { LucideIcon("arrow-left-right", size: 14) }
-                    }
-                    .disabled(bot.isStreaming)
-                    .accessibilityIdentifier("bot-switch-runtime")
-                    if bot.isNativeRuntime, bot.sessionConfig?.status != .unsupported {
-                        Button { showModel = true } label: {
-                            Label { Text("Model") } icon: { LucideIcon("cpu", size: 14) }
-                        }
-                        .accessibilityIdentifier("bot-model-settings")
-                    }
-                }
-                .buttonStyle(.bordered)
-            }
             if let openTask {
                 Button(action: openTask) {
                     Label { Text("Task") } icon: { LucideIcon("clipboard-list", size: 14) }
@@ -55,18 +30,6 @@ struct BotDetailsCard: View {
         .padding(Theme.Space.large)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.hairline, lineWidth: 1))
-        .sheet(isPresented: $showRuntimes) {
-            RuntimePickerSheet(session: bot) { runtime in
-                Task {
-                    do { try await bot.move(to: runtime); showRuntimes = false; await store.reload() }
-                    catch { switchError = error.localizedDescription }
-                }
-            }
-        }
-        .sheet(isPresented: $showModel) { ModelSettingsSheet(session: bot).presentationDetents([.medium, .large]) }
-        .alert("Couldn't switch runtime", isPresented: Binding(get: { switchError != nil }, set: { if !$0 { switchError = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(switchError ?? "") }
     }
 }
 

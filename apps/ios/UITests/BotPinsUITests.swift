@@ -85,10 +85,10 @@ final class BotPinsUITests: XCTestCase {
     }
 
 
-    /// Bot details shows the Bot's model, and whoever manages the Bot switches its runtime and
-    /// model there; its own Task leads its controls with the runtime and model (#3873 left them
-    /// only inside the Bot's Task, past the edge of a phone's controls row).
-    func testBotDetailsShowAndSwitchTheBotsRuntimeAndModel() throws {
+    /// A Bot's owner reaches its Task, runtime and model from the chat's header in one tap,
+    /// as before Bot details (#3873 left them only behind the Bot's name), and the Task's
+    /// controls row shows the runtime and model without scrolling.
+    func testBotChatHeaderOpensTheBotsTaskWithRuntimeAndModel() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "tests/fixtures/bot-desktop-responses.json")
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-bot-plain"] as? [String: Any])
@@ -105,7 +105,7 @@ final class BotPinsUITests: XCTestCase {
             "options": [["id": "model", "name": "Model", "kind": "model", "currentValue": "sonnet",
                          "options": [["value": "sonnet", "name": "Sonnet"], ["value": "opus", "name": "Opus"]]]],
         ]]
-        let live = URL.temporaryDirectory.appending(path: "bot-details-runtime-\(UUID()).json")
+        let live = URL.temporaryDirectory.appending(path: "bot-header-task-\(UUID()).json")
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
         defer { try? FileManager.default.removeItem(at: live) }
         let app = XCUIApplication()
@@ -114,33 +114,21 @@ final class BotPinsUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
-        let name = app.buttons["bot-details-entry"]
-        XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
-        let model = app.staticTexts["bot-model"]
-        XCTAssertTrue(model.waitForExistence(timeout: 10), "Bot details shows no model")
-        XCTAssertEqual(model.label, "Sonnet")
-        shot("bot-details-runtime-model")
-        let runtime = app.buttons["bot-switch-runtime"]
-        XCTAssertTrue(runtime.waitForExistence(timeout: 5), "Bot details offers no runtime switch"); runtime.tap()
-        XCTAssertTrue(app.navigationBars["Choose runtime"].waitForExistence(timeout: 10), "Switch runtime opened nothing")
-        shot("bot-details-runtime-picker")
-        app.navigationBars["Choose runtime"].buttons["Close"].tap()
-        XCTAssertTrue(app.navigationBars["Choose runtime"].waitForNonExistence(timeout: 5))
-        let settings = app.buttons["bot-model-settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Bot details offers no model settings"); settings.tap()
-        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: 10), "Model settings opened nothing")
-        app.navigationBars["Model"].buttons["Done"].tap()
-        XCTAssertTrue(app.navigationBars["Model"].waitForNonExistence(timeout: 5))
-        let entry = app.buttons["bot-task-entry"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 5), "Bot details does not open the Bot's Task"); entry.tap()
-        XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10))
+        let entry = app.navigationBars.buttons["chat.botTask"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's header has no Task button")
+        shot("bot-header-task")
+        entry.tap()
+        XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The header's Task button did not open the Bot's Task")
         let input = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
         input.tap()
-        let chip = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Switch runtime'")).firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.buttons["Model settings"].waitForExistence(timeout: 10))
-        XCTAssertTrue(chip.isHittable && app.buttons["Model settings"].isHittable, "The Bot's Task hides its runtime and model past the controls row's edge")
-        shot("bot-task-runtime-model-first")
+        let runtime = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Switch runtime'")).firstMatch
+        XCTAssertTrue(runtime.waitForExistence(timeout: 10), "The Bot's Task offers no runtime switch")
+        XCTAssertTrue(app.buttons["Model settings"].waitForExistence(timeout: 10), "The Bot's Task shows no model")
+        XCTAssertTrue(runtime.isHittable && app.buttons["Model settings"].isHittable, "The Bot's Task hides its runtime and model past the controls row's edge")
+        shot("bot-task-runtime-model")
+        runtime.tap()
+        XCTAssertTrue(app.navigationBars["Choose runtime"].waitForExistence(timeout: 10), "Switch runtime opened nothing")
+        shot("bot-task-runtime-picker")
     }
 
     func testBotTaskReturnsToItsChat() throws {
