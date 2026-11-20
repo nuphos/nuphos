@@ -2,6 +2,9 @@
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { rmSync } from 'node:fs'
 
+import { dupCustomerScenarios } from './dup-customer-scenarios.ts'
+import { startNetProxy } from './net-proxy.ts'
+
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
@@ -196,9 +199,11 @@ try {
   console.log(`Artifacts: ${artifacts}`)
   const stack = await startStack()
 
-  desktop = await startDesktop(stack.apiUrl)
+  const proxy = await startNetProxy(stack.apiUrl)
+
+  desktop = await startDesktop(proxy.url)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+  for (const [index, scenario] of [...signInScenarios, ...dupCustomerScenarios(proxy)].entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 
