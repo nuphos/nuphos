@@ -290,6 +290,7 @@
   "Agency Type: {agencyType}, Identity Provider Type: {idpType}, then pick the provider you created in step 1": "Agency Type に {agencyType}、Identity Provider Type に {idpType} を選択し、ステップ 1 で作成したプロバイダーを選びます",
   "Agent": "エージェント",
   "Agent / Docker": "エージェント / Docker",
+  "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Rent one, then refresh.": "自分のコンピューター上のエージェントではダッシュボードのパネルを実行できません。チームのエージェントか Nuphos から借りたコンピューターなら実行できます。借りてから更新してください。",
   "Aggregations": "アグリゲーション",
   "Akamai cloud compute instances.": "Akamai のクラウドコンピューティングインスタンス。",
   "Alarm {name} was not found in {region}.": "{region} にアラーム {name} が見つかりませんでした。",

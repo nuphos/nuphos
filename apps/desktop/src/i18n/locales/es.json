@@ -290,6 +290,7 @@
   "Agency Type: {agencyType}, Identity Provider Type: {idpType}, then pick the provider you created in step 1": "Agency Type: {agencyType}, Identity Provider Type: {idpType}; luego elige el proveedor que creaste en el paso 1",
   "Agent": "Agente",
   "Agent / Docker": "Agente / Docker",
+  "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Rent one, then refresh.": "Los agentes de tu propia computadora no pueden ejecutar paneles del tablero. Un agente del equipo o una computadora de Nuphos sí pueden. Alquila una y luego actualiza.",
   "Aggregations": "Agregaciones",
   "Akamai cloud compute instances.": "Instancias de cómputo en la nube de Akamai.",
   "Alarm {name} was not found in {region}.": "No se encontró la alarma {name} en {region}.",

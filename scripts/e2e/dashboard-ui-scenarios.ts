@@ -69,7 +69,7 @@ function failForNoAgent(stack: Stack, panelId: string) {
       finishedAt: new Date(),
     })
     await client.close()`
-  const message = `${NO_RUNTIME}; one of the team's agents or a Box can. Rent a Box from Nuphos, or ask a team admin to, then refresh.`
+  const message = `${NO_RUNTIME}. A team agent or a computer from Nuphos can. Ask a team admin to rent one, then refresh.`
 
   execFileSync('bun', ['-e', script, stack.mongoUri, panelId, message], {
     cwd: resolve(import.meta.dirname, '../../apps/backend'),
@@ -231,7 +231,8 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Rent a computer from Nuphos', exact: true }).click()
       await page.getByRole('dialog').getByText('Rent a computer from Nuphos').first().waitFor()
       await shot(page, '11-no-agent-rent-box')
-      await page.keyboard.press('Escape')
+      // Opened on this step, the dialog has nothing to go back to.
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
       await page.getByRole('dialog').waitFor({ state: 'hidden' })
     },
   },

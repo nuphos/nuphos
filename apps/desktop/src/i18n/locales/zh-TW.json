@@ -290,6 +290,7 @@
   "Agency Type: {agencyType}, Identity Provider Type: {idpType}, then pick the provider you created in step 1": "Agency Type 選擇 {agencyType}，Identity Provider Type 選擇 {idpType}，然後選擇你在步驟 1 建立的提供者",
   "Agent": "Agent",
   "Agent / Docker": "Agent / Docker",
+  "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Rent one, then refresh.": "你電腦上的 agent 無法執行儀表板面板，團隊的 agent 或向 Nuphos 租的電腦可以。租一台後再重新整理。",
   "Aggregations": "聚合",
   "Akamai cloud compute instances.": "Akamai 雲端運算執行個體。",
   "Alarm {name} was not found in {region}.": "在 {region} 中找不到警示 {name}。",

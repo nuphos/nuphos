@@ -290,6 +290,7 @@
   "Agency Type: {agencyType}, Identity Provider Type: {idpType}, then pick the provider you created in step 1": "เลือก Agency Type เป็น {agencyType} และ Identity Provider Type เป็น {idpType} จากนั้นเลือกผู้ให้บริการที่สร้างไว้ในขั้นตอนที่ 1",
   "Agent": "เอเจนต์",
   "Agent / Docker": "เอเจนต์ / Docker",
+  "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Rent one, then refresh.": "เอเจนต์บนคอมพิวเตอร์ของคุณเองรันพาเนลแดชบอร์ดไม่ได้ เอเจนต์ของทีมหรือคอมพิวเตอร์จาก Nuphos รันได้ เช่าสักเครื่องแล้วรีเฟรช",
   "Aggregations": "การรวมข้อมูล",
   "Akamai cloud compute instances.": "อินสแตนซ์คลาวด์คอมพิวต์ของ Akamai",
   "Alarm {name} was not found in {region}.": "ไม่พบสัญญาณเตือน {name} ใน {region}",
