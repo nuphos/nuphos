@@ -24,12 +24,6 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
   log({ sessionId, event: 'channel', detail: channelId })
   // E2E_SLOW keeps this turn busy, so the posts that follow wait for one notice.
   if (text.includes('E2E_SLOW')) await new Promise((resolve) => setTimeout(resolve, 5_000))
-  // E2E_WAIT_RELEASE answers only once the scenario writes `release` beside the ACP log.
-  if (text.includes('E2E_WAIT_RELEASE')) {
-    const release = join(dirname(process.env.E2E_ACP_LOG), 'release')
-
-    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
-  }
   for (let tries = 0; tries < 5 && more(last); tries++) {
     const message = await call(sessionId, 'channel_read', { label: 'Read on', channelId })
 
@@ -42,6 +36,14 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
   }
   const marker = (read.match(MARKER) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
   const who = read.includes('E2E_WHO') ? ` from=${whoAsked(read, marker)}` : ''
+
+  // A post marked E2E_DELIVERY:hold-… is answered only once the scenario writes `release` beside
+  // the ACP log. Only while it is the post answered: shown again later, it holds nothing.
+  if (marker.startsWith('E2E_DELIVERY:hold-')) {
+    const release = join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
 
   // E2E_TWO_POSTS posts twice and works on, as a Bot that reports and keeps going.
   const twice = read.includes('E2E_TWO_POSTS')

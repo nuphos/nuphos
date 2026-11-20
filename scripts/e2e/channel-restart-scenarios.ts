@@ -39,41 +39,38 @@ export const channelRestartScenarios: Scenario[] = [
           headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
           body: JSON.stringify({
             teamId: stack.teamId,
-            text: 'Hold on E2E_WAIT_RELEASE E2E_DELIVERY:restarted',
+            text: 'Hold on E2E_DELIVERY:hold-restarted',
           }),
         },
       )
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
-      try {
-        // The Bot is answering, and waits: its host restarts under that turn.
-        await until('the Bot to start answering', async () => woken() > before, 60_000)
-        await stack.restartAgentHost()
-        writeFileSync(release, '')
-        const answered = await page
-          .getByText('POSTED E2E_DELIVERY:restarted', { exact: true })
-          .first()
-          .waitFor({ timeout: 150_000 })
-          .then(
-            () => true,
-            () => false,
-          )
+      // The Bot is answering, and waits: its host restarts under that turn.
+      await until('the Bot to start answering', async () => woken() > before, 60_000)
+      await stack.restartAgentHost()
+      // Left in place afterwards: a later turn that shows this post again holds nothing.
+      writeFileSync(release, '')
+      const answered = await page
+        .getByText('POSTED E2E_DELIVERY:hold-restarted', { exact: true })
+        .first()
+        .waitFor({ timeout: 150_000 })
+        .then(
+          () => true,
+          () => false,
+        )
 
-        // Pictured either way, at the newest of the post, its answer or a couldn't-reply line.
-        await page
-          .getByText(/E2E_DELIVERY:restarted|couldn’t reply/)
-          .last()
-          .scrollIntoViewIfNeeded()
-        await page.waitForTimeout(1_000)
-        await page.screenshot({ path: `${artifacts}/bot-restart-answered-light.png` })
-        if (!answered) throw new Error('The Bot did not answer the post once its host was back')
-        const lines = linesAfter(since)
+      // Pictured either way, at the newest of the post, its answer or a couldn't-reply line.
+      await page
+        .getByText(/E2E_DELIVERY:hold-restarted|couldn’t reply/)
+        .last()
+        .scrollIntoViewIfNeeded()
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/bot-restart-answered-light.png` })
+      if (!answered) throw new Error('The Bot did not answer the post once its host was back')
+      const lines = linesAfter(since)
 
-        if (lines.length > 0)
-          throw new Error(`The chat said the Bot could not reply: ${lines.join(' | ')}`)
-      } finally {
-        rmSync(release, { force: true })
-      }
+      if (lines.length > 0)
+        throw new Error(`The chat said the Bot could not reply: ${lines.join(' | ')}`)
     },
   },
 ]
