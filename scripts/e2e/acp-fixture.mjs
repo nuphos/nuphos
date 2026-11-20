@@ -20,8 +20,8 @@ import {
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, botEnv, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
-import { INITIALIZE, ruleIn } from './fixture-session.mjs'
+import { applySetting, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import { INITIALIZE, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -242,7 +242,7 @@ async function answer(request) {
         }),
       }
 
-      log({ sessionId, event: 'session', defaults, env: botEnv(request.params) })
+      log({ sessionId, event: 'session', defaults, ...opening(request.params) })
 
       return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
@@ -257,7 +257,7 @@ async function answer(request) {
         request.params.sessionId,
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
-      log({ sessionId: request.params.sessionId, event: 'loaded', rule: ruleIn(request.params) })
+      log({ sessionId: request.params.sessionId, event: 'loaded', ...opening(request.params) })
 
       return {}
     case 'session/set_mode':

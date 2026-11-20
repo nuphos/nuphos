@@ -19,6 +19,8 @@ type AgentEntry = {
   history?: { chars: number; omitted: boolean; readConversation: boolean }
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
   rule?: string
+  /** Each system prompt section's start and hash, as the session opened or loaded with it. */
+  sections?: string[]
   /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean
