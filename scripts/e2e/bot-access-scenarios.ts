@@ -140,7 +140,7 @@ export const botAccessScenarios: Scenario[] = [
         !deviceIds.length ||
         made.access.resendIntegrationIds?.length
       )
-        throw new Error(`"+" stored ${JSON.stringify(made.access)}, not its owner's default`)
+        throw new Error(`"+" stored ${JSON.stringify(made?.access)}, not its owner's default`)
       if ((await page.getByText(CHOOSE).count()) > 0)
         throw new Error('A Bot that may use everything is asked to choose')
       if ((await composerAccess(page)) > 0)
