@@ -2,9 +2,10 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
+import { access, details, narrowDetails, shoot } from './bot-details-narrow.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
-import { artifacts, until } from './processes.ts'
-import { botDetailsToggle, openBotTask, setBotDetails } from './ui.ts'
+import { until } from './processes.ts'
+import { openBotTask, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -12,7 +13,6 @@ import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
-const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
 
 /** Runs a script against the E2E database; it prints one JSON line. */
@@ -75,24 +75,11 @@ function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
   )
 }
 
-const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
-// Exact: the Bot's card is a region too, named after the Bot.
-const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
   page.locator(
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
-
-/** A light capture of the window once the panel or menu has landed. */
-async function shoot(page: Page, name: string) {
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark')
-    document.documentElement.classList.add('light')
-  })
-  await page.waitForTimeout(600)
-  await page.screenshot({ path: `${artifacts}/bot-access-${name}-light.png` })
-}
 
 /** Opens a row's picker or menu, captures it, and closes it again. */
 async function shootMenu(page: Page, row: RegExp, name: string) {
@@ -114,66 +101,6 @@ async function openChat(page: Page, name: string) {
   await page.getByRole('tab', { name: /^Bots/ }).click()
   await page.locator('[data-sidebar-row]').filter({ hasText: name }).first().click()
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
-}
-
-const floats = (page: Page) =>
-  details(page).evaluate((panel) => getComputedStyle(panel).position === 'fixed')
-
-/** In the popover: its end scrolled to, a picker opened in it, and what closes which. */
-async function peekNarrow(page: Page) {
-  await botDetailsToggle(page).click()
-  await access(page)
-    .getByRole('button', { name: /^Credentials/ })
-    .waitFor()
-  if (!(await floats(page))) throw new Error('Opened narrow, the details sit beside the chat')
-  await details(page).evaluate((panel) => panel.scrollTo({ top: panel.scrollHeight }))
-  await shoot(page, 'owner-narrow')
-  // A picker it opens sits outside it: leaving for it, or past it, keeps the popover.
-  await access(page)
-    .getByRole('button', { name: /^Credentials/ })
-    .click()
-  await page.getByRole('menu').waitFor()
-  await shoot(page, 'narrow-picker')
-  await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
-  await page.waitForTimeout(600)
-  await details(page).waitFor()
-  // Esc closes the picker first, then the popover.
-  await page.keyboard.press('Escape')
-  await page.getByRole('menu').waitFor({ state: 'detached' })
-  await details(page).waitFor()
-  await page.keyboard.press('Escape')
-  await details(page).waitFor({ state: 'detached' })
-  // Crossing from the name to the popover keeps it; leaving both closes it.
-  await botDetailsToggle(page).click()
-  await details(page).hover()
-  await page.waitForTimeout(600)
-  await details(page).waitFor()
-  await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
-  await details(page).waitFor({ state: 'detached' })
-}
-
-/** #4077: narrow, the details close; opened by hand, a popover under the Bot's name. */
-async function narrowDetails(page: Page) {
-  if (await floats(page)) throw new Error('Wide, the details float')
-  await shoot(page, 'wide-docked')
-  const cdp = await page.context().newCDPSession(page)
-
-  try {
-    await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-    await page.locator('[data-summary-toggle][aria-expanded="false"]').waitFor()
-    await details(page).waitFor({ state: 'detached' })
-    await shoot(page, 'narrow-closed')
-    await peekNarrow(page)
-  } finally {
-    await cdp.send('Emulation.clearDeviceMetricsOverride')
-    await cdp.detach()
-  }
-  // Wide again, they are back beside the chat, as Choose left them.
-  await access(page)
-    .getByRole('button', { name: /^Credentials/ })
-    .waitFor()
-  if (await floats(page)) throw new Error('Wide again, the details still float')
-  await shoot(page, 'owner-wide-again')
 }
 
 export const botAccessScenarios: Scenario[] = [
