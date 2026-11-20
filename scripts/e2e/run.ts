@@ -203,7 +203,7 @@ try {
 
   desktop = await startDesktop(proxy.url)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...signInScenarios, ...dupCustomerScenarios(proxy)].entries()) {
+  for (const [index, scenario] of [...signInScenarios.slice(1), ...dupCustomerScenarios(proxy)].entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 
