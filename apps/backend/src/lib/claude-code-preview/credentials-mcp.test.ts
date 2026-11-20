@@ -114,7 +114,7 @@ describe('credentialsMcpTools', () => {
     expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
-  test('a Bot compacts at a 200k window and skips next-prompt suggestions; a Task keeps the defaults', async () => {
+  test('every session compacts at a 200k window; only a Bot skips next-prompt suggestions', async () => {
     const options = { backendUrl: 'https://backend.example' }
     const bot = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
       ...options,
@@ -122,8 +122,12 @@ describe('credentialsMcpTools', () => {
     })
     const task = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', options)
 
-    expect(bot.runtimeEnv).toMatchObject({ CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' })
-    expect(task.runtimeEnv).not.toHaveProperty('CLAUDE_CODE_AUTO_COMPACT_WINDOW')
+    expect(bot.runtimeEnv).toMatchObject({
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
+      CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0',
+    })
+    // A long-lived Task grows like a Bot (#4195); its composer still offers the suggestion.
+    expect(task.runtimeEnv).toMatchObject({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' })
     expect(task.runtimeEnv).not.toHaveProperty('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION')
   })
 
