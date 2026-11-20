@@ -111,6 +111,8 @@ export type PreviewSessionAccessOptions = {
   toolsVersion?: string
   /** Set for a sub-agent thread: its tokens name the parent as the RFC 8693 actor. */
   parentSessionId?: string
+  /** A Bot's own session, which it resumes for weeks. */
+  bot?: boolean
 }
 
 export async function previewSessionAccess(
@@ -172,6 +174,11 @@ export async function previewSessionAccess(
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
       }),
+      // A Bot compacts at 100k tokens (the minimum; read_conversation reaches older
+      // turns) and skips the per-turn next-prompt suggestion inference nobody sees.
+      ...(options?.bot
+        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '100000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
+        : {}),
     },
   }
 }

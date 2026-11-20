@@ -106,5 +106,6 @@ export type {
   ConversationsSort,
 } from './db/conversations-list'
 export { setConversationCredentialFields } from './db/credential-fields'
+export { noReplyFailedYet } from './db/timeline-events'
 export { credentialHeirs, credentialSource, credentialSourceOf } from './db/credential-source'
 export type { CredentialSource } from './db/credential-source'

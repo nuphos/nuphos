@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
+import type { RecordedTab } from './browser-recording.ts'
 import type { Readable, Writable } from 'node:stream'
 
 /** The browser's ends of its debugging pipe, and its lifetime. */
@@ -41,7 +42,16 @@ export class Cdp {
       const parts = (this.buffer + chunk).split('\0')
 
       this.buffer = parts.pop() ?? ''
-      for (const part of parts) this.receive(JSON.parse(part) as Message)
+      for (const part of parts) {
+        let message: Message
+
+        try {
+          message = JSON.parse(part) as Message
+        } catch {
+          continue // Not a message; the next one still is.
+        }
+        this.receive(message)
+      }
     })
   }
 
@@ -112,5 +122,31 @@ export function launchChromium(executable: string, profile: string): Browser {
       child.once('exit', () => resolve())
       child.once('error', () => resolve())
     }),
+  }
+}
+
+/** A page's side of the shared HAR recorder (browser-recording.ts), over its debugging session. */
+export function recorder(cdp: Cdp, sessionId: string): RecordedTab['debugger'] {
+  type OnMessage = Parameters<RecordedTab['debugger']['on']>[1]
+  const forwards = new Map<OnMessage, Listener>()
+
+  return {
+    attach: () => {},
+    // Recording ends with the page's network events off again.
+    detach: () => void cdp.send('Network.disable', {}, sessionId).catch(() => {}),
+    isAttached: () => true,
+    sendCommand: (method, params) => cdp.send(method, params, sessionId),
+    on: (_event, listener) => {
+      const forward: Listener = (method, params, from) => {
+        if (from === sessionId) listener({}, method, params)
+      }
+
+      forwards.set(listener, forward)
+      cdp.listeners.add(forward)
+    },
+    off: (_event, listener) => {
+      cdp.listeners.delete(forwards.get(listener)!)
+      forwards.delete(listener)
+    },
   }
 }

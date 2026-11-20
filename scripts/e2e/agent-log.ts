@@ -13,6 +13,10 @@ type AgentEntry = {
   markers?: string[]
   /** The model settings a new session was created with. */
   defaults?: { model?: string; effort?: string; fast?: string }
+  /** The Bot-only Claude Code env a new session was created with. */
+  env?: Record<string, string>
+  /** A fresh session's history preamble: the prompt's length and what it says about omitted turns. */
+  history?: { chars: number; omitted: boolean; readConversation: boolean }
   /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean

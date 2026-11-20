@@ -79,7 +79,7 @@ test('openab listens on loopback only, with a control key it cannot confuse with
   assert.equal(env.HOME, launch.openabHome)
 })
 
-test('the runtime offers only its bundled attachment program as a job', () => {
+test('the runtime offers only its bundled fixed programs as jobs', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
   const bundled = { ...launch, bundle: { ...launch.bundle, root } }
 
@@ -92,6 +92,12 @@ test('the runtime offers only its bundled attachment program as a job', () => {
     assert.equal(
       jobs,
       `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
+    )
+    // Every computer reclaims an archived conversation's home with its own fixed program.
+    writeFileSync(path.join(root, 'session-home-reclaim-job.mjs'), '')
+    assert.equal(
+      openabEnv(bundled).OPENAB_RUNTIME_JOBS,
+      `${jobs};session-homes=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`,
     )
     // openab splits the command on whitespace, so a spaced path cannot run.
     assert.equal(
