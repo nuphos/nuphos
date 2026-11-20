@@ -100,13 +100,14 @@ export async function personalToken({ log, sessionId, marker, text }) {
 
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
-  // #3409 hands off a second one, which its scenario tells apart by name.
-  const kid = marker.includes('unlisted') ? 'unlisted-kid' : 'bot-kid'
+  // #3409 and #4156 hand off more, which their scenarios tell apart by name.
+  const name = /E2E_DELIVERY:(unlisted|par-[a-z])/.exec(marker)?.[1]
+  const kid = name ? `${name}-kid` : 'bot-kid'
   const message = await call(sessionId, 'create_thread', {
     label: 'Hand off',
-    title: `E2E ${kid.replace('-', ' ')}`,
-    // #3409's waits for its scenario's release, so it is still running when the sidebar lists it.
-    prompt: `Reply ${kid === 'unlisted-kid' ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
+    title: `E2E ${kid.replaceAll('-', ' ')}`,
+    // Those wait for their scenario's release, so they are still running meanwhile.
+    prompt: `Reply ${name ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
   })
 
   log({
