@@ -18,6 +18,7 @@ const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 export type Desktop = {
   page: Page
   profile: string
+  vitePort: number
   traceNextScenario: () => Promise<void>
   close: (failed?: boolean) => Promise<void>
   /** Quits the app, for one started beside the suite's own. */
@@ -31,9 +32,11 @@ export async function startDesktop(
     name = 'desktop',
     env = {},
     suffix,
-  }: { name?: string; env?: Record<string, string>; suffix?: string } = {},
+    vitePort: fixedVitePort,
+  }: { name?: string; env?: Record<string, string>; suffix?: string; vitePort?: number } = {},
 ): Promise<Desktop> {
-  const [vitePort, cdpPort] = await freePorts(2)
+  const [availableVitePort, cdpPort] = await freePorts(2)
+  const vitePort = fixedVitePort ?? availableVitePort
   const signIn = join(artifacts, name === 'desktop' ? 'sign-in' : `sign-in-${name}`)
 
   mkdirSync(signIn, { recursive: true })
@@ -80,6 +83,7 @@ export async function startDesktop(
   return {
     page: page!,
     profile,
+    vitePort,
     traceNextScenario: async () => {
       if (started) await tracing.stopChunk()
       else await tracing.start({ screenshots: true, snapshots: true })

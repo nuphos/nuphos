@@ -133,8 +133,10 @@ try {
   if (await warning(second).isVisible()) throw new Error('Warning returned in a second window')
   await screenshot(second, 'second-window')
 
+  const vitePort = desktop.vitePort
+
   await desktop.stop()
-  desktop = await startDesktop(stack.apiUrl, options)
+  desktop = await startDesktop(stack.apiUrl, { ...options, vitePort })
   page = desktop.page
   page.setDefaultTimeout(30_000)
   await page.getByRole('tab', { name: 'Tasks' }).click()
