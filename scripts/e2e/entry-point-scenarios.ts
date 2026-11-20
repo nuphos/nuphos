@@ -28,22 +28,26 @@ async function teamName(stack: Stack) {
   return team.name
 }
 
+/** The Task whose row these scenarios read. Long, so its title is clipped. */
+export const LONG_TASK = 'Entry points into the product, read from the sidebar'
+
 export const entryPointScenarios: Scenario[] = [
   {
     // #2797: Computers left the sidebar in #2232, and a public report after the
     // update called machines and runtimes "very well hidden".
     name: "the sidebar's workspace menu reaches Computers & runtimes",
     run: async (page, stack) => {
-      const workspace = page.locator('aside').getByRole('button', { name: await teamName(stack) })
+      // The team is named E2E, which the Bot's row and its menu also say.
+      const workspace = page
+        .locator('aside')
+        .getByRole('button', { name: await teamName(stack), exact: true })
+        .first()
 
       await workspace.waitFor({ timeout: 15_000 })
       await workspace.click()
       const computers = page.getByRole('menuitem', { name: 'Computers & runtimes' })
 
-      must(
-        await computers.isVisible(),
-        "the sidebar's workspace menu to offer Computers & runtimes",
-      )
+      await computers.waitFor({ timeout: 10_000 })
       await computers.click()
       await computersPage(page)
     },
@@ -60,7 +64,7 @@ export const entryPointScenarios: Scenario[] = [
       await runtime.click()
       const manage = page.getByRole('menuitem', { name: 'Manage computers and runtimes' })
 
-      must(await manage.isVisible(), 'the runtime picker to offer a way to manage them')
+      await manage.waitFor({ timeout: 10_000 })
       await manage.click()
       await computersPage(page)
     },
@@ -79,7 +83,7 @@ export const entryPointScenarios: Scenario[] = [
       const panel = page.getByRole('complementary', { name: 'Bot details' })
       const task = panel.getByRole('button', { name: 'Task', exact: true })
 
-      must(await task.isVisible(), "the Bot's details to offer the Bot's own Task")
+      await task.waitFor({ timeout: 15_000 })
       await task.click()
       await page.getByRole('textbox', { name: 'Message' }).first().waitFor({ timeout: 15_000 })
     },
@@ -90,15 +94,15 @@ export const entryPointScenarios: Scenario[] = [
     name: "a sidebar row's More button takes the click, not its scrolling title",
     run: async (page) => {
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      const row = page.locator('[data-sidebar-row]').first()
+      // A long title, so it is clipped and the marquee runs: #3910's condition.
+      const row = page.locator('[data-sidebar-row]').filter({ hasText: LONG_TASK }).first()
 
       await row.waitFor({ timeout: 15_000 })
-      await row.hover()
       const more = row.getByRole('button', { name: /^More actions for / })
 
-      await more.waitFor({ timeout: 10_000 })
-      // The click, not the hover, is the subject: #3910 timed out here.
-      await more.click({ timeout: 10_000 })
+      // The click moves the pointer onto the row first, which is what starts the
+      // marquee; #3910 is this click landing on the title instead.
+      await more.click({ timeout: 15_000 })
       await page.getByRole('menu').waitFor({ timeout: 10_000 })
       await page.keyboard.press('Escape')
     },

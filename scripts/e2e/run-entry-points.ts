@@ -2,7 +2,7 @@
 // own. Unlike `run.ts`, one failure does not end the run: a removed way in should
 // name itself in the report, and so should the four that are still there.
 import { startDesktop } from './desktop.ts'
-import { entryPointScenarios } from './entry-point-scenarios.ts'
+import { entryPointScenarios, LONG_TASK } from './entry-point-scenarios.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { startStack } from './stack.ts'
 import { send } from './ui.ts'
@@ -29,10 +29,11 @@ try {
   await page.getByRole('button', { name: 'New Bot', exact: true }).click()
   await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Entry Bot')
   await page.getByRole('button', { name: 'Create', exact: true }).click()
-  await page.getByRole('button', { name: 'Bot details' }).first().waitFor()
+  // The Bot introduces itself unprompted, which is what gives it a Task of its own.
+  await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
-  await send(page, 'Entry points E2E_DELIVERY:entry')
+  await send(page, `${LONG_TASK} E2E_DELIVERY:entry`)
   await page.getByText('ACK E2E_DELIVERY:entry').waitFor()
 
   const failures: string[] = []
