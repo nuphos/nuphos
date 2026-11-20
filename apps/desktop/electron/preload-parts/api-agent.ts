@@ -27,6 +27,7 @@ export const agentApi = {
       choices?: string[]
       text?: string
       questions?: { choices?: string[]; text?: string }[]
+      answeredIn?: 'inbox'
     },
   ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
@@ -262,6 +263,20 @@ export const agentApi = {
     ipcRenderer.on('ssh-terminal:event', handler)
 
     return () => ipcRenderer.off('ssh-terminal:event', handler)
+  },
+  /** Pushes `agent:changes` for the team's conversations until the app quits. */
+  agentFollowChanges: (teamId: string) => ipcRenderer.invoke('agent:followChanges', teamId),
+  onAgentChanges: (
+    cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
+  ) => {
+    const handler = (
+      _e: unknown,
+      change: { teamId: string; sessionId: string | null; connected?: boolean },
+    ) => cb(change)
+
+    ipcRenderer.on('agent:changes', handler)
+
+    return () => ipcRenderer.off('agent:changes', handler)
   },
   onAgentEvent: (cb: (payload: { streamId: string; event: unknown }) => void) => {
     const handler = (_e: unknown, payload: { streamId: string; event: unknown }) => cb(payload)

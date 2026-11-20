@@ -96,19 +96,22 @@ test('an agent signed in before stays when it signs out; one never signed in sta
 })
 
 test('Runs on uses the actual current device, labels remote Boxes, and handles missing identity', () => {
+  const here = { userId: 'owner', deviceId: 'mac' }
   const box = local('codex', '2', true)
   const mac = local('claude', 'mac', true)
 
   assert.ok(box.local)
-  assert.equal(agentRunsOn(box, 'mac'), 'Box 2')
-  assert.equal(agentRunsOn(mac, 'mac'), 'This computer')
+  assert.equal(agentRunsOn(box, here), 'Box 2')
+  assert.equal(agentRunsOn(mac, here), 'This computer')
   assert.equal(agentRunsOn(mac), 'MacBook Pro')
-  assert.equal(agentRunsOn({ ...box, status: 'disabled' }, 'mac'), 'Box 2 · Disabled')
+  // The same machine signed in here with another account is that account's computer, not this one.
+  assert.equal(agentRunsOn(mac, { userId: 'other', deviceId: 'mac' }), 'MacBook Pro')
+  assert.equal(agentRunsOn({ ...box, status: 'disabled' }, here), 'Box 2 · Disabled')
   assert.equal(agentRunsOn({ ...box, local: undefined }), 'Computer')
-  assert.equal(agentRunsOn({ ...box, local: { ...box.local, deviceLabel: '' } }, 'mac'), 'Computer')
-  assert.equal(agentRunsOn(teamAgent('managed'), 'mac'), 'Cloud')
-  assert.equal(agentRunsOn(teamAgent('external'), 'mac'), 'Self-hosted')
-  assert.equal(agentRunsOn(teamAgent('development'), 'mac'), 'Development')
+  assert.equal(agentRunsOn({ ...box, local: { ...box.local, deviceLabel: '' } }, here), 'Computer')
+  assert.equal(agentRunsOn(teamAgent('managed'), here), 'Cloud')
+  assert.equal(agentRunsOn(teamAgent('external'), here), 'Self-hosted')
+  assert.equal(agentRunsOn(teamAgent('development'), here), 'Development')
 })
 
 test('a computer agent is named by its provider; team runtimes keep their own names', () => {
@@ -220,7 +223,7 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
 test("a person's own default agent is removable only while its CLI is signed out", () => {
   const signedIn = local('mac-codex', 'mac', true)
   const computer = local('mac-codex', 'mac', false)
-  const box = { ...signedIn, local: { ...signedIn.local!, box: { state: 'running' } } }
+  const box = { ...signedIn, local: { ...signedIn.local!, box: { provider: 'instabox' } } }
 
   // Its computer's report lists a signed-in CLI whatever Nuphos forgets (#2846).
   assert.equal(ownSignedInCli(signedIn), true)
@@ -258,7 +261,7 @@ test("a computer's agent goes by the name given to it, else its provider's", () 
 })
 
 test('every signed-out agent can sign in, by its own CLI or the runtime sign-in', () => {
-  const here = { deviceId: 'mac' }
+  const here = { userId: 'owner', deviceId: 'mac' }
   const codex = local('a', 'mac', false)
   const added = { ...codex, local: { ...codex.local!, instanceId: 'x' } }
 
@@ -270,6 +273,8 @@ test('every signed-out agent can sign in, by its own CLI or the runtime sign-in'
   assert.equal(localSignIn(added, here), 'runtime')
   assert.equal(localSignIn(local('a', 'box1', false), here), 'runtime')
   assert.equal(localSignIn(local('a', 'box1', false), null), 'runtime')
+  // The same machine, signed in here with another account: its agents are not this computer's CLI's.
+  assert.equal(localSignIn(codex, { userId: 'other', deviceId: 'mac' }), 'runtime')
   assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
   // Signed in already, or a team runtime: nothing to offer.
   assert.equal(localSignIn(local('a', 'mac', true), here), undefined)

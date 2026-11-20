@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { appUpdateStatus, withAppUpdate } from './app-update-request.ts'
+import { appUpdateStatus, appUpdateTunnel, withAppUpdate } from './app-update-request.ts'
 
 function updater(over: { ready?: { failedBefore: boolean } | null } = {}) {
   const calls = { installed: 0, handled: [] as unknown[] }
@@ -62,4 +62,37 @@ test('passes every other request on', async () => {
   assert.deepEqual(await handle({ method: 'desktop', sessionId: 's' }), { display: 0 })
   assert.deepEqual(calls.handled, [{ method: 'desktop', sessionId: 's' }])
   assert.equal(calls.installed, 0)
+})
+
+test('the card reads and sets the same switch as Settings > Updates', async () => {
+  let enabled = true
+  let sent = 0
+  const { status, instances } = appUpdateTunnel(
+    () => ({ agents: {} }),
+    async () => 'handled',
+    {
+      version: () => '0.126.0',
+      state: () => ({ kind: 'idle' }),
+      ready: () => null,
+      install: () => {},
+      changed: () => {
+        sent++
+      },
+      autoInstall: {
+        read: () => ({ enabled }),
+        write: (value) => {
+          enabled = (value as { enabled: boolean }).enabled
+
+          return { enabled }
+        },
+      },
+    },
+  )
+
+  assert.deepEqual(status(), { agents: {}, app: { version: '0.126.0' }, autoInstall: true })
+  assert.deepEqual(await instances({ method: 'autoInstall', enabled: false }), { enabled: false })
+  assert.equal(status().autoInstall, false)
+  // Sent at once, so the card shows it.
+  assert.equal(sent, 1)
+  assert.equal(await instances({ method: 'desktop' }), 'handled')
 })

@@ -2,15 +2,18 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { getAgentStats, isTimeZone } from '@/lib/agent/agent-stats'
+import { conversationChangesBody, onConversationChange } from '@/lib/agent/conversation-changes'
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity, withOwnTitles } from '@/lib/agent/team-activity'
-import { mergeOthersPrivate, usageNames } from '@/lib/agent/usage-names'
+import { usageNames } from '@/lib/agent/usage-names'
 import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
+import { getTeamMembership } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
+import { SSE_HEARTBEAT_INTERVAL_MS } from '@/routes/agent/constants'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -150,6 +153,28 @@ teamScoped.get('/usage', async (c) =>
     }),
   ),
 )
+// Which of the team's conversations changed, as they change, for the chats on screen (#3523):
+// each member hears only of the ones they may read.
+teamScoped.get('/agent-changes', (c) => {
+  const teamId = c.get('teamId')
+  const userId = c.get('userId')
+  const body = conversationChangesBody({
+    teamId,
+    viewerId: userId,
+    subscribe: onConversationChange,
+    isMember: async () => (await getTeamMembership(userId, teamId)) !== null,
+    heartbeatMs: SSE_HEARTBEAT_INTERVAL_MS,
+  })
+
+  return new Response(body, {
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+      'x-accel-buffering': 'no',
+    },
+  })
+})
 // Every member sees the whole team's activity and stats; only an administrator
 // sees the titles of other members' sessions.
 teamScoped.get('/agent-activity', zv('query', activityQuerySchema), async (c) => {
@@ -178,13 +203,8 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   )
 
   const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
-  // Other members' private conversations show as one row, never apart.
-  const rows = await mergeOthersPrivate(
-    c.get('teamId'),
-    viewer,
-    groupBy,
-    await queryTeamUsage(c.get('teamId'), { from, to, bucket, timeZone, groupBy, filters }),
-  )
+  const query = { from, to, bucket, timeZone, groupBy, filters, viewerId: viewer.userId }
+  const rows = await queryTeamUsage(c.get('teamId'), query)
 
   return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })

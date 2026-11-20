@@ -1,9 +1,8 @@
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
-import { config } from '@/config'
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
-import { executeTrigger } from '@/lib/agent/trigger-executor'
+import { fireTrigger } from '@/lib/agent/trigger-executor'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -14,9 +13,11 @@ import {
   verifyAwsSnsSignature,
 } from '@/lib/aws/sns-webhook'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
+import type { AgentTrigger } from '@/lib/agent/trigger-db'
 import type { AwsSnsEnvelope, NormalizedCloudWatchSnsPayload } from '@/lib/aws/sns-webhook'
+import type { Context } from 'hono'
 
 export const webhooksRoutes = new Hono()
 
@@ -119,13 +120,17 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
   }
 
-  // Flood guard: every accepted delivery starts a full agent session, so a
-  // flapping alert or a sender retry storm must not translate 1:1 into
-  // sessions. Claim the run window atomically on lastRunAt — concurrent
-  // deliveries race on the same document and exactly one wins. Rate-limited
-  // deliveries get 200 (like trigger_disabled) so senders don't treat it as
-  // a failure and retry, which would amplify the very storm being damped.
-  const cooldownSeconds = trigger.minIntervalSeconds ?? config.agent.triggers.webhookCooldownSeconds
+  return await deliver(c, trigger, payload)
+})
+
+/**
+ * A delivery is accepted or refused, never acknowledged and dropped. Deliveries close together
+ * need no guard: a busy conversation parks them and runs them together in its next turn. Only
+ * a Trigger set to fire at most every minIntervalSeconds asks the sender to come back.
+ */
+async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
+  const triggerId = String(trigger._id)
+  const cooldownSeconds = trigger.minIntervalSeconds ?? 0
 
   if (cooldownSeconds > 0) {
     const now = new Date()
@@ -139,17 +144,46 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     )
 
     if (!claimed) {
-      return c.json({ ok: false, reason: 'rate_limited', cooldownSeconds }, 200)
+      const elapsed = trigger.lastRunAt ? (now.getTime() - trigger.lastRunAt.getTime()) / 1000 : 0
+      const retryAfter = Math.max(1, Math.ceil(cooldownSeconds - elapsed))
+
+      // The sender is told to come back; if it never does, this is the only trace.
+      logEvent('warn', 'webhook.rate_limited', { trigger_id: triggerId, retry_after: retryAfter })
+
+      return refuse(c, retryAfter, 'rate_limited')
     }
   }
+  try {
+    const { run } = await fireTrigger(trigger, payload, { runKind: 'webhook' })
 
-  // Fire-and-forget: respond quickly, execute in background
-  void executeTrigger(trigger, payload, { runKind: 'webhook' }).catch((err: unknown) => {
-    logError('webhook.trigger_execution_failed', err, { trigger_id: triggerId })
-  })
+    // Accepted: the turn runs in the background, after the sender has its answer.
+    void run.catch((err: unknown) => {
+      logError('webhook.trigger_execution_failed', err, { trigger_id: triggerId })
+    })
+  } catch (error) {
+    logError('webhook.trigger_execution_failed', error, { trigger_id: triggerId })
+    // The conversation's queue is unavailable: the sender retries, so nothing is lost.
+    if (error instanceof AppError && error.status === 429)
+      return refuse(c, QUEUE_RETRY_SECONDS, error.code)
+    // The Trigger was just paused for a reason its owner is told; like a disabled one, a sender
+    // retrying would not help, and a 4xx can make it turn the webhook off.
+    if (error instanceof AppError && PAUSED.has(error.code))
+      return c.json({ ok: false, reason: error.code }, 200)
+    throw error
+  }
 
   return c.json({ ok: true })
-})
+}
+
+const QUEUE_RETRY_SECONDS = 30
+// What resolveExecutionAuthorization pauses a Trigger with.
+const PAUSED = new Set(['trigger_target_session_invalid', 'trigger_execution_principal_invalid'])
+
+function refuse(c: Context, retryAfterSeconds: number, reason: string) {
+  c.header('Retry-After', String(retryAfterSeconds))
+
+  return c.json({ ok: false, reason, retryAfterSeconds }, 429)
+}
 
 /** A CloudWatch alarm notification normalized for the template, or undefined for any other message. */
 function cloudWatchAlarm(envelope: AwsSnsEnvelope): NormalizedCloudWatchSnsPayload | undefined {

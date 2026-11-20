@@ -1,5 +1,7 @@
 export type TextStreamBuffer = {
   text: string
+  /** Characters received since the last typing tick. */
+  received: number
   timer: number | null
   onDrained?: () => void
 }

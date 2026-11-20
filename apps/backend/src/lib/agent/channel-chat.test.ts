@@ -1,6 +1,8 @@
+import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
+import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
@@ -16,9 +18,9 @@ import {
   CHANNEL_AGENT_TURN_BUDGET,
   postAsAgent,
   postChannelMessage,
-  replyQuote,
   wakeAfterTurn,
 } from './channel-chat'
+import { replyQuote } from './channel-reply'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
@@ -31,6 +33,7 @@ import {
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+import { noteReplyFailed } from './reply-failed'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
@@ -373,6 +376,141 @@ describe('waking a channel’s agents', () => {
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
     })
+  })
+
+  test('an agent whose Claude account needs verification says where to verify it', async () => {
+    const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}\n> {"errorKind":"verification_required"}`,
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: 'its account must be verified with Anthropic.',
+      verifyUrl: portal,
+    })
+  })
+
+  test("an agent the model provider refused says the provider's words", async () => {
+    const refused =
+      'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: ${refused}`,
+            -32603,
+            {
+              code: -32603,
+              message: `Internal error: ${refused}`,
+            },
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'other', reason: refused })
+  })
+
+  test('a Codex install missing its binary says to install it again, so the chat can offer Install', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(died, 1001, { code: 1001, message: died })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({ agentId: 'agent-a', cause: 'cli', reason: AGENT_CLI_UNSTARTABLE_MESSAGE })
+  })
+
+  test('a Bot CLI failure preserves the old host update hint beside its repair sentence', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`${died}\n\n${OUTDATED_HOST_HINT}`, 1001, {
+            code: 1001,
+            message: died,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // Older clients probe only transcriptUpdatedAt, not the timeline events.
+    expect((await channel()).transcriptUpdatedAt).toBeInstanceOf(Date)
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'cli',
+      reason: `${AGENT_CLI_UNSTARTABLE_MESSAGE} ${OUTDATED_HOST_HINT}`,
+    })
+  })
+
+  test("an agent's other internal error leaves its words out of the chat", async () => {
+    const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`**Internal Error** (code: -32603)\n${internal}`, -32603, {
+            code: -32603,
+            message: internal,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.find(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
+    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -1187,6 +1325,17 @@ describe('an agent whose computer is offline', () => {
       }),
     ])
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+  })
+
+  // #3332: a runtime that kept dropping wrote a line for every failed wake.
+  test('says it could not reply once per post, however often a dropping runtime fails again', async () => {
+    await say('anyone there?')
+    for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(1)
+
+    await say('still there?')
+    await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(2)
   })
 
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {

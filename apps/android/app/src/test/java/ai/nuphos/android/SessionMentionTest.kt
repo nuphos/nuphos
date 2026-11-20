@@ -40,7 +40,15 @@ class SessionMentionTest {
             AgentConversation("invalid/path"), AgentConversation("valid"), AgentConversation("valid"),
         ) + (1..8).map { AgentConversation("own-$it", teamId = "team", isOwner = true) }
         assertEquals(listOf("valid", "own-1", "own-2", "own-3", "own-4"),
-            SessionMention.results(rows, source).map { it.sessionId })
+            SessionMention.results(rows, source, "").map { it.sessionId })
+    }
+
+    @Test fun anAtFiltersTheListedRowsByTitleOrFirstMessage() {
+        val source = SessionMentionSource("team") { emptyList() }
+        val rows = listOf(AgentConversation("a", title = "Deploy agent"), AgentConversation("b", firstMessage = "deploy the docs"),
+            AgentConversation("c", title = "Review"))
+        assertEquals(listOf("a", "b"), SessionMention.results(rows, source, "DEPLOY").map { it.sessionId })
+        assertEquals(listOf("c"), SessionMention.results(rows, source, "rev").map { it.sessionId })
     }
 
     @Test fun picksAreSentAsTheirLinks() {

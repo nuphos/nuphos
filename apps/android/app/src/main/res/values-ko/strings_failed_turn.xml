@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">턴이 실패했습니다.</string>
+    <string name="failed_turn_timed_out">턴 시간이 초과되었습니다.</string>
+    <string name="failed_turn_stopped">중지되었습니다.</string>
+    <string name="failed_turn_retry">다시 시도</string>
+    <string name="failed_turn_copy">복사</string>
+    <string name="failed_turn_copied">복사됨</string>
+</resources>

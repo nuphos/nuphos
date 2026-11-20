@@ -72,5 +72,12 @@ struct NewBoxTests {
         precondition(!NewBox.resumable(state: "paused", access: "use"), "a teammate who may only use it cannot resume it")
         precondition(!NewBox.resumable(state: "running", access: "owner"))
         precondition(!NewBox.resumable(state: "creating", access: "owner"))
+
+        precondition(NewBox.deletePath(deviceId: "box-1") == "agent/devices/box-1/box")
+        precondition(NewBox.deletable(isBox: true, access: "owner"))
+        precondition(!NewBox.deletable(isBox: true, access: "manage"), "only its owner deletes a Box")
+        precondition(!NewBox.deletable(isBox: true, access: "use"))
+        precondition(!NewBox.deletable(isBox: true, access: nil))
+        precondition(!NewBox.deletable(isBox: false, access: "owner"), "a personal computer is not deleted here")
     }
 }

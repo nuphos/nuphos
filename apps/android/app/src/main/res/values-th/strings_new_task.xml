@@ -1,0 +1,6 @@
+<resources>
+    <string name="new_task_title">งานใหม่</string>
+    <string name="new_task_cancel">ยกเลิก</string>
+    <string name="new_task_welcome">จะทำอะไรต่อดี?</string>
+    <string name="new_task_welcome_name">%1$s จะทำอะไรต่อไปดี?</string>
+</resources>

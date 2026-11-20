@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
+import { rmSync, writeFileSync } from 'node:fs'
 
 import { agentEvents } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
+import { loadingFree } from './channel-helpers.ts'
+import { VERIFICATION_HOLD } from './fixture-turn-refusals.mjs'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -79,6 +82,7 @@ export const botOnboardingScenarios: Scenario[] = [
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
+      await loadingFree(row, 'While the Bot in setup works')
       await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
       await neverElsewhere()
       await until('the setup-time turn to finish', async () =>
@@ -108,6 +112,37 @@ export const botOnboardingScenarios: Scenario[] = [
         .first()
         .waitFor()
       await page.screenshot({ path: `${artifacts}/normal-work-inbox.png` })
+    },
+  },
+  {
+    name: 'a Bot whose Claude account Anthropic holds for verification says where to verify it',
+    run: async (page, stack) => {
+      const hold = `${stack.acpLog}.verification-hold`
+      const portal = /https:\S+/u.exec(VERIFICATION_HOLD)![0]
+
+      writeFileSync(hold, '')
+      try {
+        await page.getByRole('tab', { name: /^Bots/ }).click()
+        // A Bot already exists here, so New Bot sits in the + menu.
+        await page.getByRole('button', { name: 'New', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'New Bot', exact: true }).click()
+        await page.getByRole('textbox', { name: 'Bot name' }).fill('Verify Helper')
+        await page.getByRole('button', { name: 'Create', exact: true }).click()
+        const line = page.getByText(
+          /couldn’t reply: its .*account must be verified with Anthropic/u,
+        )
+
+        await line.waitFor()
+        // The line names no address: Verify with Anthropic opens the portal Anthropic named.
+        assert.equal(await page.getByText(portal).count(), 0)
+        const verify = page.getByRole('button', { name: 'Verify with Anthropic', exact: true })
+
+        assert.equal(await verify.getAttribute('href'), portal)
+        await page.getByRole('button', { name: 'Switch runtime', exact: true }).waitFor()
+        await page.screenshot({ path: `${artifacts}/onboarding-verification-light.png` })
+      } finally {
+        rmSync(hold, { force: true })
+      }
     },
   },
 ]

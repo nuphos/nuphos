@@ -9,6 +9,7 @@ import {
   recordAgentEvent,
   renameConversation,
   setConversationArchived,
+  setMemberArchived,
   setConversationParent,
   setMessageFeedback,
   syncConversationTranscript,
@@ -149,9 +150,14 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  // The owner archives; anyone else sees no such conversation.
-  if (!conversation || conversation.userId !== userId) {
-    throw new AppError(404, 'not_found', 'Conversation not found')
+  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
+  // Anyone else in a Task archives it for themselves alone; a group chat they leave instead.
+  if (conversation.userId !== userId) {
+    if (conversation.kind === 'channel' || !conversation.participantIds?.includes(userId))
+      throw new AppError(404, 'not_found', 'Conversation not found')
+    await setMemberArchived(sessionId, userId, body.archived)
+
+    return c.json({ ok: true, archived: body.archived, sessionIds: [sessionId] })
   }
   // What moved with it (a Bot and its chats), so clients close and hide exactly that.
   const moved = await setConversationArchived(sessionId, body.archived)

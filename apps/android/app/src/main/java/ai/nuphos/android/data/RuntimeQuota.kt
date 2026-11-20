@@ -8,7 +8,10 @@ data class RuntimeQuota(val runtimeId: String, val available: Boolean, val reaso
     val needsSignIn: Boolean get() = !available && reason == "Sign in required"
 
     @Serializable
-    data class Window(val label: String, val usedPercent: Double, val resetsAt: String? = null)
+    data class Window(val label: String, val usedPercent: Double, val resetsAt: String? = null) {
+        /** Rounded down, as Desktop and iOS do, so every client shows the same figure. */
+        val leftPercent: Int get() = kotlin.math.floor(100 - usedPercent).toInt().coerceIn(0, 100)
+    }
 }
 
 fun decodeRuntimeQuotas(value: JsonObject): Map<String, RuntimeQuota> {

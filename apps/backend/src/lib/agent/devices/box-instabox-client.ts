@@ -136,7 +136,8 @@ export const BOX_UPDATE_COMMAND = [
 export function connection(timeoutMs: number) {
   const box = config.box.instabox
 
-  if (!box) throw new AppError(503, 'box_unavailable', 'Cloud computers are off on this deployment')
+  if (!box)
+    throw new AppError(503, 'box_unavailable', 'Computers from Nuphos are off on this deployment')
 
   // One stalled poll must not hold a whole operation: each request gets its own short budget.
   return {
@@ -165,7 +166,7 @@ export function requireBackendUrl(): string {
     throw new AppError(
       503,
       'box_unavailable',
-      'This deployment has no public URL for a cloud computer to reach',
+      'This deployment has no public URL for a computer from Nuphos to reach',
     )
 
   return url

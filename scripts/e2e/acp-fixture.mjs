@@ -2,6 +2,7 @@
 // No network tools, GitHub credentials, or real inference are used.
 import { randomUUID } from 'node:crypto'
 import { appendFileSync, existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
@@ -9,10 +10,18 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { listCommands } from './fixture-commands.mjs'
+import { scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
-import { call, callNamed, reporting, setToolsServer, subtask } from './fixture-mcp.mjs'
-import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import {
+  call,
+  callNamed,
+  personalToken,
+  reporting,
+  setToolsServer,
+  subtask,
+} from './fixture-mcp.mjs'
+import { applySetting, botEnv, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
 
@@ -115,11 +124,11 @@ async function prompt({ sessionId, prompt: parts }) {
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('\n')
-  const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
+  const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
+  const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
-  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
-  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  log({ sessionId, marker, markers, event: 'start', ...turnFacts(text) })
+  // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
@@ -134,6 +143,8 @@ async function prompt({ sessionId, prompt: parts }) {
   // A thread started here, then moved (E2E_HOP), or left on this session's model (E2E_INHERIT).
   if (/E2E_(HOP|INHERIT)/.test(text) && !text.includes(CHILD))
     await (text.includes('E2E_HOP') ? hop : inherit)({ call, send, log, sessionId, child: CHILD })
+  if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
+    await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
@@ -169,12 +180,15 @@ async function prompt({ sessionId, prompt: parts }) {
     })
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
-  if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
+  scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
-  // Answers only once the scenario writes E2E_RELEASE, so a turn can span what it does meanwhile.
+  if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
+  // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
+  // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
-    while (!existsSync(process.env.E2E_RELEASE))
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    const release = process.env.E2E_RELEASE ?? join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
@@ -189,7 +203,7 @@ async function prompt({ sessionId, prompt: parts }) {
       sessionId,
       update: {
         sessionUpdate: 'agent_message_chunk',
-        content: { type: 'text', text: `ACK ${marker}` },
+        content: { type: 'text', text: `ACK ${marker}${longReply(text)}` },
       },
     },
   })
@@ -232,7 +246,7 @@ async function answer(request) {
         }),
       }
 
-      log({ sessionId, event: 'session', defaults })
+      log({ sessionId, event: 'session', defaults, env: botEnv(request.params) })
 
       return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
