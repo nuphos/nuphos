@@ -162,15 +162,15 @@ export async function previewSessionAccess(
       },
     ],
     runtimeEnv: {
-      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', // Nuphos memory replaces Claude Code's own
       ...connectorEnv(selected.map((entry) => entry.provider)),
       ...previewSessionEnv({
         base,
         token,
         conversationId,
         teamId,
-        // Personal skills come only on the owner's own turns: a guest's turn gets none, so
-        // nobody's skills are written into a conversation home that belongs to someone else.
+        // Personal skills are delivered only on the conversation owner's own turns. A
+        // guest's turn gets none, so nobody's skills are written into a conversation
+        // home that belongs to someone else.
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
       }),
