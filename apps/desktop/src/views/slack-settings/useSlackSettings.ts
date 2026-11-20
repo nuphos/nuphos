@@ -6,11 +6,11 @@ import { t } from '../../i18n/index.ts'
 import { useResetOnKey } from '../useResetOnKey'
 
 import type {
+  SlackChannelBot,
   SlackChannelMapping,
   SlackChannelOption,
   SlackConnectionStatus,
   SlackInstallation,
-  SlackUserMapping,
   TeamMember,
 } from '../../types'
 import type { FormEvent } from 'react'
@@ -26,8 +26,8 @@ function isSlackId(value: string): boolean {
 export function useSlackSettings(teamId: string, currentUserId: string) {
   const [installation, setInstallation] = useState<SlackInstallation | null>(null)
   const [channelMappings, setChannelMappings] = useState<SlackChannelMapping[]>([])
-  const [userMappings, setUserMappings] = useState<SlackUserMapping[]>([])
-  const [myMapping, setMyMapping] = useState<SlackUserMapping | null>(null)
+  // The viewer's own Bots: the only ones they may bring into a channel (#3702).
+  const [myBots, setMyBots] = useState<SlackChannelBot[]>([])
   const [status, setStatus] = useState<SlackConnectionStatus | null>(null)
   const [slackChannels, setSlackChannels] = useState<SlackChannelOption[]>([])
   const [members, setMembers] = useState<TeamMember[]>([])
@@ -46,18 +46,9 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
     [members, currentUserId],
   )
 
-  const memberById = useMemo(() => new Map(members.map((member) => [member.id, member])), [members])
-
   const channelsById = useMemo(
     () => new Map(slackChannels.map((channel) => [channel.id, channel])),
     [slackChannels],
-  )
-
-  // Admins see every linked account; other members see their own row only
-  // (the list endpoint is admin-gated).
-  const linkedAccountRows = useMemo(
-    () => (userMappings.length > 0 ? userMappings : myMapping ? [myMapping] : []),
-    [userMappings, myMapping],
   )
 
   const defaultWorkspaceId = useMemo(() => {
@@ -82,11 +73,10 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
         const isAdmin =
           teamMembers.find((member) => member.id === currentUserId)?.role === 'ADMINISTRATOR'
 
-        const [installInfo, connectionStatus, channels, mySlackMapping] = await Promise.all([
+        const [installInfo, connectionStatus, channels] = await Promise.all([
           api.atlasGetSlackInstallation(teamId),
           api.atlasGetSlackConnectionStatus(teamId),
           api.atlasListSlackChannelMappings(teamId),
-          api.atlasGetMySlackUserMapping(teamId),
         ])
 
         setInstallation(installInfo.installation)
@@ -95,11 +85,10 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
         if (connectionStatus.error) {
           toast.error(t('Slack connection check failed'), connectionStatus.error)
         }
-        setChannelMappings(channels)
-        setMyMapping(mySlackMapping)
+        setChannelMappings(channels.mappings)
+        setMyBots(channels.myBots)
 
         if (isAdmin) {
-          setUserMappings(await api.atlasListSlackUserMappings(teamId))
           if (connectionStatus.connected && !connectionStatus.legacyGlobal) {
             try {
               const channelList = await api.atlasListSlackChannels(teamId)
@@ -112,7 +101,6 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
             setSlackChannels([])
           }
         } else {
-          setUserMappings([])
           setSlackChannels([])
         }
       })
@@ -200,10 +188,30 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
     }
   }
 
+  async function setChannelBot(
+    mapping: SlackChannelMapping,
+    botSessionId: string,
+    answers: boolean,
+  ) {
+    setBusyKey(`bot:${mapping.id}:${botSessionId}`)
+    try {
+      const bots = await api.atlasSetSlackChannelBot(teamId, mapping, botSessionId, answers)
+
+      setChannelMappings((all) =>
+        all.map((row) => (row.id === mapping.id ? { ...row, bots } : row)),
+      )
+    } catch (err) {
+      toast.apiError(t('Could not change the Bot in this channel'), err)
+    } finally {
+      setBusyKey(null)
+    }
+  }
+
   return {
     installation,
     channelMappings,
-    myMapping,
+    myBots,
+    setChannelBot,
     status,
     loading,
     busyKey,
@@ -218,9 +226,7 @@ export function useSlackSettings(teamId: string, currentUserId: string) {
     setNewChannelId,
     linkChannelSubmitting,
     canManage,
-    memberById,
     channelsById,
-    linkedAccountRows,
     defaultWorkspaceId,
     load,
     submitLinkChannel,
