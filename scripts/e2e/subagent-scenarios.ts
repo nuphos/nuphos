@@ -22,6 +22,8 @@ export const subagentScenarios: Scenario[] = [
 
       await run.waitFor()
       await main.waitFor()
+      // Each row fades in; Playwright counts it visible before it shows, so shoot once settled.
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/subagent-collapsed.png` })
       await run.click()
       const steps = run.locator('xpath=following-sibling::div[1]')
@@ -30,6 +32,7 @@ export const subagentScenarios: Scenario[] = [
       await steps.getByText('Read the tax rules').waitFor()
       if ((await steps.getByText('Check the release notes').count()) > 0)
         throw new Error("The main agent's step is listed under the sub-agent")
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/subagent-expanded.png` })
     },
   },
