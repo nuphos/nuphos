@@ -64,7 +64,7 @@ export const isMessageQueued = (error: unknown) =>
   error instanceof AppError && error.code === 'message_queued'
 
 /**
- * The conversation's agent is not in the workspace any more, or not for this person: only
+ * The conversation's runtime is not in the workspace any more, or not for this person: only
  * moving it helps. Removal and lost access read the same, so a computer no longer shared with
  * them is not revealed to still exist.
  */
@@ -72,5 +72,5 @@ export const runtimeGone = () =>
   new AppError(
     404,
     'runtime_not_found',
-    'This agent is no longer available to you. It was removed, or the computer it runs on is no longer shared with you. Move this conversation to another agent to continue.',
+    'This runtime is no longer available to you. It was removed, or the computer it runs on is no longer shared with you. Move this conversation to another runtime to continue.',
   )
