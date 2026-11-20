@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="account_notifications">通知</string>
-    <string name="account_computer_alerts">電腦離線</string>
-    <string name="account_computer_alerts_help">當你擁有或使用的電腦離線超過 2 分鐘，以及重新上線時通知你。</string>
-</resources>

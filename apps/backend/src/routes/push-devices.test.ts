@@ -103,7 +103,7 @@ describe('push device routes', () => {
 describe('Android FCM device registration', () => {
   const token = 'AbC:Mixed_Case-token.123'
 
-  test('preserves the opaque FCM token, project binding, and alert preference', async () => {
+  test('preserves the opaque FCM token and project binding', async () => {
     const response = await put({
       token,
       deviceId: 'android-1',
@@ -111,13 +111,11 @@ describe('Android FCM device registration', () => {
       environment: 'production',
       bundleId: 'ai.nuphos.android',
       projectId: 'nuphos-android',
-      computerAlerts: false,
     })
 
     expect(response.status).toBe(200)
     expect(registered[0]?.device.token).toBe(token)
     expect(registered[0]?.device.projectId).toBe('nuphos-android')
-    expect(registered[0]?.device.computerAlerts).toBe(false)
   })
   test('unregisters Android tokens without changing their case', async () => {
     const response = await app.request(

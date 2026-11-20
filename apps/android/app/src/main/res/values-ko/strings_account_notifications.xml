@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="account_notifications">알림</string>
-    <string name="account_computer_alerts">컴퓨터 오프라인</string>
-    <string name="account_computer_alerts_help">소유하거나 사용하는 컴퓨터가 2분 동안 오프라인일 때와 다시 온라인이 될 때 알림을 받습니다.</string>
-</resources>
