@@ -4,6 +4,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { inDatabase } from './agent-sign-in-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -61,7 +62,7 @@ else {
 
           return runtimeId
         })
-        await page.evaluate(
+        const chatId = await page.evaluate(
           async ({ teamId, runtimeId }) => {
             const bot = await window.api.agentCreateBot(teamId, {
               onboarding: true,
@@ -73,9 +74,12 @@ else {
 
             await window.api.agentAddChannelAgent(chat.sessionId, teamId, bot.sessionId)
             await window.api.agentStartBotOnboarding(bot.sessionId, teamId, chat.sessionId)
+
+            return chat.sessionId
           },
           { teamId: stack.teamId, runtimeId },
         )
+
         await page.reload()
         await page.getByRole('tab', { name: /^Bots/ }).click()
         await page
@@ -90,10 +94,22 @@ else {
           document.documentElement.classList.add('light')
         })
         await page.screenshot({ path: join(artifacts, 'bot-local-codex-onboarding-light.png') })
+        // When the Bot's couldn't-reply line in the chat was written.
+        const failedAt = () =>
+          inDatabase(
+            stack.mongoUri,
+            `const row = await db.collection('agent_conversations').findOne({ sessionId: process.argv[2] })
+            console.log((row?.timelineEvents ?? []).findLast((e) => e.kind === 'agent_reply_failed')?.at?.toISOString() ?? '')`,
+            chatId,
+          ).trim()
+        const sent = new Date().toISOString()
+
         await send(page, 'Try Codex again')
+        // The later failure replaces the line: the chat keeps one per Bot (#4056).
+        await until('the later reply to fail too', async () => failedAt() > sent)
         await until(
-          'the later reply to fail too',
-          async () => (await page.getByText(`couldn’t reply: ${REINSTALL}`).count()) >= 2,
+          'one line for the Bot',
+          async () => (await page.getByText(`couldn’t reply: ${REINSTALL}`).count()) === 1,
         )
         await page.getByRole('button', { name: 'Install Codex', exact: true }).last().waitFor()
         await page.screenshot({ path: join(artifacts, 'bot-local-codex-reply-light.png') })
