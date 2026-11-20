@@ -140,8 +140,8 @@ logEvent('info', 'backend.stuck_turn_probe.ready')
 
 initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
-startBotImportCleanup()
-startFreeBoxSweep()
+const stopBotImportCleanup = startBotImportCleanup()
+const stopFreeBoxSweep = startFreeBoxSweep()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
@@ -216,13 +216,18 @@ async function shutdown(sig: string) {
   shutdownStarted = true
   logEvent('info', 'backend.shutdown.started', { signal: sig })
   markShuttingDown()
+  // 1. Stop schedulers and background loops so nothing new touches storage.
   dashboardRefreshScheduler.shutdown()
   shutdownRuntimeMetricsSampler()
   shutdownDiscordGateway()
-  const workersStopped = quiesceAgentWorkers()
+  shutdownMemoryRetentionRollup()
+  conversationAutoArchive.shutdown()
+  shutdownStuckTurnProbe()
+  stopBotImportCleanup()
+  stopFreeBoxSweep()
+  const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
 
-  // Give k8s time to observe /health/ready returning 503 and deregister this
-  //    pod from Service endpoints before we stop accepting new connections.
+  // Let k8s see /health/ready return 503 and deregister this pod first.
   await new Promise((r) => setTimeout(r, shutdownBudget.lbGraceMs))
 
   // 2. Drain in-flight agent SSE runs first — a pod-local run force-closed
@@ -262,9 +267,8 @@ async function shutdown(sig: string) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
 
-  // 4. Flush asynchronous busy-guard releases before Redis closes so sessions
-  //    are not blocked until their lease TTL expires. The run-store owner-lease
-  //    sweep remains the fallback for releases that arrive after this point.
+  // 4. Flush busy-guard releases before Redis closes so sessions are not blocked
+  //    until their lease TTL expires; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
       logError('backend.shutdown.guard_flush_failed', err, {
@@ -278,20 +282,16 @@ async function shutdown(sig: string) {
 
   await closeAgentWorkerQueues()
 
-  // 5. Close downstream dependencies.
-  shutdownMemoryRetentionRollup()
-  conversationAutoArchive.shutdown()
-  shutdownStuckTurnProbe()
-  await Promise.allSettled([shutdownPostHog(), shutdownJournalSealer(), closeRedis(), closeDb()])
+  // 5. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
+  await Promise.allSettled([
+    shutdownPostHog(),
+    shutdownTelemetry().catch((err: unknown) => {
+      logError('backend.shutdown.telemetry_shutdown_failed', err)
+    }),
+  ])
 
-  // 6. Flush + close OTel pipelines AFTER deps so any "db closing" /
-  //    "redis quit" spans land before the exporter goes away.
-  try {
-    await shutdownTelemetry()
-  } catch (err) {
-    logError('backend.shutdown.telemetry_shutdown_failed', err)
-  }
-
+  // 6. Close storage last and exit at once, so late work dies with the process.
+  await Promise.allSettled([closeRedis(), closeDb()])
   process.exit(0)
 }
 
