@@ -114,6 +114,22 @@ describe('credentialsMcpTools', () => {
     expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
+  test('a Bot compacts at 100k tokens and skips next-prompt suggestions; a Task keeps the defaults', async () => {
+    const options = { backendUrl: 'https://backend.example' }
+    const bot = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      ...options,
+      bot: true,
+    })
+    const task = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', options)
+
+    expect(bot.runtimeEnv).toMatchObject({
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '100000',
+      CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0',
+    })
+    expect(task.runtimeEnv).not.toHaveProperty('CLAUDE_CODE_AUTO_COMPACT_WINDOW')
+    expect(task.runtimeEnv).not.toHaveProperty('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION')
+  })
+
   test('automated turns act as the session owner, in the owner’s HOME', async () => {
     for (const actor of ['owner', 'guest']) {
       const automated = await previewSessionAccess('conv-1', 'team-1', actor, 'owner', {

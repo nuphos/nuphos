@@ -203,7 +203,6 @@ export async function runTurn(
       `did not run: ${failureLine(error)}`,
       error,
     )
-    await recordFailedFires(error, taken)
     throw error
   }
 }
@@ -223,7 +222,8 @@ async function reportIfRestarted(
  * The one rule for an accepted message: it runs as a turn of its target, or its
  * sender is told, once, that it did not. A thread message is answered in its
  * sender's thread; a person's send stays in the conversation, with the reason;
- * a channel's wake notice is a line in that channel.
+ * a channel's wake notice is a line in that channel; a Trigger's fire is
+ * recorded on the Trigger, which has no sender to tell.
  */
 export async function reportUndelivered(
   // No team when the target conversation is gone: the sender's own is the one it sent from.
@@ -232,6 +232,7 @@ export async function reportUndelivered(
   reason: string,
   error?: unknown,
 ): Promise<void> {
+  await recordFailedFires(error, messages)
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
 
