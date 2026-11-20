@@ -9,6 +9,8 @@ export type StubMachine = {
   state: string
   operations: StubOperation[]
   commands?: string[]
+  /** Its suspend is still uploading: instabox refuses every other operation on it. */
+  pausing?: boolean
 }
 
 const machineView = (machine: StubMachine) => ({
@@ -55,6 +57,10 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
       return
     }
+    if (request.method !== 'GET' && machine?.pausing)
+      return send(409, {
+        error: { code: 'operation_conflict', message: 'machine has an active suspend operation' },
+      })
     if (request.method === 'POST' && machine && part === 'exec') {
       const chunks: Buffer[] = []
 
