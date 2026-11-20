@@ -29,18 +29,9 @@ export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
-/** Opens the submenu the open menu's `row` holds and picks `item` in it, by key throughout.
- *
- *  A pointer cannot do either half. Landing on the submenu closes it, since the jump from the
- *  row goes through the row's hover guard (#3638). And a press on the row never opens the
- *  submenu at all: the trigger opens on hover, so Base UI ignores presses on it, and the
- *  hover waits for the pointer to rest behind a gate that every open transition shuts and
- *  only a pointer move reopens. A press that lands before the parent menu settles leaves the
- *  submenu closed with the pointer already at rest, so nothing opens it later (#4238). A key
- *  has neither the ignored press nor the gate.
- *
- *  The submenu is portalled, so `aria-controls` on the row is what names its list: `item` is
- *  picked in that list, not by position among every menu the page still holds. */
+/** Opens the submenu the open menu's `row` holds and picks `item` in it, by key throughout: a
+ *  press on a row whose submenu opens on hover is ignored, a pointer landing on the submenu
+ *  closes it, and `aria-controls` names the portalled list `item` lives in. */
 export async function pickInSubmenu(page: Page, row: string | RegExp, item: RegExp) {
   const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
 
