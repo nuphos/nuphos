@@ -294,8 +294,5 @@ export const channelScenarios: Scenario[] = [
   },
   // A new channel scenario is a file of its own in ./channel, not one more entry here.
   ...(await scenarioFiles()),
-].filter(
   // Skipped: flaky, menu item aria-disabled while streaming; tracked in #4238
-  (scenario) =>
-    scenario.name !== 'the Bot composer and the Task composer both show the runtime usage bar',
-)
+].filter((s) => s.name !== 'the Bot composer and the Task composer both show the runtime usage bar')
