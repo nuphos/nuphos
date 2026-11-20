@@ -191,7 +191,7 @@ export async function runTurn(
     await recordFiresRan(fresh)
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
-    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
+    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
   } catch (error) {
@@ -210,9 +210,24 @@ export async function runTurn(
 async function reportIfRestarted(
   data: DeliveredTo,
   messages: readonly PendingUserMessage[],
+  unmarkRead: (() => Promise<void>) | undefined,
 ): Promise<void> {
   try {
-    if (await runtimeRestarted(data)) await reportUndelivered(data, messages, LOST_TURN)
+    if (!(await runtimeRestarted(data))) return
+    // A channel's wake it cut off was never answered: its posts go back to unread and the
+    // next wake asks again, as after a failed turn. A later wake that read past them answers them.
+    await unmarkRead?.()
+    await reportUndelivered(
+      data,
+      messages.filter((message) => !channelIdOf(message)),
+      LOST_TURN,
+    )
+    if (messages.some((message) => channelIdOf(message))) {
+      // Lazy so importing this does not pull in the channel graph.
+      const { wakeMissedPosts } = await import('./channel-missed-posts')
+
+      await wakeMissedPosts({ sessionId: data.targetSessionId })
+    }
   } catch (error) {
     logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
   }
