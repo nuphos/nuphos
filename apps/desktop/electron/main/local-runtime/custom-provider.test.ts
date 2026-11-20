@@ -59,6 +59,29 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
 })
 
+test('a base URL that names an endpoint is refused, since the agent appends its own', async (t) => {
+  const dir = tempDir(t)
+  const store = memoryStore()
+
+  for (const baseUrl of [
+    'https://api.example.com/v1/chat/completions',
+    'https://api.example.com/v1/chat/completions/',
+    'https://api.example.com/v1/responses',
+    'https://gw.example.com/anthropic/v1/messages',
+  ])
+    await assert.rejects(
+      saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
+      /without the endpoint path.*Responses API/u,
+    )
+  assert.equal(store.items.size, 0)
+
+  await saveCustomProvider(store, dir, 'u1', 'codex', {
+    baseUrl: 'https://api.example.com/v1',
+    apiKey: 'sk-gw-secret',
+  })
+  assert.equal(readCustomProviders(dir).codex?.baseUrl, 'https://api.example.com/v1')
+})
+
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {
   const dir = tempDir(t)
   const store = memoryStore()

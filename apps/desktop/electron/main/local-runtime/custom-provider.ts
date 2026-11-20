@@ -40,6 +40,7 @@ const MAX_MODELS = 50
 const MODEL_ID = /^[\w.:/@[\]-]{1,200}$/u
 const KEY = /^\S{1,4096}$/u
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+const ENDPOINT = /\/(?:chat\/completions|responses|messages)\/?$/u
 
 const isAgent = (provider: unknown): provider is CustomProviderAgent =>
   provider === 'claude-code' || provider === 'codex'
@@ -130,6 +131,13 @@ export async function saveCustomProvider(
     return
   }
   const parsed = parseCustomProvider(value)
+
+  // Each agent appends its own endpoint (Codex `/responses`, Claude Code `/v1/messages`), so a
+  // URL that already names one would 404. Refused only here, so a provider saved before still loads.
+  if (ENDPOINT.test(new URL(parsed.baseUrl).pathname))
+    throw new Error(
+      'Enter the API’s base URL without the endpoint path, such as https://api.example.com/v1. Codex also needs a provider that supports the OpenAI Responses API; chat-completions-only APIs do not work with it.',
+    )
   const raw = (value as { apiKey?: unknown }).apiKey
   const key = typeof raw === 'string' ? raw.trim() : ''
 
