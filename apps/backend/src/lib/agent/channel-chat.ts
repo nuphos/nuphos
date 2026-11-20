@@ -5,11 +5,7 @@ import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
 import { channelNotice } from './db/channel-notes'
-import {
-  channelNoticeSender,
-  steerQueuedNotice,
-  steerRunningTurn,
-} from './channel-wake'
+import { channelNoticeSender, steerQueuedNotice, steerRunningTurn } from './channel-wake'
 import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
 import { chatName, isChannel } from './db/channels'
