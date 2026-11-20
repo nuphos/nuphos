@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.ts'
+
 import type { DashboardPanel, NuphosDashboard } from './schema'
 
 /** The current successful run wins, including while a refresh response is
@@ -33,4 +35,20 @@ export function panelNotice(snapshot: DashboardPanel['currentSnapshot']): string
   if (snapshot?.status !== 'failed' || !STATED.has(snapshot.error?.kind ?? '')) return null
 
   return snapshot.error?.message.split('\n', 1)[0] || null
+}
+
+/**
+ * What a card says when no agent could run its panel (#4168), and whether it offers a computer
+ * from Nuphos: only to someone who may rent one. Everyone else reads the backend's `message`,
+ * which says to ask a team admin.
+ */
+export function noAgentNotice(message: string, mayRent: boolean) {
+  return mayRent
+    ? {
+        text: t(
+          "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Rent one, then refresh.",
+        ),
+        offerComputer: true,
+      }
+    : { text: message, offerComputer: false }
 }
