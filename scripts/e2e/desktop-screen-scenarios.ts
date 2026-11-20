@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
+import { me } from './box-scenarios.ts'
 import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
@@ -100,15 +101,16 @@ async function blankScreenGivesUp(page: Page) {
   await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
 }
 
-/** Makes a connected computer a Box on the e2e instabox, as Nuphos records one it ordered. */
-function makeBox(stack: Stack, deviceId: string, sandboxId: string) {
+/** Makes a connected computer a Box on the e2e instabox, as Nuphos records one its user ordered. */
+async function makeBox(stack: Stack, deviceId: string, sandboxId: string) {
   const script = `
     import { MongoClient } from 'mongodb'
     const [uri, deviceId, box] = process.argv.slice(1)
     const client = await new MongoClient(uri).connect()
-    await client.db('nuphos_e2e').collection('agent_devices').updateOne({ deviceId }, { $set: { box: JSON.parse(box) } })
+    const access = [{ teamId: JSON.parse(box).teamId, everyone: false, userIds: [], managerIds: [] }]
+    await client.db('nuphos_e2e').collection('agent_devices').updateOne({ deviceId }, { $set: { box: JSON.parse(box), access } })
     await client.close()`
-  const box = { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: 'e2e' }
+  const box = { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: await me(stack) }
 
   instaboxMachines.set(sandboxId, { id: sandboxId, state: 'running', operations: [] })
   execFileSync('bun', ['-e', script, stack.mongoUri, deviceId, JSON.stringify(box)], {
@@ -174,7 +176,7 @@ export const desktopScreenScenarios: Scenario[] = [
       const sandboxId = `m_e2e_${computer.deviceId.slice(0, 8)}`
 
       try {
-        makeBox(stack, computer.deviceId, sandboxId)
+        await makeBox(stack, computer.deviceId, sandboxId)
         await openDesktop(page, BOX_LABEL)
         await until('the Box’s desktop to paint', async () => {
           const { opaque, colours } = await painted(page)
