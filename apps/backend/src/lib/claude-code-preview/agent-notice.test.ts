@@ -17,6 +17,7 @@ const error = new OpenAbRpcError(
 
 test('shows the agent’s actionable error in at most 200 characters, live and in history', () => {
   const expected = `${Array.from(notice).slice(0, 199).join('')}…`
+
   expect(formatAgentStreamError(error)).toBe(expected)
   expect(classifyPreviewInterruption(error, false).message).toBe(expected)
 })

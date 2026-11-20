@@ -1,7 +1,7 @@
 import { CodexTurnFailedError } from '@/lib/claude-code-preview/codex-turn-failure'
+import { displayAgentNotice } from '@/lib/claude-code-preview/display-agent-notice'
 import {
   acpErrorCode,
-  displayAgentNotice,
   isRuntimeAuthRequired,
   OpenAbRpcError,
   RUNTIME_AUTH_REQUIRED_CODE,
