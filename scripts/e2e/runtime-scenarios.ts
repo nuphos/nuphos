@@ -1,10 +1,12 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { defaultStandInScenarios } from './default-stand-in-scenarios.ts'
 import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
 import { languageScenarios } from './language-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { providerMoveScenarios } from './provider-move-scenarios.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -126,7 +128,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-move')
       await page.getByText('ACK E2E_DELIVERY:before-move').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
@@ -136,18 +137,18 @@ export const runtimeScenarios: Scenario[] = [
       )
       await pickAgent(page, 'E2E second agent')
       await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
-      // #2123: the second agent's default model was never applied to this Task, so its
-      // list, once read from that agent, shows no model as the current one.
+      // #3709: the Task starts a new session there with no model picked, so its list,
+      // once read from that agent, checks the model that session runs: its default.
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
-      await until('the second agent’s models, none of them current', async () => {
+      await until('the second agent’s models, its default current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
 
         return (
           names.some((name) => name.includes('fixture-small')) &&
           !names.some((name) => name.includes('fixture-large')) &&
-          (await page.getByRole('menuitemcheckbox', { checked: true }).count()) === 0
+          (await page.getByRole('menuitemcheckbox', { checked: true }).allTextContents()).join() ===
+            'fixture'
         )
       })
       await page.keyboard.press('Escape')
@@ -170,7 +171,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-kept')
       await page.getByText('ACK E2E_DELIVERY:before-kept').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
@@ -231,6 +231,7 @@ export const runtimeScenarios: Scenario[] = [
       }
     },
   },
+  ...defaultStandInScenarios,
   {
     // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
     name: 'a turn refused for usage runs again, once, after the Task moves to another agent',
@@ -289,6 +290,7 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...providerMoveScenarios,
   ...fallbackSetupScenarios,
   ...languageScenarios,
 ]

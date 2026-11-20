@@ -50,6 +50,11 @@ const post = z
       .max(10)
       .optional()
       .describe('Transfer group ids you pushed (e.g. with transfer-push.sh), shown as file cards.'),
+    replyTo: z
+      .number()
+      .int()
+      .optional()
+      .describe('The index of the one message you answer: your post quotes it, as in its thread.'),
   })
   .strict()
 const create = z
@@ -270,11 +275,11 @@ export function channelToolModule(): PreviewToolModule {
         const parsed = post.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
-        const { channelId: id, text, files = [] } = parsed.data
+        const { channelId: id, text, files = [], replyTo } = parsed.data
 
         return answer(
           memberChannel(ctx, id).then(async ({ self }) => {
-            await postAsAgent(id, self, text, await agentFileParts(self, files))
+            await postAsAgent(id, self, text, await agentFileParts(self, files), replyTo)
 
             return { posted: true, channelId: id, files: files.length }
           }),

@@ -34,6 +34,22 @@ export const BOT_AVATARS = [
 
 export type BotAvatar = (typeof BOT_AVATARS)[number]
 
+// The tints a Bot's character may sit on, by name; clients own the colors.
+// `none` (or no value) keeps the character on no background.
+export const BOT_AVATAR_BACKGROUNDS = [
+  'none',
+  'sand',
+  'peach',
+  'rose',
+  'lilac',
+  'sky',
+  'mint',
+  'sage',
+  'slate',
+] as const
+
+export type BotAvatarBackground = (typeof BOT_AVATAR_BACKGROUNDS)[number]
+
 /** Only the first 28 are derived from an id, so appending a face changes no one's. */
 const DERIVED_COUNT = 28
 

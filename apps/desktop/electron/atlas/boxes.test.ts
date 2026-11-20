@@ -4,7 +4,6 @@ import { mock, test } from 'node:test'
 const calls: string[] = []
 const bodies: unknown[] = []
 const options: unknown[] = []
-let samples = 0
 const metrics = {
   sampledAt: '2026-10-15T00:00:00Z',
   cpuPercent: 10,
@@ -47,40 +46,19 @@ mock.module('../account-request.ts', {
     stillCurrent: () => {},
   },
 })
-mock.module('../main/device-identity.ts', {
-  namedExports: { readDeviceIdentity: () => ({ deviceId: 'mac' }) },
-})
-mock.module('../main/device-metrics.ts', {
-  namedExports: {
-    readDeviceMetrics: async () => {
-      samples += 1
-
-      return metrics
-    },
-  },
-})
 const { boxBillingPage, boxBillingSummary, listAgentDevices } = await import('./boxes.ts')
 
-test('default and explicit false device lists do not request metrics or sample this computer', async () => {
+test('default and explicit false device lists do not request metrics', async () => {
   assert.equal(await listAgentDevices(), list)
   assert.equal(await listAgentDevices({ metrics: false }), list)
   assert.deepEqual(calls, ['/agent/devices', '/agent/devices'])
-  assert.equal(samples, 0)
 })
 
-test('explicit demand renews backend metrics and overlays only this computer', async () => {
+test("a device list shows the backend's readings, never this computer's own sample", async () => {
   const result = await listAgentDevices({ metrics: true })
 
   assert.equal(calls.at(-1), '/agent/devices?metrics=true')
-  assert.equal(samples, 1)
-  assert.equal(result.devices[0]?.metrics, metrics)
-  assert.equal(result.devices[0]?.metricsStatus, 'live')
-  assert.ok(result.devices[0]?.metricsReceivedAt)
-  assert.equal(
-    result.devices[1],
-    remote,
-    'remote status and receipt timestamp pass through unchanged',
-  )
+  assert.equal(result, list, 'another account may have registered this machine too')
 })
 
 test('Box IPC forwards optional metrics demand without changing the default', async () => {
@@ -90,11 +68,8 @@ test('Box IPC forwards optional metrics demand without changing the default', as
   assert.equal(calls.at(-1), '/agent/devices?metrics=true')
   await boxChannels['box:listDevices'](null, { metrics: true, teamId: 'team 1' })
   assert.equal(calls.at(-1), '/agent/devices?metrics=true&teamId=team+1')
-  const before = samples
-
   await boxChannels['box:listDevices']()
   assert.equal(calls.at(-1), '/agent/devices')
-  assert.equal(samples, before)
 })
 
 test('adding an agent posts once; removing one deletes it, waiting out a still-starting agent', async () => {

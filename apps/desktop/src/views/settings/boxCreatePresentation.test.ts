@@ -45,6 +45,6 @@ test('boxCreateSize keeps a pick that fits, else falls back to the smallest that
   assert.equal(boxCreateSize([], 4, 6), undefined)
 })
 
-test('sizeGridColumns gives one column per size up to three, and one for none', () => {
-  assert.deepEqual([0, 1, 2, 3, 4, 7].map(sizeGridColumns), [1, 1, 2, 3, 3, 3])
+test('sizeGridColumns gives one column per size up to three, 2 × 2 for four, and one for none', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 7].map(sizeGridColumns), [1, 1, 2, 3, 2, 3])
 })

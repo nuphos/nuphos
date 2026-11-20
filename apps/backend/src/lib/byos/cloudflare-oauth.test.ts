@@ -12,6 +12,11 @@ describe('resolveCloudflareScopeParam', () => {
         'workers-scripts.metadata_read',
         'workers_ai.metadata_read',
       ]),
-    ).toBe('d1.read workers-scripts.metadata_read offline_access')
+    ).toBe('d1.read workers-scripts.metadata_read offline_access analytics.read')
+  })
+
+  test('always requests analytics.read for zone analytics', () => {
+    expect(resolveCloudflareScopeParam(['zone.read']).split(' ')).toContain('analytics.read')
+    expect(resolveCloudflareScopeParam().split(' ')).toContain('analytics.read')
   })
 })

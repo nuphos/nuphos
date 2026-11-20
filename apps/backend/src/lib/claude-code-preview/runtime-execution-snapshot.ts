@@ -48,6 +48,8 @@ export type SessionExecutionState = {
    * only when it is listed, so a turn about anything else shows nothing there.
    */
   channelIds?: string[]
+  /** How the runtime's last prompt ended; cleared when it takes the next one. */
+  lastOutcome?: unknown
   epoch?: string
   revision?: number
 }

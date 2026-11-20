@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { newBindingAccess } from '@/lib/byos/initial-access'
 import { tencentConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { verifyTencentRole, tencentOidcInfo } from '@/lib/byos/tencent'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
@@ -76,29 +76,28 @@ tencentAccountsRoutes.post(
       { projection: { tencentAccounts: 1 } },
     )
 
-    assertMayBindRole(
-      c,
-      bound?.tencentAccounts ?? [],
-      (b: { roleArn: string }) => b.roleArn,
-      roleArn,
-    )
     // A binding saved in the older role/<id> form names its role by an id we
     // cannot match to a name, so while someone else holds one privately in
     // this account, no other role in it can be bound past them.
     const uin = /uin\/(\d+)/.exec(roleArn)?.[1]
-    const heldById = (bound?.tencentAccounts ?? []).some(
-      (binding) =>
-        /uin\/(\d+):role\//.exec(binding.roleArn)?.[1] === uin &&
-        !canRequestUseBinding(c, binding.access),
-    )
-
-    if (heldById) {
-      throw new AppError(
-        403,
-        'identity_bound_privately',
-        `Another member has a private connection to Tencent account ${uin ?? ''} saved by role id. Ask them to share it, or to connect it again by role name.`,
+    const check = (bindings: TencentAccountBinding[]) => {
+      assertMayBindRole(c, bindings, (b: { roleArn: string }) => b.roleArn, roleArn)
+      const heldById = bindings.some(
+        (binding) =>
+          /uin\/(\d+):role\//.exec(binding.roleArn)?.[1] === uin &&
+          !canRequestUseBinding(c, binding.access),
       )
+
+      if (heldById) {
+        throw new AppError(
+          403,
+          'identity_bound_privately',
+          `Another member has a private connection to Tencent account ${uin ?? ''} saved by role id. Ask them to share it, or to connect it again by role name.`,
+        )
+      }
     }
+
+    check(bound?.tencentAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -110,8 +109,10 @@ tencentAccountsRoutes.post(
     const createdAt = new Date()
     const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'tencentAccounts',
+      check,
       { 'tencentAccounts.roleArn': { $ne: roleArn } },
       {
         $push: { tencentAccounts: { id, label, site, roleArn, providerId, createdAt, access } },

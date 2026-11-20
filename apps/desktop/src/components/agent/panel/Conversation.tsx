@@ -1,11 +1,13 @@
 import clsx from 'clsx'
 import { PanelRightOpen } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
+import { useChatSwitchShown } from '../../../lib/chatSwitchTiming'
 
 import { ChatColumn } from './ChatColumn'
+import { useComposerOverlay } from './composerOverlay'
 import { FeedbackCommentDialog } from './conversationBanners'
 import { isOwnMessage } from './conversationFollow'
 import { ConversationMessageList } from './conversationMessageList'
@@ -30,6 +32,7 @@ export function Conversation({
   teamId,
   currentUrl,
   sidebar = false,
+  composer = null,
   visible = true,
   onDockToSidebar,
   onStop,
@@ -58,6 +61,15 @@ export function Conversation({
   const currentUserId = useCurrentUser()?.id
   const lastMsgIsOwn = isOwnMessage(lastMsg, currentUserId, tab.foreign)
   const jump = useJumpToLatest(tab.messages, lastMsg?.id)
+  const room = useComposerOverlay(composer)
+
+  // A bar opening over the end keeps a transcript that follows the latest message at its end.
+  useLayoutEffect(() => {
+    const el = ref.current
+
+    if (el && shouldFollowRef.current && !userLockedScrollRef.current)
+      el.scrollTop = el.scrollHeight
+  }, [room])
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])
   const lastStreamToken = useMemo(() => lastStreamTokenFor(lastMsg), [lastMsg])
@@ -102,6 +114,7 @@ export function Conversation({
   })
 
   useConversationRead(tab.sessionId, visible)
+  useChatSwitchShown(tab.sessionId, 'task', visible)
   useTranscriptPageKeys(ref, lockScrollToHistory, handleUserScrollIntent)
 
   useEffect(() => {
@@ -146,9 +159,11 @@ export function Conversation({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         className={clsx(
-          'h-full overflow-auto scrollbar-thin pb-4 selectable',
+          'h-full overflow-auto scrollbar-thin selectable',
           hasHeaderOverlay ? 'pt-16' : 'pt-4',
         )}
+        // Room at the end for the bars floating above the composer, so the last message stays whole.
+        style={{ paddingBottom: `calc(1rem + ${String(room)}px)` }}
       >
         <ChatColumn sidebar={sidebar}>
           <ConversationMessageList
