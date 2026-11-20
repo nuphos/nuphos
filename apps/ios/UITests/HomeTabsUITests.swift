@@ -1,6 +1,44 @@
 import XCTest
 
 final class HomeTabsUITests: XCTestCase {
+    func testHomeToolbarKeepsActionsVisibleWithLongTeamName() throws {
+        let source = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/channel-responses.json")
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: source)) as? [String: Any])
+        var teams = try XCTUnwrap(responses["GET /teams"] as? [String: Any])
+        var body = try XCTUnwrap(teams["body"] as? [String: Any])
+        var listing = try XCTUnwrap(body["teams"] as? [[String: Any]])
+        listing[0]["name"] = "A very long workspace name that must not hide account controls"
+        body["teams"] = listing
+        teams["body"] = body
+        responses["GET /teams"] = teams
+        let fixture = URL.temporaryDirectory.appending(path: "toolbar-\(UUID()).json")
+        try JSONSerialization.data(withJSONObject: responses).write(to: fixture)
+        defer { try? FileManager.default.removeItem(at: fixture) }
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
+        app.launch()
+        XCTAssertTrue(app.buttons["Switch team"].waitForExistence(timeout: 12))
+        for name in ["Create", "Computers & runtimes", "Account"] {
+            let button = app.buttons[name].firstMatch
+            XCTAssertTrue(button.waitForExistence(timeout: 5), "\(name) must not move into overflow")
+            XCTAssertTrue(button.isHittable, "\(name) must be directly reachable")
+            XCTAssertTrue(app.frame.contains(button.frame), "\(name) must remain on screen")
+        }
+        XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists)
+        shot("home-toolbar-long-team")
+        app.buttons["Computers & runtimes"].tap()
+        XCTAssertTrue(app.navigationBars["Computers & runtimes"].waitForExistence(timeout: 5))
+        app.buttons["Close workspace"].tap()
+        app.buttons["Account"].tap()
+        XCTAssertTrue(app.buttons["Close account"].waitForExistence(timeout: 5))
+        app.buttons["Close account"].tap()
+        app.buttons["Create"].tap()
+        XCTAssertTrue(app.buttons["New Bot"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["New Task"].exists)
+    }
+
     func testNativeTabsExposeWorkspacePagesAndOpenChats() throws {
         let app = XCUIApplication()
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
