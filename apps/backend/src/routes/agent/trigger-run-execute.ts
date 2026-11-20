@@ -275,15 +275,17 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
 
     return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
-    recordTriggerRunFailure(
+    const failed = recordTriggerRunFailure(
       err,
       runTrace,
       source,
       teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
+      params.clientResendsRefusal,
     )
+
     chatSpan.end()
     if (!run.abortController.signal.aborted) {
-      appendAgentRunError(run, err)
+      if (failed) appendAgentRunError(run, err)
       appendAgentRunDone(run)
     }
     finishAgentRun(run)
