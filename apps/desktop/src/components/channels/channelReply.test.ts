@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { replyTo } from './channelReply.ts'
+import { endsInboxAnswer, replyTo } from './channelReply.ts'
 
 const metadata = {
   version: 1,
@@ -24,4 +24,33 @@ test('a reply quotes its post’s author and the start of its words', () => {
 test('a post of files alone is quoted as its file; one with no sender is not quoted', () => {
   assert.equal(replyTo({ id: 'p2', role: 'user', parts: [], metadata } as never)?.text, 'File')
   assert.equal(replyTo({ id: 'p3', role: 'user', parts: [] } as never), null)
+})
+
+test('"Answered in Inbox" goes under the last post of each Inbox answer only', () => {
+  const post = (id: string, requestId?: string) => ({
+    id,
+    role: 'user',
+    parts: [{ type: 'text', text: id }],
+    metadata: {
+      ...metadata,
+      replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+      ...(requestId ? { answeredIn: 'inbox', requestId } : {}),
+    },
+  })
+  const onCard = {
+    ...post('c1', 'q3'),
+    metadata: { ...post('c1', 'q3').metadata, answeredIn: undefined },
+  }
+  const posts = [
+    post('a1', 'q1'),
+    post('a2', 'q1'),
+    post('b1', 'q2'),
+    onCard,
+    post('plain'),
+  ] as never[]
+
+  assert.deepEqual(
+    posts.map((_, index) => endsInboxAnswer(posts, index)),
+    [false, true, true, false, false],
+  )
 })

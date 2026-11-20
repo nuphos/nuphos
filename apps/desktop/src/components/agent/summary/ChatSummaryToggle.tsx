@@ -1,11 +1,7 @@
-import { useEffect } from 'react'
-
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { toggleChatSummary, useChatSummaryOpen } from '../../../lib/chatSummaryPanel'
-import { isChatSummaryShortcut } from '../../../lib/chatSummaryShortcut'
-import { isMac } from '../../../lib/platform'
 import { useSessionTerminalProcesses } from '../../../lib/sessionTerminalProcesses'
 import { CountBadge } from '../../ui/count-badge'
 import { Kbd } from '../../ui/kbd'
@@ -14,6 +10,7 @@ import { Tooltip } from '../../ui/tooltip'
 import { shellsFromRuntimeState } from '../panel/shells'
 
 import { backgroundLabel } from './backgroundLabel'
+import { useChatSummaryShortcut } from './useChatSummaryShortcut'
 
 export function SummaryIcon() {
   return (
@@ -69,18 +66,11 @@ export function ChatSummaryToggle({
   const terminalCount = useSessionTerminalProcesses(sessionId ?? '').length
   const backgroundCount = taskCount + terminalCount
 
-  useEffect(() => {
-    if (!active) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !isChatSummaryShortcut(event, isMac)) return
-      event.preventDefault()
-      toggleChatSummary(paneId)
-    }
+  useChatSummaryShortcut(active, () => {
+    toggleChatSummary(paneId)
 
-    window.addEventListener('keydown', onKeyDown)
-
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [active, paneId])
+    return true
+  })
 
   if (hidden) return null
   const background = backgroundLabel(taskCount, terminalCount)
@@ -97,6 +87,7 @@ export function ChatSummaryToggle({
     >
       <button
         type="button"
+        data-summary-toggle
         aria-label={t('Toggle task summary')}
         aria-pressed={open}
         onClick={() => toggleChatSummary(paneId)}

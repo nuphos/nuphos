@@ -45,7 +45,7 @@ type Props = {
   refreshKey?: number
   onCount?: (count: number) => void
   onLoading?: (loading: boolean) => void
-  // Prefill (not send) the agent composer — the "Watch with Agent" shortcut.
+  // Prefill (not send) the agent composer — the "Watch in a task" shortcut.
   onOpenAgentChat?: (prompt: string, options?: { send?: boolean }) => void
   /** Navigate to the Connectors page — the empty state's "Go to Connectors". */
   onOpenConnectors?: () => void

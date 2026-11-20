@@ -7,7 +7,7 @@ import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ContextMenu } from '../ContextMenu'
 
-import { replyTo } from './channelReply'
+import { endsInboxAnswer, replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
@@ -132,6 +132,7 @@ export function ChannelMessages({
               teamId={teamId}
               links={links}
               onOpenSession={onOpenSession}
+              answeredInInbox={endsInboxAnswer(messages, i)}
               onMenu={
                 onReply &&
                 ((event) => {

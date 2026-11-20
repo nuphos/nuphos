@@ -119,7 +119,8 @@ export function githubResourceEvents(event: string, payload: unknown) {
       numbers = [body.pull_request.number]
       actor = { login: body.sender.login, repository: body.repository.full_name }
     }
-  } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
+  } else if (event === 'issue_comment' && action === 'created' && body.issue) {
+    // A comment on a pull request or on an issue: only a linked one has a session to wake.
     // Bot comments stay out so bots replying to each other cannot loop a session.
     if (body.sender && body.sender.type !== 'Bot' && body.repository.full_name) {
       numbers = [body.issue.number]

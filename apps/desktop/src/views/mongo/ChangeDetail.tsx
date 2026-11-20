@@ -35,9 +35,7 @@ export function ChangeDetail({
   }
   const requestLine = !change.planId
     ? t('Requested by {name} · {kind} · digest {digest}…', requestVars)
-    : change.proposalSource === 'agent'
-      ? t('Requested by {name} · {kind} · Agent Plan #{plan} · digest {digest}…', requestVars)
-      : t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
+    : t('Requested by {name} · {kind} · Plan #{plan} · digest {digest}…', requestVars)
 
   useReportVisibleError(change.executionErrorMessage, 'database_change_execution_error')
 
@@ -58,8 +56,8 @@ export function ChangeDetail({
               onClick={() => onOpenPlanInChat(change.planId!)}
               label={
                 change.status === 'approved' && change.proposalSource === 'agent'
-                  ? t('Continue Agent execution')
-                  : t('Open Plan in Agent')
+                  ? t('Continue in the task')
+                  : t('Open Plan in its task')
               }
               icon={<MessageSquare className="h-3 w-3" />}
             />

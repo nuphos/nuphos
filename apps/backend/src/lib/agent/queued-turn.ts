@@ -18,7 +18,6 @@ import {
   waitingOutRefusal,
 } from './session-released'
 import { openSignInRequest, releaseWhenAskLapses } from './sign-in-request'
-import { recordFailedFires } from './trigger-failed-runs'
 import { withinOfflineGrace } from './turn-offline'
 import { turnRunner } from './turn-runner'
 
@@ -101,7 +100,6 @@ async function waitForBox(
       `did not run: ${error.message}`,
       error,
     )
-    await recordFailedFires(error, refused)
   }
   retryQueuedTurn(userId, sessionId)
 
