@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 
 import { envValue } from './agent-cli-apps.ts'
@@ -215,19 +216,18 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
 }
 
 /**
- * The jobs this runtime offers. Everywhere: the backend's fixed attachment program, bundled,
- * so a turn's files arrive as a list of signed URLs and no program text crosses the wire, and
- * its fixed program that removes an archived conversation's home, given only its id. On a
- * machine Nuphos made, also `panel`, which runs the script the backend sends, as the runtime
- * image does; never on a person's computer. openab clears a job's environment and splits its
- * command on whitespace, so Electron's run-as-Node switch rides in through `env`. A job that
- * cannot run that way is left out, and the backend reports the runtime as unable to do it.
+ * The jobs this runtime offers: everywhere the backend's bundled attachment and session-home
+ * programs, given only signed URLs or an id; on a machine Nuphos made also `panel`, which runs
+ * the script the backend sends. openab gives a job only its own isolated HOME and splits its
+ * command on whitespace, so Electron's run-as-Node switch and the user's HOME, where the
+ * adapter makes session homes, ride in through `env`. A job with a spaced path is left out.
  */
 function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   const program = (file: string) => path.join(launch.bundle.root, file)
+  const home = `HOME=${launch.env.HOME ?? homedir()}`
   const job = (name: string, ...args: string[]) => ({
     name,
-    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', launch.nodeExecPath, ...args],
+    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', home, launch.nodeExecPath, ...args],
     program: args.at(-1) ?? '',
   })
   const jobs = [

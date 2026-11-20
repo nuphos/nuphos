@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { createHmac } from 'node:crypto'
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash, createHmac } from 'node:crypto'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -91,13 +99,13 @@ test('the runtime offers only its bundled fixed programs as jobs', () => {
     if (process.platform === 'win32') return assert.equal(jobs, undefined)
     assert.equal(
       jobs,
-      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
+      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
     )
     // Every computer reclaims an archived conversation's home with its own fixed program.
     writeFileSync(path.join(root, 'session-home-reclaim-job.mjs'), '')
     assert.equal(
       openabEnv(bundled).OPENAB_RUNTIME_JOBS,
-      `${jobs};session-homes=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`,
+      `${jobs};session-homes=/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`,
     )
     // openab splits the command on whitespace, so a spaced path cannot run.
     assert.equal(
@@ -109,10 +117,53 @@ test('the runtime offers only its bundled fixed programs as jobs', () => {
   }
 })
 
+// openab runs a job with only its own, isolated HOME; the adapter makes session homes under
+// the user's. Run the job as openab does and the archived conversation's home must go.
+test('the session-homes job removes a home where the adapter made it', (t) => {
+  if (process.platform === 'win32') return
+  const root = mkdtempSync(path.join(tmpdir(), 'jobs-'))
+  const user = path.join(root, 'user')
+  const homes = path.join(user, '.nuphos', 'session-homes')
+  const archived = createHash('sha256').update('archived').digest('hex')
+
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  mkdirSync(path.join(homes, archived), { recursive: true })
+  mkdirSync(path.join(homes, createHash('sha256').update('other').digest('hex')))
+  copyFileSync(
+    new URL(
+      '../../../../backend/src/lib/claude-code-preview/session-home-reclaim-job.mjs',
+      import.meta.url,
+    ),
+    path.join(root, 'session-home-reclaim-job.mjs'),
+  )
+  const env = openabEnv({
+    ...launch,
+    bundle: { ...launch.bundle, root },
+    nodeExecPath: process.execPath,
+    openabHome: path.join(root, 'openab-home'),
+    env: { ...launch.env, HOME: user },
+  })
+  const argv = (env.OPENAB_RUNTIME_JOBS ?? '')
+    .split(';')
+    .find((entry) => entry.startsWith('session-homes='))
+    ?.slice('session-homes='.length)
+    .split(' ')
+
+  assert.ok(argv)
+  const run = spawnSync(argv[0], argv.slice(1), {
+    env: { HOME: env.HOME, PATH: '/usr/bin:/bin' },
+    input: JSON.stringify({ sessionId: 'archived' }),
+  })
+
+  assert.equal(JSON.parse(run.stdout.toString()).result, 'removed')
+  assert.equal(existsSync(path.join(homes, archived)), false)
+  assert.equal(readdirSync(homes).length, 1)
+})
+
 test('only a machine Nuphos made also runs the panel scripts the backend sends', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
   const bundled = { ...launch, bundle: { ...launch.bundle, root } }
-  const node = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath}`
+  const node = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath}`
 
   try {
     writeFileSync(path.join(root, 'attachment-job.mjs'), '')
