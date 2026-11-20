@@ -104,7 +104,19 @@ export const offlineScenarios: Scenario[] = [
         }
         if ((await banner.getByRole('button', { name: 'Free space' }).count()) > 0)
           throw new Error('The banner offers Free space on a computer it cannot clear')
+        // #4213: with nothing to free here, Dismiss is the only thing the person can do about
+        // it. The warning goes for the day, in this conversation and the next, and the
+        // computer's card in settings keeps saying it.
+        await banner.getByRole('button', { name: 'Dismiss for today' }).click()
+        await until('the dismissed disk warning to go', async () => (await banner.count()) === 0)
+        // It does not come back on the next reading of the same computer.
+        await page.waitForTimeout(3_000)
+        if ((await banner.count()) > 0) throw new Error('The dismissed disk warning came back')
+        await page.screenshot({ path: join(artifacts, 'disk-banner-dismissed-light.png') })
       } finally {
+        // Scenarios after this one see the laptop as it was: the dismissal is per computer and
+        // would otherwise outlive this one by a day.
+        await page.evaluate(() => localStorage.removeItem('nuphos.diskSnooze'))
         goOffline()
       }
     },
