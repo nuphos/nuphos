@@ -66,9 +66,6 @@ export const localModelCatalogSchema = z.object({
   controls: z.record(z.string().max(500), modelControlsSchema),
   /** The runtime offered settings but no model list; its controls sit under `default`. */
   controlsOnly: z.literal(true).optional(),
-  /** The computer read this agent's models and the read failed, so this emptiness is
-   *  not a list still on its way and nobody should be told to wait for one. */
-  failed: z.literal(true).optional(),
 })
 
 /** One usage window as Anthropic or ChatGPT reports it. A window that does not
