@@ -23,6 +23,8 @@ type AgentEntry = {
   sections?: string[]
   /** The response language a turn's prompt names. */
   language?: string
+  /** `start`: the model the turn received. */
+  model?: string
   isError?: boolean
   detail?: string
   /** E2E_CALL: the tool it called and that tool's answer. */
