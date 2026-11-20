@@ -43,6 +43,7 @@ useSlackInstallations({
 
 const { registerSlackMappingRoutes } = await import('./mappings')
 const { agentConversations, agentMessages } = await import('@/lib/agent/db')
+const { addChannelAgent } = await import('@/lib/agent/db/channels')
 const { slackChannelMappings } = await import('@/lib/slack/agent-bot')
 const { closeDb, connectDb } = await import('@/lib/db')
 const app = new Hono<{ Variables: AuthVariables }>()
@@ -187,6 +188,16 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-spare`])
       viewer = ADMIN
       expect((await bring('admin-bot')).status).toBe(409)
+    })
+
+    test('no other path adds a Bot to a Slack channel: the chat-wide add leaves its record alone', async () => {
+      await connect()
+      viewer = MEMBER
+      await bring('member-bot')
+      const chat = (await record())!.sessionId
+
+      expect(await addChannelAgent(chat, `${TEAM}-admin-bot`)).toBeNull()
+      expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-bot`])
     })
 
     test('only a Bot’s owner takes it out; an admin disconnects the whole channel', async () => {
