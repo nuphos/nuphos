@@ -169,6 +169,9 @@ class ConversationUnlinkFixtureDeviceTest {
         val bitmap = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         val file = java.io.File(app.getExternalFilesDir(null), "unlink-$name.png")
         file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        // And to the additional test output, which CI uploads with the device test report (#3468).
+        val uploaded = java.io.File(app.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        java.io.File(uploaded, "unlink-$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
 
@@ -321,9 +324,14 @@ class ConversationUnlinkFixtureDeviceTest {
         assertTrue(store.canArchive(child()))
         assertFalse(store.canRename(child()))
         assertFalse(store.canArchive(store.conversations.first { it.sessionId == "shared" }))
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("row-rail:child").assertExists()
+        shot("3686-teammates-task-swipe")
+        androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
         compose.onNodeWithTag("menu-archive:child").assertIsDisplayed()
         compose.onNodeWithText("Rename").assertDoesNotExist()
+        shot("3686-teammates-task-menu")
         androidx.test.espresso.Espresso.pressBack()
         detailBody = """{"messages":[],"isOwner":false,"canManage":false,"canArchive":false,"readOnly":false}"""
         runBlocking(Dispatchers.Main) { store.archive(child(), true) }
