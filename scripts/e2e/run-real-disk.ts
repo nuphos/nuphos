@@ -24,7 +24,6 @@ function usedPercent() {
 }
 
 async function chooseLocal(page: Page) {
-  await newTask(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await page.getByRole('menu').getByText('E2E Studio', { exact: true }).click()
   await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
@@ -75,9 +74,14 @@ try {
 
   if (!renamed.ok) throw new Error(`Renaming the fictional computer failed: ${renamed.status}`)
   await page.reload()
-  await chooseLocal(page)
+  // Persist the first conversation on the healthy fixture runtime before moving it to the full disk.
+  await newTask(page)
   await send(page, 'Prepare the fictional release E2E_DELIVERY:disk-first')
-  await page.getByText('Prepare the fictional release E2E_DELIVERY:disk-first').waitFor()
+  await page.getByText('ACK E2E_DELIVERY:disk-first').waitFor({ timeout: 60_000 })
+  await chooseLocal(page)
+  await page.getByText('moved this task from E2E fixture agent to').waitFor()
+  await send(page, 'Check the fictional release on this computer')
+  await page.getByText('Check the fictional release on this computer').waitFor()
   const warning = (p: Page) => p.getByRole('status').filter({ hasText: 'disk is almost full' })
 
   await warning(page).waitFor({ timeout: 90_000 })
@@ -90,6 +94,7 @@ try {
   await warning(page).waitFor({ state: 'hidden' })
   await screenshot(page, 'dismissed')
 
+  await newTask(page)
   await chooseLocal(page)
   await send(page, 'Check the fictional changelog E2E_DELIVERY:disk-second')
   await page.getByText('Check the fictional changelog E2E_DELIVERY:disk-second').waitFor()
@@ -114,7 +119,7 @@ try {
   page = desktop.page
   page.setDefaultTimeout(30_000)
   await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByText('Check the fictional changelog', { exact: false }).first().click()
+  await page.getByText('Prepare the fictional release', { exact: false }).first().click()
   await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned after restarting Desktop')
   await screenshot(page, 'restarted')
@@ -126,7 +131,7 @@ try {
   await page.waitForTimeout(70_000)
   await page.reload()
   await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByText('Check the fictional changelog', { exact: false }).first().click()
+  await page.getByText('Prepare the fictional release', { exact: false }).first().click()
   await page.waitForTimeout(5_000)
   if (await warning(page).isVisible()) throw new Error('Warning remains after freeing space')
   await screenshot(page, 'space-freed')
