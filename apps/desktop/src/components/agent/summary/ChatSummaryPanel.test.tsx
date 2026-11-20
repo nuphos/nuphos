@@ -73,6 +73,12 @@ test('a panel slides in when it opens and out when it closes', async () => {
     assert.equal(seen.at(-1), 'in')
     await act(() => root.render(createElement(Probe, { open: false })))
     assert.equal(seen.at(-1), 'out')
+    // Mounted open, then reopened while it slides shut: it slides in again.
+    await act(() => root.render(createElement(Probe, { open: true, key: 'b' })))
+    assert.equal(seen.at(-1), null)
+    await act(() => root.render(createElement(Probe, { open: false, key: 'b' })))
+    await act(() => root.render(createElement(Probe, { open: true, key: 'b' })))
+    assert.equal(seen.at(-1), 'in')
   } finally {
     act(() => root.unmount())
     for (const [key, descriptor] of originals) {

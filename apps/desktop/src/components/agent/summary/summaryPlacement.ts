@@ -156,10 +156,9 @@ export function useSummaryMotion(open: boolean): { mounted: boolean; motion: Mot
   const [mounted, setMounted] = useState(open)
   const [opened, setOpened] = useState(false)
 
-  if (open && !mounted) {
-    setMounted(true)
-    setOpened(true)
-  }
+  if (open && !mounted) setMounted(true)
+  // Once it has been closed, opening again slides it in, even mid slide-out.
+  if (!open && !opened) setOpened(true)
 
   useEffect(() => {
     if (open || !mounted) return
