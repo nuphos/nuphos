@@ -8,6 +8,11 @@ on:
     branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
   workflow_dispatch:
+    inputs:
+      real_disk:
+        description: Run the isolated real-disk Desktop evidence scenario
+        type: boolean
+        default: false
   # The full macOS package every night, since PRs and the queue build it only
   # when a packaging input changes.
   schedule:
@@ -505,13 +510,39 @@ jobs:
         run: |
           docker pull mongo:8.0.32
           docker pull rustfs/rustfs:1.0.0
+      - name: Run isolated real-disk Desktop evidence
+        if: github.event_name == 'workflow_dispatch' && inputs.real_disk
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/real-disk-shots
+          OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
+        run: |
+          set -euo pipefail
+          disk="$RUNNER_TEMP/nuphos-e2e-disk.img"
+          mountpoint="$RUNNER_TEMP/nuphos-e2e-disk"
+          mkdir -p "$mountpoint" "$E2E_ARTIFACTS"
+          truncate -s 2G "$disk"
+          mkfs.ext4 -q -F -m 0 "$disk"
+          sudo mount -o loop "$disk" "$mountpoint"
+          trap 'sudo umount "$mountpoint"; rm -f "$disk"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$mountpoint"
+          fallocate -l 1930M "$mountpoint/fill"
+          E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
+      - name: Upload real-disk screenshots
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: real-disk-screenshots
+          path: ${{ runner.temp }}/real-disk-shots/*.png
+          if-no-files-found: warn
       - name: Run the end-to-end scenarios
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e
       - name: Run Bot onboarding lifecycle scenarios
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-onboarding
         run: |
@@ -519,6 +550,7 @@ jobs:
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
       # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
       - name: Time chat switches
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
         run: |
