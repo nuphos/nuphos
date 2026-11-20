@@ -200,6 +200,7 @@
   "Account ID": "계정 ID",
   "Account email": "계정 이메일",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "GitHub에서 본인으로 활동합니다. 커밋, PR, 댓글이 nuphos[bot] 대신 본인 이름으로 작성됩니다. 하나의 저장소로 범위가 지정된 작업은 계속 nuphos[bot]을 사용합니다.",
+  "Acted on by": "실행할 대화",
   "Acting as {login} through your GitHub CLI": "GitHub CLI를 통해 {login}(으)로 활동 중",
   "Acting for {name}": "{name} 님을 대신해",
   "Actions": "작업",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "“{text}” — 다시 보내세요.",
   "≥ at least": "≥ 이상",
   "≥ {pct}% of Limit": "제한의 {pct}% 이상",
-  "✓ used": "✓ 사용됨",
-  "Acted on by": "실행할 대화"
+  "✓ used": "✓ 사용됨"
 }

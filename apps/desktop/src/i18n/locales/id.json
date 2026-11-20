@@ -200,6 +200,7 @@
   "Account ID": "ID akun",
   "Account email": "Email akun",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "Bertindak sebagai diri Anda di GitHub — commit, PR, dan komentar dibuat atas nama Anda, bukan nuphos[bot]. Tugas yang dibatasi ke satu repositori tetap memakai nuphos[bot].",
+  "Acted on by": "Ditindaklanjuti oleh",
   "Acting as {login} through your GitHub CLI": "Bertindak sebagai {login} melalui GitHub CLI Anda",
   "Acting for {name}": "Atas nama {name}",
   "Actions": "Tindakan",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "“{text}” — kirim lagi.",
   "≥ at least": "≥ minimal",
   "≥ {pct}% of Limit": "≥ {pct}% dari batas",
-  "✓ used": "✓ dipakai",
-  "Acted on by": "Ditindaklanjuti oleh"
+  "✓ used": "✓ dipakai"
 }

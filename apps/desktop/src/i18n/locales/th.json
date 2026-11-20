@@ -200,6 +200,7 @@
   "Account ID": "ID บัญชี",
   "Account email": "อีเมลบัญชี",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "ทำงานในนามของคุณบน GitHub — commit, PR และความคิดเห็นจะเป็นชื่อคุณแทน nuphos[bot] งานที่จำกัดขอบเขตไว้ที่รีโพซิทอรีเดียวจะยังใช้ nuphos[bot]",
+  "Acted on by": "ดำเนินการโดย",
   "Acting as {login} through your GitHub CLI": "ดำเนินการในฐานะ {login} ผ่าน GitHub CLI ของคุณ",
   "Acting for {name}": "ทำแทน {name}",
   "Actions": "การดำเนินการ",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "“{text}” — ส่งอีกครั้ง",
   "≥ at least": "≥ อย่างน้อย",
   "≥ {pct}% of Limit": "≥ {pct}% ของขีดจำกัด",
-  "✓ used": "✓ ใช้แล้ว",
-  "Acted on by": "ดำเนินการโดย"
+  "✓ used": "✓ ใช้แล้ว"
 }

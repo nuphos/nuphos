@@ -200,6 +200,7 @@
   "Account ID": "ID de la cuenta",
   "Account email": "Correo de la cuenta",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "Actúa como tú mismo en GitHub: los commits, las PR y los comentarios se publican a tu nombre en lugar de nuphos[bot]. Las tareas limitadas a un solo repositorio siguen usando nuphos[bot].",
+  "Acted on by": "Ejecutado por",
   "Acting as {login} through your GitHub CLI": "Actuando como {login} mediante tu CLI de GitHub",
   "Acting for {name}": "En nombre de {name}",
   "Actions": "Acciones",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "“{text}”: vuelve a enviarlo.",
   "≥ at least": "≥ al menos",
   "≥ {pct}% of Limit": "≥ {pct}% del límite",
-  "✓ used": "✓ usada",
-  "Acted on by": "Ejecutado por"
+  "✓ used": "✓ usada"
 }

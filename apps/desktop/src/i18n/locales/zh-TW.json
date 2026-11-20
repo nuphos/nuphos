@@ -200,6 +200,7 @@
   "Account ID": "帳號 ID",
   "Account email": "帳號電子郵件",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "在 GitHub 上以你本人的身分操作：Commit、PR 與留言的作者會是你，而不是 nuphos[bot]。限定於單一儲存庫的任務仍會使用 nuphos[bot]。",
+  "Acted on by": "執行對話",
   "Acting as {login} through your GitHub CLI": "透過你的 GitHub CLI 以 {login} 身分操作",
   "Acting for {name}": "代表 {name}",
   "Actions": "動作",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "「{text}」，請重新傳送。",
   "≥ at least": "≥ 至少",
   "≥ {pct}% of Limit": "≥ 限制的 {pct}%",
-  "✓ used": "✓ 已使用",
-  "Acted on by": "執行對話"
+  "✓ used": "✓ 已使用"
 }

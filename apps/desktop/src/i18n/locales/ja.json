@@ -200,6 +200,7 @@
   "Account ID": "アカウント ID",
   "Account email": "アカウントのメールアドレス",
   "Act as yourself on GitHub — commits, PRs and comments are authored by you instead of nuphos[bot]. Tasks scoped to one repository keep using nuphos[bot].": "GitHub で自分自身として操作します。コミット、PR、コメントの作成者が nuphos[bot] ではなくあなたになります。1 つのリポジトリにスコープされたタスクは引き続き nuphos[bot] を使用します。",
+  "Acted on by": "実行する会話",
   "Acting as {login} through your GitHub CLI": "GitHub CLI 経由で {login} として操作中",
   "Acting for {name}": "{name} の代理",
   "Actions": "アクション",
@@ -6019,6 +6020,5 @@
   "“{text}” — send it again.": "「{text}」— もう一度送信してください。",
   "≥ at least": "≥ 以上",
   "≥ {pct}% of Limit": "制限の {pct}% 以上",
-  "✓ used": "✓ 使用済み",
-  "Acted on by": "実行する会話"
+  "✓ used": "✓ 使用済み"
 }
