@@ -244,10 +244,11 @@ export async function probeAgentCli(
         () => 'unavailable',
       )
 
-      const [major, minor] = node.replace(/^v/u, '').split('.').map(Number)
+      const [major = Number.NaN, minor = Number.NaN] = node
+        .replace(/^v/u, '')
+        .split('.')
+        .map(Number)
       const outdated =
-        major !== undefined &&
-        minor !== undefined &&
         Number.isFinite(major) &&
         Number.isFinite(minor) &&
         (major < 24 || (major === 24 && minor < 9))
