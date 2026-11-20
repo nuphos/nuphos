@@ -10,9 +10,8 @@
 // Runs from a backend pod before its image carries it: copied into /app/scripts,
 // it uses that pod's config and database. Dry run unless --apply. Each write
 // matches only a still-unset selection, so a second run, or a selection saved in
-// between, is left alone. Before writing, --apply saves the session ids in
-// --record (default /tmp), so `$unset: { credentialAccess: 1 }` on exactly those
-// undoes it.
+// between, is left alone. --apply saves the session ids it wrote in --record
+// (default /tmp), so `$unset: { credentialAccess: 1 }` on exactly those undoes it.
 
 import { writeFile } from 'node:fs/promises'
 
@@ -47,20 +46,32 @@ async function main(): Promise<void> {
       const at = process.argv.indexOf('--record')
       const record =
         at >= 0 ? process.argv[at + 1] : `/tmp/default-bot-credentials-${String(Date.now())}.json`
-
-      await writeFile(record, JSON.stringify(plan, null, 1))
-      console.log(`rollback record: ${record}`)
       // Loaded only to write: a dry run also works on a backend without it yet.
       const { defaultCredentialAccess } = await import('../src/routes/agent/credential-access')
+      // Only the Bots this run wrote, so undoing it never clears a choice saved in between.
+      const done: typeof plan = []
 
-      for (const { sessionId, userId, teamId } of plan) {
-        const credentialAccess = await defaultCredentialAccess(teamId, userId)
-        const result = await conversations.updateOne(
-          { sessionId, userId, ...NEVER_CHOSEN },
-          { $set: { credentialAccess } },
-        )
+      console.log(`rollback record: ${record}`)
+      try {
+        for (const bot of plan) {
+          try {
+            const credentialAccess = await defaultCredentialAccess(bot.teamId, bot.userId)
+            const result = await conversations.updateOne(
+              { sessionId: bot.sessionId, userId: bot.userId, ...NEVER_CHOSEN },
+              { $set: { credentialAccess } },
+            )
 
-        written += result.modifiedCount
+            if (result.modifiedCount) done.push(bot)
+          } catch (err) {
+            // An owner who left the team, say: that Bot stays as it is.
+            console.error(
+              `skipped ${bot.sessionId}: ${err instanceof Error ? err.message : String(err)}`,
+            )
+          }
+        }
+      } finally {
+        await writeFile(record, JSON.stringify(done, null, 1))
+        written = done.length
       }
     }
     const outcome = apply ? `done: gave ${String(written)} of` : 'dry-run: would give'

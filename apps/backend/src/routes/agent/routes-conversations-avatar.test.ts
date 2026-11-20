@@ -14,7 +14,9 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
 
-useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(options) })
+let optionsLoad = () => Promise.resolve(options)
+
+useCredentialOptions({ getAgentCredentialOptions: () => optionsLoad() })
 
 const turns: { text: string; avatar?: string }[] = []
 
@@ -293,6 +295,19 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       },
     },
   ])
+})
+
+test('"+" on Bots still makes the Bot when its owner\'s options cannot be read', async () => {
+  optionsLoad = () => Promise.reject(new Error('down'))
+  try {
+    const response = await createBot()
+
+    expect(response.status).toBe(201)
+    // Nothing stored: the Bot asks its owner to choose.
+    expect(shells[0]).not.toHaveProperty('credentialAccess')
+  } finally {
+    optionsLoad = () => Promise.resolve(options)
+  }
 })
 
 test('"+" on Bots may start a Bot on a picked background', async () => {

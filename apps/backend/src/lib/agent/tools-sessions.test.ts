@@ -2,17 +2,13 @@ import { expect, test } from 'bun:test'
 
 import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
-import { options as credentialOptions } from '@/lib/test/credential-options-fixture'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { createSessionTools } from './tools-sessions'
 
 import type * as dbActual from './db'
 import type { AgentRun } from '@/routes/agent/types'
-
-useCredentialOptions({ getAgentCredentialOptions: () => Promise.resolve(credentialOptions) })
 
 test('exposes the past-conversation tools in a team', () => {
   expect(Object.keys(createSessionTools('u', 'c', 'team')).sort(byCodeUnit)).toEqual([
@@ -43,6 +39,13 @@ const bypass = new Map<string, unknown>()
 // The calling conversation's own permission mode.
 let callerBypass = true
 let instructionsSaved = true
+// What the calling conversation may use.
+const callerAccess = {
+  awsRoleIds: ['caller-role'],
+  deviceIds: [],
+  updatedAt: new Date(),
+  updatedBy: 'u',
+}
 
 useDb({
   db: () => ({
@@ -68,6 +71,8 @@ let userRenamed = false
 const named: string[] = []
 
 useAgentDb({
+  credentialSourceOf: async (sessionId) =>
+    sessionId === 'c' ? { sessionId, userId: 'u', credentialAccess: callerAccess } : null,
   getConversations: async (viewer, options) => {
     expect(viewer).toBe('u')
     listOptions = options
@@ -337,8 +342,8 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
-    // Everything its owner may use, as "+" gives it; sending mail stays opt-in.
-    credentialAccess: expect.objectContaining({ deviceIds: ['mac'], resendIntegrationIds: [] }),
+    // What its maker may use, never more: not everything its owner may, as "+" gives.
+    credentialAccess: callerAccess,
     bot: {
       avatar: '07-ada',
       // The record says which conversation's agent made it.

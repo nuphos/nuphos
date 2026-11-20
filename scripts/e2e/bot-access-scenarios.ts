@@ -149,7 +149,7 @@ export const botAccessScenarios: Scenario[] = [
     // #4158: a Bot made with "+" may use everything its owner may, as a new chat does, and
     // its turns reach a computer. Before, it stored nothing and could use none of them.
     // #3790: what it may use is shown and changed in Bot details, not in its chat's composer.
-    name: 'a Bot made with "+" or create_bot may use every credential and computer of its owner',
+    name: 'a Bot made with "+" may use every credential and computer of its owner',
     run: async (page, stack) => {
       const made = botAccess(stack)
       const deviceIds = made.access?.deviceIds ?? []
@@ -188,7 +188,7 @@ export const botAccessScenarios: Scenario[] = [
           ),
       )
 
-      // A Bot its agent makes with create_bot gets the same, in its caller's mode.
+      // A Bot its agent makes with create_bot gets what that agent may use, never more.
       await send(
         page,
         'Make one E2E_CALL create_bot {"label":"Make","name":"E2E Made Bot"} E2E_DELIVERY:bot-made',
@@ -196,10 +196,8 @@ export const botAccessScenarios: Scenario[] = [
       await until('create_bot to make a Bot', async () => botNamed(stack, 'E2E Made Bot'))
       const minted = botNamed(stack, 'E2E Made Bot')
 
-      if (!minted?.access?.deviceIds?.length || minted.access.resendIntegrationIds?.length)
-        throw new Error(
-          `create_bot stored ${JSON.stringify(minted.access)}, not its owner's default`,
-        )
+      if (!minted || JSON.stringify(minted.access?.deviceIds) !== JSON.stringify(deviceIds))
+        throw new Error(`create_bot stored ${JSON.stringify(minted?.access)}, not its maker's`)
       await archive(stack, minted.sessionId)
 
       // Narrow, the details float over the chat with the same rows.
