@@ -3,6 +3,7 @@ import { getCapabilities, toolResult } from '@/lib/mcp/protocol'
 import { nuphosAsk } from '@/routes/mcp/ask'
 import { nuphosCheck } from '@/routes/mcp/check'
 import {
+  nuphosArchiveSession,
   nuphosEvents,
   nuphosListQueue,
   nuphosListRuntimes,
@@ -38,6 +39,7 @@ export function toolsForContext(ctx: McpCallContext): Record<string, ToolHandler
     nuphos_list_sessions: (args) => nuphosListSessions(args, ctx),
     nuphos_events: (args) => nuphosEvents(args, ctx),
     nuphos_stop: (args) => nuphosStop(args, ctx),
+    nuphos_archive_session: (args) => nuphosArchiveSession(args, ctx),
     nuphos_list_queue: (args) => nuphosListQueue(args, ctx),
     nuphos_remove_queued: (args) => nuphosRemoveQueued(args, ctx),
     nuphos_update_session: (args) => nuphosUpdateSession(args, ctx),

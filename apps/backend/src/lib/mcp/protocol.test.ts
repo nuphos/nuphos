@@ -39,6 +39,7 @@ describe('handleMcpMessage', () => {
     const list = (res as { result: { tools: { name: string }[] } }).result.tools
 
     expect(list.map((t) => t.name).sort((a, b) => a.localeCompare(b))).toEqual([
+      'nuphos_archive_session',
       'nuphos_ask',
       'nuphos_capabilities',
       'nuphos_check',
