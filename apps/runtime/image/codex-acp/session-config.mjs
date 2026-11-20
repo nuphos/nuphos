@@ -43,6 +43,11 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
       'BASH_ENV',
       'ZDOTDIR',
       'OPENAB_CREDENTIALS_DIR',
+      // Windows itself needs these: PowerShell will not start without SystemRoot.
+      'SystemRoot',
+      'SystemDrive',
+      'ComSpec',
+      'PATHEXT',
     ]
       .filter((key) => typeof processEnv[key] === 'string')
       .map((key) => [key, processEnv[key]]),

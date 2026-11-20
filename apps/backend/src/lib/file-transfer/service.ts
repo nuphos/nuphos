@@ -249,16 +249,20 @@ export async function listSessionDownloadsSince(args: {
   teamId: ObjectId
   sessionId: string
   since: Date
+  /** Bounded on-demand listings show the newest groups first. Omission keeps chronological delivery. */
+  limit?: number
 }): Promise<TransferGroupView[]> {
   const groups = await fileTransferGroups()
     .find({
       teamId: args.teamId,
       sessionId: args.sessionId,
       direction: 'download',
+      ...(args.limit ? { status: { $in: ['ready', 'partial'] } } : {}),
       createdAt: { $gte: args.since },
       expiresAt: { $gt: new Date() },
     })
-    .sort({ createdAt: 1 })
+    .sort({ createdAt: args.limit ? -1 : 1 })
+    .limit(args.limit ?? 0)
     .toArray()
 
   if (groups.length === 0) return []

@@ -164,12 +164,6 @@ export function registerClaudeCodeRuntimeRoutes(
     const runtime = (await listTeamRuntimes(teamId, provider)).find((runtime) => runtime.id === id)
 
     if (!runtime) throw new AppError(404, 'runtime_not_found', 'Agent not found')
-    if (runtime.hostedBy)
-      throw new AppError(
-        409,
-        'managed_runtime',
-        'Manage this agent in Settings → Agent or /agent-runtimes instead',
-      )
 
     return runtime
   }

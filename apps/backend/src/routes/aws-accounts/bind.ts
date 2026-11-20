@@ -10,7 +10,7 @@ import {
 import { assumeRoleWithWebIdentityForTeam, getAwsAccountAlias } from '@/lib/byos/aws'
 import { isAwsOidcConfigured } from '@/lib/byos/aws-oidc'
 import { awsConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -118,8 +118,10 @@ export function registerAwsBindRoutes(routes: Hono<{ Variables: TeamAuthVariable
       throw new AppError(409, 'role_already_bound', `AWS role ${roleArn} is already bound`)
     }
     const bound = await teamByosBindings().findOne({ _id: teamId }, { projection: { awsRoles: 1 } })
+    const check = (roles: AwsRoleBinding[]) =>
+      assertMayBindRole(c, roles, (b: { roleArn: string }) => b.roleArn, roleArn)
 
-    assertMayBindRole(c, bound?.awsRoles ?? [], (b: { roleArn: string }) => b.roleArn, roleArn)
+    check(bound?.awsRoles ?? [])
     // After the duplicate check (re-binding a known role adds no environment)
     // but before the credential round trips: a workspace at its plan's limit
     // shouldn't finish a bind it can't keep.
@@ -147,8 +149,10 @@ export function registerAwsBindRoutes(routes: Hono<{ Variables: TeamAuthVariable
     const createdAt = new Date()
     const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'awsRoles',
+      check,
       { 'awsRoles.roleArn': { $ne: roleArn } },
       {
         $push: {

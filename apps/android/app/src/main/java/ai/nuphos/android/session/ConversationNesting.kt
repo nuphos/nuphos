@@ -19,11 +19,7 @@ object ConversationNesting {
 
     private data class FamilyRank(val waiting: Boolean, val activity: Instant)
 
-    private fun familyRank(row: AgentConversation): FamilyRank {
-        val onboarding = row.botOnboarding == "pending" || row.botOnboarding == "active"
-        val waiting = row.inputRequests.orEmpty().any { !onboarding || it.category != "preference" }
-        return FamilyRank(waiting, row.lastActiveAt)
-    }
+    private fun familyRank(row: AgentConversation) = FamilyRank(row.isWaiting, row.lastActiveAt)
 
     fun nest(
         conversations: List<AgentConversation>,

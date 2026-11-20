@@ -7,7 +7,12 @@ import { listSwasInstances } from '@/lib/byos/aliyun-swas'
 import { aliyunHandleFor } from '@/lib/byos/handles'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -59,10 +64,7 @@ aliyunAccountScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('aliyunBinding').id
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { aliyunAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-    )
+    await disconnectBinding(c, teamId, 'aliyunAccounts', { id: accountId })
 
     return c.body(null, 204)
   },

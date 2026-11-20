@@ -41,8 +41,6 @@ export function WorkspacePageToolbar({
     toolbarPrimaryAction,
     setToolbarLeftEl,
     setToolbarRightEl,
-    setToolbarHeaderRightEl,
-    toolbarHeaderRightOccupied,
     toolbarHasControls,
   } = ws
   const cornerPane = useWorkspacePane()?.cornerPane ?? false
@@ -64,13 +62,6 @@ export function WorkspacePageToolbar({
         filter={filter}
         onFilterChange={setActiveFilter}
         count={count}
-        headerRightActions={
-          <div
-            ref={setToolbarHeaderRightEl}
-            className="titlebar-no-drag flex min-w-0 items-center gap-1 empty:hidden"
-          />
-        }
-        hasHeaderRightActions={toolbarHeaderRightOccupied}
         filterControls={
           // Left portal target: views push filters/tabs/pickers here via
           // useToolbarSlot('left', …). `empty:hidden` so an unused slot never

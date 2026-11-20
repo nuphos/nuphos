@@ -15,8 +15,8 @@ struct RuntimeSetupGuide: View {
                             HStack(alignment: .top, spacing: 12) {
                                 LucideIcon("box").foregroundStyle(Theme.body).padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text("Nuphos computer").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
-                                    Text("A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account.")
+                                    Text("Rent a computer from Nuphos").font(.callout.weight(.medium)).foregroundStyle(Theme.heading)
+                                    Text("Nuphos runs it for you, with Claude Code, Codex, OpenCode and more.")
                                         .font(.footnote).foregroundStyle(Theme.body).multilineTextAlignment(.leading)
                                 }
                                 Spacer(minLength: 0)
@@ -27,6 +27,19 @@ struct RuntimeSetupGuide: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("new-box")
+                    } else if store.agentDevicesError {
+                        // Without the list there is no knowing whether a Box is on offer: say so, as Desktop does (#3953).
+                        HStack(spacing: 12) {
+                            Text("Could not load computers.").font(.footnote).foregroundStyle(Theme.body)
+                            Spacer(minLength: 0)
+                            Button("Try again") { Task { await store.loadAgentDevices() } }
+                                .font(.footnote.weight(.medium)).foregroundStyle(Theme.heading)
+                        }
+                        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
+                    } else if store.boxAvailable {
+                        // A member: only administrators rent one, as Desktop says.
+                        Text("Administrators rent computers from Nuphos.").font(.footnote).foregroundStyle(Theme.body)
                     }
                     VStack(alignment: .leading, spacing: 16) {
                         Text("1. Open Nuphos on your computer.")

@@ -10,12 +10,13 @@ import {
   openConversationPromptSuggestion,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
+import { turnLanguage } from '@/lib/agent/db/ancestor-user-texts'
+import { isBot } from '@/lib/agent/db/read-state'
 import {
   attributionHeader,
   parseMessageMetadata,
   renderAttributedMessage,
 } from '@/lib/agent/message-metadata'
-import { turnLanguage } from '@/lib/agent/db/ancestor-user-texts'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
 import { answerHumanTurn } from '@/lib/agent/plan-decision'
@@ -257,6 +258,7 @@ export async function preparePreviewTurn(
       humanTurn: args.humanTurn,
       toolsVersion,
       parentSessionId: conversation?.parentSessionId,
+      bot: isBot(conversation),
     },
     message: lead(),
     text,
