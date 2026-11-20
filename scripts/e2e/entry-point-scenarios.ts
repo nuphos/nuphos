@@ -4,6 +4,7 @@
 import { must } from './binding-access-scenarios.ts'
 import { botDetailsToggle, setBotDetails } from './ui.ts'
 
+import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
@@ -12,15 +13,30 @@ async function computersPage(page: Page) {
   await page.getByRole('region', { name: 'Runtimes' }).waitFor({ timeout: 15_000 })
 }
 
+/** The team's name, which is what the sidebar's workspace menu is called. */
+async function teamName(stack: Stack) {
+  const response = await fetch(`${stack.apiUrl}/teams`, {
+    headers: { authorization: `Bearer ${stack.token}` },
+  })
+
+  if (!response.ok) throw new Error(`GET /teams answered ${String(response.status)}`)
+  const teams = (await response.json()) as { teams?: { id: string; name: string }[] }
+  const team = (teams.teams ?? []).find((row) => row.id === stack.teamId)
+
+  if (!team) throw new Error('the signed-in account has no team to name')
+
+  return team.name
+}
+
 export const entryPointScenarios: Scenario[] = [
   {
     // #2797: Computers left the sidebar in #2232, and a public report after the
     // update called machines and runtimes "very well hidden".
     name: "the sidebar's workspace menu reaches Computers & runtimes",
-    run: async (page) => {
-      await page.getByRole('tab', { name: 'Bots' }).click()
-      const workspace = page.locator('aside').getByRole('button').first()
+    run: async (page, stack) => {
+      const workspace = page.locator('aside').getByRole('button', { name: await teamName(stack) })
 
+      await workspace.waitFor({ timeout: 15_000 })
       await workspace.click()
       const computers = page.getByRole('menuitem', { name: 'Computers & runtimes' })
 

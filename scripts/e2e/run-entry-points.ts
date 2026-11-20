@@ -47,9 +47,10 @@ try {
       console.error(error)
     }
     await page.screenshot({ path: `${artifacts}/entry-point-${String(index + 1)}.png` })
-    // The next scenario navigates from the sidebar, so only a menu or dialog
-    // this one left open has to go.
-    await page.keyboard.press('Escape')
+    // Each way in is read from a fresh window: a Computers page one of them
+    // opened leaves the sidebar off screen, and the next must not inherit it.
+    await page.reload()
+    await page.getByRole('tab', { name: 'Bots' }).click({ timeout: 60_000 })
   }
   if (failures.length > 0) {
     failed = true
