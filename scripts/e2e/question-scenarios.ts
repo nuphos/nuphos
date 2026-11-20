@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { busyAnswerScenarios } from './busy-answer-scenarios.ts'
 import { choiceModeScenarios } from './choice-mode-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { inboxScenarios } from './inbox-scenarios.ts'
@@ -292,6 +293,7 @@ export const questionScenarios: Scenario[] = [
   },
   ...decisionTitleScenarios,
   ...staleQuestionScenarios,
+  ...busyAnswerScenarios,
   ...inboxScenarios,
   ...choiceModeScenarios,
   ...secretScenarios,
