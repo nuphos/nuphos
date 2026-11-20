@@ -38,7 +38,8 @@ mock.module('../../ui/toast', () => ({
     error: (title: unknown, description?: unknown, opts?: { action?: Toast['action'] }) =>
       toasts.push({ title, description, action: opts?.action }),
     apiError: (title: unknown, err: unknown) => toasts.push({ title, description: String(err) }),
-    info: (title: unknown, description?: unknown) => toasts.push({ title, description }),
+    info: (title: unknown, description?: unknown, opts?: { action?: Toast['action'] }) =>
+      toasts.push({ title, description, action: opts?.action }),
   },
 }))
 

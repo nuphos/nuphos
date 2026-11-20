@@ -46,8 +46,11 @@ export const voiceScenarios: Scenario[] = [
       // The toast's own Subscribe, not another on the page.
       const toasts = page.getByRole('region', { name: 'Notifications' })
 
+      const notice = page.getByText('Voice input needs a subscription')
+
       await toasts.getByText('Subscribe', { exact: true }).click()
       await page.getByText("Your team's computer plan, billed monthly.").waitFor()
+      await notice.first().waitFor({ state: 'hidden' })
       await page.screenshot({ path: `${artifacts}/voice-subscription-billing.png` })
       await page.keyboard.press('Escape')
       await page
@@ -55,13 +58,6 @@ export const voiceScenarios: Scenario[] = [
         .waitFor({ state: 'hidden' })
 
       // Now the app knows: the next press reads the plan and says so before any recording starts.
-      const notice = page.getByText('Voice input needs a subscription')
-
-      for (let tries = 0; tries < 5 && (await notice.count()) > 0; tries++) {
-        await toasts.getByLabel('Dismiss', { exact: true }).first().click()
-        await page.waitForTimeout(300)
-      }
-      if ((await notice.count()) > 0) throw new Error('The subscription toast would not dismiss')
       await page.getByRole('button', { name: 'Voice input' }).last().click()
       await notice.first().waitFor()
       if ((await page.getByRole('group', { name: 'Recording voice input' }).count()) > 0)

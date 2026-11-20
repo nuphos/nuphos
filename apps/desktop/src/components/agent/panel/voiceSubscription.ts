@@ -50,16 +50,17 @@ export function isSubscriptionRequired(err: unknown): boolean {
 }
 
 /**
- * Says voice input needs a subscription. An administrator gets Subscribe, opening the
- * team's Billing settings; anyone else can't subscribe there, so they are told whom to ask.
+ * Says voice input needs a subscription, as a notice: nothing failed. An administrator
+ * gets Subscribe, opening the team's Billing settings; anyone else can't subscribe
+ * there, so they are told whom to ask.
  */
 export function voiceSubscriptionToast(teamId: string, canSubscribe: boolean) {
   if (!canSubscribe) {
-    toast.error(t('Voice input needs a subscription'), t('Ask a team admin to subscribe.'))
+    toast.info(t('Voice input needs a subscription'), t('Ask a team admin to subscribe.'))
 
     return
   }
-  toast.error(
+  toast.info(
     t('Voice input needs a subscription'),
     t("Your team doesn't have a subscription yet."),
     {
