@@ -7,6 +7,7 @@ struct ChannelView: View {
     @Bindable var channel: ChannelSession
 
     @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
@@ -155,6 +156,14 @@ struct ChannelView: View {
                     let detail = try? await NuphosAPI.conversationDetail(token: store.token, teamId: channel.teamId, sessionId: bot, tail: 1, displayed: false)
                     guard !Task.isCancelled, channel.botId == bot else { return }
                     canOpenTask = detail != nil
+                }
+            }
+            // The Bot's Task list is separate from the channel's messages and questions.
+            .task(id: scenePhase == .active ? channel.botId : nil) {
+                guard scenePhase == .active, channel.botId != nil else { return }
+                while !Task.isCancelled {
+                    await store.reload()
+                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
                 }
             }
             .desktop($desktop)
