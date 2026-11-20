@@ -281,6 +281,9 @@ enum BotQuestionsTests {
         var secret = ask("credential").request
         secret.secretName = "DEPLOY_TOKEN"
         precondition(!BotQuestion(sessionId: "s", title: "Agent", request: secret).typed)
+        // Without options it asks for the value itself, which is never typed into the chat.
+        let bare = AgentConversation.InputRequest(id: "r", category: "credential", question: "Key?", options: nil, askedAt: nil)
+        precondition(!BotQuestion(sessionId: "s", title: "Agent", request: bare).typed)
         // An integration question naming nothing to select, e.g. a service with no connector, takes words.
         precondition(ask("integration").typed)
         let plan = try! JSONDecoder().decode(

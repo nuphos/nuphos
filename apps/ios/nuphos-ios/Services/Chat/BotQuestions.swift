@@ -18,10 +18,12 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
 
     var id: String { "\(sessionId):\(request.id)" }
 
-    /// Answered in words, "Other…": never a plan, approved or rejected, nor a secret or a connection (#4029).
+    /// Answered in words, "Other…": never a plan, approved or rejected, nor a connection.
     /// An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+    /// A credential takes words only beside its options, never as its value (#4029).
     var typed: Bool {
-        request.secretName == nil && !connectable && request.planId == nil
+        guard request.planId == nil, !connectable else { return false }
+        return request.category != "credential" || (request.secretName == nil && !(request.options ?? []).isEmpty)
     }
 
     /// A secret request as its tool call carries it in the transcript, so the secure input card
