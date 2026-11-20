@@ -506,6 +506,8 @@ pub struct AcpConnection {
     pub mcp_servers: Vec<serde_json::Value>,
     /// The system prompt its session opened with, in whichever `_meta` shape the agent reads.
     pub system_prompt: Option<serde_json::Value>,
+    /// Its env as it opened, without the credentials refreshed through files on every prompt.
+    pub stable_env: Option<serde_json::Value>,
     pub supports_load_session: bool,
     /// The agent also offers `session/resume`: the same restore without replaying
     /// the history, which nobody here reads.
@@ -1048,6 +1050,7 @@ impl AcpConnection {
             acp_session_id: None,
             mcp_servers: Vec::new(),
             system_prompt: None,
+            stable_env: None,
             supports_load_session: false,
             supports_resume_session: false,
             supports_steering: false,
@@ -1237,6 +1240,7 @@ impl AcpConnection {
         self.acp_session_id = Some(session_id.clone());
         self.mcp_servers = mcp_servers.to_vec();
         self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
             if !self.config_options.is_empty() {
@@ -1537,6 +1541,7 @@ impl AcpConnection {
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
         self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
         }
@@ -1567,6 +1572,26 @@ pub(crate) fn meta_system_prompt(meta: Option<&serde_json::Value>) -> Option<&se
     meta.get("systemPrompt")
         .or_else(|| meta.get("ai.nuphos/codex")?.get("developerInstructions"))
         .or_else(|| meta.get("ai.nuphos/session")?.get("systemPrompt"))
+}
+
+/// The env in a client's `_meta`, in the same three shapes as the system prompt, without the
+/// credentials it also hands over to be refreshed as files: those change on every prompt.
+pub(crate) fn meta_stable_env(meta: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    let meta = meta?;
+    let env = meta
+        .pointer("/claudeCode/options/env")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("env"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("env"))?
+        .as_object()?;
+    let refreshed = meta
+        .get(super::session_credentials::SESSION_CREDENTIALS_META_KEY)
+        .and_then(serde_json::Value::as_object);
+    Some(serde_json::Value::Object(
+        env.iter()
+            .filter(|(name, _)| !refreshed.is_some_and(|keys| keys.contains_key(*name)))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
+    ))
 }
 
 /// `session/new` params. `mcp_servers` are client-declared http-type entries

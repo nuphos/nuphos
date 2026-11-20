@@ -136,6 +136,15 @@ fn system_prompt_changed(
         .is_some_and(|prompt| Some(prompt) != started)
 }
 
+/// Env, like the system prompt, is read when the agent spawns. Credentials refreshed through
+/// files on every prompt are left out, so only a real change, such as a new setting, respawns.
+fn env_changed(
+    started: Option<&serde_json::Value>,
+    session_meta: Option<&serde_json::Value>,
+) -> bool {
+    super::connection::meta_stable_env(session_meta).is_some_and(|env| Some(&env) != started)
+}
+
 /// Whether `declared` names different MCP servers than the agent was started with.
 /// Headers carry per-turn credentials, so they never count as a change, and an
 /// empty declaration means the caller declared nothing.
@@ -822,7 +831,8 @@ impl SessionPool {
         // Without session/load the replacement would start a new conversation.
         if !conn.supports_load_session
             || !(mcp_declaration_changed(&conn.mcp_servers, declared)
-                || system_prompt_changed(conn.system_prompt.as_ref(), session_meta))
+                || system_prompt_changed(conn.system_prompt.as_ref(), session_meta)
+                || env_changed(conn.stable_env.as_ref(), session_meta))
         {
             return None;
         }
@@ -841,7 +851,7 @@ impl SessionPool {
             return None;
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
-        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers or system prompt changed, respawning idle session");
+        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers, system prompt or env changed, respawning idle session");
         suspend_entry(&mut state, thread_id, &sid);
         self.save_mapping(&state.persisted);
         Some(sid)
@@ -1758,7 +1768,7 @@ fn meta_working_dir(meta: Option<&serde_json::Value>) -> Option<&str> {
 mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
-        classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
+        classify_hung, classify_idle, env_changed, get_or_insert_gate, mcp_declaration_changed,
         meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
         system_prompt_changed, PoolState, AGENT_RELAY_GRACE_SECS,
     };
@@ -2007,6 +2017,37 @@ mod tests {
         assert!(system_prompt_changed(Some(&old), Some(&codex("new"))));
         assert!(!system_prompt_changed(Some(&old), Some(&shim("old"))));
         assert!(system_prompt_changed(Some(&old), Some(&shim("new"))));
+    }
+
+    #[test]
+    fn env_changes_respawn_only_when_a_setting_differs() {
+        use super::super::connection::meta_stable_env;
+        let claude = |window: &str, token: &str| {
+            serde_json::json!({
+                "claudeCode": {"options": {"env": {
+                    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": window,
+                    "NUPHOS_TOKEN": token,
+                }}},
+                "dev.openab/credentials": {"NUPHOS_TOKEN": token},
+            })
+        };
+        let started = meta_stable_env(Some(&claude("100000", "t1")));
+        // A turn's fresh credentials alone never respawn.
+        assert!(!env_changed(
+            started.as_ref(),
+            Some(&claude("100000", "t2"))
+        ));
+        assert!(!env_changed(started.as_ref(), None));
+        // A changed setting does, as does an env the agent started without.
+        assert!(env_changed(started.as_ref(), Some(&claude("200000", "t2"))));
+        assert!(env_changed(None, Some(&claude("100000", "t1"))));
+        // Codex and the ACP shim carry env in their own shapes.
+        let codex = |actor: &str| serde_json::json!({"ai.nuphos/codex": {"env": {"NUPHOS_SESSION_ACTOR": actor}}});
+        let shim = |actor: &str| serde_json::json!({"ai.nuphos/session": {"env": {"NUPHOS_SESSION_ACTOR": actor}}});
+        let owner = meta_stable_env(Some(&codex("owner")));
+        assert!(!env_changed(owner.as_ref(), Some(&codex("owner"))));
+        assert!(env_changed(owner.as_ref(), Some(&codex("guest"))));
+        assert!(!env_changed(owner.as_ref(), Some(&shim("owner"))));
     }
 
     #[test]
