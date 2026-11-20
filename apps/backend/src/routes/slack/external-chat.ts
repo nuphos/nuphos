@@ -4,7 +4,12 @@ import { getConversationBySessionId } from '@/lib/agent/db'
 import { isChannel } from '@/lib/agent/db/channels'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
-import { getSlackChannelMapping, getSlackUserMapping, markSlackEvent } from '@/lib/slack/agent-bot'
+import {
+  getSlackAgentThread,
+  getSlackChannelMapping,
+  getSlackUserMapping,
+  markSlackEvent,
+} from '@/lib/slack/agent-bot'
 import { slackApiGet } from '@/lib/slack/api'
 import { slackPostId } from '@/lib/slack/external-chat-post'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
@@ -29,6 +34,13 @@ export async function routeSlackToExternalChat(envelope: SlackEventEnvelope): Pr
   const mapping = await getSlackChannelMapping(slackWorkspaceId, event.channel)
 
   if (!mapping?.externalChatId) return false
+  // A reply under a Bot's notification (slack_post) continues that conversation.
+  if (
+    event.thread_ts &&
+    (await getSlackAgentThread(slackWorkspaceId, event.channel, event.thread_ts))?.origin ===
+      'agent_notification'
+  )
+    return false
   const posted =
     event.type === 'message' &&
     (await postFromSlack(slackWorkspaceId, mapping.teamId, mapping.externalChatId, event))
