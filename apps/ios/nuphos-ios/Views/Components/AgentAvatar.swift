@@ -12,21 +12,7 @@ struct AgentAvatar: View {
         Group {
             if enabled, let face = BotFaces.shared.face(for: agentId) {
                 // A face this build doesn't ship falls back to the one the id derives, as on Desktop.
-                Group {
-                    if let url = BotAvatars.uploadedURL(face, apiBase: NuphosAPI.baseURL) {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFill()
-                            } else {
-                                Image(BotAvatars.asset(for: agentId)).resizable().scaledToFit()
-                            }
-                        }
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
-                    } else {
-                        Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
-                    }
-                }
+                Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
                     .overlay(alignment: .bottomTrailing) {
                         if showBadge {
                             AgentRuntimeBadge(runtime: runtime, size: size <= 24 ? 9 : 12)
