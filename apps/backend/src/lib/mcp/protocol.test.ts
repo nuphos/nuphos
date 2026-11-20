@@ -43,6 +43,7 @@ describe('handleMcpMessage', () => {
       'nuphos_capabilities',
       'nuphos_check',
       'nuphos_events',
+      'nuphos_find_pr_sessions',
       'nuphos_list_credentials',
       'nuphos_list_queue',
       'nuphos_list_runtimes',

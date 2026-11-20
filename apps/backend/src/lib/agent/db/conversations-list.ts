@@ -83,12 +83,15 @@ export async function getConversations(
   //              'mine' within what the sidebar shows, so the two lists
   //              together never repeat a conversation.
   const scope: ConversationsScope = options.scope ?? 'mine'
+  const archivedForMe = `memberArchivedAt.${viewerUserId}`
   const sortField = CONVERSATION_SORT_FIELDS[options.sort ?? 'activity']
   const query: Record<string, unknown> = {
     teamId: options.teamId,
     // Kept apart from the search $or below, which would otherwise replace it.
     $and: [readableByFilter(viewerUserId)],
     kind: options.channels ? 'channel' : { $ne: 'channel' },
+    // A Slack channel's record is the Bots' alone: no listing shows it to anyone.
+    external: { $exists: false },
   }
 
   if (scope === 'mine') query.userId = viewerUserId
@@ -110,6 +113,7 @@ export async function getConversations(
     query.archivedAt = { $exists: true }
   } else if (options.archived === 'exclude') {
     query.archivedAt = { $exists: false }
+    query[archivedForMe] = { $exists: false }
   }
   const search = options.search?.trim()
 
@@ -141,25 +145,50 @@ export async function getConversations(
       options.includeOnboarding,
     )
 
-  if (options.cursor) {
-    query[sortField] = {
-      ...(query[sortField] as Record<string, unknown> | undefined),
-      $lt: new Date(options.cursor),
-    }
-  }
+  const page = (filter: Record<string, unknown>, field: string) =>
+    agentConversations()
+      .find(
+        options.cursor
+          ? {
+              ...filter,
+              [field]: {
+                ...(filter[field] as Record<string, unknown> | undefined),
+                $lt: new Date(options.cursor),
+              },
+            }
+          : filter,
+      )
+      .sort({ [field]: -1 })
+      .limit(limit + 1)
+      .toArray()
+  // My Archived also lists the shared Tasks I archived for myself, by when I did.
+  const sharedArchived = options.sort === 'archived' && scope === 'mine'
+  const sortedBy = (row: AgentConversation) =>
+    sharedArchived && row.userId !== viewerUserId
+      ? row.memberArchivedAt?.[viewerUserId]
+      : row[sortField]
+  const conversations = await page(query, sortField)
 
-  const conversations = await agentConversations()
-    .find(query)
-    .sort({ [sortField]: -1 })
-    .limit(limit + 1)
-    .toArray()
+  if (sharedArchived) {
+    const shared = {
+      ...query,
+      userId: { $ne: viewerUserId },
+      participantIds: viewerUserId,
+      archivedAt: { $exists: false },
+      [archivedForMe]: { $exists: true },
+    }
+
+    conversations.push(...(await page(shared, archivedForMe)))
+    conversations.sort((a, b) => Number(sortedBy(b)) - Number(sortedBy(a)))
+    conversations.splice(limit + 1)
+  }
 
   const hasMore = conversations.length > limit
 
   if (hasMore) conversations.pop()
 
   const last = conversations[conversations.length - 1]
-  const nextCursor = hasMore ? (last?.[sortField]?.toISOString() ?? null) : null
+  const nextCursor = hasMore ? ((last && sortedBy(last)?.toISOString()) ?? null) : null
   const parents = options.withParents
     ? await listedParents(viewerUserId, scope, filters, conversations)
     : []

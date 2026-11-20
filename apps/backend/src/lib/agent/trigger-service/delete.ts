@@ -3,6 +3,7 @@ import { logError } from '@/lib/observability'
 
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
+import { changedBy, writeTrigger } from '../trigger-history'
 import { unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { parseTriggerId } from './shared'
@@ -25,12 +26,18 @@ export async function deleteTrigger(triggerId: string, actor: TriggerActor): Pro
   if (!trigger) return
   await assertTriggerAccess(trigger, actor, 'delete')
 
-  const deleted = await agentTriggers().deleteOne({
-    _id,
-    ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
-  })
+  const deleted = await writeTrigger(
+    { before: trigger, by: changedBy(actor) },
+    async (session) =>
+      (
+        await agentTriggers().deleteOne(
+          { _id, ...triggerConfigRevisionFilter(trigger.configRevision ?? 0) },
+          { session },
+        )
+      ).deletedCount > 0,
+  )
 
-  if (deleted.deletedCount === 0) {
+  if (!deleted) {
     throw new AppError(409, 'trigger_changed', 'Trigger changed concurrently; reload it and retry')
   }
   if (trigger.triggerType === 'cron') {

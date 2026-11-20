@@ -26,11 +26,15 @@ beforeEach(() => {
 
 const NOW = new Date('2026-11-09T12:00:00.000Z')
 
+let turn = 0
+/** A distinct turn time, so each row is its own turn unless a test says otherwise. */
+const nextTurn = () => new Date(Date.UTC(2026, 10, 8, 0, 0, turn++))
+
 function row(overrides: Record<string, unknown>): Record<string, unknown> {
   return {
     provider: 'claude-code',
     modelId: 'claude-opus-5',
-    turns: 1,
+    turnAts: [nextTurn()],
     lastRecordedAt: new Date('2026-11-08T10:00:00.000Z'),
     inputTokens: 0,
     cachedInputTokens: 0,
@@ -58,7 +62,7 @@ test('totals usage across fires and splits it by conversation', async () => {
     row({ sessionId: 'session-1', inputTokens: 1000, outputTokens: 100, totalTokens: 1100 }),
     row({
       sessionId: 'session-2',
-      turns: 2,
+      turnAts: [nextTurn(), nextTurn()],
       lastRecordedAt: new Date('2026-11-09T09:00:00.000Z'),
       inputTokens: 500,
       outputTokens: 50,
@@ -166,6 +170,27 @@ test('rows of one fire across models add up, and the cost skips unpriced models'
   expect(usage.fires).toHaveLength(1)
   expect(usage.fires[0]).toMatchObject({ turns: 2, totalTokens: 1040 })
   expect(usage.fires[0]?.costUsd).toBeCloseTo((1000 * 5) / 1e6, 12)
+})
+
+test('one turn that used two models counts once, in the totals, its conversation and its fire', async () => {
+  // Since #3278 a turn writes a row set per model; they share the turn's time.
+  const at = new Date('2026-11-08T10:00:00.000Z')
+
+  rows = [
+    row({ sessionId: 's', fireId: 'fire-1', turnAts: [at], totalTokens: 1000 }),
+    row({
+      sessionId: 's',
+      fireId: 'fire-1',
+      modelId: 'claude-haiku-5',
+      turnAts: [at],
+      totalTokens: 300,
+    }),
+  ]
+  const usage = await getTriggerUsage('trigger-1', 'team-1', 7, NOW)
+
+  expect(usage.totals).toMatchObject({ turns: 1, totalTokens: 1300 })
+  expect(usage.sessions[0]?.turns).toBe(1)
+  expect(usage.fires[0]?.turns).toBe(1)
 })
 
 test('a fire starts at the earliest first turn among its model rows', async () => {

@@ -1,5 +1,5 @@
 // Spawns the Claude Code that findAgentCli picks the way the Agent SDK spawns it, without a shell.
-// Usage: node windows-npm-claude-spawn.ts <agent-cli-find module> <exe|einval|unstartable>
+// Usage: node windows-npm-claude-spawn.ts <agent-cli-find module> <exe|unstartable>
 // unstartable: npm skipped the postinstall, so bin\claude.exe is still its placeholder script, and
 // the spawn must fail with a code the backend turns into its "reinstall" sentence.
 import { spawn } from 'node:child_process'
@@ -8,8 +8,7 @@ import { pathToFileURL } from 'node:url'
 
 const [modulePath, expected] = process.argv.slice(2)
 
-if (!modulePath)
-  throw new Error('usage: windows-npm-claude-spawn.ts <module> <exe|einval|unstartable>')
+if (!modulePath) throw new Error('usage: windows-npm-claude-spawn.ts <module> <exe|unstartable>')
 const { findAgentCli } = (await import(pathToFileURL(path.resolve(modulePath)).href)) as {
   findAgentCli: (provider: 'claude-code', env: NodeJS.ProcessEnv) => string | null
 }
@@ -49,13 +48,11 @@ const result = await new Promise<{ code: number | null; error?: string; stdout: 
 
 console.log(`spawn: ${JSON.stringify(result)}`)
 const ok =
-  expected === 'einval'
-    ? cli.toLowerCase().endsWith('.cmd') && result.error === 'EINVAL'
-    : expected === 'unstartable'
-      ? ['EINVAL', 'ENOENT', 'EACCES', 'UNKNOWN'].includes(result.error ?? '')
-      : cli.toLowerCase().endsWith('claude.exe') &&
-        result.code === 0 &&
-        result.stdout.includes('Claude Code')
+  expected === 'unstartable'
+    ? ['EINVAL', 'ENOENT', 'EACCES', 'UNKNOWN'].includes(result.error ?? '')
+    : cli.toLowerCase().endsWith('claude.exe') &&
+      result.code === 0 &&
+      result.stdout.includes('Claude Code')
 
 if (!ok) throw new Error(`expected ${expected}`)
 console.log(`as expected: ${expected}`)

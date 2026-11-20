@@ -31,7 +31,7 @@ export function assertWithinLimit(
     throw new AppError(
       402,
       'box_vcpu_limit',
-      "Your team's plan doesn't include cloud computers. Choose a computer plan to start one.",
+      "Your team's plan doesn't include computers from Nuphos. Choose a computer plan to start one.",
     )
   throw new AppError(
     402,

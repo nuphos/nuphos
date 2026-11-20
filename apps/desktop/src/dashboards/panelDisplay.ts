@@ -22,3 +22,11 @@ export function panelDisplay(panel: DashboardPanel, range?: NuphosDashboard['tim
       : null,
   }
 }
+
+/** "Not connected: <integration>" when the panel's last run found an integration gone; the
+ *  error log keeps the full diagnostic, and every other failure stays behind the log. */
+export function panelNotConnected(snapshot: DashboardPanel['currentSnapshot']): string | null {
+  if (snapshot?.status !== 'failed' || snapshot.error?.kind !== 'not_connected') return null
+
+  return snapshot.error.message.split('\n', 1)[0] || null
+}
