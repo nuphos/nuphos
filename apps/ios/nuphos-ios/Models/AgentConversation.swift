@@ -242,6 +242,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
+        tasks = try? c.decodeIfPresent(TaskCounts.self, forKey: .tasks)
     }
 
     init(
