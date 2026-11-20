@@ -43,7 +43,8 @@ export async function openSubmenu(page: Page, row: string) {
   const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
 
   await pickInSubmenu(page, trigger)
-  await trigger.and(page.locator('[data-popup-open]')).waitFor()
+  // The open row and the id are not set together: the id waits for the list to exist.
+  await trigger.and(page.locator('[aria-controls]')).waitFor()
 
   return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
 }
