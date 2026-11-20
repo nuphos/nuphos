@@ -140,6 +140,7 @@ impl SessionState {
             if state == "interrupted" {
                 end_unstarted_tools(snapshot);
                 snapshot["operation"] = json!("none");
+                snapshot["planStep"] = Value::Null;
             }
             snapshot["providerState"] = json!(state);
         });
@@ -375,6 +376,10 @@ mod tests {
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Old step"}]}})));
         state.operation("none");
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Late step"}]}})));
+        state.operation("prompt");
+        assert!(state.snapshot()["planStep"].is_null());
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Interrupted step"}]}})));
+        state.set("interrupted");
         state.operation("prompt");
         assert!(state.snapshot()["planStep"].is_null());
     }
