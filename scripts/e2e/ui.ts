@@ -20,11 +20,11 @@ export async function send(page: Page, text: string) {
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
   await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  // The computer's row opens a submenu of its runtimes.
-  await page.getByRole('menu').getByText(label).click()
+  const runtimes = await openSubmenu(page, label)
+
   await pickInSubmenu(
     page,
-    page.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }),
+    runtimes.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }).last(),
   )
 }
 
@@ -32,6 +32,19 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
  *  since opening the runtime list while the model menu still closes can freeze the window. */
 export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
+}
+
+/** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
+ *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
+ *  away from the menu, and `aria-controls` on the row is what names it. */
+export async function openSubmenu(page: Page, row: string) {
+  const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
+
+  await trigger.focus()
+  await page.keyboard.press('Enter')
+  await trigger.and(page.locator('[data-popup-open]')).waitFor()
+
+  return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
 }
 
 /** Picks `item` in the submenu a menu row opened, by key. A pointer that jumps from the row onto
