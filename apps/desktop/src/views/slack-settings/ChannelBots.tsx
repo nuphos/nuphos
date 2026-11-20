@@ -1,18 +1,28 @@
-import { X as XIcon } from 'lucide-react'
-
 import { AppSelect } from '../../components/ui/select'
-import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { botAvatarUrl } from '../../lib/botAvatars'
 
 import type { SlackChannelBot, SlackChannelMapping } from '../../types'
 
-const CHIP =
-  'inline-flex h-6 items-center gap-1.5 rounded-full border border-line-control/70 bg-surface-sunken pl-1 pr-2 text-[11.5px] text-secondary'
+const NONE = 'none'
+
+function BotFace({ bot }: { bot: SlackChannelBot }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <img
+        src={botAvatarUrl(bot.sessionId, bot.avatar)}
+        alt=""
+        className="h-4 w-4 flex-shrink-0 rounded-full"
+        draggable={false}
+      />
+      <span className="truncate">{bot.title || 'Bot'}</span>
+    </span>
+  )
+}
 
 /**
- * The Bot that answers in one Slack channel (#3702): one per channel. Its owner
- * alone takes it out; an admin removes it by disconnecting the channel.
+ * The one Bot that answers in a Slack channel (#3702), as a single choice. Its
+ * owner picks it from their own Bots, swaps or removes it; a teammate's Bot only shows.
  */
 export function ChannelBots({
   mapping,
@@ -26,55 +36,40 @@ export function ChannelBots({
   onChange: (botSessionId: string, answers: boolean) => void
 }) {
   const bot = mapping.bots?.[0]
-  const busy = (botSessionId: string) => busyKey === `bot:${mapping.id}:${botSessionId}`
-  const addable = myBots.filter((mine) => mine.sessionId !== bot?.sessionId)
-  // Taken, the channel says whose Bot holds it.
-  const taken = !bot
-    ? null
-    : bot.mine
-      ? t('One Bot per channel. Take yours out to choose another.')
-      : bot.ownerName
-        ? t('One Bot per channel, and this one is {name}’s.', { name: bot.ownerName })
-        : t('One Bot per channel, and this one is a teammate’s.')
+  const theirs = bot && !bot.mine ? bot : undefined
+  const busy = busyKey?.startsWith(`bot:${mapping.id}:`) ?? false
+
+  if (!bot && myBots.length === 0)
+    return <div className="mt-2 text-[11.5px] text-tertiary">{t('No Bot answers here yet.')}</div>
+  const options = theirs
+    ? [{ value: theirs.sessionId, label: <BotFace bot={theirs} /> }]
+    : [
+        ...myBots.map((mine) => ({ value: mine.sessionId, label: <BotFace bot={mine} /> })),
+        ...(bot ? [{ value: NONE, label: t('No Bot') }] : []),
+      ]
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-      {!bot && <span className="text-[11.5px] text-tertiary">{t('No Bot answers here yet.')}</span>}
-      {bot && (
-        <span className={CHIP}>
-          <img
-            src={botAvatarUrl(bot.sessionId, bot.avatar)}
-            alt=""
-            className="h-4 w-4 rounded-full"
-            draggable={false}
-          />
-          <span className="max-w-[10rem] truncate">{bot.title || 'Bot'}</span>
-          {bot.mine && (
-            <button
-              type="button"
-              onClick={() => onChange(bot.sessionId, false)}
-              disabled={busy(bot.sessionId)}
-              className="-mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full text-tertiary hover:text-main disabled:opacity-50"
-              title={t('Take {name} out of this channel', { name: bot.title || 'Bot' })}
-            >
-              <UiIcon size={12} icon={XIcon} className="h-3 w-3" />
-            </button>
-          )}
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <AppSelect
+        value={bot?.sessionId ?? ''}
+        onValueChange={(value) => {
+          if (value === NONE && bot) onChange(bot.sessionId, false)
+          else if (value && value !== NONE && value !== bot?.sessionId) onChange(value, true)
+        }}
+        options={options}
+        placeholder={t('Choose a Bot')}
+        ariaLabel={t('Bot for this channel')}
+        disabled={Boolean(theirs) || busy}
+        size="sm"
+        triggerClassName="h-7 w-48 px-2 text-[12px]"
+      />
+      {theirs && (
+        <span className="text-[11.5px] text-tertiary">
+          {theirs.ownerName
+            ? t('{name}’s Bot. Only they can change it.', { name: theirs.ownerName })
+            : t('A teammate’s Bot. Only they can change it.')}
         </span>
       )}
-      {addable.length > 0 && (
-        <AppSelect
-          value=""
-          onValueChange={(botSessionId) => botSessionId && onChange(botSessionId, true)}
-          options={addable.map((mine) => ({ value: mine.sessionId, label: mine.title || 'Bot' }))}
-          placeholder={t('Add my Bot')}
-          ariaLabel={t('Add my Bot')}
-          disabled={bot !== undefined}
-          size="sm"
-          triggerClassName="h-6 rounded-full border-dashed px-2 text-[11.5px]"
-        />
-      )}
-      {taken && addable.length > 0 && <span className="text-[11.5px] text-tertiary">{taken}</span>}
     </div>
   )
 }

@@ -171,8 +171,8 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
     return c.json({ mapping: serializeMapping({ ...mapping, externalChatId }) })
   })
 
-  // A connected channel's Bot (#3702): one per channel, brought in and taken out
-  // only by its owner. An admin removes it by disconnecting the channel.
+  // A connected channel's Bot (#3702): one per channel, chosen, swapped and taken
+  // out only by its owner. An admin removes it by disconnecting the channel.
   slackRoutes.post('/mappings/:workspaceId/:channelId/bots', async (c) => {
     const body = await c.req.json()
     const { record, userId, teamId } = await connectedChannel(c, body.teamId)
@@ -180,11 +180,11 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
     if (!(await ownsChannelAgent(botSessionId, userId, teamId)))
       throw new AppError(403, 'forbidden', 'Only a Bot’s owner can bring it into a Slack channel')
-    if (!(await bringExternalChatBot(record, botSessionId)))
+    if (!(await bringExternalChatBot(record, botSessionId, userId)))
       throw new AppError(
         409,
         'slack_channel_has_bot',
-        'This Slack channel already has a Bot; its owner takes it out before another comes in',
+        'This Slack channel already has a teammate’s Bot; only its owner can change it',
       )
 
     return c.json({ bots: await channelBots(record, userId, teamId) })

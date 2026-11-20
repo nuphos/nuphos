@@ -207,6 +207,11 @@ export default {
       // viewer has a spare Bot, so the picker shows, closed while their own Bot is there.
       await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-leonardo' })
       await shootSettings(page, 'slack-settings-admin-channels-light.png', 'E2E Bot')
+      // The channel's Bot is one choice: the viewer's Bots, or none.
+      await page.getByLabel('Bot for this channel').first().click()
+      await page.getByRole('option', { name: 'No Bot' }).waitFor()
+      await page.screenshot({ path: `${artifacts}/slack-settings-admin-picker-light.png` })
+      await page.keyboard.press('Escape')
       await page.getByRole('button', { name: 'Connect a channel' }).click()
       await page.getByText('Link by ID', { exact: true }).waitFor()
       // The form ends below the list: bring its last row to the dialog's bottom.

@@ -176,7 +176,7 @@ export function SlackSettingsView({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              'A channel’s Bot reads every message there and answers in Slack. A team admin connects channels; a member puts one of their own Bots in a channel that has none.',
+              'Each channel has one Bot, which reads every message there and answers in Slack. A team admin connects channels; a member chooses their own Bot for a channel without a teammate’s.',
             )}
           </div>
         </div>

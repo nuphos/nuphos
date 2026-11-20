@@ -59,19 +59,27 @@ export async function ensureExternalChat(
   return kept ?? sessionId
 }
 
-/** A channel answers with one Bot (#3702): it comes in only while no other is there. */
+/**
+ * A channel answers with one Bot (#3702), its owner's choice: it comes in while
+ * the channel holds no one else's Bot, replacing the owner's own.
+ */
 export async function bringExternalChatBot(
   externalChatId: string,
   botSessionId: string,
+  ownerId: string,
 ): Promise<boolean> {
   await assertBot(botSessionId)
+  const chat = { sessionId: externalChatId, external: 'slack' as const }
+  const there = (await agentConversations().findOne(chat))?.agentSessionIds ?? []
+  const othersThere = await agentConversations().countDocuments({
+    sessionId: { $in: there },
+    userId: { $ne: ownerId },
+  })
+
+  if (othersThere > 0) return false
+  // Only if the channel still holds what was read, so a teammate's Bot is never replaced.
   const { matchedCount } = await agentConversations().updateOne(
-    {
-      sessionId: externalChatId,
-      external: 'slack',
-      // No Bot there but this one.
-      agentSessionIds: { $not: { $elemMatch: { $ne: botSessionId } } },
-    },
+    { ...chat, agentSessionIds: there },
     { $set: { agentSessionIds: [botSessionId] } },
   )
 

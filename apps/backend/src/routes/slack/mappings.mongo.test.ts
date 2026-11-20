@@ -177,6 +177,18 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       expect((await record())?.agentSessionIds).toEqual([`${TEAM}-admin-bot`])
     })
 
+    test('a channel’s Bot is one choice: its owner swaps it for another of theirs', async () => {
+      await seedBot('member-spare', MEMBER)
+      await connect()
+      viewer = MEMBER
+      await bring('member-bot')
+
+      expect((await bring('member-spare')).status).toBe(200)
+      expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-spare`])
+      viewer = ADMIN
+      expect((await bring('admin-bot')).status).toBe(409)
+    })
+
     test('only a Bot’s owner takes it out; an admin disconnects the whole channel', async () => {
       await connect()
       viewer = MEMBER
