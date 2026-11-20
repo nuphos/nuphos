@@ -17,6 +17,7 @@ test('describes common schedules and keeps UTC explicit', () => {
   expect(describe('0 9 * * 7')).toBe('Every Sunday at 09:00 UTC')
   expect(describe('30 17 * * 2,4')).toBe('Every Tuesday and Thursday at 17:30 UTC')
   expect(describe('0 8 * * 1,3,5')).toBe('Every Monday, Wednesday and Friday at 08:00 UTC')
+  expect(describe('0 9 * * 0,7')).toBe('Every Sunday at 09:00 UTC')
   expect(triggerScheduleDescription({ triggerType: 'webhook' })).toBe('When a webhook arrives')
 })
 

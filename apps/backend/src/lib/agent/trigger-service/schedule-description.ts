@@ -18,7 +18,8 @@ function daysDescription(weekday: string): string | undefined {
   if (weekday === '*') return 'Every day'
   if (weekday === '1-5') return 'Weekdays'
   if (!/^[0-7](,[0-7])*$/.test(weekday)) return
-  const names = weekday.split(',').map((day) => DAY_NAMES[Number(day) % 7] ?? day)
+  const days = new Set(weekday.split(',').map((day) => Number(day) % 7)) // 7 is Sunday too
+  const names = [...days].map((day) => DAY_NAMES[day] ?? '')
   const last = names.pop() ?? ''
   const list = names.length > 0 ? [names.join(', '), last].join(' and ') : last
 
