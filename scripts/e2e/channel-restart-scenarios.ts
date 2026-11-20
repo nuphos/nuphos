@@ -50,11 +50,23 @@ export const channelRestartScenarios: Scenario[] = [
         await until('the Bot to start answering', async () => woken() > before, 60_000)
         await stack.restartAgentHost()
         writeFileSync(release, '')
-        await page
+        const answered = await page
           .getByText('POSTED E2E_DELIVERY:restarted', { exact: true })
           .first()
           .waitFor({ timeout: 150_000 })
+          .then(
+            () => true,
+            () => false,
+          )
+
+        // Pictured either way, at the newest of the post, its answer or a couldn't-reply line.
+        await page
+          .getByText(/E2E_DELIVERY:restarted|couldn’t reply/)
+          .last()
+          .scrollIntoViewIfNeeded()
+        await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-restart-answered-light.png` })
+        if (!answered) throw new Error('The Bot did not answer the post once its host was back')
         const lines = linesAfter(since)
 
         if (lines.length > 0)
