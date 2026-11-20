@@ -120,8 +120,12 @@ export function RuntimeSelector({
 
   useEffect(() => {
     if (!triggerDisabledHint || !requestedOpen) return
-    setInternalOpen(false)
-    onMenuOpenChange?.(false)
+    const timer = window.setTimeout(() => {
+      setInternalOpen(false)
+      onMenuOpenChange?.(false)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [onMenuOpenChange, requestedOpen, triggerDisabledHint])
   const setOpen = (next: boolean) => {
     if (next && triggerDisabledHint) return

@@ -182,7 +182,6 @@ export function ChannelPane({
             onOpenLink={onOpenNuphosLink}
           />
         </div>
-        {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
             key={channelId}
@@ -211,8 +210,6 @@ export function ChannelPane({
             ref={scrollRef}
             className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
           >
-            {/* The column: one box, so its height says when anything below grows, and
-            the one width every row takes, the composer's own. */}
             <ChatColumn>
               {detail && messages.length === 0 && (
                 <ChannelEmptyState
