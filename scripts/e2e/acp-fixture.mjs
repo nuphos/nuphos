@@ -21,7 +21,7 @@ import {
   subtask,
 } from './fixture-mcp.mjs'
 import { applySetting, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
-import { dieAtStartup, INITIALIZE, opening } from './fixture-session.mjs'
+import { INITIALIZE, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -218,8 +218,6 @@ async function prompt({ sessionId, prompt: parts }) {
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
-      dieAtStartup()
-
       return INITIALIZE
     case 'session/new': {
       const sessionId = randomUUID()

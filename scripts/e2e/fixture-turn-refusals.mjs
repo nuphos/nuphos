@@ -27,6 +27,14 @@ export function refuse(text, outOfUsage) {
       ),
       { code: 1001 },
     )
+  // Real DeepSeek Harness 0.2.2-rc.1, with no API key.
+  if (text.includes('E2E_DSH_NO_KEY'))
+    throw Object.assign(
+      new Error(
+        'Internal error: turn failed: llm-deepseek: no API key for provider route "deepseek-official"; store DEEPSEEK_API_KEY through the credentials service (the web Models page writes it), or export DEEPSEEK_API_KEY in the launching environment',
+      ),
+      { code: -32603 },
+    )
   // #3160: a conversation too long for the model, on any agent.
   // #3401: Claude Code unable to reach its API, through a proxy or VPN in the way.
   const reason = text.includes('E2E_TOO_LONG')

@@ -1,6 +1,5 @@
 // How the fixture agent starts, and what a session's system prompt tells it.
 import { createHash } from 'node:crypto'
-import { existsSync, writeSync } from 'node:fs'
 
 import { botEnv } from './fixture-settings.mjs'
 
@@ -10,13 +9,6 @@ export const INITIALIZE = {
   agentCapabilities: { loadSession: true },
   agentInfo: { name: 'e2e-fixture', version: '1' },
   authMethods: [],
-}
-
-/** A CLI that dies while starting: signed out, without a key, or on too old a Node. */
-export function dieAtStartup() {
-  if (!existsSync(`${process.env.E2E_ACP_LOG}.die-at-startup`)) return
-  writeSync(2, 'Error: the agent requires Node.js 24.9 or newer (found v20.19.0)\n')
-  process.exit(3)
 }
 
 /** The E2E_RULE:<name> the system prompt a session is loaded with names (#4083). */

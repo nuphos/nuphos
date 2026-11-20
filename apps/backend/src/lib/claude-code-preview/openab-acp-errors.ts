@@ -111,6 +111,15 @@ export function claudeNotice(error: unknown): string | undefined {
   return notice || (detail && isProductStateNotice(detail) ? detail : undefined)
 }
 
+/** The agent's own explanation, bounded for the failure row. */
+export function displayAgentNotice(error: unknown): string | undefined {
+  const notice = claudeNotice(error)
+  if (!notice) return undefined
+  const chars = Array.from(notice)
+
+  return chars.length > 200 ? `${chars.slice(0, 199).join('')}…` : notice
+}
+
 /** Claude Code's notice when it names a usage limit or a sign-in failure, or undefined. */
 export function claudeProductStateNotice(error: unknown): string | undefined {
   const notice = claudeNotice(error)
@@ -124,11 +133,7 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
 
   const { code, message } = adapterError(error) ?? error
 
-  return (
-    (code === ACP_AUTH_REQUIRED_CODE && message.includes(ACP_AUTH_REQUIRED_MESSAGE)) ||
-    (code === -32603 &&
-      /^Internal error: turn failed: llm-deepseek: no API key for provider route /u.test(message))
-  )
+  return code === ACP_AUTH_REQUIRED_CODE && message.includes(ACP_AUTH_REQUIRED_MESSAGE)
 }
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'

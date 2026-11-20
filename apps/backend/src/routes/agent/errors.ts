@@ -1,7 +1,7 @@
 import { CodexTurnFailedError } from '@/lib/claude-code-preview/codex-turn-failure'
 import {
   acpErrorCode,
-  claudeNotice,
+  displayAgentNotice,
   isRuntimeAuthRequired,
   OpenAbRpcError,
   RUNTIME_AUTH_REQUIRED_CODE,
@@ -101,7 +101,7 @@ export function formatAgentStreamError(error: unknown): string {
   const failure = agentRuntimeFailure(error)
 
   if (failure) return failure.message
-  const message = claudeNotice(error) ?? getErrorMessage(error)
+  const message = displayAgentNotice(error) ?? getErrorMessage(error)
 
   // The Bedrock provider sometimes prefixes messages with a literal
   // "undefined: " when the upstream error type is missing — pure noise for

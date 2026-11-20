@@ -173,14 +173,3 @@ describe('the adapter error behind the gateway', () => {
     expect(claudeNotice(other)).toBeUndefined()
   })
 })
-
-test('DeepSeek Harness without an API key asks for sign-in', () => {
-  const error = new OpenAbRpcError('turn failed', -32603, {
-    code: -32603,
-    message:
-      'Internal error: turn failed: llm-deepseek: no API key for provider route "deepseek-official"; store DEEPSEEK_API_KEY through the credentials service (the web Models page writes it), or export DEEPSEEK_API_KEY in the launching environment',
-  })
-
-  expect(isRuntimeAuthRequired(error)).toBe(true)
-  expect(turnFailureCause(error)).toBe('auth')
-})
