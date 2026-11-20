@@ -1,0 +1,6 @@
+baseline source: abd48e220a7dcc6864f80022bcc7f1763d9befef ConversationModels.kt InputRequest
+method: original declaration copied verbatim below, renamed only; shared production Http.json
+baseline: RED (expected assertion failure: expected:<[{"sessionId":"writer","title":"Release writer"},{"sessionId":"checker","title":"Release checker for documentation and deployment notes with an intentionally long conversation title"}]> but was:<null>)
+baseline encoded: {"id":"release","question":"Publish?"}
+current: GREEN (same assertion, both IDs and complete titles retained)
+current encoded: {"id":"release","question":"Publish?","aboutConversations":[{"sessionId":"writer","title":"Release writer"},{"sessionId":"checker","title":"Release checker for documentation and deployment notes with an intentionally long conversation title"}]}
