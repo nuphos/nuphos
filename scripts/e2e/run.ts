@@ -28,7 +28,6 @@ import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
-import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -155,7 +154,6 @@ const scenarios: Scenario[] = [
   ...offlineScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
-  ...mcpNotificationScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,
