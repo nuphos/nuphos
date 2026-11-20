@@ -26,6 +26,8 @@ const tableStorageKey = (panelId: string) => `costPanel.${panelId}`
 
 type Props = {
   panel: DashboardPanel
+  /** The dashboard's team, where a Box would be rented. */
+  teamId: string
   viewTimeRange?: NuphosDashboard['timeRange']
   loading?: boolean
   onExecute: (panel: DashboardPanel) => void
@@ -45,9 +47,11 @@ function outputSubtitle(output: DashboardPanelOutput | null): string | null {
 
 function Body({
   panel,
+  teamId,
   lastSuccessfulOutput,
 }: {
   panel: DashboardPanel
+  teamId: string
   lastSuccessfulOutput: DashboardPanelOutput | null
 }) {
   const snap = panel.currentSnapshot
@@ -57,7 +61,7 @@ function Body({
     const emptyMessage = notice ?? (snap ? t('No successful data yet.') : t('Not run yet.'))
     // No agent could run it: a team admin rents a Box right here.
     const rentBox = notice && snap?.error?.kind === 'no_runtime' && (
-      <RentBoxButton teamId={panel.teamId} />
+      <RentBoxButton teamId={teamId} />
     )
 
     return lastSuccessfulOutput ? (
@@ -89,6 +93,7 @@ function Body({
 export const PanelCard = memo(
   ({
     panel,
+    teamId,
     viewTimeRange,
     loading = false,
     onExecute,
@@ -185,7 +190,11 @@ export const PanelCard = memo(
         <div
           className={`px-3 py-2 transition-opacity duration-200 ${snapshotLoading && hasStaleOutput ? 'opacity-40' : 'opacity-100'}`}
         >
-          <Body panel={panel} lastSuccessfulOutput={lastSuccessful?.output ?? null} />
+          <Body
+            panel={panel}
+            teamId={teamId}
+            lastSuccessfulOutput={lastSuccessful?.output ?? null}
+          />
         </div>
         {panel.currentSnapshot?.status === 'failed' && (
           <ScriptErrorModal
