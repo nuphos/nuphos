@@ -24,12 +24,14 @@ import type { WSContext, WSEvents } from 'hono/ws'
 const runtimeId = localRuntimeId({ userId: 'owner', deviceId: 'box', provider: 'claude-code' })
 let conversation: Record<string, unknown> | null
 // The owner's registered computers: `box` and `mac`, which has no agent.
-let box: { teamId: string } | undefined
+let box: { teamId: string; createdBy?: string } | undefined
+// The computer's grants in a team: who uses it, and who manages it.
+let access: { teamId: string; everyone: boolean; userIds: string[]; managerIds: string[] }[] = []
 
 useAgentDeviceStore({
   getAgentDevice: (async (userId: string, deviceId: string) =>
     userId === 'owner' && (deviceId === 'box' || deviceId === 'mac')
-      ? { userId, deviceId, ...(box ? { box } : {}) }
+      ? { userId, deviceId, access, ...(box ? { box } : {}) }
       : null) as never,
 })
 
@@ -63,6 +65,7 @@ const status = {
 beforeEach(async () => {
   conversation = { userId: 'owner', teamId: 'team', runtimeId }
   box = undefined
+  access = []
   await presence.claim('owner', 'box', 'conn')
   await presence.put('owner', 'box', { conn: 'conn', status, seenAt: Date.now() })
 })
@@ -268,6 +271,46 @@ test('a computer with no agent still opens its own desktop, for its owner in its
   box = { teamId: 'other' }
   await refused('owner')
   expect(opened).toEqual(['owner', 'owner'])
+})
+
+test("a team Box's own desktop opens for whoever manages it there; anyone's own computer only for them", async () => {
+  const mac = { runtimeId: 'local_owner_mac' }
+  const opened: string[] = []
+  const open = async (target: { actorId: string }) => {
+    opened.push(target.actorId)
+
+    return 2
+  }
+  const refused = async (user: string, team = 'team') => {
+    await expect(openRuntimeDesktop(team, user, mac, { presence, open })).rejects.toThrow(
+      'not found',
+    )
+  }
+
+  await presence.claim('owner', 'mac', 'conn')
+  await presence.put('owner', 'mac', {
+    conn: 'conn',
+    status: { agents: {}, desktopOpen: true } as unknown as LocalRuntimeStatus,
+    seenAt: Date.now(),
+  })
+  access = [{ teamId: 'team', everyone: false, userIds: ['member'], managerIds: ['boss'] }]
+  // Someone's own computer: only them, not whoever manages or uses its share.
+  await refused('boss')
+  await refused('member')
+  expect(await openRuntimeDesktop('team', 'owner', mac, { presence, open })).toEqual({ display: 2 })
+  // A team Box: also whoever manages it, never someone who only uses it, nor in another team.
+  box = { teamId: 'team', createdBy: 'owner' }
+  expect(await openRuntimeDesktop('team', 'boss', mac, { presence, open })).toEqual({ display: 2 })
+  await refused('member')
+  await refused('boss', 'other')
+  expect(opened).toEqual(['owner', 'boss'])
+  // The device list offers its runtime id to whoever it opens for.
+  const device = { userId: 'owner', deviceId: 'mac', box }
+
+  expect(
+    (await ownComputer({ ...device, managesBox: true }, 'boss', presence)).desktopRuntimeId,
+  ).toBe(mac.runtimeId)
+  expect((await ownComputer(device, 'member', presence)).desktopRuntimeId).toBeUndefined()
 })
 
 const b64 = (bytes: number[] | Buffer) => Buffer.from(bytes).toString('base64')

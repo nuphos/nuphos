@@ -77,11 +77,8 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
       devices: (
         await Promise.all(
           devices.map(async (device) => {
-            const view = await deviceView(
-              deps,
-              device,
-              deviceAccess(device, userId, teamId) ?? 'use',
-            )
+            const level = deviceAccess(device, userId, teamId) ?? 'use'
+            const view = await deviceView(deps, device, level)
 
             return view
               ? {
@@ -90,8 +87,11 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
                   ...(view.online
                     ? await deps.readMetrics(device.userId, device.deviceId, demand)
                     : { metrics: null, metricsStatus: 'offline', metricsReceivedAt: null }),
-                  ...(await deps.ownComputer(device, userId)),
-                  // A Box's displays besides its own :1, for the desktop's screen switcher.
+                  ...(await deps.ownComputer(
+                    { ...device, managesBox: Boolean(device.box) && level !== 'use' },
+                    userId,
+                  )),
+                  // A Box's displays besides its own, for the desktop's screen switcher.
                   ...(view.box && view.online
                     ? {
                         desktops: await deps.boxDesktops(
@@ -138,8 +138,8 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
   })
 
   // Desktop 0.130 and older ask here for an instabox link to a Box's desktop, which instabox
-  // no longer gives a workspace key (#4100). Its owner now opens it through its host, as
-  // any computer of theirs; these releases do that too once the device list offers it, and
+  // no longer gives a workspace key (#4100). Whoever manages it now opens it through its host,
+  // as the owner's computers open; these releases do that too once the device list offers it, and
   // come here only while the host is not connected, when there is nothing to show yet.
   routes.post('/devices/:deviceId/box/desktop', zv('param', deviceParam), async (c) => {
     await requireDeviceAccess(
