@@ -16,7 +16,7 @@ import {
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -233,6 +233,18 @@ export const channelScenarios: Scenario[] = [
     run: async (page, stack) => {
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
       await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-bot').waitFor()
+      // #4069: the question under the Bot details' "Needs your input" opens the Inbox
+      // page on it, never a reply inside the panel.
+      await setBotDetails(page, true)
+      await page
+        .getByRole('complementary', { name: 'Bot details' })
+        .getByRole('button', { name: /Which marker should the fixture use\?/ })
+        .click()
+      await page
+        .getByRole('heading', { level: 1, name: 'Which marker should the fixture use?' })
+        .waitFor()
+      await page.getByRole('tab', { name: /^Inbox/, selected: true }).waitFor({ timeout: 5_000 })
+      await page.screenshot({ path: `${artifacts}/bot-details-question-inbox-light.png` })
       await page.getByRole('tab', { name: /^Inbox/ }).click()
       const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
 
@@ -242,6 +254,7 @@ export const channelScenarios: Scenario[] = [
       // The Bot's chat, not its own session: only the chat's composer is headed by its name.
       await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
       await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
+      await setBotDetails(page, false)
       // The sidebar slides over to Bots; shoot it once it has.
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
