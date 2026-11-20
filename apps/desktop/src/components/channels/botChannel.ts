@@ -68,28 +68,25 @@ function listBotChats(teamId: string, botId: string) {
   )
 }
 
-const opening = new Map<string, Promise<string | null>>()
+type BotChat = { chatId: string; archived: boolean }
+
+const opening = new Map<string, Promise<BotChat>>()
 
 /**
  * The Bot's chat, made only when it never had one, so opening a Bot never piles
- * up empty chats. When every chat it had is archived, the Bot was archived with
- * them: only making it a Bot again (`restore`) brings the latest back. A list that
- * has not caught up with the archive gets null, not the Bot back (#4203).
+ * up empty chats. An archived one is only found, never brought back: every chat
+ * of a Bot is archived only when the Bot was archived with them (#4203).
  */
-function ensureBotChannel(teamId: string, botId: string, restore = false) {
+function findBotChannel(teamId: string, botId: string): Promise<BotChat> {
   const found =
     opening.get(botId) ??
-    listBotChats(teamId, botId).then(async (chats) => {
-      const choice = chooseBotChat(chats)
-
-      if (!choice) return createBotChannel(teamId, botId)
-      if (!choice.archived) return choice.chatId
-      if (!restore) return null
-      await api.agentSetConversationArchived(choice.chatId, false, teamId)
-      announceChatUnarchived(choice.chatId)
-
-      return choice.chatId
-    })
+    listBotChats(teamId, botId).then(
+      async (chats) =>
+        chooseBotChat(chats) ?? {
+          chatId: await createBotChannel(teamId, botId),
+          archived: false,
+        },
+    )
 
   opening.set(botId, found)
   void found.finally(() => opening.delete(botId)).catch(() => null)
@@ -97,11 +94,16 @@ function ensureBotChannel(teamId: string, botId: string, restore = false) {
   return found
 }
 
-/** Opens a Bot from Bots: its chat, made the first time. An archived Bot leaves the list. */
+/**
+ * Opens a Bot from Bots: its chat, made the first time. A Bot archived since the
+ * list was read leaves it, rather than coming back.
+ */
 export function openBotChannel(teamId: string, botId: string, open: (key: string) => void) {
-  ensureBotChannel(teamId, botId).then(
-    (chatId) =>
-      chatId ? open(`agent-session:${chatId}`) : announceChatArchived({ sessionId: botId, teamId }),
+  findBotChannel(teamId, botId).then(
+    ({ chatId, archived }) =>
+      archived
+        ? announceChatArchived({ sessionId: botId, teamId })
+        : open(`agent-session:${chatId}`),
     (error: unknown) => toast.apiError(t('Failed to open task'), error),
   )
 }
@@ -115,14 +117,19 @@ export function makeBot(teamId: string, sessionId: string) {
   return pickAgentAvatar(sessionId, botAvatarName(derivedBotAvatar(sessionId)), () =>
     api.agentMakeBot(sessionId, teamId),
   )
-    .then(() => ensureBotChannel(teamId, sessionId, true))
-    .then((chatId) =>
+    .then(() => findBotChannel(teamId, sessionId))
+    .then(async ({ chatId, archived }) => {
+      // Made a Bot again after "Turn into a Task": the chat it had comes back.
+      if (archived) {
+        await api.agentSetConversationArchived(chatId, false, teamId)
+        announceChatUnarchived(chatId)
+      }
       openInApp(
         pageLocationForNavigation(
           emptyNavigation({ kind: 'team', teamId }, 'team.agent', { agentSessionId: chatId }),
         ).href,
-      ),
-    )
+      )
+    })
     .catch((err: unknown) => toast.apiError(t('Could not change avatar'), err))
 }
 
