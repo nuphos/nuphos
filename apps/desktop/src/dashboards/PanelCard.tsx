@@ -13,8 +13,9 @@ import { memo, useState } from 'react'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
 import { t } from '../i18n'
 
-import { panelDisplay, panelNotConnected } from './panelDisplay'
+import { panelDisplay, panelNotice } from './panelDisplay'
 import { PanelOutputView } from './PanelOutputView'
+import { RentBoxButton } from './RentBoxButton'
 import { ScriptErrorModal } from './ScriptErrorModal'
 
 import type { DashboardPanel, DashboardPanelOutput, NuphosDashboard } from './schema'
@@ -52,17 +53,23 @@ function Body({
   const snap = panel.currentSnapshot
 
   if (!snap || snap.status === 'running' || snap.status === 'failed') {
-    const notConnected = panelNotConnected(snap)
-    const emptyMessage = notConnected ?? (snap ? t('No successful data yet.') : t('Not run yet.'))
+    const notice = panelNotice(snap)
+    const emptyMessage = notice ?? (snap ? t('No successful data yet.') : t('Not run yet.'))
+    // No agent could run it: a team admin rents a Box right here.
+    const rentBox = notice && snap?.error?.kind === 'no_runtime' && (
+      <RentBoxButton teamId={panel.teamId} />
+    )
 
     return lastSuccessfulOutput ? (
       <>
-        {notConnected && <p className="mb-2 text-[12px] text-status-warning">{notConnected}</p>}
+        {notice && <p className="mb-2 text-[12px] text-status-warning">{notice}</p>}
+        {rentBox && <div className="mb-2">{rentBox}</div>}
         <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
       </>
     ) : (
-      <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
+      <div className="flex h-40 flex-col items-center justify-center gap-2 px-4 text-center text-[12px] text-tertiary">
         {snap?.status === 'running' ? null : emptyMessage}
+        {rentBox}
       </div>
     )
   }
