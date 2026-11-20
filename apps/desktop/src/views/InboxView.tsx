@@ -26,8 +26,6 @@ type Props = {
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
   onOpenConversation: (sessionId: string) => void
-  /** Opens a link in a question's text, as the conversation does. */
-  onOpenLink: (href: string, beside: boolean) => boolean
 }
 
 /**
@@ -43,7 +41,6 @@ export function InboxView({
   onCount,
   onLoading,
   onOpenConversation,
-  onOpenLink,
 }: Props) {
   const { isActive } = useWorkspaceTab()
   const all = useInboxQuestions(teamId, refreshKey)
@@ -147,7 +144,6 @@ export function InboxView({
           }}
           onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
           onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
-          onOpenLink={onOpenLink}
         />
       )}
     </div>
