@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 
 import { expect, test } from 'bun:test'
 import { parse } from 'yaml'
@@ -10,7 +10,7 @@ const SKILLS = new URL('./skills/', import.meta.url)
 // what should trigger it; the body carries the rest.
 test('every built-in skill description fits in 200 characters', () => {
   const tooLong = readdirSync(SKILLS, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
+    .filter((entry) => existsSync(new URL(`${entry.name}/SKILL.md`, SKILLS)))
     .flatMap((entry) => {
       const source = readFileSync(new URL(`${entry.name}/SKILL.md`, SKILLS), 'utf8')
       const frontMatter = source.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''
