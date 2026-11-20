@@ -17,8 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import ai.nuphos.android.model.NuphosUser
-import ai.nuphos.android.ui.theme.Violet500
-import ai.nuphos.android.ui.theme.Violet700
+import ai.nuphos.android.ui.theme.LocalAvatarGradient
 import coil3.compose.AsyncImage
 
 @Composable
@@ -47,7 +46,7 @@ fun NuphosAvatar(
             Box(
                 Modifier
                     .size(size)
-                    .background(Brush.linearGradient(listOf(Violet500, Violet700))),
+                    .background(Brush.linearGradient(LocalAvatarGradient.current)),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
