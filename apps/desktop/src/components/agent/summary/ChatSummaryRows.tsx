@@ -27,21 +27,33 @@ export const focusRingClass =
   'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus'
 const rowFocusClass = `focus-visible:bg-state-hover ${focusRingClass}`
 
-/** A titled block of rows; `header` sits under the title, above the rows. */
+/** A titled block of rows; `header` sits under the title, above the rows; `action` ends the title's line. */
 export function SummarySection({
   title,
   header,
+  action,
   ref,
   children,
 }: {
   title: string
   header?: ReactNode
+  action?: ReactNode
   ref?: Ref<HTMLElement>
   children: ReactNode
 }) {
+  const heading = <h3 className="text-[13px] font-medium text-main">{title}</h3>
+
   return (
     <section ref={ref} className={sectionClass} aria-label={title}>
-      <h3 className="text-[13px] font-medium text-main">{title}</h3>
+      {action ? (
+        // The action keeps the title's line height: it overhangs into the padding.
+        <div className="-my-1.5 -mr-2 flex items-center justify-between gap-2">
+          {heading}
+          {action}
+        </div>
+      ) : (
+        heading
+      )}
       {header}
       <div className="flex flex-col gap-0.5 pt-2">{children}</div>
     </section>
