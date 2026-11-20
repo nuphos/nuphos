@@ -294,6 +294,30 @@ describe('an added agent whose CLI is missing', () => {
     expect(error?.message).not.toMatch(/`|curl|npm/u)
   })
 
+  test('reports an unusable CLI without calling it an installation failure', async () => {
+    const message =
+      "DeepSeek Harness didn't start (dsh --version printed nothing). It needs Node 24.9 or newer; node on PATH is v20.20.2."
+    const error = await localAgentNotInstalled(runtimeId, {
+      get: () =>
+        Promise.resolve({
+          conn: 'c1',
+          seenAt: Date.now(),
+          status: {
+            agents: {},
+            instances: [
+              {
+                instanceId,
+                provider: 'opencode',
+                cli: { installed: false, loggedIn: false, probeError: message },
+              },
+            ],
+          },
+        } as never),
+    })
+
+    expect(error?.message).toBe(message)
+  })
+
   test('says nothing when the CLI is there or the agent is not reported', async () => {
     expect(await localAgentNotInstalled(runtimeId, reporting(true))).toBeUndefined()
     expect(

@@ -20,7 +20,7 @@ export { LOCAL_AGENT_PROVIDERS } from './providers.ts'
 export type { LocalAgentProvider } from './providers.ts'
 
 export type AgentCliStatus =
-  | { installed: false }
+  | { installed: false; error?: string }
   | {
       installed: true
       path: string
@@ -49,7 +49,12 @@ const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
-function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
+function run(
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  strict = false,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       file,
@@ -58,7 +63,7 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
       (error, stdout, stderr) => {
         const output = `${stdout}${stderr}`
 
-        if (error && !output.trim()) reject(new Error(error.message))
+        if (error && (strict || !output.trim())) reject(new Error(error.message))
         else resolve(output)
       },
     )
@@ -208,8 +213,39 @@ export async function probeAgentCli(
   const runtimeEnv = agentHome
     ? agentCliEnv({ provider, env, agentHome, cliPath: file })
     : undefined
+  let dshVersion: string | undefined
+  let dshUsable = false
+  if (provider === 'dsh') {
+    const probeEnv = runtimeEnv ?? env
+    let failure = 'dsh --version printed nothing'
+
+    try {
+      const output = await run(file, ['--version'], probeEnv, true)
+      dshVersion = versionOf(output)
+      dshUsable = !!output.trim()
+    } catch {
+      failure = 'dsh --version failed'
+    }
+    if (!dshUsable) {
+      const node = await run('node', ['--version'], probeEnv, true).then(
+        (output) => {
+          const version = versionOf(output)
+
+          return version ? `v${version}` : 'unavailable'
+        },
+        () => 'unavailable',
+      )
+
+      return {
+        installed: false,
+        error: `DeepSeek Harness didn't start (${failure}). It needs Node 24.9 or newer; node on PATH is ${node}.`,
+      }
+    }
+  }
   const [version, auth, accountKey] = await Promise.all([
-    run(file, ['--version'], env).then(versionOf, () => {}),
+    provider === 'dsh'
+      ? Promise.resolve(dshVersion)
+      : run(file, ['--version'], env).then(versionOf, () => {}),
     loginOf(provider, file, runtimeEnv, agentHome),
     runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])

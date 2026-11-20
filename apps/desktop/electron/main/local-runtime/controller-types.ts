@@ -167,6 +167,10 @@ export function tunnelStatusOf(
   for (const provider of LOCAL_AGENT_PROVIDERS) {
     const agent = running[provider]
 
+    if (agent.cli && !agent.cli.installed && agent.cli.error) {
+      agents[provider] = { cli: { installed: false, loggedIn: false, probeError: agent.cli.error } }
+      continue
+    }
     if (!agent.runtime || !agent.cli?.installed) continue
     agents[provider] = {
       cli: {
