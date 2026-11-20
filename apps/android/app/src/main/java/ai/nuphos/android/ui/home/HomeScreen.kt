@@ -485,7 +485,6 @@ fun HomeScreen(
     if (showSetup) WorkspaceSetupSheet(setup) { showSetup = false }
     if (showProfile) {
         ProfileSheet(user = user, onDismiss = { showProfile = false }, workspaceName = store.selectedTeam?.name,
-            showIntegrations = true,
             workspacePicker = { back ->
                 ai.nuphos.android.ui.profile.WorkspacePickerContent(
                     teams = store.teams,
