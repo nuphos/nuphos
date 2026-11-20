@@ -248,6 +248,35 @@ final class BotsAndTasksListUITests: XCTestCase {
         }
     }
 
+    /// A Task dispatched after the chat opened appears without leaving that chat (#4227).
+    func testDispatchedTaskAppearsWhileBotChatIsOpen() throws {
+        launch(page: "chats")
+        let notes = app.staticTexts["Notes Bot"].firstMatch
+        XCTAssertTrue(notes.waitForExistence(timeout: 10))
+        notes.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertFalse(name.label.contains("running"))
+        shot("bot-task-before")
+
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        var page = try XCTUnwrap(responses["GET /agent/conversations"] as? [String: Any])
+        var body = try XCTUnwrap(page["body"] as? [String: Any])
+        var conversations = try XCTUnwrap(body["conversations"] as? [[String: Any]])
+        conversations.append(Self.row("agent-new", "Draft the notes", at: "09:59", parent: "bot-notes", working: true))
+        body["conversations"] = conversations
+        page["body"] = body
+        responses["GET /agent/conversations"] = page
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+
+        expectation(for: NSPredicate(format: "label CONTAINS '1 running'"), evaluatedWith: name)
+        waitForExpectations(timeout: 20)
+        shot("bot-task-after")
+        name.tap()
+        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier == 'summary.task' AND label BEGINSWITH 'Draft the notes'")).firstMatch.waitForExistence(timeout: 5))
+        shot("bot-task-details-after")
+    }
+
     /// Starts from no stored folds, so earlier runs leave nothing behind.
     private func launch(page: String) {
         app = XCUIApplication()
