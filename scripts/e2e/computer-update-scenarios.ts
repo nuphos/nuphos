@@ -84,13 +84,8 @@ export const computerUpdateScenarios: Scenario[] = [
         await page.getByRole('button', { name: `Manage ${OLD_BOX}` }).click()
         const update = page.getByRole('menuitem', { name: /^Update to v\d/ })
 
-        // The newest release is looked up from GitHub releases once the card asks for it.
-        await update.waitFor({ timeout: 30_000 }).catch((error: unknown) => {
-          throw new Error(
-            'No "Update to v…" on the Box card: the latest CLI release lookup may have failed',
-            { cause: error },
-          )
-        })
+        // The newest release is fixed for the e2e backend (cli-release-stub.ts).
+        await update.waitFor()
         await update.click()
         const confirm = page.getByRole('alertdialog')
 
