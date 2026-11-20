@@ -50,7 +50,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ -z "$PR" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
-          paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
+          paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|apps/ios/tests/fixtures/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
           if gh api --paginate "repos/$GH_REPO/pulls/$PR/files" --jq '.[].filename' | grep -qE "$paths"; then
             echo run=true >> "$GITHUB_OUTPUT"
           else
