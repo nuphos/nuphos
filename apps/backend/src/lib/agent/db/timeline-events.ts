@@ -54,6 +54,8 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       reason?: string
       /** When an agent out of usage gets it back, when its usage reading says. */
       resetsAt?: string
+      /** Where the account's holder verifies it, when its provider holds it until they do. */
+      verifyUrl?: string
       /** The channel's message count when it failed: one line per post, however often it retries. */
       atMessage?: number
     }
