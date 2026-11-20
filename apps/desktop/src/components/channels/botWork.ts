@@ -17,7 +17,7 @@ export type Step =
 export type BotWork =
   | { kind: 'turn'; step: Step; reason: 'chat' | 'report' | 'other'; kids: Run[] }
   | { kind: 'onboarding'; kids: Run[] }
-  | { kind: 'waiting'; kids: Run[] }
+  | { kind: 'waiting'; kids: Run[]; count?: number }
   | { kind: 'background'; kids: Run[] }
   | { kind: 'asking'; question: string; id: string; count: number; kids: Run[] }
 
@@ -89,10 +89,12 @@ export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string):
       kids: working,
     }
   if (activity.kind === 'working') return { kind: 'waiting', kids: working }
-  if (activity.kind === 'background')
-    return working.length > 0
-      ? { kind: 'waiting', kids: working }
-      : { kind: 'background', kids: [] }
+  if (activity.kind === 'background' && working.length > 0) return { kind: 'waiting', kids: working }
+  // Someone else's Bot: its Tasks are not in this viewer's list, only how many there are.
+  const unlisted = kids.length === 0 ? (bot?.conversation.tasks?.running ?? 0) + (bot?.conversation.tasks?.waiting ?? 0) : 0
+
+  if (unlisted > 0) return { kind: 'waiting', kids: [], count: unlisted }
+  if (activity.kind === 'background') return { kind: 'background', kids: [] }
 
   return null
 }

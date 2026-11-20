@@ -342,8 +342,12 @@ extension AgentStore {
     /// "1 needs input · 2 running", or nil when none waits or runs.
     func stateLine(under parent: String, team: String) -> (text: String, waiting: Bool)? {
         let states = tasks(under: parent, team: team).map { indicator(for: $0, team: team) }
-        let waiting = states.filter { $0 == .waiting }.count
-        let running = states.filter(\.isRunning).count
+        var waiting = states.filter { $0 == .waiting }.count
+        var running = states.filter(\.isRunning).count
+        // Someone else's Bot: its Tasks are not in this viewer's list, only how many there are.
+        if states.isEmpty, let counts = bots.first(where: { $0.sessionId == parent })?.tasks {
+            (waiting, running) = (counts.waiting, counts.running)
+        }
         var parts: [String] = []
         if waiting > 0 { parts.append(String(localized: "\(waiting) needs input")) }
         if running > 0 { parts.append(String(localized: "\(running) running")) }

@@ -28,6 +28,10 @@ function askingText(work: BotWork & { kind: 'asking' }): string {
 }
 
 function waitingText(work: BotWork & { kind: 'waiting' }): string {
+  if (work.kids.length === 0 && work.count)
+    return work.count === 1
+      ? t('Waiting on 1 Task')
+      : t('Waiting on {count} Tasks', { count: work.count })
   const names = work.kids.map((kid) => kid.conversation.title).join(', ')
 
   return work.kids.length === 1
