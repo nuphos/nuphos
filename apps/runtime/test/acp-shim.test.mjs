@@ -769,3 +769,47 @@ rl.on('line', (line) => {
     streaming,
   )
 })
+
+const PLAN_AGENT = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const send = (message) => process.stdout.write(JSON.stringify(message) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/prompt') {
+    for (const status of ['in_progress', 'completed']) send({ jsonrpc: '2.0', method: 'session/update', params: {
+      sessionId: 's1', update: { sessionUpdate: 'plan', entries: [{ content: 'Inspect the project', priority: 'high', status }] }
+    } })
+  }
+  send({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 's1' } : {} })
+})
+`
+
+test('an ACP plan exposes its active step and closes when complete', async () => {
+  await withShim(
+    'dsh',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      await call('session/prompt', { sessionId: 's1', prompt: [] })
+      const updates = notifications.map((m) => m.params?.update)
+      assert.ok(
+        updates.some(
+          (u) =>
+            u?.sessionUpdate === 'tool_call' &&
+            u.title === 'Inspect the project' &&
+            u.status === 'in_progress',
+        ),
+      )
+      assert.ok(
+        updates.some(
+          (u) =>
+            u?.sessionUpdate === 'tool_call' &&
+            u.status === 'completed' &&
+            u.toolCallId === 'nuphos-acp-plan',
+        ),
+      )
+    },
+    PLAN_AGENT,
+  )
+})
