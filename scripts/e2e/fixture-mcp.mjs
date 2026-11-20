@@ -84,6 +84,30 @@ export async function callNamed({ log, sessionId, text }) {
     const message = await call(sessionId, name, parseArgs(args))
 
     log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+    if (name === 'request_user_decision') {
+      const id = /(nuphos-[0-9a-f-]{36})/.exec(JSON.stringify(message.result))?.[1]
+
+      if (id) lastAsked.set(sessionId, id)
+    }
+  }
+}
+
+// The question each session asked last through E2E_CALL, for E2E_RECHECK.
+const lastAsked = new Map()
+
+/** E2E_RECHECK (#4175): looks again at the question this turn asked, as an agent that heard nothing back does. */
+export async function recheck({ log, sessionId }) {
+  const requestId = lastAsked.get(sessionId)
+  const checks = [
+    ['list_user_decisions', { label: 'List my questions' }],
+    ['update_user_decision', { label: 'Correct it', requestId, body: 'Still waiting on you.' }],
+    ['withdraw_user_decision', { label: 'Withdraw it', requestId }],
+  ]
+
+  for (const [name, args] of checks) {
+    const message = await call(sessionId, name, args)
+
+    log({ sessionId, event: 'called', name, result: message.result ?? message.error })
   }
 }
 
