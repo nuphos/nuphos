@@ -141,7 +141,9 @@ class QuestionCardV2FixtureDeviceTest {
     private fun capture(name: String) {
         compose.waitForIdle()
         val inst = InstrumentationRegistry.getInstrumentation()
-        val dir = inst.targetContext.getExternalFilesDir("question-card")!!
+        val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: File(inst.targetContext.externalMediaDirs.first(), "additional_test_output")
+        check(dir.isDirectory || dir.mkdirs())
         File(dir, "$name-${if (dark) "dark" else "light"}.png").outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
         }
