@@ -176,7 +176,7 @@ class WorkflowBoundaryTest(unittest.TestCase):
         guard = "github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
         self.assertEqual(text.count('if: ' + guard), 3)
         triggers = text.split('\npermissions:', 1)[0]
-        for forbidden in ('pull_request', 'push:', 'workflow_run'):
+        for forbidden in ('pull_request', 'push:', 'schedule:'):
             self.assertNotIn(forbidden, triggers)
         build, rest = text.split('\n  sign:\n', 1)
         sign, release = rest.split('\n  release:\n', 1)

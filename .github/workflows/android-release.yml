@@ -1,8 +1,11 @@
 name: Android release artifacts
 
 on:
-  schedule:
-    - cron: '0 3 * * *' # Daily; skipped when apps/android is unchanged since the last release
+  # Ships with every release train: starts when the iOS or Desktop release starts.
+  # Skipped when apps/android is unchanged since the last android-v* release.
+  workflow_run:
+    workflows: [Release iOS, Release Desktop]
+    types: [requested]
   workflow_dispatch:
     inputs:
       version_code:
