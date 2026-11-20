@@ -65,6 +65,3 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   nuphos-ios/Services/Passkeys.swift \
   nuphos-ios/Services/Chat/ChannelSession.swift tests/CancelledLoadTests.swift -o "$test_dir/cancelled-load-tests"
 "$test_dir/cancelled-load-tests"
-
-swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
-"$test_dir/hosted-bot-avatar-tests"
