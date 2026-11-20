@@ -58,13 +58,14 @@ export const voiceScenarios: Scenario[] = [
         .getByText("Your team's computer plan, billed monthly.")
         .waitFor({ state: 'hidden' })
 
-      // Now the app knows: the next press says so before any recording starts.
+      // Now the app knows: the next press reads the plan and says so before any recording starts.
       const notice = page.getByText('Voice input needs a subscription')
 
-      while ((await notice.count()) > 0) {
+      for (let tries = 0; tries < 5 && (await notice.count()) > 0; tries++) {
         await page.getByRole('button', { name: 'Dismiss' }).first().click()
         await page.waitForTimeout(300)
       }
+      if ((await notice.count()) > 0) throw new Error('The subscription toast would not dismiss')
       await page.getByRole('button', { name: 'Voice input' }).last().click()
       await notice.first().waitFor()
       if ((await page.getByRole('group', { name: 'Recording voice input' }).count()) > 0)

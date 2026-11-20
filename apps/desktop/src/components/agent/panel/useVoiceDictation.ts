@@ -19,6 +19,7 @@ import {
   isSubscriptionRequired,
   markVoiceUnsubscribed,
   needsVoiceSubscription,
+  planAllowsVoice,
   voiceSubscriptionToast,
 } from './voiceSubscription'
 import { createTakes } from './voiceTakes'
@@ -133,13 +134,15 @@ export function useVoiceDictation({
   const start = useCallback(async () => {
     // One take at a time, including one still waiting on the permission prompt.
     if (!teamId || recorder.current || opening.current) return
-    if (needsVoiceSubscription(teamId)) {
+    opening.current = true
+    discard.current = false
+    // Refused before: ask the plan again, since a teammate may have subscribed since.
+    if (needsVoiceSubscription(teamId) && !(await planAllowsVoice(teamId))) {
+      opening.current = false
       voiceSubscriptionToast(teamId, canSubscribe.current)
 
       return
     }
-    opening.current = true
-    discard.current = false
     let stream: MediaStream | null
 
     try {

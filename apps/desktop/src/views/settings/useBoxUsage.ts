@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import {
-  markVoiceSubscribed,
-  markVoiceUnsubscribed,
-} from '../../components/agent/panel/voiceSubscription'
+import { rememberVoicePlan } from '../../components/agent/panel/voiceSubscription'
 
 import type { BoxUsage } from '../../api/device-types'
 
@@ -24,9 +21,7 @@ export function useBoxUsage(teamId: string) {
     void api.boxUsage(teamId).then(
       (next) => {
         if (cancelled) return
-        // Voice input has the same gate as the plan: billing on, and no subscription.
-        if (next.billingUrl !== null && !next.subscribed) markVoiceUnsubscribed(teamId)
-        else markVoiceSubscribed(teamId)
+        rememberVoicePlan(teamId, next)
         setUsage(next)
         setFailed(false)
       },

@@ -17,7 +17,15 @@ let transcribe: () => Promise<{ text: string; language: string | null }> = async
   language: null,
 })
 
-mock.module('../../../api', () => ({ api: { voiceTranscribe: () => transcribe() } }))
+// The team's plan as the backend reports it: billing on, no subscription, unless a test changes it.
+let subscribed = false
+
+mock.module('../../../api', () => ({
+  api: {
+    voiceTranscribe: () => transcribe(),
+    boxUsage: async () => ({ billingUrl: 'https://billing.example', subscribed }),
+  },
+}))
 // The viewer's role in the team: an administrator unless a test says otherwise.
 let role: string | undefined = 'ADMINISTRATOR'
 
@@ -136,5 +144,31 @@ test('a member who cannot subscribe is told to ask an admin, with no button', as
   assert.equal(toasts[0].title, 'Voice input needs a subscription')
   assert.equal(toasts[0].description, 'Ask a team admin to subscribe.')
   assert.equal(toasts[0].action, undefined)
+  await act(() => root.unmount())
+})
+
+test('a team that has subscribed since may record again', async () => {
+  role = 'ADMINISTRATOR'
+  subscribed = false
+  toasts.length = 0
+  const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
+
+  await act(() => root.render(createElement(Probe, { teamId: 't3' })))
+  transcribe = () => Promise.reject(subscriptionRequired)
+  await act(() => probe.voice?.start())
+  const opens = microphoneOpens
+
+  await act(async () => {
+    probe.voice?.stop()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  assert.equal(toasts.length, 1)
+
+  // A teammate subscribes: the next press reads the plan and records instead of refusing.
+  subscribed = true
+  await act(() => probe.voice?.start())
+  assert.equal(microphoneOpens, opens + 1)
+  assert.equal(probe.voice?.phase.kind, 'recording')
+  assert.equal(toasts.length, 1)
   await act(() => root.unmount())
 })
