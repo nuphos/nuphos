@@ -18,6 +18,10 @@ let transcribe: () => Promise<{ text: string; language: string | null }> = async
 })
 
 mock.module('../../../api', () => ({ api: { voiceTranscribe: () => transcribe() } }))
+// The viewer's role in the team: an administrator unless a test says otherwise.
+let role: string | undefined = 'ADMINISTRATOR'
+
+mock.module('../../../hooks/useTeamRole', () => ({ useTeamRole: () => role }))
 mock.module('../../../app/workspace/openInApp', () => ({
   openInApp: (href: string) => opened.push(href),
 }))
@@ -74,8 +78,8 @@ const { useVoiceDictation } = await import('./useVoiceDictation')
 // The hook's latest return, for the test to drive.
 const probe: { voice?: ReturnType<typeof useVoiceDictation> } = {}
 
-function Probe() {
-  const voice = useVoiceDictation({ teamId: 't1', onText: () => {} })
+function Probe({ teamId }: { teamId: string }) {
+  const voice = useVoiceDictation({ teamId, onText: () => {} })
 
   useEffect(() => {
     probe.voice = voice
@@ -89,10 +93,10 @@ const subscriptionRequired = new Error(
   `__ATLAS_API_ERROR__${JSON.stringify({ code: 'subscription_required', message: 'Voice input is included with a Nuphos subscription.' })}`,
 )
 
-test('a team without a subscription is told so, with Upgrade, and is not asked to record again', async () => {
+test('an administrator without a subscription is told so, with Subscribe, and is not asked to record again', async () => {
   const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
 
-  await act(() => root.render(createElement(Probe)))
+  await act(() => root.render(createElement(Probe, { teamId: 't1' })))
   transcribe = () => Promise.reject(subscriptionRequired)
   await act(() => probe.voice?.start())
   assert.equal(microphoneOpens, 1)
@@ -102,7 +106,8 @@ test('a team without a subscription is told so, with Upgrade, and is not asked t
   })
   assert.equal(toasts.length, 1)
   assert.equal(toasts[0].title, 'Voice input needs a subscription')
-  assert.equal(toasts[0].action?.label, 'Upgrade')
+  assert.equal(toasts[0].description, "Your team doesn't have a subscription yet.")
+  assert.equal(toasts[0].action?.label, 'Subscribe')
   toasts[0].action?.onClick()
   assert.deepEqual(opened, ['/teams/t1/settings/billing'])
 
@@ -112,5 +117,24 @@ test('a team without a subscription is told so, with Upgrade, and is not asked t
   assert.equal(probe.voice?.phase.kind, 'idle')
   assert.equal(toasts.length, 2)
   assert.equal(toasts[1].title, 'Voice input needs a subscription')
+  await act(() => root.unmount())
+})
+
+test('a member who cannot subscribe is told to ask an admin, with no button', async () => {
+  role = 'EDITOR'
+  toasts.length = 0
+  const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
+
+  await act(() => root.render(createElement(Probe, { teamId: 't2' })))
+  transcribe = () => Promise.reject(subscriptionRequired)
+  await act(() => probe.voice?.start())
+  await act(async () => {
+    probe.voice?.stop()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+  assert.equal(toasts.length, 1)
+  assert.equal(toasts[0].title, 'Voice input needs a subscription')
+  assert.equal(toasts[0].description, 'Ask a team admin to subscribe.')
+  assert.equal(toasts[0].action, undefined)
   await act(() => root.unmount())
 })

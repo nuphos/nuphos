@@ -1,5 +1,5 @@
 // Voice input for a team without a subscription (#4136): the backend refuses the
-// recording, and the app says why and where to upgrade instead of "failed".
+// recording, and the app says why and where to subscribe instead of "failed".
 import { artifacts } from './processes.ts'
 import { newTask } from './ui.ts'
 
@@ -7,7 +7,7 @@ import type { Scenario } from './ui.ts'
 
 export const voiceScenarios: Scenario[] = [
   {
-    name: 'voice input without a subscription offers Upgrade, then stops asking to record',
+    name: 'voice input without a subscription offers Subscribe, then stops asking to record',
     // The backend's refusal is what this scenario checks; Billing then asks the stack's
     // stand-in billing service, which is only a URL.
     expected: /voice-transcriptions|\/e2e-billing\//,
@@ -38,12 +38,19 @@ export const voiceScenarios: Scenario[] = [
       await page.waitForTimeout(1500)
       await page.getByRole('button', { name: 'Stop and insert text' }).click()
       await page.getByText('Voice input needs a subscription').first().waitFor()
-      await page.getByText('Voice input is included with a Nuphos subscription.').first().waitFor()
+      await page.getByText("Your team doesn't have a subscription yet.").first().waitFor()
       if ((await page.getByText('Voice input failed').count()) > 0)
         throw new Error('The refusal still reads as a failure')
       await page.screenshot({ path: `${artifacts}/voice-subscription-toast.png` })
 
-      await page.getByRole('button', { name: 'Upgrade' }).first().click()
+      // The toast's own Subscribe, not another on the page.
+      await page
+        .locator('div')
+        .filter({ has: page.getByText('Voice input needs a subscription') })
+        .filter({ has: page.getByRole('button', { name: 'Subscribe' }) })
+        .last()
+        .getByRole('button', { name: 'Subscribe' })
+        .click()
       await page.getByText("Your team's computer plan, billed monthly.").waitFor()
       await page.screenshot({ path: `${artifacts}/voice-subscription-billing.png` })
       await page.keyboard.press('Escape')

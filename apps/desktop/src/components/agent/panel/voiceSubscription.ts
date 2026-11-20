@@ -29,14 +29,22 @@ export function isSubscriptionRequired(err: unknown): boolean {
   return parseAtlasError(err).code === 'subscription_required'
 }
 
-/** Says voice input needs a subscription, with Upgrade opening the team's Billing settings. */
-export function voiceSubscriptionToast(teamId: string) {
+/**
+ * Says voice input needs a subscription. An administrator gets Subscribe, opening the
+ * team's Billing settings; anyone else can't subscribe there, so they are told whom to ask.
+ */
+export function voiceSubscriptionToast(teamId: string, canSubscribe: boolean) {
+  if (!canSubscribe) {
+    toast.error(t('Voice input needs a subscription'), t('Ask a team admin to subscribe.'))
+
+    return
+  }
   toast.error(
     t('Voice input needs a subscription'),
-    t('Voice input is included with a Nuphos subscription.'),
+    t("Your team doesn't have a subscription yet."),
     {
       action: {
-        label: t('Upgrade'),
+        label: t('Subscribe'),
         onClick: () => openInApp(`/teams/${encodeURIComponent(teamId)}/settings/billing`),
       },
     },
