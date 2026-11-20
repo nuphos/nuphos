@@ -23,11 +23,11 @@ export function ComputerUseConfirm({
       description={
         (request?.count ?? 0) > 1
           ? t(
-              'Adding these people also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and can read files and run commands as its user.',
+              'Adding these people also lets them run any chat on {computer}, not just this one. Those chats use the sign-ins on that computer and can read files and run commands as its user.',
               { computer },
             )
           : t(
-              'Adding this person also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and can read files and run commands as its user.',
+              'Adding this person also lets them run any chat on {computer}, not just this one. Those chats use the sign-ins on that computer and can read files and run commands as its user.',
               { computer },
             )
       }
