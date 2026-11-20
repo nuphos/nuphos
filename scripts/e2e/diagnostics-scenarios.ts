@@ -9,8 +9,11 @@ import { artifacts, logPath } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
 
-const unzip = (zip: string, ...args: string[]) =>
-  execFileSync('unzip', [...args, zip], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+const unzip = (flag: '-Z1' | '-p', zip: string, member?: string) =>
+  execFileSync('unzip', [flag, zip, ...(member ? [member] : [])], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  })
 
 export const diagnosticsScenarios: Scenario[] = [
   {
@@ -52,7 +55,7 @@ export const diagnosticsScenarios: Scenario[] = [
       await page.screenshot({ path: join(artifacts, 'diagnostics-saved.png') })
 
       try {
-        const names = unzip(zip, '-Z1').trim().split('\n').sort()
+        const names = unzip('-Z1', zip).trim().split('\n').sort()
         const expected = [
           'summary.json',
           ...['users/*/*/openab.log', 'instances/*/users/*/*/openab.log']
@@ -63,7 +66,7 @@ export const diagnosticsScenarios: Scenario[] = [
         if (JSON.stringify(names) !== JSON.stringify(expected))
           throw new Error(`The zip holds ${names.join(', ')}, not ${expected.join(', ')}`)
 
-        const summary = JSON.parse(unzip(zip, '-p', 'summary.json')) as {
+        const summary = JSON.parse(unzip('-p', zip, 'summary.json')) as {
           desktop: { version: string }
           os: { platform: string }
         }
@@ -71,7 +74,7 @@ export const diagnosticsScenarios: Scenario[] = [
         if (!summary.desktop.version || summary.os.platform !== process.platform)
           throw new Error(`The summary is missing versions: ${JSON.stringify(summary)}`)
 
-        const text = unzip(zip, '-p', `logs/${logs[0]!}`)
+        const text = unzip('-p', zip, `logs/${logs[0]!}`)
 
         if ([secret, secret.replaceAll('-', ''), homedir()].some((value) => text.includes(value)))
           throw new Error('The saved log still holds the planted secret or the home directory')
