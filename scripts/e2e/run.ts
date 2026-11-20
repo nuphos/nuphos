@@ -62,6 +62,7 @@ import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
+import { voiceScenarios } from './voice-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -135,6 +136,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...voiceScenarios,
   ...personalCredentialScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
