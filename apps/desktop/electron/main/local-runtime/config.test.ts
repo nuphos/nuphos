@@ -126,7 +126,7 @@ test('the runtime offers only its bundled fixed programs as jobs', () => {
 // openab runs a job with only its own, isolated HOME; the adapter makes session homes under
 // the user's. Run the job as openab does and the archived conversation's home must go.
 test('the session-homes job removes a home where the adapter made it', (t) => {
-  if (process.platform === 'win32') return
+  if (process.platform === 'win32') return t.skip('no runtime jobs on Windows')
   const root = mkdtempSync(path.join(tmpdir(), 'jobs-'))
   const user = path.join(root, 'user')
   const homes = path.join(user, '.nuphos', 'session-homes')
