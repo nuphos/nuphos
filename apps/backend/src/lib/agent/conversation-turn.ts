@@ -215,19 +215,16 @@ async function reportIfRestarted(
   try {
     if (!(await runtimeRestarted(data))) return
     // A channel's wake it cut off was never answered: its posts go back to unread and the
-    // next wake asks again, as after a failed turn. A later wake that read past them answers them.
+    // wake to the queue, as after a refused turn. One a later wake read past finds nothing.
     await unmarkRead?.()
+    const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
+
+    await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
     await reportUndelivered(
       data,
       messages.filter((message) => !channelIdOf(message)),
       LOST_TURN,
     )
-    if (messages.some((message) => channelIdOf(message))) {
-      // Lazy so importing this does not pull in the channel graph.
-      const { wakeMissedPosts } = await import('./channel-missed-posts')
-
-      await wakeMissedPosts({ sessionId: data.targetSessionId })
-    }
   } catch (error) {
     logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
   }
