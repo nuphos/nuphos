@@ -4,6 +4,7 @@ import {
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
+import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { pickOf, storedPick } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
@@ -13,16 +14,21 @@ import { liveAttachment } from './db/shared'
 
 import type { AgentConversation } from './db'
 import type { SettingsChangeBy } from './db/settings-history'
+import type { RuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
 /**
  * Why a thread cannot run on an agent the owner can see: a teammate's computer
- * shows its owner the work, which only the conversation owner can agree to, in the Desktop.
+ * shows its owner the work, which only the conversation owner can agree to, in the
+ * Desktop; and a signed-out agent's turns are refused (resolveLocalRuntimeEndpoint).
  */
-function unavailableReason(instance: { local?: { shared?: unknown } }) {
-  return instance.local?.shared
-    ? "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+export function unavailableReason(instance: Pick<RuntimeInstance, 'provider' | 'local'>) {
+  if (instance.local?.shared)
+    return "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+
+  return instance.local?.signedIn === false
+    ? `Signed out: sign in to ${runtimeLabel(instance.provider)} on that computer first.`
     : undefined
 }
 

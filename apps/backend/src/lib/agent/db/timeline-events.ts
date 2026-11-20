@@ -4,16 +4,6 @@ import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-erro
 export type ReplyFailedCause = TurnFailureCause | 'cli'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
-/** A channel with no reply-failed line yet from `agentId` for the post at `atMessage` (#3332). */
-export const noReplyFailedYet = (agentId: string, atMessage: number | undefined) =>
-  atMessage === undefined
-    ? {}
-    : {
-        timelineEvents: {
-          $not: { $elemMatch: { kind: 'agent_reply_failed', agentId, atMessage } },
-        },
-      }
-
 /** What set, changed or took away a conversation's face. */
 export type BotChangeSource =
   | { via: 'make_bot' | 'avatar_route' | 'new_bot' | 'update_self' | 'bot_import' }
@@ -56,8 +46,6 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       resetsAt?: string
       /** Where the account's holder verifies it, when its provider holds it until they do. */
       verifyUrl?: string
-      /** The channel's message count when it failed: one line per post, however often it retries. */
-      atMessage?: number
     }
   | {
       /** One of the session's messages was edited and ran again in a fork: the session it ran in. */

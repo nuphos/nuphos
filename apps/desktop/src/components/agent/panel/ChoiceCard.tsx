@@ -109,11 +109,7 @@ export function ChoiceCard({
       <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
       </DecisionTitle>
-      <DecisionBody
-        text={ownBody(body, questions)}
-        full={ctx?.fullBody}
-        onLinkClick={ctx?.onLinkClick}
-      />
+      <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
       {!chosen && (
         <DecisionOptions
@@ -197,15 +193,7 @@ function AnswerStatus({
  * The question's markdown body: four lines at first, the last fading out, and a
  * full-width "Show more" under them. The collapsed lines open it too.
  */
-function DecisionBody({
-  text,
-  full = false,
-  onLinkClick,
-}: {
-  text: string | undefined
-  full?: boolean
-  onLinkClick?: (href: string, beside: boolean) => boolean
-}) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)
@@ -235,7 +223,6 @@ function DecisionBody({
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
-          onLinkClick={onLinkClick}
         >
           {text}
         </MessageResponse>

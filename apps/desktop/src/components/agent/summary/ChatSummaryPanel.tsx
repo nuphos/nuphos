@@ -50,6 +50,7 @@ type Props = {
   lead?: ReactNode
   /** Drawn after a Bot's instructions: what the Bot may use. */
   access?: ReactNode
+  onEditTrigger?: (message: string) => void // seeds the composer: a Trigger row's Edit
   /** The panel's accessible name; by default "Task summary". */
   label?: string
   /** Closes the panel; by default this pane's Task summary. */
@@ -187,6 +188,7 @@ function SummaryBody({
   requestsFailed,
   lead,
   access,
+  onEditTrigger,
   label,
   onClose: close,
   onDismiss: dismiss,
@@ -258,6 +260,7 @@ function SummaryBody({
             key={`${teamId}:${triggerHome}`}
             teamId={teamId}
             sessionId={triggerHome}
+            onEdit={onEditTrigger}
           />
           {!loaded && <Skeleton />}
           {/* A Bot's details leave out a Task's pull requests and issues. */}
