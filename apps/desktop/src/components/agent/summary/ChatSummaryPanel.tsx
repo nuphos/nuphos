@@ -13,7 +13,7 @@ import { shellsFromRuntimeState } from '../panel/shells'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
-import { SummaryRow, SummarySection } from './ChatSummaryRows'
+import { SummaryEmpty, SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
 import { summaryTriggerHome } from './chatSummaryTriggerHome'
@@ -274,16 +274,7 @@ function SummaryBody({
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
           {/* A Task's first reply fills it; a Bot's card already stands in. */}
-          {loaded && !conversation && !lead && (
-            <div className="px-1 pt-1 text-[13px] leading-5">
-              <p className="text-main">{t('Nothing here yet')}</p>
-              <p className="text-tertiary">
-                {t(
-                  'Pull requests, sub-tasks and files from this task appear here after its first reply.',
-                )}
-              </p>
-            </div>
-          )}
+          {loaded && !conversation && !lead && <SummaryEmpty />}
         </>
       )}
     </aside>
