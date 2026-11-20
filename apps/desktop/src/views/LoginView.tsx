@@ -138,8 +138,9 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
     if (completesCode(code, next)) void verifyCode(next)
   }
 
-  // Named for why the screen is shown: an account to sign in to again comes first.
-  let title = t('Welcome to Nuphos')
+  // Named for why the screen is shown: an account to sign in to again comes first. A first
+  // sign-in has no title; the logo above already says Nuphos.
+  let title: string | null = null
 
   if (notice) title = t('Sign in again')
   else if (onCancel) title = t('Add an account')
@@ -153,12 +154,11 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
           <img
-            className="mb-5 h-10"
+            className={title ? 'mb-5 h-10' : 'mb-1.5 h-10'}
             src={`/nuphos-lockup-${resolved}.png`}
-            alt=""
-            aria-hidden="true"
+            alt="Nuphos"
           />
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
+          {title && <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>}
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
               (onCancel

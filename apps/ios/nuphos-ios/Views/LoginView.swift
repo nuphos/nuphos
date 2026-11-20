@@ -78,16 +78,12 @@ struct LoginView: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 24) {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 8) {
                         Image("NuphosLockup").resizable().scaledToFit().frame(height: 40)
-                            .accessibilityHidden(true)
-                        VStack(spacing: 8) {
-                            Text("Welcome to Nuphos").font(.title.bold())
-                                .multilineTextAlignment(.center)
-                            Text("Sign in or create an account.")
-                                .font(.subheadline).foregroundStyle(Theme.body)
-                                .multilineTextAlignment(.center)
-                        }
+                            .accessibilityLabel("Nuphos logo")
+                        Text("Sign in or create an account.")
+                            .font(.subheadline).foregroundStyle(Theme.body)
+                            .multilineTextAlignment(.center)
                     }.padding(.top, 24)
                     if !session.savedAccounts.accounts.isEmpty || session.addingAccount || session.savedAccounts.error != nil {
                         SavedAccountsView()

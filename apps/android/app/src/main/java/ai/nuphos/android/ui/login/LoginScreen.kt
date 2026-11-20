@@ -100,10 +100,7 @@ fun LoginScreen(
                 onDismissError = auth::dismissSignInError,
                 header = {
                     Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Image(painterResource(R.drawable.nuphos_lockup), contentDescription = null, modifier = Modifier.height(48.dp))
-                        Spacer(Modifier.height(24.dp))
-                        Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+                        Image(painterResource(R.drawable.nuphos_lockup), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(48.dp))
                         TextButton(onClick = { showServer = true }, enabled = !busy) {
                             Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) stringResource(R.string.shell_server_cloud_settings)
                                 else stringResource(R.string.shell_server_custom_settings, origin))
