@@ -18,9 +18,6 @@ import { openBoxPaywall } from './settings/boxPaywallStore'
 
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 
-/** What the remote page shows once its connection is over; the view then reconnects with a new link. */
-const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
-
 /** How long a connected desktop has to show its first picture. */
 const FIRST_PICTURE_MS = 8_000
 
@@ -170,20 +167,22 @@ export function SessionDesktopView({
 
 /** A refusal names why the desktop cannot open; anything else is worth another try. */
 function boxRefusal(error: unknown): unknown {
-  const { code } = parseAtlasError(error)
+  const { code, message } = parseAtlasError(error)
 
   if (code === 'forbidden' || code === 'not_found')
     return new DesktopRefusal('denied', t('You no longer have access to this computer’s desktop.'))
-  if (code === 'box_state' || code === 'box_unavailable')
-    return new DesktopRefusal('offline', t('Computer is offline.'))
+  if (code === 'box_state') return new DesktopRefusal('offline', t('Computer is offline.'))
+  // The backend's own words: the instabox account, its key or an outage, not the Box being off.
+  if (code === 'box_unavailable' || code === 'instabox_key_rejected')
+    return new DesktopRefusal('offline', message)
 
   return error
 }
 
 /**
- * A Box's whole desktop, in the Box provider's own viewer. The tab names only
- * the Box: each connect asks the backend for a new short-lived link, so a link
- * that expired is never what reconnects.
+ * A Box's whole desktop, streamed from instabox through the backend and shown
+ * with noVNC, as a conversation's desktop is. Each connect starts the desktop
+ * again first, so one that stopped is what a reconnect brings back.
  */
 export function BoxDesktopView({
   teamId,
@@ -194,6 +193,7 @@ export function BoxDesktopView({
   deviceId: string
   switcher?: React.ReactNode
 }) {
+  const { tabId } = useWorkspaceTab()
   const host = useRef<HTMLDivElement>(null)
   const retryRef = useRef<() => void>(() => {})
   const [phase, setPhase] = useState<DesktopPhase>({ kind: 'connecting' })
@@ -202,38 +202,25 @@ export function BoxDesktopView({
   useEffect(() => {
     const target = host.current
 
-    if (!target) return
-    const attach: DesktopAttach<string> = (url, { opened, closed }) => {
-      const view = document.createElement('webview')
+    if (!target || !tabId) return
+    // The main process signs the stream with the current token; nothing is held here.
+    const attach: DesktopAttach<null> = (_link, { opened, closed }) => {
+      const channel = new IpcVncChannel(tabId).open({ teamId, boxId: deviceId })
+      const rfb = new RFB(target, channel as unknown as WebSocket, { shared: true })
 
-      view.setAttribute('src', url)
-      view.setAttribute('partition', 'persist:browser')
-      view.setAttribute('webpreferences', 'sandbox=yes,contextIsolation=yes')
-      view.style.cssText = 'width:100%;height:100%;display:flex'
-      const onFail = (event: Electron.DidFailLoadEvent) => {
-        if (event.isMainFrame && event.errorCode !== -3) closed()
-      }
-      // The viewer reports its connection ending only on the page.
-      const watch = setInterval(() => {
-        view
-          .executeJavaScript('document.body ? document.body.innerText : ""')
-          .then((text: unknown) => {
-            if (typeof text === 'string' && BOX_PAGE_ENDED.test(text)) closed()
-          })
-          .catch(() => {})
-      }, 3000)
+      rfb.scaleViewport = true
+      rfb.background = 'transparent'
+      let stopWaiting: (() => void) | undefined
 
-      view.addEventListener('did-finish-load', opened)
-      view.addEventListener('did-fail-load', onFail)
-      view.addEventListener('render-process-gone', closed)
-      target.appendChild(view)
+      rfb.addEventListener('connect', () => {
+        stopWaiting = awaitPicture(target, opened, closed)
+      })
+      rfb.addEventListener('disconnect', closed)
 
       return () => {
-        clearInterval(watch)
-        view.removeEventListener('did-finish-load', opened)
-        view.removeEventListener('did-fail-load', onFail)
-        view.removeEventListener('render-process-gone', closed)
-        view.remove()
+        stopWaiting?.()
+        rfb.removeEventListener('disconnect', closed)
+        rfb.disconnect()
       }
     }
     const connection = keepDesktopConnected({
@@ -243,7 +230,7 @@ export function BoxDesktopView({
 
           setLabel(desktop.label)
 
-          return desktop.url
+          return null
         } catch (error) {
           throw boxRefusal(error)
         }
@@ -255,7 +242,7 @@ export function BoxDesktopView({
     retryRef.current = connection.restart
 
     return connection.stop
-  }, [teamId, deviceId])
+  }, [teamId, deviceId, tabId])
 
   const retry = () => {
     if (phase.kind === 'stopped' && phase.reason === 'offline')

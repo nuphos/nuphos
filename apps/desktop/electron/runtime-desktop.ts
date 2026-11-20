@@ -34,7 +34,9 @@ export class RuntimeDesktopSessions {
     if (!account) throw new Error('Signed out')
     stillCurrent(account)
     const url = new URL(
-      `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${desktopPath(target.sessionId)}/${String(target.display)}`,
+      'boxId' in target
+        ? `/agent/devices/${encodeURIComponent(target.boxId)}/box/vnc?teamId=${encodeURIComponent(target.teamId)}`
+        : `/teams/${encodeURIComponent(target.teamId)}/runtime-desktop/${desktopPath(target.sessionId)}/${String(target.display)}`,
       account.api,
     )
 

@@ -518,7 +518,10 @@ describe('agent device routes', () => {
 
         return true
       },
-      desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
+      desktop: async (_userId, deviceId) => {
+        calls.push(`desktop ${deviceId}`)
+      },
+      vnc: async (_userId, deviceId) => ({ url: `wss://vnc.example/${deviceId}`, headers: {} }),
       heal: (_userId, deviceId) => {
         calls.push(`heal ${deviceId}`)
       },
@@ -709,6 +712,25 @@ describe('agent device routes', () => {
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
+  test('a Box desktop starts through the provider; the link route asks older apps to update', async () => {
+    const calls: string[] = []
+    const app = buildApp(fakeBox(calls))
+
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const opened = await app.request('/agent/devices/b1/box/vnc?teamId=team-1', { method: 'POST' })
+
+    expect(opened.status).toBe(200)
+    expect(await opened.json()).toEqual({ label: 'Box' })
+    expect(calls).toEqual(['desktop b1'])
+    // A stream needs a WebSocket; a plain GET is refused before instabox is asked.
+    expect((await app.request('/agent/devices/b1/box/vnc?teamId=team-1')).status).toBe(426)
+    const old = await app.request('/agent/devices/b1/box/desktop?teamId=team-1', { method: 'POST' })
+
+    expect(old.status).toBe(426)
+    expect(await old.json()).toMatchObject({ error: { code: 'update_required' } })
+    expect(calls).toEqual(['desktop b1'])
+  })
+
   test('DELETE closes the Box tunnel before its machine goes', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
     credentials.add(key('user-1', 'b1'))
@@ -751,7 +773,7 @@ describe('agent device routes', () => {
 
     for (const currentRole of ['ADMINISTRATOR', null] as const) {
       role = currentRole
-      for (const action of ['pause', 'resume', 'desktop']) {
+      for (const action of ['pause', 'resume', 'vnc']) {
         const result = await app.request(`/agent/devices/b1/box/${action}?teamId=team-1`, {
           method: 'POST',
         })

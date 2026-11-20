@@ -3,6 +3,8 @@
 // its machine runs, but nothing on it ever answers, so a new Box stays starting.
 import { createServer } from 'node:http'
 
+import { serveVnc } from './instabox-stub-vnc.ts'
+
 export type StubOperation = { type: string; state: string; trigger?: string; createdAt: string }
 export type StubMachine = {
   id: string
@@ -26,6 +28,8 @@ const machineView = (machine: StubMachine) => ({
   createdAt: '2026-11-17T00:00:00Z',
   updatedAt: '2026-11-17T00:00:00Z',
 })
+
+const KEY = 'e2e-instabox-key-not-a-production-credential'
 
 /** The machines this instabox knows, by id; a scenario adds and changes them. */
 export const instaboxMachines = new Map<string, StubMachine>()
@@ -69,6 +73,26 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
       return
     }
+    // The machine's desktop runs. Links to it are only the machine creator's, and this key
+    // is a workspace key, as the deployment's is (#4100).
+    if (request.method === 'POST' && machine && part === 'desktop') {
+      const stream = path.endsWith('/desktop/stream')
+
+      request.resume()
+      request.on('end', () => {
+        if (stream)
+          send(403, {
+            error: {
+              code: 'permission_denied',
+              message:
+                "desktop links are the sandbox creator's: a workspace API key cannot make or revoke them",
+            },
+          })
+        else send(200, { installed: true, running: true })
+      })
+
+      return
+    }
     // A team key that has expired: instabox refuses to kill the machine (#3733).
     if (request.method === 'DELETE' && machine)
       return send(401, { error: { code: 'expired_key', message: 'API key expired' } })
@@ -90,12 +114,19 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
     send(404, { error: { code: 'not_found', message: 'No such machine in the e2e instabox' } })
   })
 
+  server.on('upgrade', (request, socket) => {
+    const [, , kind, id, part] = new URL(request.url ?? '/', 'http://instabox').pathname.split('/')
+
+    if (kind === 'machines' && id && machines.has(decodeURIComponent(id)) && part === 'vnc')
+      serveVnc(request, socket, KEY)
+    else socket.end('HTTP/1.1 404 Not Found\r\n\r\n')
+  })
   await new Promise<void>((listening) => server.listen(0, '127.0.0.1', listening))
   server.unref()
   const { port } = server.address() as { port: number }
 
   return {
-    INSTABOX_API_KEY: 'e2e-instabox-key-not-a-production-credential',
+    INSTABOX_API_KEY: KEY,
     INSTABOX_API_URL: `http://127.0.0.1:${String(port)}`,
   }
 }

@@ -13,15 +13,16 @@ import {
 } from '@/lib/agent/devices/box-access'
 import {
   boxBackendUrl,
-  boxDesktopUrl,
   boxPausedBy,
   boxState,
+  boxVncUpstream,
   boxesAvailable,
   createBox,
   destroyBox,
   healBox,
   pauseBox,
   resumeBox,
+  startBoxDesktop,
 } from '@/lib/agent/devices/box-instabox'
 import { readBoxMetrics } from '@/lib/agent/devices/box-metrics'
 import { setTeamUse } from '@/lib/agent/devices/device-grants'
@@ -146,7 +147,8 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     pause: pauseBox,
     resume: resumeBox,
     destroy: destroyBox,
-    desktop: boxDesktopUrl,
+    desktop: startBoxDesktop,
+    vnc: boxVncUpstream,
     heal: healBox,
     available: boxesAvailable,
     state: boxState,

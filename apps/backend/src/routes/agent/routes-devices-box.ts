@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { upgradeWebSocket } from 'hono/bun'
 import { z } from 'zod'
 
 import {
@@ -9,6 +10,7 @@ import {
   memberAccess,
   requireDeviceAccess,
 } from '@/lib/agent/devices/box-access'
+import { boxVncRelay } from '@/lib/agent/devices/box-instabox-vnc'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 
@@ -18,6 +20,7 @@ import { readTeamIdCandidate } from './team-scope'
 import type { AgentDeviceRouteDependencies } from './routes-devices'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 // Boxes: cloud machines made for the caller, listed and driven as their devices.
 
@@ -137,18 +140,36 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     return c.json(await viewOrGone(device), 201)
   })
 
-  // The Box's desktop, to watch and take over what its agents do.
-  routes.post('/devices/:deviceId/box/desktop', zv('param', deviceParam), async (c) => {
-    const device = await requireDeviceAccess(
-      c.get('userId'),
-      readTeamIdCandidate(c),
-      c.req.valid('param').deviceId,
-      'manage',
-      deps.access,
+  // Older Desktop releases open the Box's desktop through an instabox link, which
+  // instabox no longer makes for the deployment's workspace key.
+  routes.post('/devices/:deviceId/box/desktop', () => {
+    throw new AppError(
+      426,
+      'update_required',
+      "Update Nuphos to open this computer's desktop: this version opens it in a way that no longer works.",
     )
-    const url = await requireBoxes().desktop(device.userId, device.deviceId)
+  })
 
-    return c.json({ url, label: device.label })
+  // The Box's desktop, to watch and take over what its agents do: started here, then
+  // streamed over the WebSocket on the same path.
+  const desktopDevice = (c: Context<{ Variables: AuthVariables }>, deviceId: string) =>
+    requireDeviceAccess(c.get('userId'), readTeamIdCandidate(c), deviceId, 'manage', deps.access)
+
+  routes.post('/devices/:deviceId/box/vnc', zv('param', deviceParam), async (c) => {
+    const device = await desktopDevice(c, c.req.valid('param').deviceId)
+
+    await requireBoxes().desktop(device.userId, device.deviceId)
+
+    return c.json({ label: device.label })
+  })
+  routes.get('/devices/:deviceId/box/vnc', zv('param', deviceParam), async (c) => {
+    const device = await desktopDevice(c, c.req.valid('param').deviceId)
+
+    if (c.req.header('upgrade')?.toLowerCase() !== 'websocket')
+      throw new AppError(426, 'upgrade_required', 'Connect with a WebSocket')
+    const upstream = await requireBoxes().vnc(device.userId, device.deviceId)
+
+    return upgradeWebSocket(c as unknown as Context, boxVncRelay(upstream))
   })
 
   // Rename any of the caller's own devices, a Box or a computer.

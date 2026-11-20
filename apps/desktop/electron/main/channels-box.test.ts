@@ -48,7 +48,7 @@ test('Box IPC channels scope the list and every Box action to the page team', as
       ['POST', '/agent/devices/dev%2F1/box/resume?teamId=team-1', undefined],
       ['DELETE', '/agent/devices/dev%2F1/box?teamId=team-1', undefined],
       ['DELETE', '/agent/devices/dev%2F1?teamId=team-1', undefined],
-      ['POST', '/agent/devices/dev%2F1/box/desktop?teamId=team-1', undefined],
+      ['POST', '/agent/devices/dev%2F1/box/vnc?teamId=team-1', undefined],
       ['PATCH', '/agent/devices/dev%2F1?teamId=team-1', { label: 'Build Box' }],
       ['POST', '/agent/devices/dev%2F1/agents', { teamId: 'team-1', provider: 'codex' }],
       ['PATCH', '/agent/devices/dev%2F1/agents/claude-code', { teamId: 'team-1', label: 'Main' }],

@@ -133,7 +133,7 @@ export type WindowDeviceApi = {
   ): Promise<'notification' | 'in-app' | 'duplicate'>
   runtimeSignInAsk(teamId: string, runtimeId: string, sessionId: string): Promise<SignInAsk>
   runtimeSignInSettle(teamId: string, runtimeId: string): Promise<void>
-  boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
+  boxDesktop(deviceId: string, teamId: string): Promise<{ label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>
   boxUsageHistory(teamId: string, range: '1d' | '7d' | '30d'): Promise<BoxUsageHistory>
