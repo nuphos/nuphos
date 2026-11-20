@@ -5,6 +5,7 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
@@ -357,5 +358,38 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
       error: expect.any(Error),
       source: 'agent.trigger.request',
     })
+  })
+
+  test('a busy runtime that refused a turn the queue retries is a warning, not an error', async () => {
+    captured.length = 0
+    capturedExceptions.length = 0
+    seen.sinkFrames.length = 0
+    previewError = new AppError(409, 'runtime_not_accepting_message', 'Running tools…')
+
+    try {
+      await expect(
+        runAgentForTrigger({
+          userId: 'actor-1',
+          nuphosToken: 'tok',
+          teamId: 'team-1',
+          sessionId: 'conv-busy',
+          messages: [
+            { id: 'm3', role: 'user', parts: [{ type: 'text', text: 'cron' }] },
+          ] as UIMessage[],
+          firstMessage: 'cron',
+          source: 'agent.resource',
+          clientResendsRefusal: true,
+        }),
+      ).rejects.toThrow('Running tools…')
+    } finally {
+      previewError = null
+    }
+
+    const phases = captured.map((entry) => entry.properties?.phase)
+
+    expect(phases).toContain('agent.turn.requeued_busy')
+    expect(phases).not.toContain('agent.trigger.request.error')
+    expect(phases).not.toContain('agent.chat.run.error_frame_appended')
+    expect(capturedExceptions).toEqual([])
   })
 })
