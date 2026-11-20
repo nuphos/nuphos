@@ -17,7 +17,7 @@ export function ChannelEmptyState({
   bot: boolean
   preparingFirstReply: boolean
   firstReplyFailed: boolean
-  /** A line for the Bot's owner, in the intro's column and spaced from it. */
+  /** A line for the Bot's owner, in the intro's column, 16px under it (the gap and pt-1). */
   banner?: ReactNode
 }) {
   return (
@@ -50,7 +50,7 @@ export function ChannelEmptyState({
           )}
         </div>
       )}
-      {banner && <div className="w-full max-w-[480px] pt-3">{banner}</div>}
+      {banner && <div className="w-full max-w-[480px] pt-1">{banner}</div>}
     </div>
   )
 }
