@@ -22,8 +22,10 @@ export const providerUnreachableScenarios: Scenario[] = [
       await pickAgent(page, 'E2E fixture agent')
       await send(page, 'Start DeepSeek E2E_DSH_NO_KEY E2E_DELIVERY:dsh-no-key')
       const reason = page.getByText(/llm-deepseek: no API key/).first()
+
       await reason.waitFor()
       const shown = await reason.textContent()
+
       if (
         !shown?.includes('DEEPSEEK_API_KEY') ||
         !shown.includes('…') ||
