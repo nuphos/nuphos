@@ -1,6 +1,7 @@
 import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
@@ -12,7 +13,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, noteReplyFailed, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -33,10 +34,12 @@ import {
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+import { noteReplyFailed } from './reply-failed'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { TurnRunner } from './turn-runner'
+import type { TeamSession } from '@/lib/claude-code-preview/team-openab-runtime'
 import type * as dbActual from '@/lib/db'
 
 const TEAM = 'team'
@@ -374,6 +377,34 @@ describe('waking a channel’s agents', () => {
       cause: 'usage_limit',
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
+    })
+  })
+
+  test('an agent whose Claude account needs verification says where to verify it', async () => {
+    const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}\n> {"errorKind":"verification_required"}`,
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: 'its account must be verified with Anthropic.',
+      verifyUrl: portal,
     })
   })
 
@@ -1352,5 +1383,56 @@ describe('an agent whose computer is offline', () => {
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
+  })
+})
+
+// #4061: a wake whose turn a runtime restart cut off said the Bot couldn't reply, beside the
+// answer a later wake was already giving, and left its posts read so nothing asked again.
+describe('a channel wake cut off by a runtime restart', () => {
+  beforeEach(async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'], 'agentReadIndex.agent-a': -1 } },
+    )
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: async () => ({ status: 'completed', finishReason: 'connection-lost' }),
+    })
+    // Back on the air with no turn and no outcome: the runtime restarted under it.
+    sessionsByConversation.set(`${TEAM}:agent-a`, {
+      openabSessionId: 'openab-a',
+      reattached: Promise.resolve(true),
+      client: { getSessionExecutionState: async () => ({ state: 'idle' }) },
+    } as unknown as TeamSession)
+  })
+  afterEach(() => {
+    sessionsByConversation.delete(`${TEAM}:agent-a`)
+  })
+
+  test('is not reported as a couldn’t-reply line: its posts wait for the next wake', async () => {
+    await say('anyone there?')
+    const [notice] = await listPendingUserMessages('agent-a-owner', 'agent-a')
+
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    await runTurn(
+      { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'agent.resource',
+      [notice!],
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.filter(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed ?? []).toEqual([])
+    expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+    // Asked again, with the same post.
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
   })
 })

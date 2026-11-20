@@ -122,7 +122,7 @@ const localAgentStatusSchema = z.object({
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
   /** The account whose quota it spends, as a hash only that computer can make. */
-  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{20}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -256,7 +256,8 @@ export type HolderMessage =
       provider?: LocalAgentProvider
       instanceId?: string
     }
-  | { t: 'data'; s: string; d: string }
+  /** `conn` names the tunnel the stream opened on; a replica from before it was added sends none. */
+  | { t: 'data'; s: string; d: string; conn?: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }

@@ -1,6 +1,6 @@
 ---
 name: zeabur
-description: Inspect or manage Zeabur (PaaS) resources for a Nuphos-bound Zeabur provider — projects, services, deployments, runtime/build logs, and environment variables — via the Zeabur GraphQL API (and the zeabur CLI when present). Includes a setup script that loads the selected provider's API token into the sandbox.
+description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs and environment variables, via the Zeabur GraphQL API or CLI."
 ---
 
 # Zeabur

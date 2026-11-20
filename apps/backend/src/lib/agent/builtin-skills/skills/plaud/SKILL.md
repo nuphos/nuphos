@@ -1,6 +1,6 @@
 ---
 name: plaud
-description: Read Plaud recordings — list and search recordings, read transcripts, AI summaries and highlights, and get a temporary audio URL — through a Plaud account the user's team has connected to Nuphos via OAuth. Use whenever the user asks about a meeting or call they recorded with Plaud (Plaud Note, NotePin), wants a summary, action items, a follow-up draft or quotes from a recording, or asks what was said in a conversation. Nuphos backend hands the agent a short-lived Plaud access token; the agent calls the Plaud API directly with curl.
+description: "Read Plaud recordings in a team-bound account: search, transcripts, AI summaries, highlights and audio URLs. Use for summaries, action items or quotes from a recorded call."
 ---
 
 # plaud

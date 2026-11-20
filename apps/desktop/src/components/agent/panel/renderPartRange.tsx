@@ -1,3 +1,9 @@
+import { isValidElement } from 'react'
+
+import { t } from '../../../i18n'
+
+import { CollapsedWorkView } from './partChrome'
+import { getToolLabel } from './toolPartUtils'
 import { segmentParts } from './toolRuns'
 import { ToolRunView } from './ToolRunView'
 
@@ -66,4 +72,43 @@ export function renderSelectedParts(
     (part, index, options) => renderPart(part, indices[index], options),
     now,
   )
+}
+
+const supersededApprovalMessage =
+  'Not run: a new message cancelled the pending approval. Ask again if you still want it.'
+
+/** Keep the cancelled approval's outcome directly after the activity that contains it. */
+export function withApprovalNotice(body: ReactNode[], parts: readonly Part[]): ReactNode[] {
+  const part = parts.find(
+    (candidate): candidate is ToolPart =>
+      candidate.type === 'tool' && candidate.errorText === supersededApprovalMessage,
+  )
+
+  if (!part) return body
+  const action = getToolLabel(part).trim()
+  const after =
+    body.findIndex((node) => {
+      if (!isValidElement<{ parts?: ToolPart[]; toolCallIds?: string[] }>(node)) return false
+      if (node.type === ToolRunView)
+        return node.props.parts?.some((tool) => tool.toolCallId === part.toolCallId) === true
+
+      return (
+        node.type === CollapsedWorkView &&
+        node.props.toolCallIds?.includes(part.toolCallId) === true
+      )
+    }) + 1
+  const notice = (
+    <p key="superseded-approval" role="status" className="text-[12.5px] leading-5 text-secondary">
+      {action
+        ? t(
+            'Not run: a new message cancelled the approval for "{action}". Ask again if you still want it.',
+            { action },
+          )
+        : t(
+            'Not run: a new message cancelled the pending approval. Ask again if you still want it.',
+          )}
+    </p>
+  )
+
+  return [...body.slice(0, after), notice, ...body.slice(after)]
 }
