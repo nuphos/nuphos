@@ -234,7 +234,7 @@ test('closing a shown window hands the browser back once, and a hidden one never
   const { window, page } = await opened('hand-back-1')
 
   handBacks.length = 0
-  // The page of a hidden tab closing its own window is not the person handing it back.
+  // Only a window on screen is one the person can close; any other close is no hand-back.
   window.close()
   assert.deepEqual(handBacks, [])
   await runBrowserCall({ action: 'show', team: 't1', session: 'hand-back-1', tab: page.id })

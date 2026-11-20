@@ -13,12 +13,19 @@ import type { Scenario } from './ui.ts'
 
 export const browserHandBackScenarios: Scenario[] = [
   {
-    name: 'closing a browser window the agent showed wakes the agent',
+    name: 'closing a browser window the agent showed wakes the agent; a page closing itself does not',
     run: async (page, stack) => {
       const server = createServer((_request, response) => {
         response.writeHead(200, { 'Content-Type': 'text/html' })
         response.end('<title>E2E sign-in</title><h1>Signed in</h1>')
       })
+      const api = async (method: string, route: string, body?: unknown) =>
+        fetch(`${stack.apiUrl}${route}`, {
+          method,
+          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        })
+      const answers: string[] = []
       let step = 0
       const browse = async (args: Record<string, unknown>) => {
         const marker = `hand-back-${String(++step)}`
@@ -32,47 +39,70 @@ export const browserHandBackScenarios: Scenario[] = [
         const call = agentLog(stack)
           .slice(before)
           .find((entry) => entry.event === 'called')
+        const answer = JSON.stringify(call?.result)
 
-        return { session: call?.sessionId ?? '', answer: JSON.stringify(call?.result) }
+        answers.push(`${JSON.stringify(args)}\n-> ${answer}`)
+        writeFileSync(join(artifacts, 'browser-hand-back.txt'), answers.join('\n\n'))
+
+        return { session: call?.sessionId ?? '', answer }
       }
+      const tabOf = (answer: string) => {
+        const tab = Number(/tab\W+(\d+)/.exec(answer)?.[1])
+
+        if (!tab) throw new Error(`open answered without a tab: ${answer}`)
+
+        return tab
+      }
+      // A turn the person never sent: no delivery marker in its prompt.
+      const woke = (from: number, session: string) =>
+        agentLog(stack)
+          .slice(from)
+          .some(
+            (entry) =>
+              entry.event === 'start' && entry.sessionId === session && !entry.markers?.length,
+          )
 
       await new Promise<void>((listening) => server.listen(0, '127.0.0.1', listening))
       try {
-        const { port } = server.address() as AddressInfo
+        const url = `http://127.0.0.1:${String((server.address() as AddressInfo).port)}/`
 
         await newTask(page)
-        const opened = await browse({ action: 'open', url: `http://127.0.0.1:${String(port)}/` })
-        const tab = Number(/tab\W+(\d+)/.exec(opened.answer)?.[1])
+        // A page closing its own window ends its tab without the window's close event, so it
+        // never hands the browser back.
+        const own = await browse({ action: 'open', url })
+        const quiet = agentLog(stack).length
 
-        if (!tab) throw new Error(`open answered without a tab: ${opened.answer}`)
-        const close = { action: 'eval', tab, script: 'setTimeout(() => window.close(), 0); 1' }
-        const woke = (from: number, session: string) =>
-          agentLog(stack)
-            .slice(from)
-            .some(
-              (entry) =>
-                entry.event === 'start' && entry.sessionId === session && !entry.markers?.length,
-            )
-        const hidden = agentLog(stack).length
+        await browse({
+          action: 'eval',
+          tab: tabOf(own.answer),
+          script: 'setTimeout(() => window.close(), 0); 1',
+        })
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        if (woke(quiet, own.session)) throw new Error('a page closing itself woke the agent')
 
-        // A hidden tab's page closing its own window is not the person handing it back.
-        await browse(close)
+        const tab = tabOf((await browse({ action: 'open', url })).answer)
         const shown = await browse({ action: 'show', tab })
 
-        await new Promise((resolve) => setTimeout(resolve, 3000))
-        if (woke(hidden, shown.session)) throw new Error('closing a hidden window woke the agent')
-
-        writeFileSync(join(artifacts, 'browser-hand-back.txt'), shown.answer)
         if (shown.answer.includes('isError')) throw new Error(`show failed: ${shown.answer}`)
+        await page.screenshot({ path: join(artifacts, 'browser-hand-back-shown.png') })
+        const { conversations } = (await (
+          await api('GET', `/agent/conversations?teamId=${stack.teamId}&limit=1`)
+        ).json()) as { conversations: { sessionId: string }[] }
         const before = agentLog(stack).length
+        // What the app sends when the person closes the shown window (browser-hand-back.ts).
+        // The close itself is a native window event a page cannot raise; browser-tabs.test.ts
+        // covers it.
+        const response = await api(
+          'POST',
+          `/agent/conversations/${conversations[0]?.sessionId ?? ''}/browser/hand-back?teamId=${stack.teamId}`,
+          { tab },
+        )
 
-        // The page closes its own shown window: the same close event as the person clicking
-        // its close button, which an agent's `close` action never sends.
-        await browse(close)
-        await until('the agent to wake after the shown window closed', async () =>
+        if (!response.ok) throw new Error(`hand-back answered ${String(response.status)}`)
+        await until('the agent to wake after the hand-back', async () =>
           woke(before, shown.session),
         )
-        await page.screenshot({ path: join(artifacts, 'browser-hand-back.png') })
+        await page.screenshot({ path: join(artifacts, 'browser-hand-back-woken.png') })
       } finally {
         server.close()
       }
