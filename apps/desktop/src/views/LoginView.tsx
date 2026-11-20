@@ -152,7 +152,12 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
       {/* Scrolls, so a long account list never pushes the form out of reach. */}
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
-          <img className="mb-5 h-10" src={`/nuphos-lockup-${resolved}.png`} alt="" aria-hidden="true" />
+          <img
+            className="mb-5 h-10"
+            src={`/nuphos-lockup-${resolved}.png`}
+            alt=""
+            aria-hidden="true"
+          />
           <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
