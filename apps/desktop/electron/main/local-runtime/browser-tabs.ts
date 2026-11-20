@@ -108,8 +108,8 @@ function openTab(url: string, conversation: string, team: string): WebContents {
   window.on('close', (event) => {
     if (isAppQuitting()) return
     event.preventDefault()
+    if (window.isVisible()) handBack(team, conversation, contents.id)
     window.hide()
-    handBack(team, conversation, contents.id)
   })
   contents.loadURL(url).catch(() => {
     // A failed load leaves the tab on its error page, which `describe` reports.

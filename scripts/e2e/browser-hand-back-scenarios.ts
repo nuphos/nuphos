@@ -45,24 +45,32 @@ export const browserHandBackScenarios: Scenario[] = [
         const tab = Number(/tab\W+(\d+)/.exec(opened.answer)?.[1])
 
         if (!tab) throw new Error(`open answered without a tab: ${opened.answer}`)
+        const close = { action: 'eval', tab, script: 'setTimeout(() => window.close(), 0); 1' }
+        const woke = (from: number, session: string) =>
+          agentLog(stack)
+            .slice(from)
+            .some(
+              (entry) =>
+                entry.event === 'start' && entry.sessionId === session && !entry.markers?.length,
+            )
+        const hidden = agentLog(stack).length
+
+        // A hidden tab's page closing its own window is not the person handing it back.
+        await browse(close)
         const shown = await browse({ action: 'show', tab })
+
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        if (woke(hidden, shown.session)) throw new Error('closing a hidden window woke the agent')
 
         writeFileSync(join(artifacts, 'browser-hand-back.txt'), shown.answer)
         if (shown.answer.includes('isError')) throw new Error(`show failed: ${shown.answer}`)
         const before = agentLog(stack).length
 
-        // The page closes its own window: the same close event as the person clicking its
-        // close button, which an agent's `close` action never sends.
-        await browse({ action: 'eval', tab, script: 'setTimeout(() => window.close(), 0); 1' })
-        await until('the agent to wake after the window closed', async () =>
-          agentLog(stack)
-            .slice(before)
-            .some(
-              (entry) =>
-                entry.event === 'start' &&
-                entry.sessionId === shown.session &&
-                !entry.markers?.length,
-            ),
+        // The page closes its own shown window: the same close event as the person clicking
+        // its close button, which an agent's `close` action never sends.
+        await browse(close)
+        await until('the agent to wake after the shown window closed', async () =>
+          woke(before, shown.session),
         )
         await page.screenshot({ path: join(artifacts, 'browser-hand-back.png') })
       } finally {

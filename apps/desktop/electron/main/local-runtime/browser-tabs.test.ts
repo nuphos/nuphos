@@ -230,12 +230,16 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.deepEqual(await listed('show-1'), [page.id])
 })
 
-test('closing a shown window hands the browser back, waking its conversation', async () => {
+test('closing a shown window hands the browser back once, and a hidden one never', async () => {
   const { window, page } = await opened('hand-back-1')
 
   handBacks.length = 0
+  // The page of a hidden tab closing its own window is not the person handing it back.
+  window.close()
+  assert.deepEqual(handBacks, [])
   await runBrowserCall({ action: 'show', team: 't1', session: 'hand-back-1', tab: page.id })
   assert.deepEqual(handBacks, [])
+  window.close()
   window.close()
   assert.deepEqual(handBacks, [
     {
