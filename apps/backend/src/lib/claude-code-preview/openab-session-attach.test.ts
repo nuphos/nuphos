@@ -1,15 +1,15 @@
 import { beforeEach, expect, test } from 'bun:test'
 
-import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
-import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useDb } from '@/lib/test/doubles/db'
-
 import { attachOpenAbSession } from './openab-session-attach'
+import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import type { OpenAbSessionRuntime, RuntimeDefaults  } from './openab-acp-session'
+import type { OpenAbSessionRuntime } from './openab-acp-session'
+import type { RuntimeDefaults } from './openab-acp-session'
 import type { TeamPreviewClient } from './team-openab-runtime'
 import type { ConversationPreviewAttachment } from '@/lib/agent/db/shared'
 
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useDb } from '@/lib/test/doubles/db'
 
 let attachment: ConversationPreviewAttachment | null = null
 let defaults: RuntimeDefaults = {}
