@@ -71,7 +71,8 @@ try {
   await chooseLocal(page)
   await send(page, 'Check the fictional changelog E2E_DELIVERY:disk-second')
   await page.getByText('ACK E2E_DELIVERY:disk-second').waitFor({ timeout: 60_000 })
-  await page.waitForTimeout(5_000)
+  // Device readings refresh every 60 seconds: observe past a full refresh.
+  await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned in another chat')
 
   const otherWindow = page.context().waitForEvent('page')
@@ -82,7 +83,7 @@ try {
   await second.waitForLoadState('domcontentloaded')
   await second.getByRole('tab', { name: 'Tasks' }).click()
   await second.getByText('Check the fictional changelog', { exact: false }).first().click()
-  await second.waitForTimeout(5_000)
+  await second.waitForTimeout(65_000)
   if (await warning(second).isVisible()) throw new Error('Warning returned in a second window')
   await screenshot(second, 'second-window')
 
@@ -92,7 +93,7 @@ try {
   page.setDefaultTimeout(30_000)
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByText('Check the fictional changelog', { exact: false }).first().click()
-  await page.waitForTimeout(5_000)
+  await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned after restarting Desktop')
   await screenshot(page, 'restarted')
 
