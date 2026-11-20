@@ -62,6 +62,7 @@ export type LocalRuntimeTunnelStatus = {
           /** An added agent's CLI being installed, or why that failed. */
           installing?: true
           installError?: string
+          probeError?: string
         }
         usage?: unknown
         usageAt?: string
