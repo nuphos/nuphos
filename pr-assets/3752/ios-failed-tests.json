@@ -1,0 +1,63 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "22619112-1C9F-435D-91C7-E32CE309A116",
+      "deviceName" : "iphone",
+      "modelName" : "iPhone 17 Pro",
+      "osBuildNumber" : "24B8117",
+      "osVersion" : "27.2",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "children" : [
+                    {
+                      "name" : "Failed to tap Any (First Match): No matches found for first query match sequence: `Descendants matching type Any` -> `Elements matching predicate 'identifier == \"inbox.row\" AND label == \"Roll out 1.4 to production?\"'`, given input App element pid: 25263",
+                      "nodeType" : "Failure Message",
+                      "sourceLocation" : {
+                        "filePath" : "/Users/runner/work/nuphos/nuphos/apps/ios/UITests/InboxUITests.swift",
+                        "lineNumber" : 46
+                      }
+                    }
+                  ],
+                  "duration" : "24s",
+                  "durationInSeconds" : 24.793580055236816,
+                  "name" : "testNamesTheConversationsThatActOnTheAnswer()",
+                  "nodeIdentifier" : "InboxUITests/testNamesTheConversationsThatActOnTheAnswer()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests/InboxUITests/testNamesTheConversationsThatActOnTheAnswer",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                }
+              ],
+              "name" : "InboxUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests/InboxUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Failed"
+            }
+          ],
+          "name" : "nuphos-iosUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Failed"
+        }
+      ],
+      "name" : "nuphos-ios",
+      "nodeType" : "Test Plan",
+      "result" : "Failed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}
