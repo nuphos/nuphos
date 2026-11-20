@@ -9,9 +9,23 @@ import type { RuntimeInstance } from '../../../types/runtime.ts'
 export type AgentReachability = 'ready' | 'signIn' | 'offline'
 
 /**
- * One answer for the dot, the banner and the send button. Agents without a Box have no dot.
- * Signed out is only the agent CLI's own status, as its Box reports it; the usage probe's
- * sign-in hint is a guess (it cannot see a token in the environment), so it never counts.
+ * The computer's name when it is an instabox Box that is not connected, else null. A send
+ * resumes such a Box (box-wake.ts) whichever state it is parked in, so to a person it is
+ * neither offline nor signed out: nothing about it stops the message. Its machine state is not
+ * asked for — the runtime list does not carry it, and the answer would not change what the
+ * composer says. A `k8s` Box is a managed runtime's pod, which a send does not bring back, so
+ * it keeps the offline banner rather than a promise the send cannot keep.
+ */
+export function pausedBoxLabel(local: RuntimeInstance['local']): string | null {
+  return local?.online === false && local.box?.provider === 'instabox' ? local.deviceLabel : null
+}
+
+/**
+ * One answer for the dot, the banner and the send button. Agents without a Box have no dot,
+ * and neither has a paused one: sending resumes it, so the composer only says it is paused
+ * (useComputerNotice). Signed out is only the agent CLI's own status, as its Box reports it;
+ * the usage probe's sign-in hint is a guess (it cannot see a token in the environment), so it
+ * never counts.
  */
 export function selectedAgentReachability(
   control: Pick<RuntimeControl, 'value' | 'options'> | undefined,
@@ -21,6 +35,7 @@ export function selectedAgentReachability(
   if (!id) return null
   const local = control.options?.find((instance) => instance.id === id)?.local
 
+  if (pausedBoxLabel(local) !== null) return null
   if (local?.online === false) return 'offline'
   if (local?.signedIn === false) return 'signIn'
 
