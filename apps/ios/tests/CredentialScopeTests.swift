@@ -139,5 +139,26 @@ enum CredentialScopeTests {
         precondition(Set((none.json.objectValue ?? [:]).keys) == ["personalCredentialIds"])
         // A new conversation still states every kind.
         precondition(CredentialSelection().json.objectValue?["githubInstallationIds"]?.arrayValue?.isEmpty == true)
+        anUnsetTeamWideKindIsShownInFull()
+    }
+
+    /// What `nuphos_ask` stores leaves GitHub unset, which the server reads as every installation (#4034).
+    private static func anUnsetTeamWideKindIsShownInFull() {
+        let team = CredentialCatalog(json: JSONValue.parse(
+            #"{"awsRoles":[{"roleId":"aws","accountId":"1"},{"roleId":"aws2","accountId":"2"}],"githubInstallations":[{"installationId":"166","accountLogin":"o"},{"installationId":"177","accountLogin":"p"}]}"#)!)
+        let github = team.allItems.filter { $0.provider.selectionKey == "githubInstallationIds" }
+        let aws2 = team.allItems.first { $0.id == "aws2" }!
+        let asked = CredentialSelection(json: JSONValue.parse(#"{"awsRoleIds":["aws"]}"#)!)
+        var shown = asked.reaching(team)
+        precondition(github.allSatisfy(shown.contains), "An unset GitHub key reaches every installation")
+        precondition(!shown.contains(aws2), "Other kinds show only what is stored")
+        precondition(asked.reaching(nil) == asked, "Nothing to fill before the catalog loads")
+        // Unticking one installation stores the rest as a list.
+        shown.toggle(github[0])
+        precondition(shown.json["githubInstallationIds"]?.arrayValue?.compactMap(\.stringValue) == ["177"])
+        // An explicit empty list is none, and a new conversation keeps its own defaults.
+        let none = CredentialSelection(json: JSONValue.parse(#"{"githubInstallationIds":[]}"#)!)
+        precondition(!github.contains(where: none.reaching(team).contains))
+        precondition(CredentialSelection().reaching(team) == CredentialSelection())
     }
 }
