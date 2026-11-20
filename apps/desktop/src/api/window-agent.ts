@@ -84,6 +84,7 @@ export type WindowAgentApi = AgentDecisionApi & {
     detail?: string
   }>
   agentReportFailure(streamId: string, payload: Record<string, unknown>): Promise<void>
+  agentFollowChanges(teamId: string): Promise<void>
   agentAbortClientTools(sessionId: string): Promise<void>
   agentExecuteClientTool(args: {
     sessionId: string
