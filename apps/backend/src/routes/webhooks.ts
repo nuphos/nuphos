@@ -13,7 +13,7 @@ import {
   verifyAwsSnsSignature,
 } from '@/lib/aws/sns-webhook'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import type { AgentTrigger } from '@/lib/agent/trigger-db'
 import type { AwsSnsEnvelope, NormalizedCloudWatchSnsPayload } from '@/lib/aws/sns-webhook'
@@ -145,8 +145,12 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 
     if (!claimed) {
       const elapsed = trigger.lastRunAt ? (now.getTime() - trigger.lastRunAt.getTime()) / 1000 : 0
+      const retryAfter = Math.max(1, Math.ceil(cooldownSeconds - elapsed))
 
-      return refuse(c, Math.max(1, Math.ceil(cooldownSeconds - elapsed)), 'rate_limited')
+      // The sender is told to come back; if it never does, this is the only trace.
+      logEvent('warn', 'webhook.rate_limited', { trigger_id: triggerId, retry_after: retryAfter })
+
+      return refuse(c, retryAfter, 'rate_limited')
     }
   }
   try {

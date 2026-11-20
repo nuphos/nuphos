@@ -2,13 +2,13 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
+import { showBotAccess } from '../../lib/botDetailsPanel'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { Avatar } from '../Avatar'
+import { Button } from '../ui/button'
 import { IconButton } from '../ui/icon-button'
 
 import type { AgentMessageReply, ChannelFace } from '../../api'
-import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /**
  * Where a group chat's member faces sit, as the design system draws them in a
@@ -202,16 +202,18 @@ export function ReplyingBanner({
 
 /**
  * The last line in the chat of a Bot that has never been given computers or
- * credentials: it runs with none until its owner picks them, here or in the
- * composer's picker. Gone once anything is saved.
+ * credentials: it runs with none until its owner picks them in Bot details'
+ * Access section, which Choose opens. Gone once anything is saved.
  */
-export function ChooseAccessBanner({ credentials }: { credentials: CredentialSelectorControl }) {
+export function ChooseAccessBanner() {
   return (
     <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <div className="min-w-0 flex-1 text-secondary">
         {t("This Bot can't use any computers or credentials yet. Choose what it may use.")}
       </div>
-      <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
+      <Button size="sm" variant="secondary" onClick={showBotAccess}>
+        {t('Choose')}
+      </Button>
     </div>
   )
 }

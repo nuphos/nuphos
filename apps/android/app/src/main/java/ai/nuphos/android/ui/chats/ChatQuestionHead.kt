@@ -51,7 +51,7 @@ private fun Source(question: BotQuestion, onOpen: () -> Unit) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.padding(bottom = 6.dp).clickable(onClick = onOpen).testTag("bot-question-from"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        AgentAvatar(question.sessionId, null, 14.dp, showBadge = false)
+        AgentAvatar(question.sessionId, question.runtime, 14.dp, showBadge = false)
         Text(question.title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = muted,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         Icon(Icons.Outlined.ArrowOutward, null, Modifier.size(12.dp), tint = muted)
