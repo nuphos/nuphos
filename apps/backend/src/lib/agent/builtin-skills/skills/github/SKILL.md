@@ -1,6 +1,6 @@
 ---
 name: github
-description: Operate on GitHub repos, issues, PRs, and Actions using an authorized existing local gh login or a GitHub App installation the user's team has bound to Nuphos. Nuphos backend mints short-lived installation tokens; the agent talks to api.github.com directly with `gh` or `curl`. Use whenever the user names a repo, asks to read code/PRs/issues, comment, open a PR, dispatch a workflow, etc.
+description: Work with GitHub repos, issues, PRs and Actions through a team-bound GitHub App or the member's own login. Use whenever the user names a repo or asks about code, PRs or issues.
 ---
 
 # github

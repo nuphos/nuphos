@@ -1,6 +1,6 @@
 ---
 name: upstash
-description: Manage Upstash — list/create/delete Redis databases, read usage stats and backups, and manage Vector indexes — through an Upstash account the user's team has bound to Nuphos. Use whenever the user asks about their Upstash Redis databases, wants to provision or tear one down, check an Upstash endpoint/region/plan, inspect Redis usage or costs, or manage Upstash Vector indexes. Nuphos backend hands the agent an Upstash Management API key; the agent calls api.upstash.com/v2 directly with curl.
+description: "Manage a team-bound Upstash account: create, inspect or delete Redis databases, read usage, backups and plans, and manage Vector indexes."
 ---
 
 # upstash
