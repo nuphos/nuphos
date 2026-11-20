@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { forgetDeviceShares } from '@/lib/agent/devices/local-share-revoke'
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
 import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
@@ -709,14 +709,14 @@ describe('agent device routes', () => {
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
-  test('DELETE closes the Box tunnel before its machine goes', async () => {
+  test('DELETE revokes the Box credential only once its machine is gone', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
     credentials.add(key('user-1', 'b1'))
     const seen: string[] = []
     const box: BoxDeps = {
       ...fakeBox([]),
       destroy: async () => {
-        seen.push(`destroy after ${disconnected.length} disconnect(s)`)
+        seen.push(`destroy with credential ${String(credentials.has(key('user-1', 'b1')))}`)
 
         return true
       },
@@ -726,7 +726,8 @@ describe('agent device routes', () => {
       (await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' }))
         .status,
     ).toBe(200)
-    expect(seen).toEqual(['destroy after 1 disconnect(s)'])
+    expect(seen).toEqual(['destroy with credential true'])
+    expect(disconnected).toEqual([key('user-1', 'b1')])
     expect(credentials.has(key('user-1', 'b1'))).toBe(false)
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
@@ -741,6 +742,27 @@ describe('agent device routes', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, machineLeft: true })
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+
+  test('DELETE keeps a Box whose machine is still pausing, so a later delete finds it', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    credentials.add(key('user-1', 'b1'))
+    const box: BoxDeps = {
+      ...fakeBox([]),
+      destroy: () =>
+        Promise.reject(
+          new AppError(409, 'box_busy', 'The computer is still pausing. Try again in a minute.'),
+        ),
+    }
+    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
+      method: 'DELETE',
+    })
+
+    expect(response.status).toBe(409)
+    expect(devices[key('user-1', 'b1')]).toBeDefined()
+    // Still usable: its host keeps its credential and its tunnel.
+    expect(credentials.has(key('user-1', 'b1'))).toBe(true)
+    expect(disconnected).toEqual([])
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []

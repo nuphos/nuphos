@@ -8,7 +8,7 @@
 // from the device's presence, so a machine that instabox paused on its own is
 // seen, and woken, like one Nuphos paused.
 
-import { Sandbox } from '@insforge/instabox-sdk'
+import { InstaboxError, Sandbox } from '@insforge/instabox-sdk'
 
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
@@ -17,6 +17,7 @@ import { boxConnection } from './box-instabox-account'
 import {
   AGENT_COMMAND,
   QUICK_TIMEOUT_MS,
+  busy,
   downloadEnv,
   killBoxMachine,
   requireBackendUrl,
@@ -125,7 +126,9 @@ export async function pauseBox(userId: string, deviceId: string): Promise<AgentD
 
     await sandbox.pause()
   } catch (error) {
-    throw unavailable('Could not pause the computer', error)
+    // A pause that outlives the wait goes on: instabox finishes saving it on its own.
+    if (!(error instanceof InstaboxError && error.code === 'operation_timeout'))
+      throw unavailable('Could not pause the computer', error)
   }
   await clearBoxUpdateStarted(userId, deviceId)
 
@@ -186,20 +189,22 @@ export async function runOnBox(userId: string, deviceId: string, command: string
 /**
  * Deletes the machine and its disks; the caller then removes the device row. A row that
  * never got its machine id (the backend went away mid-create) may still own a
- * machine: it is found by the device id in its metadata. Nothing the provider says
- * keeps a computer from being deleted: a kill that fails (an expired key, an account
+ * machine: it is found by the device id in its metadata. Only a pause still under way
+ * keeps a computer from being deleted: any other kill that fails (an expired key, an account
  * no longer connected, instabox down) is logged with the machine to clean up by hand.
- * False when the machine may still be running at the provider.
+ * False when the machine may still be running on the team's own instabox account.
  */
 export async function destroyBox(userId: string, deviceId: string): Promise<boolean> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
 
-  await deleteDeviceJoinTokens(deviceId)
   try {
     const conn = await boxConnection(device.box, QUICK_TIMEOUT_MS)
 
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
+    // A pause still under way keeps the computer, for a delete a minute later.
+    if (busy(error)) throw unavailable('Could not delete the computer', error)
+    await deleteDeviceJoinTokens(deviceId)
     logError('agent.box.kill_failed', error, {
       user_id: userId,
       device_id: deviceId,
@@ -208,9 +213,10 @@ export async function destroyBox(userId: string, deviceId: string): Promise<bool
       instabox_account_id: device.box.accountId ?? null,
     })
 
-    return false
+    // Only a team's own account is the team's to clean up; the deployment's is Nuphos's, from the log.
+    return !device.box.accountId
   }
-  // Its tunnel closed before the kill, while the machine still ran.
+  await deleteDeviceJoinTokens(deviceId)
   noteBoxUsage(device.box.teamId)
 
   return true
