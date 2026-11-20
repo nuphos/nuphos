@@ -456,10 +456,15 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
-    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
-    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    # Merge groups run on instabox (ubuntu-24.04 image, 4 vCPU / 8 GiB), outside the
+    # hosted-runner limit. Pull requests stay on GitHub's hosts. instabox machines share
+    # capacity with other workloads, so at most 10 of these jobs hold one at a time: the
+    # last digit of the run ID picks one of 10 slots and later runs wait their turn.
+    # Pull requests get a group of their own per run, so they never wait on these slots.
+    runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-24.04' || 'instabox-medium' }}
+    concurrency:
+      group: instabox-e2e-${{ github.event_name == 'pull_request' && format('pr-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
+      queue: max
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
     # group, and compiling openab adds about 6 minutes.
