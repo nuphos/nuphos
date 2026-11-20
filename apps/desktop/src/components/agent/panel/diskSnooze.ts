@@ -43,6 +43,7 @@ const listeners = new Set<() => void>()
 /** Read the shared store each time so other windows cannot leave a stale cache. */
 function all(): Record<string, DiskSnooze> {
   const kept: Record<string, DiskSnooze> = {}
+
   try {
     const raw = readLocalStorage(KEY)
     const stored: unknown = raw ? JSON.parse(raw) : null
@@ -78,6 +79,7 @@ export function subscribeDiskSnooze(listener: () => void) {
     revision += 1
     listener()
   }
+
   if (typeof window !== 'undefined') window.addEventListener('storage', onStorage)
 
   return () => {

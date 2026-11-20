@@ -84,6 +84,7 @@ test('a dismissal in another window is read without a stale cache', () => {
 
 test('a storage event updates an open window', () => {
   let handler: ((event: StorageEvent) => void) | undefined
+
   Object.defineProperty(globalThis, 'addEventListener', {
     value: (_type: string, callback: (event: StorageEvent) => void) => {
       handler = callback
@@ -92,6 +93,7 @@ test('a storage event updates an open window', () => {
   })
   let heard = 0
   const stop = subscribeDiskSnooze(() => heard++)
+
   handler?.({ key: 'unrelated' } as StorageEvent)
   handler?.({ key: 'nuphos.diskSnooze' } as StorageEvent)
   assert.equal(heard, 1)
