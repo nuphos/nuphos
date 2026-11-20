@@ -13,12 +13,24 @@ function whoAsked(read, marker) {
 }
 
 /** Reads what the wake left with channel_read, logs a page it was shown twice, and answers. */
-export async function answerChannel({ call, log, sessionId, channelId, text }) {
+export async function answerChannel({ call, log, sessionId, channelId, text, ask }) {
+  // E2E_ASK_TOOLS asks before each Nuphos tool, as a runtime out of Full Access does.
+  const permit =
+    text.includes('E2E_ASK_TOOLS') &&
+    ((tool, args) => ask({ title: `mcp__nuphos-tools__${tool}`, kind: 'other', rawInput: args }))
+
   const seen = new Set(indexes(text))
   let read = text
   let last = text
 
   log({ sessionId, event: 'channel', detail: channelId })
+  // E2E_ASK_TOOLS: read and answer as a runtime that asks first, then try another channel.
+  if (permit) {
+    const read = { label: 'Read the chat', channelId }
+
+    if ((await permit('channel_read', read)) === 'allow')
+      await call(sessionId, 'channel_read', read)
+  }
   // E2E_SLOW keeps this turn busy, so the posts that follow wait for one notice.
   if (text.includes('E2E_SLOW')) await new Promise((resolve) => setTimeout(resolve, 5_000))
   for (let tries = 0; tries < 5 && more(last); tries++) {
@@ -44,11 +56,16 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
     match[2].includes('E2E_REPLY_TO'),
   )
 
-  await call(sessionId, 'channel_post', {
+  const answer = {
     label: 'Answer',
     channelId,
     text: `POSTED ${marker}${who}`,
     ...(asked ? { replyTo: Number(asked[1]) } : {}),
-  })
+  }
+
+  if (!permit || (await permit('channel_post', answer)) === 'allow')
+    await call(sessionId, 'channel_post', answer)
+  if (permit)
+    await permit('channel_post', { label: 'Elsewhere', channelId: 'e2e-other-channel', text: 'x' })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
 }
