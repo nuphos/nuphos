@@ -3,8 +3,8 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { backendLines, backendLog } from './backend-log.ts'
 import { forgetComputer } from './computer-scenarios.ts'
-import { instaboxMachines } from './instabox-stub.ts'
 import { laptopOnline } from './laptop-fixture.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
@@ -24,11 +24,9 @@ async function settingsSwitch(page: Page, label: string) {
   await page.getByRole('switch', { name: SWITCH }).waitFor()
 }
 
-/** Whether a Box's update command (BOX_UPDATE_COMMAND) reached instabox. */
-const installed = () =>
-  [...instaboxMachines.values()].some((machine) =>
-    machine.commands?.some((cmd) => cmd.includes('systemctl --user stop nuphos-agent')),
-  )
+// Where Update stops on this stack: starting the install on the Box (resumeBox) needs a URL
+// for the Box to dial back on, which this stack does not have (box-scenarios.ts).
+const NO_PUBLIC_URL = 'no public URL for a computer from Nuphos to reach'
 
 export const computerUpdateScenarios: Scenario[] = [
   {
@@ -74,9 +72,21 @@ export const computerUpdateScenarios: Scenario[] = [
     },
   },
   {
-    // A Box on an older CLI: Update on its card runs the install on the Box at once.
-    name: 'Update on a Box with an older CLI runs the install on it at once',
+    // A Box on an older CLI: Update on its card, once confirmed, starts the install on the Box.
+    name: 'Update on a Box with an older CLI starts the install on it once confirmed',
+    expected: new RegExp(
+      `${NO_PUBLIC_URL}|"path":"/teams/[^"]+/agent-runtimes/[^"]+/update","status":503`,
+    ),
     run: async (page, stack) => {
+      const from = backendLines()
+      // The Update request's own error, raised in resumeBox under requestBoxUpdate.
+      const started = () =>
+        backendLog(from).some(
+          (line) =>
+            line.includes(NO_PUBLIC_URL) &&
+            line.includes('at resumeBox') &&
+            line.includes('requestBoxUpdate'),
+        )
       const goOffline = await laptopOnline(stack, { box: OLD_BOX, cliVersion: '0.0.1' })
 
       try {
@@ -90,10 +100,10 @@ export const computerUpdateScenarios: Scenario[] = [
         const confirm = page.getByRole('alertdialog')
 
         await confirm.getByText(`Update ${OLD_BOX}?`).waitFor()
-        if (installed()) throw new Error('The install ran before Update was confirmed')
+        if (started()) throw new Error('The install started before Update was confirmed')
         await page.screenshot({ path: join(artifacts, 'box-update-confirm.png') })
         await confirm.getByRole('button', { name: 'Update and restart' }).click()
-        await until('the install to reach the Box', async () => installed())
+        await until('the install to start on the Box', async () => started())
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
         goOffline()
