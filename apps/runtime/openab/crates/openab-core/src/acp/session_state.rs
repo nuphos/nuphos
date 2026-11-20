@@ -242,6 +242,9 @@ impl SessionState {
                     if let Some(provider) = provider {
                         // Preserve unfamiliar provider states instead of silently hiding them.
                         snapshot["providerState"] = json!(provider);
+                        if matches!(provider, "notLoaded" | "systemError" | "interrupted") {
+                            snapshot["planStep"] = Value::Null;
+                        }
                         if provider == "idle" && snapshot["operation"] == "cancelling" {
                             end_cancelled_tools(snapshot);
                             snapshot["operation"] = json!("none");
@@ -382,6 +385,15 @@ mod tests {
         state.set("interrupted");
         state.operation("prompt");
         assert!(state.snapshot()["planStep"].is_null());
+        for provider in ["notLoaded", "systemError", "interrupted"] {
+            state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Interrupted step"}]}})));
+            state.observe(Some(&json!({"update":{"sessionUpdate":"session_info_update","_meta":{"ai.nuphos/sessionState":{"state":provider}}}})));
+            state.operation("prompt");
+            assert!(
+                state.snapshot()["planStep"].is_null(),
+                "provider {provider}"
+            );
+        }
     }
 
     #[test]
