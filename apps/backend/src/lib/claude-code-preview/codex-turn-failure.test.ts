@@ -73,6 +73,9 @@ test('a provider without the Responses API is named as such, not as a raw 404', 
   ).toBe(
     'This provider doesn’t serve the OpenAI Responses API that Codex needs (https://api.example.com/v1/chat/completions/responses). Give Codex’s custom provider a base URL that does, such as https://api.example.com/v1, or use this provider with another agent.',
   )
+  expect(notFound('https://api-inference.modelscope.cn/v1/responses').userMessage).toStartWith(
+    'This provider doesn’t serve the OpenAI Responses API',
+  )
   // An unknown model on a provider that serves the API keeps the provider's own words.
   expect(
     notFound(

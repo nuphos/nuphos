@@ -7,8 +7,7 @@ const GENERIC_FAILURE = 'The model provider ended this turn with an error.'
  * Codex's 404/405 from `<base URL>/responses`: the provider does not serve the Responses API,
  * the only one Codex speaks, or the base URL already names an endpoint. Not an unknown model.
  */
-const NO_RESPONSES_API =
-  /^unexpected status 40[45] (?![^\n]*\bmodel)[^\n]*\burl: (\S+\/responses)(?=[,\s]|$)/u
+const NO_RESPONSES_API = /^unexpected status 40[45] [^\n]*, url: (\S+\/responses)(?=[,\s]|$)/u
 
 /**
  * A Codex turn the provider failed (a policy refusal, a provider error). The
@@ -23,7 +22,10 @@ export class CodexTurnFailedError extends Error {
 
   get userMessage(): string {
     const notice = this.notice.trim()
-    const url = NO_RESPONSES_API.exec(notice)?.[1]
+    const match = NO_RESPONSES_API.exec(notice)
+    // The model is named in the body, before the URL; a host such as modelscope is not one.
+    const url =
+      match && !/\bmodel/u.test(notice.slice(0, notice.lastIndexOf(', url: '))) && match[1]
 
     if (url)
       return `This provider doesn’t serve the OpenAI Responses API that Codex needs (${url}). Give Codex’s custom provider a base URL that does, such as https://api.example.com/v1, or use this provider with another agent.`
