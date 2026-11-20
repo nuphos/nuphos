@@ -41,7 +41,7 @@ enum LaunchCache {
     }
 
     /// A preview run answers from a fixture, so there is nothing here worth painting and
-    /// nothing worth keeping: the cache outlives a launch, and UI test suites share one
+    /// nothing worth keeping: this cache outlives a launch, and UI test suites share one
     /// installed app, so suite B would open on suite A's conversations.
     private static var isPreview: Bool {
         #if DEBUG
