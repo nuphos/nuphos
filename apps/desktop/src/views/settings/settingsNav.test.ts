@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { navigationForLink } from '../../app/workspace/linkNavigation.ts'
 import { withRenamedPage } from '../../app/workspacePersistence.ts'
-import { emptyNavigation } from '../../lib/appRoutes.ts'
+import { emptyNavigation, navigationFromAppPath } from '../../lib/appRoutes.ts'
 
 import { settingsLinkTarget, settingsNavGroups, settingsSectionForPage } from './settingsNav.ts'
 
@@ -47,7 +46,7 @@ test("a Settings link opens the link's team, not the one on screen", () => {
 })
 
 test("a team's billing link opens its Billing settings", () => {
-  const link = navigationForLink(new URL(`https://nuphos.ai/teams/${team.teamId}/settings/billing`))
+  const link = navigationFromAppPath(`/teams/${team.teamId}/settings/billing`)
 
   assert.ok(link)
   assert.deepEqual(settingsLinkTarget(link, [team.teamId]), {

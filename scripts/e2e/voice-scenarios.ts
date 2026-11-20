@@ -44,13 +44,9 @@ export const voiceScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/voice-subscription-toast.png` })
 
       // The toast's own Subscribe, not another on the page.
-      await page
-        .locator('div')
-        .filter({ has: page.getByText('Voice input needs a subscription') })
-        .filter({ has: page.getByRole('button', { name: 'Subscribe' }) })
-        .last()
-        .getByRole('button', { name: 'Subscribe' })
-        .click()
+      const toasts = page.getByRole('region', { name: 'Notifications' })
+
+      await toasts.getByText('Subscribe', { exact: true }).click()
       await page.getByText("Your team's computer plan, billed monthly.").waitFor()
       await page.screenshot({ path: `${artifacts}/voice-subscription-billing.png` })
       await page.keyboard.press('Escape')
@@ -62,7 +58,7 @@ export const voiceScenarios: Scenario[] = [
       const notice = page.getByText('Voice input needs a subscription')
 
       for (let tries = 0; tries < 5 && (await notice.count()) > 0; tries++) {
-        await page.getByRole('button', { name: 'Dismiss' }).first().click()
+        await toasts.getByLabel('Dismiss', { exact: true }).first().click()
         await page.waitForTimeout(300)
       }
       if ((await notice.count()) > 0) throw new Error('The subscription toast would not dismiss')
