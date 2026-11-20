@@ -46,6 +46,20 @@ export const CONTROL_TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'nuphos_archive_session',
+    description:
+      'Archive one of your sessions, or restore it with archived: false, as Archive ' +
+      'in Nuphos does: the Tasks nested below it are archived and restored with it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        session_id: { type: 'string', description: 'The session to archive or restore.' },
+        archived: { type: 'boolean', description: 'false restores it. Default true.' },
+      },
+      required: ['session_id'],
+    },
+  },
+  {
     name: 'nuphos_list_queue',
     description:
       'List the messages waiting to run in a session, in order. A message sent with ' +
