@@ -1,6 +1,6 @@
 ---
 name: google-workspace
-description: Read and act on the message sender's own Gmail, Google Drive and Google Calendar — search, read, label, draft and send mail; search, read, upload, and share Drive files and Google Docs/Sheets; list, create and update calendar events — through the Gmail, Google Drive or Google Calendar Personal Credential the member connected in Nuphos Settings. Use whenever the user asks about their email or inbox, wants a reply drafted or sent, asks to find, read, or save a file in their Google Drive, or asks about their schedule or to set up a meeting. Nuphos hands the agent a short-lived Google access token; the agent calls the Gmail, Drive and Calendar REST APIs directly with curl.
+description: "Read and act on the sender's own Gmail, Google Drive and Calendar: search, draft and send mail; find, read and share files; manage events. Uses their Personal Credential."
 ---
 
 # google-workspace

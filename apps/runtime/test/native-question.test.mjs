@@ -189,7 +189,7 @@ test('the Claude patch keeps AskUserQuestion and asks through Nuphos', () => {
   )
   assert.match(
     patched,
-    /const disallowedTools = elicitationSupport\.form \|\| nuphosOffersDecisions\(params\.mcpServers\) \? \[\] : \["AskUserQuestion"\];/,
+    /const disallowedTools = \[\.\.\.\(elicitationSupport\.form \|\| nuphosOffersDecisions\(params\.mcpServers\) \? \[\] : \["AskUserQuestion"\]\), "Workflow", "ScheduleWakeup", "ReportFindings"\];/,
   )
   assert.match(
     patched,

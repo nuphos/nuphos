@@ -295,6 +295,23 @@ describe('local runtime tunnel', () => {
     expect(after.events.some((event) => event.type === 'close')).toBe(false)
   })
 
+  test('a second tunnel from the same computer leaves the first one’s streams alone', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, silent: true })
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    socket.send('hi')
+    socket.send('again')
+    await eventually(() => events.some((event) => event.data === 'echo:again'))
+    await tick()
+
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
   test('an agent being added shows in presence as soon as it installs, not at the next heartbeat', async () => {
     const presence = createMemoryPresenceStore()
     const desktop = await connectDesktop(createLocalTunnelBus(), presence, new Set(['t1']), {

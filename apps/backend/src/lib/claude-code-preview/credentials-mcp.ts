@@ -174,10 +174,10 @@ export async function previewSessionAccess(
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
       }),
-      // A Bot compacts at 100k tokens (the minimum; read_conversation reaches older
-      // turns) and skips the per-turn next-prompt suggestion inference nobody sees.
+      // A Bot compacts at a 200k window, not the model's full one (its ~57k fixed prompt
+      // needs the headroom, #3970), and skips the next-prompt suggestion nobody sees.
       ...(options?.bot
-        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '100000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
+        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
         : {}),
     },
   }

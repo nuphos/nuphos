@@ -1,6 +1,6 @@
 ---
 name: kubectl
-description: Inspect and operate the team's Kubernetes clusters (EKS / GKE / TKE / ACK / LKE / VKE / AKS, plus on-prem clusters reached through the Nuphos relay) with kubectl. One `get_kubeconfig` call writes a context for every reachable cluster; credentials renew themselves.
+description: Inspect and operate the team's Kubernetes clusters (EKS, GKE, TKE, ACK, LKE, VKE, AKS, on-prem) with kubectl. One get_kubeconfig call writes a context for each cluster.
 ---
 
 # kubectl

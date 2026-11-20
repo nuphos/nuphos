@@ -10,7 +10,13 @@ import { t } from '../../i18n'
 import { isThisComputer } from '../../lib/agentName'
 
 import { DeskShelf } from './BoxDeskShelf'
-import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
+import {
+  BOX_METRICS_POLL_MS,
+  boxAgents,
+  boxPollMs,
+  boxSetupFailed,
+  vanishedBoxes,
+} from './boxPresentation'
 import { boxRestartEnded } from './boxRestartPresentation'
 import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
@@ -73,11 +79,11 @@ export function BoxSection({
       JSON.stringify(list.devices.map(deviceConfiguration))
     )
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-    for (const device of vanishedBoxes(previous.current, list.devices))
-      toast.error(
-        t('Computer setup failed'),
-        t('{name} could not start and was removed.', { name: device.label }),
-      )
+    for (const device of vanishedBoxes(previous.current, list.devices)) {
+      const { title, description } = boxSetupFailed(device.label)
+
+      toast.error(title, description)
+    }
     for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
       const notice = device && boxRestartEnded(kind, outcome, device.label, !device.box)
 

@@ -70,7 +70,7 @@ export function BoxRow({
   const AccessDialog = cloud ? BoxAccessDialog : LocalAgentShareDialog
   const manage = canManage(device)
   const owner = useComputerOwner(teamId, device)
-  // Besides a Box, another of the viewer's own computers whose host opens its screen.
+  // Another of the viewer's own computers, a Box too, whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
   const badge = computerBadge(state, useThisComputerConnection(thisComputer))
@@ -183,8 +183,8 @@ export function BoxRow({
               <Ellipsis className="h-4 w-4" />
             </MenuTrigger>
             <MenuContent align="end">
-              {(cloud ? state === 'running' : screen) && (
-                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen)}>
+              {screen && (
+                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen, cloud)}>
                   {t('Open desktop')}
                 </MenuItem>
               )}

@@ -71,7 +71,7 @@ describe('a computer below the floor', () => {
       new Set([
         'lib/claude-code-preview/preview-transcript.ts',
         'lib/claude-code-preview/runtime-refusal.ts',
-        'lib/agent/channel-wake.ts',
+        'lib/agent/reply-failed.ts',
         'lib/claude-code-preview/session-desktops.ts',
       ]),
     )
