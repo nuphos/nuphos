@@ -1,4 +1,4 @@
-import { getConversationPreviewAttachment, setConversationPromptSuggestion } from '@/lib/agent/db'
+import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -7,6 +7,7 @@ import {
   isTrackedCodexAsyncTaskToolUpdate,
   observeCodexAsyncTask,
 } from './codex-async-task-wakeup'
+import { storeSessionReport } from './session-report'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { OpenAbPermissionOutcome, OpenAbPermissionRequest } from './openab-acp-session'
@@ -212,12 +213,8 @@ export function observeAutonomousUpdates(session: TeamSession): void {
 
       return
     }
-    if (update.kind === 'prompt-suggestion') {
-      void setConversationPromptSuggestion(
-        session.conversationId,
-        session.teamId,
-        update.suggestion,
-      ).catch((error: unknown) => {
+    if (update.kind === 'prompt-suggestion' || update.kind === 'session-config') {
+      void storeSessionReport(session, update).catch((error: unknown) => {
         logHandlerError(error, session)
       })
 
