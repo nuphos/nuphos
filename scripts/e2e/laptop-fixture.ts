@@ -17,6 +17,7 @@ export async function laptopOnline(
     client,
     app,
     box,
+    cliVersion,
     restoreFails,
     busy,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
@@ -25,6 +26,8 @@ export async function laptopOnline(
     client?: string
     app?: { version: string; update: { version: string; ready: boolean } }
     box?: string
+    /** The CLI the host says it runs, as `nuphos agent` reports it. */
+    cliVersion?: string
     /** The runtime reports an active turn when queried by a pre-#4011 backend. */
     busy?: boolean
     /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
@@ -57,6 +60,7 @@ export async function laptopOnline(
       status: {
         localMetrics: diskPercent !== undefined,
         app,
+        cliVersion,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
       },
     }),
