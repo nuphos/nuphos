@@ -257,9 +257,9 @@ export async function localRuntimeModels(
   const agent = ref
     ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)
     : undefined
-  const catalog = agent?.models
-
-  const missing = agent?.modelsFailed ? 'undiscovered' : 'unreported'
+  const read = agent?.models
+  const catalog = read?.failed ? undefined : read
+  const missing = read?.failed ? 'undiscovered' : 'unreported'
 
   // A signed-out agent lists nothing until someone signs it in on that computer, and a list
   // the computer read and failed on waits for nothing, unlike one that has not arrived yet.

@@ -53,14 +53,12 @@ export function discoverModels(
         (models) => {
           if (!live()) return undefined
           readAt = Date.now()
-          const changed =
-            JSON.stringify(models) !== JSON.stringify(agent.models) || agent.modelsFailed
+          const changed = JSON.stringify(models) !== JSON.stringify(agent.models)
 
           agent.models = models
-          agent.modelsFailed = undefined
           if (changed) sendStatus()
 
-          return Boolean(changed)
+          return changed
         },
         (error: unknown) => {
           if (!live()) return undefined
@@ -68,10 +66,11 @@ export function discoverModels(
             provider: run.provider,
             error: String(error),
           })
-          // The computer says so, rather than leaving the backend to read an absent
-          // list as one that has not arrived yet, which it tells people to wait for.
-          if (!agent.models && !agent.modelsFailed) {
-            agent.modelsFailed = true
+          // Said out loud, rather than leaving the backend to read an absent list as one
+          // that has not arrived yet, which it tells people to wait for. A list read
+          // before stands; only an agent that never got one reports the failure.
+          if (!agent.models) {
+            agent.models = { models: [], defaultModel: '', controls: {}, failed: true }
             sendStatus()
           }
 

@@ -47,7 +47,7 @@ test('a failed model probe is tried again, so the agent does not stay without mo
     const { agent, probes, sent } = setup([new Error('Model discovery timed out'), catalog])
 
     await settle()
-    assert.equal(agent.models, undefined)
+    assert.equal(agent.models?.failed, true)
     mock.timers.tick(60_000)
     await settle()
     assert.equal(probes(), 2)
@@ -70,15 +70,13 @@ test('a failed read is reported as failed, and the picker that asks again is ans
     ])
 
     await settle()
-    assert.equal(agent.models, undefined)
-    // Said out loud, so an absent list is not read as one still on its way.
-    assert.equal(agent.modelsFailed, true)
+    // Said out loud, so an empty list is not read as one still on its way.
+    assert.deepEqual(agent.models, { models: [], defaultModel: '', controls: {}, failed: true })
     assert.equal(sent(), 1)
     // No waiting period to sit out: an agent with no list has none to spare.
     await refreshRunningModels()
     assert.equal(probes(), 2)
     assert.deepEqual(agent.models, catalog)
-    assert.equal(agent.modelsFailed, undefined)
     assert.equal(sent(), 2)
     current.value = false
   } finally {
@@ -104,7 +102,7 @@ test('retries stop once the agent it probed for is stopped or replaced', async (
     mock.timers.tick(3_600_000)
     await settle()
     assert.equal(replaced.probes(), 1)
-    assert.equal(agent.models, undefined)
+    assert.equal(agent.models?.failed, true)
   } finally {
     mock.timers.reset()
   }
@@ -196,7 +194,7 @@ test('a failed read is retried, and the list is read again while the agent runs'
 
     start()
     await settle()
-    assert.equal(ids(), undefined)
+    assert.deepEqual(ids(), [])
     mock.timers.tick(MODEL_RETRY_MS[0] ?? 0)
     await settle()
     assert.deepEqual(ids(), ['terra', 'luna'])

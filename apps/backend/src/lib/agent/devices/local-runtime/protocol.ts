@@ -66,6 +66,9 @@ export const localModelCatalogSchema = z.object({
   controls: z.record(z.string().max(500), modelControlsSchema),
   /** The runtime offered settings but no model list; its controls sit under `default`. */
   controlsOnly: z.literal(true).optional(),
+  /** The computer read this agent's models and the read failed, so this emptiness is
+   *  not a list still on its way and nobody should be told to wait for one. */
+  failed: z.literal(true).optional(),
 })
 
 /** One usage window as Anthropic or ChatGPT reports it. A window that does not
@@ -111,9 +114,6 @@ const localAgentStatusSchema = z.object({
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
   // not the computer's presence.
   models: localModelCatalogSchema.optional().catch(undefined),
-  /** The computer read this agent's models and the read failed, so an absent
-   *  `models` is a list that could not be loaded, not one still on its way. */
-  modelsFailed: z.literal(true).optional().catch(undefined),
   /** The provider's own usage body, as the computer read it with its own
    *  credential, narrowed to the fields runtime-quota normalizes. Unknown keys
    *  are stripped rather than rejected: a provider may add a window, and this

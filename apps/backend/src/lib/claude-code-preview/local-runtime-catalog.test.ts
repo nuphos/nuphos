@@ -573,7 +573,15 @@ describe('a computer without a model list says why', () => {
     expect(
       await reason({
         ...report,
-        status: { ...status, agents: { 'claude-code': { ...agent, modelsFailed: true } } },
+        status: {
+          ...status,
+          agents: {
+            'claude-code': {
+              ...agent,
+              models: { models: [], defaultModel: '', controls: {}, failed: true },
+            },
+          },
+        },
       }),
     ).toBe('undiscovered')
   })
