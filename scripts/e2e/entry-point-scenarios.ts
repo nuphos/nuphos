@@ -1,14 +1,6 @@
-// One scenario per way into the product (#4205). Each starts on a screen a
-// person is already on and clicks what they would click, so a change that takes
-// the way in away has to delete a scenario that says, by name, what it took.
-//
-// The subject is the path, not the screen it ends on. A redesign may move a way
-// in; it then changes the scenario that names it, where a reviewer sees the
-// decision instead of a side effect.
-//
-// These never reach a page through the command palette. Every other scenario
-// here opens Computers with `openComputers`, which types into `⌘K` search, so
-// Computers leaving the sidebar (#2797) broke nothing in this suite.
+// One scenario per way into the product (#4205): each starts where a person
+// already is and clicks what they would click. None reaches a page through `⌘K`,
+// which finds it by name whether or not the product points at it.
 import { must } from './binding-access-scenarios.ts'
 import { botDetailsToggle, setBotDetails } from './ui.ts'
 
