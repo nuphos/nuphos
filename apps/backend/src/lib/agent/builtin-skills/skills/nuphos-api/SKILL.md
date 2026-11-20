@@ -9,7 +9,7 @@ Nuphos backend exposes a REST API that wraps most BYOC and BYOS operations the a
 
 The OpenAPI document is the source of truth for documented routes. Do not rely on a copied route list in this skill; fetch the current schema before choosing an endpoint or request shape. If a needed legacy BYOS route is not in OpenAPI yet, do not probe guessed paths. Use the exact setup script or documented route in the provider skill (`aws`, `gcloud`, `kubectl`, `cloudflare`) instead.
 
-Skills have no agent REST route: list them with the `nuphos-tools` MCP tool `skill_list`, and create or revise one with `skill_create` and `skill_upsert`. All three address the team store by default; pass `scope: "personal"` for the conversation owner's personal skills, which works only on the owner's own turn. A refused call returns the reason (for example a VIEWER role writing a team skill, or a guest's turn asking for personal skills).
+Skills have no agent REST route: list them with the `nuphos-tools` MCP tool `skill_list`, create or revise one with `skill_create` and `skill_upsert`, and delete one with `skill_delete` only when the user explicitly asks (an ADMINISTRATOR for a team skill, as on the Skills page). All four address the team store by default; pass `scope: "personal"` for the conversation owner's personal skills, which works only on the owner's own turn. A refused call returns the reason (for example a VIEWER role writing a team skill, or a guest's turn asking for personal skills).
 
 ## Nuphos GUI links
 
