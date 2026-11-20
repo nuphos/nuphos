@@ -209,6 +209,11 @@ export default {
       await shootSettings(page, 'slack-settings-admin-channels-light.png', 'E2E Bot')
       await page.getByRole('button', { name: 'Connect a channel' }).click()
       await page.getByText('Link by ID', { exact: true }).waitFor()
+      // The form ends below the list: bring its last row to the dialog's bottom.
+      await page
+        .getByRole('button', { name: 'Link channel' })
+        .evaluate((element) => element.scrollIntoView({ block: 'end' }))
+      await page.waitForTimeout(300)
       await page.screenshot({ path: `${artifacts}/slack-settings-admin-connect-light.png` })
       // A teammate's Bot waits while the viewer's is there, and comes in once it is out.
       const teammate = await joinTeam(stack, 'slack-teammate')
