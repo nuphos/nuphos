@@ -214,8 +214,6 @@ export const teamChannels = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ) => atlas.deleteSlackChannelMapping(teamId, slackWorkspaceId, slackChannelId),
-  'atlas:listSlackUserMappings': (_e: unknown, teamId: string) =>
-    atlas.listSlackUserMappings(teamId),
   'atlas:upsertSlackUserMapping': (
     _e: unknown,
     teamId: string,

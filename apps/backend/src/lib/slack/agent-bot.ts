@@ -27,7 +27,6 @@ export {
   getSlackUserMapping,
   getSlackUserMappingForNuphosUser,
   listSlackChannelMappings,
-  listSlackUserMappings,
   upsertSlackChannelMapping,
   upsertSlackUserMapping,
 } from '@/lib/slack/agent-bot/mappings'

@@ -139,10 +139,6 @@ export async function getSlackUserMappingForNuphosUser(
   })
 }
 
-export async function listSlackUserMappings(teamId: string): Promise<SlackUserMapping[]> {
-  return await slackUserMappings().find({ teamId }).sort({ updatedAt: -1 }).toArray()
-}
-
 export async function upsertSlackUserMapping(data: {
   slackWorkspaceId: string
   slackUserId: string

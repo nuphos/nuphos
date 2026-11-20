@@ -162,7 +162,6 @@ export const teamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ) => window.api.atlasDeleteSlackChannelMapping(teamId, slackWorkspaceId, slackChannelId),
-  atlasListSlackUserMappings: (teamId: string) => window.api.atlasListSlackUserMappings(teamId),
   atlasUpsertSlackUserMapping: (
     teamId: string,
     input: {

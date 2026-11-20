@@ -197,15 +197,6 @@ export async function deleteSlackChannelMapping(
   )
 }
 
-export async function listSlackUserMappings(teamId: string): Promise<SlackUserMapping[]> {
-  const data = await call<{ mappings: SlackUserMapping[] }>(
-    'GET',
-    `/slack/user-mappings?teamId=${encodeURIComponent(teamId)}`,
-  )
-
-  return data.mappings ?? []
-}
-
 export async function upsertSlackUserMapping(
   teamId: string,
   input: {

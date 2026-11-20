@@ -277,7 +277,6 @@
   "GET /slack-app/configured": "public",
   "GET /slack-app/setup": "public",
   "GET /slack/mappings": "user",
-  "GET /slack/user-mappings": "user",
   "GET /slack/user-mappings/me": "user",
   "GET /teams": "user",
   "GET /teams/:teamId": "member",

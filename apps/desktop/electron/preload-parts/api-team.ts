@@ -213,8 +213,6 @@ export const teamApi = {
     slackChannelId: string,
   ) =>
     ipcRenderer.invoke('atlas:deleteSlackChannelMapping', teamId, slackWorkspaceId, slackChannelId),
-  atlasListSlackUserMappings: (teamId: string) =>
-    ipcRenderer.invoke('atlas:listSlackUserMappings', teamId),
   atlasUpsertSlackUserMapping: (
     teamId: string,
     input: {

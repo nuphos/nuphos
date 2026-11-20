@@ -239,7 +239,6 @@ export type WindowTeamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ): Promise<void>
-  atlasListSlackUserMappings(teamId: string): Promise<SlackUserMapping[]>
   atlasUpsertSlackUserMapping(
     teamId: string,
     input: {

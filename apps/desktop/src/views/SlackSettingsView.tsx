@@ -19,7 +19,6 @@ import { BindSlackDialog } from './BindSlackDialog'
 import { ConnectionActions } from './messaging-settings/ConnectionActions'
 import { ChannelBots } from './slack-settings/ChannelBots'
 import { LinkChannelPanel } from './slack-settings/LinkChannelPanel'
-import { SlackAccountsCard } from './slack-settings/SlackAccountsCard'
 import { useSlackSettings } from './slack-settings/useSlackSettings'
 
 import type { SlackChannelMapping, SlackChannelOption } from '../types'
@@ -58,7 +57,6 @@ export function SlackSettingsView({
     channelMappings,
     myBots,
     setChannelBot,
-    myMapping,
     status,
     loading,
     busyKey,
@@ -73,9 +71,7 @@ export function SlackSettingsView({
     setNewChannelId,
     linkChannelSubmitting,
     canManage,
-    memberById,
     channelsById,
-    linkedAccountRows,
     load,
     submitLinkChannel,
     deleteChannel,
@@ -280,14 +276,6 @@ export function SlackSettingsView({
           </div>
         )}
       </div>
-      <SlackAccountsCard
-        loading={loading}
-        myMapping={myMapping}
-        linkedAccountRows={linkedAccountRows}
-        memberById={memberById}
-        currentUserId={currentUserId}
-        canManage={canManage}
-      />
     </div>
   )
 }
