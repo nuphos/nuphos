@@ -9,9 +9,9 @@ import { newTask, send } from './ui.ts'
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
-type Trigger = { id: string; enabled: boolean; executionAuthorizationError?: string }
+export type Trigger = { id: string; enabled: boolean; executionAuthorizationError?: string }
 
-function client(stack: Stack) {
+export function client(stack: Stack) {
   return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const response = await fetch(stack.apiUrl + path, {
       method,
@@ -26,7 +26,7 @@ function client(stack: Stack) {
 }
 
 /** The Task whose first message carries `marker`. */
-async function taskWith(stack: Stack, marker: string): Promise<string> {
+export async function taskWith(stack: Stack, marker: string): Promise<string> {
   const api = client(stack)
   const search = encodeURIComponent(marker)
   const { conversations } = await api<{ conversations: { sessionId: string }[] }>(
@@ -56,7 +56,12 @@ async function fireFailing(stack: Stack, trigger: Trigger, marker: string, times
   return api<Trigger>('GET', `/agent/triggers/${trigger.id}?teamId=${stack.teamId}`)
 }
 
-async function createTrigger(stack: Stack, sessionId: string, name: string, message: string) {
+export async function createTrigger(
+  stack: Stack,
+  sessionId: string,
+  name: string,
+  message: string,
+) {
   return client(stack)<Trigger>('POST', '/agent/triggers', {
     teamId: stack.teamId,
     targetSessionId: sessionId,
@@ -104,19 +109,6 @@ export const triggerScenarios: Scenario[] = [
       await send(page, 'Home of the Triggers E2E_DELIVERY:trigger-home')
       await page.getByText('ACK E2E_DELIVERY:trigger-home').waitFor()
       const sessionId = await taskWith(stack, 'E2E_DELIVERY:trigger-home')
-
-      // Out of usage passes with time: however often it fails, the Trigger keeps its schedule.
-      const usage = await createTrigger(
-        stack,
-        sessionId,
-        'Usage report',
-        'Report E2E_USAGE_LIMIT E2E_DELIVERY:trigger-usage',
-      )
-      const stillOn = await fireFailing(stack, usage, 'E2E_DELIVERY:trigger-usage', 4)
-
-      console.log(`Out of usage 4 times: ${JSON.stringify(stillOn)}`)
-      if (!stillOn.enabled || stillOn.executionAuthorizationError)
-        throw new Error(`Out of usage paused the Trigger: ${JSON.stringify(stillOn)}`)
 
       // Too long for the model cannot pass: the third failure in a row pauses it.
       const tooLong = await createTrigger(
