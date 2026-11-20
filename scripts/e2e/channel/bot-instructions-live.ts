@@ -67,6 +67,22 @@ const opens = (stack: Stack, sessionId: string) =>
     (line) => line.sessionId === sessionId && ['session', 'loaded'].includes(line.event),
   ).length
 
+/** How many turns marked `marker` the fixture agent has finished. */
+const finished = (stack: Stack, marker: string) =>
+  agentLog(stack).filter((line) => line.event === 'finish' && line.marker === marker).length
+
+/** The system prompt sections that differ between a session's last two opens or loads. */
+function changedSections(stack: Stack, sessionId: string): string[] {
+  const [before, after] = agentLog(stack)
+    .filter((line) => line.sessionId === sessionId && ['session', 'loaded'].includes(line.event))
+    .slice(-2)
+    .map((line) => line.sections ?? [])
+
+  return [...(before ?? []), ...(after ?? [])].filter(
+    (section) => !before?.includes(section) || !after?.includes(section),
+  )
+}
+
 const scenario: Scenario = {
   name: "a Bot's instructions changed mid-session reach its next turn; an unchanged turn keeps its agent",
   run: async (page, stack) => {
@@ -98,6 +114,27 @@ const scenario: Scenario = {
       if (opens(stack, first.sessionId) !== opened + 1)
         throw new Error(
           `The edit loaded the agent ${String(opens(stack, first.sessionId) - opened)} times`,
+        )
+
+      // A woken turn (an answer on its question card) between the person's own turns runs on the
+      // same agent: nothing that changes from turn to turn is in its system prompt or env.
+      const steady = opens(stack, first.sessionId)
+      const answered = finished(stack, 'E2E_DELIVERY:answered')
+
+      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:live-ask')
+      await until(
+        'the question to be asked',
+        async () => finished(stack, 'E2E_DELIVERY:live-ask') > 0,
+      )
+      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
+      await until(
+        'the woken turn to finish',
+        async () => finished(stack, 'E2E_DELIVERY:answered') > answered,
+      )
+      await askRule(stack, page, 'after-wake')
+      if (opens(stack, first.sessionId) !== steady)
+        throw new Error(
+          `Alternating turns reloaded the agent; sections that changed: ${JSON.stringify(changedSections(stack, first.sessionId))}`,
         )
     } finally {
       setInstructions(stack, before)

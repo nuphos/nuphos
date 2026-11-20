@@ -242,7 +242,10 @@ export async function preparePreviewTurn(
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
-    turnContext: await withPageContext(args.turnContext, { ...args, ...args.endpoint }),
+    turnContext: await withPageContext(args.turnContext, {
+      ...args,
+      provider: args.endpoint.provider,
+    }),
     carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
     language,
   })
