@@ -40,8 +40,6 @@ const MAX_MODELS = 50
 const MODEL_ID = /^[\w.:/@[\]-]{1,200}$/u
 const KEY = /^\S{1,4096}$/u
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
-const ENDPOINT = /\/(?:chat\/completions|responses|messages)\/?$/u
-
 const isAgent = (provider: unknown): provider is CustomProviderAgent =>
   provider === 'claude-code' || provider === 'codex'
 
@@ -111,6 +109,26 @@ function writeCustomProvider(
 }
 
 /**
+ * Whether the provider serves `<base URL>/responses`, the only API Codex speaks. An empty body
+ * is refused (400/422) by a provider that serves it, before any model runs; one that does not
+ * answers 404 or 405. Anything else, an unreachable provider among it, is not held against it.
+ */
+async function servesResponsesApi(baseUrl: string, key: string, request: typeof fetch) {
+  try {
+    const { status } = await request(`${baseUrl.replace(/\/+$/u, '')}/responses`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(10_000),
+    })
+
+    return status !== 404 && status !== 405
+  } catch {
+    return true
+  }
+}
+
+/**
  * Saves a provider, its key first: without a credential store to hold the key nothing is
  * saved, since a key is never kept in a file. An edit without a key keeps the stored one.
  * Null removes both, the key first: a key the store will not delete keeps the provider listed,
@@ -122,6 +140,7 @@ export async function saveCustomProvider(
   userId: string,
   provider: unknown,
   value: unknown,
+  request: typeof fetch = fetch,
 ): Promise<void> {
   if (!isAgent(provider)) throw new Error('Unknown runtime.')
   if (value === null) {
@@ -131,18 +150,18 @@ export async function saveCustomProvider(
     return
   }
   const parsed = parseCustomProvider(value)
-
-  // Each agent appends its own endpoint (Codex `/responses`, Claude Code `/v1/messages`), so a
-  // URL that already names one would 404. Refused only here, so a provider saved before still loads.
-  if (ENDPOINT.test(new URL(parsed.baseUrl).pathname))
-    throw new Error(
-      'Enter the API’s base URL without the endpoint path, such as https://api.example.com/v1. Codex also needs a provider that supports the OpenAI Responses API; chat-completions-only APIs do not work with it.',
-    )
   const raw = (value as { apiKey?: unknown }).apiKey
   const key = typeof raw === 'string' ? raw.trim() : ''
 
+  if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
+  const probeKey =
+    provider === 'codex' && (key || (await store.get(account(userId, provider)).catch(() => null)))
+
+  if (probeKey && !(await servesResponsesApi(parsed.baseUrl, probeKey, request)))
+    throw new Error(
+      `This provider doesn’t serve the OpenAI Responses API that Codex needs at ${parsed.baseUrl.replace(/\/+$/u, '')}/responses. Check that the base URL stops before the endpoint path, such as https://api.example.com/v1. A provider with only a chat completions API works with other agents, not Codex.`,
+    )
   if (key) {
-    if (!KEY.test(key)) throw new Error('Paste the whole API key.')
     try {
       await store.set(account(userId, provider), key)
     } catch {

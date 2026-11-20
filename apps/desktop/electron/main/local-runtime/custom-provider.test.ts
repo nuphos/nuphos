@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createServer } from 'node:http'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -15,6 +16,8 @@ import {
   withProviderKey,
   withProviderStatus,
 } from './custom-provider.ts'
+
+import type { AddressInfo } from 'node:net'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { KeyStore } from './custom-provider.ts'
@@ -59,27 +62,52 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
 })
 
-test('a base URL that names an endpoint is refused, since the agent appends its own', async (t) => {
+/** A provider that serves the Responses API: it refuses an empty body before any model runs. */
+const responsesApi: typeof fetch = async () => new Response('{}', { status: 400 })
+
+test('Codex refuses a provider that does not serve the Responses API, asked with its key', async (t) => {
   const dir = tempDir(t)
   const store = memoryStore()
+  const seen: { url?: string; auth?: string; body: string }[] = []
+  // A chat-completions-only provider: it serves nothing at `/responses`.
+  const server = createServer((req, res) => {
+    let body = ''
 
-  for (const baseUrl of [
-    'https://api.example.com/v1/chat/completions',
-    'https://api.example.com/v1/chat/completions/',
-    'https://api.example.com/v1/responses',
-    'https://gw.example.com/anthropic/v1/messages',
-  ])
+    req.on('data', (chunk) => (body += chunk))
+    req.on('end', () => {
+      seen.push({ url: req.url, auth: req.headers.authorization, body })
+      res.writeHead(req.url === '/v1/chat/completions' ? 400 : 404).end('{"detail":"Not Found"}')
+    })
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => server.close())
+  const { port } = server.address() as AddressInfo
+
+  for (const baseUrl of [`/v1`, `/v1/chat/completions`].map((p) => `http://127.0.0.1:${port}${p}`))
     await assert.rejects(
       saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
-      /without the endpoint path.*Responses API/u,
+      /doesn’t serve the OpenAI Responses API.*\/responses/u,
     )
+  assert.deepEqual(seen, [
+    { url: '/v1/responses', auth: 'Bearer sk-gw-secret', body: '{}' },
+    { url: '/v1/chat/completions/responses', auth: 'Bearer sk-gw-secret', body: '{}' },
+  ])
   assert.equal(store.items.size, 0)
+  assert.equal(readCustomProviders(dir).codex, undefined)
 
-  await saveCustomProvider(store, dir, 'u1', 'codex', {
-    baseUrl: 'https://api.example.com/v1',
-    apiKey: 'sk-gw-secret',
+  // An edit without a key is asked with the stored one; Claude Code is not asked at all.
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
+  await assert.rejects(
+    saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
+    /Responses API/u,
+  )
+  assert.equal(seen.at(-1)?.auth, 'Bearer sk-gw')
+  await saveCustomProvider(store, dir, 'u1', 'claude-code', {
+    baseUrl: `http://127.0.0.1:${port}/v1`,
+    apiKey: 'sk-claude',
   })
-  assert.equal(readCustomProviders(dir).codex?.baseUrl, 'https://api.example.com/v1')
+  assert.equal(seen.length, 3)
 })
 
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {
@@ -87,8 +115,22 @@ test('the key goes only to the credential store, and an edit without one keeps i
   const store = memoryStore()
 
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', gateway), /API key/u)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw-secret' })
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, models: ['kimi-k2'] })
+  await saveCustomProvider(
+    store,
+    dir,
+    'u1',
+    'codex',
+    { ...gateway, apiKey: 'sk-gw-secret' },
+    responsesApi,
+  )
+  await saveCustomProvider(
+    store,
+    dir,
+    'u1',
+    'codex',
+    { ...gateway, models: ['kimi-k2'] },
+    responsesApi,
+  )
 
   assert.equal(store.items.get('u1:codex'), 'sk-gw-secret')
   assert.doesNotMatch(readFileSync(path.join(dir, 'custom-providers.json'), 'utf8'), /sk-gw/u)
@@ -216,7 +258,7 @@ test('a saved provider stands in for the sign-in, and its key reaches only opena
 
   assert.deepEqual(await probe('codex', {}, home), signedOut)
   await process.start(options)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
   assert.deepEqual(await probe('codex', {}, home), {
     ...signedOut,
     loggedIn: true,
@@ -231,7 +273,7 @@ test('a key the store will not delete keeps the provider listed; a key already g
   const store = memoryStore()
   const remove = store.delete
 
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
   store.delete = () => Promise.reject(new Error('User canceled the operation.'))
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', null), /canceled/u)
   assert.ok(readCustomProviders(dir).codex)
