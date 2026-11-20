@@ -147,9 +147,8 @@ the `restricted` Pod Security Standard.
 
 ## Not included
 
-Redis (cron, background thread queues, journal sealing), backend model
-credentials, and managed agents. The backend pod mounts no service account
-token, so it cannot run the managed-agent provisioner.
+Redis (cron, background thread queues, journal sealing) and backend model
+credentials.
 
 ## Validation
 

@@ -224,11 +224,11 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
           </Field>
         </div>
         <div>
-          <Field label={t('Agent access')}>
+          <Field label={t('Access for Bots and tasks')}>
             <AppSelect
               value={agentPolicy}
               onValueChange={(value) => setAgentPolicy(value as DatabaseAgentPolicy)}
-              ariaLabel={t('Agent access policy')}
+              ariaLabel={t('Access policy for Bots and tasks')}
               options={AGENT_POLICY_OPTIONS}
             />
           </Field>
@@ -240,7 +240,7 @@ export function BindDatabaseDialog({ open, teamId, onClose, onBound }: Props) {
           </div>
           <div className="mt-1 text-tertiary">
             {t(
-              'The backend connects directly to the redacted endpoint using the encrypted credential. Credentials never enter the desktop or Agent sandbox.',
+              "The backend connects directly to the redacted endpoint using the encrypted credential. Credentials never enter the desktop or a task's sandbox.",
             )}
           </div>
         </div>

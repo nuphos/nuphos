@@ -15,6 +15,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireTeamRole,
   requireUpstashAccount,
@@ -146,13 +147,7 @@ accountScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = new ObjectId(c.get('upstashAccountId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { upstashAccounts: { id: accountId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'upstashAccounts', { id: accountId })
 
     if (result.modifiedCount === 0) {
       throw new AppError(404, 'upstash_account_not_bound', 'Upstash account not found')

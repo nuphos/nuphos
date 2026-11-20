@@ -3,9 +3,11 @@ import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
 import { requireAuth } from '@/middleware/auth'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useIdentitySessions } from '@/lib/test/doubles/identity-sessions'
 
+import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
 
 const USER = {
@@ -18,6 +20,12 @@ const CURRENT = '64b7f0c2a1b2c3d4e5f60001'
 const revoked: [string, string][] = []
 const othersRevoked: [string, string][] = []
 
+// No account here has two-factor authentication, so no route asks for a code.
+useDb({
+  db: (() => ({
+    collection: () => ({ findOne: async () => ({ email: USER.email }) }),
+  })) as unknown as typeof dbActual.db,
+})
 useIdentity({
   authenticateToken: (async (token: string) => {
     // A 30-day sign-in JWT from before sessions: a user, but no session.

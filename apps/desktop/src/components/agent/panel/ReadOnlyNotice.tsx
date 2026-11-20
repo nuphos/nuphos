@@ -19,14 +19,16 @@ import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadg
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
-import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy'
+import { noticeCopy, reachabilityCopy } from './agentBannerCopy'
 import { agentProblem } from './agentRowFix'
 import { ConversationActivityBadges } from './historyRows'
 import { sharedComputerLabel, shareApprovalText } from './queuedShareApproval'
 import { runtimeGone, runtimeGoneText, selectedAgentReachability } from './runtimeControlSignOut'
 import { useAskedName } from './signInAsks'
-import { useComputerNotice } from './useComputerNotice'
 import { slackThreadFallbackUrl } from './slackThreadUrl'
+import { useClearCachesFix } from './useClearCachesFix'
+import { useComputerNotice } from './useComputerNotice'
+import { useOutdatedFix } from './useOutdatedFix'
 import { usePickerFixes } from './usePickerFixes'
 import { useShareApprovalWait } from './useShareApprovalWait'
 
@@ -178,14 +180,6 @@ function bannerCopy(
     : { text: shareApprovalText('denied', computer), action: switchAgent ?? null }
 }
 
-function noticeCopy(notice: ComputerNotice | null, onSettings?: () => void): BannerCopy {
-  if (!notice) return { text: '', action: null }
-
-  return notice.kind === 'disk'
-    ? diskFullCopy(notice, onSettings)
-    : outdatedCopy(notice.label, onSettings)
-}
-
 /**
  * Said before the message goes, not after it fails. A slim tab on the composer's
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
@@ -214,7 +208,7 @@ export function AgentStatusBanner({
     (control.offlineAgent ? 'offline' : null) ??
     (shareApproval === 'pending' ? 'waiting' : shareApproval === 'denied' ? 'declined' : null)
   // An agent that can take the message, on a computer about to fail it: said, without blocking.
-  const notice = useComputerNotice(control)
+  const { notice, device, reload } = useComputerNotice(control)
   const [noticed, setNoticed] = useState(notice)
   const active: BannerKind | null = blocked ?? notice?.kind ?? null
   // The words stay while the banner leaves, so it closes on what it said.
@@ -229,6 +223,8 @@ export function AgentStatusBanner({
     sessionId: control.sessionId,
   })
   const askedName = useAskedName(control.sessionId, selected?.id)
+  const outdatedFix = useOutdatedFix(control.teamId ?? '', device, selected?.id, reload)
+  const clearFix = useClearCachesFix(control.teamId ?? '', device)
   const fix =
     unreachable && selected ? agentProblem(selected, undefined, fixes.viewer)?.fix : undefined
 
@@ -237,7 +233,8 @@ export function AgentStatusBanner({
   const variant = shown ? BANNER[shown] : null
   let copy: BannerCopy = { text: '', action: null }
 
-  if (shown === 'disk' || shown === 'outdated') copy = noticeCopy(noticed, control.onSettings)
+  if (shown === 'disk' || shown === 'outdated')
+    copy = noticeCopy(noticed, { ...outdatedFix, clear: clearFix.clear })
   else if (shown)
     copy = bannerCopy(
       shown,
@@ -256,6 +253,7 @@ export function AgentStatusBanner({
   return (
     <>
       <div
+        data-composer-overlay=""
         role="status"
         aria-hidden={!active}
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
@@ -294,6 +292,8 @@ export function AgentStatusBanner({
         )}
       </div>
       {dialogs}
+      {outdatedFix.dialog}
+      {clearFix.dialog}
     </>
   )
 }

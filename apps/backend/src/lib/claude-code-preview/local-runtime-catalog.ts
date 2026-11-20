@@ -254,15 +254,14 @@ export async function localRuntimeModels(
   deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = defaultDeps,
 ): Promise<RuntimeModelCatalog> {
   const ref = parseLocalRuntimeId(runtimeId)
-  const catalog = ref
-    ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)?.models
+  const agent = ref
+    ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)
     : undefined
+  const catalog = agent?.models
 
+  // A signed-out agent lists nothing until someone signs it in on that computer.
   if (!catalog)
-    return {
-      models: [],
-      message: 'The computer running this agent has not reported its models yet. Retry shortly.',
-    }
+    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : 'unreported' }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
   // A controls-only report names no model: its entry answers a caller asking for none.
   const split = catalog.controlsOnly && (!model || model === 'default')
