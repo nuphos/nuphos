@@ -2,7 +2,6 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import { quotaSharedWith } from '../../../lib/runtimeQuota'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
@@ -87,7 +86,7 @@ export function SelectorBoxMeters({
   )
 }
 
-/** A quiet extra line: whose a teammate's shared computer is, or which agents share a quota. */
+/** A quiet extra line: whose a teammate's shared computer is. */
 function QuietLine({ text }: { text: string | null }) {
   return (
     text && (
@@ -163,7 +162,6 @@ function AgentRow({
           </span>
           <RuntimeUsageBar quota={quotas?.get(instance.id)} />
         </span>
-        <QuietLine text={quotaSharedWith(quotas?.get(instance.id))} />
       </span>
     </MenuItem>
   )
