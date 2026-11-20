@@ -31,26 +31,6 @@ const machineView = (machine: StubMachine) => ({
 export const instaboxMachines = new Map<string, StubMachine>()
 const machines = instaboxMachines
 
-/** Set by a scenario: creates stay queued this long, then fail without a machine (#4146). */
-export const instaboxCreates = { failAfterMs: 0 }
-const queuedCreates = new Map<string, number>()
-
-/** A queued create's operation: still queued, then failed once its time is up. */
-function queuedCreate(id: string) {
-  const failsAt = queuedCreates.get(id)
-
-  if (failsAt === undefined) return
-
-  return Date.now() < failsAt
-    ? { id, type: 'create', state: 'queued' }
-    : {
-        id,
-        type: 'create',
-        state: 'failed',
-        error: { code: 'capacity', message: 'no capacity to start it' },
-      }
-}
-
 /** Starts it on a free port; the backend's environment to reach it. */
 export async function startInstaboxStub(): Promise<Record<string, string>> {
   const server = createServer((request, response) => {
@@ -69,12 +49,6 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
       request.on('end', () => {
         const { name } = JSON.parse(Buffer.concat(chunks).toString()) as { name: string }
 
-        if (instaboxCreates.failAfterMs) {
-          queuedCreates.set(`op_${name}`, Date.now() + instaboxCreates.failAfterMs)
-          send(202, { id: `op_${name}`, type: 'create', state: 'queued', machineId: name })
-
-          return
-        }
         machines.set(name, { id: name, state: 'running', operations: [] })
         send(202, { id: `op_${name}`, type: 'create', state: 'succeeded', machineId: name })
       })
@@ -100,9 +74,6 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
       return send(401, { error: { code: 'expired_key', message: 'API key expired' } })
     // The machine's own work (its idle pause, its install) never finishes.
     if (request.method !== 'GET') return
-    const queued = kind === 'operations' && id ? queuedCreate(id) : undefined
-
-    if (queued) return send(200, queued)
     if (path === '/v1/templates') return send(200, { templates: [{ id: 'agent-browser' }] })
     if (path === '/v1/me')
       return send(200, { allowedSpecs: [{ vcpus: 2, memMiB: 4096, persistentDiskGiB: 20 }] })
