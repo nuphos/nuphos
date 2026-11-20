@@ -607,6 +607,18 @@ private struct ReplyFailedLine: View {
         return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
     }
 
+    @ViewBuilder private var fixes: some View {
+        if let onVerify {
+            Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
+        }
+        if let onSwitch {
+            Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+        }
+        if let onRetry {
+            Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -615,17 +627,10 @@ private struct ReplyFailedLine: View {
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
             if onVerify != nil || onSwitch != nil || onRetry != nil {
-                // Three fixes do not fit a small iPhone's width on one line, so they wrap.
-                FlowLayout(spacing: 8) {
-                    if let onVerify {
-                        Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
-                    }
-                    if let onSwitch {
-                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
-                    }
-                    if let onRetry {
-                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
-                    }
+                // In one line when they fit, else one under another.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { fixes }
+                    VStack(alignment: .leading, spacing: 8) { fixes }
                 }
                 .font(Theme.Text.caption)
                 .padding(.leading, 17)
