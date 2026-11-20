@@ -6,6 +6,7 @@ import {
   filterQuery,
   formatChange,
   formatTokens,
+  formatUsd,
   listPriceTotal,
   previousTokenUsageWindow,
   tokenUsageLines,
@@ -202,4 +203,11 @@ test('the total at list prices is the same whatever the grouping: priced models,
   assert.deepEqual(total(byModel), ['0.22', false])
   assert.deepEqual(total(byModel.slice(0, 2)), ['0.22', true])
   assert.equal(listPriceTotal([row({ model: 'gpt-6.1-terra' }, 700)]), undefined)
+})
+
+test('a cost groups its digits the way the locale does, and keeps two decimals', () => {
+  assert.equal(formatUsd(133_015.41), '$133,015.41')
+  assert.equal(formatUsd(2.5), '$2.50')
+  assert.equal(formatUsd(0), '$0.00')
+  assert.equal(formatUsd(0.004), '<$0.01')
 })
