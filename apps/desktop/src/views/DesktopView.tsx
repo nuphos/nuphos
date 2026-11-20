@@ -5,7 +5,7 @@ import { desktopFilter, desktopScreens, parseDesktopFilter } from '../lib/deskto
 import { BoxDesktopView, SessionDesktopView } from './DesktopPanes'
 import { useAgentDevices } from './settings/useAgentDevices'
 
-/** A Box's desktop with a switcher between its own :1 and the viewer's sessions there. */
+/** A Box's desktop with a switcher between its own and the viewer's sessions there. */
 function BoxScreens({
   teamId,
   filter,
@@ -44,7 +44,12 @@ function BoxScreens({
       switcher={switcher}
     />
   ) : (
-    <BoxDesktopView key={filter} teamId={teamId} deviceId={deviceId} switcher={switcher} />
+    <BoxDesktopView
+      key={filter}
+      teamId={teamId}
+      runtimeId={list ? (device?.desktopRuntimeId ?? null) : undefined}
+      switcher={switcher}
+    />
   )
 }
 

@@ -194,7 +194,8 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        toComputer(message.s, message.d)
+        // Another tunnel of this computer hears it too and must not call it lost.
+        if (!message.conn || message.conn === conn) toComputer(message.s, message.d)
 
         return
       case 'close':

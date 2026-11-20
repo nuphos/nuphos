@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
-const CHOOSE = "This Bot can't use any computers or credentials yet. Choose what it may use."
+const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
 const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
 
@@ -53,6 +53,25 @@ function shareAway(stack: Stack, botId: string, userId: string) {
     await client.close()`,
     botId,
     userId,
+  )
+}
+
+/** Links an issue to a Bot's session, or unlinks it. No route links one without a provider. */
+function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
+  mongo(
+    stack,
+    `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const issue = { id: 'e2e-issue', provider: 'linear', title: 'E2E linked issue',
+      url: 'https://linear.app/e2e/issue/E2E-1', state: 'open', linkedAt: new Date().toISOString() }
+    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
+      { sessionId: process.argv[2] },
+      process.argv[3] === '1' ? { $set: { linkedResources: [issue] } } : { $unset: { linkedResources: '' } },
+    )
+    await client.close()`,
+    sessionId,
+    linked ? '1' : '0',
   )
 }
 
@@ -155,6 +174,15 @@ export const botAccessScenarios: Scenario[] = [
         await cdp.detach()
       }
 
+      // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
+      setLinkedIssue(stack, made.sessionId, true)
+      await page.reload()
+      await access(page).waitFor()
+      if ((await details(page).getByRole('region', { name: 'Changes', exact: true }).count()) > 0)
+        throw new Error('Bot details show Changes')
+      await shoot(page, 'no-changes')
+      setLinkedIssue(stack, made.sessionId, false)
+
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
       await page.getByText('Back to conversation').waitFor()
@@ -188,6 +216,23 @@ export const botAccessScenarios: Scenario[] = [
 
       // Its chat is made while the Bot is still the viewer's; then it moves to the teammate.
       await openChat(page, SHARED)
+      // #4038: in a chat with no posts the banner sits in the intro's column, 16px under it.
+      const intro = page
+        .getByText(`This is your conversation with ${SHARED}.`, { exact: false })
+        .locator('xpath=..')
+      const banner = page.getByText(CHOOSE).locator('xpath=..')
+
+      await banner.waitFor()
+      const [text, line] = await Promise.all([intro.boundingBox(), banner.boundingBox()])
+
+      if (
+        !text ||
+        !line ||
+        Math.abs(line.x - text.x) > 1 ||
+        Math.abs(line.y - (text.y + text.height) - 16) > 1
+      )
+        throw new Error(`The banner is not under the intro: ${JSON.stringify({ text, line })}`)
+      await shoot(page, 'empty-chat-banner')
       shareAway(stack, bot.sessionId, mate.id)
       await page.reload()
       await openChat(page, SHARED)

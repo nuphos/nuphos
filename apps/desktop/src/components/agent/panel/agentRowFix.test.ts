@@ -102,23 +102,30 @@ test("a teammate's signed-out computer is signed in by its owner", () => {
   assert.deepEqual(problem?.fix, { kind: 'ask', name: 'Bryan', runtimeId: 'local_u-bryan_d1' })
 })
 
-test("your own paused Box resumes; someone else's asks its owner; an offline computer retries", () => {
-  const paused = { online: false, box: { state: 'paused' as const } }
+test('a paused Box says so with nothing to press; an offline computer retries', () => {
+  const paused = { online: false, box: { provider: 'instabox' as const } }
 
-  assert.deepEqual(agentProblem(local('u-shant', paused), undefined, viewer('u-shant'))?.fix, {
-    kind: 'resume',
-    deviceId: 'd1',
-    runtimeId: 'local_u-shant_d1',
-  })
-  assert.deepEqual(agentProblem(local('u-bryan', paused), undefined, viewer('u-shant'))?.fix, {
-    kind: 'ask',
-    name: 'Bryan',
-  })
+  // The composer already says the send resumes it, so the row repeats the word, not an action.
+  for (const owner of ['u-shant', 'u-bryan']) {
+    const problem = agentProblem(local(owner, paused), undefined, viewer('u-shant'))
+
+    assert.equal(problem?.reason, 'Paused')
+    assert.equal(problem?.fix, undefined)
+    assert.equal(problem?.pickable, false)
+  }
+  // A managed runtime's pod is a Box no send can wake, so it is offline and retries.
+  const pod = agentProblem(
+    local('u-shant', { online: false, box: { provider: 'k8s' as const } }),
+    undefined,
+    viewer('u-shant'),
+  )
+
+  assert.equal(pod?.reason, 'Offline')
   const offline = agentProblem(local('u-shant', { online: false }), undefined, viewer('u-shant'))
 
   assert.equal(offline?.reason, 'Offline')
   assert.deepEqual(offline?.fix, { kind: 'retry' })
-  assert.equal(agentFixLabel(offline!.fix), 'Retry')
+  assert.equal(agentFixLabel(offline!.fix!), 'Retry')
 })
 
 test('without the member list the ask names no one yet', () => {

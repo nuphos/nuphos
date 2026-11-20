@@ -70,6 +70,16 @@ describe('session timeline events', () => {
         reason: 'its Claude Code account hit its usage limit.',
         resetsAt: '2026-11-10T16:00:00.000Z',
       },
+      {
+        kind: 'agent_reply_failed',
+        at,
+        actorId: 'system',
+        agentId: 'ops',
+        agentName: 'Ops',
+        cause: 'usage_limit',
+        reason: 'its Claude Code account must be verified with Anthropic.',
+        verifyUrl: 'https://portal.anthropic.com/verify',
+      },
     ]
 
     expect(serializeTimelineEvents(failed, people)).toEqual([
@@ -92,6 +102,14 @@ describe('session timeline events', () => {
         agentId: 'ops',
         cause: 'usage_limit',
         resetsAt: '2026-11-10T16:00:00.000Z',
+      },
+      {
+        kind: 'agent_reply_failed',
+        at: at.toISOString(),
+        text: 'Ops couldn’t reply: its Claude Code account must be verified with Anthropic.',
+        agentId: 'ops',
+        cause: 'usage_limit',
+        verifyUrl: 'https://portal.anthropic.com/verify',
       },
     ])
   })

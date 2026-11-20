@@ -106,7 +106,7 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
   const stickToBottom = useStickToBottom(scrollRef, composer)
-  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -219,6 +219,7 @@ export function ChannelPane({
                   bot={Boolean(bot)}
                   preparingFirstReply={preparingFirstReply}
                   firstReplyFailed={firstReplyFailed}
+                  banner={questions.banner}
                 />
               )}
               {detail && (

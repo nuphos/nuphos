@@ -131,6 +131,16 @@ export function accessHint(device: AgentDevice): string | null {
   return t('Shared with {n}', { n: access.userIds.length })
 }
 
+/** What a Box that could not be made says: nothing is left behind, so creating it again works. */
+export function boxSetupFailed(label: string): { title: string; description: string } {
+  return {
+    title: t('Computer setup failed'),
+    description: t('{name} could not start and was removed. Try creating it again.', {
+      name: label,
+    }),
+  }
+}
+
 /** Boxes that were creating and are gone: #355 drops a Box whose machine could not be made. */
 export function vanishedBoxes(previous: AgentDevice[], next: AgentDevice[]): BoxDevice[] {
   const ids = new Set(next.map((device) => device.deviceId))
