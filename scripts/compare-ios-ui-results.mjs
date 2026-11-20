@@ -17,6 +17,11 @@ export function results(json) {
   return byTest
 }
 
+/** The test functions (`testName`) a unified diff adds, whatever attributes precede `func`. */
+export function addedTests(diff) {
+  return new Set([...diff.matchAll(/^\+(?!\+\+).*\bfunc (test\w+)\(/gm)].map((match) => match[1]))
+}
+
 /** `added`: the test functions (`testName`) this pull request's own diff adds. */
 export function compare(branch, main, added = new Set()) {
   const newFailures = []
@@ -72,7 +77,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [branchFile, mainFile] = process.argv.slice(2)
   const branch = results(JSON.parse(readFileSync(branchFile, 'utf8')))
   const main = results(JSON.parse(readFileSync(mainFile, 'utf8')))
-  const added = new Set((process.env.ADDED_TESTS ?? '').split(/\s+/).filter(Boolean))
+  // The pull request's own diff: a test it took from main is not in it.
+  const added = addedTests(readFileSync(process.env.PR_DIFF, 'utf8'))
   const outcome = compare(branch, main, added)
   const text = summary(outcome, branch.size)
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { compare, results, summary } from './compare-ios-ui-results.mjs'
+import { addedTests, compare, results, summary } from './compare-ios-ui-results.mjs'
 
 const run = (cases) => ({
   testNodes: [
@@ -99,6 +99,24 @@ test('a renamed test, with the same count as main, is not missing', () => {
     fixed: [],
     notOnMain: [],
   })
+})
+
+test('addedTests reads every test function a diff adds, attributes and all', () => {
+  const diff = [
+    '+++ b/apps/ios/UITests/AUITests.swift',
+    '+    func testPlain() {',
+    '+    @MainActor func testOnMain() async {',
+    '+    private func testPrivate() throws {',
+    '+    override func testOverride() {',
+    '-    func testRemoved() {',
+    '     func testUnchanged() {',
+    '+    func helper() {',
+  ].join('\n')
+
+  assert.deepEqual(
+    [...addedTests(diff)],
+    ['testPlain', 'testOnMain', 'testPrivate', 'testOverride'],
+  )
 })
 
 test('the summary names each group and says when nothing is new', () => {
