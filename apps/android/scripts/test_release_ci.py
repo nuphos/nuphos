@@ -25,6 +25,48 @@ def signing_script():
     return textwrap.dedent(block)
 
 
+def version_script():
+    text = WORKFLOW.read_text()
+    start = text.index('      - name: Read the release version\n')
+    block = text[start:].split('        run: |\n', 1)[1].split('\n      - ', 1)[0]
+    return textwrap.dedent(block)
+
+
+class ReleaseVersionTest(unittest.TestCase):
+    """The version step picks the Play version code, which can never go down."""
+
+    def run_step(self, version, tag):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'apps/android').mkdir(parents=True)
+            (root / 'apps/android/package.json').write_text(json.dumps({'version': version}))
+            env_file, output_file = root / 'env', root / 'output'
+            result = subprocess.run(['bash', '-c', version_script()], cwd=root, capture_output=True, text=True,
+                                    env={**os.environ, 'RELEASE_TAG': tag, 'GITHUB_ENV': str(env_file),
+                                         'GITHUB_OUTPUT': str(output_file)})
+            if result.returncode:
+                return None
+            return dict(line.split('=', 1) for line in output_file.read_text().split())
+
+    def test_tag_matching_the_package_gives_its_version_code(self):
+        for version, code in (('1.16.0', '11600'), ('1.17.0', '11700'), ('1.17.3', '11703'), ('2.0.99', '20099')):
+            with self.subTest(version=version):
+                self.assertEqual(self.run_step(version, f'android-v{version}'),
+                                 {'version_name': version, 'version_code': code})
+
+    def test_rejects_mismatched_tags_and_versions_the_code_cannot_hold(self):
+        for version, tag in (('1.17.0', 'android-v1.16.0'), ('1.17.0', 'ios-v1.17.0'), ('1.100.0', 'android-v1.100.0'),
+                             ('1.1.100', 'android-v1.1.100'), ('1.07.0', 'android-v1.07.0'), ('1.17', 'android-v1.17'),
+                             ('0.17.0', 'android-v0.17.0'), ('', 'android-v')):
+            with self.subTest(version=version, tag=tag):
+                self.assertIsNone(self.run_step(version, tag))
+
+    def test_committed_version_is_above_every_code_play_has_received(self):
+        version = json.loads((ROOT / 'apps/android/package.json').read_text())['version']
+        code = self.run_step(version, f'android-v{version}')['version_code']
+        # Play last received 1.16.0 as code 31 before this scheme; 1.16.0 itself maps to 11600.
+        self.assertGreaterEqual(int(code), 11600)
+
 class ReleaseMetadataTest(unittest.TestCase):
     def test_version_boundaries(self):
         for code in ('1', '2100000000'):
