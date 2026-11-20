@@ -1603,6 +1603,7 @@
   "Disk almost full: {free} GB free": "磁盘快满了：剩余 {free} GB",
   "Dismiss": "关闭",
   "Dismiss Slack promo": "关闭 Slack 推广",
+  "Dismiss for today": "今天不再提示",
   "Dismiss question": "忽略问题",
   "Dismissed. It carries on without an answer.": "已关闭，会在没有回答的情况下继续。",
   "Dismissing...": "正在忽略…",
