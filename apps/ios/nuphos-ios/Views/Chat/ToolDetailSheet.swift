@@ -50,7 +50,7 @@ struct ToolDetailSheet: View {
         }
         .sheet(isPresented: $choosingCredentials) {
             CredentialPickerSheet(selection: Binding(
-                get: { session.credentialAccess ?? CredentialSelection() },
+                get: { (session.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
                 set: { session.setCredentials($0) }), providers: part.integrationProviders)
         }
         .sheet(isPresented: $showingConnectors) {
