@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { createServer } from 'node:http'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -17,10 +17,9 @@ import {
   withProviderStatus,
 } from './custom-provider.ts'
 
-import type { AddressInfo } from 'node:net'
-
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { KeyStore } from './custom-provider.ts'
+import type { AddressInfo } from 'node:net'
 
 function memoryStore(): KeyStore & { items: Map<string, string> } {
   const items = new Map<string, string>()
@@ -62,8 +61,14 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
 })
 
-/** A provider that serves the Responses API: it refuses an empty body before any model runs. */
-const responsesApi: typeof fetch = async () => new Response('{}', { status: 400 })
+const realFetch = globalThis.fetch
+
+// Only this computer's test server is really asked. The other providers here (gw.example.com)
+// answer as one that serves the Responses API: it refuses an empty body before any model runs.
+globalThis.fetch = (input, init) =>
+  String(input).startsWith('http://127.0.0.1:')
+    ? realFetch(input, init)
+    : Promise.resolve(new Response('{}', { status: 400 }))
 
 test('Codex refuses a provider that does not serve the Responses API, asked with its key', async (t) => {
   const dir = tempDir(t)
@@ -73,7 +78,9 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   const server = createServer((req, res) => {
     let body = ''
 
-    req.on('data', (chunk) => (body += chunk))
+    req.on('data', (chunk) => {
+      body += chunk
+    })
     req.on('end', () => {
       seen.push({ url: req.url, auth: req.headers.authorization, body })
       res.writeHead(req.url === '/v1/chat/completions' ? 400 : 404).end('{"detail":"Not Found"}')
@@ -97,7 +104,7 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   assert.equal(readCustomProviders(dir).codex, undefined)
 
   // An edit without a key is asked with the stored one; Claude Code is not asked at all.
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   await assert.rejects(
     saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
     /Responses API/u,
@@ -115,22 +122,8 @@ test('the key goes only to the credential store, and an edit without one keeps i
   const store = memoryStore()
 
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', gateway), /API key/u)
-  await saveCustomProvider(
-    store,
-    dir,
-    'u1',
-    'codex',
-    { ...gateway, apiKey: 'sk-gw-secret' },
-    responsesApi,
-  )
-  await saveCustomProvider(
-    store,
-    dir,
-    'u1',
-    'codex',
-    { ...gateway, models: ['kimi-k2'] },
-    responsesApi,
-  )
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw-secret' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, models: ['kimi-k2'] })
 
   assert.equal(store.items.get('u1:codex'), 'sk-gw-secret')
   assert.doesNotMatch(readFileSync(path.join(dir, 'custom-providers.json'), 'utf8'), /sk-gw/u)
@@ -258,7 +251,7 @@ test('a saved provider stands in for the sign-in, and its key reaches only opena
 
   assert.deepEqual(await probe('codex', {}, home), signedOut)
   await process.start(options)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   assert.deepEqual(await probe('codex', {}, home), {
     ...signedOut,
     loggedIn: true,
@@ -273,7 +266,7 @@ test('a key the store will not delete keeps the provider listed; a key already g
   const store = memoryStore()
   const remove = store.delete
 
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' }, responsesApi)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   store.delete = () => Promise.reject(new Error('User canceled the operation.'))
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', null), /canceled/u)
   assert.ok(readCustomProviders(dir).codex)

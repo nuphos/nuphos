@@ -113,9 +113,9 @@ function writeCustomProvider(
  * is refused (400/422) by a provider that serves it, before any model runs; one that does not
  * answers 404 or 405. Anything else, an unreachable provider among it, is not held against it.
  */
-async function servesResponsesApi(baseUrl: string, key: string, request: typeof fetch) {
+async function servesResponsesApi(endpoint: string, key: string) {
   try {
-    const { status } = await request(`${baseUrl.replace(/\/+$/u, '')}/responses`, {
+    const { status } = await fetch(endpoint, {
       method: 'POST',
       headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
       body: '{}',
@@ -140,7 +140,6 @@ export async function saveCustomProvider(
   userId: string,
   provider: unknown,
   value: unknown,
-  request: typeof fetch = fetch,
 ): Promise<void> {
   if (!isAgent(provider)) throw new Error('Unknown runtime.')
   if (value === null) {
@@ -157,9 +156,12 @@ export async function saveCustomProvider(
   const probeKey =
     provider === 'codex' && (key || (await store.get(account(userId, provider)).catch(() => null)))
 
-  if (probeKey && !(await servesResponsesApi(parsed.baseUrl, probeKey, request)))
+  // Codex's own join: the base URL without its trailing slash, then `/responses`.
+  const endpoint = `${parsed.baseUrl.endsWith('/') ? parsed.baseUrl.slice(0, -1) : parsed.baseUrl}/responses`
+
+  if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
     throw new Error(
-      `This provider doesn’t serve the OpenAI Responses API that Codex needs at ${parsed.baseUrl.replace(/\/+$/u, '')}/responses. Check that the base URL stops before the endpoint path, such as https://api.example.com/v1. A provider with only a chat completions API works with other agents, not Codex.`,
+      `This provider doesn’t serve the OpenAI Responses API that Codex needs at ${endpoint}. Check that the base URL stops before the endpoint path, such as https://api.example.com/v1. A provider with only a chat completions API works with other agents, not Codex.`,
     )
   if (key) {
     try {
