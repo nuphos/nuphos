@@ -73,7 +73,8 @@ const instructionsBody = z
   .strict()
 
 // The owner rewrites a Bot's standing instructions in Bot details, as the Bot does with
-// `update_self`: the same field and limits, read again on the Bot's next turn.
+// `update_self`: the same field and limits. They are in the system prompt the Bot's
+// runtime session reads when it opens.
 agent.patch('/conversations/:sessionId/instructions', async (c) => {
   const userId = c.get('userId')
   const sessionId = c.req.param('sessionId')

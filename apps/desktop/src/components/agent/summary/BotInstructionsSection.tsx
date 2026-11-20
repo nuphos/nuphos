@@ -16,7 +16,7 @@ const textClass = 'whitespace-pre-wrap break-words text-[13px] leading-5 text-ma
 
 /**
  * A Bot's standing instructions in full, which its transcript only shows clipped. Its owner
- * rewrites them here, in place; the Bot reads them again on its next turn.
+ * rewrites them here, in place.
  */
 export function BotInstructionsSection({
   conversation,
