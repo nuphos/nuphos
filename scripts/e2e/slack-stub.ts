@@ -45,6 +45,11 @@ function usersInfo(id: string) {
 const METHODS: Record<string, (params: Record<string, string>) => object> = {
   'users.info': (params) => usersInfo(params.user ?? ''),
   'chat.postMessage': postMessage,
+  // The connected channel, as the settings describe it.
+  'conversations.info': (params) => ({
+    ok: true,
+    channel: { id: params.channel, name: 'e2e-deploys', is_member: true, is_private: false },
+  }),
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */
