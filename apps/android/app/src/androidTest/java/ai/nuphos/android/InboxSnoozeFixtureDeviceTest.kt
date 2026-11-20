@@ -101,6 +101,7 @@ class InboxSnoozeFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo().performClick()
         // Sent at once: nothing waits for an Undo.
         compose.waitUntil(1_000) { source.dismissed.isNotEmpty() }
+        capture("5-dismissed")
         assertEquals("q-region" to "We deploy the docs from CI now.", source.dismissed.single())
     }
 
