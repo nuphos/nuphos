@@ -85,6 +85,15 @@ test('a Bot whose turn ended while its sub-agents work waits on them', () => {
   )
 })
 
+test("someone else's Bot, whose Tasks this viewer does not list, waits on as many as its row counts", () => {
+  const shared = run('bot', idle, { tasks: { running: 1, waiting: 1 } })
+
+  assert.deepEqual(botWorkOf(shared, [], 'c'), { kind: 'waiting', kids: [], count: 2 })
+  assert.equal(botWorkOf(run('bot', idle, { tasks: { running: 0, waiting: 0 } }), [], 'c'), null)
+  // The owner lists the Tasks themselves, so their names win over the count.
+  assert.equal(botWorkOf(shared, [run('Done', idle)], 'c'), null)
+})
+
 test("the Bot's own background work, with no sub-agent at it, is background", () => {
   const work = botWorkOf(run('bot', { ...idle, phase: 'background_tools' }), [], 'c')
 
