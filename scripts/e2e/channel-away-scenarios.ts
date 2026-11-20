@@ -140,7 +140,4 @@ export const channelAwayScenarios: Scenario[] = [
       await failed.first().waitFor({ state: 'detached', timeout: 30_000 })
     },
   },
-  // Skipped: flaky, the couldn’t-reply line detaches under the locator; tracked in #4254
-].filter(
-  (s) => s.name !== 'a Bot away for two posts shows one couldn’t-reply line, gone once it answers',
-)
+]
