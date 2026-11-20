@@ -6,10 +6,19 @@ import { useDb } from '@/lib/test/doubles/db'
 import type { AgentTrigger } from '../trigger-db'
 
 let stored: AgentTrigger | null = null
+const history: Record<string, unknown>[] = []
 
 useDb({
+  withTransaction: async (body: (session: never) => Promise<void>) => {
+    await body('session' as never)
+  },
   db: () => ({
     collection: () => ({
+      insertOne: (doc: Record<string, unknown>) => {
+        history.push(doc)
+
+        return Promise.resolve()
+      },
       findOne: () => Promise.resolve(stored),
       updateOne: (_filter: unknown, update: { $set: Partial<AgentTrigger> }) => {
         if (stored) stored = { ...stored, ...update.$set }
@@ -48,6 +57,8 @@ describe('rotateTriggerSecret', () => {
     expect(secret).toMatch(/^[0-9a-f]{64}$/)
     expect(secret).not.toBe(OLD)
     expect(stored.webhookSecret).toBe(secret)
+    expect(history.at(-1)).toMatchObject({ actorId: 'owner', reason: 'webhook_secret_rotated' })
+    expect(JSON.stringify(history)).not.toContain(secret)
   })
 
   test('a Trigger without a webhook has no secret to rotate', async () => {
