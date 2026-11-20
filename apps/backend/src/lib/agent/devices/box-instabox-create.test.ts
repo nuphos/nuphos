@@ -26,12 +26,18 @@ const accountId = '65f0000000000000000000a1'
 const raw = 'sandbox limit reached (5 on the free plan) for owner@example.test; run `instabox ls`'
 const deleted: string[] = []
 const killed: string[] = []
+// The time each instabox connection was given.
+const budgets: number[] = []
 // Spies are restored one by one: mock.restore() would also clear other files' doubles.
 const spies: { mockRestore: () => void }[] = []
 
 useBoxInstaboxAccount({
   findInstaboxAccount: () => Promise.resolve({} as never),
-  boxConnection: () => Promise.resolve({ apiKey: 'k', requestTimeoutMs: 1, operationTimeoutMs: 1 }),
+  boxConnection: (_account: unknown, budget: number) => {
+    budgets.push(budget)
+
+    return Promise.resolve({ apiKey: 'k', requestTimeoutMs: 1, operationTimeoutMs: 1 })
+  },
 })
 useBoxInstaboxLimit({ boxSize: () => Promise.resolve({ vcpus: 2, memMiB: 4096 }) })
 useInstaboxMachines({
@@ -130,6 +136,25 @@ const idleRefusal = () =>
     'Free users are not able to change idle time: a free sandbox pauses after 30 idle minutes (send 1800 or leave it out)',
     { status: 403, code: 'spec_not_allowed' },
   )
+
+test('an order waits out an instabox that queues it for minutes (#4146)', async () => {
+  budgets.length = 0
+  spies.push(spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 202 })))
+  spies.push(
+    spyOn(Sandbox, 'create').mockImplementation(((
+      _template: string,
+      options?: { fetch?: typeof fetch },
+    ) => {
+      void options?.fetch?.('https://instabox.test/v1/machines', { method: 'POST' })
+
+      return new Promise<Sandbox>(() => {})
+    }) as typeof Sandbox.create),
+  )
+
+  await createBox('u1', teamId, 'Box', { accountId })
+  // instabox has held a create in its queue for over 4 minutes before starting it.
+  expect(budgets[0]).toBeGreaterThanOrEqual(10 * 60_000)
+})
 
 test('the order leaves the idle setting out, so a plan that keeps its idle pause accepts it', async () => {
   const orders: { autoSuspendMs?: number }[] = []

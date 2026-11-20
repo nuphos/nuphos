@@ -5816,7 +5816,7 @@
   "{name} connection": "Conexión de {name}",
   "{name} connector for Nuphos.": "Conector de {name} para Nuphos.",
   "{name} connects via the Linode endpoint again": "{name} vuelve a conectarse mediante el endpoint de Linode",
-  "{name} could not start and was removed.": "{name} no se pudo iniciar y se eliminó.",
+  "{name} could not start and was removed. Try creating it again.": "{name} no se pudo iniciar y se eliminó. Intenta crearlo de nuevo.",
   "{name} did not change": "{name} no cambió",
   "{name} disconnected": "{name} desconectado",
   "{name} installed": "{name} instalado",

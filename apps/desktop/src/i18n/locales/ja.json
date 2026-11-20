@@ -5816,7 +5816,7 @@
   "{name} connection": "{name} の接続",
   "{name} connector for Nuphos.": "Nuphos 用の {name} コネクタ。",
   "{name} connects via the Linode endpoint again": "{name} は再び Linode のエンドポイント経由で接続します",
-  "{name} could not start and was removed.": "{name} を起動できなかったため、削除されました。",
+  "{name} could not start and was removed. Try creating it again.": "{name} を起動できなかったため、削除されました。もう一度作成してください。",
   "{name} did not change": "{name} は変更されませんでした",
   "{name} disconnected": "{name} の接続を解除しました",
   "{name} installed": "{name} をインストールしました",
