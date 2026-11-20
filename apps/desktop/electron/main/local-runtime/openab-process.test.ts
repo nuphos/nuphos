@@ -5,13 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import {
-  AGENT_SLICE,
-  OpenabProcess,
-  agentScope,
-  openabCommand,
-  stopStaleOpenab,
-} from './openab-process.ts'
+import { AGENT_SLICE, OpenabProcess, openabCommand, stopStaleOpenab } from './openab-process.ts'
 
 import type { OpenabProcessOptions } from './openab-process.ts'
 
@@ -170,13 +164,7 @@ test("a Box runs openab in the memory-capped agents cgroup, keeping openab's own
   const [command, args] = openabCommand('/b/openab', '/l/openab.toml', true)
 
   assert.equal(command, '/usr/bin/systemd-run')
-  assert.ok(args.includes(`--slice=${AGENT_SLICE}`))
-  // One tool's OOM kill must not stop the scope, and with it openab and every session.
-  assert.ok(args.includes('--property=OOMPolicy=continue'))
-  // A fixed scope per config, which the host stops to reap what openab's tools daemonized.
-  assert.ok(args.includes(`--unit=${agentScope('/l/openab.toml')}`))
-  assert.equal(agentScope('/l/openab.toml'), agentScope('/l/openab.toml'))
-  assert.notEqual(agentScope('/l/openab.toml'), agentScope('/m/openab.toml'))
+  assert.ok(args.slice(0, 5).includes(`--slice=${AGENT_SLICE}`))
   // stopStaleOpenab finds a stale run by this suffix; `--scope` execs openab in place.
   assert.ok(args.join(' ').endsWith('openab run -c /l/openab.toml'))
 })

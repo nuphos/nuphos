@@ -1,5 +1,5 @@
 import { execFile, execFileSync, spawn } from 'node:child_process'
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
@@ -148,37 +148,7 @@ async function capAgentMemory(): Promise<boolean> {
   return capped
 }
 
-/**
- * OOMPolicy=continue: the kernel kills only the process that ran the slice out of memory;
- * the default `stop` then stops the scope with openab and every session in it.
- * TimeoutStopSec: a leftover ignoring SIGTERM is killed after openab's grace, not 90 s.
- */
-const AGENT_SCOPE = [
-  '--user',
-  '--scope',
-  '--quiet',
-  '--collect',
-  `--slice=${AGENT_SLICE}`,
-  '--property=OOMPolicy=continue',
-  `--property=TimeoutStopSec=${String(STOP_GRACE_MS / 1000)}`,
-]
-
-/**
- * One scope per config. A daemon a tool started (`ssh-agent -s`, a `--fork`ed dbus)
- * escapes openab's own reaping and outlives it in the scope; stopping the scope kills
- * everything still in it. The fixed name also finds the scope a dead host left behind.
- */
-export const agentScope = (configPath: string): string =>
-  `nuphos-openab-${createHash('sha256').update(configPath).digest('hex').slice(0, 12)}`
-
-const stopAgentScope = (configPath: string): Promise<void> =>
-  new Promise((resolve) => {
-    const stop = ['--user', 'stop', `${agentScope(configPath)}.scope`]
-
-    execFile('/usr/bin/systemctl', stop, { timeout: 15_000, env: systemdUserEnv() }, () => {
-      resolve()
-    })
-  })
+const AGENT_SCOPE = ['--user', '--scope', '--quiet', '--collect', `--slice=${AGENT_SLICE}`]
 
 /** `systemd-run --scope` execs openab in the same process, inside the agents' cgroup. */
 export function openabCommand(
@@ -187,9 +157,8 @@ export function openabCommand(
   capped: boolean,
 ): [string, string[]] {
   const args = ['run', '-c', configPath]
-  const scope = [...AGENT_SCOPE, `--unit=${agentScope(configPath)}`]
 
-  return capped ? ['/usr/bin/systemd-run', [...scope, '--', openab, ...args]] : [openab, args]
+  return capped ? ['/usr/bin/systemd-run', [...AGENT_SCOPE, '--', openab, ...args]] : [openab, args]
 }
 
 /** One openab + adapter process tree on a fresh loopback port and a fresh key. */
@@ -202,8 +171,6 @@ export class OpenabProcess {
   }
 
   private child: ChildProcess | undefined
-  /** Stopping the scope of the openab that last exited, which the next start waits for. */
-  private reaped: Promise<void> = Promise.resolve()
   private exitListeners = new Set<(code: number | null) => void>()
 
   onExit(listener: (code: number | null) => void): () => void {
@@ -214,7 +181,6 @@ export class OpenabProcess {
 
   async start(options: OpenabProcessOptions): Promise<RunningRuntime> {
     await this.stop()
-    await this.reaped
     const port = await freeLoopbackPort()
     const authKey = randomBytes(32).toString('hex')
     const launch: LocalRuntimeLaunch = { ...options, ...this.machine, port, authKey }
@@ -230,8 +196,6 @@ export class OpenabProcess {
     log.write(`\n=== ${new Date().toISOString()} openab on 127.0.0.1:${String(port)} ===\n`)
     const capped =
       process.platform === 'linux' && this.machine.ownsMachine === true && (await capAgentMemory())
-
-    if (capped) await stopAgentScope(configPath)
     const [command, args] = openabCommand(options.bundle.openab, configPath, capped)
     const child = spawn(command, args, {
       env: { ...openabEnv(launch), ...(capped ? systemdUserEnv() : {}) },
@@ -251,7 +215,6 @@ export class OpenabProcess {
     })
     child.once('exit', (code, signal) => {
       log.end(`=== openab exited code=${String(code)} signal=${String(signal)} ===\n`)
-      if (capped) this.reaped = stopAgentScope(configPath)
       if (this.child !== child) return
       this.child = undefined
       for (const listener of this.exitListeners) listener(code)
@@ -286,7 +249,7 @@ export class OpenabProcess {
 
       child.once('exit', () => {
         clearTimeout(timer)
-        resolve(this.reaped)
+        resolve()
       })
       child.kill('SIGTERM')
     })
