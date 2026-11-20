@@ -68,11 +68,20 @@ export const reporting = (send) => async (sessionId, name, args) => {
   return message
 }
 
+/** E2E_CALL's arguments; a Bot's chat post reaches its prompt as a JSON string, escaped. */
+function parseArgs(args) {
+  try {
+    return JSON.parse(args)
+  } catch {
+    return JSON.parse(JSON.parse(`"${args}"`))
+  }
+}
+
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
   // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
   for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
-    const message = await call(sessionId, name, JSON.parse(args))
+    const message = await call(sessionId, name, parseArgs(args))
 
     log({ sessionId, event: 'called', name, result: message.result ?? message.error })
     if (name === 'request_user_decision') {
