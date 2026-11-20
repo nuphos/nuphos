@@ -364,6 +364,26 @@ test("a native sub-agent's steps render under the call that spawned it, not in t
   ])
 })
 
+test('a sub-agent step never disappears when its spawning call is outside the range or after it', () => {
+  const task = { ...tool('Agent'), toolCallId: 'task-2', subagent: true } as Part
+  const child = (id: string) => ({ ...tool(), toolCallId: id, parentToolUseId: 'task-2' }) as Part
+  const parts: Part[] = [child('early'), task, child('a'), text('Meanwhile.'), child('b')]
+
+  // The child listed before its spawning call stays where it is.
+  assert.deepEqual(segmentParts(parts, 0, 3), [
+    { kind: 'toolRun', indices: [0] },
+    { kind: 'toolRun', indices: [1, 2] },
+  ])
+  // A range that starts after the spawning call shows its steps as plain calls.
+  assert.deepEqual(segmentParts(parts, 2, 5), [
+    { kind: 'toolRun', indices: [2] },
+    { kind: 'part', index: 3 },
+    { kind: 'toolRun', indices: [4] },
+  ])
+  // A range that ends mid-run holds only its own steps.
+  assert.deepEqual(segmentParts(parts, 1, 3), [{ kind: 'toolRun', indices: [1, 2] }])
+})
+
 test('a step whose spawning call is unknown stays a plain step', () => {
   const parts: Part[] = [tool(), { ...tool(), parentToolUseId: 'missing' }]
 

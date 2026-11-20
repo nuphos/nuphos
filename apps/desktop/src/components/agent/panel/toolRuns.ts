@@ -15,8 +15,7 @@ export type PartSegment =
   // content in place instead of folding a finished call away. Narration
   // between calls ends the run so it stays where it happened in the turn.
   // A native sub-agent's run is headed by the call that spawned it and holds
-  // every step the sub-agent (or its own sub-agents) ran, wherever those steps
-  // landed in the turn.
+  // the steps the sub-agent (or its own sub-agents) ran later in the same range.
   | { kind: 'toolRun'; indices: number[] }
 
 // Tool calls that render as their own card (chart, artifact, plan, permission grant)
@@ -113,26 +112,10 @@ export function turnDisplayParts(parts: Part[], streaming: boolean): Part[] {
   return parts.map((part) => (part.type === 'tool' ? finalizeToolPartForDisplay(part) : part))
 }
 
-function subagentRun(parts: readonly Part[], head: number): number[] {
-  const ids = new Set([(parts[head] as ToolPart).toolCallId])
-  const indices = [head]
-
-  for (let index = head + 1; index < parts.length; index += 1) {
-    const part = parts[index]
-
-    if (part.type !== 'tool' || !part.parentToolUseId || !ids.has(part.parentToolUseId)) continue
-    ids.add(part.toolCallId)
-    indices.push(index)
-  }
-
-  return indices
-}
-
 export function segmentParts(parts: readonly Part[], from: number, to: number): PartSegment[] {
   const segments: PartSegment[] = []
-  const spawned = new Set(
-    parts.flatMap((part) => (part.type === 'tool' && part.subagent ? [part.toolCallId] : [])),
-  )
+  // Which sub-agent run in this range a call belongs to, by the run's indices.
+  const runOf = new Map<string, number[]>()
   let run: number[] = []
   const flushRun = () => {
     if (run.length > 0) segments.push({ kind: 'toolRun', indices: run })
@@ -141,19 +124,28 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
 
   for (let index = from; index < to; index += 1) {
     const part = parts[index]
+    const plain = isPlainToolPart(part)
+    const owner = plain && part.parentToolUseId ? runOf.get(part.parentToolUseId) : undefined
 
-    // A sub-agent's step renders under the call that spawned it.
-    if (part.type === 'tool' && part.parentToolUseId && spawned.has(part.parentToolUseId)) continue
-    if (part.type === 'tool' && part.subagent && isPlainToolPart(part)) {
+    // A sub-agent's step joins the run of the call that spawned it, earlier in this range.
+    if (owner && plain) {
+      owner.push(index)
+      runOf.set(part.toolCallId, owner)
+      continue
+    }
+    if (plain && part.subagent) {
       flushRun()
-      segments.push({ kind: 'toolRun', indices: subagentRun(parts, index) })
+      const indices = [index]
+
+      runOf.set(part.toolCallId, indices)
+      segments.push({ kind: 'toolRun', indices })
       continue
     }
     if (isInvisiblePart(part)) {
       segments.push({ kind: 'part', index })
       continue
     }
-    if (isPlainToolPart(part)) {
+    if (plain) {
       run.push(index)
       continue
     }
