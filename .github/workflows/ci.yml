@@ -491,6 +491,11 @@ jobs:
       - id: openab
         uses: ./.github/actions/openab-binaries
       # Always staged: the app runs its own local agents from it. A cache hit reuses that openab.
+      - name: Use the 0.115.1 Desktop (repro #4260 only)
+        run: |
+          git fetch --depth=1 origin tag v0.115.1
+          rm -rf apps/desktop
+          git checkout v0.115.1 -- apps/desktop
       - name: Stage the local runtime
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets linux-x64 --require
