@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
-const CHOOSE = "This Bot can't use any computers or credentials yet. Choose what it may use."
+const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
 const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
 
@@ -188,6 +188,23 @@ export const botAccessScenarios: Scenario[] = [
 
       // Its chat is made while the Bot is still the viewer's; then it moves to the teammate.
       await openChat(page, SHARED)
+      // #4038: in a chat with no posts the banner sits in the intro's column, 16px under it.
+      const intro = page
+        .getByText(`This is your conversation with ${SHARED}.`, { exact: false })
+        .locator('xpath=..')
+      const banner = page.getByText(CHOOSE).locator('xpath=..')
+
+      await banner.waitFor()
+      const [text, line] = await Promise.all([intro.boundingBox(), banner.boundingBox()])
+
+      if (
+        !text ||
+        !line ||
+        Math.abs(line.x - text.x) > 1 ||
+        Math.abs(line.y - (text.y + text.height) - 16) > 1
+      )
+        throw new Error(`The banner is not under the intro: ${JSON.stringify({ text, line })}`)
+      await shoot(page, 'empty-chat-banner')
       shareAway(stack, bot.sessionId, mate.id)
       await page.reload()
       await openChat(page, SHARED)
