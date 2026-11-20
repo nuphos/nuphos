@@ -3,10 +3,8 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
-import { forgetComputer } from './computer-scenarios.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { startSecondComputer } from './second-computer.ts'
 import { openBotTask, send, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
@@ -165,37 +163,25 @@ export const botAccessScenarios: Scenario[] = [
         throw new Error(`create_bot stored ${JSON.stringify(minted?.access)}, not its maker's`)
       await archive(stack, minted.sessionId)
 
-      // A turn in its chat runs a command on a computer it may use: one running `nuphos agent`,
-      // as every local_exec scenario uses, added to what it stored.
-      const computer = await startSecondComputer(stack, 'E2E Bot computer')
+      // A turn in its chat runs a command on its owner's computer, which it may now use.
+      const from = agentLog(stack).length
+      const args = JSON.stringify({
+        label: 'Run it',
+        command: 'echo E2E_ON_COMPUTER',
+        device: deviceIds[0],
+      })
 
-      try {
-        updateBot(stack, made.sessionId, {
-          $set: { 'credentialAccess.deviceIds': [...deviceIds, computer.deviceId] },
-        })
-        const from = agentLog(stack).length
-        const args = JSON.stringify({
-          label: 'Run it',
-          command: 'echo E2E_ON_COMPUTER',
-          device: computer.deviceId,
-        })
-
-        await send(page, `Run it E2E_CALL local_exec ${args} E2E_DELIVERY:bot-computer`)
-        await until('the Bot to run a command on a computer', async () =>
-          agentLog(stack)
-            .slice(from)
-            .some(
-              (entry) =>
-                entry.event === 'called' &&
-                entry.name === 'local_exec' &&
-                JSON.stringify(entry.result).includes('E2E_ON_COMPUTER'),
-            ),
-        )
-      } finally {
-        updateBot(stack, made.sessionId, { $set: { 'credentialAccess.deviceIds': deviceIds } })
-        await computer.stop()
-        forgetComputer(stack.mongoUri, computer.deviceId)
-      }
+      await send(page, `Run it E2E_CALL local_exec ${args} E2E_DELIVERY:bot-computer`)
+      await until('the Bot to run a command on a computer', async () =>
+        agentLog(stack)
+          .slice(from)
+          .some(
+            (entry) =>
+              entry.event === 'called' &&
+              entry.name === 'local_exec' &&
+              JSON.stringify(entry.result).includes('E2E_ON_COMPUTER'),
+          ),
+      )
 
       // Narrow, the details float over the chat with the same rows.
       const cdp = await page.context().newCDPSession(page)
