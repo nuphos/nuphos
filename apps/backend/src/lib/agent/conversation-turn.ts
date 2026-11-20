@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
@@ -11,6 +12,7 @@ import { channelIdOf, withChannelPosts } from './channel-wake'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
+import { noteReplyFailed } from './reply-failed'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
 import { reconnecting } from './turn-offline'
@@ -166,13 +168,15 @@ export async function runTurn(
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check, its computer is reconnecting, or
-        // this replica is draining. Back to the front, retried after a wait rather than on
-        // the release that follows; a draining replica starts nothing, so another one does.
+        // The runtime took another turn after the check, its computer is reconnecting, its
+        // account is out of usage, or this replica is draining. Back to the front, retried
+        // after a wait rather than on the release that follows; a draining replica starts
+        // nothing, so another one does. A move to another agent releases the session.
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
+        const limited = turnFailureCause(error) === 'usage_limit'
 
-        if (!offline && !draining && !isRuntimeRefusal(error)) throw error
+        if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
         await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
@@ -180,6 +184,10 @@ export async function runTurn(
           // Only an unbroken run of offline tries counts toward the grace.
           offlineSince: offline ? (head.offlineSince ?? new Date().toISOString()) : undefined,
         })
+        // A channel that woke it says why, once per post, however often it retries.
+        if (limited)
+          for (const channelId of new Set(fresh.flatMap((m) => channelIdOf(m) ?? [])))
+            await noteReplyFailed(channelId, data.targetSessionId, error)
 
         return null
       })
