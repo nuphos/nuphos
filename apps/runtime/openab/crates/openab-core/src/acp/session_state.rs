@@ -151,6 +151,9 @@ impl SessionState {
                 end_cancelled_tools(snapshot);
             }
             snapshot["operation"] = json!(operation);
+            if operation != "prompt" {
+                snapshot["planStep"] = Value::Null;
+            }
             if operation == "prompt" {
                 // Keep background tools visible across turns, but reset model activity.
                 snapshot["activity"] = json!("working");
@@ -285,6 +288,12 @@ impl SessionState {
                         snapshot["commands"] = agent_commands(commands);
                     }
                 }
+                Some("plan") => {
+                    snapshot["planStep"] = update["entries"].as_array().and_then(|entries|
+                        entries.iter().find(|entry| entry["status"] == "in_progress" &&
+                            entry["content"].as_str().is_some_and(|text| !text.trim().is_empty()))
+                    ).map(|entry| entry["content"].clone()).unwrap_or(Value::Null);
+                }
                 Some("agent_thought_chunk") => snapshot["activity"] = json!("thinking"),
                 Some("agent_message_chunk") => snapshot["activity"] = json!("responding"),
                 Some("tool_call" | "tool_call_update") => {
@@ -348,6 +357,16 @@ fn agent_commands(commands: &[Value]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn plan_progress_is_status_not_a_tool() {
+        let state = SessionState::default();
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Inspect fictional project"}]}})));
+        assert_eq!(state.snapshot()["planStep"], "Inspect fictional project");
+        assert_eq!(state.snapshot()["tools"], json!({}));
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"completed","content":"Inspect fictional project"}]}})));
+        assert!(state.snapshot()["planStep"].is_null());
+    }
+
     #[test]
     fn the_agents_slash_commands_are_kept_as_last_listed() {
         let state = SessionState::default();

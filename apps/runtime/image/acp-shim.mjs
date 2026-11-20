@@ -353,28 +353,6 @@ export function runShim({
         }, settleMs)
       return
     }
-    if (kind === 'plan' && Array.isArray(message.params?.update?.entries)) {
-      const active = message.params.update.entries.find(
-        (entry) =>
-          entry?.status === 'in_progress' &&
-          typeof entry.content === 'string' &&
-          entry.content.trim(),
-      )
-      forward(message)
-      return write({
-        jsonrpc: '2.0',
-        method: 'session/update',
-        params: {
-          sessionId,
-          update: {
-            sessionUpdate: 'tool_call',
-            toolCallId: 'nuphos-acp-plan',
-            title: active?.content ?? 'Plan',
-            status: active ? 'in_progress' : 'completed',
-          },
-        },
-      })
-    }
     if (kind === 'task_backgrounded') {
       const update = message.params.update
       tasks.set(update.task_id, update.tool_call_id)
