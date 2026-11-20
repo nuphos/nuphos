@@ -32,6 +32,7 @@ import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
+import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -155,6 +156,7 @@ const scenarios: Scenario[] = [
   ...threadScenarios,
   ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...mcpNotificationScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...approvalFeedbackScenarios,
