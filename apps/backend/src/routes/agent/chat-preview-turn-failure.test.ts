@@ -305,6 +305,44 @@ test('Stop before the agent receives a queued message puts it back instead of re
   ])
 })
 
+const outOfUsage = () =>
+  new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8am (UTC)",
+    -32603,
+  )
+
+test("a person's queued message whose agent is out of usage goes back to the queue, unrecorded", async () => {
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+
+  cause = outOfUsage()
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-queued')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), queued: waiting('user-message', 'fix it') }),
+  ).rejects.toThrow('session limit')
+  expect(persisted).toHaveLength(before)
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'user-message', attempts: 1 }),
+  ])
+})
+
+test('a direct send whose agent is out of usage is still recorded with the reason', async () => {
+  cause = outOfUsage()
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-direct')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      queued: waiting('user-message', 'fix it'),
+      direct: true,
+    }),
+  ).rejects.toThrow('session limit')
+  expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
+    expect.objectContaining({ type: 'turn-interrupted' }),
+  )
+})
+
 // #2872: a direct send carries its message too, for a refusal to queue, and Stop used to queue it.
 test('Stop before the agent receives a direct send records the stop and keeps what waited behind it', async () => {
   const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
