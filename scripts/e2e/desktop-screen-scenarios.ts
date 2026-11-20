@@ -5,6 +5,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
+import { join as joinTeam } from './agent-sign-in-scenarios.ts'
+import { client, must } from './binding-access-scenarios.ts'
 import { me } from './box-scenarios.ts'
 import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
@@ -101,26 +103,40 @@ async function blankScreenGivesUp(page: Page) {
   await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
 }
 
-/** Makes a connected computer a Box on the e2e instabox, as Nuphos records one its user ordered. */
-async function makeBox(stack: Stack, deviceId: string, sandboxId: string) {
+/**
+ * Makes a connected computer a Box on the e2e instabox, as Nuphos records one its user ordered,
+ * shared with `userIds`, of whom `managerIds` manage it.
+ */
+async function makeBox(
+  stack: Stack,
+  deviceId: string,
+  sandboxId: string,
+  share: { userIds: string[]; managerIds: string[] },
+) {
   const script = `
     import { MongoClient } from 'mongodb'
-    const [uri, deviceId, box] = process.argv.slice(1)
+    const [uri, deviceId, box, share] = process.argv.slice(1)
     const client = await new MongoClient(uri).connect()
-    const access = [{ teamId: JSON.parse(box).teamId, everyone: false, userIds: [], managerIds: [] }]
+    const access = [{ teamId: JSON.parse(box).teamId, everyone: false, ...JSON.parse(share) }]
     await client.db('nuphos_e2e').collection('agent_devices').updateOne({ deviceId }, { $set: { box: JSON.parse(box), access } })
     await client.close()`
   const box = { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: await me(stack) }
 
   instaboxMachines.set(sandboxId, { id: sandboxId, state: 'running', operations: [] })
-  execFileSync('bun', ['-e', script, stack.mongoUri, deviceId, JSON.stringify(box)], {
-    cwd: resolve(import.meta.dirname, '../../apps/backend'),
-    timeout: 10_000,
-  })
+  execFileSync(
+    'bun',
+    ['-e', script, stack.mongoUri, deviceId, JSON.stringify(box), JSON.stringify(share)],
+    {
+      cwd: resolve(import.meta.dirname, '../../apps/backend'),
+      timeout: 10_000,
+    },
+  )
 }
 
 // A screen's stream is not found until its host has started and the computer reports it.
 const SCREEN_NOT_UP_YET = /\/runtime-desktop\/runtime\/[^"]+\/0","status":404/u
+// That, or the Box's screen refused to a teammate who only uses it.
+const BOX_SCREEN_404 = /\/runtime-desktop\/runtime\/[^"]+","status":404/u
 
 export const desktopScreenScenarios: Scenario[] = [
   {
@@ -165,8 +181,9 @@ export const desktopScreenScenarios: Scenario[] = [
   {
     // #4100: instabox gives a workspace key no desktop link, so a Box's desktop opens through
     // its own host, as any of the owner's computers does, and never asks instabox for a link.
-    name: 'a Box’s desktop opens through its host and paints',
-    expected: SCREEN_NOT_UP_YET,
+    // A teammate who manages the Box opens it too; one who only uses it does not.
+    name: 'a Box’s desktop opens through its host and paints, also for a teammate who manages it',
+    expected: BOX_SCREEN_404,
     run: async (page, stack) => {
       writeFileSync(
         HOST,
@@ -177,9 +194,15 @@ export const desktopScreenScenarios: Scenario[] = [
         env: { NUPHOS_E2E_MAC_SCREEN_HOST: HOST },
       })
       const sandboxId = `m_e2e_${computer.deviceId.slice(0, 8)}`
+      const owner = client(stack.apiUrl, stack.token)
+      const manager = await joinTeam(stack, owner, 'box-manager')
+      const user = await joinTeam(stack, owner, 'box-user')
 
       try {
-        await makeBox(stack, computer.deviceId, sandboxId)
+        await makeBox(stack, computer.deviceId, sandboxId, {
+          userIds: [manager.id, user.id],
+          managerIds: [manager.id],
+        })
         await openDesktop(page, BOX_LABEL)
         await until('the Box’s desktop to paint', async () => {
           const { opaque, colours } = await painted(page)
@@ -188,6 +211,33 @@ export const desktopScreenScenarios: Scenario[] = [
         })
         await page.screenshot({ path: join(artifacts, 'desktop-screen-box.png') })
         await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
+
+        // Not the Box's creator: the device list offers its manager the Box's screen, which then
+        // opens for them, and offers nothing to whoever only uses it, who is refused.
+        const offered = async (as: typeof owner) => {
+          const listed = (await as('GET', `/agent/devices?teamId=${stack.teamId}`)).body as {
+            devices: { deviceId: string; desktopRuntimeId?: string }[]
+          }
+
+          return listed.devices.find((d) => d.deviceId === computer.deviceId)?.desktopRuntimeId
+        }
+        const runtimeId = await offered(manager.member)
+
+        must(runtimeId !== undefined, 'the Box’s manager to be offered its screen')
+        must((await offered(user.member)) === undefined, 'one who only uses it to be offered none')
+        const open = `/teams/${stack.teamId}/runtime-desktop/runtime/${String(runtimeId)}`
+        const opened = await manager.member('POST', open)
+
+        must(
+          opened.status === 200,
+          `the manager to open it, got ${String(opened.status)} ${opened.text}`,
+        )
+        const refused = await user.member('POST', open)
+
+        must(
+          refused.status === 404,
+          `one who only uses it to be refused, got ${String(refused.status)}`,
+        )
       } finally {
         instaboxMachines.delete(sandboxId)
         await computer.stop()
