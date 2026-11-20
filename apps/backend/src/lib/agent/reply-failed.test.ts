@@ -18,10 +18,20 @@ const offline = () => new AppError(409, 'runtime_offline', 'The computer is offl
 
 /** A channel with a member's post, and a Bot owned by someone who is not in it. */
 async function seed(bot: string) {
-  await agentConversations().insertMany([
-    { sessionId: `${bot}-channel`, userId: 'member', teamId: 'team', title: 'Chat', messageCount: 1 },
-    { sessionId: bot, userId: 'owner', teamId: 'team', title: 'Scribe', agentRuntime: 'claude-code' },
-  ] as never)
+  await agentConversations().insertOne({
+    sessionId: `${bot}-channel`,
+    userId: 'member',
+    teamId: 'team',
+    title: 'Chat',
+    messageCount: 1,
+  } as never)
+  await agentConversations().insertOne({
+    sessionId: bot,
+    userId: 'owner',
+    teamId: 'team',
+    title: 'Scribe',
+    agentRuntime: 'claude-code',
+  } as never)
 }
 
 describe('a channel reply that failed (#4179)', () => {
