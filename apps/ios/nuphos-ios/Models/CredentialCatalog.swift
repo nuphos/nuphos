@@ -199,12 +199,11 @@ struct CredentialSelection: Equatable, Sendable {
     }
 
     /// What a conversation starts with when nobody has chosen: everything
-    /// usable except Resend, whose mail is irreversible and so stays opt-in, and
-    /// the member's own GitHub / Linear, which a chat acts as only when picked.
+    /// usable, the member's own Personal Credentials included, except Resend,
+    /// whose mail is irreversible and so stays opt-in, and Trello.
     /// Mirrors the desktop's `defaultCredentialAccess`.
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
-        ids["personalCredentialIds"] = []
         ids["resendIntegrationIds"] = []
         ids["trelloIntegrationIds"] = []
     }
