@@ -4767,7 +4767,7 @@
   "They can view and reply": "對方可以檢視及回覆",
   "Thinking": "思考中",
   "Thinking…": "正在思考…",
-  "This Bot can't use any computers or credentials yet. Choose what it may use.": "這個 Bot 還不能使用任何電腦或憑證。請選擇它可以使用的項目。",
+  "This Bot can't use any computers yet. Choose what it may use.": "這個 Bot 還不能使用任何電腦。請選擇它可以使用的項目。",
   "This Bot is not ready to move.": "此 Bot 尚無法移動。",
   "This ConfigMap has no data keys.": "此 ConfigMap 沒有資料鍵。",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "這個 Loki 資料來源沒有任何日誌串流，目前還沒有任何來源推送日誌。",

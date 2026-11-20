@@ -4767,7 +4767,7 @@
   "They can view and reply": "ดูและตอบกลับได้",
   "Thinking": "กำลังคิด",
   "Thinking…": "กำลังคิด…",
-  "This Bot can't use any computers or credentials yet. Choose what it may use.": "Bot นี้ยังใช้คอมพิวเตอร์หรือข้อมูลรับรองใดไม่ได้ เลือกสิ่งที่อนุญาตให้ใช้",
+  "This Bot can't use any computers yet. Choose what it may use.": "Bot นี้ยังใช้คอมพิวเตอร์ใดไม่ได้ เลือกสิ่งที่อนุญาตให้ใช้",
   "This Bot is not ready to move.": "บอทนี้ยังไม่พร้อมย้าย",
   "This ConfigMap has no data keys.": "ConfigMap นี้ไม่มีคีย์ข้อมูล",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "แหล่งข้อมูล Loki นี้ไม่มีสตรีมบันทึก — ยังไม่มีอะไรส่งบันทึกเข้ามา",

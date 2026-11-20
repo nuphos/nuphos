@@ -4767,7 +4767,7 @@
   "They can view and reply": "Mereka dapat melihat dan membalas",
   "Thinking": "Berpikir",
   "Thinking…": "Berpikir…",
-  "This Bot can't use any computers or credentials yet. Choose what it may use.": "Bot ini belum dapat menggunakan komputer atau kredensial apa pun. Pilih yang boleh digunakannya.",
+  "This Bot can't use any computers yet. Choose what it may use.": "Bot ini belum dapat menggunakan komputer apa pun. Pilih yang boleh digunakannya.",
   "This Bot is not ready to move.": "Bot ini belum siap dipindahkan.",
   "This ConfigMap has no data keys.": "ConfigMap ini tidak memiliki kunci data.",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "Sumber data Loki ini tidak memiliki stream log — belum ada yang mengirim log ke sini.",

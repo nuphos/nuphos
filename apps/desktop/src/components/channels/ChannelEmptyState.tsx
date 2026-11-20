@@ -2,7 +2,7 @@ import { t } from '../../i18n'
 
 import { ChatIcon } from './channelParts'
 
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 export function ChannelEmptyState({
   faces,
@@ -10,12 +10,15 @@ export function ChannelEmptyState({
   bot,
   preparingFirstReply,
   firstReplyFailed,
+  banner,
 }: {
   faces: ComponentProps<typeof ChatIcon>['faces']
   title: string
   bot: boolean
   preparingFirstReply: boolean
   firstReplyFailed: boolean
+  /** A line for the Bot's owner, in the intro's column and spaced from it. */
+  banner?: ReactNode
 }) {
   return (
     <div className="flex flex-col items-start gap-3 pt-10">
@@ -47,6 +50,7 @@ export function ChannelEmptyState({
           )}
         </div>
       )}
+      {banner && <div className="w-full max-w-[480px] pt-3">{banner}</div>}
     </div>
   )
 }
