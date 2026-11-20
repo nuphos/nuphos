@@ -1,0 +1,107 @@
+// #4083: a Bot's instructions changed while its runtime session runs reach its next turn,
+// and a turn with nothing changed keeps the running agent. Runs in the E2E Bot's chat.
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
+import { agentLog } from '../agent-log.ts'
+import { openBotChat } from '../channel-quotes.ts'
+import { until } from '../processes.ts'
+import { send } from '../ui.ts'
+
+import type { Stack } from '../stack.ts'
+import type { Scenario } from '../ui.ts'
+
+const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
+
+/** Sets the E2E Bot's instructions, the field `update_self` and the owner's edit write, and returns the old ones. */
+function setInstructions(stack: Stack, instructions: string | null): string | null {
+  const out = execFileSync(
+    'bun',
+    [
+      '-e',
+      `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const bots = client.db('nuphos_e2e').collection('agent_conversations')
+    const bot = await bots.findOne({ title: 'E2E Bot', avatar: { $exists: true } })
+    const next = JSON.parse(process.argv[2])
+    await bots.updateOne({ _id: bot._id }, next === null ? { $unset: { instructions: '' } } : { $set: { instructions: next } })
+    console.log(JSON.stringify(bot.instructions ?? null))
+    await client.close()`,
+      stack.mongoUri,
+      JSON.stringify(instructions),
+    ],
+    { cwd: BACKEND_DIR, timeout: 10_000 },
+  )
+
+  return JSON.parse(out.toString()) as string | null
+}
+
+/** Sends a turn to the Bot and returns the rule its agent held then, from the system prompt it
+ *  last opened or loaded with, and its session. */
+async function askRule(stack: Stack, page: Parameters<Scenario['run']>[0], marker: string) {
+  await send(page, `Which rule do you follow? E2E_DELIVERY:${marker}`)
+  let log: ReturnType<typeof agentLog> = []
+  let start = -1
+
+  await until(`the Bot to take ${marker}`, async () => {
+    log = agentLog(stack)
+    start = log.findIndex(
+      (line) => line.event === 'start' && line.marker === `E2E_DELIVERY:${marker}`,
+    )
+
+    return start >= 0
+  })
+  const { sessionId } = log[start] ?? { sessionId: '' }
+  const loaded = log
+    .slice(0, start)
+    .findLast((line) => line.sessionId === sessionId && ['session', 'loaded'].includes(line.event))
+
+  return { rule: loaded?.rule ?? 'none', sessionId }
+}
+
+/** How often the fixture agent opened or loaded this session. */
+const opens = (stack: Stack, sessionId: string) =>
+  agentLog(stack).filter(
+    (line) => line.sessionId === sessionId && ['session', 'loaded'].includes(line.event),
+  ).length
+
+const scenario: Scenario = {
+  name: "a Bot's instructions changed mid-session reach its next turn; an unchanged turn keeps its agent",
+  run: async (page, stack) => {
+    const before = setInstructions(stack, 'Answer by the rule E2E_RULE:alpha.')
+
+    try {
+      await openBotChat(page)
+      // The first turn after the change: the running agent is restarted onto it.
+      const first = await askRule(stack, page, 'rule-alpha')
+
+      if (first.rule !== 'alpha') throw new Error(`The Bot followed ${String(first.rule)}`)
+      const opened = opens(stack, first.sessionId)
+      // Nothing changed: the same agent answers, not reloaded.
+      const again = await askRule(stack, page, 'rule-alpha-again')
+
+      if (again.rule !== 'alpha' || again.sessionId !== first.sessionId)
+        throw new Error(`An unchanged turn answered ${JSON.stringify(again)}`)
+      if (opens(stack, first.sessionId) !== opened)
+        throw new Error('A turn with the same instructions reloaded the agent')
+
+      // The owner rewrites them while the session runs: the next turn follows the new ones.
+      setInstructions(stack, 'Answer by the rule E2E_RULE:beta.')
+      const changed = await askRule(stack, page, 'rule-beta')
+
+      if (changed.rule !== 'beta')
+        throw new Error(`After the edit the Bot still followed ${String(changed.rule)}`)
+      if (changed.sessionId !== first.sessionId)
+        throw new Error('The edit started a new conversation instead of loading this one')
+      if (opens(stack, first.sessionId) !== opened + 1)
+        throw new Error(
+          `The edit loaded the agent ${String(opens(stack, first.sessionId) - opened)} times`,
+        )
+    } finally {
+      setInstructions(stack, before)
+    }
+  },
+}
+
+export default scenario

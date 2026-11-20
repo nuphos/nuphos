@@ -17,6 +17,8 @@ type AgentEntry = {
   env?: Record<string, string>
   /** A fresh session's history preamble: the prompt's length and what it says about omitted turns. */
   history?: { chars: number; omitted: boolean; readConversation: boolean }
+  /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
+  rule?: string
   /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean

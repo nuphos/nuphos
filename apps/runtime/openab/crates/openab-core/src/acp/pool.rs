@@ -129,6 +129,15 @@ fn remove_if_same_handle<T>(
 /// Whether `declared` names different MCP servers than the agent was started with.
 /// Headers carry per-turn credentials, so they never count as a change, and an
 /// empty declaration means the caller declared nothing.
+/// A new system prompt reaches a live agent only through a respawn that loads its session:
+/// it reads the prompt when the session opens. An absent one leaves the agent as it is.
+fn system_prompt_changed(
+    started: Option<&serde_json::Value>,
+    session_meta: Option<&serde_json::Value>,
+) -> bool {
+    super::connection::meta_system_prompt(session_meta).is_some_and(|prompt| Some(prompt) != started)
+}
+
 fn mcp_declaration_changed(started: &[serde_json::Value], declared: &[serde_json::Value]) -> bool {
     let identity = |servers: &[serde_json::Value]| -> Vec<serde_json::Value> {
         servers
@@ -795,21 +804,25 @@ impl SessionPool {
         .await
     }
 
-    /// Removes an idle live connection whose MCP declaration is out of date, keeping its
+    /// Removes an idle live connection whose MCP declaration or system prompt is out of date, keeping its
     /// native session resumable and its admission slot for the replacement spawn.
     /// Returns that session id, or `None` and leaves the agent running when nothing changed,
     /// it cannot resume its session, or a turn is still live.
-    async fn suspend_for_mcp_change(
+    async fn suspend_for_context_change(
         &self,
         thread_id: &str,
         handle: &Arc<Mutex<AcpConnection>>,
         declared: &[serde_json::Value],
+        session_meta: Option<&serde_json::Value>,
     ) -> Option<String> {
         let mut state = self.state.write().await;
         let conn = handle.try_lock().ok()?;
         let sid = conn.acp_session_id.clone()?;
         // Without session/load the replacement would start a new conversation.
-        if !conn.supports_load_session || !mcp_declaration_changed(&conn.mcp_servers, declared) {
+        if !conn.supports_load_session
+            || !(mcp_declaration_changed(&conn.mcp_servers, declared)
+                || system_prompt_changed(conn.system_prompt.as_ref(), session_meta))
+        {
             return None;
         }
         drop(conn);
@@ -827,7 +840,7 @@ impl SessionPool {
             return None;
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
-        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers changed, respawning idle session");
+        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers or system prompt changed, respawning idle session");
         suspend_entry(&mut state, thread_id, &sid);
         self.save_mapping(&state.persisted);
         Some(sid)
@@ -925,16 +938,16 @@ impl SessionPool {
                 return Ok(false);
             };
             if conn.alive() {
-                // The agent read its MCP tool lists when it started. When the
-                // declaration has changed since, suspend it between turns, as
-                // the idle sweep does, so the spawn below resumes the same
-                // conversation with the new servers. Never mid-turn.
+                // The agent read its MCP tool lists and system prompt when it
+                // started. When either has changed since, suspend it between
+                // turns, as the idle sweep does, so the spawn below resumes the
+                // same conversation with them. Never mid-turn.
                 drop(conn);
                 if restore_only {
                     return Ok(false);
                 }
                 let Some(sid) = self
-                    .suspend_for_mcp_change(thread_id, &handle, mcp_servers)
+                    .suspend_for_context_change(thread_id, &handle, mcp_servers, session_meta)
                     .await
                 else {
                     return Ok(false);
@@ -1745,7 +1758,7 @@ mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
         classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
-        meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
+        meta_working_dir, system_prompt_changed, purge_session_entries, relay_is_streaming, remove_if_same_handle,
         PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
@@ -1963,6 +1976,35 @@ mod tests {
             &[server("https://x/mcp-tools?tools=b", "t1")]
         ));
         assert!(mcp_declaration_changed(&[], &started));
+    }
+
+    #[test]
+    fn system_prompt_changes_respawn_only_when_the_text_differs() {
+        let claude =
+            |text: &str| serde_json::json!({"systemPrompt": {"append": text}, "creds": "t1"});
+        let started = serde_json::json!({"append": "be terse"});
+        // Same text, other per-turn fields (credentials) changed: no respawn.
+        let mut same = claude("be terse");
+        same["creds"] = serde_json::json!("t2");
+        assert!(!system_prompt_changed(Some(&started), Some(&same)));
+        // No meta, or meta without a prompt, never respawns.
+        assert!(!system_prompt_changed(Some(&started), None));
+        assert!(!system_prompt_changed(
+            Some(&started),
+            Some(&serde_json::json!({"creds": "t"}))
+        ));
+        assert!(system_prompt_changed(Some(&started), Some(&claude("be thorough"))));
+        assert!(system_prompt_changed(None, Some(&claude("be terse"))));
+        // Codex and the ACP shim carry it in their own shapes.
+        let codex = |text: &str| {
+            serde_json::json!({"ai.nuphos/codex": {"developerInstructions": text, "env": {"T": "1"}}})
+        };
+        let shim = |text: &str| serde_json::json!({"ai.nuphos/session": {"systemPrompt": text}});
+        let old = serde_json::json!("old");
+        assert!(!system_prompt_changed(Some(&old), Some(&codex("old"))));
+        assert!(system_prompt_changed(Some(&old), Some(&codex("new"))));
+        assert!(!system_prompt_changed(Some(&old), Some(&shim("old"))));
+        assert!(system_prompt_changed(Some(&old), Some(&shim("new"))));
     }
 
     #[test]

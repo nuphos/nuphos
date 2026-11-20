@@ -504,6 +504,8 @@ pub struct AcpConnection {
     /// The MCP servers this agent's session was opened with. The agent reads
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
+    /// The system prompt its session opened with, in whichever `_meta` shape the agent reads.
+    pub system_prompt: Option<serde_json::Value>,
     pub supports_load_session: bool,
     /// The agent also offers `session/resume`: the same restore without replaying
     /// the history, which nobody here reads.
@@ -1045,6 +1047,7 @@ impl AcpConnection {
             idle_notify_tx,
             acp_session_id: None,
             mcp_servers: Vec::new(),
+            system_prompt: None,
             supports_load_session: false,
             supports_resume_session: false,
             supports_steering: false,
@@ -1233,6 +1236,7 @@ impl AcpConnection {
         info!(session_id = %session_id, "session created");
         self.acp_session_id = Some(session_id.clone());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
             if !self.config_options.is_empty() {
@@ -1532,6 +1536,7 @@ impl AcpConnection {
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
         }
@@ -1553,6 +1558,15 @@ impl AcpConnection {
             kill_process_group(pgid);
         }
     }
+}
+
+/// The system prompt in a client's `_meta`: Claude Code's `systemPrompt`, Codex's
+/// developer instructions, or the ACP shim's session prompt (backend `sessionMeta`).
+pub(crate) fn meta_system_prompt(meta: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+    let meta = meta?;
+    meta.get("systemPrompt")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("developerInstructions"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("systemPrompt"))
 }
 
 /// `session/new` params. `mcp_servers` are client-declared http-type entries

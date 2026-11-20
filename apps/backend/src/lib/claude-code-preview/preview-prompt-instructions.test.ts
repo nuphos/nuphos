@@ -71,3 +71,18 @@ test('another member of the team does not receive personal instructions', async 
   expect(prompt).toContain('### Change policy')
   expect(prompt).not.toContain('Answer style')
 })
+
+// A runtime restarts a live agent when its system prompt changes (#4083), so nothing that
+// changes from turn to turn, such as the time, may be in it.
+test('the same conversation and member get the same system prompt on every turn', async () => {
+  const args = {
+    userId: 'user-1',
+    teamId: TEAM_ID.toHexString(),
+    sessionId: 'conv-1',
+    locale: 'en',
+  }
+  const first = await buildPreviewSystemPrompt(args)
+
+  await new Promise((resolve) => setTimeout(resolve, 1_100))
+  expect(await buildPreviewSystemPrompt(args)).toBe(first)
+})

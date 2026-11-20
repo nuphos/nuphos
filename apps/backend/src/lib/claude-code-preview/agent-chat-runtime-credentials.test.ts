@@ -18,6 +18,7 @@ const endpoint = {
 const attachment = { openabSessionId: 'session', runtimeUrl: endpoint.url }
 const calls: string[] = []
 const loadedTokens: (string | undefined)[] = []
+const loadedPrompts: (string | undefined)[] = []
 const promptedContexts: (PromptSessionContext | undefined)[] = []
 const noop = () => {}
 const client = {
@@ -25,10 +26,11 @@ const client = {
     _session: string,
     _cwd: string,
     _mcp: unknown,
-    _prompt: string | undefined,
+    prompt: string | undefined,
     runtime: PromptSessionContext['runtime'],
   ) => {
     calls.push('load')
+    loadedPrompts.push(prompt)
     loadedTokens.push(runtime?.env?.NUPHOS_TOKEN)
 
     return { alive: true }
@@ -39,9 +41,11 @@ const client = {
     _onText: unknown,
     _onUpdate: unknown,
     _onPermission: unknown,
-    _onAccepted: unknown,
+    onAccepted: () => void,
     context?: PromptSessionContext,
   ) => {
+    // The runtime admitted the turn, as it does before streaming.
+    onAccepted()
     calls.push('prompt')
     promptedContexts.push(context)
 
@@ -82,6 +86,7 @@ function placeSession(contextDeliveredAt: number) {
 beforeEach(() => {
   calls.length = 0
   loadedTokens.length = 0
+  loadedPrompts.length = 0
   promptedContexts.length = 0
   acquire = spyOn(registry, 'acquire').mockResolvedValue(client)
 })
@@ -90,8 +95,9 @@ afterEach(() => {
   sessionsByConversation.delete('team:conversation')
 })
 
-const run = (token: string) =>
+const run = (token: string, systemPrompt?: string) =>
   runClaudeCodePreviewPrompt({
+    ...(systemPrompt ? { systemPrompt } : {}),
     teamId: 'team',
     conversationId: 'conversation',
     userId: 'user',
@@ -137,4 +143,21 @@ test('re-resumes a session whose delivered context is stale before prompting', a
   expect(calls).toEqual(['load', 'prompt', 'prompt'])
   expect(loadedTokens).toEqual(['turn-2'])
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(client)
+})
+
+// The runtime restarts a live agent between turns when the prompt it loads differs (#4083),
+// so the prompt goes out again only when its text changed, never on every turn.
+test('a session loads its system prompt again only when the text changed', async () => {
+  placeSession(Date.now())
+  const session = sessionsByConversation.get('team:conversation')
+
+  if (session) session.systemPrompt = 'Be terse.'
+  await run('turn-2', 'Be terse.')
+  await run('turn-3', 'Be terse.')
+  expect(calls).toEqual(['prompt', 'prompt'])
+
+  await run('turn-4', 'Be thorough.')
+  await run('turn-5', 'Be thorough.')
+  expect(calls).toEqual(['prompt', 'prompt', 'load', 'prompt', 'prompt'])
+  expect(loadedPrompts).toEqual(['Be thorough.'])
 })
