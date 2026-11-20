@@ -14,7 +14,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** Settings › Local runtime, through ⌘K, where this computer's own agents are. */
-async function openLocalRuntime(page: Page) {
+export async function openLocalRuntime(page: Page) {
   await page
     .getByRole('button', { name: /^Search/ })
     .first()

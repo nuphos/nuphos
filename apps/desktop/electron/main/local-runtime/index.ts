@@ -29,6 +29,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  notSaved,
   saveCustomProvider,
   withProviderKey,
   withProviderStatus,
@@ -265,8 +266,8 @@ export async function setLocalCustomProvider(
 ): Promise<LocalRuntimeState> {
   const { userId } = controller.state()
 
-  if (!userId) throw new Error('Sign in to Nuphos first.')
-  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value)
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value).catch(notSaved)
   await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()
