@@ -42,7 +42,7 @@ mock.module('../../../api.ts', {
 // The transcript helpers are not reached while the read hangs.
 mock.module('../../../lib/analytics.ts', { namedExports: { trackError: () => {} } })
 mock.module('./listedRuntimeState.ts', { namedExports: { listsRuntimeState: () => listed } })
-mock.module('./model.ts', { namedExports: { CONVERSATION_TAIL_LIMIT: 50 } })
+mock.module('./taskTranscript.ts', { namedExports: { CONVERSATION_TAIL_LIMIT: 50 } })
 mock.module('./persistence.ts', {
   namedExports: { fromPersistedMessages: () => [], transcriptSignature: () => '' },
 })

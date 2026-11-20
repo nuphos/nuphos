@@ -1,10 +1,14 @@
 import { api } from '../../../api.ts'
 import { queryKeys } from '../../../lib/query/keys.ts'
 
-import { CONVERSATION_TAIL_LIMIT } from './model.ts'
-
 import type { AgentConversationDetail } from '../../../api.ts'
 import type { QueryClient } from '@tanstack/react-query'
+
+// Opening a conversation fetches only this many trailing messages — about a
+// screenful of turns; earlier pages stream in as the user scrolls up (see
+// loadEarlierMessages). A turn can carry megabytes of tool output, so every
+// extra message here is paid for before first paint.
+export const CONVERSATION_TAIL_LIMIT = 30
 
 /** A Task's tail, without the runtime state: the session list publishes it. */
 export function readTask(teamId: string | undefined, sessionId: string) {
