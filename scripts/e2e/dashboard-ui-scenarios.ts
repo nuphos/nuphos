@@ -287,7 +287,10 @@ export const dashboardUiScenarios: Scenario[] = [
       await until('the agent to read the link', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:no-agent-member'),
       )
-      await page.getByRole('link', { name: new RegExp(`${dashboardId}$`) }).first().click()
+      await page
+        .getByRole('link', { name: new RegExp(`${dashboardId}$`) })
+        .first()
+        .click()
       await page.getByText('Ask a team admin to rent one, then refresh.').waitFor()
       if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
         throw new Error('A member was offered a computer to rent')
