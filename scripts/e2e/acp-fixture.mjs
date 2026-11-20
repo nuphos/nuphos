@@ -16,6 +16,7 @@ import {
   call,
   callNamed,
   personalToken,
+  recheck,
   reporting,
   setToolsServer,
   subtask,
@@ -191,6 +192,7 @@ async function prompt({ sessionId, prompt: parts }) {
 
     while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
+  if (text.includes('E2E_RECHECK')) await recheck({ log, sessionId })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
