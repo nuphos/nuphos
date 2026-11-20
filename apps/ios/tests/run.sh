@@ -70,3 +70,6 @@ for chat_test in CancelledLoadTests ChannelPushTests; do
     "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"
   "$test_dir/$chat_test"
 done
+
+swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
+"$test_dir/hosted-bot-avatar-tests"
