@@ -79,7 +79,7 @@ class SigningTest(unittest.TestCase):
             archive.writestr('base/dex/classes.dex', b'test payload')
         self.metadata = {'source_commit': 'a' * 40, 'repository': 'nuphos/nuphos', 'run_id': '42', 'run_attempt': '1', 'package_id': 'ai.nuphos.android', 'version_code': 2, 'version_name': '1.2.3', 'min_sdk': 33, 'target_sdk': 36, 'unsigned_sha256': hashlib.sha256(self.bundle.read_bytes()).hexdigest(), 'signed': False}
         (source / 'metadata.json').write_text(json.dumps(self.metadata))
-        self.env = {**os.environ, 'RUNNER_TEMP': str(self.directory), 'GITHUB_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'nuphos/nuphos', 'GITHUB_RUN_ID': '42', 'GITHUB_RUN_ATTEMPT': '1', 'VERSION_CODE': '2', 'VERSION_NAME': '1.2.3', 'ANDROID_UPLOAD_KEYSTORE_BASE64': base64.b64encode(self.key.read_bytes()).decode(), 'ANDROID_UPLOAD_STORE_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_ALIAS': 'upload', 'ANDROID_UPLOAD_CERT_SHA256': self.fingerprint}
+        self.env = {**os.environ, 'RUNNER_TEMP': str(self.directory), 'RELEASE_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'nuphos/nuphos', 'GITHUB_RUN_ID': '42', 'GITHUB_RUN_ATTEMPT': '1', 'VERSION_CODE': '2', 'VERSION_NAME': '1.2.3', 'ANDROID_UPLOAD_KEYSTORE_BASE64': base64.b64encode(self.key.read_bytes()).decode(), 'ANDROID_UPLOAD_STORE_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_ALIAS': 'upload', 'ANDROID_UPLOAD_CERT_SHA256': self.fingerprint}
 
     def run_sign(self):
         result = subprocess.run(['bash', '-c', signing_script()], env=self.env, capture_output=True, text=True, timeout=60)
@@ -115,7 +115,7 @@ class SigningTest(unittest.TestCase):
         self.assertNotEqual(self.run_sign().returncode, 0)
         self.assertFalse((self.directory / 'android-signed').exists())
         self.bundle.write_bytes(original)
-        for field, value in (('GITHUB_SHA', 'b' * 40), ('GITHUB_RUN_ATTEMPT', '2')):
+        for field, value in (('RELEASE_SHA', 'b' * 40), ('GITHUB_RUN_ATTEMPT', '2')):
             with self.subTest(field=field):
                 old = self.env[field]
                 self.env[field] = value
@@ -171,28 +171,28 @@ class WorkflowBoundaryTest(unittest.TestCase):
                 if succeeds:
                     self.assertEqual(json.loads(target.read_text()), valid)
 
-    def test_release_runs_on_canonical_main_and_secrets_are_isolated(self):
+    def test_release_is_manual_canonical_main_and_secrets_are_isolated(self):
         text = WORKFLOW.read_text()
-        guard = "github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
+        guard = "github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
         self.assertEqual(text.count('if: ' + guard), 3)
-        triggers = text.split('\npermissions:', 1)[0]
-        for forbidden in ('pull_request', 'push:', 'schedule:'):
-            self.assertNotIn(forbidden, triggers)
+        self.assertNotIn('pull_request:', text)
         build, rest = text.split('\n  sign:\n', 1)
         sign, release = rest.split('\n  release:\n', 1)
         self.assertNotIn('secrets.', build)
         self.assertNotIn('actions/checkout', sign)
         self.assertIn('environment: android-release', sign)
-        self.assertIn('needs: [plan, build]', sign)
+        self.assertIn('needs: [provenance, build]', sign)
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', sign)
         self.assertIn('if: always()', sign)
-        self.assertIn('needs: [plan, sign]', release)
+        self.assertIn('needs: [provenance, build, sign]', release)
         self.assertIn('contents: write', release)
         self.assertNotIn('contents: write', build + sign)
         for forbidden in ('secrets.', 'id-token', 'actions/checkout', 'environment:'):
             self.assertNotIn(forbidden, release)
         self.assertNotIn('packages: write', text)
         for ref in re.findall(r'uses: (\S+)', text):
+            if ref.startswith('./.github/workflows/'):
+                continue
             self.assertRegex(ref, r'@([a-f0-9]{40})$')
 
 

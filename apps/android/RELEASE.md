@@ -1,11 +1,15 @@
 # Android release artifacts
 
-The manual **Android release artifacts** workflow builds and signs an Android
-App Bundle (AAB), then uploads it with its R8 mapping file and releases it to
-the Play **production** track at full rollout. It touches no testing track and
-changes no other platform's version. Once Play accepts the bundle, it tags the
-released commit `android-v<version_name>` and publishes a GitHub Release for that
-tag, not marked as latest. The signed AAB also stays downloadable as an artifact.
+Android ships like the other apps. The version lives in
+`apps/android/package.json` and is bumped in the release PR; after merge the
+release tag `android-vX.Y.Z` is pushed on the merge commit, and the
+**Android release artifacts** workflow is dispatched from `main` with that tag.
+It verifies the tag's commit with `release-provenance.yml`, builds and signs an
+Android App Bundle (AAB) from it, then uploads it with its R8 mapping file and
+releases it to the Play **production** track at full rollout. It touches no
+testing track and changes no other platform's version. Once Play accepts the
+bundle, it publishes a GitHub Release for the tag, not marked as latest. The
+signed AAB also stays downloadable as an artifact.
 
 ## Administrator setup
 
@@ -64,15 +68,13 @@ and background notification delivery/navigation.
 
 1. Merge reviewed Android changes to official `main` after the required checks
    pass. Forks, PR refs, tags and other branches cannot run these jobs.
-2. The workflow starts with every release train, when the Release iOS or
-   Release Desktop workflow starts. When `apps/android` changed since the last
-   `android-v*` release, it releases the next minor version with the last
-   release's version code + 1; otherwise it builds nothing. To release sooner,
-   open **Actions → Android release artifacts → Run workflow** on `main`; leave
-   the inputs empty for the same automatic version, or supply a version name
-   and a code higher than **every** prior Play submission, including test
-   tracks. CI validates the range (1–2100000000), but does not query Play's
-   current version code. Never use the workflow run number as the version.
+2. Bump `version` in `apps/android/package.json` in the release PR, push the
+   tag `android-vX.Y.Z` on its merge commit, then run **Actions → Android
+   release artifacts → Run workflow** on `main` with that tag. The tag must
+   match the file. The version code is derived from the version as
+   `X * 10000 + Y * 100 + Z` (1.17.0 is 11700), so Y and Z stay below 100 and
+   every release has a higher code than the last; it is above every code Play
+   received before this scheme (the last was 31).
 3. The build job runs Python and JVM tests, release lint and `bundleRelease`.
    Pinned bundletool validates the bundle and checks its actual package
    `ai.nuphos.android`, requested versions, minSdk 33 and targetSdk 36. The
@@ -108,7 +110,7 @@ Environment; never paste key contents or passwords into a workflow log or issue.
 
 Retry the **entire workflow** for a fresh build/sign pair. A signing-only rerun
 fails the run-attempt provenance check. If Play has already received the version
-code, the upload step fails; use a new higher code on the next run. After an upload-key reset,
+code, the upload step fails; bump the version and release under a new tag. After an upload-key reset,
 update CI only when the replacement certificate is approved and registered.
 
 ## Local verification
