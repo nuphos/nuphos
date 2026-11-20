@@ -17,10 +17,10 @@ enum CredentialScopeTests {
         precondition(stored.json["githubInstallationIds"]?.arrayValue?.compactMap(\.stringValue) == ["166"])
         precondition(stored.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         precondition(stored.json["teamIdentity"]?.arrayValue?.compactMap(\.stringValue) == ["linear"])
-        // Never picked for the member by a new chat's defaults, but "Select all" ticks it like every row (#1928).
+        // A new chat's defaults tick it, as the desktop's do, so the server does not refuse it (#4028).
         var personalDefaults = CredentialSelection()
         personalDefaults.selectDefaults(in: personal)
-        precondition(personalDefaults.count == 0)
+        precondition(personalDefaults.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         var personalAll = CredentialSelection()
         personalAll.selectAll(in: personal)
         precondition(personalAll.containsAll(in: personal))
