@@ -1,11 +1,11 @@
 // Runs on a disposable mounted filesystem, with the real Electron device metrics and backend.
-import { rmSync, statfsSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, statfsSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 
 import { startDesktop } from './desktop.ts'
 import { installScenarios } from './install-scenarios.ts'
-import { artifacts, stopAll } from './processes.ts'
+import { artifacts, logPath, stopAll } from './processes.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
@@ -114,6 +114,10 @@ try {
 } catch (error) {
   failed = true
   console.error(error)
+  if (!desktop && existsSync(logPath('real-disk')))
+    console.error(
+      `Desktop startup log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`,
+    )
   if (desktop) await screenshot(desktop.page, 'failure').catch(() => {})
 } finally {
   await desktop?.close(failed)
