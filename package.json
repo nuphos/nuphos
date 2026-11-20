@@ -2,7 +2,7 @@
   "name": "nuphos",
   "private": true,
   "version": "0.0.0",
-  "description": "Nuphos monorepo \u2014 `bun run dev` boots backend + desktop with a live dashboard.",
+  "description": "Nuphos monorepo — `bun run dev` boots backend + desktop with a live dashboard.",
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "e2e": "bun scripts/e2e/run.ts",
@@ -19,8 +19,7 @@
     "lint": "eslint scripts eslint-rules",
     "check:cycles": "node scripts/check-import-cycles.mjs",
     "format": "prettier --experimental-cli --write .",
-    "format:check": "prettier --experimental-cli --check .",
-    "e2e:mcp-credential-defaults": "bun scripts/e2e/run-mcp-4258-check.ts"
+    "format:check": "prettier --experimental-cli --check ."
   },
   "devDependencies": {
     "@eslint/js": "^10",
