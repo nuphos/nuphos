@@ -1,9 +1,10 @@
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { createPushAdmitter } from './admit'
 import { apnsCredentials, sendApns } from './apns'
 import { computerSubscriptions } from './computer-subscriptions'
 import { pushDeviceStore } from './devices'
+import { fcmProjectId, sendFcmComputerAlert } from './fcm'
 import { sendIos } from './ios'
 
 import type { PushDeviceStore } from './devices'
@@ -15,6 +16,8 @@ export type ComputerAlertDeps = IosSender & {
   devices: PushDeviceStore
   subscribed: (userId: string, deviceId: string) => Promise<boolean>
   now: () => number
+  fcmProject?: () => string | null
+  sendFcm?: typeof sendFcmComputerAlert
 }
 
 const defaults: ComputerAlertDeps = {
@@ -23,6 +26,8 @@ const defaults: ComputerAlertDeps = {
   devices: pushDeviceStore,
   subscribed: (userId, deviceId) => computerSubscriptions.has(userId, deviceId),
   now: Date.now,
+  fcmProject: fcmProjectId,
+  sendFcm: sendFcmComputerAlert,
 }
 
 /** Only explicitly subscribed people hear about a computer; tapping opens the app. */
@@ -30,26 +35,52 @@ export function createComputerAlerts(deps: ComputerAlertDeps = defaults) {
   const { admit } = createPushAdmitter(deps.now)
 
   return async (userId: string, change: ComputerChange): Promise<void> => {
-    if (!deps.credentials() || !(await deps.subscribed(userId, change.deviceId))) return
-    const devices = (await deps.devices.listForUser(userId)).filter(
-      (device) => device.platform === 'ios',
-    )
+    const hasApns = Boolean(deps.credentials())
+    const project = deps.fcmProject?.()
+    const sendFcm = deps.sendFcm
+
+    if (!hasApns && (!project || !sendFcm)) return
+    if (!(await deps.subscribed(userId, change.deviceId))) return
+
+    const devices = await deps.devices.listForUser(userId)
+    const ios = hasApns ? devices.filter((device) => device.platform === 'ios') : []
+    const android =
+      project && sendFcm
+        ? devices.filter((device) => device.platform === 'android' && device.projectId === project)
+        : []
 
     if (
-      devices.length === 0 ||
+      ios.length + android.length === 0 ||
       !admit(userId, `computer:${change.deviceId}:${change.online ? 'on' : 'off'}`)
     )
       return
-    // Back online replaces the offline alert still on the phone.
-    await sendIos(
+
+    const collapseId = `computer:${change.deviceId}`
+    const iosDelivery = sendIos(
       deps,
-      devices,
+      ios,
       {
         aps: { alert: { title: change.title, body: change.body }, sound: 'default' },
         accountId: userId,
       },
-      `computer:${change.deviceId}`,
+      collapseId,
     )
+    const androidDelivery =
+      project && sendFcm
+        ? android.map(async (device) => {
+            try {
+              const result = await sendFcm(project, device.token, userId, change)
+
+              if (result.deadToken) await deps.devices.removeToken(device.token)
+              else if (result.status !== 200)
+                logEvent('warn', 'push.fcm.rejected', { status: result.status })
+            } catch (error) {
+              logError('push.fcm.send_failed', error, { kind: 'computer' })
+            }
+          })
+        : []
+
+    await Promise.all([iosDelivery, ...androidDelivery])
   }
 }
 
