@@ -111,32 +111,54 @@ async function rowsOf(rows: AgentConversation[]): Promise<Item[]> {
 
 const markup = (node: unknown) => (isValidElement(node) ? renderToStaticMarkup(node) : '')
 
-test('a working Bot shows the same work dots with or without a chat; a Task keeps its spinner', async () => {
+test("a Bot's row shows typing dots exactly while its chat does, else its latest message", async () => {
   const items = await rowsOf([
-    // A Bot with no chat yet is listed by its own session.
+    // A Bot with no chat yet is listed by its own session, which has no typing dots.
     row('solo-bot', { avatar: '05-rembrandt' }),
-    row('chatted-bot', { avatar: '05-rembrandt' }),
-    row('chat', {
+    row('typing-bot', { avatar: '05-rembrandt' }),
+    row('typing-chat', {
       kind: 'channel',
       runtimeState: undefined,
-      faces: [{ id: 'chatted-bot', name: 'chatted-bot', agent: {} }],
+      faces: [{ id: 'typing-bot', name: 'typing-bot', agent: {} }],
+      lastMessage: { text: 'Hidden while the Bot types' },
+    }),
+    // This Bot rests while its sub-Task works: its chat shows no typing.
+    row('resting-bot', { avatar: '05-rembrandt', runtimeState: undefined }),
+    row('resting-chat', {
+      kind: 'channel',
+      runtimeState: undefined,
+      faces: [{ id: 'resting-bot', name: 'resting-bot', agent: {} }],
       lastMessage: { text: 'The newest post' },
     }),
     row('task'),
-    row('kid', { parentSessionId: 'chatted-bot', runtimeState: undefined }),
+    // Hidden under its Bot's row when that row is folded.
+    row('kid', { parentSessionId: 'resting-bot' }),
   ])
   const at = (id: string) => items.find((item) => item.key === `agent-session:${id}`)!
+  const looping = (id: string) =>
+    isValidElement<{ looping?: boolean }>(at(id).iconNode) && at(id).iconNode.props.looping
 
-  for (const id of ['solo-bot', 'chat']) {
-    const preview = markup(at(id).previewNode)
-
-    assert.ok(preview.includes('t-typing-dot'), `${id} shows the work dots`)
-    assert.ok(!preview.includes('own transcript'), `${id} hides the Bot's own transcript`)
+  assert.ok(markup(at('typing-chat').previewNode).includes('t-typing-dot'), 'the chat types')
+  for (const [id, text] of [
+    ['solo-bot', 'solo-bot own transcript'],
+    ['resting-chat', 'The newest post'],
+  ]) {
+    assert.equal(at(id).previewNode, undefined, `${id} shows no typing dots`)
+    assert.equal(at(id).preview, text, `${id} previews its latest message`)
+  }
+  for (const id of ['solo-bot', 'typing-chat', 'resting-chat']) {
+    assert.ok(looping(id), `${id}: the working Bot's face moves`)
+    assert.ok(!('labelShimmer' in at(id)), `${id} is not greyed out`)
     assert.ok(!markup(at(id).trailing).includes('animate-spin'), `${id} has no spinner`)
   }
+  const copies = items.filter((item) => item.parentKey === 'agent-session:resting-chat')
+
+  assert.equal(copies.length, 1)
+  assert.ok(
+    !markup(copies[0]?.foldedStatus).includes('animate-spin'),
+    'a folded Bot shows no spinner for its sub-Task',
+  )
   assert.ok(markup(at('task').trailing).includes('animate-spin'), 'a Task keeps its spinner')
-  // Its own row and its copy under the chat: the Bot's own row adds no third.
-  assert.equal(items.filter((item) => item.key === 'agent-session:kid').length, 2)
 })
 
 test('a pinned face receives its actual rendering size rather than a larger wrapper', () => {

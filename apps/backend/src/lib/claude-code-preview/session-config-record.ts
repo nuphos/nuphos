@@ -1,4 +1,4 @@
-import { agentConversations } from '@/lib/agent/db/shared'
+import { updateConversationSettings } from '@/lib/agent/db/settings-history'
 
 import { settledCodexStopReason } from './codex-turn-settle'
 import { parseSessionConfigOptions } from './session-config-options'
@@ -6,6 +6,7 @@ import { parseSessionConfigOptions } from './session-config-options'
 import type { OpenAbAcpClient } from './openab-acp-client'
 import type { SessionConfigOption } from './session-config-options'
 import type { TeamSession } from './team-openab-runtime'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 
 /** A session's settings as the chip reads them. Scoped to the session id, so a newer session's are never overwritten. */
 export async function storeSessionConfig(
@@ -13,10 +14,12 @@ export async function storeSessionConfig(
   teamId: string | undefined,
   openabSessionId: string,
   options: SessionConfigOption[],
+  by: SettingsChangeBy,
 ) {
-  await agentConversations().updateOne(
+  await updateConversationSettings(
     { sessionId: conversationId, teamId, 'claudeCodePreview.openabSessionId': openabSessionId },
     { $set: { 'claudeCodePreview.sessionConfig': options } },
+    by,
   )
 }
 
@@ -37,7 +40,12 @@ export async function recordSessionConfig(
     const result = await client.getSessionConfigOptions(openabSessionId)
     const options = parseSessionConfigOptions(result.configOptions)
 
-    if (options.length) await storeSessionConfig(conversationId, teamId, openabSessionId, options)
+    // What the session reports after a turn is the agent's own doing.
+    if (options.length)
+      await storeSessionConfig(conversationId, teamId, openabSessionId, options, {
+        actorId: 'system',
+        via: 'runtime_reported',
+      })
   } catch {
     // The reply already succeeded; the chip keeps its last stored settings.
   }

@@ -1,5 +1,8 @@
-// Scenarios about who sees a dashboard (#2988), run against the real backend through
-// its API: three members of one team, signed in with email codes.
+// Scenarios about who sees a dashboard (#2988) and when it refreshes on schedule (#3822),
+// run against the real backend through its API: members of one team, signed in with email codes.
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
 import { until } from './processes.ts'
 
 import type { Stack } from './stack.ts'
@@ -15,6 +18,12 @@ type Answer = {
   members?: { id: string; email: string }[]
   dashboards?: { id: string }[]
   formerMembers?: { id: string }[]
+  nextRefreshAt?: string | null
+  dashboard?: {
+    lastScheduledRefreshAt: string | null
+    nextRefreshAt: string | null
+    timeRange: { periodEnd: string }
+  }
 }
 
 export function api(stack: Stack, token: string) {
@@ -91,7 +100,91 @@ async function personalDashboard(stack: Stack, member: Member, name: string) {
   return { id, panelId: String(panel.body.id) }
 }
 
+const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
+const DAY_MS = 86_400_000
+
+/** Next 00:00 UTC after `now`: when every rolling range starts its new day. */
+function nextRollover(now: Date): string {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + DAY_MS,
+  ).toISOString()
+}
+
+/** Puts the dashboard where it is just after a rollover: yesterday's window, its slot due. */
+function makeRefreshDue(stack: Stack, dashboardId: string, yesterday: { start: Date; end: Date }) {
+  const script = `
+    import { MongoClient, ObjectId } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    await client.db('nuphos_e2e').collection('cost_dashboards').updateOne(
+      { _id: new ObjectId(process.argv[2]) },
+      { $set: {
+        nextRefreshAt: new Date(Date.now() - 1000),
+        'timeRange.periodStart': new Date(process.argv[3]),
+        'timeRange.periodEnd': new Date(process.argv[4]),
+      } },
+    )
+    await client.close()`
+
+  execFileSync(
+    'bun',
+    [
+      '-e',
+      script,
+      stack.mongoUri,
+      dashboardId,
+      yesterday.start.toISOString(),
+      yesterday.end.toISOString(),
+    ],
+    { cwd: BACKEND_DIR, timeout: 10_000 },
+  )
+}
+
 export const dashboardScenarios: Scenario[] = [
+  {
+    // #3822: rolling ranges start their new day at 00:00 UTC, and so does the schedule.
+    name: 'a daily dashboard is scheduled at the range rollover, and the scheduled run rolls its window to today',
+    run: async (_page, stack) => {
+      const as = api(stack, stack.token)
+      const team = `/teams/${stack.teamId}/dashboards`
+      const created = await as('POST', team, {
+        name: 'Rollover E2E',
+        timeRange: range,
+        rangePreset: 'last30',
+      })
+
+      expectStatus('dashboard created', created.status, 201)
+      const path = `${team}/${String(created.body.id)}`
+      const scheduled = await as('PUT', path, { cadence: 'daily', rangePreset: 'last30' })
+
+      expectStatus('daily refresh set', scheduled.status, 200)
+      if (scheduled.body.nextRefreshAt !== nextRollover(new Date()))
+        throw new Error(`next refresh at ${String(scheduled.body.nextRefreshAt)}, not 00:00 UTC`)
+
+      const today = new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`)
+      const due = new Date()
+
+      makeRefreshDue(stack, String(created.body.id), {
+        start: new Date(today.getTime() - 30 * DAY_MS),
+        end: new Date(today.getTime() - 1),
+      })
+      // The scheduler sweeps once a minute.
+      await until(
+        'the scheduled run to roll the window to today',
+        async () => {
+          const dashboard = (await as('GET', path)).body.dashboard
+
+          return (
+            dashboard?.lastScheduledRefreshAt &&
+            new Date(dashboard.lastScheduledRefreshAt) >= due &&
+            dashboard.timeRange.periodEnd ===
+              new Date(today.getTime() + DAY_MS - 1).toISOString() &&
+            dashboard.nextRefreshAt === nextRollover(new Date())
+          )
+        },
+        150_000,
+      )
+    },
+  },
   {
     name: 'a personal dashboard stays its creator’s until shared, and an Administrator takes it over once they leave',
     run: async (_page, stack) => {

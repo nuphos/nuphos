@@ -6,16 +6,15 @@ import { t } from '../../i18n'
 import { useTeamUsageQuery } from '../../lib/query/usage'
 
 import { HeatmapSkeleton } from './AgentUsageSkeleton'
-import { RangeSwitch } from './MetricChart'
 import { PanelHeading } from './RuntimePanel'
 import {
   TOKEN_USAGE_GROUPS,
-  TOKEN_USAGE_RANGES,
   formatUsd,
   previousTokenUsageWindow,
   tokenUsageLines,
   tokenUsageSplit,
   tokenUsageWindow,
+  usageCacheCutoff,
   filterQuery,
   toggleFilter,
 } from './tokenUsagePresentation'
@@ -23,7 +22,7 @@ import { UsageFilterBar } from './UsageFilters'
 import { UsageSplitChart } from './UsageSplitChart'
 import { UsageTable } from './UsageTable'
 
-import type { TokenUsageRange, UsageFilters, UsageNames } from './tokenUsagePresentation'
+import type { UsageFilters, UsageNames } from './tokenUsagePresentation'
 import type { RuntimeInstance } from '../../types/runtime'
 import type {
   TeamUsageNames,
@@ -31,11 +30,6 @@ import type {
   TeamUsageRow,
   UsageDimension,
 } from '../../types/usage'
-
-const RANGE_OPTIONS = (Object.keys(TOKEN_USAGE_RANGES) as TokenUsageRange[]).map((value) => ({
-  value,
-  label: TOKEN_USAGE_RANGES[value].label,
-}))
 
 const NOTE =
   'mt-3 rounded-xl border border-dashed border-line-control px-4 py-6 text-center text-xs leading-5 text-tertiary'
@@ -51,11 +45,10 @@ export function TokenUsage({
   teamId: string
   instances: readonly RuntimeInstance[]
 }) {
-  const [range, setRange] = useState<TokenUsageRange>('7d')
   const [groupBy, setGroupBy] = useState<UsageDimension>('model')
   const [filters, setFilters] = useState<UsageFilters>({})
-  // The window moves only when the range does, so a re-render never refetches.
-  const span = useMemo(() => tokenUsageWindow(range, new Date()), [range])
+  // Fixed on mount, so a re-render never refetches.
+  const span = useMemo(() => tokenUsageWindow(new Date()), [])
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const where = filterQuery(filters)
   const days = useTeamUsageQuery(teamId, { ...span, ...where, bucket: 'day', timeZone, groupBy })
@@ -101,7 +94,7 @@ export function TokenUsage({
         groups={groups.data}
         previous={previous.data}
         names={names}
-        // The last range or grouping stays on screen, dimmed, until the new one arrives.
+        // The last grouping stays on screen, dimmed, until the new one arrives.
         stale={groups.isPlaceholderData || days.isPlaceholderData}
         groupBy={groupBy}
         onGroupBy={setGroupBy}
@@ -117,16 +110,9 @@ export function TokenUsage({
       <PanelHeading
         title={t('Token usage')}
         hint={t(
-          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices.',
+          'Tokens the team’s runtimes reported. Input includes cached tokens; cost is estimated at list prices. Before {date}, Input left out cached tokens; Total included them.',
+          { date: usageCacheCutoff() },
         )}
-        right={
-          <RangeSwitch
-            options={RANGE_OPTIONS}
-            value={range}
-            onChange={setRange}
-            label={t('Time range')}
-          />
-        }
       />
       {body}
     </section>

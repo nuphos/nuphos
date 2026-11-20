@@ -105,6 +105,9 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
         precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
+        // A Slack channel's wake line names the channel and opens nothing: its record stays hidden (#3924).
+        let slack = message("agent.resource", "system", "slack-channel:r1", "Slack #deploys").event
+        precondition(slack?.name == "Slack #deploys" && slack?.channelId == nil)
         // A wake-up carries its newest post for the line: who, the first line, how many more.
         func wake(_ post: JSONValue) -> ChatMessage.Event? {
             var m = message("agent.resource", "system", "channel:c1", "Launch")
@@ -265,6 +268,12 @@ enum ChatRowTests {
         precondition(!shared.canManage)
         let owner = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"owned","isOwner":true,"readOnly":false}"#.utf8))
         precondition(owner.canManage)
+        // #3686: someone else in a Task archives it for themselves; an older server says only the owner may.
+        precondition(owner.canArchive && !shared.canArchive)
+        let archiving = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"shared","isOwner":false,"canManage":false,"canArchive":true}"#.utf8))
+        precondition(archiving.canArchive && !archiving.canManage)
+        let archivingDetail = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[],"isOwner":false,"canArchive":true}"#.utf8))
+        precondition(archivingDetail.canArchive == true && member.canArchive == nil)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
         // #1691: a conversation with a face is a Bot; a chat with one is still a chat.

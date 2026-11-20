@@ -44,7 +44,7 @@
     <string name="chats_select_text">เลือกข้อความ</string>
     <string name="chats_reply">ตอบกลับ</string>
     <string name="chats_copy">คัดลอก</string>
-    <string name="chats_usage_returns">โควตาการใช้งานจะกลับมาใน %1$s</string>
+    <string name="chats_usage_resets">โควตาการใช้งาน%1$s</string>
     <string name="chats_switch_runtime">สลับรันไทม์</string>
     <string name="chats_retry">ลองอีกครั้ง</string>
     <string name="chats_send_failed_title">ส่งข้อความไม่สำเร็จ</string>
@@ -59,4 +59,11 @@
     <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
     <string name="chats_empty_bot_body">นี่คือการสนทนาของคุณกับ %1$s บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน</string>
     <string name="chats_empty_bot_start">เริ่มด้วยการบอก %1$s ว่าคุณอยากทำอะไร</string>
+    <string name="chats_bot_computer_offline">คอมพิวเตอร์ของ %1$s ออฟไลน์อยู่</string>
+    <string name="chats_presence_online">ออนไลน์</string>
+    <string name="chats_presence_busy">ไม่ว่าง</string>
+    <string name="chats_presence_offline">ออฟไลน์</string>
+    <string name="chats_presence_sign_in">ต้องลงชื่อเข้าใช้</string>
+    <string name="chats_presence_usage">ใช้งานครบโควตา</string>
+    <string name="chats_presence_unavailable">ไม่พร้อมใช้งาน</string>
 </resources>

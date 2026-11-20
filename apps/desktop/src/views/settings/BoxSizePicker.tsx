@@ -18,20 +18,22 @@ const SLAB_FILL: Record<Tone, string> = {
   locked: 'fill-current',
 }
 
-/** Three stacked slabs, filled from the bottom by tier: one for Small, two for Medium, three for Large. */
-function SizeGlyph({ tier, tone }: { tier: number; tone: Tone }) {
+/** One stacked slab per size offered, filled from the bottom to the size's rank, so the largest offered is full. */
+function SizeGlyph({ rank, count, tone }: { rank: number; count: number; tone: Tone }) {
+  const step = 24 / count
+
   return (
     <svg viewBox="0 0 32 32" className="h-8 w-8" aria-hidden="true">
-      {[0, 1, 2].map((slab) => {
-        const filled = slab <= tier
+      {Array.from({ length: count }, (_, slab) => {
+        const filled = slab <= rank
 
         return (
           <rect
             key={slab}
             x={4}
-            y={22 - slab * 8}
+            y={28 - step + 2 - slab * step}
             width={24}
-            height={6}
+            height={step - 2}
             rx={2}
             className={clsx(
               'transition-colors',
@@ -119,7 +121,11 @@ export function BoxSizePicker({
                     : 'border-line-control bg-surface-sheet hover:border-line-control',
                 )}
               >
-                <SizeGlyph tier={choice.tier} tone={selected ? 'selected' : 'idle'} />
+                <SizeGlyph
+                  rank={choices.indexOf(choice)}
+                  count={choices.length}
+                  tone={selected ? 'selected' : 'idle'}
+                />
                 <ChoiceText choice={choice} />
                 <Radio.Indicator
                   keepMounted
@@ -150,7 +156,7 @@ export function BoxSizePicker({
           )}
         >
           <span className="flex flex-col items-start gap-2 opacity-55">
-            <SizeGlyph tier={choice.tier} tone="locked" />
+            <SizeGlyph rank={choices.indexOf(choice)} count={choices.length} tone="locked" />
             <ChoiceText choice={choice} />
           </span>
           <Lock

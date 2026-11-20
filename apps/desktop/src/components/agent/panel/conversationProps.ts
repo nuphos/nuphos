@@ -6,6 +6,8 @@ export type ConversationProps = {
   currentUrl?: string
   /** Match the docked composer's horizontal inset. */
   sidebar?: boolean
+  /** The composer below: the transcript's end keeps room for the bars floating above it. */
+  composer?: HTMLElement | null
   /** False when a keep-alive panel is collapsed or its home page is shown. */
   visible?: boolean
   /** Fetch the previous page of a tail-loaded transcript (scroll-up paging). */

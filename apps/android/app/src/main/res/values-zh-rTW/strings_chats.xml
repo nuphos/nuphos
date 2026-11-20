@@ -44,7 +44,7 @@
     <string name="chats_select_text">選取文字</string>
     <string name="chats_reply">回覆</string>
     <string name="chats_copy">複製</string>
-    <string name="chats_usage_returns">用量將於 %1$s 恢復。</string>
+    <string name="chats_usage_resets">用量%1$s。</string>
     <string name="chats_switch_runtime">切換執行環境</string>
     <string name="chats_retry">重試</string>
     <string name="chats_send_failed_title">無法傳送訊息</string>
@@ -59,4 +59,11 @@
     <string name="chats_question_dismiss_reason">理由（選填）</string>
     <string name="chats_empty_bot_body">這裡是你和 %1$s 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告訴 %1$s，你想做些什麼。</string>
+    <string name="chats_bot_computer_offline">%1$s 的電腦離線。</string>
+    <string name="chats_presence_online">線上</string>
+    <string name="chats_presence_busy">忙碌中</string>
+    <string name="chats_presence_offline">離線</string>
+    <string name="chats_presence_sign_in">需要登入</string>
+    <string name="chats_presence_usage">用量已用完</string>
+    <string name="chats_presence_unavailable">無法使用</string>
 </resources>

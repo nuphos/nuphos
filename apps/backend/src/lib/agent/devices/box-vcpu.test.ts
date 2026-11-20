@@ -45,7 +45,7 @@ describe('Box vCPU limit', () => {
 
   test('a limit of 0 says, in the words the app uses, that the plan has no computers and what to do', () => {
     expect(() => assertWithinLimit('t1', 0, 0, 4)).toThrow(
-      "Your team's plan doesn't include cloud computers. Choose a computer plan to start one.",
+      "Your team's plan doesn't include computers from Nuphos. Choose a computer plan to start one.",
     )
   })
 

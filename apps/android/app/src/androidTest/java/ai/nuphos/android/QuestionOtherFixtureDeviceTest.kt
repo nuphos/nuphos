@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -21,13 +22,18 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.navigation.compose.rememberNavController
+import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.CredentialRef
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
+import ai.nuphos.android.session.OpenQuestions
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.chats.BotQuestionCard
+import ai.nuphos.android.ui.inbox.InboxPage
 import ai.nuphos.android.ui.theme.NuphosTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -72,24 +78,77 @@ class QuestionOtherFixtureDeviceTest {
         assertEquals(listOf("After QA signs off"), answers)
     }
 
-    @Test fun inTheInboxTheTextBoxIsOnTheCard() {
-        val answers = mutableListOf<String>()
-        screen {
-            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                for (question in listOf(deploy, staging, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, answersInPlace = true)
-                }
+    @Test fun inboxGroupsQuestionsAndAnswersOneAtATime() {
+        val answers = mutableListOf<Pair<String, String>>()
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending() = listOf(
+                AgentConversation(deploy.sessionId, title = deploy.title, avatar = "05-rembrandt", isOwner = true,
+                    inputRequests = listOf(deploy.request, plan.request)),
+                AgentConversation(staging.sessionId, title = staging.title, parentSessionId = deploy.sessionId,
+                    isOwner = true, inputRequests = listOf(staging.request)),
+            )
+
+            override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) {
+                answers += sessionId to requestId
             }
+        })
+        screen {
+            LaunchedEffect(inbox) { inbox.refresh() }
+            InboxPage(inbox, rememberNavController(), allowed = { true })
         }
-        // A text box on each card answered in words, the plan excepted; no "Other…" and no "Mark as done".
-        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(2)
-        compose.onAllNodesWithTag("bot-question-other").assertCountEquals(0)
-        compose.onNodeWithText("Mark as done").assertDoesNotExist()
-        capture("inbox")
-        compose.onAllNodesWithTag("bot-question-answer")[1].performTextInput("The arm64 pool")
-        compose.onAllNodesWithTag("bot-question-send")[1].performClick()
-        compose.onAllNodesWithText("Ship it")[0].performClick()
-        assertEquals(listOf("The arm64 pool", "Ship it"), answers)
+        compose.onAllNodesWithTag("inbox-source").assertCountEquals(1)
+        compose.onAllNodesWithTag("inbox-question").assertCountEquals(3)
+        compose.onNodeWithTag("bot-question-answer").assertDoesNotExist()
+        capture("inbox-grouped")
+        compose.onNodeWithText(staging.request.question).performClick()
+        capture("inbox-detail")
+        compose.onNodeWithTag("bot-question-answer").assertIsDisplayed().performTextInput("The arm64 pool")
+        compose.onNodeWithTag("bot-question-send").performClick()
+        compose.onNodeWithText("Ship it").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(listOf(staging.sessionId to staging.request.id), answers) }
+        compose.onNodeWithText("Back").performClick()
+        compose.onAllNodesWithTag("inbox-question").assertCountEquals(2)
+    }
+
+    @Test fun inboxRestoresTheListPositionAfterOpeningAQuestion() {
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending() = listOf(AgentConversation(
+                "rollout", title = "Release ops", isOwner = true,
+                inputRequests = (1..30).map { number ->
+                    staging.request.copy(id = "q-%02d".format(number), question = "Synthetic question $number")
+                },
+            ))
+        })
+        screen {
+            LaunchedEffect(inbox) { inbox.refresh() }
+            InboxPage(inbox, rememberNavController(), allowed = { true })
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("inbox-list").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("inbox-list").performScrollToIndex(28)
+        compose.onNodeWithText("Synthetic question 28").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("inbox-detail").assertIsDisplayed()
+        compose.onNodeWithText("Back").performClick()
+        compose.onNodeWithText("Synthetic question 28").assertIsDisplayed()
+        compose.onNodeWithText("Synthetic question 1").assertIsNotDisplayed()
+    }
+
+    @Test fun inboxCanRetryItsFirstLoad() {
+        var attempts = 0
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending(): List<AgentConversation> {
+                if (++attempts == 1) error("Synthetic listing failure")
+                return emptyList()
+            }
+        })
+
+        screen {
+            LaunchedEffect(inbox) { inbox.refresh() }
+            InboxPage(inbox, rememberNavController(), allowed = { true })
+        }
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+        capture("inbox-retry")
+        compose.onNodeWithText("Retry").performClick()
+        compose.onNodeWithText("You're all caught up").assertIsDisplayed()
     }
 
     @Test fun anIntegrationQuestionChoosesCredentialsInTheInbox() {
@@ -170,7 +229,7 @@ class QuestionOtherFixtureDeviceTest {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic", context) }
             val auth = (InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication).authSession
-            NuphosTheme { Surface(Modifier.fillMaxSize()) {
+            NuphosTheme(darkTheme = false) { Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     Column(Modifier.fillMaxSize().padding(vertical = 24.dp), content = content)
                 }
