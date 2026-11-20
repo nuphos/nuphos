@@ -16,9 +16,12 @@ import type { UIMessage } from 'ai'
  * doing. When the preamble is the *only* carrier (a conversation moved to
  * another agent, or a local session imported), dropping everything before the
  * last N turns silently loses the investigation. Newest turns are kept first,
- * so a long conversation still ends with the part that matters.
+ * so a long conversation still ends with the part that matters. Anything older
+ * stays readable with read_conversation, so the budget only has to cover the
+ * recent part: 32k characters is at most about 32k tokens even in CJK text,
+ * well inside a Bot's 100k-token compaction window (previewSessionAccess).
  */
-const HISTORY_BUDGET_CHARS = 120_000
+const HISTORY_BUDGET_CHARS = 32_000
 
 function partText(part: unknown): string | null {
   if (!part || typeof part !== 'object') return null
@@ -92,7 +95,11 @@ export function previewHistoryPreamble(
     'This conversation continues from earlier turns your session no longer holds. Treat the following as your own prior context — do not summarize it back to the user.',
     backgroundWorkNotice(uncertain),
     ...(compactionSummary ? [`Summary of earlier turns:\n${compactionSummary}`] : []),
-    ...(omitted ? ['Earlier turns are omitted: they did not fit.'] : []),
+    ...(omitted
+      ? [
+          'Earlier turns are omitted: they did not fit. Read them with read_conversation on this conversation when you need them.',
+        ]
+      : []),
     ...(lines.length > 0 ? [`Recent turns:\n${lines.join('\n\n')}`] : []),
   ].join('\n\n')
 }

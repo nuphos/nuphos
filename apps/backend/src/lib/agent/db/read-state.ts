@@ -29,7 +29,8 @@ export function conversationReadState(
   return { activitySeq, readSeq, unread: activitySeq > readSeq }
 }
 
-const isBot = (conversation: { kind?: string; avatar?: string | null } | null) =>
+/** A Bot: an agent conversation with a face. A chat carries one too, and is not a Bot. */
+export const isBot = (conversation: { kind?: string; avatar?: string | null } | null) =>
   Boolean(conversation && conversation.kind !== 'channel' && conversation.avatar != null)
 
 /** A Task a Bot started; it has no unread state of its own. */
