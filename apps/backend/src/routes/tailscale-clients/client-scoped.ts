@@ -13,6 +13,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireTailscaleMemberAccess,
   requireTeamRole,
@@ -65,13 +66,7 @@ export function registerTailscaleClientScopedRoutes(
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const clientId = new ObjectId(c.get('tailscaleClientId'))
-      const result = await teamByosBindings().updateOne(
-        { _id: teamId, 'tailscaleClients.id': clientId },
-        {
-          $pull: { tailscaleClients: { id: clientId } },
-          $set: { updatedAt: new Date() },
-        },
-      )
+      const result = await disconnectBinding(c, teamId, 'tailscaleClients', { id: clientId })
 
       if (result.matchedCount === 0) {
         throw new AppError(404, 'tailscale_client_not_bound', 'Tailscale OAuth client not found')

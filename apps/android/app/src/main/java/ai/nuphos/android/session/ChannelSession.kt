@@ -48,7 +48,7 @@ class ChannelSession(
     }
 
     class Api(private val token: String, private val teamId: String, private val channelId: String) : Transport {
-        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail)
+        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail, runtimeState = false)
         override suspend fun agents() = NuphosApi.channelAgents(token, teamId, channelId)
         override suspend fun attachment(groupId: String) = NuphosApi.channelAttachment(token, teamId, channelId, groupId)
         private val transfers = AttachmentTransfers()
@@ -301,7 +301,7 @@ class ChannelSession(
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
-        listed.forEach { BotFaces.learn(it.sessionId, it.avatar) }
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar, it.avatarBackground) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces

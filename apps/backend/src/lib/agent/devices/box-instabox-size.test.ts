@@ -47,11 +47,13 @@ test('a size instabox does not offer is refused', async () => {
   await expect(boxSize(16)).rejects.toMatchObject({
     status: 400,
     code: 'box_size',
-    message: 'A cloud computer comes with 4 or 8 vCPU',
+    message: 'A computer from Nuphos comes with 4 or 8 vCPU',
   })
 })
 
 test('an account with no allowed size is an outage, not an empty choice', async () => {
+  // Its own key: sizes read once are kept per key.
+  config.box.instabox = { apiKey: 'ibk_no_size', apiUrl: 'https://instabox.test' }
   me = {}
   await expect(boxSizes()).rejects.toMatchObject({ status: 503, code: 'box_unavailable' })
 })

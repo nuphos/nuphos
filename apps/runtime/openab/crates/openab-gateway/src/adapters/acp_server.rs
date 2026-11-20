@@ -4153,6 +4153,8 @@ async fn handle_session_prompt(
                 s.session_meta.clone(),
                 s.permission_relay.clone(),
             ),
+            // No session, so no reservation to release. This arm still holds the
+            // `sessions` guard of the match scrutinee: locking it again here would hang.
             None => {
                 let resp = JsonRpcResponse::error(
                     id,
@@ -4160,7 +4162,6 @@ async fn handle_session_prompt(
                     format!("Unknown session: {}", redact_id(&session_id)),
                 );
                 let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
-                release_prompt(sessions, &session_id).await;
                 return;
             }
         };
@@ -7398,6 +7399,48 @@ mod acp_review_fixes {
                 b as char
             );
         }
+    }
+
+    // A prompt whose session is gone from the connection's map by the time the handler runs
+    // must answer "Unknown session" and leave the map usable. The `None` arm runs while the
+    // match scrutinee's `sessions` guard is still alive, so locking `sessions` again there
+    // (as `release_prompt` does) waits on itself forever.
+    #[tokio::test]
+    async fn prompt_for_a_session_gone_from_the_map_answers_and_does_not_hang() {
+        let (event_tx, _event_rx) = tokio::sync::broadcast::channel::<String>(16);
+        let state = Arc::new(crate::AppState::test_default(event_tx));
+        let sessions = sessions_map();
+        let sid = format!("sess_{}", Uuid::new_v4());
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+        let params = json!({"sessionId": sid, "prompt": [{"type": "text", "text": "hi"}]});
+
+        let handled = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            handle_session_prompt(
+                &state,
+                &sessions,
+                json!(9),
+                Some(&params),
+                &out_tx,
+                sid.clone(),
+                Arc::new(tokio::sync::Notify::new()),
+                "conn-test",
+                0,
+            ),
+        )
+        .await;
+
+        assert!(
+            handled.is_ok(),
+            "the handler deadlocked on the sessions lock"
+        );
+        let resp: Value = serde_json::from_str(&out_rx.try_recv().unwrap()).unwrap();
+        assert_eq!(resp["id"], json!(9));
+        assert_eq!(resp["error"]["code"], json!(-32602));
+        assert!(
+            sessions.try_lock().is_ok(),
+            "the sessions map must stay usable"
+        );
     }
 
     // R16-F1 — the read loop now reserves the prompt's cancel state SYNCHRONOUSLY (busy + a

@@ -40,6 +40,7 @@ export function SidebarItemContextMenu({
   toggleFavorite,
   archiveChat,
   confirmArchiveBot,
+  confirmLeaveTask,
   unlinkChat,
   renameChat,
 }: {
@@ -52,6 +53,7 @@ export function SidebarItemContextMenu({
   renameChat: (sessionId: string, title: string) => void
   archiveChat: (sessionId: string) => Promise<void>
   confirmArchiveBot: (sessionId: string) => void
+  confirmLeaveTask: (sessionId: string) => void
   unlinkChat: (sessionId: string) => Promise<void>
 }) {
   // A Bot's channel shares its pin controls with the Bot row.
@@ -191,9 +193,21 @@ export function SidebarItemContextMenu({
               },
             ]
           : []),
+        // So is someone else's Task; leaving may cost access, so it asks first.
+        ...(noun === 'task' && menu.item.leavable
+          ? [
+              {
+                key: 'leave',
+                label: t('Leave task'),
+                icon: LogOut,
+                onSelect: () => confirmLeaveTask(sessionId),
+              },
+            ]
+          : []),
         ...(noun !== 'chat' &&
         menu.item.key.startsWith('agent-session:') &&
-        (!menu.item.readOnlyChat || menu.item.managedChat)
+        // Someone else's Task is archived for you alone.
+        (!menu.item.readOnlyChat || menu.item.managedChat || menu.item.leavable)
           ? [
               {
                 key: 'archive',

@@ -1,6 +1,15 @@
 import { faDiscord } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { GitMerge, GitPullRequest, GitPullRequestClosed, GitPullRequestDraft } from 'lucide-react'
+import {
+  CircleCheck,
+  CircleDot,
+  GitMerge,
+  GitPullRequest,
+  GitPullRequestClosed,
+  GitPullRequestDraft,
+} from 'lucide-react'
+
+import { githubIssueState } from '../../api/session-resource-types'
 
 import { pullStateColor, resourceDraft } from './sessionResourcePresentation'
 
@@ -102,6 +111,13 @@ export function resourceStyle(resource: SessionResource): { icon: ReactNode; col
       icon: <FontAwesomeIcon icon={faDiscord} className={`${iconClass} text-[#5865f2]`} />,
       color: 'text-secondary',
     }
+  const issue = githubIssueState(resource)
+
+  // A GitHub issue looks like one: open, or closed (as GitHub colors a completed issue).
+  if (issue === 'closed')
+    return { icon: <CircleCheck className={iconClass} />, color: 'session-resource-merged' }
+  if (issue === 'open')
+    return { icon: <CircleDot className={iconClass} />, color: 'session-resource-open' }
   const color = pullStateColor(resource)
 
   if (resource.state === 'merged') return { icon: <GitMerge className={iconClass} />, color }

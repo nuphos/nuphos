@@ -4,6 +4,21 @@ import { logError } from '@/lib/observability'
 import { notifyAgent } from './channel-chat'
 import { readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
+import { onDevice } from './deliver-waiting-answers'
+
+import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
+
+/**
+ * A runtime answered again, for any conversation's reason: its agents are woken for
+ * the posts they missed while it was away (#3284).
+ */
+export function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint): void {
+  const filter = endpoint.local
+    ? onDevice(endpoint.local.userId, endpoint.local.deviceId)
+    : endpoint.runtimeId && { teamId, runtimeId: endpoint.runtimeId }
+
+  if (filter) void wakeMissedPosts(filter)
+}
 
 /**
  * The agents `filter` picks can run again (their computer is back): each one a

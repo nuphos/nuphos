@@ -1,0 +1,15 @@
+/** What a stream through a computer's tunnel is for. */
+export type TunnelPurpose =
+  | 'transport'
+  | 'control'
+  | 'exec'
+  | 'upload'
+  | 'download'
+  | 'file'
+  | 'attachments'
+  | 'terminal'
+  | 'cua'
+  | 'browser'
+  | 'browserView'
+  | 'vnc'
+  | 'instances'

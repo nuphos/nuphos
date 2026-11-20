@@ -108,7 +108,7 @@
     <string name="agent_window_percent_left">%1$s: %2$s%% left</string>
     <string name="agent_resets_in_minutes">resets in %1$dm</string>
     <string name="agent_resets_in_hours">resets in %1$dh %2$dm</string>
-    <string name="agent_resets_at">resets %1$s</string>
+    <string name="agent_resets_in_days">resets in %1$dd %2$dh</string>
     <string name="agent_usage_unavailable">Usage unavailable</string>
 
     <!-- Runtime sign-in instructions -->

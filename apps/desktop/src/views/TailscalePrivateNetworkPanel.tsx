@@ -100,7 +100,7 @@ export function TailscalePrivateNetworkPanel({
           <div className="text-[12.5px] font-medium text-main">{t('Private network access')}</div>
           <div className="mt-1 text-[11.5px] text-tertiary leading-relaxed">
             {t(
-              'Lets an agent sandbox join your tailnet as a short-lived node so it can reach machines with no public SSH. The node advertises the tag below and disappears when the session ends — what it may reach is decided entirely by your tailnet ACL.',
+              "Lets a task's sandbox join your tailnet as a short-lived node so it can reach machines with no public SSH. The node advertises the tag below and disappears when the session ends — what it may reach is decided entirely by your tailnet ACL.",
             )}
           </div>
         </div>
