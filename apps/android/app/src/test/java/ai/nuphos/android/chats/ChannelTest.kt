@@ -168,6 +168,40 @@ class ChannelTest {
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
             landed = id
         }
+        /** The team's change stream; none, as on a backend without it, unless a test sets one. */
+        var pushes: (suspend (opened: () -> Unit, changed: (String) -> Unit) -> Boolean)? = null
+        override suspend fun changes(opened: () -> Unit, changed: (String) -> Unit) = pushes?.invoke(opened, changed) ?: false
+    }
+
+    /** The open chat follows the server's change push (#3906): read at once, never polled while it is up. */
+    @Test fun aPushedChangeIsReadAtOnceAndTheChatIsNotPolledWhileThePushIsUp() = runTest {
+        val transport = FakeTransport()
+        val dropped = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var push: (String) -> Unit = {}
+        transport.pushes = { opened, changed ->
+            // Once dropped, the stream never comes back up in this test.
+            if (dropped.isCompleted) kotlinx.coroutines.awaitCancellation()
+            opened(); push = changed; dropped.await(); true
+        }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        val polling = launch { session.poll() }
+        testScheduler.runCurrent()
+        val full = ChannelSession.TAIL
+        assertEquals("The first read, and one as the stream comes up", listOf(full, full), transport.details)
+        testScheduler.advanceTimeBy(3 * ChannelSession.POLL_MS)
+        testScheduler.runCurrent()
+        assertEquals("No poll while the stream is up", listOf(full, full), transport.details)
+        push("another-chat")
+        testScheduler.runCurrent()
+        assertEquals("Another chat's change is not read", 2, transport.details.size)
+        repeat(5) { push("chat-release") }
+        testScheduler.runCurrent()
+        assertEquals("A burst of changes is read at once, and once", listOf(full, full, full), transport.details)
+        dropped.complete(Unit)
+        testScheduler.advanceTimeBy(ChannelSession.POLL_MS + 1)
+        testScheduler.runCurrent()
+        assertTrue("With the stream down the chat polls again", 1 in transport.details.drop(3))
+        polling.cancel(); polling.join()
     }
 
     @Test fun probeSkipsTheFullReadUntilTheChatChanges() = runTest {
