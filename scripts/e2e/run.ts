@@ -55,6 +55,7 @@ import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
 import { stepUpScenarios } from './step-up-scenarios.ts'
+import { subagentScenarios } from './subagent-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -140,6 +141,7 @@ const scenarios: Scenario[] = [
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
+  ...subagentScenarios,
   ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,

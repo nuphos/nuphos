@@ -342,3 +342,55 @@ test('an artifact card is lifted out of a folded turn to sit under the answer', 
 
   assert.deepEqual(foldedTurnLayout(parts, 0, 3), { planIndices: [2], foldHasWork: true })
 })
+
+test("a native sub-agent's steps render under the call that spawned it, not in the parent's run", () => {
+  const parts: Part[] = [
+    tool(),
+    { ...tool('Agent'), toolCallId: 'task-1', subagent: true },
+    { ...tool(), toolCallId: 'child-1', parentToolUseId: 'task-1' },
+    tool(),
+    { ...tool('Agent'), toolCallId: 'child-2', parentToolUseId: 'task-1', subagent: true },
+    text('Still waiting on the sub-agent.'),
+    { ...tool(), toolCallId: 'grandchild-1', parentToolUseId: 'child-2' },
+    text('Done.'),
+  ]
+
+  assert.deepEqual(segmentParts(parts, 0, parts.length), [
+    { kind: 'toolRun', indices: [0] },
+    { kind: 'toolRun', indices: [1, 2, 4, 6] },
+    { kind: 'toolRun', indices: [3] },
+    { kind: 'part', index: 5 },
+    { kind: 'part', index: 7 },
+  ])
+})
+
+test('a step whose spawning call is unknown stays a plain step', () => {
+  const parts: Part[] = [tool(), { ...tool(), parentToolUseId: 'missing' }]
+
+  assert.deepEqual(segmentParts(parts, 0, parts.length), [{ kind: 'toolRun', indices: [0, 1] }])
+})
+
+test('a live tool call keeps its sub-agent attribution', () => {
+  const parts = applyEvent(
+    applyEvent([], {
+      type: 'tool-input-available',
+      toolCallId: 'task-1',
+      toolName: 'Agent',
+      subagent: true,
+    }),
+    {
+      type: 'tool-input-available',
+      toolCallId: 'child-1',
+      toolName: 'Read',
+      parentToolUseId: 'task-1',
+    },
+  )
+
+  assert.deepEqual(
+    parts.map((part) => part.type === 'tool' && [part.subagent, part.parentToolUseId]),
+    [
+      [true, undefined],
+      [undefined, 'task-1'],
+    ],
+  )
+})

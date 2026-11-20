@@ -35,7 +35,8 @@ export function ToolRunView({
   items: ToolRunItem[]
 }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
-  const latest = parts[parts.length - 1]
+  // A sub-agent's run keeps the spawning call's label; any other run shows its latest call.
+  const head = parts[0].subagent ? parts[0] : parts[parts.length - 1]
   const attention = pendingApproval(parts)
   const needsAttention = attention !== undefined
   // A manual fold must not outlive the approval it was made under: each new
@@ -48,9 +49,9 @@ export function ToolRunView({
   }
   const open = userOpen ?? needsAttention
   const count = parts.length
-  const done = latest.state === 'output-available' || latest.state === 'output-error'
-  const label = getToolLabel(latest)
-  const commandTool = isCommandTool(latest)
+  const done = head.state === 'output-available' || head.state === 'output-error'
+  const label = getToolLabel(head)
+  const commandTool = isCommandTool(head)
   const toggle = () => setUserOpen(!open)
 
   return (
@@ -75,7 +76,7 @@ export function ToolRunView({
         {/* Keyed on the call so a new call fades in instead of the text just
             changing under the cursor. */}
         <span
-          key={latest.toolCallId}
+          key={head.toolCallId}
           className="t-tool-run-latest inline-flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden"
         >
           {!done ? (
@@ -89,7 +90,7 @@ export function ToolRunView({
               <span className="min-w-0 truncate text-left">{label}</span>
             </>
           )}
-          <ToolElapsedBadge part={latest} now={now} />
+          <ToolElapsedBadge part={head} now={now} />
         </span>
         {count > 1 && (
           <span className="flex-shrink-0 text-tertiary">

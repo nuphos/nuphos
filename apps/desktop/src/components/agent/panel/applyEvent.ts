@@ -121,6 +121,12 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
   if (type === 'tool-input-available') {
     const toolCallId = event.toolCallId as string
     const toolName = (event.toolName as string) ?? undefined
+    const attribution = {
+      ...(event.subagent === true ? { subagent: true as const } : {}),
+      ...(typeof event.parentToolUseId === 'string' && event.parentToolUseId
+        ? { parentToolUseId: event.parentToolUseId }
+        : {}),
+    }
 
     if (!parts.some((p) => p.type === 'tool' && p.toolCallId === toolCallId)) {
       return [
@@ -132,6 +138,7 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
           state: 'input-available',
           startedAt: emittedAt,
           input: event.input,
+          ...attribution,
         },
       ]
     }
@@ -144,6 +151,7 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
             state: 'input-available',
             startedAt: p.startedAt ?? emittedAt,
             input: event.input,
+            ...attribution,
           }
         : p,
     )

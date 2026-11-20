@@ -129,6 +129,9 @@ export type ToolPart = {
    * model history. */
   liveOutput?: { stdout: string; stderr: string }
   errorText?: string
+  /** Claude Code native sub-agents: the call that spawned one, and the steps it ran. */
+  subagent?: true
+  parentToolUseId?: string
   // AI SDK tool-approval envelope (HMAC-signed): id binds the response to the
   // request; approved is set once the user decides.
   approval?: {
