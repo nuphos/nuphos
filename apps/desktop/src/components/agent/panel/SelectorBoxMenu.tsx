@@ -86,7 +86,7 @@ export function SelectorBoxMeters({
   )
 }
 
-/** A quiet extra line: whose a teammate's shared computer is, or which agents share a quota. */
+/** A quiet extra line: whose a teammate's shared computer is. */
 function QuietLine({ text }: { text: string | null }) {
   return (
     text && (
