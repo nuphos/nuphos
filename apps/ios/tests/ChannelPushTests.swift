@@ -5,7 +5,7 @@ private func check(_ condition: Bool, _ message: String) {
     if !condition { print("FAIL: \(message)"); exit(1) }
 }
 
-/// A backend that pushes one change to the open chat shortly after its change stream opens,
+/// A backend that pushes a burst of changes to the open chat shortly after its change stream opens,
 /// and keeps the stream open. Every other request gets an empty 200. Records what was asked.
 private final class PushingBackend: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var seen: [(at: ContinuousClock.Instant, request: String)] = []
@@ -29,7 +29,9 @@ private final class PushingBackend: URLProtocol, @unchecked Sendable {
         DispatchQueue.global().asyncAfter(deadline: .now() + 1) {
             client?.urlProtocol(self, didLoad: Data("data: {\"sessionId\":\"other\",\"revision\":\"r\"}\n\n".utf8))
             Self.pushedAt = .now
-            client?.urlProtocol(self, didLoad: Data("data: {\"sessionId\":\"chat\",\"revision\":\"r2\"}\n\n".utf8))
+            // A burst, as a busy chat makes: one read covers it.
+            let burst = (2...6).map { "data: {\"sessionId\":\"chat\",\"revision\":\"r\($0)\"}\n\n" }.joined()
+            client?.urlProtocol(self, didLoad: Data(burst.utf8))
         }
     }
     override func stopLoading() {}
@@ -46,7 +48,7 @@ private extension URLSessionConfiguration {
 }
 
 /// An open chat hears from the server that it changed (#3906) and reads at once, instead of at
-/// its next 4 s poll; while that stream is up it does not poll the chat at all.
+/// its next 4 s poll, once for a burst of changes; while that stream is up it does not poll the chat.
 @main
 enum ChannelPushTests {
     @MainActor
@@ -70,8 +72,9 @@ enum ChannelPushTests {
         check(read!.at - pushedAt < .milliseconds(500), "The chat was read \(read!.at - pushedAt) after the push")
         check(!seen.contains { $0.request == "GET /agent/conversations/chat?tail=1" },
               "The chat kept polling while the change stream was up: \(seen.map(\.request))")
-        check(seen.filter { $0.request == "GET /agent/conversations/chat?tail=200" }.count == 3,
-              "Expected three reads (first, the stream coming up, the pushed change): \(seen.map(\.request))")
+        // At most one read in flight and one waiting, however many changes the burst had.
+        let afterPush = seen.filter { $0.at >= pushedAt && $0.request == "GET /agent/conversations/chat?tail=200" }.count
+        check((1...2).contains(afterPush), "A burst of five changes made \(afterPush) reads: \(seen.map(\.request))")
         print("Channel push passed")
     }
 }

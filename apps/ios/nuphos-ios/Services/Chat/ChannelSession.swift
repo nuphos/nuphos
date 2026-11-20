@@ -87,13 +87,18 @@ final class ChannelSession {
                 pushed = true
                 await refresh(force: true)
             case .down: pushed = false
-            case .changed: await refresh(force: true)
+            case .changed:
+                changePending = false
+                await refresh(force: true)
             case .tick:
                 if !pushed { await refresh() }
                 await refreshQuestions()
             }
         }
     }
+
+    /// A pushed change waits to be read: more changes before that read need no read of their own.
+    private var changePending = false
 
     /// Follows the team's changes, waking the chat for its own, and reconnects with backoff.
     private func followChanges(_ wake: AsyncStream<Wake>.Continuation) async {
@@ -109,7 +114,8 @@ final class ChannelSession {
             do {
                 // Three missed 5 s heartbeats is a dead stream.
                 for try await event in SSEClient.events(for: request, idleTimeout: .seconds(15), onOpen: { wake.yield(.up) })
-                where JSONValue.parse(event.data)?["sessionId"]?.stringValue == channelId {
+                where !changePending && JSONValue.parse(event.data)?["sessionId"]?.stringValue == channelId {
+                    changePending = true
                     wake.yield(.changed)
                 }
             } catch SSEClient.Failure.badStatus(404, _) {
