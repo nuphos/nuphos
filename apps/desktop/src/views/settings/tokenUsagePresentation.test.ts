@@ -205,7 +205,7 @@ test('the total at list prices is the same whatever the grouping: priced models,
   assert.equal(listPriceTotal([row({ model: 'gpt-6.1-terra' }, 700)]), undefined)
 })
 
-test('a cost groups its digits the way the locale does, and keeps two decimals', () => {
+test('a cost groups its digits as US dollars in every language, and keeps two decimals', () => {
   assert.equal(formatUsd(133_015.41), '$133,015.41')
   assert.equal(formatUsd(2.5), '$2.50')
   assert.equal(formatUsd(0), '$0.00')

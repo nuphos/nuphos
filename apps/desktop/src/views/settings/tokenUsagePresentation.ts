@@ -1,4 +1,4 @@
-import { locale, t } from '../../i18n/index.ts'
+import { t } from '../../i18n/index.ts'
 
 import type { TeamUsageNames, TeamUsageRow, UsageDimension } from '../../types/usage'
 
@@ -259,9 +259,9 @@ export function formatChange(line: TokenUsageLine): string {
   return '0%'
 }
 
-/** 133015.41 → "$133,015.41", grouped the way the app's language groups digits. */
+/** 133015.41 → "$133,015.41" in every language: US dollars, beside token counts that always use a period. */
 export function formatUsd(value: number): string {
   if (value < 0.01 && value > 0) return '<$0.01'
 
-  return `$${value.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
