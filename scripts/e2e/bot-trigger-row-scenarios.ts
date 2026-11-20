@@ -45,6 +45,11 @@ export const botTriggerRowScenarios: Scenario[] = [
       const rowIs = (open: boolean) =>
         panel.locator(`button[aria-expanded="${String(open)}"]`, { hasText: 'Daily digest' })
 
+      await rowIs(false).waitFor()
+      // Captures for the PR are in the light theme.
+      await page.evaluate(() => document.documentElement.classList.replace('dark', 'light'))
+      await page.waitForTimeout(600) // the panel slides in; let it land
+      await page.screenshot({ path: join(artifacts, 'bot-trigger-row-closed.png') })
       await row.click()
       await rowIs(true).waitFor()
       await panel.getByText('Summarise yesterday E2E_DELIVERY:bot-trigger-row').waitFor()
@@ -57,6 +62,7 @@ export const botTriggerRowScenarios: Scenario[] = [
       await until('Edit to fill the composer', async () =>
         (await composer.innerText()).includes('Edit your trigger “Daily digest”'),
       )
+      await page.screenshot({ path: join(artifacts, 'bot-trigger-row-edit.png') })
       await row.click()
       await rowIs(false).waitFor()
 
