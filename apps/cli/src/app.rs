@@ -34,15 +34,15 @@ use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, 
 /// Alternate scroll mode: in the alternate screen, the wheel arrives as ↑/↓.
 const ALTERNATE_SCROLL_ON: &str = "\x1b[?1007h";
 const ALTERNATE_SCROLL_OFF: &str = "\x1b[?1007l";
-/// The Nuphos mark (apps/desktop/public/logo.svg) in braille, 14×7.
+/// The Nuphos app icon (apps/desktop/public/nuphos-icon.png) in braille, 14×7: its dark shapes, the hat and eyes.
 const LOGO: [&str; 7] = [
-    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀",
-    "⠀⢀⣴⣶⣶⣶⣤⡀⠈⠻⣷⣄⠀⠀",
-    "⣰⣿⠋⠁⠀⠉⠻⣿⣦⡀⠈⠻⣷⣄",
-    "⣿⣇⠀⠠⣾⣦⡀⠈⠻⡿⠂⠀⢹⣿",
-    "⠙⢿⣦⡀⠈⠻⣿⣦⡀⠀⢀⣠⣿⠏",
-    "⠀⠀⠙⢿⣦⡀⠈⠛⠿⠿⠿⠛⠁⠀",
-    "⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀",
+    "⠀⠀⠀⠀⠀⠀⡠⠔⢒⣉⣉⡓⠢⠀",
+    "⠀⠀⠀⠀⣠⠎⣠⣾⣿⣿⣿⣿⣿⠆",
+    "⠀⠀⢀⡾⢃⣾⣿⣿⣿⣿⣿⣿⣿⠀",
+    "⢀⡴⢋⣴⣿⠿⠿⠛⠻⠿⠿⣿⣿⣷",
+    "⣠⣴⣿⡏⢀⡀⠀⠀⠀⠀⠀⠀⠈⠿",
+    "⠀⠉⢻⡇⢸⡇⠀⠀⠀⠀⣿⠀⠀⠀",
+    "⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀",
 ];
 const TIPS: [&str; 4] = [
     "Press ctrl+\\ to jump between your tasks.",

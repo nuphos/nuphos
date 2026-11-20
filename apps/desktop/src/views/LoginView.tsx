@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { CodeInput, codeInputClasses } from '../components/CodeInput'
-import { NuphosLogo } from '../components/NuphosLogo'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { useErrorShake } from '../hooks/useErrorShake'
 import { useStableCallback } from '../hooks/useStableCallback'
+import { useTheme } from '../hooks/useTheme'
 import { useTextSwap } from '../hooks/useTextSwap'
 import { t } from '../i18n'
 import { CODE_LENGTH, completesCode, singleFlight } from '../lib/codeEntry'
@@ -34,6 +34,7 @@ type Props = {
 const inputClasses = codeInputClasses
 
 export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
+  const { resolved } = useTheme()
   const [step, setStep] = useState<'start' | 'code' | 'mfa'>('start')
   const [mfaToken, setMfaToken] = useState<string | null>(null)
   const [email, setEmail] = useState('')
@@ -151,9 +152,7 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
       {/* Scrolls, so a long account list never pushes the form out of reach. */}
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-            <NuphosLogo className="h-12 w-12" variant="white-bg" />
-          </div>
+          <img className="mb-5 h-10" src={`/nuphos-lockup-${resolved}.png`} alt="" aria-hidden="true" />
           <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??

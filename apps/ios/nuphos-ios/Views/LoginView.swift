@@ -79,7 +79,7 @@ struct LoginView: View {
             ScrollView {
                 VStack(spacing: 24) {
                     VStack(spacing: 16) {
-                        Image("NuphosMark").resizable().scaledToFit().frame(width: 48, height: 48)
+                        Image("NuphosLockup").resizable().scaledToFit().frame(height: 40)
                             .accessibilityHidden(true)
                         VStack(spacing: 8) {
                             Text("Welcome to Nuphos").font(.title.bold())
