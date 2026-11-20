@@ -5,7 +5,10 @@ import { expect, test } from 'bun:test'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { createAgentRun } from './run-registry'
 
-import { OpenAbConnectionLostError } from '@/lib/claude-code-preview/openab-acp-errors'
+import {
+  OpenAbConnectionLostError,
+  OpenAbRpcError,
+} from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
@@ -221,6 +224,20 @@ test('an answer whose computer is offline records nothing, so it waits and is no
   ).rejects.toMatchObject({ code: 'runtime_offline' })
   expect(persisted).toHaveLength(before)
   expect(run.frames.join('')).not.toContain('turn-interrupted')
+})
+
+test('a queued turn whose agent is out of usage records nothing, so it waits in the queue', async () => {
+  cause = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your weekly limit · resets 4pm (UTC)",
+    -32603,
+  )
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-limit')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+  ).rejects.toThrow('weekly limit')
+  expect(persisted).toHaveLength(before)
 })
 
 test('a refused turn is still recorded when nobody resends it', async () => {
