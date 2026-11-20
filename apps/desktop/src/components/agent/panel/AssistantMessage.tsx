@@ -16,7 +16,7 @@ import { DownloadGroups } from './DownloadGroups'
 import { withoutQuestionRows } from './openQuestionParts'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
-import { renderPartRange, renderSelectedParts } from './renderPartRange'
+import { renderPartRange, renderSelectedParts, withApprovalNotice } from './renderPartRange'
 import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
@@ -273,7 +273,7 @@ export const AssistantMessage = memo(
 
     return (
       <div className="group/message space-y-2">
-        {body}
+        {withApprovalNotice(body, orderedParts)}
         {!streaming && (
           <TurnLinkChips parts={orderedParts} teamId={teamId} onOpen={onOpenNuphosLink} />
         )}

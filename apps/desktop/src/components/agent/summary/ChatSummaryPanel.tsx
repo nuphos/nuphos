@@ -46,8 +46,10 @@ type Props = {
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
-  /** Drawn first, above everything the chat did: a Bot chat's card of the Bot. */
+  /** Drawn first, above everything the chat did: a Bot chat's card of the Bot. With it, no Changes. */
   lead?: ReactNode
+  /** Drawn after a Bot's instructions: what the Bot may use. */
+  access?: ReactNode
   /** The panel's accessible name; by default "Task summary". */
   label?: string
   /** Closes the panel; by default this pane's Task summary. */
@@ -184,6 +186,7 @@ function SummaryBody({
   requestsLoaded,
   requestsFailed,
   lead,
+  access,
   label,
   onClose: close,
   onDismiss: dismiss,
@@ -249,6 +252,7 @@ function SummaryBody({
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
           <BotInstructionsSection conversation={conversation} />
+          {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
             key={`${teamId}:${triggerHome}`}
@@ -256,7 +260,8 @@ function SummaryBody({
             sessionId={triggerHome}
           />
           {!loaded && <Skeleton />}
-          {changes.length > 0 && (
+          {/* A Bot's details leave out a Task's pull requests and issues. */}
+          {changes.length > 0 && !lead && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
           )}
           {subAgents.length > 0 && (
