@@ -5,6 +5,7 @@ import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { Switch } from '../../ui/Switch'
+import { NextRuns } from '../panel/TriggerCardBody'
 
 import { SummarySection } from './ChatSummaryRows'
 
@@ -20,11 +21,21 @@ function nextRunLabel(trigger: AgentTrigger): string {
   return t('No upcoming runs')
 }
 
-export function ChatSummaryTriggers({ teamId, sessionId }: { teamId: string; sessionId: string }) {
+export function ChatSummaryTriggers({
+  teamId,
+  sessionId,
+  onEdit,
+}: {
+  teamId: string
+  sessionId: string
+  /** Starts a message asking the agent to change it; without one, the row says to ask here. */
+  onEdit?: (message: string) => void
+}) {
   const [triggers, setTriggers] = useState<AgentTrigger[]>([])
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState(false)
   const [pending, setPending] = useState<Set<string>>(new Set())
+  const [openId, setOpenId] = useState<string | null>(null)
   const mounted = useRef(true)
   const revision = useRef(0)
   const updating = useRef(new Set<string>())
@@ -112,20 +123,52 @@ export function ChatSummaryTriggers({ teamId, sessionId }: { teamId: string; ses
         <p className="text-xs text-tertiary">{t('Ask here to schedule recurring work.')}</p>
       )}
       {triggers.map((trigger) => (
-        <div key={trigger.id} className="flex items-start gap-3 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="break-words text-[13px] text-main">{trigger.name}</p>
-            <p className="mt-1 text-xs leading-5 text-tertiary">
-              {trigger.scheduleDescription ?? scheduleSummary(trigger)}
-            </p>
-            <p className="text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</p>
+        <div key={trigger.id} className="py-1">
+          <div className="flex items-start gap-3">
+            {/* The row opens what the Trigger sends; the switch beside it stays a sibling. */}
+            <button
+              type="button"
+              aria-expanded={openId === trigger.id}
+              aria-controls={`trigger-details-${trigger.id}`}
+              onClick={() => setOpenId((open) => (open === trigger.id ? null : trigger.id))}
+              className="-mx-1.5 min-w-0 flex-1 rounded-md px-1.5 py-1 text-left hover:bg-state-hover"
+            >
+              <p className="break-words text-[13px] text-main">{trigger.name}</p>
+              <p className="mt-1 text-xs leading-5 text-tertiary">
+                {trigger.scheduleDescription ?? scheduleSummary(trigger)}
+              </p>
+              <p className="text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</p>
+            </button>
+            <span className="pt-1">
+              <Switch
+                checked={trigger.enabled}
+                label={t('Enable {name}', { name: trigger.name })}
+                disabled={!trigger.canManage || pending.has(trigger.id)}
+                onChange={(enabled) => void toggle(trigger, enabled)}
+              />
+            </span>
           </div>
-          <Switch
-            checked={trigger.enabled}
-            label={t('Enable {name}', { name: trigger.name })}
-            disabled={!trigger.canManage || pending.has(trigger.id)}
-            onChange={(enabled) => void toggle(trigger, enabled)}
-          />
+          {openId === trigger.id && (
+            <div id={`trigger-details-${trigger.id}`} className="mt-1 flex flex-col gap-2 pb-1">
+              <p className="whitespace-pre-wrap break-words rounded-md bg-surface-sunken px-2 py-1.5 text-xs leading-5 text-secondary">
+                {trigger.messageTemplate}
+              </p>
+              {trigger.triggerType === 'cron' && <NextRuns trigger={trigger} />}
+              {onEdit ? (
+                <button
+                  type="button"
+                  onClick={() => onEdit(t('Edit your trigger “{name}”: ', { name: trigger.name }))}
+                  className="self-start rounded-md border border-line-control px-2.5 py-1 text-xs font-medium text-secondary hover:bg-state-hover hover:text-main"
+                >
+                  {t('Edit')}
+                </button>
+              ) : (
+                <p className="text-xs leading-5 text-tertiary">
+                  {t('Ask here to change this trigger.')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       ))}
     </SummarySection>

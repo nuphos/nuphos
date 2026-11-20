@@ -8,6 +8,7 @@ import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
@@ -138,6 +139,7 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...botTriggerRowScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
