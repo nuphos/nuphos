@@ -47,6 +47,7 @@ export function Composer({
   runtimeControl,
   modelSession,
   newConversationModelControl,
+  botCredentials,
   bypassControl,
   pendingSeed,
   onSeedConsumed,
@@ -81,6 +82,8 @@ export function Composer({
   newConversationModelControl?: ReactNode
   /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
    *  Permissions) — absent when the conversation has no session yet. */
+  /** Explicit Bot access controls, excluded from automatic grants through mentions. */
+  botCredentials?: CredentialSelectorControl
   bypassControl?: { active: boolean | undefined; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
@@ -114,6 +117,7 @@ export function Composer({
     modelSession,
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,
   )
+  const accessControls = botCredentials ?? credentialSelector
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
   const ownAgentMenu = useState(false) // the banner can open it
@@ -248,13 +252,16 @@ export function Composer({
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
-              {credentialSelector && (
-                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
+              {accessControls && (
+                <CredentialSelectorButton {...accessControls} hero={hero} personalIdentity />
               )}
-              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
+              {bypassControl && (
+                <BypassControlMenu bypassControl={bypassControl} hero={hero} compact />
+              )}
               {runtimeControl && !runtimeControl.offlineAgent && (
                 <RuntimeSelector
                   {...runtimeControl}
+                  compact
                   menuOpen={agentMenuOpen || agentMenuRequested}
                   onMenuOpenChange={(open) => {
                     setAgentMenuOpen(open)
@@ -267,6 +274,7 @@ export function Composer({
             {modelSession ? (
               <ModelSelector
                 control={modelControl}
+                prioritizeModelName
                 disabled={readOnly || Boolean(modelSession.lockedHint)}
                 disabledHint={modelSession.lockedHint}
                 hero={hero}

@@ -119,7 +119,7 @@ function SelectionButton({
         <MenuTrigger
           className={clsx(
             'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
-            hero ? 'h-8 min-w-8 rounded-full px-2' : 'h-7 min-w-7 rounded-md px-1.5',
+            hero ? 'h-8 min-w-8 rounded-md px-2' : 'h-7 min-w-7 rounded-md px-1.5',
           )}
           title={hint}
           aria-label={title}

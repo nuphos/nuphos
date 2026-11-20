@@ -190,10 +190,11 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   for (const frame of frames) {
     assert.equal(frame.placeholder, 'Message Ada')
     assert.equal(frame.runtimeControl?.value?.label, 'Claude Code on a laptop')
-    // #3790: the Bot's credentials, computers and mode left its chat's composer for Bot details.
+    // Access controls must never implicitly grant a computer from an @ mention.
     assert.equal(frame.credentialSelector, undefined)
-    assert.equal(frame.bypassControl, undefined)
   }
+  assert.ok(frames.at(-1)?.botCredentials)
+  assert.equal(frames.at(-1)?.bypassControl?.active, true)
   assert.ok(frames.at(-1)?.runtimeControl?.onSettings)
   frames.at(-1)?.runtimeControl?.onSettings?.()
   assert.equal(settingsOpened, 1)
@@ -201,7 +202,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
   assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
 
-  // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.
+  // Both composers show quota on the compact runtime line.
   const quota: RuntimeQuota = {
     runtimeId: 'runtime-1',
     provider: 'claude-code',
@@ -229,7 +230,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
         createElement(
           QueryClientProvider,
           { client: queryClient },
-          createElement(RuntimeSelector, { ...control, quotas }),
+          createElement(RuntimeSelector, { ...control, quotas, compact: true }),
         ),
       ),
     )
@@ -286,6 +287,8 @@ test("a teammate's Bot chat shows its model locked and its access read-only", as
     { text: 'Full Access', opens: false },
   ])
   assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
+  assert.equal(frames.at(-1)?.botCredentials, undefined)
+  assert.equal(frames.at(-1)?.bypassControl, undefined)
   assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')
   await act(() => root.unmount())
   queryClient.clear()

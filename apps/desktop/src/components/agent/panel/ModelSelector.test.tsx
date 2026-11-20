@@ -143,7 +143,7 @@ const withEffort: SessionConfigState = {
   ],
 }
 
-function mount() {
+function mount(prioritizeModelName = false) {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -170,6 +170,7 @@ function mount() {
             select: (selection) => selected.push(selection),
             refresh: () => {},
           },
+          prioritizeModelName,
           disabled: Boolean(hint),
           disabledHint: hint,
         }),
@@ -223,6 +224,16 @@ test('models and effort open together, and the effort is named, never "Default"'
   assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows with them')
   assert.match(dom.document.querySelector('[role="menu"]')?.textContent ?? '', /Effort\s*Low/)
   assert.doesNotMatch(dom.document.querySelector('[role="menu"]')?.textContent ?? '', /Default/)
+  await act(() => picker.root.unmount())
+})
+
+test('the Bot chip names the model and keeps effort in the menu', async () => {
+  const picker = mount(true)
+
+  await picker.render(withEffort)
+  assert.equal(picker.chip().textContent, 'gpt-5.5')
+  await act(() => picker.chip().click())
+  assert.match(dom.document.querySelector('[role="menu"]')?.textContent ?? '', /Effort\s*Low/)
   await act(() => picker.root.unmount())
 })
 

@@ -12,6 +12,7 @@ import { ChatColumn } from '../agent/panel/ChatColumn'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
+import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
@@ -106,6 +107,7 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
   const stickToBottom = useStickToBottom(scrollRef, composer)
+  const bypassControl = useBypassControl(bot)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
@@ -258,6 +260,8 @@ export function ChannelPane({
             >
               {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
               <Composer
+                botCredentials={botOwned ? questions.credentials : undefined}
+                bypassControl={botOwned ? bypassControl : undefined}
                 onSend={send}
                 onStop={() => {}}
                 readOnly={detail?.readOnly === true}
@@ -290,6 +294,7 @@ export function ChannelPane({
             onOpenSession={onOpenSession}
             onOpenLink={onOpenNuphosLink}
             credentials={questions.credentials}
+            bypassControl={bypassControl}
           />
         )}
       </div>

@@ -2343,6 +2343,40 @@ html.light {
 .session-resource-pending {
   color: var(--resource-pending);
 }
+/* Runtime menu status and action share a slot so hovering never shifts the row. */
+.runtime-row-action {
+  display: inline-grid;
+  overflow: hidden;
+}
+
+.runtime-row-action > span {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--text-swap-dur) var(--text-swap-ease),
+    transform var(--text-swap-dur) var(--text-swap-ease);
+}
+
+.runtime-row-action-hint {
+  opacity: 0;
+  transform: translateY(var(--text-swap-translate-y));
+}
+
+.runtime-row-with-action:is(:hover, :focus-visible, [data-highlighted]) .runtime-row-action-status {
+  opacity: 0;
+  transform: translateY(calc(-1 * var(--text-swap-translate-y)));
+}
+
+.runtime-row-with-action:is(:hover, :focus-visible, [data-highlighted]) .runtime-row-action-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runtime-row-action > span {
+    transition: none;
+  }
+}
+
 /* A sidebar row lifts its title for the detail line only when that line has
    something to show; rows without one just change their background on hover. */
 [data-sidebar-row]:has([data-row-detail]:not(:empty)):is(:hover, :focus-within) [data-row-title] {

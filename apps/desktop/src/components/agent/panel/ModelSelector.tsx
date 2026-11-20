@@ -41,6 +41,7 @@ export function ModelSelector({
   disabled,
   hero = false,
   disabledHint,
+  prioritizeModelName = false,
 }: {
   control: ModelControl
   disabled: boolean
@@ -48,6 +49,7 @@ export function ModelSelector({
   hero?: boolean
   /** Why the picker is disabled, when it is not just waiting for the task. */
   disabledHint?: string
+  prioritizeModelName?: boolean
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
@@ -69,6 +71,7 @@ export function ModelSelector({
 
   if (error || status === 'offline') name = t('Model unavailable')
   if (model) name = modelName(model) || name
+  const modelOnly = prioritizeModelName && Boolean(model)
   const level = effortName(effort)
   const effortLevels = [
     ...new Set([level, ...effortStops(effort?.options ?? []).map((choice) => effortLabel(choice))]),
@@ -175,23 +178,26 @@ export function ModelSelector({
           </span>
         }
         disabled={control.open}
-        triggerClassName="min-w-0"
+        triggerClassName={modelOnly ? 'min-w-0 shrink-0 max-w-[65%]' : 'min-w-0'}
       >
         <MenuTrigger
           ref={chipRef}
           data-model-chip=""
           aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
+          title={modelOnly ? name : undefined}
           // A filled pill at rest, so opening it changes nothing but the text.
           className={clsx(
-            hero ? 'h-8' : 'h-7',
-            'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
+            modelOnly ? 'min-h-7 py-1' : hero ? 'h-8' : 'h-7',
+            modelOnly ? 'max-w-full' : 'max-w-64',
+            'flex min-w-0 items-center gap-1 rounded-md px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
           )}
         >
           {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
           <ModelChipLabel
             name={name}
-            level={level}
-            levels={effortLevels}
+            level={modelOnly ? '' : level}
+            levels={modelOnly ? [] : effortLevels}
+            alwaysShowName={modelOnly}
             fast={fast?.currentValue}
           />
           <ChevronDown

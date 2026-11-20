@@ -96,6 +96,7 @@ export function MenuRadioGroup<T extends string>({
 
 type MenuSubmenuTriggerProps = {
   children: React.ReactNode
+  delay?: MenuPrimitive.SubmenuTrigger.Props['delay']
   icon?: React.ReactNode
   /** Trailing chevron node; defaults to none so callers control the glyph. */
   chevron?: React.ReactNode
@@ -109,13 +110,14 @@ type MenuSubmenuTriggerProps = {
 
 export const MenuSubmenuTrigger = React.forwardRef<HTMLDivElement, MenuSubmenuTriggerProps>(
   function MenuSubmenuTrigger(
-    { children, icon, chevron, disabled, title, className, onClick },
+    { children, icon, chevron, disabled, title, className, onClick, delay },
     ref,
   ) {
     return (
       <MenuPrimitive.SubmenuTrigger
         ref={ref}
         disabled={disabled}
+        delay={delay}
         title={title}
         onClick={onClick}
         className={(state) =>
