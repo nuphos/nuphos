@@ -2,10 +2,11 @@
 import { join } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
+import { instaboxMachines } from './instabox-stub.ts'
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
 import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -113,7 +114,7 @@ export const offlineScenarios: Scenario[] = [
     // where the conversation is, instead of leading to the Computers page.
     name: 'a conversation on a Box whose disk is almost full clears its caches in place',
     run: async (page, stack) => {
-      const goOffline = await laptopOnline(stack, { diskPercent: 93, box: BOX })
+      const goOffline = await laptopOnline(stack, { diskPercent: 93, box: BOX, busy: true })
 
       try {
         await newTask(page)
@@ -133,12 +134,30 @@ export const offlineScenarios: Scenario[] = [
         await confirm
           .getByText('Workspaces, sign-ins, Docker images and volumes are kept.')
           .waitFor()
+        await confirm.getByText('Running Tasks aren’t stopped', { exact: false }).waitFor()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'disk-box-confirm.png') })
         await confirm.getByRole('button', { name: 'Cancel' }).click()
         await confirm.waitFor({ state: 'hidden' })
+        await banner.getByRole('button', { name: 'Free space' }).click()
+        await confirm.getByRole('button', { name: 'Clear caches', exact: true }).click()
+        await page.getByText(`Clearing caches on ${BOX}`, { exact: true }).waitFor()
+        await page.screenshot({ path: join(artifacts, 'disk-box-clearing.png') })
+        if (
+          ![...instaboxMachines.values()].some((machine) =>
+            machine.commands?.some((cmd) => cmd.includes('docker builder prune -f')),
+          )
+        )
+          throw new Error('The cache-clear command never reached the Box')
         // Still in the conversation: nothing navigated away to the computer's page.
         await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
+        await openComputers(page)
+        await page.getByRole('button', { name: 'Clear caches', exact: true }).click()
+        await confirm.waitFor()
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'disk-box-card-confirm.png') })
+        await confirm.getByRole('button', { name: 'Cancel' }).click()
+        await page.getByRole('button', { name: 'Back to app', exact: true }).click()
       } finally {
         goOffline()
       }

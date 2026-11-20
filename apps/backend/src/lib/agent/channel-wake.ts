@@ -10,7 +10,7 @@ import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId } from './db'
+import { agentConversations, getConversationBySessionId, noReplyFailedYet } from './db'
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
 import {
@@ -21,7 +21,6 @@ import {
 } from './db/channel-notes'
 import { readChannelMessages } from './db/channels'
 import { pushTimelineEvent } from './db/participants'
-import { agentConversations } from './db/shared'
 import {
   listPendingUserMessages,
   requeuePendingAtHead,
@@ -275,10 +274,11 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = withOutdatedHint(replyFailedReason(agent, cause, error, resetsAt), error)
+  const atMessage = (await getConversationBySessionId(channelId).catch(() => null))?.messageCount
 
   await agentConversations()
     .updateOne(
-      { sessionId: channelId },
+      { sessionId: channelId, ...noReplyFailedYet(agentId, atMessage) },
       {
         $set: { transcriptUpdatedAt: new Date() },
         $push: pushTimelineEvent({
@@ -290,6 +290,7 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
+          ...(atMessage === undefined ? {} : { atMessage }),
         }),
       },
     )

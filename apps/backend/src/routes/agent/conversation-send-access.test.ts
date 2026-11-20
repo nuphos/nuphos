@@ -129,3 +129,21 @@ test("each viewer sees the Task archived when they archived it, and never someon
   expect(as('owner').archivedAt).toBeUndefined()
   expect(as('amy')).not.toHaveProperty('memberArchivedAt')
 })
+
+test('who may archive: the owner for everyone, a participant in a Task for themselves', () => {
+  const task = { userId: 'owner', teamId, participantIds: ['amy'] }
+  const as = (doc: Record<string, unknown>, id: string) =>
+    serializeConversationForViewer(
+      { ...task, ...doc } as typeof task,
+      { id } as NuphosUser,
+      new Map(),
+      null,
+      'reply',
+    ).canArchive
+
+  expect(as({}, 'owner')).toBe(true)
+  expect(as({}, 'amy')).toBe(true)
+  // A teammate who only reads it, and a member of a group chat, who leaves it instead.
+  expect(as({}, 'reader')).toBe(false)
+  expect(as({ kind: 'channel' }, 'amy')).toBe(false)
+})

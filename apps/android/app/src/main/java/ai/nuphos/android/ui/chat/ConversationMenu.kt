@@ -63,9 +63,11 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             DropdownMenuItem(text = { Text(stringResource(R.string.chat_menu_rename)) }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             if (onChooseRuntime != null) DropdownMenuItem(text = { Text(stringResource(R.string.chat_switch_runtime)) }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
                 enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
+        }
+        // Someone else in a Task archives it for themselves alone (#3686).
+        if (session.canArchive)
             DropdownMenuItem(text = { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
                 enabled = !busy && (!session.isBot || store.canArchiveBot(session.sessionId)), onClick = { open = false; archive = true })
-        }
     }
     }
     if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }

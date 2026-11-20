@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
+import type { RecordedTab } from './browser-recording.ts'
 import type { Readable, Writable } from 'node:stream'
 
 /** The browser's ends of its debugging pipe, and its lifetime. */
@@ -41,7 +42,16 @@ export class Cdp {
       const parts = (this.buffer + chunk).split('\0')
 
       this.buffer = parts.pop() ?? ''
-      for (const part of parts) this.receive(JSON.parse(part) as Message)
+      for (const part of parts) {
+        let message: Message
+
+        try {
+          message = JSON.parse(part) as Message
+        } catch {
+          continue // Not a message; the next one still is.
+        }
+        this.receive(message)
+      }
     })
   }
 
@@ -97,13 +107,46 @@ export function launchChromium(executable: string, profile: string): Browser {
   // Chromium will not start as root with its sandbox, as `nuphos agent` may run on a server.
   if (process.getuid?.() === 0) args.push('--no-sandbox')
   const child = spawn(executable, args, { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] })
+  const write = child.stdio[3] as Writable
+  const read = child.stdio[4] as Readable
+
+  // A browser that dies resets its pipes: its exit ends the connection (cli-browser.ts), and an
+  // unheard error here would take `nuphos agent` down with it.
+  write.on('error', () => {})
+  read.on('error', () => {})
 
   return {
-    write: child.stdio[3] as Writable,
-    read: child.stdio[4] as Readable,
+    write,
+    read,
     exited: new Promise((resolve) => {
       child.once('exit', () => resolve())
       child.once('error', () => resolve())
     }),
+  }
+}
+
+/** A page's side of the shared HAR recorder (browser-recording.ts), over its debugging session. */
+export function recorder(cdp: Cdp, sessionId: string): RecordedTab['debugger'] {
+  type OnMessage = Parameters<RecordedTab['debugger']['on']>[1]
+  const forwards = new Map<OnMessage, Listener>()
+
+  return {
+    attach: () => {},
+    // Recording ends with the page's network events off again.
+    detach: () => void cdp.send('Network.disable', {}, sessionId).catch(() => {}),
+    isAttached: () => true,
+    sendCommand: (method, params) => cdp.send(method, params, sessionId),
+    on: (_event, listener) => {
+      const forward: Listener = (method, params, from) => {
+        if (from === sessionId) listener({}, method, params)
+      }
+
+      forwards.set(listener, forward)
+      cdp.listeners.add(forward)
+    },
+    off: (_event, listener) => {
+      cdp.listeners.delete(forwards.get(listener)!)
+      forwards.delete(listener)
+    },
   }
 }

@@ -2,17 +2,31 @@ import { OpenAbAcpClient } from './openab-acp-client'
 import { createTeamRuntimeRegistry } from './team-openab-runtime'
 
 import type { OpenAbProvider } from './runtime-provider'
-import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
+import type { TeamPreviewClient, TeamRuntimeEndpoint, TeamSession } from './team-openab-runtime'
 
 export const sessionsByConversation = new Map<string, TeamSession>()
 /** A session being opened, with the runtime route it is being opened on. */
 export const sessionCreations = new Map<string, { route: string; session: Promise<TeamSession> }>()
+type RuntimeWake = (teamId: string, endpoint: TeamRuntimeEndpoint) => void
+
+// Installed at boot (wakeOnRuntime): a runtime answering again wakes its agents for
+// the posts they missed (#3284), and this module must not import the channel graph.
+let runtimeWake: RuntimeWake = () => {}
+
+export function installRuntimeWake(wake: RuntimeWake): void {
+  runtimeWake = wake
+}
+
+const wakeOnRuntime: RuntimeWake = (teamId, endpoint) => runtimeWake(teamId, endpoint)
+
 /** Separate sockets keep operator capabilities out of prompt transports. */
-export const controlRegistry = createTeamRuntimeRegistry(async (endpoint) =>
-  OpenAbAcpClient.connect(endpoint),
+export const controlRegistry = createTeamRuntimeRegistry(
+  async (endpoint) => OpenAbAcpClient.connect(endpoint),
+  wakeOnRuntime,
 )
-export const registry = createTeamRuntimeRegistry<TeamPreviewClient>(async (endpoint) =>
-  OpenAbAcpClient.connect(endpoint),
+export const registry = createTeamRuntimeRegistry<TeamPreviewClient>(
+  async (endpoint) => OpenAbAcpClient.connect(endpoint),
+  wakeOnRuntime,
 )
 
 /** Process-local observability for the runtime-status probe (runtime-status.ts). */
