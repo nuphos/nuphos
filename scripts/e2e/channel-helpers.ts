@@ -92,6 +92,10 @@ export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
+  // TEMPORARY, for #4231 evidence only, never merged: the click cannot open the submenu, so
+  // what opens it is the pointer coming to rest on the row afterwards. Moving the pointer
+  // away takes that accident out, leaving the failure the loaded runners hit at random.
+  await page.mouse.move(0, 0)
   await pickInSubmenu(page, page.getByRole('menuitem', { name: item }).last())
   // A Bot's move takes a moment; until it lands the composer still names the old runtime.
   await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
