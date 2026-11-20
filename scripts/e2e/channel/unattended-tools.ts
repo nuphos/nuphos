@@ -33,7 +33,7 @@ const scenario: Scenario = {
         {
           method: 'POST',
           headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, text: `Hello E2E_ASK_TOOLS ${MARKER}` }),
+          body: JSON.stringify({ teamId: stack.teamId, text: `Hello ${MARKER}` }),
         },
       )
 

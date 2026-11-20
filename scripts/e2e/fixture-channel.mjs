@@ -14,9 +14,10 @@ function whoAsked(read, marker) {
 
 /** Reads what the wake left with channel_read, logs a page it was shown twice, and answers. */
 export async function answerChannel({ call, log, sessionId, channelId, text, ask }) {
-  // E2E_ASK_TOOLS asks before each Nuphos tool, as a runtime out of Full Access does.
+  // The ask-tools post asks before each Nuphos tool, as a runtime out of Full Access does.
+  // Only when it is the newest post: a later turn's wake still carries it.
   const permit =
-    text.includes('E2E_ASK_TOOLS') &&
+    (text.match(MARKER) ?? []).at(-1) === 'E2E_DELIVERY:ask-tools' &&
     ((tool, args) => ask({ title: `mcp__nuphos-tools__${tool}`, kind: 'other', rawInput: args }))
 
   const seen = new Set(indexes(text))
@@ -24,7 +25,7 @@ export async function answerChannel({ call, log, sessionId, channelId, text, ask
   let last = text
 
   log({ sessionId, event: 'channel', detail: channelId })
-  // E2E_ASK_TOOLS: read and answer as a runtime that asks first, then try another channel.
+  // Read and answer as a runtime that asks first, then try another channel.
   if (permit) {
     const read = { label: 'Read the chat', channelId }
 
