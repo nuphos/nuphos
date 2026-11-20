@@ -91,15 +91,26 @@ const SETUP = `(() => {
   }
 
   encoder.configure({ codec: 'vp8', ...${JSON.stringify(SIZE)}, bitrate: 2000000 })
+  // A page can send frames faster than they encode (some 300 a second on the e2e runner), so only
+  // the newest one waiting is encoded, once the encoder has room: the work stays at the encoder's
+  // pace, and the last frame is always the page as it last was.
+  let waiting
   window.draw = (jpeg, ms) => {
     progress.drawn++
-    drawn = drawn.then(async () => {
-      const blob = await (await fetch('data:image/jpeg;base64,' + jpeg)).blob()
+    if (!waiting) drawn = drawn.then(next)
+    waiting = { jpeg, ms }
+  }
+  const next = async () => {
+    const { jpeg, ms } = waiting
 
-      last = await createImageBitmap(blob, { resizeWidth: ${SIZE.width}, resizeHeight: ${SIZE.height} })
-      progress.decoded++
-      encode(last, ms)
-    })
+    waiting = undefined
+    const blob = await (await fetch('data:image/jpeg;base64,' + jpeg)).blob()
+
+    last = await createImageBitmap(blob, { resizeWidth: ${SIZE.width}, resizeHeight: ${SIZE.height} })
+    progress.decoded++
+    encode(last, ms)
+    while (encoder.encodeQueueSize > 1)
+      await new Promise((done) => encoder.addEventListener('dequeue', done, { once: true }))
   }
   window.finish = (ms) => drawn.then(async () => {
     if (last) encode(last, ms)
