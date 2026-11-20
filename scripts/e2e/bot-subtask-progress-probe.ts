@@ -52,7 +52,7 @@ export const botSubtaskProgressProbe: Scenario[] = [
       rmSync(release, { force: true })
       try {
         await look('before')
-        await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:probe-4227')
+        await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-probe-4227')
         for (const seconds of [3, 8, 15]) {
           await page.waitForTimeout(seconds * 1000)
           await look(`held-${String(seconds)}s`)
@@ -73,6 +73,23 @@ export const botSubtaskProgressProbe: Scenario[] = [
         console.log(`PROBE teammate | invited ${String(invited.status)} | accepted ${String(accepted.status)}`)
         const ownerMine = await list(stack.token, 'scope=mine')
         const botRow = (await list(stack.token, 'scope=mine&bots=true')).find((row) => row.title === 'E2E Bot')
+        const members = ((await call(stack.token, 'GET', `/teams/${stack.teamId}/members`)).body.members ?? []) as {
+          id: string
+          email: string
+        }[]
+        const teammateId = String(members.find((m) => m.email === email)?.id)
+        const chats = ((await call(stack.token, 'GET', `/agent/conversations?teamId=${stack.teamId}&kind=channel&limit=30`)).body
+          .conversations ?? []) as (Row & { botId?: string })[]
+        const botChat = chats.find((row) => row.botId === botRow?.sessionId)
+
+        // The teammate joins the Bot's chat and the Bot itself, as someone the owner shared it with.
+        for (const id of [botChat?.sessionId, botRow?.sessionId]) {
+          const joined = await call(stack.token, 'POST', `/agent/conversations/${String(id)}/participants?teamId=${stack.teamId}`, {
+            userIds: [teammateId],
+          })
+
+          console.log(`PROBE teammate joins ${String(id)} | ${String(joined.status)} ${JSON.stringify(joined.body).slice(0, 120)}`)
+        }
         const kids = (rows: Row[]) => rows.filter((row) => row.parentSessionId === botRow?.sessionId).map((row) => row.title)
 
         for (const [who, token] of [['owner', stack.token], ['teammate', teammate]] as const)
