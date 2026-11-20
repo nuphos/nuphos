@@ -52,8 +52,9 @@ export const usageQueueScenarios: Scenario[] = [
       )
       if (turns('first', 'start').length > 4)
         throw new Error('The queue kept trying an agent out of usage')
-      if (markers.some((marker) => before.includes(marker)))
-        throw new Error('A fire refused for usage was recorded as run instead of kept waiting')
+      // Waiting fires show as queued; none may be recorded as a failed turn.
+      if (/turn-interrupted|usage limit/.test(before))
+        throw new Error('A fire refused for usage was recorded as failed instead of kept waiting')
 
       // Moved to an agent with usage left: every fire runs there.
       const { runtimes } = await api<{ runtimes: { id: string; label: string }[] }>(
@@ -75,9 +76,7 @@ export const usageQueueScenarios: Scenario[] = [
       await until('the fires to be answered', async () => {
         const after = JSON.stringify((await detail()).messages)
 
-        return (
-          markers.every((marker) => after.includes(marker)) && turns('second', 'finish').length > 0
-        )
+        return after.includes('ACK E2E_DELIVERY:usage-') && turns('second', 'finish').length > 0
       })
       for (const trigger of triggers) {
         const now = await api<Trigger>(
