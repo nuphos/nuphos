@@ -9,6 +9,8 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
+// The answer field's voice input reads the team role, which needs no query client here.
+mock.module('../../../hooks/useTeamRole', () => ({ useTeamRole: () => 'ADMINISTRATOR' }))
 mock.module('../MessageResponse', () => ({
   MessageResponse: ({ children }: { children: ReactNode }) => createElement('div', null, children),
 }))
