@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
-import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { isRuntimeRefusal, outOfUsageUntilReset } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -176,8 +175,7 @@ export async function runTurn(
         // nothing, so another one does. A move to another agent releases the session.
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
-        const limited =
-          turnFailureCause(error) === 'usage_limit' && !fresh.some((message) => message.answers)
+        const limited = outOfUsageUntilReset(error) && !fresh.some((message) => message.answers)
 
         if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []
