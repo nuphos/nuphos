@@ -50,6 +50,7 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:installAgent', provider),
   localRuntimeLatestAgentVersions: () => ipcRenderer.invoke('localRuntime:latestAgentVersions'),
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
+  localRuntimeSaveDiagnostics: () => ipcRenderer.invoke('localRuntime:saveDiagnostics'),
   localRuntimeListActivity: (before?: string) =>
     ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>

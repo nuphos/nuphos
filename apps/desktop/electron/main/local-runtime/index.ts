@@ -50,7 +50,7 @@ import type { AccountContext } from '../../auth-session.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
-const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
+export const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
 const devBuild = () => !app.isPackaged && !process.env.NUPHOS_LOCAL_RUNTIME_DIR
 
 function bundleRoot(): string {
@@ -65,7 +65,7 @@ function bundleRoot(): string {
   )
 }
 
-const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
+export const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
 const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 

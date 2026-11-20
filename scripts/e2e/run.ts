@@ -24,6 +24,7 @@ import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { diagnosticsScenarios } from './diagnostics-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
@@ -185,6 +186,8 @@ const scenarios: Scenario[] = [
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
+  // After it, so the zip holds a real Claude Code runtime log.
+  ...diagnosticsScenarios,
 ]
 
 let desktop: Desktop | undefined

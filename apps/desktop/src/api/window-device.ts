@@ -57,6 +57,8 @@ export type WindowDeviceApi = {
   localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
+  /** The saved zip's path. */
+  localRuntimeSaveDiagnostics(): Promise<string>
   localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
   boxCreate(

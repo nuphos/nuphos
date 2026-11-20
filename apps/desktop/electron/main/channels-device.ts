@@ -1,9 +1,9 @@
-import { mkdtemp } from 'node:fs/promises'
+import { mkdir, mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { shell } from 'electron'
+import { app, shell } from 'electron'
 
 import * as atlas from '../atlas'
 import { downloadTo, resolveDownloads, uploadFiles } from '../fileTransfer'
@@ -14,9 +14,12 @@ import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import { refreshRunningModels } from './local-runtime/agent-models.ts'
+import { diagnosticsSummary, writeDiagnostics } from './local-runtime/diagnostics.ts'
 import {
   cancelLocalClaudeLogin,
   cancelLocalCodexLogin,
+  dataDir,
+  findBundle,
   getLocalRuntimeState,
   listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
@@ -31,6 +34,22 @@ import {
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
 
 import type { LocalAgentProvider } from './local-runtime/agent-cli.ts'
+
+/** Saves recent runtime logs, versions and the OS to a zip in Downloads, and shows it. */
+async function saveDiagnostics(): Promise<string> {
+  const stamp = new Date()
+    .toISOString()
+    .replaceAll(':', '-')
+    .replace(/\.\d{3}Z$/, 'Z')
+  const file = join(app.getPath('downloads'), `nuphos-diagnostics-${stamp}.zip`)
+  const summary = diagnosticsSummary(app.getVersion(), findBundle(), getLocalRuntimeState())
+
+  await mkdir(dirname(file), { recursive: true })
+  await writeDiagnostics(file, { dataDir: dataDir(), home: app.getPath('home'), summary })
+  shell.showItemInFolder(file)
+
+  return file
+}
 
 async function copyAgentFile(...args: [string, string, string, string]) {
   const copy = await atlas.transferRuntimeFile(...args)
@@ -101,5 +120,6 @@ export const deviceChannels = {
   },
   'localRuntime:latestAgentVersions': () => latestAgentCliVersions(),
   'localRuntime:openWorkspace': () => openLocalRuntimeWorkspace(),
+  'localRuntime:saveDiagnostics': () => saveDiagnostics(),
   'localRuntime:listActivity': (_e: unknown, before?: string) => listLocalRuntimeActivity(before),
 }
