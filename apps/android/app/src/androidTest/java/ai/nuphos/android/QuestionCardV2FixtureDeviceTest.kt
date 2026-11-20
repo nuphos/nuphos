@@ -44,7 +44,7 @@ class QuestionCardV2FixtureDeviceTest {
         "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA"), askedAt = Instant.now().minus(Duration.ofDays(15)).toString(),
         body = (1..8).joinToString("\n") { "Finding $it: the canary held for an hour." }), runtime = "claude-code")
 
-    private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf(), question: BotQuestion = deploy, onOpenConversation: (String) -> Unit = {}) {
+    private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf(), question: BotQuestion = deploy, onOpenConversation: (String) -> Unit = {}, answersInPlace: Boolean = false) {
         compose.setContent {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic", context) }
@@ -52,7 +52,7 @@ class QuestionCardV2FixtureDeviceTest {
             NuphosTheme(darkTheme = dark) { Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 24.dp)) {
-                        BotQuestionCard(question, onOpenConversation = onOpenConversation, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = true, onDismiss = onDismiss)
+                        BotQuestionCard(question, onOpenConversation = onOpenConversation, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = true, onDismiss = onDismiss, answersInPlace = answersInPlace)
                     }
                 }
             } }
@@ -62,15 +62,27 @@ class QuestionCardV2FixtureDeviceTest {
     @Test fun namesAndOpensTheConversationsThatActOnTheAnswer() {
         var opened: String? = null
         val question = deploy.copy(request = deploy.request.copy(aboutConversations = listOf(
-            DecisionConversation("writer", "Release writer"), DecisionConversation("checker", "Release checker"),
+            DecisionConversation("writer", "Release writer"), DecisionConversation("checker", "Release checker for documentation and deployment notes with an intentionally long conversation title"),
         )))
         show(question = question, onOpenConversation = { opened = it })
         compose.onNodeWithText("Acted on by").assertIsDisplayed()
         compose.onNodeWithText("Release writer").assertIsDisplayed()
-        compose.onNodeWithText("Release checker").assertIsDisplayed()
-        capture("decision-conversations")
+        compose.onNodeWithText("Release checker for documentation and deployment notes with an intentionally long conversation title").assertIsDisplayed()
+        capture("decision-conversations-chat")
         compose.onNodeWithText("Release writer").performClick()
         assertEquals("writer", opened)
+    }
+
+    @Test fun theInboxNamesMultipleRecipientsWithALongTitle() {
+        val question = deploy.copy(request = deploy.request.copy(aboutConversations = listOf(
+            DecisionConversation("writer", "Release writer"),
+            DecisionConversation("checker", "Release checker for documentation and deployment notes with an intentionally long conversation title"),
+        )))
+        show(question = question, answersInPlace = true)
+        compose.onNodeWithText("Acted on by").assertIsDisplayed()
+        compose.onNodeWithText("Release writer").assertIsDisplayed()
+        compose.onNodeWithText("Release checker for documentation and deployment notes with an intentionally long conversation title").assertIsDisplayed()
+        capture("decision-conversations-inbox")
     }
 
     private fun bounds(tag: String, index: Int = 0) = compose.onAllNodesWithTag(tag)[index].fetchSemanticsNode().boundsInRoot

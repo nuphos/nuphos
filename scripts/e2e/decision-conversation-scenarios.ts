@@ -32,7 +32,10 @@ export const decisionConversationScenarios: Scenario[] = [
         return conversation.sessionId
       }
       const first = await worker('Release writer', 'recipient-writer')
-      const second = await worker('Release checker', 'recipient-checker')
+      const second = await worker(
+        'Release checker for documentation and deployment notes with an intentionally long conversation title',
+        'recipient-checker',
+      )
 
       await newTask(page)
       const args = {
@@ -52,7 +55,11 @@ export const decisionConversationScenarios: Scenario[] = [
       const recipients = page.locator('[data-decision-conversations]').last()
 
       await recipients.getByRole('link', { name: 'Release writer' }).waitFor()
-      await recipients.getByRole('link', { name: 'Release checker' }).waitFor()
+      await recipients
+        .getByRole('link', {
+          name: 'Release checker for documentation and deployment notes with an intentionally long conversation title',
+        })
+        .waitFor()
       await page.screenshot({ path: `${artifacts}/decision-conversations-chat.png` })
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await page.locator('[data-inbox-question]', { hasText: 'Publish the release notes?' }).click()
@@ -92,7 +99,11 @@ export const decisionConversationScenarios: Scenario[] = [
         JSON.stringify(request?.aboutConversations) ===
           JSON.stringify([
             { sessionId: first, title: 'Release writer' },
-            { sessionId: second, title: 'Release checker' },
+            {
+              sessionId: second,
+              title:
+                'Release checker for documentation and deployment notes with an intentionally long conversation title',
+            },
           ]),
         'the detail to expose the real, readable recipients',
       )

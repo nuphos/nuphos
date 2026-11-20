@@ -39,18 +39,18 @@ final class InboxUITests: XCTestCase {
         task["parentSessionId"] = "bot-release"
         var request = try XCTUnwrap((task["inputRequests"] as? [[String: Any]])?.first)
         request["aboutConversations"] = [["sessionId": "writer", "title": "Release writer"],
-                                         ["sessionId": "checker", "title": "Release checker"]]
+                                         ["sessionId": "checker", "title": "Release checker for documentation and deployment notes with an intentionally long conversation title"]]
         task["inputRequests"] = [request]
         try listQuestions([task])
         app = launch(page: "inbox")
         listed("Roll out 1.4 to production?").tap()
         XCTAssertTrue(app.buttons["Release writer"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Release checker"].exists)
+        XCTAssertTrue(app.buttons["Release checker for documentation and deployment notes with an intentionally long conversation title"].exists)
         shot("decision-conversations-inbox")
         app.terminate()
         try openBotChat(listing: [task])
         XCTAssertTrue(app.buttons["Release writer"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Release checker"].exists)
+        XCTAssertTrue(app.buttons["Release checker for documentation and deployment notes with an intentionally long conversation title"].exists)
         shot("decision-conversations-chat")
     }
 

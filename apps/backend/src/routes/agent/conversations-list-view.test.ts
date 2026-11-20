@@ -13,6 +13,7 @@ import { agentRuns, createAgentRun, registerAgentRun } from './run-registry'
 // The list reports each row's runtime status from the stored push and the run
 // store only; it never opens a runtime connection.
 const runs = new Map<string, { streamId: string; startedAt: string }>()
+const decisionTargets = new Map<string, Record<string, unknown>>()
 // Each entry is one read of the run store, naming the sessions it asked about.
 const runLookups: string[][] = []
 
@@ -31,7 +32,11 @@ useDb({
           toArray: async () => [],
         }
 
-        return { find: () => cursor, findOne: async () => null }
+        return {
+          find: () => cursor,
+          findOne: async (query: { sessionId?: string }) =>
+            decisionTargets.get(query.sessionId ?? '') ?? null,
+        }
       },
     }) as never,
 })
@@ -49,6 +54,7 @@ useAgentRunStore({
 })
 
 beforeEach(() => {
+  decisionTargets.clear()
   runs.clear()
   runLookups.length = 0
   agentRuns.clear()
@@ -198,4 +204,32 @@ test("a group chat says so, so a client never takes it for a Bot's 1:1 chat", as
 
   expect(group?.group).toBe(true)
   expect(chat?.group).toBeUndefined()
+})
+
+test('the pending list resolves readable about conversations for its decision cards', async () => {
+  decisionTargets.set('writer', { ...conversation('writer'), title: 'Release writer' })
+  const [row] = await serializeConversationList(
+    [
+      {
+        ...conversation('coordinator'),
+        linkedResources: [{ id: 'resource' }],
+        inputRequests: [
+          {
+            id: 'q-release',
+            category: 'approval',
+            question: 'Publish?',
+            status: 'open',
+            askedAt: new Date(),
+            about: ['writer', 'resource'],
+          },
+        ],
+      },
+    ],
+    { id: 'user-a' } as never,
+    'team-a',
+  )
+
+  expect(row?.inputRequests).toMatchObject([
+    { aboutConversations: [{ sessionId: 'writer', title: 'Release writer' }] },
+  ])
 })
