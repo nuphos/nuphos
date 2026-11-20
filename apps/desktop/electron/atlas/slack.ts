@@ -9,6 +9,16 @@ export type SlackChannelMapping = {
   createdBy: string
   createdAt: string
   updatedAt: string
+  /** The Bot that answers in this channel (#3702), one at most; `mine` if the viewer may remove it. */
+  bots?: SlackChannelBot[]
+}
+
+export type SlackChannelBot = {
+  sessionId: string
+  title?: string
+  avatar: string
+  mine?: boolean
+  ownerName?: string
 }
 
 export type SlackUserMapping = {
@@ -61,13 +71,36 @@ export type SlackChannelOption = {
   isPrivate: boolean
 }
 
-export async function listSlackChannelMappings(teamId: string): Promise<SlackChannelMapping[]> {
-  const data = await call<{ mappings: SlackChannelMapping[] }>(
+/** The team's connected channels, and the viewer's own Bots they may bring into one. */
+export async function listSlackChannelMappings(
+  teamId: string,
+): Promise<{ mappings: SlackChannelMapping[]; myBots: SlackChannelBot[] }> {
+  const data = await call<{ mappings?: SlackChannelMapping[]; myBots?: SlackChannelBot[] }>(
     'GET',
     `/slack/mappings?teamId=${encodeURIComponent(teamId)}`,
   )
 
-  return data.mappings ?? []
+  return { mappings: data.mappings ?? [], myBots: data.myBots ?? [] }
+}
+
+/** Brings one of the viewer's Bots into a connected channel, or takes it out. */
+export async function setSlackChannelBot(
+  teamId: string,
+  channel: { slackWorkspaceId: string; slackChannelId: string },
+  botSessionId: string,
+  answers: boolean,
+): Promise<SlackChannelBot[]> {
+  const path = `/slack/mappings/${channel.slackWorkspaceId}/${channel.slackChannelId}/bots`
+  const data = await call<{ bots: SlackChannelBot[] }>(
+    answers ? 'POST' : 'DELETE',
+    answers
+      ? path
+      : `${path}/${encodeURIComponent(botSessionId)}?teamId=${encodeURIComponent(teamId)}`,
+    answers ? { teamId, botSessionId } : undefined,
+    { retry: false },
+  )
+
+  return data.bots
 }
 
 export async function getSlackConnectionStatus(teamId: string): Promise<SlackConnectionStatus> {
@@ -162,15 +195,6 @@ export async function deleteSlackChannelMapping(
     undefined,
     { retry: false },
   )
-}
-
-export async function listSlackUserMappings(teamId: string): Promise<SlackUserMapping[]> {
-  const data = await call<{ mappings: SlackUserMapping[] }>(
-    'GET',
-    `/slack/user-mappings?teamId=${encodeURIComponent(teamId)}`,
-  )
-
-  return data.mappings ?? []
 }
 
 export async function upsertSlackUserMapping(
