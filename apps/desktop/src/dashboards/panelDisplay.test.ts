@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { panelDisplay } from './panelDisplay.ts'
+import { panelDisplay, panelNotConnected } from './panelDisplay.ts'
 
 import type { DashboardPanel, DashboardPanelSnapshot } from './schema'
 
@@ -52,4 +52,18 @@ test('never-run panels have neither output nor a stale label', () => {
 
   assert.equal(display.snapshot, null)
   assert.equal(display.rangeLabel, null)
+})
+
+test('a run that found an integration gone says what to reconnect, and nothing else does', () => {
+  const failed = (kind: string, message: string) =>
+    ({ status: 'failed', error: { kind, message } }) as DashboardPanelSnapshot
+
+  assert.equal(
+    panelNotConnected(
+      failed('not_connected', 'Not connected: Grafana instance\n\npanel exited with code 1'),
+    ),
+    'Not connected: Grafana instance',
+  )
+  assert.equal(panelNotConnected(failed('nonzero_exit', 'panel exited with code 1')), null)
+  assert.equal(panelNotConnected(null), null)
 })

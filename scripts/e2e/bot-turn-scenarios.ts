@@ -2,8 +2,9 @@
 // scenarios: they leave the Bot on the second agent, which those need unused until then.
 import { agentEvents, agentLog } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
+import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
-import { pickInSubmenu, send } from './ui.ts'
+import { openBotTask, pickInSubmenu, send, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -17,9 +18,37 @@ export const botTurnScenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
-      await page.getByRole('button', { name: 'Task', exact: true }).click()
+      await openBotTask(page)
       const task = page.locator('.t-bot-task-mode')
 
+      await task.getByRole('button', { name: 'Toggle task summary' }).waitFor()
+      // The Task slides in from the right; its header is measured once it has arrived.
+      await page.waitForFunction(() => {
+        const box = document.querySelector('.t-bot-task-mode')?.getBoundingClientRect()
+
+        return box !== undefined && box.right <= window.innerWidth + 1
+      })
+      await page.waitForTimeout(300)
+      // #3561: the Task's header kept its summary toggle under the workspace panel toggle.
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate((value) => {
+          document.documentElement.classList.remove('light', 'dark')
+          document.documentElement.classList.add(value)
+        }, theme)
+        await checkDockToggleClear(page, `Bot Task header ${theme}`, '.t-bot-task-mode header')
+        await page.getByRole('button', { name: 'Open workspace panel' }).click()
+        await page.getByRole('button', { name: 'Close workspace panel' }).waitFor()
+        await page.waitForTimeout(500)
+        await page.screenshot({
+          path: `${artifacts}/dock-toggle-Bot-Task-header-${theme}-open.png`,
+        })
+        await page.getByRole('button', { name: 'Close workspace panel' }).click()
+        await page.getByRole('button', { name: 'Open workspace panel' }).waitFor()
+      }
+      await page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
       await task.getByRole('textbox').last().click()
       await page.keyboard.type(`Out of usage E2E_USAGE_LIMIT ${marker}`)
       await page.keyboard.press('Enter')
@@ -48,8 +77,9 @@ export const botTurnScenarios: Scenario[] = [
         ),
       )
       await task.getByRole('button', { name: 'Back to conversation' }).click()
-      // The scenarios after this one find a single composer on the page.
+      // The scenarios after this one find a single composer on the page, and the chat at full width.
       await task.waitFor({ state: 'detached' })
+      await setBotDetails(page, false)
     },
   },
   {

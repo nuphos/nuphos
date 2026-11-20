@@ -34,8 +34,6 @@ export type ClaudeCodeRuntimeDoc = {
   deploymentImage?: string
   requestedRuntimeVersion?: string
   runtimeUpdateError?: string
-  hostedBy?: 'nuphos'
-  hostedSlot?: number
   /** A row of the retired provisioner model, which nothing resolves any more. */
   managedBy?: 'provisioner'
   /** Envelope-encrypted ACP transport key. */
@@ -61,7 +59,6 @@ export type ClaudeCodeRuntime = {
   id: string
   url: string
   provider?: OpenAbProvider
-  hostedBy?: 'nuphos'
   connection?: 'paired' | 'password'
   label?: string
   status: ClaudeCodeRuntimeStatus
@@ -85,9 +82,7 @@ function toPublic(doc: ClaudeCodeRuntimeDoc): ClaudeCodeRuntime {
     url: doc.url,
     provider: runtimeProvider(doc.provider),
     ...(doc.label ? { label: doc.label } : {}),
-    ...(doc.hostedBy
-      ? { hostedBy: doc.hostedBy }
-      : { connection: doc.pairing ? 'paired' : 'password' }),
+    connection: doc.pairing ? 'paired' : 'password',
     status: doc.status,
     createdByUserId: doc.createdByUserId,
     createdAt: doc.createdAt.toISOString(),
@@ -115,8 +110,6 @@ export async function registerTeamRuntime(args: {
   authKey: string
   controlKey?: string
   label?: string
-  hostedBy?: 'nuphos'
-  hostedSlot?: number
   deploymentImage?: string
   pairing?: RuntimePairing
 }): Promise<ClaudeCodeRuntime> {
@@ -139,7 +132,6 @@ export async function registerTeamRuntime(args: {
     url,
     provider: args.provider ?? 'claude-code',
     ...(args.label?.trim() ? { label: args.label.trim() } : {}),
-    ...(args.hostedBy ? { hostedBy: args.hostedBy, hostedSlot: args.hostedSlot } : {}),
     ...(args.deploymentImage ? { deploymentImage: args.deploymentImage } : {}),
     ...(args.pairing ? { pairing: args.pairing } : {}),
     status: 'active',
@@ -200,8 +192,7 @@ export async function resolveTeamRuntimeEndpoints(
   const endpoints: TeamRuntimeEndpoint[] = []
 
   for (const doc of docs) {
-    // Nuphos-hosted runtimes are retired (#2401): nothing dials them any more.
-    if (runtimeProvider(doc.provider) !== provider || doc.hostedBy) continue
+    if (runtimeProvider(doc.provider) !== provider) continue
     const stored =
       purpose === 'transport'
         ? storedAuthKey(doc.authKeyEnvelope)

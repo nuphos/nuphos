@@ -18,6 +18,13 @@ export async function getSlackChannelMapping(
   })
 }
 
+/** The Slack channel whose external chat (#3702) this record is. */
+export async function getSlackChannelMappingByExternalChat(
+  externalChatId: string,
+): Promise<SlackChannelMapping | null> {
+  return await slackChannelMappings().findOne({ externalChatId, enabled: true })
+}
+
 // A Slack Connect channel keeps the same channel id in every workspace it is
 // shared with, so a mention arriving through one workspace's installation can
 // detect that the channel is already served by another installation. Used only

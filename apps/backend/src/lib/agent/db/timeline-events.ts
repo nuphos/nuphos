@@ -1,5 +1,18 @@
 import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+
+/** Why an agent could not reply in a chat; `cli` when its CLI could not start. */
+export type ReplyFailedCause = TurnFailureCause | 'cli'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
+
+/** A channel with no reply-failed line yet from `agentId` for the post at `atMessage` (#3332). */
+export const noReplyFailedYet = (agentId: string, atMessage: number | undefined) =>
+  atMessage === undefined
+    ? {}
+    : {
+        timelineEvents: {
+          $not: { $elemMatch: { kind: 'agent_reply_failed', agentId, atMessage } },
+        },
+      }
 
 /** What set, changed or took away a conversation's face. */
 export type BotChangeSource =
@@ -36,11 +49,13 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       /** The agent's conversation, for a client's Retry and Switch agent; absent on older events. */
       agentId?: string
       /** Absent on older events. */
-      cause?: TurnFailureCause
+      cause?: ReplyFailedCause
       /** Why, in a few words, when it is known and fit to show. */
       reason?: string
       /** When an agent out of usage gets it back, when its usage reading says. */
       resetsAt?: string
+      /** The channel's message count when it failed: one line per post, however often it retries. */
+      atMessage?: number
     }
   | {
       /** One of the session's messages was edited and ran again in a fork: the session it ran in. */

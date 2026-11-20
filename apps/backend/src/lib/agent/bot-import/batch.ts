@@ -154,7 +154,11 @@ export async function applyImportBatch(
       if (item.kind === 'bot') {
         const source = batch.manifest.bots.find((bot) => bot.key === item.key)!
 
-        item.warnings = await operations.bot(source, item, selection.enableSchedules)
+        item.warnings = await operations.bot(
+          source,
+          item,
+          batch.manifest.source.application !== 'nuphos-template' && selection.enableSchedules,
+        )
       } else {
         const source = batch.manifest.chats.find((chat) => chat.key === item.key)!
         const available = batch.items.filter(

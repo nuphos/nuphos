@@ -61,7 +61,8 @@ export const agentReadChannels = {
     sessionId: string,
     avatar: string | null,
     teamId?: string,
-  ) => agent.setConversationAvatar(sessionId, avatar, teamId),
+    background?: string,
+  ) => agent.setConversationAvatar(sessionId, avatar, teamId, background),
   'agent:uploadConversationAvatar': (
     _e: unknown,
     sessionId: string,

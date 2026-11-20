@@ -11,6 +11,7 @@ import {
   fetchWakeupTranscriptTail,
   shouldDeferTranscriptCatchUp,
 } from './conversationCatchUp.ts'
+import { listsRuntimeState } from './listedRuntimeState.ts'
 import { CONVERSATION_TAIL_LIMIT } from './model.ts'
 import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
 import { getAgentLocale } from './textUtils.ts'
@@ -78,9 +79,12 @@ export function useConversationCatchUp(acc: Acc): void {
         // messages, so ask for none (a server that predates `messages=omit`
         // sends the one `tail` allows). The transcript tail is fetched below
         // only when the stored count has grown.
+        // Reads with the runtime state are slow; the session list publishes it for what it lists.
+        const listed = listsRuntimeState(teamId, sessionId)
         const probe = await api.agentGetConversation(sessionId, teamId, {
           tail: 1,
           messages: 'omit',
+          ...(listed && { runtimeState: 'omit' as const }),
         })
 
         if (state.stopped) return
@@ -197,7 +201,11 @@ export function useConversationCatchUp(acc: Acc): void {
         if (tail === 0) return
         const fetched = await fetchWakeupTranscriptTail(
           () => tabsRef.current.find((tab) => tab.sessionId === sessionId),
-          (requestedTail) => api.agentGetConversation(sessionId, teamId, { tail: requestedTail }),
+          (requestedTail) =>
+            api.agentGetConversation(sessionId, teamId, {
+              tail: requestedTail,
+              runtimeState: 'omit',
+            }),
           tail,
           CONVERSATION_TAIL_LIMIT,
         )

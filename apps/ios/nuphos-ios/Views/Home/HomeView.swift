@@ -170,9 +170,9 @@ struct HomeView: View {
             NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel) { bot in
+                    ChannelView(channel: channel) { task, title in
                         guard let store else { return }
-                        botTask = store.session(sessionId: bot, title: channel.title, teamId: channel.teamId)
+                        botTask = store.session(sessionId: task, title: title, teamId: channel.teamId)
                         showBotTask = true
                     }
                         .id(channel.channelId)
@@ -352,10 +352,10 @@ struct HomeView: View {
     @ViewBuilder
     private var homeActions: some View {
             Menu {
-                Button { showNewBot = true } label: {
+                // The sheet lives on the Bots page, where the new Bot is listed (#3947).
+                Button { page = .chats; showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }

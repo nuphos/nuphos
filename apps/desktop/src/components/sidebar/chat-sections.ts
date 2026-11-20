@@ -113,8 +113,10 @@ export function withChatSections(
   return sections.flatMap((section) =>
     section === agents
       ? [
-          { title: BOTS_SECTION, items: chats },
-          ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+          { title: BOTS_SECTION, items: chats, loading: agents.loading },
+          ...(tasks.length > 0 || agents.loading
+            ? [{ title: 'Tasks', items: tasks, loading: agents.loading }]
+            : []),
         ]
       : [section],
   )

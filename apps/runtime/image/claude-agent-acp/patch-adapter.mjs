@@ -124,6 +124,19 @@ patched = patched.replace(
   deathError,
   'failAllTurns(RequestError.internalError(undefined, nuphosProcessDeathMessage("Claude Code", message.replace(/^Claude Code /, ""))));',
 )
+// On SIGTERM or a closed ACP connection (a runtime restart), the adapter tore each
+// session down with cancel(), which interrupts Claude Code the way a user's Stop
+// does: it recorded the running tool as "The user doesn't want to proceed … STOP"
+// and "[Request interrupted by user for tool use]", and the resumed agent stopped
+// for a user who never asked. Close the queries without interrupting; Claude Code
+// then records the call as ended by the session, and the agent can retry it.
+const dispose =
+  '        await Promise.all(Object.keys(this.sessions).map((id) => this.teardownSession(id)));'
+if (patched.split(dispose).length !== 2) throw new Error('Expected one Claude adapter dispose.')
+patched = patched.replace(
+  dispose,
+  '        for (const session of Object.values(this.sessions)) this.closeQueryStream(session);',
+)
 const sessionHome = readFileSync(new URL('../session-home.mjs', import.meta.url), 'utf8')
 const helper = readFileSync(new URL('../mcp-bridge-config.mjs', import.meta.url), 'utf8')
 const instructions = readFileSync(new URL('./project-instructions.mjs', import.meta.url), 'utf8')
