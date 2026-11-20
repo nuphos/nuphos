@@ -64,6 +64,7 @@ import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
+import { webhookSecretScenarios } from './webhook-secret-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
@@ -146,6 +147,7 @@ const scenarios: Scenario[] = [
   ...questionScenarios,
   ...triggerScenarios,
   ...botTriggerRowScenarios,
+  ...webhookSecretScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
