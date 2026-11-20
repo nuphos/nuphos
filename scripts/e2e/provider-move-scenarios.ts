@@ -59,7 +59,9 @@ export const providerMoveScenarios: Scenario[] = [
         // #4195: a Task's session compacts at 200k like a Bot's, but keeps next-prompt suggestions.
         const taskEnv = sessionOf(stack, 'first', 'E2E_DELIVERY:provider-start').env
 
-        if (JSON.stringify(taskEnv) !== JSON.stringify({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' }))
+        if (
+          JSON.stringify(taskEnv) !== JSON.stringify({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' })
+        )
           throw new Error(`The Task's session has the wrong settings: ${JSON.stringify(taskEnv)}`)
         // Three replies of about 12k characters outgrow the history a fresh session gets.
         for (const turn of ['long-1', 'long-2', 'long-3']) {
