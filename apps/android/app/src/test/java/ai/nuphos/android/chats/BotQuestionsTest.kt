@@ -52,6 +52,12 @@ class BotQuestionsTest {
         assertEquals("https://nuphos.ai/teams/t1/agent/canary", questions.last().link("t1"))
     }
 
+    @Test fun aQuestionKeepsItsTasksRuntime() {
+        // A Task has no face, so its question card shows this runtime's mark (#3988).
+        val task = row("docs", "bot-1", true, "q-docs" to "a").copy(agentRuntime = "claude-code")
+        assertEquals("claude-code", BotQuestions.under("bot-1", listOf(row("bot-1"), task)).single().runtime)
+    }
+
     @Test fun leavesOutOtherBotsTeammatesAndLoops() {
         val rows = listOf(
             row("elsewhere", "other-bot", true, "q-1" to "a"),

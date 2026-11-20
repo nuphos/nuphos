@@ -135,7 +135,7 @@ function AgentRow({
       closeOnClick={pickable}
       onClick={() => {
         if (pickable) onSelect?.(instance.id, access)
-        else if (problem) fixes.run(problem.fix)
+        else if (problem?.fix) fixes.run(problem.fix)
       }}
     >
       <span className="flex min-w-0 flex-col py-1">
@@ -143,11 +143,9 @@ function AgentRow({
           <span className={clsx('truncate', problem && !problem.pickable && 'text-secondary')}>
             {name}
           </span>
-          {problem ? (
-            <AgentFixChip fix={problem.fix} fixes={fixes} />
-          ) : (
-            update && <AgentUpdateBadge update={update} actionable />
-          )}
+          {problem
+            ? problem.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />
+            : update && <AgentUpdateBadge update={update} actionable />}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
           {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
@@ -155,7 +153,7 @@ function AgentRow({
             {[
               name !== provider && provider,
               problem?.reason,
-              problem?.fix.kind === 'ask' && agentAskText(problem.fix),
+              problem?.fix?.kind === 'ask' && agentAskText(problem.fix),
               !problem && update?.state === 'available' && !update.start && askToUpdate,
               instance.deletion && t('Being removed'),
               instance.starting && t('Starting…'),
@@ -215,8 +213,8 @@ export function SelectorBoxMenu({
       <MenuItem
         icon={<BoxIcon className="h-4 w-4" />}
         closeOnClick={false}
-        onClick={() => problem && fixes.run(problem.fix)}
-        hint={problem && <AgentFixChip fix={problem.fix} fixes={fixes} />}
+        onClick={() => problem?.fix && fixes.run(problem.fix)}
+        hint={problem?.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />}
       >
         {/* The owner goes on its own line, so the computer keeps its name. */}
         <span className="block min-w-0">

@@ -271,7 +271,6 @@ export function ChannelPane({
                   only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
                 }}
                 placeholder={t('Message {name}', { name: title })}
-                credentialSelector={questions.credentials}
                 {...controls}
               />
             </div>
@@ -290,6 +289,7 @@ export function ChannelPane({
             onEdited={refresh}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenNuphosLink}
+            credentials={questions.credentials}
           />
         )}
       </div>

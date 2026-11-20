@@ -33,7 +33,7 @@ export function mcp(as: Client) {
 
 type Tool = ReturnType<typeof mcp>['tool']
 
-const prompt = (marker: string) => `From MCP ${marker}`
+export const prompt = (marker: string) => `From MCP ${marker}`
 
 /** Starts a Task with `nuphos_ask` and polls `nuphos_check` until the agent acknowledges `marker`. */
 export async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<string> {

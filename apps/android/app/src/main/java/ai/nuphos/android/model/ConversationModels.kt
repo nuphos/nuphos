@@ -56,6 +56,8 @@ data class AgentConversation(
     val unread: JsonValue? = null,
     val parentSessionId: String? = null,
     val canManage: Boolean? = null,
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive: Boolean? = null,
     val agentRuntime: String? = null,
     val runtimeId: String? = null,
     val runtimeLabel: String? = null,
@@ -216,6 +218,7 @@ data class AgentConversationDetail(
     val readOnly: Boolean? = null,
     val isOwner: Boolean? = null,
     val canManage: Boolean? = null,
+    val canArchive: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,

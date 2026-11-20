@@ -1,5 +1,3 @@
-import type { BoxState } from '../api/device-types.ts'
-
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
 export const AGENT_PROVIDERS = [
   'claude-code',
@@ -58,8 +56,10 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
-  /** Set when this computer is one of the owner's Boxes. */
-  box?: { state: BoxState }
+  /** Set when this computer is one of the owner's Boxes: who provides the machine, and no more.
+   *  The machine's state belongs to the device list (box-instabox-state.ts), which reads it from
+   *  the provider; this list is polled far too often to ask. */
+  box?: { provider: 'instabox' | 'k8s' }
   /** Set when it is a teammate's own computer they share with the viewer. */
   shared?: { level: 'approve' | 'full' }
 }

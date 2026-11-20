@@ -111,6 +111,10 @@ export type WindowShellApi = {
   podExecClose(id: string): Promise<void>
   onPodExecEvent(cb: (payload: PodExecEvent) => void): () => void
   onAgentEvent(cb: (payload: { streamId: string; event: unknown }) => void): () => void
+  /** A team's conversation that changed; `sessionId` null: the push stream came up or went down. */
+  onAgentChanges(
+    cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
+  ): () => void
   onAgentPlanUpdated(cb: (payload: { plan: Plan }) => void): () => void
   onAppShortcut(cb: (action: AppShortcutAction) => void): () => void
   suspendAppShortcuts(suspended: boolean): void
