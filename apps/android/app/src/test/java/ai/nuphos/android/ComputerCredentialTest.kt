@@ -70,6 +70,26 @@ class ComputerCredentialTest {
         assertEquals(setOf("online", "legacy"), cleared.selectAllComputers(mixed).ids["deviceIds"])
     }
 
+    /** What `nuphos_ask` stores leaves GitHub unset, which the server reads as every installation (#4034). */
+    @Test fun anUnsetTeamWideKindIsShownInFull() {
+        val team = CredentialCatalog(JsonValue.parse("""{"awsRoles":[{"roleId":"aws"},{"roleId":"aws2"}],
+            "githubInstallations":[{"installationId":"166","accountLogin":"o"},{"installationId":"177","accountLogin":"p"}]}""")!!)
+        val github = team.allItems.filter { it.provider.selectionKey == "githubInstallationIds" }
+        val aws2 = team.allItems.first { it.id == "aws2" }
+        val asked = CredentialSelection(JsonValue.parse("""{"awsRoleIds":["aws"]}""")!!)
+        val shown = asked.reaching(team)
+        assertTrue("an unset GitHub key reaches every installation", github.all(shown::contains))
+        assertFalse("other kinds show only what is stored", shown.contains(aws2))
+        assertEquals(asked, asked.reaching(null))
+        // Unticking one installation stores the rest as a list.
+        val edited = shown.toggle(github[0]).json
+        assertEquals(listOf("177"), edited["githubInstallationIds"]?.arrayValue?.mapNotNull { it.stringValue })
+        // An explicit empty list is none, and a new conversation keeps its own defaults.
+        val none = CredentialSelection(JsonValue.parse("""{"githubInstallationIds":[]}""")!!).reaching(team)
+        assertTrue(github.none(none::contains))
+        assertEquals(CredentialSelection(newConversation = true), CredentialSelection(newConversation = true).reaching(team))
+    }
+
     @Test fun emptyAndUnavailableOnlyCatalogsAreNeverAllSelected() {
         assertFalse(CredentialSelection().containsAllComputers(CredentialCatalog(emptyList())))
         val offline = CredentialCatalog(JsonValue.parse("""{"devices":[{"deviceId":"offline","available":false}]}""")!!)
