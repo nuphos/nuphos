@@ -81,6 +81,7 @@ describe('ensurePreviewChannelCredentials', () => {
   test('MCP first turn selects app defaults and leaves opt-in integrations off', async () => {
     let updated: AgentCredentialAccess | undefined
     const options = credentialOptions()
+
     options.githubInstallations = [
       { installationId: 'github', accountLogin: 'team', accountType: 'Organization' },
     ]
@@ -94,6 +95,7 @@ describe('ensurePreviewChannelCredentials', () => {
       { integrationId: 'trello' },
     ] as AgentCredentialOptions['trelloIntegrations']
     const conversation = { sessionId: 'conversation-1' } as AgentConversation
+
     await ensurePreviewChannelCredentials(
       { ...baseArgs, appDefaults: true },
       {
@@ -101,6 +103,7 @@ describe('ensurePreviewChannelCredentials', () => {
         getCredentialOptions: async () => options,
         updateCredentialAccess: async (_sessionId, _userId, _teamId, access) => {
           updated = access
+
           return { ...conversation, credentialAccess: access }
         },
       },
