@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { forgetDeviceShares } from '@/lib/agent/devices/local-share-revoke'
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
 import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
@@ -741,6 +741,23 @@ describe('agent device routes', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, machineLeft: true })
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
+  })
+
+  test('DELETE keeps a Box whose machine is still pausing, so a later delete finds it', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const box: BoxDeps = {
+      ...fakeBox([]),
+      destroy: () =>
+        Promise.reject(
+          new AppError(409, 'box_busy', 'The computer is still pausing. Try again in a minute.'),
+        ),
+    }
+    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
+      method: 'DELETE',
+    })
+
+    expect(response.status).toBe(409)
+    expect(devices[key('user-1', 'b1')]).toBeDefined()
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []

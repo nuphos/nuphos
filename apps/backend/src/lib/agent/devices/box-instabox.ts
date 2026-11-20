@@ -17,6 +17,7 @@ import { boxConnection } from './box-instabox-account'
 import {
   AGENT_COMMAND,
   QUICK_TIMEOUT_MS,
+  busy,
   downloadEnv,
   killBoxMachine,
   requireBackendUrl,
@@ -186,8 +187,8 @@ export async function runOnBox(userId: string, deviceId: string, command: string
 /**
  * Deletes the machine and its disks; the caller then removes the device row. A row that
  * never got its machine id (the backend went away mid-create) may still own a
- * machine: it is found by the device id in its metadata. Nothing the provider says
- * keeps a computer from being deleted: a kill that fails (an expired key, an account
+ * machine: it is found by the device id in its metadata. Only a pause still under way
+ * keeps a computer from being deleted: any other kill that fails (an expired key, an account
  * no longer connected, instabox down) is logged with the machine to clean up by hand.
  * False when the machine may still be running at the provider.
  */
@@ -200,6 +201,8 @@ export async function destroyBox(userId: string, deviceId: string): Promise<bool
 
     await killBoxMachine(conn, device.box.sandboxId, deviceId)
   } catch (error) {
+    // A pause still under way keeps the computer, for a delete a minute later.
+    if (busy(error)) throw unavailable('Could not delete the computer', error)
     logError('agent.box.kill_failed', error, {
       user_id: userId,
       device_id: deviceId,

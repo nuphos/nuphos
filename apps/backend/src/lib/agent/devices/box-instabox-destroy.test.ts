@@ -44,3 +44,22 @@ test('a machine instabox will not kill never keeps its computer from being delet
     kill.mockRestore()
   }
 })
+
+test('a machine still pausing keeps its computer, for a delete a minute later', async () => {
+  const conflict = new InstaboxError('machine has an active suspend operation', {
+    status: 409,
+    code: 'operation_conflict',
+  })
+  const kill = spyOn(Sandbox, 'kill').mockRejectedValue(conflict)
+  const connect = spyOn(Sandbox, 'connect').mockResolvedValue({
+    getInfo: () => Promise.resolve({ state: 'suspended' }),
+  } as unknown as Sandbox)
+
+  try {
+    await expect(destroyBox('u1', 'd1')).rejects.toMatchObject({ status: 409, code: 'box_busy' })
+    expect(kill).toHaveBeenCalledTimes(2)
+  } finally {
+    kill.mockRestore()
+    connect.mockRestore()
+  }
+})
