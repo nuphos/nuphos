@@ -2,9 +2,8 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { access, details, narrowDetails, shoot } from './bot-details-narrow.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
-import { until } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { openBotTask, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
@@ -13,6 +12,7 @@ import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
+const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
 
 /** Runs a script against the E2E database; it prints one JSON line. */
@@ -75,11 +75,24 @@ function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
   )
 }
 
+const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
+// Exact: the Bot's card is a region too, named after the Bot.
+const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
   page.locator(
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
+
+/** A light capture of the window once the panel or menu has landed. */
+async function shoot(page: Page, name: string) {
+  await page.evaluate(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+  })
+  await page.waitForTimeout(600)
+  await page.screenshot({ path: `${artifacts}/bot-access-${name}-light.png` })
+}
 
 /** Opens a row's picker or menu, captures it, and closes it again. */
 async function shootMenu(page: Page, row: RegExp, name: string) {
@@ -147,7 +160,19 @@ export const botAccessScenarios: Scenario[] = [
       // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
       await shootMenu(page, /^Credentials/, 'picker')
 
-      await narrowDetails(page)
+      // Narrow, the details float over the chat with the same rows.
+      const cdp = await page.context().newCDPSession(page)
+
+      try {
+        await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
+        await access(page)
+          .getByRole('button', { name: /^Credentials/ })
+          .waitFor()
+        await shoot(page, 'owner-narrow')
+      } finally {
+        await cdp.send('Emulation.clearDeviceMetricsOverride')
+        await cdp.detach()
+      }
 
       // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
       setLinkedIssue(stack, made.sessionId, true)
