@@ -6,7 +6,6 @@ import {
 } from '@/lib/claude-code-preview/plain-failure'
 import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
-import { notifyNudge } from '@/lib/push/notify'
 
 import { getConversationBySessionId, noReplyFailedYet } from './db'
 import { pushTimelineEvent } from './db/participants'
@@ -14,7 +13,6 @@ import { agentConversations } from './db/shared'
 
 import type { AgentConversation } from './db'
 import type { ReplyFailedCause } from './db/timeline-events'
-import type { Collection } from 'mongodb'
 
 /**
  * Anthropic holds an account's replies until its holder verifies it: where, from the notice.
@@ -64,45 +62,6 @@ function replyFailedReason(
   return notice?.startsWith(PROVIDER_REFUSED) ? notice.slice(0, 300) : undefined
 }
 
-/** How long a Bot's owner, once told its agent is signed out, is not told again. */
-const SIGNED_OUT_NOTICE_MS = 6 * 3_600_000
-
-/** The one field this file keeps on a Bot: when its owner was last told it is signed out. */
-const signedOutNotices = () =>
-  agentConversations() as unknown as Collection<{ sessionId: string; signedOutNoticeAt?: Date }>
-
-/**
- * #4179: a channel reply failed because the Bot is signed out, and its owner may not be in
- * that channel. They are told the way a Trigger paused for a sign-in tells its owner (#3195),
- * once, and not again for SIGNED_OUT_NOTICE_MS however often the channel wakes it.
- */
-async function tellOwnerSignedOut(
-  agent: AgentConversation,
-  reason: string,
-  notify: typeof notifyNudge,
-) {
-  if (!agent.teamId) return
-  const now = new Date()
-  const claimed = await signedOutNotices().updateOne(
-    {
-      sessionId: agent.sessionId,
-      $or: [
-        { signedOutNoticeAt: { $exists: false } },
-        { signedOutNoticeAt: { $lt: new Date(now.getTime() - SIGNED_OUT_NOTICE_MS) } },
-      ],
-    },
-    { $set: { signedOutNoticeAt: now } },
-  )
-
-  if (claimed.modifiedCount === 0) return
-  notify([agent.userId], {
-    sessionId: agent.sessionId,
-    teamId: agent.teamId,
-    title: 'Bot signed out',
-    body: `${agent.title || 'Nuphos agent'} could not reply in a channel: ${reason} Sign the agent in again.`,
-  })
-}
-
 async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {
   if (!agent.teamId || !agent.runtimeId) return undefined
   // Lazy so importing this does not pull in the runtime graph.
@@ -112,12 +71,7 @@ async function usageResetsAtOf(agent: AgentConversation): Promise<string | undef
 }
 
 /** An agent a post woke could not reply: the channel says what happened and why, not just the log. */
-export async function noteReplyFailed(
-  channelId: string,
-  agentId: string,
-  error: unknown,
-  notify = notifyNudge,
-) {
+export async function noteReplyFailed(channelId: string, agentId: string, error: unknown) {
   const agent = await getConversationBySessionId(agentId).catch(() => null)
   // A CLI that cannot start is the agent's own cause too: this computer's line offers Install.
   const cause: ReplyFailedCause =
@@ -152,6 +106,4 @@ export async function noteReplyFailed(
     )
     // The failure itself is already logged; a lost notice must not fail the post.
     .catch(() => undefined)
-  if (cause === 'auth' && agent && reason)
-    await tellOwnerSignedOut(agent, reason, notify).catch(() => undefined)
 }
