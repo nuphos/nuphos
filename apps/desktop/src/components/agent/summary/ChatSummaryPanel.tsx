@@ -56,7 +56,7 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
-  /** Opened for a look where it has no room beside: shorter, and gone once the mouse leaves. */
+  /** Opened for a look where it has no room beside: gone once the mouse leaves it. */
   popover?: boolean
 }
 
@@ -219,7 +219,7 @@ function SummaryBody({
   const triggerHome = summaryTriggerHome(sessionId, conversation)
   const changes = changesOf(conversation?.linkedResources ?? [])
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
-  const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked, popover)
+  const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
   useDismissOutside(rootRef, dismiss, floating && !closing, popover)
 

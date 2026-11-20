@@ -97,8 +97,46 @@ async function openChat(page: Page, name: string) {
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
 }
 
-/** Narrow, the details close; opened by hand, a short popover under the Bot's name until the mouse leaves. */
+const floats = (page: Page) =>
+  details(page).evaluate((panel) => getComputedStyle(panel).position === 'fixed')
+
+/** In the popover: its end scrolled to, a picker opened in it, and what closes which. */
+async function peekNarrow(page: Page) {
+  await botDetailsToggle(page).click()
+  await access(page)
+    .getByRole('button', { name: /^Credentials/ })
+    .waitFor()
+  if (!(await floats(page))) throw new Error('Opened narrow, the details sit beside the chat')
+  await details(page).evaluate((panel) => panel.scrollTo({ top: panel.scrollHeight }))
+  await shoot(page, 'owner-narrow')
+  // A picker it opens sits outside it: leaving for it, or past it, keeps the popover.
+  await access(page)
+    .getByRole('button', { name: /^Credentials/ })
+    .click()
+  await page.getByRole('menu').waitFor()
+  await shoot(page, 'narrow-picker')
+  await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
+  await page.waitForTimeout(600)
+  await details(page).waitFor()
+  // Esc closes the picker first, then the popover.
+  await page.keyboard.press('Escape')
+  await page.getByRole('menu').waitFor({ state: 'detached' })
+  await details(page).waitFor()
+  await page.keyboard.press('Escape')
+  await details(page).waitFor({ state: 'detached' })
+  // Crossing from the name to the popover keeps it; leaving both closes it.
+  await botDetailsToggle(page).click()
+  await details(page).hover()
+  await page.waitForTimeout(600)
+  await details(page).waitFor()
+  await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
+  await details(page).waitFor({ state: 'detached' })
+}
+
+/** #4077: narrow, the details close; opened by hand, a popover under the Bot's name. */
 async function narrowDetails(page: Page) {
+  if (await floats(page)) throw new Error('Wide, the details float')
+  await shoot(page, 'wide-docked')
   const cdp = await page.context().newCDPSession(page)
 
   try {
@@ -106,30 +144,7 @@ async function narrowDetails(page: Page) {
     await page.locator('[data-summary-toggle][aria-expanded="false"]').waitFor()
     await details(page).waitFor({ state: 'detached' })
     await shoot(page, 'narrow-closed')
-    await botDetailsToggle(page).click()
-    await access(page)
-      .getByRole('button', { name: /^Credentials/ })
-      .waitFor()
-    const popover = await details(page).evaluate((panel) => ({
-      fixed: getComputedStyle(panel).position === 'fixed',
-      height: panel.getBoundingClientRect().height,
-    }))
-
-    if (!popover.fixed) throw new Error('Opened narrow, the details sit beside the chat')
-    if (popover.height > 481)
-      throw new Error(`The popover is ${String(popover.height)}px tall, past 480px`)
-    await shoot(page, 'owner-narrow')
-    // Crossing from the name to the popover keeps it; leaving both closes it.
-    await details(page).hover()
-    await page.waitForTimeout(400)
-    await details(page).waitFor()
-    await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
-    await details(page).waitFor({ state: 'detached' })
-    // Esc closes it too, as a dropdown's does.
-    await botDetailsToggle(page).click()
-    await details(page).waitFor()
-    await page.keyboard.press('Escape')
-    await details(page).waitFor({ state: 'detached' })
+    await peekNarrow(page)
   } finally {
     await cdp.send('Emulation.clearDeviceMetricsOverride')
     await cdp.detach()
@@ -138,8 +153,7 @@ async function narrowDetails(page: Page) {
   await access(page)
     .getByRole('button', { name: /^Credentials/ })
     .waitFor()
-  if (await details(page).evaluate((panel) => getComputedStyle(panel).position === 'fixed'))
-    throw new Error('Wide again, the details still float')
+  if (await floats(page)) throw new Error('Wide again, the details still float')
   await shoot(page, 'owner-wide-again')
 }
 

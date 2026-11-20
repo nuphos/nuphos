@@ -14,9 +14,8 @@ const SIDE_OFFSET = 6
 const EDGE = 8
 // The transcript keeps at least this much beside the panel, else the panel floats.
 const BESIDE_MIN = { list: 600, reply: 800 }
-// A popover opened for a look ends this far down at most, and closes this long after the mouse leaves.
-const POPOVER_MAX_HEIGHT = 480
-const LEAVE_GRACE_MS = 150
+// Long enough for a diagonal move from the toggle to the popover.
+const LEAVE_GRACE_MS = 300
 let lastNarrow: boolean | undefined
 
 type Edge = { left: number } | { right: number }
@@ -82,7 +81,6 @@ export function useSummaryPlacement(
   frameRef: RefObject<HTMLElement | null>,
   selected: boolean,
   docked: boolean,
-  popover = false,
 ) {
   const [geometry, setGeometry] = useState<Geometry>()
 
@@ -115,9 +113,7 @@ export function useSummaryPlacement(
       ? {
           top: geometry.top,
           ...geometry.edge,
-          [selected ? 'height' : 'maxHeight']: popover
-            ? Math.min(geometry.maxHeight, POPOVER_MAX_HEIGHT)
-            : geometry.maxHeight,
+          [selected ? 'height' : 'maxHeight']: geometry.maxHeight,
         }
       : undefined
 
@@ -200,7 +196,9 @@ function useDismissOnLeave(
       } else if (armed && timer === undefined) {
         timer = window.setTimeout(() => {
           timer = undefined
-          if (!typingIn(rootRef.current)) closeRef.current()
+          // A picker, menu or dialog it opened sits outside it, and keeps it open until closed.
+          if (!typingIn(rootRef.current) && !document.querySelector(OUTSIDE_EXEMPT))
+            closeRef.current()
         }, LEAVE_GRACE_MS)
       }
     }
