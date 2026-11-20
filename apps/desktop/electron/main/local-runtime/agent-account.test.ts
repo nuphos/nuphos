@@ -16,24 +16,49 @@ function homeWith(file: string, contents: unknown): string {
   return home
 }
 
-const keyOf = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 16)
+const keyOf = (text: string) => createHash('sha256').update(text).digest('hex').slice(0, 20)
 const jwt = (claims: unknown) =>
   `e30.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.sig`
 
-test('names a Claude account by its account UUID, hashed', async () => {
+test('names a Claude quota by its account and organization, hashed', async () => {
   const dir = homeWith('.claude.json', {
     oauthAccount: { accountUuid: 'acc-1', organizationUuid: 'org-1', emailAddress: 'a@b.c' },
   })
 
   const key = await readAccountKey('claude-code', { HOME: '/nowhere', CLAUDE_CONFIG_DIR: dir })
 
-  assert.equal(key, keyOf('claude-code:acc-1'))
+  assert.equal(key, keyOf('claude-code:acc-1:org-1'))
+})
+
+test('one login in two organizations has two quotas', async () => {
+  const personal = homeWith('.claude.json', {
+    oauthAccount: { accountUuid: 'acc-1', organizationUuid: 'org-max' },
+  })
+  const team = homeWith('.claude.json', {
+    oauthAccount: { accountUuid: 'acc-1', organizationUuid: 'org-team' },
+  })
+
+  assert.notEqual(
+    await readAccountKey('claude-code', { HOME: personal }),
+    await readAccountKey('claude-code', { HOME: team }),
+  )
 })
 
 test('reads ~/.claude.json when Claude has no config dir of its own', async () => {
-  const home = homeWith('.claude.json', { oauthAccount: { accountUuid: 'acc-2' } })
+  const home = homeWith('.claude.json', {
+    oauthAccount: { accountUuid: 'acc-2', organizationUuid: 'org-2' },
+  })
 
-  assert.equal(await readAccountKey('claude-code', { HOME: home }), keyOf('claude-code:acc-2'))
+  assert.equal(
+    await readAccountKey('claude-code', { HOME: home }),
+    keyOf('claude-code:acc-2:org-2'),
+  )
+})
+
+test('reports nothing for a Claude sign-in without its organization', async () => {
+  const home = homeWith('.claude.json', { oauthAccount: { accountUuid: 'acc-3' } })
+
+  assert.equal(await readAccountKey('claude-code', { HOME: home }), undefined)
 })
 
 test('names a Codex account by its workspace and user, never the workspace alone', async () => {
