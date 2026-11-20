@@ -9,6 +9,8 @@ let machines: { sandboxId: string }[] = []
 let killFails = false
 // How many kills instabox refuses because the machine's pause is still running.
 let pausing = 0
+// The machine is gone by the time the pause is over (deleted elsewhere meanwhile).
+let goneAfterWait = false
 const stillPausing = () =>
   new InstaboxError('machine has an active suspend operation', {
     status: 409,
@@ -28,6 +30,8 @@ useInstaboxMachines({
 
       return Promise.reject(stillPausing())
     }
+    if (goneAfterWait)
+      return Promise.reject(new InstaboxError('not found', { status: 404, code: 'not_found' }))
 
     return killFails ? Promise.reject(new Error('instabox is down')) : Promise.resolve()
   },
@@ -49,6 +53,7 @@ describe('killBoxMachine', () => {
     machines = []
     killFails = false
     pausing = 0
+    goneAfterWait = false
   })
 
   test('kills the machine the row names', async () => {
@@ -76,6 +81,13 @@ describe('killBoxMachine', () => {
 
   test('a machine still pausing is killed once its pause is over', async () => {
     pausing = 1
+    await killBoxMachine(conn, 'm_known', 'd1')
+    expect(calls).toEqual(['kill m_known', 'wait m_known', 'kill m_known'])
+  })
+
+  test('a machine gone by the end of the pause counts as deleted', async () => {
+    pausing = 1
+    goneAfterWait = true
     await killBoxMachine(conn, 'm_known', 'd1')
     expect(calls).toEqual(['kill m_known', 'wait m_known', 'kill m_known'])
   })

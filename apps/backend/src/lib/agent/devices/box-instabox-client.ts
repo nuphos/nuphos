@@ -247,13 +247,18 @@ export async function killBoxMachine(
  * Deletes a machine, treating one that is already gone as deleted. A machine still pausing
  * is deleted once the pause is over, which reading its state waits for.
  */
-async function kill(sandboxId: string, conn: ReturnType<typeof connection>): Promise<void> {
+async function kill(
+  sandboxId: string,
+  conn: ReturnType<typeof connection>,
+  wait = true,
+): Promise<void> {
   try {
     await killMachine(conn, sandboxId)
   } catch (error) {
     if (error instanceof InstaboxError && error.status === 404) return
-    if (!busy(error)) throw error
-    await machineState(conn, sandboxId)
-    await killMachine(conn, sandboxId)
+    if (!wait || !busy(error)) throw error
+    // A machine gone meanwhile fails this read too; the next kill says so.
+    await machineState(conn, sandboxId).catch(() => undefined)
+    await kill(sandboxId, conn, false)
   }
 }
