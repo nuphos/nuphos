@@ -526,7 +526,10 @@ jobs:
           sudo mount -o loop "$disk" "$mountpoint"
           trap 'sudo umount "$mountpoint"; rm -f "$disk"; rmdir "$mountpoint" "$workdir"' EXIT
           sudo chown "$(id -u):$(id -g)" "$mountpoint"
-          fallocate -l 1930M "$mountpoint/fill"
+          # ext4 metadata consumes space too; size the filler from the actual filesystem.
+          fill_bytes=$(python3 -c 'import os,sys; s=os.statvfs(sys.argv[1]); print(int((s.f_blocks * 0.94 - (s.f_blocks - s.f_bfree)) * s.f_frsize))' "$mountpoint")
+          test "$fill_bytes" -gt 0
+          fallocate -l "$fill_bytes" "$mountpoint/fill"
           E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
       - name: Upload real-disk screenshots
         if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
