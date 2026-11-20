@@ -291,6 +291,8 @@ export const dashboardUiScenarios: Scenario[] = [
         .getByRole('link', { name: new RegExp(`${dashboardId}$`) })
         .first()
         .click()
+      // The app learned its teams before joining this one, as a member's would.
+      await page.getByRole('button', { name: 'Reload workspaces' }).click()
       await page.getByText('Ask a team admin to rent one, then refresh.').waitFor()
       if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
         throw new Error('A member was offered a computer to rent')
