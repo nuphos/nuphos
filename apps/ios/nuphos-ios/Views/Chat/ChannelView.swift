@@ -51,7 +51,7 @@ struct ChannelView: View {
 
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
-        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+        let card = BotDetailsCard(channel: channel, bot: bot, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
         return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
             open(task.sessionId, title: task.displayTitle)
         }
@@ -129,17 +129,6 @@ struct ChannelView: View {
                     .buttonStyle(.plain)
                     .disabled(channel.botId == nil)
                     .accessibilityIdentifier("bot-details-entry")
-                }
-                // One tap to the Bot's own Task, where its runtime and model are switched.
-                if let bot = channel.botId, canOpenTask {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            open(bot, title: channel.title)
-                        } label: {
-                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
-                        }
-                        .accessibilityIdentifier("chat.botTask")
-                    }
                 }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
