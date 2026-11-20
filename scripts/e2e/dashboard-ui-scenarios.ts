@@ -236,4 +236,62 @@ export const dashboardUiScenarios: Scenario[] = [
       await page.getByRole('dialog').waitFor({ state: 'hidden' })
     },
   },
+  {
+    // #4168: someone who may not rent a computer reads the backend's words, with no button.
+    name: 'a member sees why no agent can run a panel, and is sent to a team admin',
+    run: async (page, stack) => {
+      const anonymous = api(stack, '')
+      const email = `e2e-no-agent-${String(Date.now())}@example.com`
+
+      await anonymous('POST', '/auth/email/request-code', { email })
+      await until('the sign-in code to be logged', async () => stack.signInCode(email))
+      const signedIn = await anonymous('POST', '/auth/email/verify-code', {
+        email,
+        code: stack.signInCode(email),
+      })
+      const admin = api(stack, String(signedIn.body.token))
+      // A team with no agents, which the app's own person joins as a member.
+      const made = (await admin('POST', '/teams', { name: 'No agent E2E' })).body as {
+        team?: { id: string }
+      }
+      const teamId = String(made.team?.id)
+      const invited = await admin('POST', `/teams/${teamId}/invitations`, {
+        inviteeEmail: stack.email,
+      })
+
+      await api(stack, stack.token)(
+        'POST',
+        `/invitations/${String(invited.body.invitation?.id)}/accept`,
+      )
+      const created = await admin('POST', `/teams/${teamId}/dashboards`, {
+        name: 'No agent here',
+        timeRange: {
+          periodStart: new Date(Date.now() - 86_400_000).toISOString(),
+          periodEnd: new Date().toISOString(),
+        },
+        visibility: 'team',
+      })
+      const dashboardId = String(created.body.id)
+
+      // Its first run finds no agent at all, so the backend fails it as no_runtime itself.
+      await admin('POST', `/teams/${teamId}/dashboards/${dashboardId}/panels`, {
+        title: 'Spend',
+        kind: 'scalar',
+        code: 'export default async () => ({ kind: "scalar", title: "Spend", value: 1 })',
+      })
+      await newTask(page)
+      await send(
+        page,
+        `Open https://nuphos.ai/teams/${teamId}/dashboards/${dashboardId} E2E_DELIVERY:no-agent-member`,
+      )
+      await until('the agent to read the link', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:no-agent-member'),
+      )
+      await page.getByRole('link', { name: new RegExp(`${dashboardId}$`) }).first().click()
+      await page.getByText('Ask a team admin to rent one, then refresh.').waitFor()
+      if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
+        throw new Error('A member was offered a computer to rent')
+      await shot(page, '12-no-agent-member')
+    },
+  },
 ]
