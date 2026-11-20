@@ -7,10 +7,10 @@ import { agentMessages, appendConversationMessages, getConversationBySessionId }
 import {
   channelNotice,
   channelNoticeSender,
-  noteReplyFailed,
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
+import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
 import { chatName, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
