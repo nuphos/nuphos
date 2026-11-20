@@ -68,20 +68,25 @@ function listBotChats(teamId: string, botId: string) {
   )
 }
 
-const opening = new Map<string, Promise<string>>()
+const opening = new Map<string, Promise<string | null>>()
 
 /**
- * The Bot's chat, made only when it never had one: an open chat is reused and
- * an archived one brought back, so opening a Bot never piles up empty chats.
+ * The Bot's chat, made only when it never had one, so opening a Bot never piles
+ * up empty chats. When every chat it had is archived, the Bot was archived with
+ * them: only making it a Bot again (`restore`) brings the latest back. A list that
+ * has not caught up with the archive gets null, not the Bot back (#4203).
  */
-function ensureBotChannel(teamId: string, botId: string): Promise<string> {
+function ensureBotChannel(teamId: string, botId: string, restore = false) {
   const found =
     opening.get(botId) ??
     listBotChats(teamId, botId).then(async (chats) => {
       const choice = chooseBotChat(chats)
 
       if (!choice) return createBotChannel(teamId, botId)
-      if (choice.archived) await setChatsArchived(teamId, [choice.chatId], false)
+      if (!choice.archived) return choice.chatId
+      if (!restore) return null
+      await api.agentSetConversationArchived(choice.chatId, false, teamId)
+      announceChatUnarchived(choice.chatId)
 
       return choice.chatId
     })
@@ -92,22 +97,12 @@ function ensureBotChannel(teamId: string, botId: string): Promise<string> {
   return found
 }
 
-/** Opens a Bot from Bots: its chat, made the first time. */
+/** Opens a Bot from Bots: its chat, made the first time. An archived Bot leaves the list. */
 export function openBotChannel(teamId: string, botId: string, open: (key: string) => void) {
   ensureBotChannel(teamId, botId).then(
-    (chatId) => open(`agent-session:${chatId}`),
+    (chatId) =>
+      chatId ? open(`agent-session:${chatId}`) : announceChatArchived({ sessionId: botId, teamId }),
     (error: unknown) => toast.apiError(t('Failed to open task'), error),
-  )
-}
-
-/** Files chats away or brings them back, telling the sidebar as each lands. */
-async function setChatsArchived(teamId: string, chatIds: string[], archived: boolean) {
-  await Promise.all(
-    chatIds.map(async (sessionId) => {
-      await api.agentSetConversationArchived(sessionId, archived, teamId)
-      if (archived) announceChatArchived({ sessionId, teamId })
-      else announceChatUnarchived(sessionId)
-    }),
   )
 }
 
@@ -120,7 +115,7 @@ export function makeBot(teamId: string, sessionId: string) {
   return pickAgentAvatar(sessionId, botAvatarName(derivedBotAvatar(sessionId)), () =>
     api.agentMakeBot(sessionId, teamId),
   )
-    .then(() => ensureBotChannel(teamId, sessionId))
+    .then(() => ensureBotChannel(teamId, sessionId, true))
     .then((chatId) =>
       openInApp(
         pageLocationForNavigation(
