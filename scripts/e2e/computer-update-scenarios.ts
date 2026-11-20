@@ -17,12 +17,11 @@ const SWITCH = 'Install updates automatically'
 const SELF_UPDATING = 'E2E self-updating computer'
 const OLD_BOX = 'E2E Box on an old CLI'
 
-/** Opens the card's Settings… and returns the switch in it. */
+/** Opens the card's Settings…, whose switch shows what the card says as it opens. */
 async function settingsSwitch(page: Page, label: string) {
   await page.getByRole('button', { name: `Manage ${label}` }).click()
   await page.getByRole('menuitem', { name: 'Settings…' }).click()
-
-  return page.getByRole('switch', { name: SWITCH })
+  await page.getByRole('switch', { name: SWITCH }).waitFor()
 }
 
 /** Whether a Box's update command (BOX_UPDATE_COMMAND) reached instabox. */
@@ -47,11 +46,17 @@ export const computerUpdateScenarios: Scenario[] = [
       try {
         for (const enabled of [false, true]) {
           await openComputers(page)
-          const toggle = await settingsSwitch(page, SELF_UPDATING)
+          const toggle = page.getByRole('switch', { name: SWITCH })
 
-          // Opened afresh from the Computers page: this is the card reading the computer's report.
+          // The dialog reads the card once, as it opens, and the computer's report of the last
+          // change takes a few seconds to reach the card: reopened until it shows that report.
           await until(`the switch to show ${String(!enabled)}`, async () => {
-            return (await toggle.getAttribute('aria-checked')) === String(!enabled)
+            await settingsSwitch(page, SELF_UPDATING)
+            if ((await toggle.getAttribute('aria-checked')) === String(!enabled)) return true
+            await page.getByRole('button', { name: 'Done' }).click()
+            await toggle.waitFor({ state: 'detached' })
+
+            return false
           })
           await toggle.click()
           await until(`auto-update.json on the computer to say ${String(enabled)}`, async () => {
@@ -79,8 +84,13 @@ export const computerUpdateScenarios: Scenario[] = [
         await page.getByRole('button', { name: `Manage ${OLD_BOX}` }).click()
         const update = page.getByRole('menuitem', { name: /^Update to v\d/ })
 
-        // The newest release is looked up once the card asks for it.
-        await update.waitFor({ timeout: 30_000 })
+        // The newest release is looked up from GitHub releases once the card asks for it.
+        await update.waitFor({ timeout: 30_000 }).catch((error: unknown) => {
+          throw new Error(
+            'No "Update to v…" on the Box card: the latest CLI release lookup may have failed',
+            { cause: error },
+          )
+        })
         await update.click()
         const confirm = page.getByRole('alertdialog')
 
