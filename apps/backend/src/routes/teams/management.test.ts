@@ -6,6 +6,7 @@ import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useBoxInstabox } from '@/lib/test/doubles/box-instabox'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
+import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { TransferTeamOwnershipResult } from '@/lib/identity/team-roles'
 import type { NuphosTeamMember } from '@/lib/identity/types'
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -58,10 +59,14 @@ useAgentDeviceStore({
     boxLookups.push(teamId)
     if (teamId === 'team-1') return []
 
-    return [
+    const boxes = [
       { userId: 'owner-1', deviceId: 'box-a' },
       { userId: 'member-2', deviceId: 'box-b' },
-    ] as never
+    ] as AgentDevice[]
+
+    return teamId === 'team-broken-box'
+      ? [{ userId: 'owner-1', deviceId: 'box-broken' } as AgentDevice, ...boxes]
+      : boxes
   },
   revokeAgentDeviceCredential: () => Promise.resolve(false),
   deleteAgentDevice: (userId: string, deviceId: string) => {
@@ -73,6 +78,7 @@ useAgentDeviceStore({
 
 useBoxInstabox({
   destroyBox: (userId: string, deviceId: string) => {
+    if (deviceId === 'box-broken') return Promise.reject(new Error('store unavailable'))
     killed.push(`${userId}/${deviceId}`)
 
     return Promise.resolve(true)
@@ -184,5 +190,15 @@ describe('DELETE /', () => {
     expect(response.status).toBe(403)
     expect(killed).toEqual([])
     expect(removed).toEqual([])
+  })
+
+  test('one Box that fails to delete does not stop the others or the team delete', async () => {
+    killed.length = 0
+    removed.length = 0
+    const response = await createApp('team-broken-box').request('/', { method: 'DELETE' })
+
+    expect(response.status).toBe(204)
+    expect(killed).toEqual(['owner-1/box-a', 'member-2/box-b'])
+    expect(removed).toEqual(['owner-1/box-a', 'member-2/box-b'])
   })
 })

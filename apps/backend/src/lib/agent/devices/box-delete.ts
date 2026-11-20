@@ -6,6 +6,7 @@ import {
   listTeamBoxes,
   revokeAgentDeviceCredential,
 } from '@/lib/agent/devices/store'
+import { logError } from '@/lib/observability'
 
 /**
  * Deletes a Box: closes its tunnel cleanly before the machine goes, kills the machine,
@@ -21,7 +22,19 @@ export async function deleteBox(userId: string, deviceId: string): Promise<boole
   return killed
 }
 
-/** A deleted team's Boxes go with it, so nothing keeps running that no one can reach. */
+/**
+ * A deleted team's Boxes go with it, so nothing keeps running that no one can reach. One
+ * Box that fails is logged and does not stop the rest; a kill the provider refused is
+ * already logged by destroyBox as agent.box.kill_failed with the team id.
+ */
 export async function deleteTeamBoxes(teamId: string): Promise<void> {
-  for (const box of await listTeamBoxes(teamId)) await deleteBox(box.userId, box.deviceId)
+  for (const box of await listTeamBoxes(teamId)) {
+    await deleteBox(box.userId, box.deviceId).catch((error: unknown) => {
+      logError('agent.box.team_delete_failed', error, {
+        team_id: teamId,
+        user_id: box.userId,
+        device_id: box.deviceId,
+      })
+    })
+  }
 }
