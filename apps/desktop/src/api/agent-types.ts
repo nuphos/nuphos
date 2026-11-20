@@ -68,7 +68,7 @@ export type AgentConversationParticipant = AgentConversationPerson & {
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
   participants: AgentConversationParticipant[]
-  /** After a removal: the chat's computer the person may still use, which the remover can stop. */
+  /** After a removal: the chat's computer the removed person can still use. */
   computerStillShared?: { deviceId: string; label: string }
 }
 

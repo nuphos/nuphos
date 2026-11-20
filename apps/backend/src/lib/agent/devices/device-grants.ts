@@ -233,9 +233,8 @@ export async function dropOwnerTeamGrants(
 /**
  * Updates every computer the filter matches, one at a time so each audit names the grant it
  * replaced. The update must stop the computer matching; one that comes back anyway ends the loop.
- * Returns how many computers it changed.
  */
-export async function auditEach(
+async function auditEach(
   teamId: string,
   by: DeviceAccessChanger,
   filter: Filter<AgentDevice>,
@@ -243,7 +242,7 @@ export async function auditEach(
   next: (grant: DeviceGrant) => Omit<DeviceGrant, 'teamId'> | null,
   arrayFilters?: Document[],
   owner?: DeviceAccessAuditEntry['owner'],
-): Promise<number> {
+): Promise<void> {
   const seen = new Set<string>()
 
   for (;;) {
@@ -252,11 +251,11 @@ export async function auditEach(
       ...(arrayFilters ? { arrayFilters } : {}),
     })
 
-    if (!before) return seen.size
+    if (!before) return
     if (seen.has(String(before._id))) {
       logEvent('warn', 'agent.device_grants.audit_loop_repeat', { deviceId: before.deviceId })
 
-      return seen.size
+      return
     }
     seen.add(String(before._id))
     const grant = teamGrant(before, teamId)

@@ -189,7 +189,7 @@ export function ChannelPane({
             title={title}
             currentUserId={user.id}
             canManage={detail?.isOwner === true || detail?.canManage === true}
-            compact={false}
+            onOpenComputers={fixes?.onOpenAgentSettings}
             channel={
               detail
                 ? {

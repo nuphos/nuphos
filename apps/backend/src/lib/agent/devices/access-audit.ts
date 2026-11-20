@@ -11,7 +11,6 @@ export type DeviceAccessChangeVia =
   | 'share'
   | 'box_access'
   | 'conversation_invite'
-  | 'conversation_remove'
   | 'conversation_move'
   | 'team_leave'
   | 'team_removal'

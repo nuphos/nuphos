@@ -8,7 +8,7 @@ import { t } from '../../i18n'
 import { toast } from '../ui/toast'
 
 import { TIMELINE_CHANGED_EVENT, announceTimelineChange } from './panel/timelineEvents'
-import { addableAgents, agentPeople, leaveSession, removePeople } from './channelPeople'
+import { addableAgents, agentPeople, leaveSession } from './channelPeople'
 import { InviteSection } from './InviteSection'
 import { agentSessionUrl } from './sessionUrl'
 import { GeneralAccessRow } from './ShareAccess'
@@ -43,6 +43,7 @@ export function SessionParticipants({
   canManage,
   compact,
   channel,
+  onOpenComputers,
 }: {
   sessionId: string
   teamId: string
@@ -54,10 +55,13 @@ export function SessionParticipants({
   compact?: boolean
   /** A channel: its agents are listed, picked and removed here like any teammate. */
   channel?: { agents: ChannelAgent[]; ownerId: string; onAgentsChange: () => void }
+  /** Opens Settings → Computers, where the chat's computer's sharing is managed. */
+  onOpenComputers?: () => void
 }) {
   const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
   const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
-  const sharing = useComputerSharing(sessionId, teamId)
+  // Removal leaves their use of the computer as it is; a notice names whoever keeps it.
+  const sharing = useComputerSharing({ sessionId, teamId, apply, onOpenComputers }, channel)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [picked, setPicked] = useState<Pickable[]>([])
   // Set once an invite lands: the card shows its receipt instead of the picker.
@@ -141,7 +145,6 @@ export function SessionParticipants({
     const people = picked.filter((member) => !member.agent)
 
     setPending('invite')
-    sharing.startInvite()
     Promise.all([
       invitePeople(people),
       ...picked
@@ -161,20 +164,16 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
-  const where = { sessionId, teamId, onAgentsChange: channel?.onAgentsChange }
-  const removeAll = (people: { id: string; agent?: unknown }[], onState = apply) =>
-    removePeople(people, { ...where, apply: onState })
-
   const remove = (person: AgentConversationParticipant) => {
     const { id, name } = person
+    const failed = (err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err)
 
     setPending(id)
-    ;(id === currentUserId
-      ? leaveSession(sessionId, teamId, id)
-      : removeAll([person], sharing.thenOffer(apply, person))
-    )
-      .catch((err: unknown) => toast.apiError(t('Failed to remove {name}', { name }), err))
-      .finally(() => setPending(null))
+    void (
+      id === currentUserId
+        ? leaveSession(sessionId, teamId, id).catch(failed)
+        : sharing.removeEach([person], failed)
+    ).finally(() => setPending(null))
   }
 
   const changeGeneralAccess = (value: GeneralAccess) => {
@@ -189,9 +188,9 @@ export function SessionParticipants({
   const undo = () => {
     if (!added) return
     setPending('undo')
-    // Whoever is not undone yet stays on the receipt, so Undo again finishes it.
+    // Undo takes them out of the chat only; whoever is still in stays on the receipt.
     void sharing
-      .undoInvite(added, (person) => removeAll([person]))
+      .removeEach(added, (err) => toast.apiError(t('Failed to undo'), err))
       .then((left) => {
         if (left.length) return setAdded(left)
         setPicked(added)
@@ -293,7 +292,7 @@ export function SessionParticipants({
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
-      {sharing.dialogs}
+      {sharing.dialog}
     </Popover.Root>
   )
 }

@@ -55,14 +55,3 @@ export function removeConversationParticipant(
 
   return callJson('DELETE', path, undefined, 12_000)
 }
-
-/** After removing someone: stop sharing the chat's computer with them too. */
-export function stopConversationComputerUse(
-  sessionId: string,
-  teamId: string,
-  userId: string,
-): Promise<{ stopped: true; computer: { deviceId: string; label: string } }> {
-  const path = `/agent/conversations/${encodeURIComponent(sessionId)}/participants/${encodeURIComponent(userId)}/stop-computer-use${teamQuery(teamId)}`
-
-  return callJson('POST', path, undefined, 12_000)
-}

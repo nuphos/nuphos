@@ -23,48 +23,16 @@ export function ComputerUseConfirm({
       description={
         (request?.count ?? 0) > 1
           ? t(
-              'Adding these people also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and its agents can read files and run commands as its user.',
+              'Adding these people also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and can read files and run commands as its user.',
               { computer },
             )
           : t(
-              'Adding this person also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and its agents can read files and run commands as its user.',
+              'Adding this person also lets them run any chat on {computer}, not just this one. Those chats use the Claude Code or Codex sign-in there, and can read files and run commands as its user.',
               { computer },
             )
       }
       confirmLabel={t('Add and share')}
       onConfirm={() => request?.confirm()}
-      onClose={onClose}
-    />
-  )
-}
-
-/** Someone removed from a chat who may still use its computer, which the remover can stop. */
-export type StopSharingOffer = { userId: string; name: string; computer: string }
-
-/** After a removal: the chat is gone for them, but the computer is not unless this says so. */
-export function StopSharingConfirm({
-  offer,
-  onStop,
-  onClose,
-}: {
-  offer: StopSharingOffer | null
-  onStop: (offer: StopSharingOffer) => Promise<void>
-  onClose: () => void
-}) {
-  const words = { name: offer?.name ?? '', computer: offer?.computer ?? '' }
-
-  return (
-    <AppAlertDialog
-      open={offer !== null}
-      title={t('Also stop sharing {computer} with {name}?', words)}
-      description={t(
-        '{name} is out of this chat, but can still use {computer} for any chat, on the Claude Code or Codex sign-in there. Stopping also closes what they have open on it.',
-        words,
-      )}
-      confirmLabel={t('Stop sharing')}
-      cancelLabel={t('Keep sharing')}
-      destructive
-      onConfirm={() => (offer ? onStop(offer) : undefined)}
       onClose={onClose}
     />
   )

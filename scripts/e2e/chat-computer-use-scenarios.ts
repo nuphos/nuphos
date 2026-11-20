@@ -1,5 +1,5 @@
 // Scenarios about what a chat on someone's computer gives the people invited to it: use of the
-// whole computer, which removing them from the chat does not take back unless its owner says so.
+// whole computer, which removing them from the chat, or undoing the invite, never takes back.
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
@@ -79,7 +79,7 @@ const code = (reply: { body: unknown }) =>
 
 // The app's own computer stands in for the owner's: the stack's user owns it and shares it with
 // one teammate by name, then invites another to a chat on it, which gives them use of it too.
-export async function stopComputerUseFlow(
+export async function removalKeepsComputerFlow(
   page: Page,
   stack: Stack,
   log: (line: string) => void = () => {},
@@ -113,12 +113,9 @@ export async function stopComputerUseFlow(
 
   must(shared.status === 200, `the computer to be shared, got ${String(shared.status)}`)
   const runtimeId = `local_${ownerId}_${deviceId}`
-  const sessionId = `e2e-stop-use-${randomUUID()}`
-  const usersChat = `e2e-stop-use-${randomUUID()}`
+  const sessionId = `e2e-keep-use-${randomUUID()}`
   const chat = `/agent/conversations/${sessionId}/participants`
   const scope = `?teamId=${stack.teamId}`
-  const stop = (as: Client, path: string, id: string) =>
-    as('POST', `${path}/${id}/stop-computer-use${scope}`)
   const access = async (as: Client) => {
     const listed = (await as('GET', `/agent/devices${scope}`)).body as {
       devices: { deviceId: string; label?: string; access?: string }[]
@@ -126,16 +123,38 @@ export async function stopComputerUseFlow(
 
     return listed.devices.find((device) => device.deviceId === deviceId)
   }
+  // The newest change to who may use the computer.
+  const lastChange = async () => {
+    const audit = (await owner('GET', `/agent/devices/${deviceId}/access-audit${scope}`)).body as {
+      entries: { id: string | null; via: string }[]
+    }
+
+    return audit.entries[0]
+  }
+  const invite = (grantComputerUse: boolean) =>
+    owner('POST', `${chat}${scope}`, { userIds: [invitee.id], grantComputerUse })
+  // What the Share card's remove and an invite's Undo both send: the invitee keeps the computer.
+  const removeKeeping = async (what: string, label: string) => {
+    const removed = await owner('DELETE', `${chat}/${invitee.id}${scope}`)
+    const kept = (removed.body as { computerStillShared?: { deviceId: string; label: string } })
+      .computerStillShared
+
+    log(`${what}: ${String(removed.status)} ${JSON.stringify(kept)}`)
+    must(removed.status === 200, `the ${what} to land, got ${String(removed.status)}`)
+    must(
+      kept?.deviceId === deviceId && kept.label === label,
+      `the ${what} to say they can still use this computer`,
+    )
+    must((await access(invitee.member))?.access === 'use', `the ${what} to leave them use`)
+    must((await access(user.member))?.access === 'use', `the ${what} to leave the teammate use`)
+  }
 
   try {
     chatOn(stack, sessionId, ownerId, runtimeId)
     must((await access(invitee.member)) === undefined, 'the invitee not to use the computer yet')
 
     // Inviting asks first, naming the computer, then gives the invitee use of it.
-    const asked = await owner('POST', `${chat}${scope}`, {
-      userIds: [invitee.id],
-      grantComputerUse: false,
-    })
+    const asked = await invite(false)
     const label = (await access(owner))?.label ?? ''
     const named = (asked.body as { error?: { details?: { computer?: { label?: string } } } }).error
       ?.details?.computer?.label
@@ -145,84 +164,34 @@ export async function stopComputerUseFlow(
       asked.status === 409 && code(asked) === 'computer_use_required' && named === label,
       'the invite to ask before giving use of the computer, naming it',
     )
-    const invited = await owner('POST', `${chat}${scope}`, {
-      userIds: [invitee.id],
-      grantComputerUse: true,
-    })
+    const invited = await invite(true)
 
     must(invited.status === 200, `the confirmed invite to land, got ${String(invited.status)}`)
     must((await access(invitee.member))?.access === 'use', 'the invitee to use the computer')
+    const recorded = await lastChange()
 
-    // While they are in the chat, the chat cannot take the computer from them.
-    const early = await stop(owner, chat, invitee.id)
+    must(recorded?.via === 'conversation_invite', 'the confirmed invite to be on the history')
 
-    log(`stop while still in the chat: ${String(early.status)} ${String(code(early))}`)
-    must(early.status === 409 && code(early) === 'still_participant', 'a participant to be kept')
+    // Undo of that invite takes them out of the chat only.
+    await removeKeeping('undo', label)
+    // Back in, now with no question, and removed from the Share card: the same.
+    const again = await invite(false)
 
-    // Removing them keeps their use of the computer, and offers to stop it.
-    const removed = await owner('DELETE', `${chat}/${invitee.id}${scope}`)
-    const offer = (removed.body as { computerStillShared?: { deviceId: string; label: string } })
-      .computerStillShared
+    must(again.status === 200, `inviting again to need no grant, got ${String(again.status)}`)
+    await removeKeeping('removal', label)
+    // Leaving on their own: nothing to tell anyone, and nothing changes either.
+    must((await invite(false)).status === 200, 'the third invite to land')
+    const left = await invitee.member('DELETE', `${chat}/${invitee.id}${scope}`)
 
-    log(`removal: ${String(removed.status)} offer ${JSON.stringify(offer)}`)
-    must(removed.status === 200, `the removal to land, got ${String(removed.status)}`)
-    must(
-      offer?.deviceId === deviceId && offer.label === label,
-      'the removal to offer stopping use of this computer',
-    )
-    must((await access(invitee.member))?.access === 'use', 'removal alone to leave them use')
-
-    // Refused to anyone but the chat's owner, and to a chat owner who only uses the computer.
-    const notOwner = await stop(user.member, chat, invitee.id)
-
-    log(`stop by someone who does not own the chat: ${String(notOwner.status)}`)
-    must(notOwner.status === 403, `one who does not own the chat to be refused`)
-    chatOn(stack, usersChat, user.id, runtimeId)
-    const notManager = await stop(
-      user.member,
-      `/agent/conversations/${usersChat}/participants`,
-      invitee.id,
-    )
-
-    log(`stop by a chat owner who does not manage the computer: ${String(notManager.status)}`)
-    must(
-      notManager.status === 409 && code(notManager) === 'nothing_to_stop',
-      'a chat owner who only uses the computer to have nothing to stop',
-    )
-    must((await access(invitee.member))?.access === 'use', 'the refusals to change nothing')
-
-    // The owner stops it: one positional pull on the grant takes only the invitee off.
-    const stopped = await stop(owner, chat, invitee.id)
-
-    log(`stop: ${String(stopped.status)} ${stopped.text.slice(0, 200)}`)
-    must(stopped.status === 200, `the owner's stop to land, got ${String(stopped.status)}`)
-    must((await access(invitee.member)) === undefined, 'the invitee no longer to use it')
-    must((await access(user.member))?.access === 'use', 'the other teammate to keep using it')
-    const again = await stop(owner, chat, invitee.id)
-
-    must(
-      again.status === 409 && code(again) === 'nothing_to_stop',
-      'a second stop to find nothing to stop',
-    )
-
-    // The change is audited as a chat removal, by the owner.
-    const audit = (await owner('GET', `/agent/devices/${deviceId}/access-audit${scope}`)).body as {
-      entries: { via: string; actorUserId: string; next: { userIds: string[] } | null }[]
-    }
-    const entry = audit.entries.find((item) => item.via === 'conversation_remove')
-
-    must(
-      entry?.actorUserId === ownerId &&
-        !entry.next?.userIds.includes(invitee.id) &&
-        entry.next?.userIds.includes(user.id) === true,
-      'the access history to record the stop as a chat removal',
-    )
+    must(left.status === 200, `leaving to land, got ${String(left.status)}`)
+    must(!(left.body as Record<string, unknown>).computerStillShared, 'leaving to carry no notice')
+    must((await access(invitee.member))?.access === 'use', 'leaving to leave them use')
+    must((await lastChange())?.id === recorded?.id, 'no removal to change who may use the computer')
   } finally {
     inDatabase(
       stack.mongoUri,
-      `await db.collection('agent_conversations').deleteMany({ sessionId: { $in: process.argv.slice(2) } })`,
+      `await db.collection('agent_conversations').deleteMany({ sessionId: process.argv[2] })`,
       sessionId,
-      usersChat,
     )
     await owner('PUT', share, { level: 'off', everyone: false, userIds: [], managerIds: [] })
   }
@@ -230,10 +199,9 @@ export async function stopComputerUseFlow(
 
 export const chatComputerUseScenarios: Scenario[] = [
   {
-    name: 'a chat owner stops computer use for a removed participant',
-    run: async (page, stack) => stopComputerUseFlow(page, stack),
-    // The invite asks first, and each refusal the flow checks is answered on purpose.
-    expected:
-      /"error_code":"(computer_use_required|still_participant|conversation_read_only|nothing_to_stop)"/,
+    name: 'removing someone from a chat, or undoing their invite, leaves their computer use',
+    run: async (page, stack) => removalKeepsComputerFlow(page, stack),
+    // The first invite asks before giving use of the computer, on purpose.
+    expected: /"error_code":"computer_use_required"/,
   },
 ]

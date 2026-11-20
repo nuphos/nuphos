@@ -77,8 +77,6 @@ export const agentApi = {
   ) => window.api.agentSetConversationGeneralAccess(sessionId, teamId, generalAccess),
   agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
     window.api.agentRemoveConversationParticipant(sessionId, teamId, userId),
-  agentStopConversationComputerUse: (sessionId: string, teamId: string, userId: string) =>
-    window.api.agentStopConversationComputerUse(sessionId, teamId, userId),
   agentSetSessionConfig: (
     sessionId: string,
     teamId: string,
