@@ -464,7 +464,7 @@ jobs:
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
     # group, and compiling openab adds about 6 minutes.
@@ -517,13 +517,14 @@ jobs:
           OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
         run: |
           set -euo pipefail
-          disk="$RUNNER_TEMP/nuphos-e2e-disk.img"
-          mountpoint="$RUNNER_TEMP/nuphos-e2e-disk"
+          workdir=$(mktemp -d "$RUNNER_TEMP/nuphos-e2e-disk.XXXXXX")
+          disk="$workdir/disk.img"
+          mountpoint="$workdir/mount"
           mkdir -p "$mountpoint" "$E2E_ARTIFACTS"
           truncate -s 2G "$disk"
           mkfs.ext4 -q -F -m 0 "$disk"
           sudo mount -o loop "$disk" "$mountpoint"
-          trap 'sudo umount "$mountpoint"; rm -f "$disk"' EXIT
+          trap 'sudo umount "$mountpoint"; rm -f "$disk"; rmdir "$mountpoint" "$workdir"' EXIT
           sudo chown "$(id -u):$(id -g)" "$mountpoint"
           fallocate -l 1930M "$mountpoint/fill"
           E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
