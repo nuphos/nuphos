@@ -7,8 +7,11 @@ test('an own agent keeps every action', () => {
   assert.deepEqual(chatRowAccess({ isOwner: true, canManage: true }), {})
 })
 
-test('an agent shared with the viewer is read only, and archivable only when managed', () => {
-  assert.deepEqual(chatRowAccess({ isOwner: false, canManage: false }), { readOnlyChat: true })
+test('an agent shared with the viewer is read only, archivable when managed and left otherwise', () => {
+  assert.deepEqual(chatRowAccess({ isOwner: false, canManage: false }), {
+    readOnlyChat: true,
+    leavable: true,
+  })
   assert.deepEqual(chatRowAccess({ isOwner: false, canManage: true }), {
     readOnlyChat: true,
     managedChat: true,

@@ -16,6 +16,10 @@ export type SwitchWatch = {
   washedText: string | null
   /** Frames with `typedFrom` on screen but not `typedTo`: a reply being typed out. */
   typedFrames: number
+  /** Frames with a composer chip (access mode, model) on screen reading other than once settled. */
+  chipFrames: number
+  /** The first such chip and what it read, to say what changed. */
+  chipText: string | null
   /** ms from the click to the first frame with `newest` on screen. */
   newestAfterMs: number | null
 }
@@ -96,11 +100,52 @@ function watch({
     return faintest
   }
 
+  // What each composer chip reads, or null when it is not on screen. The
+  // runtime chip is read by where it starts, so a late chip beside it can't push it.
+  const CHIPS = {
+    access: '[aria-label="Authorization mode"]',
+    model: '[data-model-chip]',
+    'runtime x': '[aria-label^="Runtime: "]',
+  }
+  const chipTexts = () =>
+    Object.fromEntries(
+      Object.entries(CHIPS).map(([chip, selector]) => {
+        const shown = [...document.querySelectorAll(selector)].find((element) =>
+          element.checkVisibility({ visibilityProperty: true }),
+        )
+        const read =
+          chip === 'runtime x'
+            ? String(Math.round(shown?.getBoundingClientRect().left ?? 0))
+            : // What it shows: a chip keeps its other labels in it, unseen, to hold its width.
+              ((shown as HTMLElement | undefined)?.innerText ?? '').trim()
+
+        return [chip, shown ? read : null]
+      }),
+    )
+
+  // A chip may appear late, but must read as it settles from its first frame on.
+  const chipChanges = (chips: Record<string, string | null>[]) => {
+    const final = chips.at(-1) ?? {}
+    const changed = (read: Record<string, string | null>) =>
+      Object.keys(final).find((chip) => read[chip] != null && read[chip] !== final[chip])
+    const wrong = chips.filter((read) => changed(read))
+    const first = wrong[0]
+    const chip = first && changed(first)
+
+    return {
+      chipFrames: wrong.length,
+      chipText: chip
+        ? `${chip} read "${String(first[chip])}", then "${String(final[chip])}"`
+        : null,
+    }
+  }
+
   return new Promise((resolve) => {
     let clicked: number | null = null
     let settledAt: number | null = null
     // Each frame's faintest pane text; text meant to be faint is as faint in the last frame.
     const panes: { opacity: number; text: string }[] = []
+    const chips: Record<string, string | null>[] = []
     let frames = 0
     const result: SwitchWatch = {
       clickedAt: 0,
@@ -110,6 +155,8 @@ function watch({
       washFrames: 0,
       washedText: null,
       typedFrames: 0,
+      chipFrames: 0,
+      chipText: null,
       newestAfterMs: null,
     }
 
@@ -128,6 +175,7 @@ function watch({
 
         if (shown > 0.05 && shown < 0.95) result.fadeFrames++
         panes.push(paneOpacity())
+        chips.push(chipTexts())
         if (result.framesToContent === null && shown >= 0.95) {
           result.framesToContent = frames
           result.shownAt = performance.timeOrigin + now
@@ -147,6 +195,7 @@ function watch({
 
           result.washFrames = washed.length
           result.washedText = worst && `${worst.opacity.toFixed(2)} "${worst.text}"`
+          Object.assign(result, chipChanges(chips))
           resolve(result)
 
           return

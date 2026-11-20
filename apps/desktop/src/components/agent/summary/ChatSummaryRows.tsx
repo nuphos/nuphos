@@ -48,23 +48,19 @@ export function SummarySection({
   )
 }
 
-/** An icon, a label and an optional quiet note on the right; `labelEnd` never truncates. */
-export function SummaryRow({
+/** What a row shows: an icon, a label and an optional quiet note on the right. */
+function SummaryRowBody({
   icon,
   label,
   labelEnd,
   note,
-  onClick,
-  title,
 }: {
   icon: ReactNode
   label: string
   labelEnd?: string
   note?: ReactNode
-  onClick?: () => void
-  title?: string
 }) {
-  const body = (
+  return (
     <>
       <span className="flex size-4 shrink-0 items-center justify-center text-tertiary">{icon}</span>
       <span className="flex min-w-0 flex-1">
@@ -74,20 +70,57 @@ export function SummaryRow({
       {note != null && <span className="shrink-0 text-[12px] text-tertiary">{note}</span>}
     </>
   )
-  const rowClass = 'flex h-7 min-w-0 items-center gap-3 text-left text-[13px] text-main'
+}
+
+const rowClass = 'flex h-7 min-w-0 items-center gap-3 text-left text-[13px] text-main'
+
+const rowButtonClass = clsx(rowClass, hoverRowClass, rowFocusClass)
+
+/** A row that opens the menu it sits in, under it; lit while the menu is open. */
+export function SummaryMenuRow({
+  title,
+  className,
+  'aria-label': ariaLabel,
+  ...body
+}: Parameters<typeof SummaryRowBody>[0] & {
+  title?: string
+  className?: string
+  'aria-label'?: string
+}) {
+  return (
+    <MenuTrigger
+      title={title}
+      aria-label={ariaLabel}
+      className={clsx(rowButtonClass, 'data-[popup-open]:bg-state-selected', className)}
+    >
+      <SummaryRowBody {...body} />
+    </MenuTrigger>
+  )
+}
+
+/** An icon, a label and an optional quiet note on the right; `labelEnd` never truncates. */
+export function SummaryRow({
+  onClick,
+  title,
+  ...body
+}: Parameters<typeof SummaryRowBody>[0] & {
+  onClick?: () => void
+  title?: string
+}) {
+  const { label, labelEnd } = body
 
   return onClick ? (
     <button
       type="button"
       title={title ?? `${label}${labelEnd ?? ''}`}
       onClick={onClick}
-      className={clsx(rowClass, hoverRowClass, rowFocusClass)}
+      className={rowButtonClass}
     >
-      {body}
+      <SummaryRowBody {...body} />
     </button>
   ) : (
     <div className={rowClass} title={title ?? label}>
-      {body}
+      <SummaryRowBody {...body} />
     </div>
   )
 }
@@ -201,6 +234,7 @@ export function ThreadRow({
         <AgentAvatar
           agentId={conversation.sessionId}
           avatar={conversation.avatar}
+          avatarBackground={conversation.avatarBackground}
           provider={conversation.agentRuntime}
           size={16}
         />

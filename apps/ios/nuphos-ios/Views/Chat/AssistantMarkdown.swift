@@ -327,8 +327,10 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             guard recognizer.state == .began,
                   let view = recognizer.view as? MarkdownTextView
             else { return }
-            let label = view.textLabelView
-            guard label.isSelectable,
+            // A table cell or code block is its own label drawn over the
+            // reply's, so the word comes from whichever label is under the finger.
+            guard view.textLabelView.isSelectable,
+                  let label = view.hitTest(recognizer.location(in: view), with: nil) as? TextLabelView,
                   let range = wordRange(at: recognizer.location(in: label), in: label)
             else { return }
 

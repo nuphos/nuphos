@@ -8,11 +8,10 @@ import { SnoozeMenu } from '../../../views/inbox/SnoozeMenu'
 import { Button } from '../../ui/button'
 import { MessageResponse } from '../MessageResponse'
 
-import { AnswerField } from './AnswerField'
 import { ConnectCardContext } from './connectCardContext'
 import { DecisionAnswersContext } from './decisionAnswers'
-import { DecisionForm } from './DecisionForm'
-import { formQuestions, ownBody } from './decisionFormModel'
+import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
+import { DecisionOptions, PILL } from './DecisionOptions'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
 
@@ -21,15 +20,13 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionCardRef } from './replyTarget'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 
-// An option button's look, which Snooze and Dismiss share.
-const OPTION = 'h-auto min-h-8 whitespace-normal rounded-[9px] px-[13px] py-1.5 text-left'
-
 /**
  * A user decision other than a Connect card: the question as its heading, under
  * who asked it when that is another conversation, with each option an answer,
  * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
- * and "Dismiss" to withdraw it unanswered, both in the options' row.
- * A multi-select or several questions are a form sent as one answer. The answer
+ * and "Dismiss" to withdraw it unanswered, all one row of the same pill
+ * (`DecisionOptions`). A multi-select or several questions pick their options and
+ * send them at once. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
 export function ChoiceCard({
@@ -59,19 +56,18 @@ export function ChoiceCard({
   const recorded = useContext(DecisionAnswersContext).get(toolCallId)?.option
   const card = { toolCallId, question, options }
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
-  const [typing, setTyping] = useState(false)
-  // Kept while the field is closed, so Esc and "Other…" again lose nothing.
-  const [draft, setDraft] = useState('')
   const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
   const typeable = interactive && category !== 'credential'
   const form = formQuestions({ question, options, multiSelect, questions })
-  const live = interactive && (form !== null || options.length > 0)
+  // One question with one answer is answered by a click, so its keys choose.
+  const clicked = clickOptions(form)
+  const live = interactive && form.some((q) => q.options.length > 0)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => submit({ choices: [option] })
   const act = useDecisionKeys(cardRef, live, (key) => {
-    // A form's options are toggles, not answers.
-    const option = key.kind === 'option' && !form ? options[key.index] : undefined
+    // Picked options are sent with Send, so a key never answers them.
+    const option = key.kind === 'option' ? clicked?.[key.index] : undefined
 
     if (option === undefined) return false
 
@@ -80,13 +76,13 @@ export function ChoiceCard({
   const asides = interactive && (
     <>
       {ctx?.snooze && (
-        <SnoozeMenu className={OPTION} onSnooze={(until) => ctx.snooze?.(card, until)} />
+        <SnoozeMenu className={PILL} onSnooze={(until) => ctx.snooze?.(card, until)} />
       )}
       {ctx?.dismiss && (
         <Button
           variant="secondary"
           size="sm"
-          className={OPTION}
+          className={PILL}
           disabled={dismissed === 'sending'}
           onClick={() => {
             setDismissed('sending')
@@ -113,67 +109,24 @@ export function ChoiceCard({
       <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
       </DecisionTitle>
-      <DecisionBody
-        text={ownBody(body, questions)}
-        full={ctx?.fullBody}
-        onLinkClick={ctx?.onLinkClick}
-      />
+      <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
-      {!chosen &&
-        (form ? (
-          <DecisionForm
-            questions={form}
-            disabled={!interactive}
-            onSubmit={(answer) => act(() => submit(answer))}
-          >
-            {asides}
-          </DecisionForm>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-2 pt-3">
-              {options.map((option, index) => (
-                <Button
-                  key={option}
-                  variant={index === 0 ? 'primary' : 'secondary'}
-                  size="sm"
-                  className={OPTION}
-                  disabled={!interactive}
-                  title={index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined}
-                  onClick={() => act(() => choose(option))}
-                >
-                  {option}
-                </Button>
-              ))}
-              {typeable ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className={clsx(OPTION, typing && '!bg-state-hover')}
-                  aria-expanded={typing}
-                  onClick={() => setTyping(!typing)}
-                >
-                  {options.length > 0 ? t('Other…') : t('Reply…')}
-                </Button>
-              ) : (
-                options.length === 0 &&
-                canAct && (
-                  <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
-                )
-              )}
-              {asides}
-            </div>
-            {typing && typeable && (
-              <div className="pt-2.5" data-card-answer-field>
-                <AnswerField
-                  text={draft}
-                  onText={setDraft}
-                  onSend={(text) => act(() => submit({ text }))}
-                  onClose={() => setTyping(false)}
-                />
-              </div>
-            )}
-          </>
-        ))}
+      {!chosen && (
+        <DecisionOptions
+          questions={form}
+          disabled={!interactive}
+          typeable={typeable}
+          hint={
+            canAct && (
+              <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
+            )
+          }
+          keyTitle={(index) => (index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined)}
+          onSubmit={(answer) => act(() => submit(answer))}
+        >
+          {asides}
+        </DecisionOptions>
+      )}
     </div>
   )
 }
@@ -240,15 +193,7 @@ function AnswerStatus({
  * The question's markdown body: four lines at first, the last fading out, and a
  * full-width "Show more" under them. The collapsed lines open it too.
  */
-function DecisionBody({
-  text,
-  full = false,
-  onLinkClick,
-}: {
-  text: string | undefined
-  full?: boolean
-  onLinkClick?: (href: string, beside: boolean) => boolean
-}) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)
@@ -278,7 +223,6 @@ function DecisionBody({
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
-          onLinkClick={onLinkClick}
         >
           {text}
         </MessageResponse>

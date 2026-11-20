@@ -52,6 +52,12 @@ class BotQuestionsTest {
         assertEquals("https://nuphos.ai/teams/t1/agent/canary", questions.last().link("t1"))
     }
 
+    @Test fun aQuestionKeepsItsTasksRuntime() {
+        // A Task has no face, so its question card shows this runtime's mark (#3988).
+        val task = row("docs", "bot-1", true, "q-docs" to "a").copy(agentRuntime = "claude-code")
+        assertEquals("claude-code", BotQuestions.under("bot-1", listOf(row("bot-1"), task)).single().runtime)
+    }
+
     @Test fun leavesOutOtherBotsTeammatesAndLoops() {
         val rows = listOf(
             row("elsewhere", "other-bot", true, "q-1" to "a"),
@@ -62,14 +68,58 @@ class BotQuestionsTest {
         assertTrue(BotQuestions.under("bot-1", rows).isEmpty())
     }
 
+    @Test fun inboxGroupsBySourceAndOrdersByNewestQuestion() {
+        val bot = row("bot", null, true, "old" to "2026-11-09T03:01:00Z").copy(avatar = "05-rembrandt")
+        val nested = row("nested", "parent", true, "new" to "2026-11-09T03:04:00Z")
+        val parent = row("parent", "bot")
+        val task = row("task", null, true, "middle" to "2026-11-09T03:03:00Z")
+        val groups = BotQuestions.grouped(BotQuestions.open(listOf(nested, task, parent, bot)))
+
+        assertEquals(listOf("bot", "task"), groups.map { it.first().sourceId })
+        assertEquals(listOf(listOf("old", "new"), listOf("middle")), groups.map { group -> group.map { it.request.id } })
+        assertNull(groups.last().single().sourceBot)
+    }
+
+    @Test fun inboxFallsBackToTheAskingTaskForCyclesAndParentsInAnotherTeam() {
+        val cycle = row("cycle", "cycle-parent", true, "cycle-q" to "2026-11-09T03:01:00Z").copy(teamId = "here")
+        val cycleParent = row("cycle-parent", "cycle").copy(teamId = "here")
+        val foreignBot = row("foreign-bot").copy(teamId = "elsewhere", avatar = "05-rembrandt")
+        val task = row("task", "foreign-bot", true, "task-q" to "2026-11-09T03:02:00Z").copy(teamId = "here")
+        val groups = BotQuestions.grouped(BotQuestions.open(listOf(cycle, cycleParent, task, foreignBot)))
+
+        assertEquals(listOf("task", "cycle"), groups.map { it.single().sourceId })
+        assertTrue(groups.flatten().all { it.sourceBot == null })
+    }
+
+    @Test fun inboxInitialLoadFailureClearsAfterARefreshSucceeds() = runTest {
+        val task = row("task", null, true, "q" to "2026-11-09T03:01:00Z")
+        var unavailable = true
+        val inbox = OpenQuestions(object : OpenQuestions.Source {
+            override suspend fun pending(): List<AgentConversation> {
+                if (unavailable) error("Synthetic listing failure")
+                return listOf(task)
+            }
+        })
+
+        inbox.refresh()
+        assertFalse(inbox.loaded)
+        assertNotNull(inbox.loadFailure)
+
+        unavailable = false
+        inbox.refresh()
+        assertTrue(inbox.loaded)
+        assertNull(inbox.loadFailure)
+        assertEquals("task:q", inbox.list.single().id)
+    }
+
     @Test fun keepsTheBodyTheAgentWroteToDecideFrom() {
         val request = Http.json.decodeFromString(InputRequest.serializer(),
             """{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)","status":"open"}""")
         assertEquals("**Why:** see [#412](https://example.com/412)", request.body)
         assertNull(Http.json.decodeFromString(InputRequest.serializer(), """{"id":"q","question":"Ship?"}""").body)
-        // Up to three short lines show whole; more collapses behind "Show more".
-        assertFalse(isLongBody("One finding.\nA second.\nA third."))
-        assertTrue(isLongBody("1\n2\n3\n4"))
+        // Up to four short lines show whole, as #2879 cuts the body; more collapses behind "Show more".
+        assertFalse(isLongBody("One finding.\nA second.\nA third.\nA fourth."))
+        assertTrue(isLongBody("1\n2\n3\n4\n5"))
         assertTrue(isLongBody("x".repeat(241)))
     }
 

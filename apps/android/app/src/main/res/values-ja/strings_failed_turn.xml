@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">ターンが失敗しました。</string>
+    <string name="failed_turn_timed_out">ターンがタイムアウトしました。</string>
+    <string name="failed_turn_stopped">停止しました。</string>
+    <string name="failed_turn_retry">再試行</string>
+    <string name="failed_turn_copy">コピー</string>
+    <string name="failed_turn_copied">コピーしました</string>
+</resources>

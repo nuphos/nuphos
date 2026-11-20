@@ -1,4 +1,7 @@
 import type { TurnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+
+/** Why an agent could not reply in a chat; `cli` when its CLI could not start. */
+export type ReplyFailedCause = TurnFailureCause | 'cli'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 
 /** What set, changed or took away a conversation's face. */
@@ -36,11 +39,13 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       /** The agent's conversation, for a client's Retry and Switch agent; absent on older events. */
       agentId?: string
       /** Absent on older events. */
-      cause?: TurnFailureCause
+      cause?: ReplyFailedCause
       /** Why, in a few words, when it is known and fit to show. */
       reason?: string
       /** When an agent out of usage gets it back, when its usage reading says. */
       resetsAt?: string
+      /** Where the account's holder verifies it, when its provider holds it until they do. */
+      verifyUrl?: string
     }
   | {
       /** One of the session's messages was edited and ran again in a fork: the session it ran in. */

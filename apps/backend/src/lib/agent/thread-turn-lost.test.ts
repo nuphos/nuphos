@@ -54,11 +54,15 @@ useAgentDb({
   }),
 })
 
-function attach(reattached: boolean | Promise<boolean> | undefined, state = 'dormant') {
+function attach(
+  reattached: boolean | Promise<boolean> | undefined,
+  state = 'dormant',
+  lastOutcome?: unknown,
+) {
   sessionsByConversation.set('team:child', {
     openabSessionId: 'sess-1',
     ...(reattached === undefined ? {} : { reattached: Promise.resolve(reattached) }),
-    client: { getSessionExecutionState: async () => ({ state }) },
+    client: { getSessionExecutionState: async () => ({ state, lastOutcome }) },
   } as unknown as TeamSession)
 }
 
@@ -136,7 +140,7 @@ test('a lost notice is not reported back', async () => {
 })
 
 test('a live runtime that finished the turn while disconnected reports nothing', async () => {
-  attach(true, 'idle')
+  attach(true, 'idle', { result: { stopReason: 'end_turn' } })
   await (
     await startThreadTurn(data)
   ).run

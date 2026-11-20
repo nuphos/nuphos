@@ -2,7 +2,6 @@ import clsx from 'clsx'
 import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 
 import { t } from '../../../i18n'
-import { quotaSharedWith } from '../../../lib/runtimeQuota'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
@@ -16,6 +15,7 @@ import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
 import {
   boxAgentName,
+  diskMeterHint,
   selectorMetrics,
   sharedBoxOwner,
   showSharedComputerDisclosure,
@@ -41,7 +41,14 @@ function percent(value: number) {
 }
 
 /** CPU, memory and disk as three labelled bars. */
-export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
+export function SelectorBoxMeters({
+  metrics,
+  diskHint,
+}: {
+  metrics: SelectorMetrics
+  /** Said on the disk meter once the disk is almost full (see `diskMeterHint`). */
+  diskHint?: string | null
+}) {
   const meters = [
     ['CPU', metrics.cpu],
     ['MEM', metrics.memory],
@@ -53,6 +60,7 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
       {meters.map(([label, value]) => (
         <span
           key={label}
+          title={label === 'DISK' ? (diskHint ?? undefined) : undefined}
           role="meter"
           aria-label={t('{label} usage', { label })}
           aria-valuemin={0}
@@ -78,7 +86,7 @@ export function SelectorBoxMeters({ metrics }: { metrics: SelectorMetrics }) {
   )
 }
 
-/** A quiet extra line: whose a teammate's shared computer is, or which agents share a quota. */
+/** A quiet extra line: whose a teammate's shared computer is. */
 function QuietLine({ text }: { text: string | null }) {
   return (
     text && (
@@ -126,7 +134,7 @@ function AgentRow({
       closeOnClick={pickable}
       onClick={() => {
         if (pickable) onSelect?.(instance.id, access)
-        else if (problem) fixes.run(problem.fix)
+        else if (problem?.fix) fixes.run(problem.fix)
       }}
     >
       <span className="flex min-w-0 flex-col py-1">
@@ -134,11 +142,9 @@ function AgentRow({
           <span className={clsx('truncate', problem && !problem.pickable && 'text-secondary')}>
             {name}
           </span>
-          {problem ? (
-            <AgentFixChip fix={problem.fix} fixes={fixes} />
-          ) : (
-            update && <AgentUpdateBadge update={update} actionable />
-          )}
+          {problem
+            ? problem.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />
+            : update && <AgentUpdateBadge update={update} actionable />}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
           {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
@@ -146,7 +152,7 @@ function AgentRow({
             {[
               name !== provider && provider,
               problem?.reason,
-              problem?.fix.kind === 'ask' && agentAskText(problem.fix),
+              problem?.fix?.kind === 'ask' && agentAskText(problem.fix),
               !problem && update?.state === 'available' && !update.start && askToUpdate,
               instance.deletion && t('Being removed'),
               instance.starting && t('Starting…'),
@@ -156,7 +162,6 @@ function AgentRow({
           </span>
           <RuntimeUsageBar quota={quotas?.get(instance.id)} />
         </span>
-        <QuietLine text={quotaSharedWith(quotas?.get(instance.id))} />
       </span>
     </MenuItem>
   )
@@ -187,6 +192,7 @@ export function SelectorBoxMenu({
   const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
   const sharedBy = sharedBoxOwner(group, fixes.viewer.members)
+  const diskHint = diskMeterHint(group, fixes.viewer.members)
   const { listed, signIn } = signInChoices(group.agents, quotas, selectedId)
   const rowProps = {
     selectedId,
@@ -205,8 +211,8 @@ export function SelectorBoxMenu({
       <MenuItem
         icon={<BoxIcon className="h-4 w-4" />}
         closeOnClick={false}
-        onClick={() => problem && fixes.run(problem.fix)}
-        hint={problem && <AgentFixChip fix={problem.fix} fixes={fixes} />}
+        onClick={() => problem?.fix && fixes.run(problem.fix)}
+        hint={problem?.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />}
       >
         {/* The owner goes on its own line, so the computer keeps its name. */}
         <span className="block min-w-0">
@@ -234,7 +240,7 @@ export function SelectorBoxMenu({
               {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
             <QuietLine text={sharedBy} />
-            {metrics && <SelectorBoxMeters metrics={metrics} />}
+            {metrics && <SelectorBoxMeters metrics={metrics} diskHint={diskHint} />}
           </span>
         </span>
       </MenuSubmenuTrigger>

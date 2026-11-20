@@ -68,12 +68,43 @@ export const reporting = (send) => async (sessionId, name, args) => {
   return message
 }
 
+/** E2E_CALL's arguments; a Bot's chat post reaches its prompt as a JSON string, escaped. */
+function parseArgs(args) {
+  try {
+    return JSON.parse(args)
+  } catch {
+    return JSON.parse(JSON.parse(`"${args}"`))
+  }
+}
+
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
-  const [, name, args] = /E2E_CALL (\S+) (\{.*\})/.exec(text) ?? []
-  const message = await call(sessionId, name, JSON.parse(args ?? '{}'))
+  // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
+  for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
+    const message = await call(sessionId, name, parseArgs(args))
 
-  log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+    log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+  }
+}
+
+/** E2E_PERSONAL_TOKEN:<provider>: fetches the owner's own credential as an agent's setup script does, and logs the answer. */
+export async function personalToken({ log, sessionId, marker, text }) {
+  const provider = /E2E_PERSONAL_TOKEN:([a-z-]+)/.exec(text)?.[1]
+  const server = tools.get(sessionId)
+  // The handout sits under the same /teams/:teamId as the tools server, for the same token.
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const response = await fetch(`${team}/personal-credentials/${provider}/token`, {
+    headers: Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+  })
+  const body = await response.json().catch(() => ({}))
+
+  log({
+    sessionId,
+    marker,
+    event: 'personal-token',
+    name: provider,
+    result: { status: response.status, code: body.error?.code },
+  })
 }
 
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
@@ -83,7 +114,8 @@ export async function subtask({ log, sessionId, marker }) {
   const message = await call(sessionId, 'create_thread', {
     label: 'Hand off',
     title: `E2E ${kid.replace('-', ' ')}`,
-    prompt: `Reply E2E_DELIVERY:${kid}`,
+    // #3409's waits for its scenario's release, so it is still running when the sidebar lists it.
+    prompt: `Reply ${kid === 'unlisted-kid' ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
   })
 
   log({

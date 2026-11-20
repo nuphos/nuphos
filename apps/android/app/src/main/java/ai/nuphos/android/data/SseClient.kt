@@ -40,10 +40,12 @@ object SseClient {
         }
     }
 
+    /** [onOpen] hears when the server has accepted the stream, before any event. */
     fun events(
         request: Request,
         firstByteTimeoutMs: Long = 5_000,
         idleTimeoutMs: Long = 45_000,
+        onOpen: (() -> Unit)? = null,
     ): Flow<SseEvent> = callbackFlow {
         val call = Http.chatClient.newCall(request)
         val seen = AtomicBoolean(false)
@@ -98,6 +100,7 @@ object SseClient {
                         close(Failure.NotEventStream(contentType))
                         return
                     }
+                    onOpen?.invoke()
                     try {
                         readEvents(res.body.source(), ::touch) { event ->
                             backpressured.set(true)

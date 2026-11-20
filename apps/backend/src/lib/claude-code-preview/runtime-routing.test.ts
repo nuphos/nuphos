@@ -325,7 +325,7 @@ const box = (id: string, local: Partial<NonNullable<RuntimeInstance['local']>> =
     },
   }) as RuntimeInstance
 const registered = (id: string): RuntimeInstance =>
-  ({ id, provider: 'claude-code', status: 'active', kind: 'managed' }) as RuntimeInstance
+  ({ id, provider: 'claude-code', status: 'active', kind: 'external' }) as RuntimeInstance
 // A teammate's computer shared with the team, with an agent on it.
 const shared = (
   id: string,

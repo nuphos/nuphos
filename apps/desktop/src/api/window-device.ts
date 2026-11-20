@@ -72,10 +72,15 @@ export type WindowDeviceApi = {
   instaboxSizes(teamId: string, accountId: string): Promise<BoxSize[]>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
-  boxDelete(deviceId: string, teamId: string): Promise<{ ok: true }>
+  boxDelete(deviceId: string, teamId: string): Promise<{ ok: true; machineLeft?: true }>
   deviceRemove(deviceId: string, teamId: string): Promise<{ ok: true }>
   deviceAppUpdate(deviceId: string, teamId: string): Promise<{ version: string }>
   boxClearCaches(deviceId: string, teamId: string): Promise<{ ok: true }>
+  deviceSetAutoInstall(
+    deviceId: string,
+    teamId: string,
+    enabled: boolean,
+  ): Promise<{ enabled: boolean }>
   boxCreateAgent(
     deviceId: string,
     teamId: string,
@@ -128,7 +133,6 @@ export type WindowDeviceApi = {
   ): Promise<'notification' | 'in-app' | 'duplicate'>
   runtimeSignInAsk(teamId: string, runtimeId: string, sessionId: string): Promise<SignInAsk>
   runtimeSignInSettle(teamId: string, runtimeId: string): Promise<void>
-  boxDesktop(deviceId: string, teamId: string): Promise<{ url: string; label: string }>
   openSessionDesktop(teamId: string, sessionId: string): Promise<{ display: number }>
   boxUsage(teamId: string): Promise<BoxUsage>
   boxUsageHistory(teamId: string, range: '1d' | '7d' | '30d'): Promise<BoxUsageHistory>

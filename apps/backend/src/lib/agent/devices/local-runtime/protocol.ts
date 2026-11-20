@@ -2,20 +2,9 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
-export type TunnelPurpose =
-  | 'transport'
-  | 'control'
-  | 'exec'
-  | 'upload'
-  | 'download'
-  | 'file'
-  | 'attachments'
-  | 'terminal'
-  | 'cua'
-  | 'browser'
-  | 'browserView'
-  | 'vnc'
-  | 'instances'
+import type { TunnelPurpose } from './tunnel-purpose'
+
+export type { TunnelPurpose }
 
 export const LOCAL_AGENT_PROVIDERS = [
   'claude-code',
@@ -133,7 +122,7 @@ const localAgentStatusSchema = z.object({
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
   /** The account whose quota it spends, as a hash only that computer can make. */
-  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{20}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -185,6 +174,8 @@ export const localRuntimeStatusSchema = z.object({
     })
     .optional()
     .catch(undefined),
+  /** Whether this computer installs updates by itself when idle; `method: 'autoInstall'` sets it. */
+  autoInstall: z.boolean().optional().catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
@@ -265,7 +256,8 @@ export type HolderMessage =
       provider?: LocalAgentProvider
       instanceId?: string
     }
-  | { t: 'data'; s: string; d: string }
+  /** `conn` names the tunnel the stream opened on; a replica from before it was added sends none. */
+  | { t: 'data'; s: string; d: string; conn?: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }

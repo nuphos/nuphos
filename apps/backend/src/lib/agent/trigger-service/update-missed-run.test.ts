@@ -46,13 +46,17 @@ function collection(name: string) {
 
       return Promise.resolve({ matchedCount: 1, modifiedCount: 1 })
     },
+    insertOne: () => Promise.resolve({ insertedId: null }),
     updateMany: () => Promise.resolve({ matchedCount: 0, modifiedCount: 0 }),
     deleteMany: () => Promise.resolve({ deletedCount: 0 }),
     find: () => ({ toArray: () => Promise.resolve([]) }),
   }
 }
 
-useDb({ db: () => ({ collection }) as never })
+useDb({
+  db: () => ({ collection }) as never,
+  withTransaction: (body: (session: never) => Promise<void>) => body({} as never),
+})
 
 const { updateTrigger } = await import('./update')
 

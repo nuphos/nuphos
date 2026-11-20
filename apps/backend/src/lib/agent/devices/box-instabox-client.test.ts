@@ -49,7 +49,7 @@ describe('killBoxMachine', () => {
     expect(calls).toEqual(['list d1'])
   })
 
-  test('a kill that fails throws, so the caller keeps the row', async () => {
+  test('a kill that fails throws, so its caller can say what was left behind', async () => {
     machines = [{ sandboxId: 'm_orphan' }]
     killFails = true
     await expect(killBoxMachine(conn, undefined, 'd1')).rejects.toThrow('instabox is down')

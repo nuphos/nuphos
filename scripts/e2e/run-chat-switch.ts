@@ -18,8 +18,8 @@ import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
 const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
-// A Bot chat's poll; the newest post must not wait for it.
-const POLL_MS = 4_000
+// A post said in a Bot chat while away shows this soon after it opens.
+const AWAY_MS = 300
 const POSTS = 40
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
@@ -192,7 +192,7 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
 }
 
-/** What fails the run now, and what is reported until the change that meets it lands. */
+/** What fails the run. */
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
@@ -211,6 +211,10 @@ function check(baseline: Record<string, number> | null) {
       fail(
         `${String(watch.washFrames)} frames had faded text in the pane, faintest ${String(watch.washedText)}`,
       )
+    if (watch.chipFrames > 0)
+      fail(
+        `${String(watch.chipFrames)} frames showed a composer chip before its value: ${String(watch.chipText)}`,
+      )
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
@@ -219,23 +223,22 @@ function check(baseline: Record<string, number> | null) {
       `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
-  // A chat opened before shows on the first frame, with no request first. A Task does; a Bot
-  // chat is reported until it is rendered from a cache too (#3523).
-  const pending: string[] = []
+  // A chat opened before shows on the first frame, with no request first: a Task, and a Bot
+  // chat kept mounted (#3523).
 
   for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
     if (watch.framesToContent === 1 && requests === 0) continue
-    const why = `${name}: not on the first frame without a read`
-
-    if (name.startsWith('task')) failed.push(why)
-    else pending.push(why)
+    failed.push(`${name}: not on the first frame without a read`)
   }
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
-  if (away && (away.watch.newestAfterMs ?? Infinity) >= POLL_MS)
-    pending.push(`${away.name}: the newest post waited for a poll`)
+  // Heard of at once from the backend's push, not on a poll (#3523).
+  if (away && (away.watch.newestAfterMs ?? Infinity) >= AWAY_MS)
+    failed.push(
+      `${away.name}: the newest post took ${String(away.watch.newestAfterMs)} ms, budget ${String(AWAY_MS)} ms`,
+    )
 
-  return { failed, pending, table: lines.join('\n') }
+  return { failed, table: lines.join('\n') }
 }
 
 let desktop: Desktop | undefined
@@ -259,12 +262,9 @@ try {
     ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<string, number>)
     : null
   const result = check(baseline)
-  const report = [
-    result.table,
-    '',
-    ...result.pending.map((line) => `- Not yet: ${line}`),
-    ...result.failed.map((line) => `- **Failed**: ${line}`),
-  ].join('\n')
+  const report = [result.table, '', ...result.failed.map((line) => `- **Failed**: ${line}`)].join(
+    '\n',
+  )
 
   writeFileSync(
     `${artifacts}/chat-switch.json`,

@@ -4,6 +4,7 @@ import { isBotChat } from './archive'
 import { pushTimelineEvent } from './participants'
 import { agentConversations, withTeamScope } from './shared'
 
+import type { BotAvatarBackground } from '../bot-avatars'
 import type { BotChangeSource, ConversationTimelineEvent } from './timeline-events'
 
 /** The record of a face given, changed or (null) taken away: who did it and how. */
@@ -58,18 +59,24 @@ export async function renameConversation(
   return result.matchedCount > 0
 }
 
-// A Bot's new face; null takes it away, so the Bot is a Task again. Only a Bot
-// has a face to change: a Task becomes one through claimBotAvatar. Clients own
-// the catalog and ignore a name they do not know.
+// A Bot's new face, and the tint it sits on when given (`none` clears it); null
+// takes the face away, so the Bot is a Task again. Only a Bot has a face to
+// change: a Task becomes one through claimBotAvatar. Clients own the catalog
+// and ignore a name they do not know.
 export async function setConversationAvatar(
   sessionId: string,
   avatar: string | null,
   actorId: string,
+  background?: BotAvatarBackground,
 ): Promise<boolean> {
   const $push = botChanged({ actorId, via: 'avatar_route' }, avatar)
   const result = await agentConversations().updateOne(
     avatar === null ? { sessionId } : { sessionId, avatar: { $exists: true } },
-    avatar === null ? { $unset: { avatar: '' }, $push } : { $set: { avatar }, $push },
+    avatar === null
+      ? { $unset: { avatar: '', avatarBackground: '' }, $push }
+      : background === 'none'
+        ? { $set: { avatar }, $unset: { avatarBackground: '' }, $push }
+        : { $set: { avatar, ...(background ? { avatarBackground: background } : {}) }, $push },
   )
 
   return result.matchedCount > 0

@@ -17,7 +17,7 @@ import { allPodContainers, containerDisplayName } from './pod-containers'
 // One sentence for translators: <b>…</b> marks emphasis, {name} and {ns} render
 // as code. Split so each marked part can be styled.
 const NODE_SHELL_WARNING = t(
-  "This starts a <b>privileged pod</b> on {name} and enters the host's namespaces — effectively a <b>root shell on the node</b>. The pod is created in {ns} and deleted automatically when you close this tab or leave this node. It survives switching agents, so a command you left running keeps running.",
+  "This starts a <b>privileged pod</b> on {name} and enters the host's namespaces — effectively a <b>root shell on the node</b>. The pod is created in {ns} and deleted automatically when you close this tab or leave this node. It survives switching between Bots and tasks, so a command you left running keeps running.",
 ).split(/(<b>.*?<\/b>|\{name\}|\{ns\})/)
 
 // Terminal tab for a Pod: resolves the container list, lets the user pick one

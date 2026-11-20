@@ -59,6 +59,7 @@ export function allCredentialAccessFromOptions(
           upstashAccountIds: options.upstashAccounts.map((entry) => entry.accountId),
           cloudflareAccountIds: options.cloudflareAccounts.map((entry) => entry.accountId),
           instaboxAccountIds: options.instaboxAccounts.map((entry) => entry.accountId),
+          personalCredentialIds: options.personalCredentials.map((entry) => entry.provider),
         }
       : {}),
     updatedAt: new Date(),
@@ -82,6 +83,23 @@ export async function resolveTriggerCredentialAccess(
   const options = await getAgentCredentialOptions(teamId, userId)
 
   return allCredentialAccessFromOptions(options, userId, true)
+}
+
+/**
+ * What a new Bot may use: everything its owner may use right now, as Desktop's new chat
+ * selects it. Sending mail (Resend) and Trello stay opt-in.
+ */
+export async function defaultCredentialAccess(
+  teamId: string,
+  userId: string,
+): Promise<AgentCredentialAccess> {
+  const options = await getAgentCredentialOptions(teamId, userId)
+
+  return {
+    ...allCredentialAccessFromOptions(options, userId, true),
+    resendIntegrationIds: [],
+    trelloIntegrationIds: [],
+  }
 }
 
 export function hasCredentialOptions(options: AgentCredentialOptions): boolean {

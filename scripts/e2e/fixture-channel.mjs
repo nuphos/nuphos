@@ -1,7 +1,19 @@
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
 // How the fixture Bot answers a chat: it reads on until nothing is left, then posts once.
 const MARKER = /E2E_DELIVERY:[a-z0-9-]+/g
 const indexes = (text) => [...text.matchAll(/"index":\s*(\d+)/g)].map((match) => match[1])
 const more = (text) => /"more":\s*true/.test(text)
+
+/** E2E_WHO: whether the post carrying `marker` spoke for the Bot's owner, as channel_read marked it. */
+function whoAsked(read, marker) {
+  const post = [...read.matchAll(/"index":\s*\d+((?:(?!"index":)[\s\S])*)/g)].find((match) =>
+    match[1].includes(marker),
+  )
+
+  return post?.[1].includes('"fromOwner": true') ? 'owner' : 'data'
+}
 
 /** Reads what the wake left with channel_read, logs a page it was shown twice, and answers. */
 export async function answerChannel({ call, log, sessionId, channelId, text }) {
@@ -23,12 +35,31 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
     read += `\n${last}`
   }
   const marker = (read.match(MARKER) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
+  const who = read.includes('E2E_WHO') ? ` from=${whoAsked(read, marker)}` : ''
+
+  // A post marked E2E_DELIVERY:hold-… is answered only once the scenario writes `release` beside
+  // the ACP log. Only while it is the post answered: shown again later, it holds nothing.
+  if (marker.startsWith('E2E_DELIVERY:hold-')) {
+    const release = join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
 
   // E2E_TWO_POSTS posts twice and works on, as a Bot that reports and keeps going.
   const twice = read.includes('E2E_TWO_POSTS')
 
   if (twice)
     await call(sessionId, 'channel_post', { label: 'Ack', channelId, text: `FIRST ${marker}` })
-  await call(sessionId, 'channel_post', { label: 'Answer', channelId, text: `POSTED ${marker}` })
+  // E2E_REPLY_TO answers the post that carries it, by its index, so the answer quotes it.
+  const asked = [...read.matchAll(/"index":\s*(\d+)((?:(?!"index":)[\s\S])*)/g)].find((match) =>
+    match[2].includes('E2E_REPLY_TO'),
+  )
+
+  await call(sessionId, 'channel_post', {
+    label: 'Answer',
+    channelId,
+    text: `POSTED ${marker}${who}`,
+    ...(asked ? { replyTo: Number(asked[1]) } : {}),
+  })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
 }

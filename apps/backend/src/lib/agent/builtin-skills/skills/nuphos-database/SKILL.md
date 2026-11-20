@@ -1,6 +1,6 @@
 ---
 name: nuphos-database
-description: Discover Nuphos-managed database connections, inspect MongoDB catalogs, and run bounded read-only queries through the canonical team REST API. Use when the user asks about a database already connected in Nuphos.
+description: Discover Nuphos-managed database connections, inspect MongoDB catalogs and run bounded read-only queries through the team REST API.
 ---
 
 # Nuphos-managed databases

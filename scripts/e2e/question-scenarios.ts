@@ -4,10 +4,12 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { agentEvents, agentLog } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
-import { inboxScenarios } from './inbox-scenarios.ts'
+import { choiceModeScenarios } from './choice-mode-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
-import { staleQuestionScenarios } from './stale-question-scenarios.ts'
+import { inboxScenarios } from './inbox-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { secretScenarios } from './secret-scenarios.ts'
+import { staleQuestionScenarios } from './stale-question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -65,7 +67,7 @@ export async function screencast(page: Page, name: string) {
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 80, everyNthFrame: 1 })
 
   // A reload may have ended the screencast already.
-  return () => cdp.send('Page.stopScreencast').catch(() => undefined)
+  return () => cdp.send('Page.stopScreencast').catch(() => {})
 }
 
 export const questionScenarios: Scenario[] = [
@@ -114,8 +116,10 @@ export const questionScenarios: Scenario[] = [
       await light(page)
       await page.locator('[data-inbox-question]').first().click()
       // Answered, the question leaves and the one that takes its place opens.
+      const answered = await openInInbox(page)
+
       await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
+      await until('the next question to open', async () => (await openInInbox(page)) !== answered)
       const reading = await openInInbox(page)
       const before = await listedInInbox(page)
 
@@ -291,4 +295,6 @@ export const questionScenarios: Scenario[] = [
   ...decisionTitleScenarios,
   ...staleQuestionScenarios,
   ...inboxScenarios,
+  ...choiceModeScenarios,
+  ...secretScenarios,
 ]

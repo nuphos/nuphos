@@ -13,7 +13,7 @@ type ToolReply<T> = {
   isError?: boolean
 }
 
-function mcp(as: Client) {
+export function mcp(as: Client) {
   const rpc = async <T>(method: string, params?: unknown): Promise<T> => {
     const reply = await as('POST', '/mcp', { jsonrpc: '2.0', id: 1, method, params })
     const body = reply.body as { result: T; error?: unknown } | null
@@ -33,10 +33,10 @@ function mcp(as: Client) {
 
 type Tool = ReturnType<typeof mcp>['tool']
 
-const prompt = (marker: string) => `From MCP ${marker}`
+export const prompt = (marker: string) => `From MCP ${marker}`
 
 /** Starts a Task with `nuphos_ask` and polls `nuphos_check` until the agent acknowledges `marker`. */
-async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<string> {
+export async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<string> {
   const asked = await tool<{ session_id: string }>('nuphos_ask', {
     prompt: prompt(marker),
     team_id: teamId,
@@ -66,6 +66,109 @@ async function askOverMcp(tool: Tool, teamId: string, marker: string): Promise<s
 }
 
 export const mcpScenarios: Scenario[] = [
+  {
+    name: 'an MCP client finds a readable Task bound to a PR, excluding private and issue bindings',
+    run: async (_page, stack) => {
+      const { execFileSync } = await import('node:child_process')
+      const { tool } = mcp(client(stack.apiUrl, stack.token))
+      const task = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-pr-binding')
+      const setup = `
+        import { MongoClient } from 'mongodb'
+        const client = await new MongoClient(process.argv[1]).connect()
+        const conversations = client.db('nuphos_e2e').collection('agent_conversations')
+        const task = await conversations.findOne({ sessionId: process.argv[2] })
+        const { _id, ...copy } = task
+        const linkedResources = [{ provider: 'github', repository: 'Example/Repo', number: 42 }]
+        await conversations.updateOne({ _id }, { $set: { linkedResources } })
+        await conversations.insertMany([
+          { ...copy, sessionId: 'mcp-private-binding', userId: 'other', generalAccess: 'none', linkedResources },
+          { ...copy, sessionId: 'mcp-issue-binding', linkedResources: [{ ...linkedResources[0], kind: 'issue' }] },
+        ])
+        await client.close()`
+
+      execFileSync('bun', ['-e', setup, stack.mongoUri, task], {
+        cwd: new URL('../../apps/backend', import.meta.url),
+        timeout: 10_000,
+      })
+      const result = await tool<{ sessions: { session_id: string }[]; note: string }>(
+        'nuphos_find_pr_sessions',
+        {
+          team_id: stack.teamId,
+          repository: 'example/repo',
+          number: 42,
+        },
+      )
+
+      must(result.isError !== true, `PR lookup to succeed, got ${JSON.stringify(result)}`)
+      must(
+        JSON.stringify(result.structuredContent?.sessions.map((session) => session.session_id)) ===
+          JSON.stringify([task]),
+        'only the readable PR binding',
+      )
+      must(
+        result.structuredContent?.note.includes('not proof of authorship') === true,
+        'the binding boundary to be explicit',
+      )
+    },
+  },
+  {
+    name: 'an MCP client selects GitHub credentials and identity and preserves omitted fields',
+    run: async (_page, stack) => {
+      const as = client(stack.apiUrl, stack.token)
+      const { tool } = mcp(as)
+      const sessionId = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-credentials')
+      const args = { team_id: stack.teamId, session_id: sessionId }
+      const changed = await tool<{
+        enabled_for_session: {
+          github_installation_ids?: string[]
+          personal_credential_ids: string[]
+          team_identity: string[]
+        }
+      }>('nuphos_update_credentials', {
+        ...args,
+        github_installation_ids: [],
+        personal_credential_ids: [],
+        team_identity: ['github'],
+      })
+
+      must(changed.isError !== true, `credential update to succeed, got ${JSON.stringify(changed)}`)
+      const read = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_list_credentials',
+        args,
+      )
+
+      must(
+        JSON.stringify(read.structuredContent?.enabled_for_session.github_installation_ids) ===
+          '[]',
+        'an explicit empty GitHub allowlist to persist',
+      )
+      const preserved = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_update_credentials',
+        args,
+      )
+
+      must(
+        JSON.stringify(preserved.structuredContent?.enabled_for_session.team_identity) ===
+          '["github"]',
+        'omission to preserve team identity',
+      )
+      const invalid = await tool('nuphos_update_credentials', {
+        ...args,
+        github_installation_ids: 'invalid',
+      })
+
+      must(invalid.isError === true, 'the shared validator to reject a malformed GitHub list')
+      const cleared = await tool<{ enabled_for_session: Record<string, unknown> }>(
+        'nuphos_update_credentials',
+        { ...args, team_identity: [] },
+      )
+
+      must(
+        JSON.stringify(cleared.structuredContent?.enabled_for_session.team_identity) === '[]',
+        'an explicit empty identity to restore the personal preference',
+      )
+    },
+  },
   {
     name: 'an MCP client lists the tools and teams, asks the agent, and the Task shows in the app',
     run: async (page, stack) => {

@@ -6,7 +6,13 @@ import { api, joinTeam } from './dashboard-scenarios.ts'
 import { until } from './processes.ts'
 import { teamActivityScenarios } from './team-activity-scenarios.ts'
 import { newTask, openComputers, send } from './ui.ts'
-import { captureFilterMenu, checkNamesByRole, computersAndPrivate, shot } from './usage-checks.ts'
+import {
+  captureFilterMenu,
+  checkNamesByRole,
+  computersAndPrivate,
+  pickGroup,
+  shot,
+} from './usage-checks.ts'
 import {
   privateConversation,
   seedCaptureExtras,
@@ -57,11 +63,17 @@ export const usageScenarios: Scenario[] = [
       const section = page.getByRole('region', { name: 'Token usage' })
 
       await section.getByText('No token usage recorded in this range yet.').waitFor()
+      // Rows from before cached tokens were recorded in input are left as they are, and say so.
+      await section.getByText(/Input left out cached tokens; Total included them/).waitFor()
       await shot(section, 'token-usage-empty')
 
-      // A range the app has not read yet, while the backend cannot answer: the last one stays, dimmed.
+      // The card always shows the last 30 days: there is no range to pick.
+      if (await section.getByRole('radio', { name: '90d' }).count())
+        throw new Error('The Token usage card still offers a range')
+
+      // A grouping the app has not read yet, while the backend cannot answer: the last one stays, dimmed.
       await stack.freezeBackend(async () => {
-        await section.getByRole('radio', { name: '90d' }).click()
+        await pickGroup(page, section, 'Member')
         await section.locator('[aria-busy="true"]').waitFor()
         await shot(section, 'token-usage-loading')
       })
@@ -70,7 +82,7 @@ export const usageScenarios: Scenario[] = [
       // More models than a query may group: the backend refuses it, and the page says so.
       tooManyModels(stack, true)
       try {
-        await section.getByRole('radio', { name: '30d' }).click()
+        await pickGroup(page, section, 'Runtime')
         await section.getByRole('alert').getByText('Couldn’t load token usage.').waitFor()
         await shot(section, 'token-usage-error')
       } finally {
@@ -78,7 +90,7 @@ export const usageScenarios: Scenario[] = [
       }
       await section.getByRole('button', { name: 'Try again' }).click()
       await section.getByText('No token usage recorded in this range yet.').waitFor()
-      await section.getByRole('radio', { name: '7d' }).click()
+      await pickGroup(page, section, 'Model')
       await page.getByText('Back to app', { exact: true }).click()
     },
     // The read it refuses on purpose: more groups than a usage query may build.
@@ -151,8 +163,8 @@ export const usageScenarios: Scenario[] = [
 
       // The backend names conversations by their titles, not their session ids.
       await section.getByRole('combobox', { name: 'Group by' }).click()
-      await page.getByRole('option', { name: 'Conversation' }).click()
-      await table.getByRole('columnheader', { name: 'Conversation' }).waitFor()
+      await page.getByRole('option', { name: 'Task', exact: true }).click()
+      await table.getByRole('columnheader', { name: 'Task', exact: true }).waitFor()
       await table.getByText('290.3K').waitFor()
       const label = await table.getByRole('row').nth(1).getByRole('cell').first().innerText()
 
@@ -227,6 +239,41 @@ export const usageScenarios: Scenario[] = [
           'DELETE',
           `/agent/triggers/${triggerId}?teamId=${stack.teamId}`,
         )
+      }
+    },
+  },
+  {
+    name: 'the chart always spans 30 days, a small day still shows, and one model is one series',
+    run: async (page, stack) => {
+      const [turn] = turnRows(stack) ?? []
+
+      if (!turn) throw new Error('The earlier turn left no usage row')
+      const sessionId = String(turn.sessionId)
+      const owner = String(turn.userId)
+      // A small day long before the busy week, as when runtime usage started recently.
+      const week = [0, 1, 2, 3, 4, 5, 6].flatMap((daysAgo) =>
+        ['claude-opus-5-5', 'claude-sonnet-5-5', 'unknown'].map((modelId, index) => ({
+          actor: owner,
+          total: (3 - index) * 1_000_000_000,
+          daysAgo,
+          modelId,
+        })),
+      )
+
+      seedUsage(stack, sessionId, owner, [{ actor: owner, total: 3_000_000, daysAgo: 24 }, ...week])
+      try {
+        await openComputers(page)
+        const section = page.getByRole('region', { name: 'Token usage' })
+        const legend = section.getByRole('list', { name: 'Chart legend' })
+
+        await legend.getByText('Unknown model').waitFor()
+        await legend.getByText('claude-opus-5-5').waitFor()
+        if (await legend.getByText('unknown', { exact: true }).count())
+          throw new Error('The legend names the recorded model id "unknown"')
+        await shot(section, 'token-usage-30d')
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        seedUsage(stack, sessionId, owner, [])
       }
     },
   },

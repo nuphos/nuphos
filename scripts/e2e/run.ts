@@ -4,41 +4,61 @@ import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
+import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
+import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
+import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
+import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
+import { leaveChatScenarios } from './leave-chat-scenarios.ts'
+import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
+import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
+import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
+import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
+import { stepUpScenarios } from './step-up-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
+import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -58,7 +78,7 @@ const scenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors', exact: true }).click()
       await page.getByRole('button', { name: 'Add AWS' }).click()
-      await page.getByRole('button', { name: /Set up with agent/ }).click()
+      await page.getByRole('button', { name: /Set up in a task/ }).click()
       await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
       await until('the setup prompt to reach the agent', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
@@ -99,7 +119,13 @@ const scenarios: Scenario[] = [
   ...channelScenarios,
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
+  ...channelRestartScenarios,
+  ...mcpDefaultsScenarios,
   ...teammateBotScenarios,
+  ...leaveTaskScenarios,
+  ...archiveSharedTaskScenarios,
+  ...leaveChatScenarios,
+  ...avatarBackgroundScenarios,
   {
     name: 'start a Task, send a message and read the reply',
     run: async (page) => {
@@ -109,24 +135,37 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...personalCredentialScenarios,
+  ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
+  ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...botTriggerRowScenarios,
+  ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
+  // Turns two-factor authentication on for this account, and off again.
+  ...stepUpScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...mcpFileScenarios,
+  ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
+  ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...outdatedTurnScenarios,
   ...mcpScenarios,
+  ...skillScenarios,
+  ...approvalFeedbackScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,
@@ -140,7 +179,10 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  // Another app of its own per proxy, reaching the backend only through it, which it quits again.
+  ...proxyScenarios,
   ...terminalScenarios,
+  ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]

@@ -1,23 +1,24 @@
 import { randomUUID } from 'node:crypto'
 
-import { pushTimelineEvent } from '@/lib/agent/db/participants'
+import { updateConversationSettings } from '@/lib/agent/db/settings-history'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
+import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 
 import { sessionsByConversation } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
+import { runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
 import type { FailedPrompt } from './failed-turn-retry'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 
@@ -25,8 +26,9 @@ export async function moveConversationRuntime(
   conversation: AgentConversation,
   targetId: string,
   userId: string,
-  /** A fallback names its reason; `claimed` when the caller already holds the session's run claim. */
-  options: { reason?: RuntimeFallbackReason; claimed?: boolean } = {},
+  /** A fallback names its reason; `claimed` when the caller already holds the session's run claim.
+   *  `by` names who asked and from where; absent, the owner moved it, or a fallback did. */
+  options: { reason?: RuntimeFallbackReason; claimed?: boolean; by?: SettingsChangeBy } = {},
 ) {
   const teamId = conversation.teamId
   const ownerId = conversation.userId
@@ -109,19 +111,25 @@ export async function moveConversationRuntime(
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
-    // Only what the destination offers, as a new conversation's first turn keeps:
-    // its runtime refuses to open a session on any other value.
-    const pick =
-      target.provider === provider
-        ? await offeredSessionConfig(
-            (model) => runtimeModelCatalog(teamId, target.id, model, userId),
-            saved ?? {},
-          ).then(
-            ({ kept }) => kept,
-            () => saved ?? {},
-          )
-        : undefined
-    const result = await agentConversations().updateOne(
+    // The choices the destination still offers, and its own effort and fast
+    // where none is, so the moved Task never runs on a level nobody sees.
+    // Another provider's ids mean nothing there: its choices start over.
+    const sameProvider = target.provider === provider
+    const pick = await offeredSessionConfig(
+      (model) => runtimeModelCatalog(teamId, target.id, model, userId),
+      (sameProvider && saved) || {},
+    ).then(
+      ({ kept }) => kept,
+      () => (sameProvider ? (saved ?? {}) : undefined),
+    )
+    const by: SettingsChangeBy = {
+      ...(options.by ??
+        (options.reason
+          ? { actorId: 'system', via: 'runtime_fallback', reason: options.reason }
+          : { actorId: userId, via: 'runtime_move' })),
+      ...(retry ? { retrying: true as const } : {}),
+    }
+    const result = await updateConversationSettings(
       {
         sessionId: conversation.sessionId,
         teamId,
@@ -142,17 +150,6 @@ export async function moveConversationRuntime(
             movedBy: userId,
           },
         },
-        $push: pushTimelineEvent({
-          kind: 'runtime_moved',
-          at: new Date(),
-          actorId: userId,
-          fromLabel: conversation.runtimeLabel,
-          fromProvider: provider,
-          toLabel: target.label,
-          toProvider: target.provider,
-          ...(options.reason ? { reason: options.reason } : {}),
-          ...(retry ? { retrying: true as const } : {}),
-        }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:
         // no session anywhere. It used to mint `openabSessionId: randomUUID()`
@@ -169,6 +166,7 @@ export async function moveConversationRuntime(
           ...(pick ? {} : { initialSessionConfig: '' }),
         },
       },
+      by,
     )
 
     if (!result.matchedCount)

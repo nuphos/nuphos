@@ -1,10 +1,6 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { app } from 'electron'
-
-import type { WebContents } from 'electron'
-
 /** Response bodies larger than this, or past the recording's total, are left out of the HAR. */
 const MAX_BODY_BYTES = 1024 * 1024
 const MAX_TOTAL_BODY_BYTES = 64 * 1024 * 1024
@@ -46,10 +42,25 @@ type Recording = {
 }
 type Listener = (event: unknown, method: string, params: Record<string, unknown>) => void
 
-const recordings = new WeakMap<WebContents, Recording>()
+/** What recording needs of a tab: a Desktop tab's WebContents, or a CLI host page (cli-browser.ts). */
+export type RecordedTab = {
+  id: number
+  debugger: {
+    attach(version: string): void
+    detach(): void
+    isAttached(): boolean
+    sendCommand(method: string, params?: object): Promise<unknown>
+    on(event: 'message', listener: Listener): unknown
+    off(event: 'message', listener: Listener): unknown
+  }
+}
+/** Where `record_stop` writes its HAR, and the app named in it. */
+export type HarOutput = { dir: string; creator: { name: string; version: string } }
+
+const recordings = new WeakMap<RecordedTab, Recording>()
 
 /** Starts capturing a tab's network traffic over its own debugger, so the page keeps its session. */
-export async function startRecording(contents: WebContents): Promise<void> {
+export async function startRecording(contents: RecordedTab): Promise<void> {
   if (recordings.has(contents)) throw new Error('This tab is already recording.')
   try {
     contents.debugger.attach('1.3')
@@ -73,7 +84,7 @@ export async function startRecording(contents: WebContents): Promise<void> {
 }
 
 /** Stops the tab's recording and writes it as a HAR file; returns its path and a summary. */
-export async function stopRecording(contents: WebContents) {
+export async function stopRecording(contents: RecordedTab, { dir, creator }: HarOutput) {
   const recording = recordings.get(contents)
 
   if (!recording) throw new Error('This tab is not recording; start with action "record_start".')
@@ -85,7 +96,6 @@ export async function stopRecording(contents: WebContents) {
 
   contents.debugger.off('message', recording.onMessage)
   if (contents.debugger.isAttached()) contents.debugger.detach()
-  const dir = join(app.getPath('userData'), 'har')
   const file = join(dir, `tab-${String(contents.id)}-${String(Date.now())}.har`)
 
   await mkdir(dir, { recursive: true, mode: 0o700 })
@@ -96,7 +106,7 @@ export async function stopRecording(contents: WebContents) {
     JSON.stringify({
       log: {
         version: '1.2',
-        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+        creator,
         entries: har,
       },
     }),
@@ -126,7 +136,7 @@ async function prune(dir: string): Promise<void> {
 }
 
 function onNetworkEvent(
-  contents: WebContents,
+  contents: RecordedTab,
   recording: Recording,
   method: string,
   params: Record<string, unknown>,
@@ -177,7 +187,7 @@ function onNetworkEvent(
 }
 
 /** Fetches a finished response's body now, before Chromium may evict it, within the size caps. */
-function fetchBody(contents: WebContents, recording: Recording, id: string, entry: Entry): void {
+function fetchBody(contents: RecordedTab, recording: Recording, id: string, entry: Entry): void {
   const size = entry.size ?? 0
 
   if (size > MAX_BODY_BYTES || recording.bodyBytes + size > MAX_TOTAL_BODY_BYTES) {

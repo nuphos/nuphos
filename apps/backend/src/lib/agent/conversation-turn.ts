@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
@@ -52,7 +53,8 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
  * with the turn's finish reason), 'queued' when it waits behind the turns ahead
- * of it. It runs as its own turn, never folded into another sender's.
+ * of it. Messages one sender left waiting run together in one turn, never folded into another
+ * sender's.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
@@ -81,7 +83,8 @@ export async function startConversationTurn(
     message,
   })
 
-  if (claim.mode === 'dropped') throw new Error('Thread message could not be queued.')
+  if (claim.mode === 'dropped')
+    throw new AppError(429, 'conversation_queue_unavailable', 'Thread message could not be queued.')
   if (claim.mode === 'queued') return queued
 
   const run = async (): Promise<string | undefined> => {
@@ -163,11 +166,13 @@ export async function runTurn(
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check, or its computer is reconnecting.
-        // Back to the front, retried after a wait rather than on the release that follows.
+        // The runtime took another turn after the check, its computer is reconnecting, or
+        // this replica is draining. Back to the front, retried after a wait rather than on
+        // the release that follows; a draining replica starts nothing, so another one does.
         const offline = reconnecting(error, head)
+        const draining = error instanceof AppError && error.code === 'server_draining'
 
-        if (!offline && !isRuntimeRefusal(error)) throw error
+        if (!offline && !draining && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
         await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
@@ -186,7 +191,7 @@ export async function runTurn(
     await recordFiresRan(fresh)
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
-    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
+    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
   } catch (error) {
@@ -198,7 +203,6 @@ export async function runTurn(
       `did not run: ${failureLine(error)}`,
       error,
     )
-    await recordFailedFires(error, taken)
     throw error
   }
 }
@@ -206,9 +210,21 @@ export async function runTurn(
 async function reportIfRestarted(
   data: DeliveredTo,
   messages: readonly PendingUserMessage[],
+  unmarkRead: (() => Promise<void>) | undefined,
 ): Promise<void> {
   try {
-    if (await runtimeRestarted(data)) await reportUndelivered(data, messages, LOST_TURN)
+    if (!(await runtimeRestarted(data))) return
+    // A channel's wake it cut off was never answered: its posts go back to unread and the
+    // wake to the queue, as after a refused turn. One a later wake read past finds nothing.
+    await unmarkRead?.()
+    const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
+
+    await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
+    await reportUndelivered(
+      data,
+      messages.filter((message) => !channelIdOf(message)),
+      LOST_TURN,
+    )
   } catch (error) {
     logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
   }
@@ -218,7 +234,8 @@ async function reportIfRestarted(
  * The one rule for an accepted message: it runs as a turn of its target, or its
  * sender is told, once, that it did not. A thread message is answered in its
  * sender's thread; a person's send stays in the conversation, with the reason;
- * a channel's wake notice is a line in that channel.
+ * a channel's wake notice is a line in that channel; a Trigger's fire is
+ * recorded on the Trigger, which has no sender to tell.
  */
 export async function reportUndelivered(
   // No team when the target conversation is gone: the sender's own is the one it sent from.
@@ -227,6 +244,7 @@ export async function reportUndelivered(
   reason: string,
   error?: unknown,
 ): Promise<void> {
+  await recordFailedFires(error, messages)
   for (const message of messages) {
     const senderId = message.metadata?.sourceSessionId
 

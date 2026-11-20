@@ -50,43 +50,9 @@ export function providerPause(device: AgentDevice): string | undefined {
     : undefined
 }
 
-/** Shown when the backend gives no reason, e.g. an older backend without the route. */
-const REMOVE_FALLBACK = t('Could not remove it. Update Nuphos and try again.')
-
 /** Only the owner removes a machine; a list without the access field is the viewer's own. */
 export function isOwner(device: Pick<AgentDevice, 'access'>): boolean {
   return device.access === undefined || device.access === 'owner'
-}
-
-/**
- * How its owner removes a machine: a Box is deleted, any time; a computer is only forgotten once
- * offline, since online it would register again.
- */
-export function removal(device: AgentDevice) {
-  if (device.box)
-    return {
-      allowed: isOwner(device),
-      title: t('Delete {name}?', { name: device.label }),
-      action: t('Delete'),
-      confirm: t('Delete computer'),
-      error: t('Could not delete computer'),
-      fallback: REMOVE_FALLBACK,
-      description: t(
-        "This permanently deletes the computer, its files and its runtimes' sign-ins, and stops tasks running on it. Your task history stays in Nuphos.",
-      ),
-    }
-
-  return {
-    allowed: isOwner(device) && !device.online,
-    title: t('Remove {name}?', { name: device.label }),
-    action: t('Remove computer'),
-    confirm: t('Remove computer'),
-    error: t('Could not remove computer'),
-    fallback: REMOVE_FALLBACK,
-    description: t(
-      'This removes the computer and its runtimes from Nuphos. Opening Nuphos on it registers it again. Your task history stays in Nuphos.',
-    ),
-  }
 }
 
 /** What a Box's state allows besides Delete, which is always there. */
@@ -163,6 +129,16 @@ export function accessHint(device: AgentDevice): string | null {
   if (!access.userIds.length) return t('Private')
 
   return t('Shared with {n}', { n: access.userIds.length })
+}
+
+/** What a Box that could not be made says: nothing is left behind, so creating it again works. */
+export function boxSetupFailed(label: string): { title: string; description: string } {
+  return {
+    title: t('Computer setup failed'),
+    description: t('{name} could not start and was removed. Try creating it again.', {
+      name: label,
+    }),
+  }
 }
 
 /** Boxes that were creating and are gone: #355 drops a Box whose machine could not be made. */
@@ -276,21 +252,20 @@ export function boxSessions(memMiB: number): number {
 const SIZE_TIERS = [
   { upTo: 2, name: t('Small'), use: t('Light tasks') },
   { upTo: 6, name: t('Medium'), use: t('Everyday work') },
-  { upTo: Infinity, name: t('Large'), use: t('Heavy builds') },
+  { upTo: 8, name: t('Large'), use: t('Heavy builds') },
+  { upTo: Infinity, name: t('Extra large'), use: t('Parallel builds') },
 ]
 
 const sessionCount = (n: number) =>
   n === 1 ? t('Up to 1 task at once') : t('Up to {n} tasks at once', { n })
 
-/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, more Large. */
+/** The sizes instabox offers, named by vCPU: up to 2 Small, up to 6 Medium, up to 8 Large, more Extra large. */
 export function boxSizeChoices(sizes: { vcpus: number; memMiB: number }[]) {
   return sizes.map(({ vcpus, memMiB }) => {
-    // 0 Small, 1 Medium, 2 Large; also how many slabs its glyph fills, less one.
     const tier = SIZE_TIERS.findIndex((size) => vcpus <= size.upTo)
 
     return {
       vcpus,
-      tier,
       name: SIZE_TIERS[tier].name,
       spec: `${String(vcpus)} vCPU · ${String(memMiB / 1024)} GiB`,
       use: SIZE_TIERS[tier].use,
