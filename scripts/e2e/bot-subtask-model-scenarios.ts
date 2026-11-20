@@ -48,6 +48,8 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await until("the running sub-Task's chip to name its model", async () =>
           (await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted'),
         )
+        await light()
+        await page.screenshot({ path: `${artifacts}/bot-subtask-model-running-light.png` })
         writeFileSync(release, '')
         await until('the sub-Task to reply', async () =>
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
