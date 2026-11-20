@@ -10,7 +10,7 @@ import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-def
 import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { scriptedUpdates } from './fixture-commands.mjs'
+import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import {
   call,
@@ -182,6 +182,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
