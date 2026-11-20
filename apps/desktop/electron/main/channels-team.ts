@@ -196,6 +196,13 @@ export const teamChannels = {
     teamId: string,
     input: { slackWorkspaceId: string; slackUserId: string },
   ) => atlas.linkMySlackUser(teamId, input),
+  'atlas:setSlackChannelBot': (
+    _e: unknown,
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ) => atlas.setSlackChannelBot(teamId, channel, botSessionId, answers),
   'atlas:upsertSlackChannelMapping': (
     _e: unknown,
     teamId: string,
@@ -207,8 +214,6 @@ export const teamChannels = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ) => atlas.deleteSlackChannelMapping(teamId, slackWorkspaceId, slackChannelId),
-  'atlas:listSlackUserMappings': (_e: unknown, teamId: string) =>
-    atlas.listSlackUserMappings(teamId),
   'atlas:upsertSlackUserMapping': (
     _e: unknown,
     teamId: string,
