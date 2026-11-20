@@ -1,12 +1,14 @@
 // #4270: a Bot's Tasks belong to its owner, so a teammate the Bot is shared with never lists
 // them. The Bot's own row says how many run or wait, for the owner and that teammate alike.
-import { rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { startDesktop } from './desktop.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 type Row = { sessionId: string; title?: string; tasks?: { running: number; waiting: number } }
 
@@ -79,6 +81,32 @@ export const botSharedTaskCountScenarios: Scenario[] = [
 
             return row?.tasks?.running === 1 ? row : undefined
           })
+        await shoot(page, 'owner', /Waiting on 1 Task: E2E unlisted kid/)
+        // The teammate's own app, signed in as them: the count, and no Task's name.
+        const signIn = join(artifacts, 'sign-in-teammate')
+
+        mkdirSync(signIn, { recursive: true })
+        writeFileSync(
+          join(signIn, 'desktop.yaml'),
+          `api: ${stack.apiUrl}\ntoken: ${teammate}\nuserInfo:\n  id: ${teammateId}\n`,
+          { mode: 0o600 },
+        )
+        const theirs = await startDesktop(stack.apiUrl, { name: 'teammate' })
+
+        try {
+          await theirs.page.getByRole('tab', { name: 'Bots' }).click()
+          await theirs.page
+            .getByRole('tabpanel', { name: 'Bots' })
+            .locator('[data-sidebar-row]')
+            .filter({ hasText: 'E2E Bot' })
+            .first()
+            .click()
+          await shoot(theirs.page, 'teammate', /Waiting on 1 Task(?!:)/)
+          if ((await theirs.page.getByText('E2E unlisted kid').count()) > 0)
+            throw new Error('The teammate sees the Task’s name')
+        } finally {
+          await theirs.stop()
+        }
       } finally {
         writeFileSync(release, '')
       }
@@ -93,3 +121,13 @@ export const botSharedTaskCountScenarios: Scenario[] = [
     },
   },
 ]
+
+/** The visible chat's status pill reads `text`; a light-theme capture for the PR. */
+async function shoot(page: Page, who: string, text: RegExp) {
+  await page.getByText(text).first().waitFor({ timeout: 30_000 })
+  await page.evaluate(() => {
+    document.documentElement.classList.remove('dark')
+    document.documentElement.classList.add('light')
+  })
+  await page.screenshot({ path: join(artifacts, `shared-bot-${who}-light.png`) })
+}
