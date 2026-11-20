@@ -447,7 +447,7 @@ test('a signed-out runtime keeps the sign-in action in the transcript', () => {
   expect(classifyPreviewInterruption(refusal, false)).toEqual({
     reason: 'error',
     message:
-      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.',
+      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again (or ask its owner to), or switch to another runtime, then resend your message.',
     cause: 'auth',
   })
   // A turn someone stopped has no cause to fix.
