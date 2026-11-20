@@ -615,7 +615,8 @@ private struct ReplyFailedLine: View {
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
             if onVerify != nil || onSwitch != nil || onRetry != nil {
-                HStack(spacing: 8) {
+                // Three fixes do not fit a small iPhone's width on one line, so they wrap.
+                FlowLayout(spacing: 8) {
                     if let onVerify {
                         Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
                     }

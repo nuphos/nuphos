@@ -127,6 +127,9 @@ class ChannelVerifyAccountFixtureDeviceTest {
         val verify = compose.onNodeWithText("Verify with Anthropic").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val switch = compose.onNodeWithText("Switch runtime").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
         val retry = compose.onNodeWithText("Retry").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-        assertTrue("Verify, then Switch runtime, then Retry", verify.left < switch.left && switch.left < retry.left)
+        // In reading order: the row wraps on a narrow phone.
+        fun before(a: androidx.compose.ui.geometry.Rect, b: androidx.compose.ui.geometry.Rect) =
+            a.top < b.top - 1 || (kotlin.math.abs(a.top - b.top) <= 1 && a.left < b.left)
+        assertTrue("Verify, then Switch runtime, then Retry", before(verify, switch) && before(switch, retry))
     }
 }

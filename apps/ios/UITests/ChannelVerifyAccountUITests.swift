@@ -49,7 +49,8 @@ final class ChannelVerifyAccountUITests: XCTestCase {
         let switchRuntime = app.buttons["chat.switchAgent"]
         let retry = app.buttons["chat.retryReply"]
         XCTAssertTrue(switchRuntime.exists && retry.exists)
-        XCTAssertLessThan(verify.frame.minX, switchRuntime.frame.minX)
-        XCTAssertLessThan(switchRuntime.frame.minX, retry.frame.minX)
+        // In reading order: the row wraps on a narrow iPhone.
+        func before(_ a: CGRect, _ b: CGRect) -> Bool { a.midY < b.minY || (abs(a.midY - b.midY) < a.height / 2 && a.minX < b.minX) }
+        XCTAssertTrue(before(verify.frame, switchRuntime.frame) && before(switchRuntime.frame, retry.frame))
     }
 }

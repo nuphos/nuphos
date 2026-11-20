@@ -544,6 +544,7 @@ private fun RecordLine(text: String) {
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
 
 /** An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onVerify: (() -> Unit)?, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
     val resets = ai.nuphos.android.ui.agent.resetsInText(ai.nuphos.android.ui.agent.ResetsIn.of(event.resetsAt.takeIf { event.cause == "usage_limit" }))
@@ -555,7 +556,9 @@ private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDeta
             Text(listOfNotNull(event.text, resets).joinToString(" "), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onVerify != null || onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Three fixes do not fit a phone's width on one line, so they wrap.
+        if (onVerify != null || onSwitch != null || onRetry != null) FlowRow(Modifier.padding(start = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             onVerify?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_verify_with_anthropic)) } }
             onSwitch?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_switch_runtime)) } }
             onRetry?.let { TextButton(onClick = it) { Text(stringResource(R.string.chats_retry)) } }
