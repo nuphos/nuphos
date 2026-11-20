@@ -245,6 +245,25 @@ struct CredentialSelection: Equatable, Sendable {
 
     init() {}
 
+    /// The kinds the server reads as every one when a stored selection leaves them unset, as the
+    /// desktop's `TEAM_WIDE_WHEN_UNSET`.
+    static let teamWideWhenUnset: Set<String> = [
+        "githubInstallationIds", "gitlabBindingIds", "grafanaInstanceIds", "sonarqubeIntegrationIds",
+        "notionIntegrationIds", "upstashAccountIds", "cloudflareAccountIds", "instaboxAccountIds", "personalCredentialIds",
+    ]
+
+    /// What a stored selection reaches: each of those kinds it left unset ticked in full, so the
+    /// picker shows what the agent can use and an edit there stores it as a list (#4034).
+    func reaching(_ catalog: CredentialCatalog?) -> CredentialSelection {
+        guard let stored, let catalog else { return self }
+        var copy = self
+        for item in catalog.allItems
+        where Self.teamWideWhenUnset.contains(item.provider.selectionKey) && !stored.contains(item.provider.selectionKey) {
+            copy.ids[item.provider.selectionKey, default: []].insert(item.id)
+        }
+        return copy
+    }
+
     /// Drops ids the catalog no longer offers.
     func pruned(to catalog: CredentialCatalog) -> CredentialSelection {
         var copy = self
