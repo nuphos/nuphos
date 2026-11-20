@@ -207,6 +207,11 @@ export function formatAgentHttpError(
   error: AgentHttpErrorPayload,
   context: AgentErrorContext,
 ): string {
+  // The vCPU limit's refusal is an answer, not a fault: it already names the limit the team
+  // hit and how to lift it (box-vcpu.ts), so diagnostics would only bury the sentence that
+  // helps. This is how a send to a paused Box the limit cannot resume reads. Other payment
+  // failures keep their diagnostics; their messages are not written to stand on their own.
+  if (error.code === 'box_vcpu_limit') return error.message
   const status = httpStatusLine(error.status, error.statusText)
   const headline = error.code
     ? `Agent chat request failed with ${error.code} (${status}).`
