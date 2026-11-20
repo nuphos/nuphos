@@ -261,6 +261,21 @@ final class BotsAndTasksListUITests: XCTestCase {
         }
         page["body"] = body
         responses["GET /agent/conversations?bots=true"] = page
+        // The shared Bot's chat, a teammate's handoff in it.
+        var chat = try XCTUnwrap(responses["GET /agent/conversations/chat-lead"] as? [String: Any])
+        var detail = try XCTUnwrap(chat["body"] as? [String: Any])
+        detail["sessionId"] = "chat-notes"
+        detail["botId"] = "bot-notes"
+        detail["faces"] = [Self.face("bot-notes", "Notes Bot", "13-shakespeare")]
+        detail["messages"] = [
+            Self.post("n1", from: ["type": "user", "id": "u-ana", "displayName": "Ana"], text: "Draft the 2.4 release notes."),
+            Self.post("n2", from: ["type": "agent", "id": "bot-notes", "displayName": "Notes Bot"],
+                      text: "On it. A Task is collecting the merged changes."),
+        ]
+        chat["body"] = detail
+        responses["GET /agent/conversations/chat-notes"] = chat
+        responses["GET /agent/conversations/chat-notes/agents"] = ["status": 200, "body": ["agents": [
+            ["sessionId": "bot-notes", "title": "Notes Bot", "ownerId": "u-ana"]]]]
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
         launch(page: "chats")
 
