@@ -18,6 +18,7 @@ export function storedConversationCredentialAccess(
   options: AgentCredentialOptions,
 ): AgentCredentialSelection {
   const shown = reconcileStoredCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS, options)
+
   if (!credentialOptionsLoaded(options)) return shown
   const all = allCredentialAccess(options)
   const unset = TEAM_WIDE_WHEN_UNSET.filter((kind) => stored?.[kind] == null)
