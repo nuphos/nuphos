@@ -103,10 +103,7 @@ async function blankScreenGivesUp(page: Page) {
   await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
 }
 
-/**
- * Makes a connected computer a Box on the e2e instabox, as Nuphos records one its user ordered,
- * shared with `userIds`, of whom `managerIds` manage it.
- */
+/** Records a connected computer as a Box ordered on the e2e instabox, shared as `share` says. */
 async function makeBox(
   stack: Stack,
   deviceId: string,
