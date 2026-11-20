@@ -4046,6 +4046,7 @@
   "Runtime terminal": "运行环境终端",
   "Runtime: {label}": "运行环境：{label}",
   "Runtimes": "运行环境",
+  "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Rent one, then refresh.": "你电脑上的运行环境无法运行仪表板面板，团队的运行环境或向 Nuphos 租的电脑可以。租一台后再刷新。",
   "Runtimes|search": "运行环境",
   "S3 Buckets": "S3 存储桶",
   "S3 bucket {name} was not found.": "未找到 S3 存储桶 {name}。",
