@@ -94,7 +94,7 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   for (const baseUrl of [`/v1`, `/v1/chat/completions`].map((p) => `http://127.0.0.1:${port}${p}`))
     await assert.rejects(
       saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
-      /doesn’t serve the OpenAI Responses API Codex needs/u,
+      /Codex needs the OpenAI Responses API, which this URL doesn’t serve/u,
     )
   assert.deepEqual(seen, [
     { url: '/v1/responses', auth: 'Bearer sk-gw-secret', body: '{}' },

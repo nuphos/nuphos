@@ -162,7 +162,7 @@ export async function saveCustomProvider(
 
   if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
     throw new Error(
-      'This provider doesn’t serve the OpenAI Responses API Codex needs. Enter its base URL, such as https://api.example.com/v1.',
+      'Codex needs the OpenAI Responses API, which this URL doesn’t serve. Use the provider’s base URL, such as https://api.example.com/v1.',
     )
   if (key) {
     try {
