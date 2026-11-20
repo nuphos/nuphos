@@ -98,12 +98,3 @@ test('only runtime/<id> reaches the runtime route; any other id stays one segmen
     `${base}/a%2Fb/2`,
   ])
 })
-
-test("a Box's whole desktop streams from its device route, scoped to the team", async () => {
-  const desktops = new RuntimeDesktopSessions()
-  const { owner } = page()
-
-  await desktops.start(owner, 'box-view', { teamId: 'team 1', boxId: 'dev/1' })
-  assert.equal(urls.at(-1), 'wss://api.example.test/agent/devices/dev%2F1/box/vnc?teamId=team%201')
-  desktops.close(owner, 'box-view')
-})

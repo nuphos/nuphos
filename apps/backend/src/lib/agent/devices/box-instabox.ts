@@ -8,7 +8,7 @@
 // from the device's presence, so a machine that instabox paused on its own is
 // seen, and woken, like one Nuphos paused.
 
-import { DEFAULT_API_URL, InstaboxAuthError, Sandbox } from '@insforge/instabox-sdk'
+import { Sandbox } from '@insforge/instabox-sdk'
 
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
@@ -31,7 +31,6 @@ import { getAgentDevice } from './store'
 
 import type { createBox } from './box-instabox-create'
 import type { BoxState } from './box-instabox-state'
-import type { BoxVncUpstream } from './box-instabox-vnc'
 import type { AgentDevice, AgentDeviceBox } from './store'
 
 export { boxBackendUrl, boxesAvailable } from './box-instabox-client'
@@ -46,10 +45,6 @@ export type BoxProvider = {
   resume: (userId: string, deviceId: string) => Promise<AgentDevice>
   /** False when the machine may still run at the provider; the computer is deleted either way. */
   destroy: (userId: string, deviceId: string) => Promise<boolean>
-  /** Starts the Box's desktop, to watch and take over what its agents do. */
-  desktop: (userId: string, deviceId: string) => Promise<void>
-  /** Where the viewer's stream of that desktop goes. */
-  vnc: (userId: string, deviceId: string) => Promise<BoxVncUpstream>
   /** Starts the host again on a running machine whose host dropped; rate-limited. */
   heal: (userId: string, deviceId: string) => void
   /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
@@ -75,52 +70,6 @@ function requireMachine(device: BoxDevice): string {
     throw new AppError(409, 'box_state', 'The computer is still being created')
 
   return device.box.sandboxId
-}
-
-/**
- * Wakes the Box and starts its desktop, which the viewer then reaches over
- * boxVncUpstream. Not a desktop link: instabox makes those only for the machine's
- * creator, never for a workspace key such as the deployment's.
- */
-export async function startBoxDesktop(userId: string, deviceId: string): Promise<void> {
-  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
-  const sandboxId = requireMachine(device)
-
-  try {
-    const sandbox = await startBox(device.box, { sandboxId }, async () =>
-      Sandbox.connect(sandboxId, {
-        ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
-        resume: true,
-      }),
-    )
-
-    await sandbox.desktop.start()
-  } catch (error) {
-    // A team's own key that may not drive its machines; the deployment's is Nuphos's to fix.
-    if (device.box.accountId && error instanceof InstaboxAuthError)
-      throw new AppError(
-        409,
-        'instabox_key_rejected',
-        "Your instabox API key cannot open this computer's desktop. A team administrator can bind the account again under Settings → Integrations with a key that has the machines:write scope.",
-      )
-    throw unavailable("Could not open the computer's desktop", error)
-  }
-}
-
-/**
- * instabox's VNC WebSocket for the Box's desktop and the header that admits it.
- * The header is the account's key: it stays on this server and is never logged.
- */
-export async function boxVncUpstream(userId: string, deviceId: string): Promise<BoxVncUpstream> {
-  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
-  const sandboxId = requireMachine(device)
-  const conn = await boxConnection(device.box, QUICK_TIMEOUT_MS)
-  const api = (conn.apiUrl ?? DEFAULT_API_URL).replace(/^http/u, 'ws')
-
-  return {
-    url: `${api}/v1/machines/${encodeURIComponent(sandboxId)}/vnc`,
-    headers: { 'X-API-Key': conn.apiKey },
-  }
 }
 
 const lastHeal = new Map<string, number>()

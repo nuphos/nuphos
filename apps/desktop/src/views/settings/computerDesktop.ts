@@ -2,14 +2,10 @@ import { api } from '../../api'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { openBoxDesktop, openComputerScreen } from './boxDesktop'
+import { openComputerScreen } from './boxDesktop'
 
-/**
- * Opens a running Box's desktop, or with `runtimeId` the screen of the viewer's own computer
- * through that runtime's tunnel, as the iPhone opens it.
- */
-export function openDesktop(deviceId: string, teamId: string, runtimeId?: string): void {
-  if (!runtimeId) return openBoxDesktop(deviceId, teamId)
+/** Opens the screen of the viewer's own computer through its runtime's tunnel, as the iPhone opens it. */
+export function openDesktop(deviceId: string, teamId: string, runtimeId: string): void {
   const sessionId = `runtime/${runtimeId}`
 
   api

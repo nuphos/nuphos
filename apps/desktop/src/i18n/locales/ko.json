@@ -5336,7 +5336,6 @@
   "You haven't started any tasks yet.": "아직 시작한 태스크가 없습니다.",
   "You mentioned {names}, but they are not in this Bot yet.": "멘션한 사용자가 아직 이 봇에 참여하지 않았습니다: {names}",
   "You mentioned {names}, but they are not in this task yet.": "멘션한 사용자가 아직 이 태스크에 참여하지 않았습니다: {names}",
-  "You no longer have access to this computer’s desktop.": "더 이상 이 컴퓨터의 데스크톱에 접근할 수 없습니다.",
   "You pay for the vCPU of running computers; each computer counts at its own size.": "실행 중인 컴퓨터의 vCPU만큼 요금이 부과되며, 각 컴퓨터는 크기에 따라 계산됩니다.",
   "You stay signed in to the others, and can switch back any time.": "다른 계정은 로그인된 상태로 유지되며 언제든 다시 전환할 수 있습니다.",
   "You'll lose access until someone invites you back.": "누군가 다시 초대할 때까지 액세스 권한을 잃게 됩니다.",

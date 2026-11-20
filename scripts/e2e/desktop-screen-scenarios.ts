@@ -1,18 +1,22 @@
 // Open desktop on a computer's own screen paints, takes input and paints again after its host
 // left (#2947, #2954); one that never shows a picture gives up with Try again. The hosts are
 // stand-ins speaking the Mac host's protocol (fake-mac-screen-host.mjs), so any CI computer runs it.
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
+import { instaboxMachines } from './instabox-stub.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { openComputers } from './ui.ts'
 
+import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const LABEL = 'E2E screen'
 const BLANK_LABEL = 'E2E blank screen'
+const BOX_LABEL = 'E2E Box screen'
 /** Runs the stand-in through node, so it needs no executable bit in the checkout. */
 const HOST = join(artifacts, 'fake-mac-screen-host')
 /** The host leaves a minute after its last viewer; this is longer, so the reopen starts it again. */
@@ -96,6 +100,23 @@ async function blankScreenGivesUp(page: Page) {
   await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
 }
 
+/** Makes a connected computer a Box on the e2e instabox, as Nuphos records one it ordered. */
+function makeBox(stack: Stack, deviceId: string, sandboxId: string) {
+  const script = `
+    import { MongoClient } from 'mongodb'
+    const [uri, deviceId, box] = process.argv.slice(1)
+    const client = await new MongoClient(uri).connect()
+    await client.db('nuphos_e2e').collection('agent_devices').updateOne({ deviceId }, { $set: { box: JSON.parse(box) } })
+    await client.close()`
+  const box = { provider: 'instabox', sandboxId, teamId: stack.teamId, createdBy: 'e2e' }
+
+  instaboxMachines.set(sandboxId, { id: sandboxId, state: 'running', operations: [] })
+  execFileSync('bun', ['-e', script, stack.mongoUri, deviceId, JSON.stringify(box)], {
+    cwd: resolve(import.meta.dirname, '../../apps/backend'),
+    timeout: 10_000,
+  })
+}
+
 export const desktopScreenScenarios: Scenario[] = [
   {
     name: 'a computer’s screen paints, takes input, and paints again when opened after its host left; one with no picture gives up with Try again',
@@ -134,6 +155,37 @@ export const desktopScreenScenarios: Scenario[] = [
           throw new Error(`The screen host started ${String(starts())} times, not twice`)
       } finally {
         await Promise.all([computer.stop(), blank.stop()])
+      }
+    },
+  },
+  {
+    // #4100: instabox gives a workspace key no desktop link, so a Box's desktop opens through
+    // its own host, as any of the owner's computers does, and never asks instabox for a link.
+    name: 'a Box’s desktop opens through its host and paints',
+    run: async (page, stack) => {
+      writeFileSync(
+        HOST,
+        `#!/bin/sh\nexec node ${JSON.stringify(resolve(import.meta.dirname, 'fake-mac-screen-host.mjs'))} "$@"\n`,
+        { mode: 0o755 },
+      )
+      const computer = await startSecondComputer(stack, BOX_LABEL, {
+        env: { NUPHOS_E2E_MAC_SCREEN_HOST: HOST },
+      })
+      const sandboxId = `m_e2e_${computer.deviceId.slice(0, 8)}`
+
+      try {
+        makeBox(stack, computer.deviceId, sandboxId)
+        await openDesktop(page, BOX_LABEL)
+        await until('the Box’s desktop to paint', async () => {
+          const { opaque, colours } = await painted(page)
+
+          return opaque > 500 && colours >= 6
+        })
+        await page.screenshot({ path: join(artifacts, 'desktop-screen-box.png') })
+        await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
+      } finally {
+        instaboxMachines.delete(sandboxId)
+        await computer.stop()
       }
     },
   },

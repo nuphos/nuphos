@@ -5336,7 +5336,6 @@
   "You haven't started any tasks yet.": "คุณยังไม่ได้เริ่มงานใดเลย",
   "You mentioned {names}, but they are not in this Bot yet.": "คุณกล่าวถึง {names} แต่ยังไม่ได้อยู่ในบอทนี้",
   "You mentioned {names}, but they are not in this task yet.": "คุณกล่าวถึง {names} แต่ยังไม่ได้อยู่ในงานนี้",
-  "You no longer have access to this computer’s desktop.": "คุณไม่มีสิทธิ์เข้าถึงเดสก์ท็อปของคอมพิวเตอร์เครื่องนี้อีกต่อไป",
   "You pay for the vCPU of running computers; each computer counts at its own size.": "คุณจ่ายตาม vCPU ของคอมพิวเตอร์ที่กำลังทำงาน โดยคิดตามขนาดของแต่ละเครื่อง",
   "You stay signed in to the others, and can switch back any time.": "บัญชีอื่นยังคงลงชื่อเข้าใช้อยู่ และสลับกลับได้ทุกเมื่อ",
   "You'll lose access until someone invites you back.": "คุณจะเสียสิทธิ์เข้าถึงจนกว่าจะมีคนเชิญคุณกลับมา",

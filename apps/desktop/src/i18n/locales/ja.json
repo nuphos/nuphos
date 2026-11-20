@@ -5336,7 +5336,6 @@
   "You haven't started any tasks yet.": "まだタスクを開始していません。",
   "You mentioned {names}, but they are not in this Bot yet.": "{names} をメンションしましたが、まだこのボットに参加していません。",
   "You mentioned {names}, but they are not in this task yet.": "{names} をメンションしましたが、まだこのタスクに参加していません。",
-  "You no longer have access to this computer’s desktop.": "このコンピュータのデスクトップにアクセスできなくなりました。",
   "You pay for the vCPU of running computers; each computer counts at its own size.": "実行中のコンピュータの vCPU に対して課金されます。各コンピュータはそれぞれのサイズで計算されます。",
   "You stay signed in to the others, and can switch back any time.": "ほかのアカウントはサインインしたままで、いつでも切り替えて戻れます。",
   "You'll lose access until someone invites you back.": "再度招待されるまでアクセスできなくなります。",

@@ -255,9 +255,15 @@ test('a computer with no agent still opens its own desktop, for its owner in its
     seenAt: Date.now(),
   })
   await refused('owner', { runtimeId: 'local_owner_gone' })
-  // A Box gets no address in the device list, and opens by its runtime only inside its own team.
+  // A Box's owner opens it by its runtime like any computer of theirs, only inside its own team.
   box = { teamId: 'team' }
-  expect(await ownComputer({ ...mac, box }, 'owner', presence)).toEqual({ outdated: 'desktop' })
+  const boxed = { ...mac, box }
+
+  expect(await ownComputer(boxed, 'owner', presence)).toEqual({
+    desktopRuntimeId: own.runtimeId,
+    app,
+    outdated: 'desktop',
+  })
   expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
   box = { teamId: 'other' }
   await refused('owner')

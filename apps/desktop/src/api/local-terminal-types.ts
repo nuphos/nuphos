@@ -6,9 +6,8 @@ export type LocalTerminalEvent =
 
 export type TerminalTarget = { teamId: string; sessionId: string }
 
-/** A conversation's desktop on its Box: the X display the Box gave it; or a Box's whole desktop. */
-export type DesktopTarget =
-  (TerminalTarget & { display: number }) | { teamId: string; boxId: string }
+/** A conversation's desktop on its Box: the X display the Box gave it. */
+export type DesktopTarget = TerminalTarget & { display: number }
 
 /** Frames of a desktop stream, base64 RFB bytes; `open` once the backend accepted the viewer. */
 export type RuntimeDesktopEvent =

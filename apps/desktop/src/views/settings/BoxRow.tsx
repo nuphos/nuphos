@@ -26,6 +26,7 @@ import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
+import { openBoxDesktop } from './boxDesktop'
 import { openDesktop } from './computerDesktop'
 import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
@@ -70,7 +71,7 @@ export function BoxRow({
   const AccessDialog = cloud ? BoxAccessDialog : LocalAgentShareDialog
   const manage = canManage(device)
   const owner = useComputerOwner(teamId, device)
-  // Besides a Box, another of the viewer's own computers whose host opens its screen.
+  // Another of the viewer's own computers, a Box too, whose host opens its screen.
   const screen = thisComputer ? undefined : device.desktopRuntimeId
   const remove = removal(device)
   const badge = computerBadge(state, useThisComputerConnection(thisComputer))
@@ -183,8 +184,14 @@ export function BoxRow({
               <Ellipsis className="h-4 w-4" />
             </MenuTrigger>
             <MenuContent align="end">
-              {(cloud ? state === 'running' : screen) && (
-                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen)}>
+              {screen && (
+                <MenuItem
+                  onClick={() => {
+                    // A Box's tab can switch to its sessions' displays there.
+                    if (cloud) openBoxDesktop(device.deviceId, teamId)
+                    else openDesktop(device.deviceId, teamId, screen)
+                  }}
+                >
                   {t('Open desktop')}
                 </MenuItem>
               )}
