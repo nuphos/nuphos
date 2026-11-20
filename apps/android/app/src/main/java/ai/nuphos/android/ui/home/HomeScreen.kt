@@ -601,6 +601,7 @@ fun HomeScreen(
             user = user,
             onDismiss = { showProfile = false },
             workspaceName = store.selectedTeam?.name,
+            teamId = store.selectedTeam?.id,
             workspacePicker = workspacePicker,
         )
     }

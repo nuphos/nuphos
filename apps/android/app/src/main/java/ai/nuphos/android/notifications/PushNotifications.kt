@@ -67,6 +67,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             prefs.edit().remove("account").remove("login_hash").remove("consent_granted").commit()
         }
         app.localNotifications.clear(clearPending)
+        app.localNotifications.clearComputerAlerts()
         if (FirebaseApp.getApps(app).isNotEmpty()) FirebaseMessaging.getInstance().isAutoInitEnabled = false
         if (oldLogin != null && oldRegistration != null) unregistering = scope.launch {
             mutex.withLock {
@@ -162,6 +163,12 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             val badge = data["badge"]?.toIntOrNull()?.takeIf { it >= 0 }
             if (data["kind"] == "badge") {
                 if (badge != null) app.localNotifications.updateBadge(badge)
+                return
+            }
+            if (data["kind"] == "computer") {
+                val computerId = data["computerId"] ?: return
+                val title = data["title"] ?: return
+                app.localNotifications.postComputerAlert(computerId, title, data["body"].orEmpty())
                 return
             }
             val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return
