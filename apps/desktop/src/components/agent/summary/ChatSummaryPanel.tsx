@@ -1,5 +1,5 @@
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
@@ -26,12 +26,14 @@ import {
   panelClass,
   slotClass,
   useDismissOutside,
+  useSummaryMotion,
   useSummaryPlacement,
 } from './summaryPlacement'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
+import type { Motion } from './summaryPlacement'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent, ReactNode } from 'react'
@@ -59,9 +61,6 @@ type Props = {
   onDismiss?: () => void
 }
 
-// Matches `.t-summary-slot-out` in index.css.
-const CLOSE_MS = 300
-
 /** The panel beside the transcript, mounted while open and while it slides shut. */
 export function ChatSummaryPanel({
   open,
@@ -70,22 +69,12 @@ export function ChatSummaryPanel({
   ...props
 }: Props & { open: boolean }) {
   const paneId = usePaneId()
-  const [mounted, setMounted] = useState(open)
-
-  if (open && !mounted) setMounted(true)
-
-  useEffect(() => {
-    if (open || !mounted) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timer = window.setTimeout(() => setMounted(false), reduced ? 0 : CLOSE_MS)
-
-    return () => window.clearTimeout(timer)
-  }, [open, mounted])
+  const { mounted, motion } = useSummaryMotion(open)
 
   const close = onClose ?? (() => setChatSummaryOpen(paneId, false))
 
   return mounted ? (
-    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} closing={!open} />
+    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} motion={motion} />
   ) : null
 }
 
@@ -192,8 +181,9 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
-  closing,
-}: Props & { onClose: () => void; onDismiss: () => void; closing: boolean }) {
+  motion,
+}: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
+  const closing = motion === 'out'
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const frameRef = useRef<HTMLSpanElement>(null)
@@ -230,7 +220,7 @@ function SummaryBody({
       onKeyDown={(event) => closeOnEscape(event, frameRef.current, close)}
       style={style}
       data-origin="top-right"
-      className={panelClass(floating, closing, selected !== null)}
+      className={panelClass(floating, motion, selected !== null)}
     >
       {selected ? (
         <SessionInputReply
@@ -293,7 +283,7 @@ function SummaryBody({
     // Beside the transcript the slot's width grows and shrinks so the transcript
     // reflows with the panel. Floating, the panel is a popover under the
     // titlebar toggle, above the header's fade, so it renders at the root.
-    <div className={slotClass(floating, closing, selected !== null)}>
+    <div className={slotClass(floating, motion, selected !== null)}>
       <span ref={frameRef} aria-hidden className="pointer-events-none absolute inset-0" />
       {floating ? createPortal(panel, document.body) : panel}
     </div>
