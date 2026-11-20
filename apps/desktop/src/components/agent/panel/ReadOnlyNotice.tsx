@@ -225,9 +225,9 @@ export function AgentStatusBanner({
               {putAway && (
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-6 w-6 shrink-0 px-0"
+                  className="shrink-0"
                   title={t('Dismiss for today')}
                   aria-label={t('Dismiss for today')}
                   data-testid="disk-notice-dismiss"
