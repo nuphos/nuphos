@@ -39,6 +39,9 @@ export async function startDesktop(
     env: {
       ...env,
       NUPHOS_API_URL: apiUrl,
+      // Lets the window keep the modules it fetched, so a scenario's reload costs no
+      // requests instead of ~2,100 at once (apps/desktop/vite.config.ts).
+      NUPHOS_E2E: '1',
       // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
       NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
       // A name of its own gives the app a profile of its own, away from any installed app's.
