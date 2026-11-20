@@ -41,17 +41,20 @@ export async function listPendingUserMessages(
   return [...(localQueues.get(key) ?? []), ...stored]
 }
 
-/** The questions queued messages answer, each with the message answering it. */
+/**
+ * The questions queued messages answer or dismiss, each with the message: a
+ * reply typed in the chat, or the notice of a card's answer.
+ */
 export async function queuedAnswers(
   userId: string,
   sessionId: string,
-): Promise<Map<string, string>> {
-  const answers = new Map<string, string>()
+): Promise<Map<string, PendingUserMessage>> {
+  const answers = new Map<string, PendingUserMessage>()
 
   for (const message of await listPendingUserMessages(userId, sessionId)) {
-    const id = message.chat?.decisionReplyTo
+    const id = message.answers?.id ?? message.chat?.decisionReplyTo
 
-    if (id && !answers.has(id)) answers.set(id, message.id)
+    if (id && !answers.has(id)) answers.set(id, message)
   }
 
   return answers
