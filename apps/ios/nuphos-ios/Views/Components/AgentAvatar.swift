@@ -17,12 +17,12 @@ struct AgentAvatar: View {
                         AsyncImage(url: url) { phase in
                             if let image = phase.image {
                                 image.resizable().scaledToFill()
+                                    .frame(width: size, height: size)
+                                    .clipShape(Circle())
                             } else {
                                 Image(BotAvatars.asset(for: agentId)).resizable().scaledToFit()
                             }
                         }
-                        .frame(width: size, height: size)
-                        .clipShape(Circle())
                     } else {
                         Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
                     }
