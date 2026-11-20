@@ -16,6 +16,7 @@ import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
+import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -115,6 +116,7 @@ const scenarios: Scenario[] = [
   ...channelScenarios,
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
+  ...channelRestartScenarios,
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
