@@ -35,7 +35,7 @@ export function sessionResourceToolModule(): PreviewToolModule {
       {
         name: 'bind_session_resource',
         description:
-          'Link a GitHub PR, GitLab merge request or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events automatically wake this same conversation with its existing permissions, and restore it if archived. GitLab merge requests and Linear issues are linked for navigation only; their state is rechecked while the conversation is open. Linking the same resource again keeps one link and refreshes its title and state. Only the conversation owner or a manager can bind.',
+          'Link a GitHub PR or issue, GitLab merge request or Linear issue to this conversation after creating or adopting it. The backend verifies the resource through a selected integration. GitHub PR events, and new comments on a GitHub issue from people who can push to its repository, automatically wake this same conversation with its existing permissions, and restore it if archived. GitLab merge requests and Linear issues are linked for navigation only; their state is rechecked while the conversation is open. Linking the same resource again keeps one link and refreshes its title and state. Only the conversation owner or a manager can bind.',
         inputSchema: toolInputJsonSchema(bind),
       },
       {

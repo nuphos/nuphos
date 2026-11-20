@@ -3,6 +3,7 @@ import { AppError } from '@/lib/errors'
 
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
+import { changedBy, writeTrigger } from '../trigger-history'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { assertTriggerCreationQuota } from './quota'
@@ -119,12 +120,19 @@ export async function updateTrigger(
     update.$unset = $unset
   }
   update.$inc = { configRevision: 1 }
-  const writeResult = await agentTriggers().updateOne(
-    { _id, ...triggerConfigRevisionFilter(currentConfigRevision) },
-    update,
+  const written = await writeTrigger(
+    { before: trigger, after: updated, by: changedBy(actor) },
+    async (session) =>
+      (
+        await agentTriggers().updateOne(
+          { _id, ...triggerConfigRevisionFilter(currentConfigRevision) },
+          update,
+          { session },
+        )
+      ).matchedCount > 0,
   )
 
-  if (writeResult.matchedCount === 0) {
+  if (!written) {
     const current = await agentTriggers().findOne({ _id })
 
     throw new AppError(
@@ -164,7 +172,14 @@ export async function updateTrigger(
       }
     }
   } catch (err) {
-    await rollbackTriggerUpdate({ _id, triggerId, trigger, currentConfigRevision, reconcileCron })
+    await rollbackTriggerUpdate({
+      _id,
+      triggerId,
+      trigger,
+      updated,
+      currentConfigRevision,
+      reconcileCron,
+    })
     throw err
   }
 

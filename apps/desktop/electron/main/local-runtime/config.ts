@@ -216,7 +216,8 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
 
 /**
  * The jobs this runtime offers. Everywhere: the backend's fixed attachment program, bundled,
- * so a turn's files arrive as a list of signed URLs and no program text crosses the wire. On a
+ * so a turn's files arrive as a list of signed URLs and no program text crosses the wire, and
+ * its fixed program that removes an archived conversation's home, given only its id. On a
  * machine Nuphos made, also `panel`, which runs the script the backend sends, as the runtime
  * image does; never on a person's computer. openab clears a job's environment and splits its
  * command on whitespace, so Electron's run-as-Node switch rides in through `env`. A job that
@@ -231,6 +232,7 @@ function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   })
   const jobs = [
     job('attachments', program('attachment-job.mjs')),
+    job('session-homes', program('session-home-reclaim-job.mjs')),
     ...(launch.ownsMachine
       ? [job('panel', '--max-old-space-size=512', program('panel-job.mjs'))]
       : []),

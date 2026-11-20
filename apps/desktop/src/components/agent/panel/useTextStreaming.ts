@@ -7,6 +7,9 @@ import { foldTextDeltaIntoTab, takeStreamChunk, streamDelayFor } from './streamT
 
 import type { PanelCtx } from './ctx'
 
+// More than this between two typing ticks is a replay catching up, not a model typing: shown at once.
+const CATCH_UP_CHARS = 2_000
+
 type Acc = Pick<
   PanelCtx,
   'queueTranscriptSync' | 'setTabs' | 'tabsRef' | 'teamIdRef' | 'textBuffersRef'
@@ -44,6 +47,7 @@ export function useTextStreaming(acc: Acc) {
         const entry = textBuffersRef.current.get(id)
 
         if (!entry) return
+        entry.received = 0
         const streamStillActive = tabsRef.current.some((t) => t.streamId === id)
 
         if (!streamStillActive) {
@@ -56,6 +60,7 @@ export function useTextStreaming(acc: Acc) {
         entry.timer = null
         if (!entry.text) {
           textBuffersRef.current.delete(id)
+          entry.onDrained?.()
 
           return
         }
@@ -78,32 +83,6 @@ export function useTextStreaming(acc: Acc) {
     [appendTextToStream],
   )
 
-  const enqueueTextDelta = useCallback(
-    (streamId: string, delta: string) => {
-      if (!delta) return
-      const existing = textBuffersRef.current.get(streamId)
-
-      if (existing) {
-        existing.text += delta
-        if (existing.timer === null) {
-          existing.timer = window.setTimeout(
-            () => drainTextBuffer(streamId),
-            streamDelayFor(existing.text.length),
-          )
-        }
-
-        return
-      }
-      const entry = {
-        text: delta,
-        timer: window.setTimeout(() => drainTextBuffer(streamId), streamDelayFor(delta.length)),
-      }
-
-      textBuffersRef.current.set(streamId, entry)
-    },
-    [drainTextBuffer],
-  )
-
   const flushTextBuffer = useCallback(
     (streamId: string) => {
       const entry = textBuffersRef.current.get(streamId)
@@ -115,6 +94,27 @@ export function useTextStreaming(acc: Acc) {
       entry.onDrained?.()
     },
     [appendTextToStream],
+  )
+
+  const enqueueTextDelta = useCallback(
+    (streamId: string, delta: string) => {
+      if (!delta) return
+      const entry = textBuffersRef.current.get(streamId) ?? { text: '', received: 0, timer: null }
+
+      textBuffersRef.current.set(streamId, entry)
+      entry.text += delta
+      entry.received += delta.length
+      // The rest of a catch-up, until the next tick, joins it at once instead of being typed.
+      if (entry.received > CATCH_UP_CHARS) {
+        appendTextToStream(streamId, entry.text)
+        entry.text = ''
+      }
+      entry.timer ??= window.setTimeout(
+        () => drainTextBuffer(streamId),
+        streamDelayFor(entry.text.length),
+      )
+    },
+    [drainTextBuffer, appendTextToStream],
   )
 
   const deferEndUntilTextDrained = useCallback(

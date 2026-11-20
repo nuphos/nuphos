@@ -54,6 +54,10 @@ class MessageAttributionTest {
         assertNull(sender("agent.resource", "system", "channel:")?.channelId)
         assertNull(sender("agent.thread", "agent", "channel:channel-1")?.channelId)
         assertNull(sender("nuphos", "user", "channel:channel-1")?.channelId)
+        // A Slack channel's wake line names the channel and opens nothing: its record stays hidden (#3925).
+        val slack = sender("agent.resource", "system", "slack-channel:r1")
+        assertTrue(slack?.isEvent == true)
+        assertNull(slack?.channelId)
     }
 
     @Test fun aChannelWakeCarriesItsNewestPostForTheLine() {

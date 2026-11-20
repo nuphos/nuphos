@@ -118,7 +118,7 @@ export function threadToolModule(
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
           'It does not inherit your transcript. It always runs in the permission mode of the ' +
           'conversation at the top of yours. It runs on your agent, or on the ' +
-          "one runtimeId names from list_agent_runtimes (never someone's computer). " +
+          'one runtimeId names from list_agent_runtimes. ' +
           'It uses the credentials and computers of the conversation at the top of yours, ' +
           'always the same as yours, and changes when that selection changes. ' +
           "model, effort and fast set its model picker before its first turn; its agent's defaults otherwise. " +
@@ -168,11 +168,11 @@ export function threadToolModule(
       {
         name: 'list_agent_runtimes',
         description:
-          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
+          "List the agents (runtimes) your threads can run on: the team's, and those on your Boxes and computers, with each one's readiness, " +
           'usage quota and the models it offers. Use it to pick a runtimeId or model for create_thread ' +
           "or update_thread, for example when a thread has hit its agent's usage limit. " +
           'Agents listed in sharesQuotaWith are signed in to the same account and run out ' +
-          'together: moving to one of them does not get past a limit.',
+          'together: moving to one of them does not get past a limit. One a thread cannot use says why in unavailable.',
         inputSchema: toolInputJsonSchema(list),
       },
       {
@@ -184,7 +184,7 @@ export function threadToolModule(
           "always. A thread under a parent always runs in its top conversation's mode, so " +
           'fullAccess is refused for it. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
-          "(never to someone's computer); its next turn " +
+          'that is ready; its next turn ' +
           "runs there. model, effort and fast set the thread's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
           "the choices. A new thread already starts on this conversation's " +

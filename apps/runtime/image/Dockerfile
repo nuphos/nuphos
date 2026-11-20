@@ -122,8 +122,10 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
     OPENAB_RUNTIME_AUTH_COMMAND="node /opt/nuphos-runtime/antigravity-status-cli.mjs"
 
 FROM common AS opencode
+# OpenCode answers on its free models with no provider connected, so it is always signed in.
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
     OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \
+    OPENAB_RUNTIME_AUTH_COMMAND="echo true" \
     OPENAB_ADAPTER_VERSION="opencode@1.18.35" \
     NUPHOS_RUNTIME_PREINSTALL=opencode
 

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { mock, test } from 'node:test'
 
 import type { ChatStreamCtx } from './chat-shared.ts'
@@ -10,6 +11,14 @@ mock.module('../client-version.ts', {
 const { resolveStreamOutcome } = await import('./chat-outcome.ts')
 const { consumeChatStream } = await import('./chat-read.ts')
 const { createChatStreamState } = await import('./chat-shared.ts')
+
+// What the backend answers a resume whose run buffer expired; its run-store test checks the same file.
+const expiredResumeFrames = JSON.parse(
+  readFileSync(
+    new URL('../../../backend/src/lib/agent/run-store/expired-resume-frames.json', import.meta.url),
+    'utf8',
+  ),
+) as Record<string, unknown>[]
 
 function sse(...frames: Record<string, unknown>[]): Response {
   return new Response(frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join(''), {
@@ -276,6 +285,22 @@ test('a provider out of usage stops at once instead of resending the turn', asyn
     emitted.some((e) => e.data?.type === 'turn-interrupted'),
     true,
   )
+})
+
+// #3713: the client resumed after the run ended and its buffer expired; the stored transcript has it.
+test('a resume whose run stream expired stops at once instead of resuming again', async () => {
+  const { ctx, emitted } = retryContext()
+
+  ctx.state.resumeFrom = 11
+  const read = await consumeChatStream(ctx, sse(...expiredResumeFrames), true)
+
+  if (read.kind !== 'read') throw new Error('expected read')
+  assert.equal(await resolveStreamOutcome(ctx, read, true, Date.now(), true), 'stop')
+  assert.equal(
+    emitted.some((e) => e.type === 'reset-partial'),
+    false,
+  )
+  assert.equal(emitted.filter((e) => e.type === 'error').length, 1)
 })
 
 test('a runtime out of disk space stops at once instead of resending the turn', async () => {

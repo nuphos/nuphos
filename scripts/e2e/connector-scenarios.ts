@@ -1,5 +1,8 @@
 // Scenarios about connecting a provider from the Connectors dialog.
-import { artifacts } from './processes.ts'
+import assert from 'node:assert/strict'
+import { writeFileSync } from 'node:fs'
+
+import { artifacts, until } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -9,6 +12,74 @@ const REJECTION =
   "The requested scope is invalid, unknown, or malformed. The OAuth 2.0 Client is not allowed to request scope 'dns-firewall.read'."
 
 export const connectorScenarios: Scenario[] = [
+  {
+    // #3848: Connect used to leave the dialog for Settings without starting authorization.
+    name: 'a personal Connect starts authorization without leaving the current route',
+    run: async (page) => {
+      const fixture = await page.evaluateHandle(async (modulePath) => {
+        const { api } = await import(modulePath)
+        const originalStart = api.atlasStartPersonalCredential
+        const originalOpen = api.appOpenExternal
+        const started: string[] = []
+        const opened: string[] = []
+        const authorizeUrl = 'https://github.com/login/oauth/authorize?client_id=e2e&state=e2e'
+
+        api.atlasStartPersonalCredential = async (provider: string) => {
+          started.push(provider)
+
+          return { authorizeUrl }
+        }
+        api.appOpenExternal = async (url: string) => {
+          opened.push(url)
+        }
+
+        return {
+          started,
+          opened,
+          authorizeUrl,
+          restore: () => {
+            api.atlasStartPersonalCredential = originalStart
+            api.appOpenExternal = originalOpen
+          },
+        }
+      }, '/src/api.ts')
+
+      try {
+        await page.getByRole('button', { name: 'Connectors' }).click()
+        const dialog = page.getByRole('dialog', { name: 'Connectors', exact: true })
+        const route = page.url()
+        const row = dialog.getByRole('button', { name: 'Add GitHub', exact: true }).locator('..')
+
+        await row.getByText('Connect', { exact: true }).click()
+        await until('the personal OAuth URL to open', async () =>
+          fixture.evaluate((state) => state.opened.length > 0),
+        )
+        const evidence = await fixture.evaluate((state) => ({
+          providerRequests: state.started,
+          openedUrls: state.opened,
+          expectedUrl: state.authorizeUrl,
+        }))
+
+        assert.deepEqual(evidence.providerRequests, ['github'])
+        assert.deepEqual(evidence.openedUrls, [evidence.expectedUrl])
+        assert.equal(page.url(), route)
+        await dialog.waitFor({ state: 'visible' })
+        assert.equal(
+          await page.getByRole('heading', { name: 'Personal Credentials', exact: true }).count(),
+          0,
+        )
+        writeFileSync(
+          `${artifacts}/personal-connect-start.json`,
+          JSON.stringify({ ...evidence, routeBefore: route, routeAfter: page.url() }, null, 2),
+        )
+        await page.screenshot({ path: `${artifacts}/personal-connect-start.png` })
+        await dialog.getByLabel('Close modal').click()
+      } finally {
+        await fixture.evaluate((state) => state.restore())
+        await fixture.dispose()
+      }
+    },
+  },
   {
     // #2918: Cloudflare's rejection reached only the nuphos:// deep link; when the app did
     // not receive it, the dialog waited ten minutes and people retried.

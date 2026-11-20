@@ -39,7 +39,7 @@ export function NotionForm({ st }: { st: BindState }) {
           <li>
             <Fill
               text={t(
-                'In each Notion page or database you want the agent to reach, open {menu} and add this integration — Notion only exposes pages that have been shared with it.',
+                'In each Notion page or database you want Nuphos to reach, open {menu} and add this integration — Notion only exposes pages that have been shared with it.',
               )}
               menu={<span className="text-main">••• → Connections</span>}
             />
@@ -185,7 +185,7 @@ export function ResendForm({ st }: { st: BindState }) {
           <li>
             <Fill
               text={t(
-                'Choose a permission. {access} lets the agent send mail and nothing else — prefer it unless the agent needs to manage domains or audiences.',
+                'Choose a permission. {access} lets Nuphos send mail and nothing else — prefer it unless Nuphos needs to manage domains or audiences.',
               )}
               access={<span className="text-main">Sending access</span>}
             />
@@ -198,7 +198,7 @@ export function ResendForm({ st }: { st: BindState }) {
           </li>
           <li>
             <Fill
-              text={t('The agent can only send from a {domain}, set up under {page}.')}
+              text={t('Nuphos can only send from a {domain}, set up under {page}.')}
               domain={<span className="text-main">{t('verified domain')}</span>}
               page={<span className="text-main">Domains</span>}
             />
@@ -220,7 +220,7 @@ export function ResendForm({ st }: { st: BindState }) {
       <Field
         label={t('API Key')}
         hint={t(
-          'From resend.com/api-keys. Encrypted before storage. Sending is disabled in new agents until you enable this account for them.',
+          'From resend.com/api-keys. Encrypted before storage. Sending is disabled in new tasks until you enable this account for them.',
         )}
       >
         <input

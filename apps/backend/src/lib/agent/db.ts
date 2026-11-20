@@ -81,7 +81,11 @@ export {
   syncConversationTranscript,
 } from './db/transcript'
 export { getConversations } from './db/conversations-list'
-export { restoreArchivedConversation, setConversationArchived } from './db/archive'
+export {
+  restoreArchivedConversation,
+  setConversationArchived,
+  setMemberArchived,
+} from './db/archive'
 export { backfillConversationWatchers, setConversationWatched } from './db/watch'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'
@@ -102,5 +106,6 @@ export type {
   ConversationsSort,
 } from './db/conversations-list'
 export { setConversationCredentialFields } from './db/credential-fields'
+export { noReplyFailedYet } from './db/timeline-events'
 export { credentialHeirs, credentialSource, credentialSourceOf } from './db/credential-source'
 export type { CredentialSource } from './db/credential-source'

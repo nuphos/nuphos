@@ -1,3 +1,5 @@
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
+
 export type AgentCredentialSelection = {
   awsRoleIds?: string[]
   gcpServiceAccountIds?: string[]
@@ -33,8 +35,8 @@ export type AgentCredentialSelection = {
   instaboxAccountIds?: string[]
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[]
-  /** The owner's own GitHub / Linear Personal Credential, usable without a team binding. */
-  personalCredentialIds?: ('github' | 'linear')[]
+  /** The owner's own Personal Credentials this conversation may use, without a team binding. */
+  personalCredentialIds?: PersonalCredentialProvider[]
 }
 
 export type AgentCredentialOptions = {
@@ -156,9 +158,9 @@ export type AgentCredentialOptions = {
     bindingId: string
     label: string
   }[]
-  /** The requesting member's own GitHub / Linear Personal Credentials; nobody else's. */
+  /** The requesting member's own Personal Credentials; nobody else's. */
   personalCredentials: {
-    provider: 'github' | 'linear'
+    provider: PersonalCredentialProvider
     login: string
   }[]
   githubInstallations: {
