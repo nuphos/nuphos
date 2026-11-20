@@ -162,6 +162,9 @@ export async function previewSessionAccess(
       },
     ],
     runtimeEnv: {
+      // Claude Code's own file memory duplicates Nuphos memory (save_memory / memory_get)
+      // and its instructions cost about 0.8k input tokens on every request.
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
       ...connectorEnv(selected.map((entry) => entry.provider)),
       ...previewSessionEnv({
         base,
