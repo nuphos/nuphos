@@ -54,6 +54,20 @@ export async function setBotDetails(page: Page, open: boolean) {
   await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]`).waitFor()
 }
 
+/** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */
+export async function checkBotDetailsFloating(page: Page) {
+  // It scales in from the name; measure where it lands.
+  await page.waitForTimeout(500)
+  const toggle = await botDetailsToggle(page).boundingBox()
+  const panel = await page.getByRole('complementary', { name: 'Bot details' }).boundingBox()
+
+  if (!toggle || !panel) throw new Error('The name or the floating details are not on screen')
+  if (Math.abs(panel.x - toggle.x) > 1 || panel.y < toggle.y + toggle.height)
+    throw new Error(
+      `The details float at ${JSON.stringify(panel)}, not under ${JSON.stringify(toggle)}`,
+    )
+}
+
 /** Opens the Bot's Task from its chat's details. Close them on the way back to the chat. */
 export async function openBotTask(page: Page) {
   await setBotDetails(page, true)
