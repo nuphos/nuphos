@@ -31,6 +31,11 @@ export type WindowSessionAccessApi = {
     teamId: string,
     userId: string,
   ): Promise<ConversationAccessState>
+  agentStopConversationComputerUse(
+    sessionId: string,
+    teamId: string,
+    userId: string,
+  ): Promise<{ stopped: true; computer: { deviceId: string; label: string } }>
   agentSetConversationGeneralAccess(
     sessionId: string,
     teamId: string,

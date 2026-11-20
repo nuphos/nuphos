@@ -29,6 +29,8 @@ export const sessionAccessApi = {
   ) => ipcRenderer.invoke('agent:setConversationGeneralAccess', sessionId, teamId, generalAccess),
   agentRemoveConversationParticipant: (sessionId: string, teamId: string, userId: string) =>
     ipcRenderer.invoke('agent:removeConversationParticipant', sessionId, teamId, userId),
+  agentStopConversationComputerUse: (sessionId: string, teamId: string, userId: string) =>
+    ipcRenderer.invoke('agent:stopConversationComputerUse', sessionId, teamId, userId),
   agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
     ipcRenderer.invoke('agent:uploadConversationAvatar', sessionId, image, teamId),
 }

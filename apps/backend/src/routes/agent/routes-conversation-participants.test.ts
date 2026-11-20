@@ -60,6 +60,7 @@ useIdentity({
 })
 
 const { conversationParticipantsRoutes } = await import('./routes-conversation-participants')
+const { conversationComputerUseRoutes } = await import('./routes-conversation-computer-use')
 const app = new Hono<{ Variables: AuthVariables }>()
 
 app.use('*', async (c, next) => {
@@ -67,6 +68,7 @@ app.use('*', async (c, next) => {
   await next()
 })
 app.route('/', conversationParticipantsRoutes)
+app.route('/', conversationComputerUseRoutes)
 app.onError(errorHandler)
 
 type ParticipantsBody = {
@@ -419,5 +421,52 @@ describe('a conversation on someone’s computer', () => {
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ error: { code: 'computer_manage_required' } })
     expect(participantIds()).toEqual([TEAMMATE])
+  })
+  const stopComputerUse = (userId: string) =>
+    app.request(`/conversations/shared/participants/${userId}/stop-computer-use?teamId=${TEAM}`, {
+      method: 'POST',
+    })
+
+  test('removing someone who still uses the computer offers to stop that too', async () => {
+    computer({ userIds: [TEAMMATE] })
+    const response = await remove(TEAMMATE)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      computerStillShared: { deviceId: DEVICE, label: 'Owner’s Mac' },
+    })
+    expect(participantIds()).toEqual([])
+  })
+
+  test('no offer when they never used it, or when they leave on their own', async () => {
+    computer()
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+    conversation!.participantIds = [TEAMMATE]
+    memory.rows('agent_devices')[0]!.access[0].userIds = [TEAMMATE]
+    viewer = TEAMMATE
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+  })
+
+  test('stopping is refused while they are still in the chat, or when they no longer use it', async () => {
+    computer({ userIds: [TEAMMATE] })
+    expect(await (await stopComputerUse(TEAMMATE)).json()).toMatchObject({
+      error: { code: 'still_participant' },
+    })
+    expect(await (await stopComputerUse(INVITEE)).json()).toMatchObject({
+      error: { code: 'nothing_to_stop' },
+    })
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE])
+  })
+
+  // The pull is a positional update this in-memory db does not run; conversation-computer-use
+  // .test checks what it writes, and that only that person is taken off.
+  test('only the chat’s owner may stop it', async () => {
+    computer({ userIds: [TEAMMATE, INVITEE] })
+    viewer = TEAMMATE
+    const response = await stopComputerUse(INVITEE)
+
+    expect(response.status).toBe(403)
+    expect(await response.json()).toMatchObject({ error: { code: 'conversation_read_only' } })
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE, INVITEE])
   })
 })
