@@ -69,6 +69,8 @@ jobs:
       contents: read
       # To download main's latest nightly results on a pull request.
       actions: read
+      # To read which tests the pull request's own diff adds.
+      pull-requests: read
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
@@ -120,6 +122,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           # Only the latest nightly counts, and only while it is recent: an old or missing one
           # says nothing about main today, so it must fail rather than pass.
@@ -141,7 +144,9 @@ jobs:
             exit 1
           fi
           echo "Compared with main's nightly run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run (${age} hours old)" >> "$GITHUB_STEP_SUMMARY"
-          node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
+          # The tests this pull request's own diff adds; one it took from main is not its failure.
+          ADDED_TESTS=$(gh pr diff "$PR" | sed -nE 's/^\+[[:space:]]*func (test[A-Za-z0-9_]+)\(.*/\1/p' | tr '\n' ' ') \
+            node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: ${{ !cancelled() }}
         with:

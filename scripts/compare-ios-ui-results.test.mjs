@@ -34,7 +34,7 @@ test('results reads every test case, however deep, by identifier', () => {
   )
 })
 
-test('a test failing here that passed on main, or that main lacks, is a new failure', () => {
+test('a test failing here that passed on main, or that this pull request adds, is a new failure', () => {
   const main = results(
     run({ 'A/testOld()': 'Passed', 'A/testBroken()': 'Failed', 'A/testSkipped()': 'Skipped' }),
   )
@@ -47,10 +47,24 @@ test('a test failing here that passed on main, or that main lacks, is a new fail
     }),
   )
 
-  assert.deepEqual(compare(branch, main), {
+  assert.deepEqual(compare(branch, main, new Set(['testAdded'])), {
     newFailures: ['A/testAdded()', 'A/testOld()', 'A/testSkipped()'],
     stillFailing: ['A/testBroken()'],
     fixed: [],
+    notOnMain: [],
+  })
+})
+
+test("a failing test main's nightly lacks but this pull request didn't add is only listed", () => {
+  // Merged into the branch from main after the nightly ran (#4016).
+  const main = results(run({ 'A/testOld()': 'Passed' }))
+  const branch = results(run({ 'A/testOld()': 'Passed', 'B/testFromMain()': 'Failed' }))
+
+  assert.deepEqual(compare(branch, main, new Set(['testAdded'])), {
+    newFailures: [],
+    stillFailing: [],
+    fixed: [],
+    notOnMain: ['B/testFromMain()'],
   })
 })
 
@@ -62,6 +76,7 @@ test('a test failing on main and passing here is fixed, and nothing is new', () 
     newFailures: [],
     stillFailing: [],
     fixed: ['A/testBroken()'],
+    notOnMain: [],
   })
 })
 
@@ -78,7 +93,12 @@ test('a renamed test, with the same count as main, is not missing', () => {
   const main = results(run({ 'A/testOld()': 'Passed' }))
   const branch = results(run({ 'A/testNew()': 'Passed' }))
 
-  assert.deepEqual(compare(branch, main), { newFailures: [], stillFailing: [], fixed: [] })
+  assert.deepEqual(compare(branch, main), {
+    newFailures: [],
+    stillFailing: [],
+    fixed: [],
+    notOnMain: [],
+  })
 })
 
 test('the summary names each group and says when nothing is new', () => {
