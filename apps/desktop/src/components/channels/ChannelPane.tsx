@@ -290,6 +290,7 @@ export function ChannelPane({
             onEdited={refresh}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenNuphosLink}
+            onEditTrigger={(text) => setRestore({ text, nonce: Date.now() })}
             credentials={questions.credentials}
           />
         )}

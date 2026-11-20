@@ -13,11 +13,11 @@ import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
 import { snoozeQuestion } from './inbox/dismissQuestion'
-import { ANSWER_UNDO_MS, holdAnswer, sendHeldAnswer } from './inbox/useInbox'
+import { replyInInbox } from './inbox/useInbox'
 import { useInboxQuestions } from './inbox/useInboxQuestions'
 
 import type { InboxQuestion } from './inbox/inboxItems'
-import type { HeldReply } from './inbox/useInbox'
+import type { InboxReply } from './inbox/useInbox'
 
 type Props = {
   teamId: string
@@ -26,15 +26,12 @@ type Props = {
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
   onOpenConversation: (sessionId: string) => void
-  /** Opens a link in a question's text, as the conversation does. */
-  onOpenLink: (href: string, beside: boolean) => boolean
 }
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
- * Answering it opens the next, and wakes the agent that asked once its Undo
- * window passes, or at once when the viewer leaves; a dismissal waits out the same window.
+ * Answering or dismissing it opens the next and wakes the agent that asked at once.
  * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
@@ -44,7 +41,6 @@ export function InboxView({
   onCount,
   onLoading,
   onOpenConversation,
-  onOpenLink,
 }: Props) {
   const { isActive } = useWorkspaceTab()
   const all = useInboxQuestions(teamId, refreshKey)
@@ -100,43 +96,16 @@ export function InboxView({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isActive, rows, at, move])
 
-  // Leaving the Inbox sends the answer still waiting out its Undo window.
-  useEffect(() => {
-    if (!isActive) return
-
-    return sendHeldAnswer
-  }, [isActive])
-
-  const answer = (row: InboxQuestion, reply: HeldReply) => {
+  const answer = (row: InboxQuestion, reply: InboxReply) => {
     // The answered question leaves the list, and the one that takes its place opens.
     const dismissed = 'dismissed' in reply
 
     move(rows?.at(at + 1) ?? rows?.at(at - 1))
-    const undo = holdAnswer(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
+    replyInInbox(teamId, row.conversation.sessionId, row.request.id, reply, (reason) =>
       toast.error(
         dismissed ? t('Could not dismiss question') : t('Could not send your answer'),
         reason,
       ),
-    )
-
-    toast.success(
-      dismissed
-        ? t('Dismissed')
-        : t('Answered “{answer}”', {
-            answer: reply.choices?.join(', ') ?? reply.text ?? row.request.question,
-          }),
-      undefined,
-      {
-        timeoutMs: ANSWER_UNDO_MS,
-        dedupe: false,
-        action: {
-          label: t('Undo'),
-          // Once sent, the answer stays: the question is not opened again.
-          onClick: () => {
-            if (undo()) selectInboxQuestion(teamId, row.request.id)
-          },
-        },
-      },
     )
   }
 
@@ -175,7 +144,6 @@ export function InboxView({
           }}
           onDismiss={(reason) => answer(open, { dismissed: true, reason: reason || undefined })}
           onOpenSource={(source) => openListed(teamId, source, onOpenConversation)}
-          onOpenLink={onOpenLink}
         />
       )}
     </div>
