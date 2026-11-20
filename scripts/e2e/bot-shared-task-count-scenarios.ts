@@ -74,6 +74,19 @@ export const botSharedTaskCountScenarios: Scenario[] = [
         `/agent/conversations/${owned.sessionId}/participants?teamId=${stack.teamId}`,
         { userIds: [teammateId] },
       )
+      // A Bot shared with them is theirs to talk to: their own 1:1 chat with it, as the apps open one.
+      const theirChat = String(
+        (await call(teammate, 'POST', `/agent/channels?teamId=${stack.teamId}`, {})).sessionId,
+      )
+
+      await call(
+        teammate,
+        'POST',
+        `/agent/conversations/${theirChat}/agents?teamId=${stack.teamId}`,
+        {
+          sessionId: owned.sessionId,
+        },
+      )
 
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page
