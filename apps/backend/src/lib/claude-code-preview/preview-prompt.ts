@@ -107,7 +107,9 @@ const TASK_NAME_NOTE =
 async function taskNameSection(sessionId: string): Promise<string | null> {
   const conversation = await getConversationBySessionId(sessionId)
 
-  return conversation && isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
+  // A Task's first turn can run before its record exists: it is named after that first
+  // message, so it is unnamed, and its next turn must not see a different prompt (#4087).
+  return !conversation || isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
 }
 
 /**
