@@ -194,9 +194,11 @@ export const botAccessScenarios: Scenario[] = [
       // Its mode is shown too: whether it runs in Full Access matters to everyone it works for.
       for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)$/])
         await access(page).getByText(row).first().waitFor()
-      const offered = await access(page).getByRole('button').count()
-
-      if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} access controls`)
+      // The list cached before the hand-over still names the viewer its owner until it reloads.
+      await until(
+        "a teammate's Bot to offer no access controls",
+        async () => (await access(page).getByRole('button').count()) === 0,
+      )
       if ((await composerAccess(page)) > 0)
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')
