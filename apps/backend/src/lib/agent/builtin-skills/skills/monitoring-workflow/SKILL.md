@@ -1,6 +1,6 @@
 ---
 name: monitoring-workflow
-description: Wire a monitoring alert from any provider to a Nuphos webhook trigger bound to one conversation, with optional first-party Slack updates. Use for creating or wiring alerts, including providers without a dedicated Nuphos skill; discover their authenticated API or CLI dynamically instead of substituting provider-native Slack integrations.
+description: Route monitoring asks ("monitor X", uptime, health checks, alert me when Z goes down) to the team's provider, and wire alerts from any provider to a Nuphos webhook Trigger.
 ---
 
 # Generic monitoring workflow

@@ -5,6 +5,7 @@ import { getSessionBypass } from './auto-mode/store'
 import { BOT_AVATARS } from './bot-avatars'
 import { createBot } from './bots'
 import {
+  credentialSourceOf,
   getConversations,
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
@@ -234,9 +235,13 @@ export function createSessionTools(
       inputSchema: z.object(createBotShape),
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
-        const bypass = await getSessionBypass(conversationId, userId)
+        const [bypass, maker] = await Promise.all([
+          getSessionBypass(conversationId, userId),
+          credentialSourceOf(conversationId),
+        ])
         const bot = await createBot(userId, teamId, bypass, {
           source: { via: 'create_bot', sessionId: conversationId },
+          credentialAccess: maker?.credentialAccess ?? null,
           title: name,
           avatar,
         })

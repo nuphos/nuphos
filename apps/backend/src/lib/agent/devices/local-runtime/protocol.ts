@@ -256,7 +256,8 @@ export type HolderMessage =
       provider?: LocalAgentProvider
       instanceId?: string
     }
-  | { t: 'data'; s: string; d: string }
+  /** `conn` names the tunnel the stream opened on; a replica from before it was added sends none. */
+  | { t: 'data'; s: string; d: string; conn?: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
