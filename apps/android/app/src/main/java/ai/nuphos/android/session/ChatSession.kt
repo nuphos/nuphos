@@ -249,6 +249,7 @@ class ChatSession(
     private val hasAiAccess get() = !consentDisposed && aiAllowed()
     private val permissions get() = SessionPermissions(loaded, loadError, readOnly || !hasAiAccess, isOwner, canCancelRun, canRespondToRun)
     private var manages by mutableStateOf(false)
+    private var archives by mutableStateOf(false)
     private var hasActiveRun by mutableStateOf(false)
     var movingAgent by mutableStateOf(false)
         private set
@@ -269,6 +270,8 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive get() = permissions.writable && (if (serverMetadataObserved) archives else isOwner)
     val canOpenDesktop get() = canManage && isOwner && runtimeObservation?.snapshot?.let { snapshot ->
         snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
     } == true
@@ -489,6 +492,8 @@ class ChatSession(
     }
     /** A chat posts through its own route; this session never sends to `/agent/chat` for it. */
     var isChannel by mutableStateOf(false)
+        private set
+    var isBot by mutableStateOf(false)
         private set
     private fun markChannel() {
         isChannel = true
@@ -806,6 +811,7 @@ class ChatSession(
         error = null
         turnStartedAt = Instant.now()
         currentStreamId = options.streamId
+        followingOnly = options.explicitResume && !submissionPending && pendingUserMessage == null
         streamJob = scope.launch {
             var options = options
             while (isActive && hasAiAccess) {
@@ -936,6 +942,7 @@ class ChatSession(
     }
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
+        isBot = detail.avatar != null && !detail.isChannel
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }
@@ -947,6 +954,7 @@ class ChatSession(
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
         manages = detail.canManage ?: isOwner
+        archives = detail.canArchive ?: manages
         hasActiveRun = detail.activeRun != null
         canCancelRun = detail.canCancelRun ?: false
         canRespondToRun = detail.canRespondToRun ?: false
@@ -1140,6 +1148,8 @@ class ChatSession(
     }
 
     private var shownBefore = false
+    // The stream is a turn started elsewhere, followed here, not one this app sent.
+    private var followingOnly = false
 
     suspend fun pollWhileIdle() {
         if (!hasAiAccess) return
@@ -1147,38 +1157,56 @@ class ChatSession(
         // not after 3 s (#3526). A first open has just loaded it: reading again then would race that load.
         var wait = !shownBefore
         shownBefore = true
-        while (coroutineContext.isActive && hasAiAccess) {
-            if (wait) delay(3_000)
-            wait = true
-            if (!hasAiAccess) return
-            observationClock = RuntimeObservation.now()
-            if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue
-            val generation = transportGeneration
-            val observedAt = RuntimeObservation.now()
-            val watchReadRevision = watchRevision
-            val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
-            if (generation != transportGeneration || movingAgent || !hasAiAccess) continue
-            if (detail == null) { recallRows = emptySet(); continue }
-            refreshMetadata(detail, observedAt, watchReadRevision)
-            reconcileAdmission(detail)
-            val run = detail.activeRun
-            val follow = followOptions(run?.streamId)
-            if (follow != null) {
-                adoptBeforeFollowing(detail)
-                startTurn(follow)
-                continue
+        try {
+            while (coroutineContext.isActive && hasAiAccess) {
+                if (wait) delay(3_000)
+                wait = true
+                if (!hasAiAccess) return
+                observationClock = RuntimeObservation.now()
+                if (!loaded || loadError != null || movingAgent || (!isNative && isStreaming)) continue
+                val generation = transportGeneration
+                val observedAt = RuntimeObservation.now()
+                val watchReadRevision = watchRevision
+                val detail = runCatching { readDetail(token, teamId, sessionId) }.getOrNull()
+                if (generation != transportGeneration || movingAgent || !hasAiAccess) continue
+                if (detail == null) { recallRows = emptySet(); continue }
+                refreshMetadata(detail, observedAt, watchReadRevision)
+                reconcileAdmission(detail)
+                val run = detail.activeRun
+                val follow = followOptions(run?.streamId)
+                if (follow != null) {
+                    adoptBeforeFollowing(detail)
+                    startTurn(follow)
+                    continue
+                }
+                if (!isStreaming && (isNative || (detail.messagesFirstIndex ?: 0) + detail.messages.size > baseIndex + messages.size)) {
+                    adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
+                    recordReadTranscript(detail)
+                    lastSyncedSignature = signature()
+                } else if (!isStreaming && messages == detail.messages) {
+                    recordReadTranscript(detail)
+                } else {
+                    recallRows = emptySet()
+                    readTranscript = null
+                }
             }
-            if (!isStreaming && (isNative || (detail.messagesFirstIndex ?: 0) + detail.messages.size > baseIndex + messages.size)) {
-                adoptMessages(detail.messages, detail.messagesFirstIndex ?: 0)
-                recordReadTranscript(detail)
-                lastSyncedSignature = signature()
-            } else if (!isStreaming && messages == detail.messages) {
-                recordReadTranscript(detail)
-            } else {
-                recallRows = emptySet()
-                readTranscript = null
-            }
+        } finally {
+            stopFollowing()
         }
+    }
+
+    /**
+     * Off screen (the chat left, or the app in the background): stop following a turn started
+     * elsewhere, as Desktop does (#3526). It keeps running on the server, and this app's own
+     * sends keep streaming. Back on screen, the poll follows it again from where it is.
+     */
+    private fun stopFollowing() {
+        if (!isStreaming || !followingOnly) return
+        transportGeneration += 1
+        streamJob?.cancel()
+        streamJob = null
+        isStreaming = false
+        phaseLabel = null
     }
 
     private fun adoptBeforeFollowing(detail: AgentConversationDetail) {

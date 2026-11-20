@@ -17,13 +17,13 @@ import type { SettingsChangeBy } from './db/settings-history'
 // What a thread runs on: its agent, and the model and effort it uses there.
 
 /**
- * The team's agents and the owner's Boxes. Never an agent on someone's own
- * computer, which only its owner can choose, with the consent the Desktop asks for.
+ * Why a thread cannot run on an agent the owner can see: a teammate's computer
+ * shows its owner the work, which only the conversation owner can agree to, in the Desktop.
  */
-export async function threadRuntimeInstances(actor: { teamId: string; userId: string }) {
-  return (await listRuntimeInstances(actor.teamId, actor.userId)).filter(
-    (instance) => instance.kind !== 'local' || instance.local?.box,
-  )
+function unavailableReason(instance: { local?: { shared?: unknown } }) {
+  return instance.local?.shared
+    ? "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+    : undefined
 }
 
 /** How long one agent's model list may take before the listing goes on without it. */
@@ -59,7 +59,10 @@ export async function threadRuntimes(
   actor: { teamId: string; userId: string },
   currentRuntimeId: string | undefined,
 ) {
-  const instances = await withRuntimeReadiness(actor.teamId, await threadRuntimeInstances(actor))
+  const instances = await withRuntimeReadiness(
+    actor.teamId,
+    await listRuntimeInstances(actor.teamId, actor.userId),
+  )
   const [quotas, models] = await Promise.all([
     listRuntimeQuotas(actor.teamId, instances),
     Promise.all(
@@ -76,7 +79,8 @@ export async function threadRuntimes(
       provider: instance.provider,
       kind: instance.kind,
       status: instance.status,
-      ready: !instance.notReady,
+      ready: !instance.notReady && !unavailableReason(instance),
+      ...(unavailableReason(instance) ? { unavailable: unavailableReason(instance) } : {}),
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
       // Up front, so an agent sees it before moving to an account that ran out too.
@@ -92,10 +96,14 @@ export async function assertThreadRuntime(
   runtimeId: string | undefined,
 ) {
   if (!runtimeId) return
-  const runtime = (await threadRuntimeInstances(actor)).find(({ id }) => id === runtimeId)
+  const runtime = (await listRuntimeInstances(actor.teamId, actor.userId)).find(
+    ({ id }) => id === runtimeId,
+  )
 
-  if (!runtime)
-    throw new Error("A thread can only run on one of the team's agents or Boxes, not a computer.")
+  if (!runtime) throw new Error('No such agent. Call list_agent_runtimes for the ones you can use.')
+  const unavailable = unavailableReason(runtime)
+
+  if (unavailable) throw new Error(unavailable)
 
   return runtime
 }

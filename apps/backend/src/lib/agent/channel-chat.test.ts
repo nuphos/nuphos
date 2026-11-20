@@ -1,3 +1,4 @@
+import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
@@ -11,7 +12,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, noteReplyFailed, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -424,6 +425,37 @@ describe('waking a channel’s agents', () => {
     expect(
       (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
     ).toMatchObject({ agentId: 'agent-a', cause: 'cli', reason: AGENT_CLI_UNSTARTABLE_MESSAGE })
+  })
+
+  test('a Bot CLI failure preserves the old host update hint beside its repair sentence', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`${died}\n\n${OUTDATED_HOST_HINT}`, 1001, {
+            code: 1001,
+            message: died,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // Older clients probe only transcriptUpdatedAt, not the timeline events.
+    expect((await channel()).transcriptUpdatedAt).toBeInstanceOf(Date)
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'cli',
+      reason: `${AGENT_CLI_UNSTARTABLE_MESSAGE} ${OUTDATED_HOST_HINT}`,
+    })
   })
 
   test("an agent's other internal error leaves its words out of the chat", async () => {
@@ -1264,6 +1296,17 @@ describe('an agent whose computer is offline', () => {
       }),
     ])
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+  })
+
+  // #3332: a runtime that kept dropping wrote a line for every failed wake.
+  test('says it could not reply once per post, however often a dropping runtime fails again', async () => {
+    await say('anyone there?')
+    for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(1)
+
+    await say('still there?')
+    await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(2)
   })
 
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {

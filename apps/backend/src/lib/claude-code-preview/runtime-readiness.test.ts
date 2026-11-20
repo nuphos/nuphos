@@ -32,13 +32,13 @@ const agent = (
 
 test('only an enabled registered agent without a reachable endpoint is flagged', async () => {
   const flagged = await withRuntimeReadiness('team', [
-    agent('ready-claude-code', 'managed'),
+    agent('ready-claude-code', 'external'),
     // Each provider's agents are looked up among that provider's endpoints.
-    agent('ready-grok', 'managed', 'active', 'grok'),
+    agent('ready-grok', 'external', 'active', 'grok'),
     agent('ready-antigravity', 'external', 'active', 'antigravity'),
-    agent('starting', 'managed'),
+    agent('starting', 'external'),
     agent('elsewhere', 'external'),
-    agent('off', 'managed', 'disabled'),
+    agent('off', 'external', 'disabled'),
     agent('local:me', 'local'),
   ])
 

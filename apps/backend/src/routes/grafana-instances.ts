@@ -10,6 +10,7 @@ import { OutboundBlockedError, pinnedFetch, blockedUrlReason } from '@/lib/net/s
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireGrafanaInstance,
   requireGrafanaMemberAccess,
@@ -111,13 +112,7 @@ instanceScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const instanceId = new ObjectId(c.get('grafanaInstanceId'))
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { grafanaInstances: { id: instanceId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'grafanaInstances', { id: instanceId })
 
     return c.body(null, 204)
   },
