@@ -1,9 +1,10 @@
-import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { MCP_SERVER_NAME } from './protocol-rpc'
-
-// ─── Tool definitions (advertised via tools/list) ───────────────────────────
+import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
+import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
+import { RESOURCE_TOOLS } from './protocol-tools-resources'
 
 export const TOOL_DEFINITIONS = [
+  ...RESOURCE_TOOLS,
   {
     name: 'nuphos_ask',
     description:
@@ -67,13 +68,31 @@ export const TOOL_DEFINITIONS = [
             'The reasoning effort a NEW session starts with, e.g. high; needs runtime_id, ' +
             'like model.',
         },
+        full_access: {
+          type: 'boolean',
+          description:
+            'Full Access for a NEW session, set before its first turn: true runs commands ' +
+            'without asking for approval, so use it only when the person you work for ' +
+            'wants the session to run unattended. Omitted: each tool call that needs ' +
+            'approval waits as a tool_authorization in nuphos_check. For an existing ' +
+            'session use nuphos_update_session.',
+        },
+        parent_session_id: {
+          type: 'string',
+          description:
+            'Start a NEW session as a Task under one of your Bots (bot: true in ' +
+            "nuphos_list_sessions). It uses the Bot's credentials and Full Access mode, " +
+            "and starts on the Bot's agent, model and effort unless runtime_id, model " +
+            'or effort say otherwise.',
+        },
         request_id: {
           type: 'string',
           description:
-            'Answer an open question of the session, from the requests that ' +
-            'nuphos_check returns: prompt is then the answer, and the agent that ' +
-            'asked carries on with it. Questions that ask for a secret or to ' +
-            'connect an account are answered in Nuphos only.',
+            'Answer an open request of the session, from the requests that ' +
+            'nuphos_check returns. For a question, prompt is the answer and the agent ' +
+            'that asked carries on with it; questions that ask for a secret or to ' +
+            'connect an account are answered in Nuphos only. For a tool_authorization, ' +
+            'prompt is "approve" or "deny".',
         },
         context: {
           type: 'object',
@@ -91,7 +110,8 @@ export const TOOL_DEFINITIONS = [
     description:
       'See where a session stands. status is "running" (with in_progress, what ' +
       'the turn has done so far), "waiting_for_input" (it stopped on the questions ' +
-      'in requests; answer one with nuphos_ask request_id), "completed" (with the ' +
+      'or tool calls awaiting your approval, category tool_authorization, in ' +
+      'requests; answer one with nuphos_ask request_id), "completed" (with the ' +
       'answer) or "failed". Use this after nuphos_ask times out, to follow a ' +
       'long-running request, or to read an existing Task: from_index returns a ' +
       'page of its transcript.',
@@ -188,65 +208,7 @@ export const TOOL_DEFINITIONS = [
       required: ['session_id'],
     },
   },
-  {
-    name: 'nuphos_list_credentials',
-    description:
-      'List the cloud credentials (AWS roles, GCP service accounts, Linode/Hetzner ' +
-      'accounts, Better Stack/Uptime Kuma/Jira/Asana/Sentry/Tailscale/Zeabur/Vanta/Secureframe/Resend integrations) ' +
-      'you can use in a team. Pass session_id to also see which of them are ' +
-      'currently enabled for that conversation. New conversations start with ALL ' +
-      'listed credentials enabled EXCEPT Resend, which sends mail and must be ' +
-      'enabled explicitly with nuphos_update_credentials; narrow the rest the same way.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        team_id: {
-          type: 'string',
-          description: 'The Nuphos team whose credentials to list. See nuphos_list_teams.',
-        },
-        session_id: {
-          type: 'string',
-          description:
-            'Optional conversation to inspect — includes which credentials are ' +
-            'currently enabled for it.',
-        },
-      },
-      required: ['team_id'],
-    },
-  },
-  {
-    name: 'nuphos_update_credentials',
-    description:
-      'Replace the set of credentials a conversation may use. FULL replacement: ' +
-      'every id list you omit (or send empty) revokes that category for the ' +
-      'session. Categories this tool has no parameter for, such as local devices, ' +
-      'stay as they are. Ids must come from nuphos_list_credentials; any id you are not ' +
-      'allowed to use is rejected with an error. Takes effect on the next ' +
-      'nuphos_ask in the session.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: { type: 'string', description: 'The conversation to update.' },
-        team_id: { type: 'string', description: 'The team the session belongs to.' },
-        aws_role_ids: { type: 'array', items: { type: 'string' } },
-        gcp_service_account_ids: { type: 'array', items: { type: 'string' } },
-        linode_account_ids: { type: 'array', items: { type: 'string' } },
-        hetzner_account_ids: { type: 'array', items: { type: 'string' } },
-        betterstack_integration_ids: { type: 'array', items: { type: 'string' } },
-        uptime_kuma_instance_ids: { type: 'array', items: { type: 'string' } },
-        linear_workspace_ids: { type: 'array', items: { type: 'string' } },
-        jira_site_ids: { type: 'array', items: { type: 'string' } },
-        asana_account_ids: { type: 'array', items: { type: 'string' } },
-        sentry_account_ids: { type: 'array', items: { type: 'string' } },
-        tailscale_client_ids: { type: 'array', items: { type: 'string' } },
-        zeabur_ids: { type: 'array', items: { type: 'string' } },
-        vanta_integration_ids: { type: 'array', items: { type: 'string' } },
-        secureframe_integration_ids: { type: 'array', items: { type: 'string' } },
-        resend_integration_ids: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['session_id', 'team_id'],
-    },
-  },
+  ...CREDENTIAL_TOOLS,
   {
     name: 'nuphos_capabilities',
     description:

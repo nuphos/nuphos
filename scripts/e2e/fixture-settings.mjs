@@ -42,6 +42,16 @@ const effort = {
     choice('high'),
   ],
 }
+// The Codex agent's reasoning effort, which starts on Low as Codex can.
+const codexEffort = {
+  id: 'reasoning_effort',
+  name: 'Reasoning effort',
+  category: 'thought_level',
+  type: 'select',
+  currentValue: 'low',
+  options: [choice('low'), choice('medium'), choice('high')],
+}
+const codex = process.env.E2E_AGENT === 'codex'
 const newSettings = (sessionId) => {
   const claudeLike = first && existsSync(process.env.E2E_STAND_IN ?? '')
   const unlisted = unlistedFor(sessionId)
@@ -64,6 +74,7 @@ const newSettings = (sessionId) => {
       options: [choice('off'), choice('on')],
     },
     ...(claudeLike ? [effort] : []),
+    ...(codex ? [{ ...codexEffort, options: [...codexEffort.options] }] : []),
   ]
 }
 

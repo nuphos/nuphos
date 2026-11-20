@@ -16,8 +16,8 @@ export function triggerSourceTitle(trigger: AgentTrigger): string {
     const sessionId = trigger.sourceContext?.sessionId
 
     return sessionId
-      ? t('Created by the agent in task {sessionId}', { sessionId })
-      : t('Created by the agent')
+      ? t('Created by Nuphos in task {sessionId}', { sessionId })
+      : t('Created by Nuphos')
   }
 
   return t('Created by automation')

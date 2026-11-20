@@ -8,17 +8,22 @@ import androidx.compose.runtime.mutableStateMapOf
  */
 object BotFaces {
     private val faces = mutableStateMapOf<String, String>()
+    /** The tint each face sits on, learned with it; a Task has none. */
+    private val backgrounds = mutableStateMapOf<String, String>()
 
     fun face(sessionId: String): String? = faces[sessionId]
 
-    fun learn(sessionId: String, avatar: String?) {
+    fun background(sessionId: String): String? = backgrounds[sessionId]
+
+    fun learn(sessionId: String, avatar: String?, background: String? = null) {
         if (avatar == null) faces.remove(sessionId) else faces[sessionId] = avatar
+        if (avatar == null || background == null) backgrounds.remove(sessionId) else backgrounds[sessionId] = background
     }
 
     fun learn(rows: List<AgentConversation>) {
         for (row in rows) {
-            if (!row.isChannel) learn(row.sessionId, row.avatar)
-            row.faces.orEmpty().filter { it.agent != null }.forEach { learn(it.id, it.agent?.avatar) }
+            if (!row.isChannel) learn(row.sessionId, row.avatar, row.avatarBackground)
+            row.faces.orEmpty().filter { it.agent != null }.forEach { learn(it.id, it.agent?.avatar, it.agent?.avatarBackground) }
         }
     }
 }

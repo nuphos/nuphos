@@ -50,7 +50,7 @@ export function EmptyState({ mutationsOnly }: { mutationsOnly: boolean }) {
         {mutationsOnly ? t('No mutations in this window.') : t('No audit activity in this window.')}
       </div>
       <div className="max-w-[420px] text-[11.5px] leading-4 text-tertiary">
-        {t('Agent turns and shared-skill mutations appear here as activity occurs.')}
+        {t('Turns from Bots and tasks and shared-skill mutations appear here as activity occurs.')}
       </div>
     </div>
   )

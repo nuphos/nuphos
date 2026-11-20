@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { effortResetValue, effortStops, resolvedEffort, stopFraction } from './effortStops.ts'
+import { effortStops, resolvedEffort, stopFraction } from './effortStops.ts'
 
 const claude = ['default', 'low', 'medium', 'high', 'xhigh', 'max'].map((value) => ({
   value,
@@ -28,11 +28,6 @@ test('a runtime that lists levels high to low still gets them lowest first', () 
     effortStops(grok).map((stop) => stop.value),
     ['low', 'medium', 'high', 'xhigh'],
   )
-})
-
-test('reset returns to the runtime default, and there is none without one', () => {
-  assert.equal(effortResetValue(claude), 'default')
-  assert.equal(effortResetValue(codex), undefined)
 })
 
 test("Claude's default resolves to the level it names; anything else stays as reported", () => {

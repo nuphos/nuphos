@@ -16,6 +16,7 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireSonarqubeMemberAccess,
   requireTeamRole,
@@ -58,12 +59,11 @@ export function registerSonarqubeScopedRoutes(
     requireTeamRole('ADMINISTRATOR'),
     requireCanDisconnect('sonarqubeAccess'),
     async (c) => {
-      const result = await teamByosBindings().updateOne(
-        { _id: parseObjectId(c.get('teamId'), 'teamId') },
-        {
-          $pull: { sonarqubeIntegrations: { id: new ObjectId(c.get('sonarqubeIntegrationId')) } },
-          $set: { updatedAt: new Date() },
-        },
+      const result = await disconnectBinding(
+        c,
+        parseObjectId(c.get('teamId'), 'teamId'),
+        'sonarqubeIntegrations',
+        { id: new ObjectId(c.get('sonarqubeIntegrationId')) },
       )
 
       if (result.modifiedCount === 0) {

@@ -107,6 +107,9 @@ final class BotPinsUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+        // The Bot's own Task opens from its details, under its name (#2983).
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
         let entry = app.buttons["bot-task-entry"]
         XCTAssertTrue(entry.waitForExistence(timeout: 10)); shot("bot-chat-task-entry"); entry.tap()
         XCTAssertTrue(app.buttons["conversation-trigger-entry"].waitForExistence(timeout: 10))
@@ -128,7 +131,7 @@ final class BotPinsUITests: XCTestCase {
         XCTAssertTrue(app.alerts["This is a Bot. Archive the Bot?"].waitForExistence(timeout: 5))
         app.alerts.buttons["Cancel"].tap()
         app.buttons["BackButton"].firstMatch.tap()
-        XCTAssertTrue(entry.waitForExistence(timeout: 5), "Back must return to the Bot chat, not its list")
+        XCTAssertTrue(name.waitForExistence(timeout: 5), "Back must return to the Bot chat, not its list")
         shot("bot-task-returned-to-chat")
         if app.windows.firstMatch.horizontalSizeClass == .regular {
             XCTAssertTrue(app.buttons["Account"].isHittable)
@@ -137,10 +140,11 @@ final class BotPinsUITests: XCTestCase {
             app.buttons["Account"].tap()
             XCTAssertTrue(app.buttons["Close account"].waitForExistence(timeout: 5))
             app.buttons["Close account"].tap()
-            entry.tap()
+            name.tap()
+            XCTAssertTrue(entry.waitForExistence(timeout: 5)); entry.tap()
             XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 5))
             app.staticTexts["Sign-in helper"].firstMatch.tap()
-            let header = app.buttons["bot-trigger-entry"]
+            let header = app.buttons["bot-details-entry"]
             let selected = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS %@", "Sign-in helper"), object: header)
             XCTAssertEqual(XCTWaiter.wait(for: [selected], timeout: 5), .completed)
             XCTAssertTrue(app.buttons["agent-summary-button"].waitForNonExistence(timeout: 5), "Selecting another chat must pop the previous Bot Task")

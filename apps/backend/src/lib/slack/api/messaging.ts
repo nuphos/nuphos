@@ -88,10 +88,13 @@ export async function postSlackMessage(args: {
   text: string
   threadTs?: string
   blocks?: unknown[]
+  /** The name it shows instead of the app's; needs the chat:write.customize scope. */
+  username?: string
 }): Promise<SlackApiResponse> {
   return await slackApi(args.token, 'chat.postMessage', {
     channel: args.channel,
     ...(args.threadTs ? { thread_ts: args.threadTs } : {}),
+    ...(args.username ? { username: args.username } : {}),
     text: args.text,
     ...(args.blocks ? { blocks: args.blocks } : {}),
     unfurl_links: false,

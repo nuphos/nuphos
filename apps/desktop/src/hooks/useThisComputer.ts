@@ -1,7 +1,5 @@
 import { useMemo } from 'react'
 
-import { thisComputerBadge } from '../views/settings/thisComputerPresentation'
-
 import { useLocalRuntimeState } from './useLocalRuntimeState'
 
 import type { ThisComputer } from '../lib/agentName'
@@ -15,9 +13,9 @@ export function useThisComputer(): ThisComputer {
   return useMemo(() => (userId && deviceId ? { userId, deviceId } : null), [userId, deviceId])
 }
 
-/** The status the card of `thisComputer` shows from its own connection; undefined for others. */
-export function useThisComputerBadge(thisComputer: boolean) {
-  const badge = thisComputerBadge(useLocalRuntimeState()?.connection)
+/** This computer's own connection, which knows first why it is down; undefined for others. */
+export function useThisComputerConnection(thisComputer: boolean) {
+  const connection = useLocalRuntimeState()?.connection
 
-  return thisComputer ? badge : undefined
+  return thisComputer ? connection : undefined
 }

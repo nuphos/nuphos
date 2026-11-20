@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 import Redis from 'ioredis'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -10,6 +10,9 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
+import * as lifecycle from '@/lib/lifecycle'
+import { createAgentRun } from '@/routes/agent/run-registry'
+import { acceptAgentRun } from '@/routes/agent/turn-start-frame'
 
 import { startConversationTurn } from './conversation-turn'
 import { startQueuedTurn } from './queued-turn'
@@ -885,6 +888,48 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
     expect(queued.map((message) => message.id)).toEqual([first.id, later.id])
     expect(queued[0]?.attempts).toBe(1)
   } finally {
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
+test('a queued turn that reaches a replica as it starts draining goes back to the queue and runs on another', async () => {
+  const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(true)
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, REFUSED)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      // The turn's run goes live as any trigger run's does (trigger-run-execute.ts).
+      acceptAgentRun(createAgentRun(OWNER, REFUSED, `stream-${String(runs.length)}`), args.messages)
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const fire = agent('scheduled fire')
+
+    await enqueuePendingUserMessage(OWNER, REFUSED, fire)
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // Rejected by the draining replica: not lost, back at the head, and not run there.
+    expect(runs).toHaveLength(1)
+    expect((await listPendingUserMessages(OWNER, REFUSED)).map((message) => message.id)).toEqual([
+      fire.id,
+    ])
+
+    // A replica that is not draining picks the queue up and runs it once.
+    draining.mockReturnValue(false)
+    await new Promise((resolve) => setTimeout(resolve, 2_200))
+    expect(runs.map((run) => run.messages.at(-1)?.id)).toEqual([fire.id, fire.id])
+    expect(await listPendingUserMessages(OWNER, REFUSED)).toEqual([])
+  } finally {
+    draining.mockRestore()
     await clearPendingUserMessages(OWNER, REFUSED)
   }
 })

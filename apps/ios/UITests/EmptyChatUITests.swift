@@ -116,6 +116,8 @@ final class EmptyChatUITests: XCTestCase {
         XCTAssertTrue(empty.waitForExistence(timeout: 10), "The empty chat did not open")
         XCTAssertTrue(empty.staticTexts[title].exists, "The empty chat does not show its name")
         shot(name)
+        // Nothing to scroll, so nothing to jump to.
+        XCTAssertFalse(app.buttons["chat.latest"].exists, "An empty chat offers to scroll to the latest message")
 
         let bar = app.navigationBars.firstMatch
         let back = bar.buttons["BackButton"]

@@ -46,7 +46,7 @@ struct NewBoxView: View {
             }.padding(24).frame(maxWidth: 560).frame(maxWidth: .infinity)
         }
         .background(Theme.canvas)
-        .navigationTitle("Nuphos computer")
+        .navigationTitle("Rent a computer from Nuphos")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(creating)
         .alert(
@@ -58,9 +58,9 @@ struct NewBoxView: View {
         } message: { failure in
             Text(failure.plan ? "\(failure.message)\n\n\(String(localized: "Choose a plan in Nuphos on your computer."))" : failure.message)
         }
-        // Desktop polls the new Box every second until its runtimes join.
+        // Desktop polls the new Box every second while its runtimes join.
         .task(id: made?.deviceId) {
-            while made != nil, phase == .starting, !Task.isCancelled {
+            while made != nil, phase.reads, !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 async let devices: Void = store.loadAgentDevices()
                 async let runtimes: Void = store.loadRuntimes(force: true)
@@ -72,7 +72,7 @@ struct NewBoxView: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("A Linux computer with Claude Code, Codex, OpenCode and other agents on it. Running computers count against your plan's vCPU; paused ones do not.")
+            Text("A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.")
                 .font(.callout).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 12) {
                 Text("Name").font(.footnote.weight(.medium)).foregroundStyle(Theme.body)
