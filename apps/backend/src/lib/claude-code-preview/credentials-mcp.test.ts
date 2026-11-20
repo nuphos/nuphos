@@ -143,6 +143,14 @@ describe('credentialsMcpTools', () => {
     expect(trigger - afterCompaction).toBeGreaterThanOrEqual(95_000)
   })
 
+  test('Claude Code file memory is off: Nuphos memory is the one memory', async () => {
+    const access = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(access.runtimeEnv).toMatchObject({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' })
+  })
+
   test('automated turns act as the session owner, in the owner’s HOME', async () => {
     for (const actor of ['owner', 'guest']) {
       const automated = await previewSessionAccess('conv-1', 'team-1', actor, 'owner', {
