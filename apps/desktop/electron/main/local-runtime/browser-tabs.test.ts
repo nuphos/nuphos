@@ -9,6 +9,8 @@ const app = new EventEmitter()
 const browserSession = {}
 /** window-session.ts's flag: set by before-quit, and by an update restart before it. */
 let appQuitting = false
+/** The hand-backs the app reported to the server: route and body. */
+const handBacks: { route: string; body: unknown }[] = []
 const windows: Window[] = []
 let runBrowserCall: typeof RunBrowserCall
 
@@ -122,6 +124,16 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
+  mock.module('../../agent/http.ts', {
+    namedExports: {
+      callJson: (_method: string, route: string, body: unknown) => {
+        handBacks.push({ route, body })
+
+        return Promise.resolve({ ok: true })
+      },
+      teamQuery: (team?: string) => (team ? `?teamId=${team}` : ''),
+    },
+  })
   ;({ runBrowserCall } = await import('./browser-tabs.ts'))
 })
 
@@ -216,6 +228,41 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.equal(window.visible, false)
   assert.equal(window.destroyed, false)
   assert.deepEqual(await listed('show-1'), [page.id])
+})
+
+test('closing a shown window hands the browser back, waking its conversation', async () => {
+  const { window, page } = await opened('hand-back-1')
+
+  handBacks.length = 0
+  await runBrowserCall({ action: 'show', team: 't1', session: 'hand-back-1', tab: page.id })
+  assert.deepEqual(handBacks, [])
+  window.close()
+  assert.deepEqual(handBacks, [
+    {
+      route: '/agent/conversations/hand-back-1/browser/hand-back?teamId=t1',
+      body: { tab: page.id },
+    },
+  ])
+})
+
+test("the agent's own close and an app quit hand nothing back", async () => {
+  const closed = await opened('hand-back-2')
+  const quitting = await opened('hand-back-3')
+
+  handBacks.length = 0
+  await runBrowserCall({
+    action: 'close',
+    team: 't1',
+    session: 'hand-back-2',
+    tab: closed.page.id,
+  })
+  appQuitting = true
+  try {
+    quitting.window.close()
+  } finally {
+    appQuitting = false
+  }
+  assert.deepEqual(handBacks, [])
 })
 
 test("a hidden tab's popup is the conversation's tab too: unseen, driven, and shown with its tab", async () => {

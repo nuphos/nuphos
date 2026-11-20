@@ -5,6 +5,7 @@ import { app, BrowserWindow } from 'electron'
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
+import { callJson, teamQuery } from '../../agent/http.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
 import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
@@ -83,8 +84,21 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
 }
 
+/**
+ * The person closed a tab's window the agent showed them: they hand the browser
+ * back, and the conversation is woken to carry on, so they need not tell it they
+ * are done. Best effort: a missed wake leaves it waiting for their next message.
+ */
+function handBack(team: string, conversation: string, tab: number): void {
+  callJson(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(conversation)}/browser/hand-back${teamQuery(team)}`,
+    { tab },
+  ).catch(() => {})
+}
+
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
-function openTab(url: string, conversation: string): WebContents {
+function openTab(url: string, conversation: string, team: string): WebContents {
   const window = new BrowserWindow({
     ...VIEWPORT,
     useContentSize: true,
@@ -108,6 +122,7 @@ function openTab(url: string, conversation: string): WebContents {
     if (isAppQuitting()) return
     event.preventDefault()
     window.hide()
+    handBack(team, conversation, contents.id)
   })
   contents.loadURL(url).catch(() => {
     // A failed load leaves the tab on its error page, which `describe` reports.
@@ -216,7 +231,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'fetch') return proxyFetch(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const contents = openTab(call.url, call.session)
+    const contents = openTab(call.url, call.session, call.team)
 
     await loaded(contents)
 
@@ -260,7 +275,9 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'show') {
     show(contents)
 
-    return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
+    return text(
+      `Tab ${String(contents.id)} is on screen. When the person closes its window, it hides again and you are woken to continue.`,
+    )
   }
   if (call.action === 'close') {
     window?.destroy()
