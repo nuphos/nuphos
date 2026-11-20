@@ -99,13 +99,19 @@ test('the runtime offers only its bundled fixed programs as jobs', () => {
     if (process.platform === 'win32') return assert.equal(jobs, undefined)
     assert.equal(
       jobs,
-      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
+      `attachments=/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath} ${path.join(root, 'attachment-job.mjs')}`,
     )
     // Every computer reclaims an archived conversation's home with its own fixed program.
     writeFileSync(path.join(root, 'session-home-reclaim-job.mjs'), '')
     assert.equal(
       openabEnv(bundled).OPENAB_RUNTIME_JOBS,
       `${jobs};session-homes=/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`,
+    )
+    // A spaced HOME leaves out only the job that needs it.
+    assert.equal(
+      openabEnv({ ...bundled, env: { ...launch.env, HOME: '/Users/Jane Doe' } })
+        .OPENAB_RUNTIME_JOBS,
+      jobs,
     )
     // openab splits the command on whitespace, so a spaced path cannot run.
     assert.equal(
@@ -163,7 +169,7 @@ test('the session-homes job removes a home where the adapter made it', (t) => {
 test('only a machine Nuphos made also runs the panel scripts the backend sends', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'bundle-'))
   const bundled = { ...launch, bundle: { ...launch.bundle, root } }
-  const node = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath}`
+  const node = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 ${launch.nodeExecPath}`
 
   try {
     writeFileSync(path.join(root, 'attachment-job.mjs'), '')

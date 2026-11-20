@@ -219,22 +219,22 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
  * The jobs this runtime offers: everywhere the backend's bundled attachment and session-home
  * programs, given only signed URLs or an id; on a machine Nuphos made also `panel`, which runs
  * the script the backend sends. openab gives a job only its own isolated HOME and splits its
- * command on whitespace, so Electron's run-as-Node switch and the user's HOME, where the
- * adapter makes session homes, ride in through `env`. A job with a spaced path is left out.
+ * command on whitespace, so Electron's run-as-Node switch, and for session homes the user's
+ * HOME where the adapter makes them, ride in through `env`. A job with a space is left out.
  */
 function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   const program = (file: string) => path.join(launch.bundle.root, file)
   const home = `HOME=${launch.env.HOME ?? homedir()}`
-  const job = (name: string, ...args: string[]) => ({
+  const job = (name: string, env: string[], ...args: string[]) => ({
     name,
-    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', home, launch.nodeExecPath, ...args],
+    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', ...env, launch.nodeExecPath, ...args],
     program: args.at(-1) ?? '',
   })
   const jobs = [
-    job('attachments', program('attachment-job.mjs')),
-    job('session-homes', program('session-home-reclaim-job.mjs')),
+    job('attachments', [], program('attachment-job.mjs')),
+    job('session-homes', [home], program('session-home-reclaim-job.mjs')),
     ...(launch.ownsMachine
-      ? [job('panel', '--max-old-space-size=512', program('panel-job.mjs'))]
+      ? [job('panel', [], '--max-old-space-size=512', program('panel-job.mjs'))]
       : []),
   ].filter(({ argv, program }) => !argv.some((arg) => /\s/.test(arg)) && existsSync(program))
 
