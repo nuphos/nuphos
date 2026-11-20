@@ -18,6 +18,7 @@ import {
   buildNuphosLinksMessage,
   buildTurnRulesMessage,
 } from '@/routes/agent/chat-system-messages'
+import { MODEL_OUTPUT_BUDGET_TOKENS } from '@/routes/agent/constants'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { renderAgentCredentialPrompt } from '@/routes/agent/credential-prompt'
 import { safePromptField } from '@/routes/agent/credential-prompt-sections'
@@ -156,7 +157,7 @@ async function credentialAndPermissionWallSections(
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
   const [base, cloudAccess, urlContext, instructions, where, taskName, channels] =
     await Promise.all([
-      getSystemPrompt(args.locale),
+      getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
       credentialAndPermissionWallSections(args).catch(() => ({
         credentials: '',
         permissionWall: '',
