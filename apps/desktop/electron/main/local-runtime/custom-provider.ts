@@ -162,7 +162,7 @@ export async function saveCustomProvider(
 
   if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
     throw new Error(
-      `This provider doesn’t serve the OpenAI Responses API that Codex needs at ${endpoint}. Check that the base URL stops before the endpoint path, such as https://api.example.com/v1. A provider with only a chat completions API works with other agents, not Codex.`,
+      'This provider doesn’t serve the OpenAI Responses API Codex needs. Enter its base URL, such as https://api.example.com/v1.',
     )
   if (key) {
     try {

@@ -41,7 +41,7 @@ export const customProviderScenarios: Scenario[] = [
         await save(`${base}/chat/completions`)
         // The toast, and the alert that reads it out.
         await page
-          .getByText(/doesn’t serve the OpenAI Responses API that Codex needs/u)
+          .getByText(/doesn’t serve the OpenAI Responses API Codex needs/u)
           .first()
           .waitFor()
         await page.waitForTimeout(500)
