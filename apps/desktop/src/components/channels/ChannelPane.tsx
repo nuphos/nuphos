@@ -20,14 +20,11 @@ import { HeaderEdge } from '../ui/header-edge'
 import { toast } from '../ui/toast'
 
 import { botOfChannel, ownsBot } from './botChannel'
-import { BotDesktopButton } from './BotDesktopButton'
+import { BotDetailsPanel, ChannelHeading } from './BotDetails'
 import { BotStatusPill } from './BotStatusPill'
-import { BotTaskButton } from './BotTaskButton'
-import { BotTriggers } from './BotTriggers'
 import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
-import { ChatHeaderIcon, ReplyingBanner } from './channelParts'
-import { ChannelTitle } from './ChannelTitle'
+import { ReplyingBanner } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotComposerControls } from './useBotComposerControls'
@@ -93,9 +90,6 @@ export function ChannelPane({
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
   const canOpenTask = taskAccess && !settingUp
-  const canOpenBotDesktop =
-    bot !== undefined &&
-    sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }).canOpen
 
   useEffect(() => {
     if (!bot) return
@@ -176,14 +170,7 @@ export function ChannelPane({
       >
         {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChatHeaderIcon faces={chat?.faces} title={title} loading={!chat} />
-          <ChannelTitle
-            bot={bot}
-            title={title}
-            teamId={teamId}
-            canRename={botOwned}
-            onRenamed={refresh}
-          />
+          <ChannelHeading chat={chat} title={title} visible={visible} />
           <BotStatusPill
             teamId={teamId}
             botId={bot}
@@ -193,14 +180,6 @@ export function ChannelPane({
             onOpenLink={onOpenNuphosLink}
           />
         </div>
-        {bot && <BotTriggers key={bot} teamId={teamId} botId={bot} />}
-        {bot && canOpenTask && (
-          <BotTaskButton
-            provider={agents.find((agent) => agent.sessionId === bot)?.provider}
-            onClick={() => (onOpenTask ?? onOpenSession)(bot)}
-          />
-        )}
-        {bot && canOpenBotDesktop && <BotDesktopButton teamId={teamId} botId={bot} />}
         {/* A Bot's 1:1 chat stays the two of you; a group chat starts from "+" on Bots. */}
         {!bot && (
           <SessionParticipants
@@ -224,77 +203,96 @@ export function ChannelPane({
         )}
         {grip}
       </div>
-      <HeaderEdge
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
-      >
-        {/* The column: one box, so its height says when anything below grows, and
+      <div className="relative flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <HeaderEdge
+            ref={scrollRef}
+            className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
+          >
+            {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
-        <ChatColumn>
-          {detail && messages.length === 0 && (
-            <ChannelEmptyState
-              faces={detail.faces}
-              title={title}
-              bot={Boolean(bot)}
-              preparingFirstReply={preparingFirstReply}
-              firstReplyFailed={firstReplyFailed}
-            />
-          )}
-          {detail && (
-            <ChannelMessages
-              botId={bot}
-              messages={messages}
-              events={detail?.timelineEvents ?? []}
-              agents={agents}
-              viewerId={user.id}
-              teamId={teamId}
-              onOpenSession={onOpenSession}
-              onOpenNuphosLink={onOpenNuphosLink}
-              channelId={channelId}
-              extraRows={questions.rows}
-              fixes={fixes}
-              onReply={
-                detail.readOnly
-                  ? undefined
-                  : (reply) => {
-                      setReplying(reply)
-                      focusComposer()
-                    }
-              }
-            />
-          )}
-        </ChatColumn>
-      </HeaderEdge>
-      <ChatColumn>
-        {/* Inset past the faces on both sides, so the reply bar and the composer
+            <ChatColumn>
+              {detail && messages.length === 0 && (
+                <ChannelEmptyState
+                  faces={detail.faces}
+                  title={title}
+                  bot={Boolean(bot)}
+                  preparingFirstReply={preparingFirstReply}
+                  firstReplyFailed={firstReplyFailed}
+                />
+              )}
+              {detail && (
+                <ChannelMessages
+                  botId={bot}
+                  messages={messages}
+                  events={detail?.timelineEvents ?? []}
+                  agents={agents}
+                  viewerId={user.id}
+                  teamId={teamId}
+                  onOpenSession={onOpenSession}
+                  onOpenNuphosLink={onOpenNuphosLink}
+                  channelId={channelId}
+                  extraRows={questions.rows}
+                  fixes={fixes}
+                  onReply={
+                    detail.readOnly
+                      ? undefined
+                      : (reply) => {
+                          setReplying(reply)
+                          focusComposer()
+                        }
+                  }
+                />
+              )}
+            </ChatColumn>
+          </HeaderEdge>
+          <ChatColumn>
+            {/* Inset past the faces on both sides, so the reply bar and the composer
             line up with the bubbles: a face and its gap (2.375rem) on each side. */}
-        <div
-          ref={setComposer}
-          className="relative px-[2.375rem]"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
-          }}
-        >
-          {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
-          <Composer
-            onSend={send}
-            onStop={() => {}}
-            readOnly={detail?.readOnly === true}
-            pendingSeed={restore}
-            onSeedConsumed={() => setRestore(null)}
-            draftKey={composerDraftKey(teamId, channelId)}
-            dropRegisterRef={dropRef}
-            mentionScope={{
-              teamId,
-              sessionId: channelId,
-              only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
-            }}
-            placeholder={t('Message {name}', { name: title })}
-            credentialSelector={questions.credentials}
-            {...controls}
-          />
+            <div
+              ref={setComposer}
+              className="relative px-[2.375rem]"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
+              }}
+            >
+              {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
+              <Composer
+                onSend={send}
+                onStop={() => {}}
+                readOnly={detail?.readOnly === true}
+                pendingSeed={restore}
+                onSeedConsumed={() => setRestore(null)}
+                draftKey={composerDraftKey(teamId, channelId)}
+                dropRegisterRef={dropRef}
+                mentionScope={{
+                  teamId,
+                  sessionId: channelId,
+                  only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
+                }}
+                placeholder={t('Message {name}', { name: title })}
+                {...controls}
+              />
+            </div>
+          </ChatColumn>
         </div>
-      </ChatColumn>
+        {bot && (
+          <BotDetailsPanel
+            teamId={teamId}
+            bot={bot}
+            title={title}
+            agents={agents}
+            loading={!detail}
+            owned={botOwned}
+            botState={botState}
+            onOpenTask={canOpenTask ? (onOpenTask ?? onOpenSession) : undefined}
+            onEdited={refresh}
+            onOpenSession={onOpenSession}
+            onOpenLink={onOpenNuphosLink}
+            credentials={questions.credentials}
+          />
+        )}
+      </div>
     </FileDropZone>
   )
 }

@@ -207,5 +207,10 @@
     <string name="chat_summary_triggers">トリガー</string>
     <string name="chat_summary_no_triggers">このタスクの定期的な作業をエージェントに依頼できます。</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot の詳細</string>
+    <string name="chat_bot_state_waiting">%1$d 件が入力待ち</string>
+    <string name="chat_bot_state_running">%1$d 件実行中</string>
+    <string name="chat_summary_idle_since">待機中 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">定期的な作業はここで依頼してください。</string>
     <string name="chat_summary_paused">一時停止中</string>
 </resources>

@@ -66,9 +66,9 @@ export function boxCreateSize(
   )?.vcpus
 }
 
-/** Columns for `count` size cards: one each up to three, then wrapping; one while there are none. */
+/** Columns for `count` size cards: one each up to three, two for four (2 × 2), then three; one while there are none. */
 export function sizeGridColumns(count: number): 1 | 2 | 3 {
   if (count <= 1) return 1
 
-  return count === 2 ? 2 : 3
+  return count === 2 || count === 4 ? 2 : 3
 }

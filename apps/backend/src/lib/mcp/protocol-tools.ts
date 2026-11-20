@@ -1,10 +1,12 @@
 import { MCP_SERVER_NAME } from './protocol-rpc'
 import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
-
-// ─── Tool definitions (advertised via tools/list) ───────────────────────────
+import { FILE_TOOLS } from './protocol-tools-files'
+import { RESOURCE_TOOLS } from './protocol-tools-resources'
 
 export const TOOL_DEFINITIONS = [
+  ...FILE_TOOLS,
+  ...RESOURCE_TOOLS,
   {
     name: 'nuphos_ask',
     description:

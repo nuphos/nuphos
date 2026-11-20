@@ -248,10 +248,6 @@ export async function reattachAfterTransportLoss(
           session_id: session.conversationId,
           attempt: attempt + 1,
         })
-        // Back on the air: posts that could not wake it while it was away do now.
-        void import('@/lib/agent/channel-missed-posts').then(({ wakeMissedPosts }) =>
-          wakeMissedPosts({ sessionId: session.conversationId }),
-        )
 
         return true
       } catch (error) {

@@ -14,6 +14,20 @@ function popupOrigin(side: Side) {
   return 'top center'
 }
 
+// Focus opens a tooltip only when a key moved it there. A dialog or menu closed with Esc or
+// Enter hands focus back to its button, and that tooltip would open unasked and take the
+// next Esc (#3961).
+let keyMovedFocus = false
+
+if (typeof document !== 'undefined')
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      keyMovedFocus = event.key === 'Tab' || event.key.startsWith('Arrow')
+    },
+    true,
+  )
+
 /**
  * Hover explanation for a control or label that cannot say enough on its own.
  *
@@ -56,7 +70,12 @@ export function Tooltip({
     // these sit in table rows, and a shared group delay would make the second
     // hover appear instantly while sweeping the cursor down a column.
     <TooltipPrimitive.Provider delay={delay}>
-      <TooltipPrimitive.Root disabled={disabled}>
+      <TooltipPrimitive.Root
+        disabled={disabled}
+        onOpenChange={(open, details) => {
+          if (open && details.reason === 'trigger-focus' && !keyMovedFocus) details.cancel()
+        }}
+      >
         <TooltipPrimitive.Trigger
           render={trigger ?? <span className={clsx('inline-flex', triggerClassName)} />}
         >
