@@ -53,10 +53,13 @@ test('with no room beside, the details close and open only as a look, keeping th
   setBotDetailsOpen('a', true)
   dismissBotDetails('a')
   assert.equal(isBotDetailsOpen('a'), false)
-  // Wide again, they are back beside the chat as saved, and a look left open does not outlive it.
+  // Wide again, they are back beside the chat as saved, with nothing opened by hand.
+  setBotDetailsNarrow('a', false)
+  assert.equal(isBotDetailsOpen('a'), true)
+  // A look left open does not outlive the narrow chat either.
+  setBotDetailsNarrow('a', true)
   setBotDetailsOpen('a', true)
   setBotDetailsNarrow('a', false)
-  setBotDetailsOpen('a', true)
   assert.equal(isBotDetailsOpen('a'), true)
   setBotDetailsNarrow('a', true)
   assert.equal(isBotDetailsOpen('a'), false)

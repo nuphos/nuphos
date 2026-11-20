@@ -64,8 +64,9 @@ export function setBotDetailsOpen(bot: string, next: boolean): void {
 
 /** Closes a floating popover as a press outside does: in this Bot's chat only, saving nothing. */
 export function dismissBotDetails(bot: string): void {
-  dismissedFor = bot
-  if (peek === bot) peek = null
+  // Narrow, only the look closes: wide again, the details are back as saved.
+  if (narrow.has(bot)) peek = null
+  else dismissedFor = bot
   notify()
 }
 
