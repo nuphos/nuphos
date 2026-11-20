@@ -39,7 +39,7 @@ function botAccess(stack: Stack) {
   ) as { sessionId: string; access: unknown }
 }
 
-/** Hands a Bot to a teammate who lets the team read it. No route does this, so Mongo does. */
+/** Hands a Bot to a member, letting the team read it. No route does this, so Mongo does. */
 function shareAway(stack: Stack, botId: string, userId: string) {
   mongo(
     stack,
@@ -202,16 +202,29 @@ export const botAccessScenarios: Scenario[] = [
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')
       await setBotDetails(page, false)
-      // Later scenarios list Bots by name: this one leaves the lists.
+      // Later scenarios list Bots by name: the Bot goes back to the viewer, who archives it
+      // and its chat.
+      const me = (await (
+        await fetch(`${stack.apiUrl}/auth/me`, {
+          headers: { authorization: `Bearer ${stack.token}` },
+        })
+      ).json()) as { id: string }
+
+      shareAway(stack, bot.sessionId, me.id)
       const archived = await fetch(`${stack.apiUrl}/agent/conversations/${bot.sessionId}/archive`, {
         method: 'PATCH',
-        headers: { authorization: `Bearer ${mate.token}`, 'content-type': 'application/json' },
+        headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
         body: JSON.stringify({ teamId: stack.teamId, archived: true }),
       })
 
       if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
       // The scenarios after this one run in the E2E Bot's chat.
       await openChat(page, 'E2E Bot')
+      await until(
+        `${SHARED} to leave the Bots list`,
+        async () =>
+          (await page.locator('[data-sidebar-row]').filter({ hasText: SHARED }).count()) === 0,
+      )
     },
   },
 ]
