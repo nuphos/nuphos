@@ -30,7 +30,8 @@ const layout = (page: Page, post: string) =>
 
     return {
       fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
-      working: scroller.querySelector('.t-typing-dot') !== null,
+      // The dots stay in the DOM, folded away, once the turn ends: only open ones count.
+      working: scroller.querySelector('[data-open="true"] .t-typing-dot') !== null,
       scroller: box(scroller)!,
       post: box(target)!,
       bar: box(bar),
