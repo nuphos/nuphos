@@ -5,7 +5,8 @@ import { useObservability } from '@/lib/test/doubles/observability'
 
 import type { AgentDevice } from './store'
 
-const never = new Promise<string>((resolve) => void resolve)
+// A race with nothing in it never settles: an instabox that never answers.
+const never = Promise.race<string>([])
 
 // instabox reports every machine running; nothing here talks to a network.
 // The machine `evicted` was last paused by instabox for its host's memory, the others by a client.
