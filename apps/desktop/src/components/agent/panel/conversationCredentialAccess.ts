@@ -2,27 +2,25 @@ import { EMPTY_CREDENTIAL_ACCESS } from './constants.ts'
 import {
   allCredentialAccess,
   credentialOptionsLoaded,
-  emptyCredentialAccess,
   reconcileStoredCredentialAccess,
 } from './credentialAccess.ts'
 import { TEAM_WIDE_WHEN_UNSET } from './teamWideWhenUnset.ts'
 
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
-// A conversation, unlike a dashboard panel, runs with nothing chosen when it has
-// nothing stored: none of the kinds the user opts into, and team-wide reach for
-// the kinds whose absence means that, as the backend's `normalizeCredentialAccess` reads it.
-// Before the options load, the team-wide kinds cannot be listed yet.
+// A conversation, unlike a dashboard panel, runs with what it stored: none of a kind it has
+// no list for, except the kinds whose absence means team-wide reach, as the backend's
+// `normalizeCredentialAccess` reads it. Those show every one, whether nothing is stored or
+// only other kinds are, as `nuphos_ask` stores them (#4034). Before the options load, the
+// team-wide kinds cannot be listed yet.
 export function storedConversationCredentialAccess(
   stored: Partial<AgentCredentialSelection> | null | undefined,
   options: AgentCredentialOptions,
 ): AgentCredentialSelection {
-  if (stored || !credentialOptionsLoaded(options))
-    return reconcileStoredCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS, options)
+  const shown = reconcileStoredCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS, options)
+  if (!credentialOptionsLoaded(options)) return shown
   const all = allCredentialAccess(options)
+  const unset = TEAM_WIDE_WHEN_UNSET.filter((kind) => stored?.[kind] == null)
 
-  return {
-    ...emptyCredentialAccess(),
-    ...Object.fromEntries(TEAM_WIDE_WHEN_UNSET.map((kind) => [kind, all[kind]])),
-  }
+  return { ...shown, ...Object.fromEntries(unset.map((kind) => [kind, all[kind]])) }
 }
