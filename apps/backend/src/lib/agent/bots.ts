@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
+import { defaultCredentialAccess } from '@/routes/agent/credential-access'
+
 import { initializeSessionBypass } from './auto-mode/store'
 import { derivedAvatar } from './bot-avatars'
 import { botChange, upsertConversationShell } from './db'
@@ -26,6 +28,7 @@ export type NewBot = {
 /**
  * A Bot exists, with the name and face its maker chose, before anyone types:
  * "+" on Bots and the create_bot tool. `userId` owns it, so it is their 1:1 chat.
+ * It may use everything its owner may use, as a new chat does (#4158).
  * `bypass` is its permission mode: full access when a person chose it, the
  * caller's own mode when an agent made it.
  */
@@ -47,6 +50,7 @@ export async function createBot(
     teamId,
     title,
     firstMessage: '',
+    credentialAccess: await defaultCredentialAccess(teamId, userId),
     bot: {
       avatar,
       ...(background ? { background } : {}),
