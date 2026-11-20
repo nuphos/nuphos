@@ -288,7 +288,7 @@ impl SessionState {
                         snapshot["commands"] = agent_commands(commands);
                     }
                 }
-                Some("plan") => {
+                Some("plan") if snapshot["operation"] == "prompt" => {
                     snapshot["planStep"] = update["entries"].as_array().and_then(|entries|
                         entries.iter().find(|entry| entry["status"] == "in_progress" &&
                             entry["content"].as_str().is_some_and(|text| !text.trim().is_empty()))
@@ -360,10 +360,16 @@ mod tests {
     #[test]
     fn plan_progress_is_status_not_a_tool() {
         let state = SessionState::default();
+        state.operation("prompt");
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Inspect fictional project"}]}})));
         assert_eq!(state.snapshot()["planStep"], "Inspect fictional project");
         assert_eq!(state.snapshot()["tools"], json!({}));
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"completed","content":"Inspect fictional project"}]}})));
+        assert!(state.snapshot()["planStep"].is_null());
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Old step"}]}})));
+        state.operation("none");
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Late step"}]}})));
+        state.operation("prompt");
         assert!(state.snapshot()["planStep"].is_null());
     }
 
