@@ -17,7 +17,6 @@
 import { writeFile } from 'node:fs/promises'
 
 import { closeDb, connectDb } from '../src/lib/db'
-import { defaultCredentialAccess } from '../src/routes/agent/credential-access'
 
 // A Bot is a conversation with a face that is not a chat (isBot in read-state.ts).
 const NEVER_CHOSEN = {
@@ -51,6 +50,9 @@ async function main(): Promise<void> {
 
       await writeFile(record, JSON.stringify(plan, null, 1))
       console.log(`rollback record: ${record}`)
+      // Loaded only to write: a dry run also works on a backend without it yet.
+      const { defaultCredentialAccess } = await import('../src/routes/agent/credential-access')
+
       for (const { sessionId, userId, teamId } of plan) {
         const credentialAccess = await defaultCredentialAccess(teamId, userId)
         const result = await conversations.updateOne(
@@ -61,7 +63,7 @@ async function main(): Promise<void> {
         written += result.modifiedCount
       }
     }
-    const outcome = apply ? `done: gave ${String(written)}` : 'dry-run: would give'
+    const outcome = apply ? `done: gave ${String(written)} of` : 'dry-run: would give'
 
     console.log(
       `${outcome} of ${String(plan.length)} unarchived Bot(s) with no selection their owner's ` +
