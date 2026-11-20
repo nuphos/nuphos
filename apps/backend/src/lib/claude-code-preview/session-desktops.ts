@@ -118,18 +118,19 @@ export async function boxDesktops(
  * desktop by (runtime-desktop.ts), when its host opens one on request, and the Nuphos Desktop
  * running it with the update it found (computer-app-update.ts). The runtime id names the
  * computer, which needs no agent for it: the catalog lists a runtime only per installed agent.
- * A Box opens through its own link and updates its host instead. Everyone who sees a computer
+ * A Box is the same, also for whoever manages it, and its host updates itself. Everyone who sees a computer
  * is told when the Nuphos on it should be updated (host-minimum-version.ts).
  */
 export async function ownComputer(
   {
     userId,
     deviceId,
-    box,
     autoInstall: recorded,
+    managesBox,
   }: LocalRuntimeRef & {
-    box?: unknown
     autoInstall?: boolean
+    /** The viewer manages this Box, so its desktop opens for them too (runtime-desktop.ts). */
+    managesBox?: boolean
   },
   viewerId: string,
   presence = runtimePresenceStore(),
@@ -149,7 +150,7 @@ export async function ownComputer(
     ...(typeof autoInstall === 'boolean' ? { autoInstall } : {}),
   }
 
-  if (box || userId !== viewerId) return outdated
+  if (userId !== viewerId && !managesBox) return outdated
   const status = present?.status
 
   return {
