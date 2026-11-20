@@ -46,7 +46,9 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.personalCredentials': ({ onOpenConnectors }) => (
     <div className="space-y-4">
       <h2 className="text-lg font-medium">{t('Personal Credentials')}</h2>
-      <p className="text-secondary">{t('Connect your own accounts so the agent acts as you.')}</p>
+      <p className="text-secondary">
+        {t('Connect your own accounts so your Bots and tasks act as you.')}
+      </p>
       <Button onClick={onOpenConnectors}>{t('Connectors')}</Button>
     </div>
   ),

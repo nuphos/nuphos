@@ -1,18 +1,23 @@
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
-import { startStack } from './stack.ts'
-import { artifacts, stopAll } from './processes.ts'
 import { startDesktop } from './desktop.ts'
+import { artifacts, stopAll } from './processes.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { startStack } from './stack.ts'
+
 let desktop: Awaited<ReturnType<typeof startDesktop>> | undefined
+
 try {
   console.log(`Artifacts: ${artifacts}`)
   const stack = await startStack()
+
   await connectorSharingFlow(stack)
   desktop = await startDesktop(stack.apiUrl)
   const page = desktop.page
+
   await signInScenarios[1]!.run(page, stack)
   await page.getByRole('button', { name: 'Connectors', exact: true }).click()
   const dialog = page.getByRole('dialog')
+
   await dialog.getByRole('button', { name: 'Open SonarQube', exact: true }).waitFor()
   await page.waitForTimeout(1000)
   await page.screenshot({ path: `${artifacts}/real-catalog.png` })

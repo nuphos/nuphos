@@ -10,21 +10,17 @@ import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
-import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
 
 export type ConversationPreviewAttachment = {
-  /** Legacy: set by moves before they stopped minting a session id. Only
-   *  getConversationPreviewAttachment reads it, and it answers "no session". */
   forceNew?: boolean
   runtimeDefaults?: RuntimeDefaults
-  /** Last model settings this session confirmed; they override runtimeDefaults
-   *  on the chip and when the session is recreated (see storedPick). */
   sessionConfig?: SessionConfigOption[]
   openabSessionId: string
   runtimeUrl: string
@@ -44,16 +40,10 @@ export function liveAttachment(
 export type ConversationPreviewContext = {
   diagramId?: string
   kubeContext?: string
-  /** Exact active chat turn; MCP requests use it to durably join tool memory
-   * activity back to the turn accumulator across backend replicas. */
   activeTurnKey?: string
-  /** Origin of that active turn; conversation-principal writes that must come
-   * from a live user (e.g. Instructions) require `user`. */
   activeTurnOrigin?: AgentSessionOrigin
-  /** Whether that turn's client declared it can run local (Desktop) tools. */
   localTools?: boolean
   secretCard?: boolean
-  /** The runtime's guess at the next user prompt; '' while the ended turn awaits one. */
   promptSuggestion?: string
 }
 
@@ -65,16 +55,13 @@ export type AgentConversation = ConversationTaskState & {
   linkedResources?: SessionResource[]
   titleManuallySet?: boolean
   title: string
-  /** Bot avatar picked by the owner or a manager, e.g. `05-rembrandt`. Absent = derived from sessionId. */
   avatar?: string
-  /** The tint a Bot's character sits on, e.g. `sky`. Absent = none. */
   avatarBackground?: string
   botTemplate?: {
     templateId: string
     version: string
     requirements: { provider: string; required: boolean; reason: string }[]
   }
-  /** A Bot's own standing instructions, written by the Bot through `update_self`. */
   instructions?: string
   firstMessage: string
   messageCount: number
@@ -91,18 +78,12 @@ export type AgentConversation = ConversationTaskState & {
   // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
   // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
-  /** Whether the rest of the team may read; see access.ts. Absent, or an old 'reply', = 'view'. */
   generalAccess?: GeneralAccess | 'reply'
-  /** Who joined, left or moved this session, shown between its messages. */
   timelineEvents?: ConversationTimelineEvent[]
-  /** Every change of its agent, model, effort or fast mode. Uncapped: never evicted. */
   settingsHistory?: SettingsChange[]
-  /** Bumped by each settings write; guards updateConversationSettings. */
   settingsRevision?: number
-  /** Incremented at every assistant turn boundary. Absent means zero. */
   activitySeq?: number
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
-  /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */
   readSeq?: number
   compactionSummary?: string
   compactionMessageCount?: number
@@ -116,7 +97,6 @@ export type AgentConversation = ConversationTaskState & {
   agentRuntime?: OpenAbProvider
   runtimeId?: string
   runtimeLabel?: string
-  /** Runtimes this conversation left, so its files there stay readable after a move. */
   previousRuntimeUrls?: string[]
   runtimeOperation?: { token: string; expiresAt: Date }
   runtimeMigration?: {
@@ -130,10 +110,7 @@ export type AgentConversation = ConversationTaskState & {
   // conversation, on which runtime endpoint. Durable so any backend replica
   // reattaches to the same inner session instead of forking a new one.
   claudeCodePreview?: ConversationPreviewAttachment
-  /** Model settings picked before a session exists; the runtime applies them
-   *  when it creates one. Cleared by a move, since choices are per agent. */
   initialSessionConfig?: RuntimeDefaults
-  /** The project: a folder on this runtime's computer, picked when the task starts and never changed. */
   workspace?: { kind: 'folder'; path: string; runtimeId: string }
   claudeCodePreviewContext?: ConversationPreviewContext
   // What became of whatever the inner agent process left running — background
@@ -143,7 +120,6 @@ export type AgentConversation = ConversationTaskState & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
-  /** `started` is the legacy one-time introduction, not an active setup lifecycle. */
   botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   metadata?: {
     locale?: string
@@ -230,9 +206,7 @@ export type AgentMessage = {
   index: number
   role: 'user' | 'assistant'
   parts: unknown[]
-  /** Runtime-originated assistant turn with no synthetic user message. */
   turnOrigin?: 'autonomous'
-  /** A user turn a surface generated for a plan approval, not typed text. */
   turnKind?: 'plan-approval'
   // Where this specific message came in from, for messages that arrived over an
   // external bridge. Absent for messages typed in Nuphos and for every message

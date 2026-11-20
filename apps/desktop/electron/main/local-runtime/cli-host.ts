@@ -17,8 +17,8 @@ import {
 } from '../device-identity-core.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
+import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
@@ -225,7 +225,6 @@ const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
 // Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
 const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
-/** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {
   if (macScreen) return macScreenDeps(macScreen, status, macScreenHost, instances)
   if (!desktopPool) return {}
@@ -240,7 +239,6 @@ function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances)
   }
 }
 
-/** One line per agent whenever what the user would see changes. */
 function report(): void {
   if (stopping) return
   const { agents } = controller.state()

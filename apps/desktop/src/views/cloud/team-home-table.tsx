@@ -22,13 +22,11 @@ import type { IntegrationPlatformRow } from './team-home-bind'
 import type { PersonalCredentialProvider, GithubInstallation } from '../../types'
 import type { AddIntegrationKey, CatalogItem } from '../addIntegrationCatalog'
 
-type ConnectedSummary = { text: string; attention: boolean }
-
 function summarizeConnection(
   item: CatalogItem,
   installed: IntegrationPlatformRow[],
   githubInstallations: GithubInstallation[],
-): ConnectedSummary | null {
+): { text: string; attention: boolean } | null {
   if (installed.length === 0) return null
   const needing = installed.filter((row) => row.attention)
 

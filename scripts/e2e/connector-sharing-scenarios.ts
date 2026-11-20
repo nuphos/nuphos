@@ -10,6 +10,7 @@ export async function connectorSharingFlow(stack: Flow) {
   const admin = client(stack.apiUrl, stack.token)
   const editor = await joinAsAdmin(stack, admin)
   const viewer = await joinAsAdmin(stack, admin)
+
   must(
     (await admin('PATCH', `/teams/${stack.teamId}/members/${viewer.memberId}`, { role: 'VIEWER' }))
       .status === 200,
@@ -20,6 +21,7 @@ export async function connectorSharingFlow(stack: Flow) {
     res.setHeader('content-type', 'application/json')
     res.end(req.url?.startsWith('/api/authentication/validate') ? '{"valid":true}' : '10.6.0')
   })
+
   await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
   try {
     must(
@@ -32,6 +34,7 @@ export async function connectorSharingFlow(stack: Flow) {
       baseUrl: `http://127.0.0.1:${port}`,
       token: 'squ_fixture',
     })
+
     must(created.status < 300, `connection creation: ${created.status} ${created.text}`)
     must(
       (
@@ -54,6 +57,7 @@ export async function connectorSharingFlow(stack: Flow) {
     const access = (await editor.member('GET', `${path}/access`)).body as {
       memberAllowList: string[]
     }
+
     must(
       JSON.stringify(access.memberAllowList) === JSON.stringify([editor.memberId]),
       'new member binding defaults to private',
