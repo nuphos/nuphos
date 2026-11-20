@@ -205,9 +205,29 @@ data class CredentialSelection(
             .filter { json[it]?.isNull == false }.toSet(),
     )
 
+    /**
+     * What a stored selection reaches: each kind the server reads as every one when unset, and that
+     * it left unset, ticked in full, so the picker shows what the agent can use and an edit there
+     * stores it as a list (#4034). The desktop's `TEAM_WIDE_WHEN_UNSET`.
+     */
+    fun reaching(catalog: CredentialCatalog?): CredentialSelection {
+        val kinds = stored ?: return this
+        val unset = catalog?.allItems.orEmpty()
+            .filter { it.provider.selectionKey in TEAM_WIDE_WHEN_UNSET && it.provider.selectionKey !in kinds }
+            .groupBy { it.provider.selectionKey }
+        return copy(ids = ids + unset.mapValues { (key, items) -> ids[key].orEmpty() + items.map { it.id } })
+    }
+
     fun pruned(catalog: CredentialCatalog): CredentialSelection {
         val valid = catalog.allItems.groupBy { it.provider.selectionKey }.mapValues { e -> e.value.map { it.id }.toSet() }
         return copy(ids = ids.mapValues { (key, set) -> set.intersect(valid[key] ?: emptySet()) })
+    }
+
+    companion object {
+        private val TEAM_WIDE_WHEN_UNSET = setOf(
+            "githubInstallationIds", "gitlabBindingIds", "grafanaInstanceIds", "sonarqubeIntegrationIds",
+            "notionIntegrationIds", "upstashAccountIds", "cloudflareAccountIds", "instaboxAccountIds", "personalCredentialIds",
+        )
     }
 }
 
