@@ -460,9 +460,10 @@ jobs:
     # hosted-runner limit. Pull requests stay on GitHub's hosts. instabox machines share
     # capacity with other workloads, so at most 10 of these jobs hold one at a time: the
     # last digit of the run ID picks one of 10 slots and later runs wait their turn.
+    # Pull requests get a group of their own per run, so they never wait on these slots.
     runs-on: ${{ github.event_name == 'pull_request' && 'ubuntu-24.04' || 'instabox-medium' }}
     concurrency:
-      group: instabox-e2e-${{ endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
+      group: instabox-e2e-${{ github.event_name == 'pull_request' && format('pr-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
       queue: max
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
