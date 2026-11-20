@@ -75,7 +75,7 @@ test(
       assert.equal(status.installed, false)
       assert.equal(
         status.installed ? '' : status.error,
-        "DeepSeek Harness couldn't start on this computer (`dsh --version printed nothing`). Reinstall it, then try again.",
+        "DeepSeek Harness couldn't start on this computer (dsh --version printed nothing). Reinstall it, then try again.",
       )
     }
   },

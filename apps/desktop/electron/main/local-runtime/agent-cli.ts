@@ -256,7 +256,7 @@ export async function probeAgentCli(
         installed: false,
         error: outdated
           ? `DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has ${node}. Update Node.js, then try again.`
-          : `DeepSeek Harness couldn't start on this computer (\`${failure}\`). Reinstall it, then try again.`,
+          : `DeepSeek Harness couldn't start on this computer (${failure}). Reinstall it, then try again.`,
       }
     }
   }
