@@ -1,7 +1,7 @@
 // #4243: Settings › Privacy saves the local runtime logs to a zip for support, secrets removed.
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { appendFileSync, globSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, existsSync, globSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -46,10 +46,16 @@ export const diagnosticsScenarios: Scenario[] = [
       await page.keyboard.press('Enter')
       await page.getByRole('button', { name: 'Save diagnostics' }).click()
 
-      const shown = page.getByText(/nuphos-diagnostics-[^/\\]+\.zip$/)
+      const shown = page.getByText(/^nuphos-diagnostics-[^/\\]+\.zip$/)
 
       await shown.waitFor()
-      const zip = (await shown.innerText()).trim()
+      const name = (await shown.innerText()).trim()
+      // Electron saves to the home directory where the OS has no Downloads folder.
+      const zip = [join(homedir(), 'Downloads', name), join(homedir(), name)].find((file) =>
+        existsSync(file),
+      )
+
+      if (!zip) throw new Error(`${name} is in neither ~/Downloads nor ~`)
 
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'diagnostics-saved.png') })

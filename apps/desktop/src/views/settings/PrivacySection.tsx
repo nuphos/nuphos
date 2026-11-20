@@ -27,7 +27,10 @@ export function PrivacySection() {
   const saveDiagnostics = async () => {
     setExporting(true)
     try {
-      toast.success(t('Diagnostics saved'), await api.localRuntimeSaveDiagnostics())
+      const file = await api.localRuntimeSaveDiagnostics()
+
+      // The name only: the full path carries the person's username into shared screenshots.
+      toast.success(t('Diagnostics saved'), file.split(/[\\/]/).pop())
     } catch {
       toast.error(t('Could not save diagnostics'))
     } finally {
@@ -64,7 +67,7 @@ export function PrivacySection() {
           <div className="text-[13px] font-medium text-main">{t('Diagnostics file')}</div>
           <p className="mt-1 text-[12px] text-tertiary">
             {t(
-              'Saves recent logs from Claude Code, Codex and the other CLIs on this computer, the app and CLI versions, and the operating system to a .zip in Downloads. Tokens, keys and email addresses are removed, and nothing is uploaded. Attach the file when you contact support.',
+              'Saves recent logs from Claude Code, Codex and other CLIs to a .zip in Downloads, with tokens, keys and email addresses removed. Nothing is uploaded. Attach it when you contact support.',
             )}
           </p>
         </div>

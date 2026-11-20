@@ -4095,7 +4095,7 @@
   "Saved, but could not refresh the environment list. Refresh to see the latest values.": "บันทึกแล้ว แต่รีเฟรชรายการสภาพแวดล้อมไม่สำเร็จ รีเฟรชเพื่อดูค่าล่าสุด",
   "Saved. Leave empty to keep it.": "บันทึกแล้ว เว้นว่างไว้เพื่อใช้คีย์เดิม",
   "Saves every file in this group, images included": "บันทึกทุกไฟล์ในกลุ่มนี้ รวมถึงรูปภาพ",
-  "Saves recent logs from Claude Code, Codex and the other CLIs on this computer, the app and CLI versions, and the operating system to a .zip in Downloads. Tokens, keys and email addresses are removed, and nothing is uploaded. Attach the file when you contact support.": "บันทึกล็อกล่าสุดของ Claude Code, Codex และ CLI อื่นๆ ในคอมพิวเตอร์เครื่องนี้ เวอร์ชันของแอปและ CLI และระบบปฏิบัติการ เป็นไฟล์ .zip ในโฟลเดอร์ดาวน์โหลด โดยจะลบโทเค็น คีย์ และอีเมลออก และไม่มีการอัปโหลดใดๆ แนบไฟล์นี้เมื่อติดต่อฝ่ายสนับสนุน",
+  "Saves recent logs from Claude Code, Codex and other CLIs to a .zip in Downloads, with tokens, keys and email addresses removed. Nothing is uploaded. Attach it when you contact support.": "บันทึกล็อกล่าสุดจาก Claude Code, Codex และ CLI อื่นๆ เป็นไฟล์ .zip ในโฟลเดอร์ดาวน์โหลด โดยลบโทเค็น คีย์ และอีเมลออก ไม่มีการอัปโหลดใดๆ แนบไฟล์นี้เมื่อติดต่อฝ่ายสนับสนุน",
   "Saves the shared setting and moves this Task once.": "บันทึกการตั้งค่าที่ใช้ร่วมกันและย้ายงานนี้หนึ่งครั้ง",
   "Saving": "กำลังบันทึก",
   "Saving default…": "กำลังบันทึกค่าเริ่มต้น…",
