@@ -38,6 +38,9 @@ final class ChannelVerifyAccountUITests: XCTestCase {
 
         let verify = app.buttons["chat.verifyAccount"]
         XCTAssertTrue(verify.waitForExistence(timeout: 15))
+        // The channel slides in over the list: shoot once the row is on screen.
+        let onScreen = expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: verify)
+        wait(for: [onScreen], timeout: 10)
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Verify with Anthropic · light"
         shot.lifetime = .keepAlways
@@ -46,7 +49,6 @@ final class ChannelVerifyAccountUITests: XCTestCase {
         let switchRuntime = app.buttons["chat.switchAgent"]
         let retry = app.buttons["chat.retryReply"]
         XCTAssertTrue(switchRuntime.exists && retry.exists)
-        XCTAssertTrue(verify.isHittable)
         XCTAssertLessThan(verify.frame.minX, switchRuntime.frame.minX)
         XCTAssertLessThan(switchRuntime.frame.minX, retry.frame.minX)
     }
