@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "最多同時執行 {n} vCPU",
   "Up-to-date": "最新",
   "Update": "更新",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "電腦上 10 分鐘沒有任何工作執行時，將 Nuphos 更新到最新版本。更新會重新啟動這台電腦上的 Nuphos。",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "電腦上沒有任何工作在執行時，將 Nuphos 更新到最新版本。更新會重新啟動這台電腦上的 Nuphos。",
   "Update and restart": "更新並重新啟動",
   "Update available": "有可用的更新",
   "Update existing connection": "更新現有連線",

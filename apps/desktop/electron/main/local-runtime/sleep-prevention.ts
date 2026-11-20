@@ -79,8 +79,8 @@ export class SleepPrevention {
 /** Only pending ACP prompts count; an idle transport/control socket does not. */
 export class RuntimeTaskActivity {
   private readonly streams = new Map<string, { purpose: string; prompts: Set<string | number> }>()
-  private readonly changed: () => void
-  constructor(changed: () => void) {
+  private readonly changed?: () => void
+  constructor(changed?: () => void) {
     this.changed = changed
   }
 
@@ -95,7 +95,7 @@ export class RuntimeTaskActivity {
     const wasBusy = this.busy()
 
     this.streams.set(id, { purpose, prompts: new Set() })
-    if (wasBusy !== this.busy()) this.changed()
+    if (wasBusy !== this.busy()) this.changed?.()
   }
 
   data(id: string, raw: string, incoming: boolean): void {
@@ -111,7 +111,7 @@ export class RuntimeTaskActivity {
 
       if (incoming && message.method === 'session/prompt') stream.prompts.add(key)
       else if (!incoming && ('result' in message || 'error' in message)) stream.prompts.delete(key)
-      if (wasBusy !== this.busy()) this.changed()
+      if (wasBusy !== this.busy()) this.changed?.()
     } catch {
       // Non-JSON traffic is not an ACP prompt.
     }
@@ -121,13 +121,13 @@ export class RuntimeTaskActivity {
     const wasBusy = this.busy()
 
     this.streams.delete(id)
-    if (wasBusy !== this.busy()) this.changed()
+    if (wasBusy !== this.busy()) this.changed?.()
   }
 
   clear(): void {
     const wasBusy = this.busy()
 
     this.streams.clear()
-    if (wasBusy !== this.busy()) this.changed()
+    if (wasBusy !== this.busy()) this.changed?.()
   }
 }

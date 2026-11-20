@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "最大 {n} vCPU を実行",
   "Up-to-date": "最新",
   "Update": "アップデート",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "このコンピューターで 10 分間何も実行されていないときに、Nuphos を最新リリースに更新します。更新するとこのコンピューターの Nuphos が再起動します。",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "このコンピューターで何も実行されていないときに、Nuphos を最新リリースに更新します。更新するとこのコンピューターの Nuphos が再起動します。",
   "Update and restart": "アップデートして再起動",
   "Update available": "アップデートあり",
   "Update existing connection": "既存の接続を更新",

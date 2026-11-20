@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "최대 {n} vCPU 실행",
   "Up-to-date": "최신",
   "Update": "업데이트",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "이 컴퓨터에서 10분 동안 아무것도 실행되지 않으면 Nuphos를 최신 릴리스로 업데이트합니다. 업데이트하면 이 컴퓨터의 Nuphos가 다시 시작됩니다.",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "이 컴퓨터에서 아무것도 실행되지 않을 때 Nuphos를 최신 릴리스로 업데이트합니다. 업데이트하면 이 컴퓨터의 Nuphos가 다시 시작됩니다.",
   "Update and restart": "업데이트 및 다시 시작",
   "Update available": "업데이트 가능",
   "Update existing connection": "기존 연결 업데이트",

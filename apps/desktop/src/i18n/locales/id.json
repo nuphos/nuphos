@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "Hingga {n} vCPU berjalan",
   "Up-to-date": "Terbaru",
   "Update": "Perbarui",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "Perbarui Nuphos di komputer ini ke rilis terbaru setelah tidak ada yang berjalan selama 10 menit. Pembaruan memulai ulang Nuphos di komputer ini.",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "Perbarui Nuphos di komputer ini ke rilis terbaru saat tidak ada yang berjalan. Pembaruan memulai ulang Nuphos di komputer ini.",
   "Update and restart": "Perbarui dan mulai ulang",
   "Update available": "Pembaruan tersedia",
   "Update existing connection": "Perbarui koneksi yang ada",

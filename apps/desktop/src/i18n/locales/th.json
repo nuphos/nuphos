@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "ทำงานได้สูงสุด {n} vCPU",
   "Up-to-date": "อัปเดตล่าสุด",
   "Update": "อัปเดต",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "อัปเดต Nuphos บนคอมพิวเตอร์เครื่องนี้เป็นรุ่นล่าสุดเมื่อไม่มีอะไรทำงานมา 10 นาที การอัปเดตจะรีสตาร์ต Nuphos บนเครื่องนี้",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "อัปเดต Nuphos บนคอมพิวเตอร์เครื่องนี้เป็นรุ่นล่าสุดเมื่อไม่มีอะไรทำงานอยู่ การอัปเดตจะรีสตาร์ต Nuphos บนเครื่องนี้",
   "Update and restart": "อัปเดตและรีสตาร์ท",
   "Update available": "มีอัปเดต",
   "Update existing connection": "อัปเดตการเชื่อมต่อเดิม",

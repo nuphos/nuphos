@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "Hasta {n} vCPU en ejecución",
   "Up-to-date": "Actualizados",
   "Update": "Actualizar",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "Actualiza Nuphos en esta computadora a la versión más reciente cuando no se ha ejecutado nada en ella durante 10 minutos. La actualización reinicia Nuphos en ella.",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "Actualiza Nuphos en esta computadora a la versión más reciente cuando no se esté ejecutando nada en ella. La actualización reinicia Nuphos en ella.",
   "Update and restart": "Actualizar y reiniciar",
   "Update available": "Actualización disponible",
   "Update existing connection": "Actualizar la conexión existente",

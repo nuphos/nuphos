@@ -5022,7 +5022,7 @@
   "Up to {n} vCPU running": "最多运行 {n} vCPU",
   "Up-to-date": "最新",
   "Update": "更新",
-  "Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.": "电脑上 10 分钟没有任何工作运行时，将 Nuphos 更新到最新版本。更新会重新启动这台电脑上的 Nuphos。",
+  "Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.": "电脑上没有任何工作在运行时，将 Nuphos 更新到最新版本。更新会重新启动这台电脑上的 Nuphos。",
   "Update and restart": "更新并重启",
   "Update available": "有可用更新",
   "Update existing connection": "更新现有连接",
