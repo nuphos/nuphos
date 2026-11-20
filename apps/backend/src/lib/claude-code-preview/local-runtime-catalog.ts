@@ -259,9 +259,19 @@ export async function localRuntimeModels(
     : undefined
   const catalog = agent?.models
 
-  // A signed-out agent lists nothing until someone signs it in on that computer.
+  // A signed-out agent lists nothing until someone signs it in on that computer. One whose
+  // computer read its models and failed is waiting for nothing, so only a list that has not
+  // been read yet is the one to try again for in a moment.
   if (!catalog)
-    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : 'unreported' }
+    return {
+      models: [],
+      reason:
+        agent?.cli.loggedIn === false
+          ? 'signed-out'
+          : agent?.modelsFailed
+            ? 'undiscovered'
+            : 'unreported',
+    }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
   // A controls-only report names no model: its entry answers a caller asking for none.
   const split = catalog.controlsOnly && (!model || model === 'default')

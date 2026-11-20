@@ -215,13 +215,32 @@ async function prompt({ sessionId, prompt: parts }) {
     : { stopReason: 'end_turn' }
 }
 
+/** The model probe names itself, so a fixture can answer turns and still fail discovery. */
+const DISCOVERY = 'nuphos-model-discovery'
+let discovery = false
+
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
+      discovery = request.params?.clientInfo?.name === DISCOVERY
+
       return INITIALIZE
     case 'session/new': {
       const sessionId = randomUUID()
 
+      // An agent whose model discovery fails while its turns still run: it keeps failing
+      // while E2E_MODEL_PROBE_FAILS exists, as a signed-in CLI does until it can list its
+      // models again (#4261). Each attempt is logged, so a scenario can tell one the model
+      // picker asked for from one the agent's own retry made.
+      if (discovery) {
+        const failing =
+          process.env.E2E_MODEL_PROBE === 'fail' ||
+          (process.env.E2E_MODEL_PROBE_FAILS !== undefined &&
+            existsSync(process.env.E2E_MODEL_PROBE_FAILS))
+
+        log({ event: 'discovery', failed: failing })
+        if (failing) throw new Error('The fixture cannot list its models yet')
+      }
       log({ event: 'opening' })
       // A slow agent start: the session does not open while this file exists.
       while (existsSync(process.env.E2E_HOLD_OPENING)) {

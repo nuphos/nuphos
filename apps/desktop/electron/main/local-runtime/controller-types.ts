@@ -124,6 +124,8 @@ export type Agent = {
   usage?: unknown
   usageAt?: string
   models?: LocalModelCatalog
+  /** Its models were read and the read failed, so none is on its way (agent-models). */
+  modelsFailed?: true
   error?: string
   restartAttempt: number
   restartTimer?: ReturnType<typeof setTimeout>
@@ -181,6 +183,8 @@ export function tunnelStatusOf(
       ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
       ...(agent.models ? { models: agent.models } : {}),
+      // Without this a list that failed to load looks like one still on its way.
+      ...(!agent.models && agent.modelsFailed ? { modelsFailed: true as const } : {}),
     }
   }
 
@@ -291,6 +295,7 @@ export async function stopAgentProcess(agent: Agent, changed: () => void): Promi
   clearTimeout(agent.restartTimer)
   agent.runtime = null
   agent.models = undefined
+  agent.modelsFailed = undefined
   agent.error = undefined
   const process = agent.process
 

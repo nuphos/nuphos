@@ -6,7 +6,8 @@ export const MODEL_RETRY_MS = [60_000, 120_000, 300_000, 600_000]
 export const MODEL_REFRESH_MS = 30 * 60_000
 /** A signed-out CLI is checked for a sign-in this often before its models are read. */
 export const MODEL_SIGNED_OUT_MS = 60_000
-/** An opened model picker reads again at most this often. */
+/** An opened model picker reads a list this computer already has again at most this
+ *  often. An agent with no list has nothing to spare, so its picker always asks. */
 export const MODEL_ON_DEMAND_MS = 60_000
 /**
  * How long an agent waits before its first read, when it is not at once. A Hermes read starts
@@ -36,10 +37,10 @@ export function discoverModels(
   const runtime = agent.runtime
   const live = () => run.current() && agent.runtime === runtime
   let inFlight: Promise<boolean | undefined> | undefined
-  let readAt = 0
+  // Never read: an agent with no list has none to spare, so its picker always asks.
+  let readAt = -Infinity
   // Whether the list changed; undefined when the read failed or the run is gone.
   const read = () => {
-    readAt = Date.now()
     inFlight ??= deps
       .probeModels({
         provider: run.provider,
@@ -51,19 +52,28 @@ export function discoverModels(
       .then(
         (models) => {
           if (!live()) return undefined
-          const changed = JSON.stringify(models) !== JSON.stringify(agent.models)
+          readAt = Date.now()
+          const changed =
+            JSON.stringify(models) !== JSON.stringify(agent.models) || agent.modelsFailed
 
           agent.models = models
+          agent.modelsFailed = undefined
           if (changed) sendStatus()
 
-          return changed
+          return Boolean(changed)
         },
         (error: unknown) => {
-          if (live())
-            deps.log?.('local agent: model discovery failed', {
-              provider: run.provider,
-              error: String(error),
-            })
+          if (!live()) return undefined
+          deps.log?.('local agent: model discovery failed', {
+            provider: run.provider,
+            error: String(error),
+          })
+          // The computer says so, rather than leaving the backend to read an absent
+          // list as one that has not arrived yet, which it tells people to wait for.
+          if (!agent.models && !agent.modelsFailed) {
+            agent.modelsFailed = true
+            sendStatus()
+          }
 
           return undefined
         },
@@ -116,12 +126,11 @@ export function discoverModels(
 
 /**
  * Reads every running agent's models now, as an opened model picker asks, so a
- * list that changed since the last read shows without waiting for the next
- * one. Resolves true when any agent's list changed.
+ * list that changed since the last read shows without waiting for the next one.
+ * The picker reads the conversation's settings again once this resolves, so
+ * whether anything changed is the backend's answer to give, not this one's.
  */
-export async function refreshRunningModels(): Promise<boolean> {
+export async function refreshRunningModels(): Promise<void> {
   for (const reader of readers) if (!reader.live()) readers.delete(reader)
-  const results = await Promise.all([...readers].map((reader) => reader.read()))
-
-  return results.some(Boolean)
+  await Promise.all([...readers].map((reader) => reader.read()))
 }
