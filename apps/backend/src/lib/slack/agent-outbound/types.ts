@@ -70,11 +70,7 @@ export type SlackOutboundContext = {
       }
     | { ok: false; error: string }
   >
-  members: (input: {
-    channelId: string
-    slackWorkspaceId?: string
-    query?: string
-  }) => Promise<
+  members: (input: { channelId: string; slackWorkspaceId?: string; query?: string }) => Promise<
     | {
         ok: true
         channel: { id: string; name: string }
