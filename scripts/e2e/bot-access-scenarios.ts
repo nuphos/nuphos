@@ -2,10 +2,9 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { agentLog } from './agent-log.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { openBotTask, send, setBotDetails } from './ui.ts'
+import { openBotTask, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -26,60 +25,54 @@ function mongo(stack: Stack, script: string, ...args: string[]): unknown {
   return out.trim() ? JSON.parse(out) : null
 }
 
-type StoredAccess = {
-  awsRoleIds?: string[]
-  deviceIds?: string[]
-  resendIntegrationIds?: string[]
-} | null
-
-/** A Bot's stored credentialAccess, by its name; null until there is one. */
-function botNamed(stack: Stack, title: string) {
+/** The E2E Bot's stored credentialAccess. */
+function botAccess(stack: Stack) {
   return mongo(
     stack,
     `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
     const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    const bot = await bots.findOne({ title: process.argv[2], avatar: { $exists: true } })
-    console.log(bot ? JSON.stringify({ sessionId: bot.sessionId, access: bot.credentialAccess ?? null }) : '')
+    const bot = await bots.findOne({ title: 'E2E Bot', avatar: { $exists: true } })
+    console.log(JSON.stringify({ sessionId: bot.sessionId, access: bot.credentialAccess ?? null }))
     await client.close()`,
-    title,
-  ) as { sessionId: string; access: StoredAccess } | null
+  ) as { sessionId: string; access: unknown }
 }
 
-/** Updates a Bot's record where no route does what a scenario needs. */
-function updateBot(stack: Stack, sessionId: string, update: object) {
+/** Hands a Bot to a member, letting the team read it. No route does this, so Mongo does. */
+function shareAway(stack: Stack, botId: string, userId: string) {
   mongo(
     stack,
     `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
-    const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    await bots.updateOne({ sessionId: process.argv[2] }, JSON.parse(process.argv[3]))
+    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
+      { sessionId: process.argv[2] },
+      { $set: { userId: process.argv[3], generalAccess: 'team' } },
+    )
     await client.close()`,
-    sessionId,
-    JSON.stringify(update),
+    botId,
+    userId,
   )
 }
 
-/** Archives a conversation and its chat, so later scenarios don't list it. */
-async function archive(stack: Stack, sessionId: string) {
-  const archived = await fetch(`${stack.apiUrl}/agent/conversations/${sessionId}/archive`, {
-    method: 'PATCH',
-    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ teamId: stack.teamId, archived: true }),
-  })
-
-  if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
-}
-
-// A Task's linked issue; no route links one without a provider.
-const ISSUE = {
-  id: 'e2e-issue',
-  provider: 'linear',
-  title: 'E2E linked issue',
-  url: 'https://linear.app/e2e/issue/E2E-1',
-  state: 'open',
+/** Links an issue to a Bot's session, or unlinks it. No route links one without a provider. */
+function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
+  mongo(
+    stack,
+    `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const issue = { id: 'e2e-issue', provider: 'linear', title: 'E2E linked issue',
+      url: 'https://linear.app/e2e/issue/E2E-1', state: 'open', linkedAt: new Date().toISOString() }
+    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
+      { sessionId: process.argv[2] },
+      process.argv[3] === '1' ? { $set: { linkedResources: [issue] } } : { $unset: { linkedResources: '' } },
+    )
+    await client.close()`,
+    sessionId,
+    linked ? '1' : '0',
+  )
 }
 
 const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
@@ -125,63 +118,47 @@ async function openChat(page: Page, name: string) {
 
 export const botAccessScenarios: Scenario[] = [
   {
-    // #4158: a Bot made with "+" may use everything its owner may, as a new chat does, and
-    // its turns reach a computer. Before, it stored nothing and could use none of them.
-    // #3790: what it may use is shown and changed in Bot details, not in its chat's composer.
-    name: 'a Bot made with "+" may use every credential and computer of its owner',
+    // #3259: a Bot made with "+" stored no selection, so its picker showed every computer
+    // selected while the Bot could use none of them. It now shows none, and asks.
+    // #3790: what it may use is chosen in Bot details, not in its chat's composer.
+    name: 'a Bot made with "+" can use nothing until its owner chooses in Bot details',
     run: async (page, stack) => {
-      const made = botNamed(stack, 'E2E Bot')
-      const deviceIds = made?.access?.deviceIds ?? []
+      const made = botAccess(stack)
 
-      if (
-        !made?.access?.awsRoleIds ||
-        !deviceIds.length ||
-        made.access.resendIntegrationIds?.length
-      )
-        throw new Error(`"+" stored ${JSON.stringify(made?.access)}, not its owner's default`)
-      if ((await page.getByText(CHOOSE).count()) > 0)
-        throw new Error('A Bot that may use everything is asked to choose')
+      if (made.access) throw new Error('"+" stored computers or credentials nobody chose')
+      await page.getByText(CHOOSE).waitFor()
+      await shoot(page, 'choose-banner')
       if ((await composerAccess(page)) > 0)
         throw new Error("The Bot chat's composer still offers credentials, computers or a mode")
-      await setBotDetails(page, true)
-      for (const row of [/^Credentials/, /^Computers/, /^Full Access/])
+      // Choose opens Bot details at the Access section: credentials, computers and mode.
+      await page.getByRole('button', { name: 'Choose', exact: true }).click()
+      for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)/])
         await access(page).getByText(row).first().waitFor()
       await shoot(page, 'owner')
       await shootMenu(page, /^Computers/, 'menu-computers')
-      await shootMenu(page, /^Credentials/, 'picker')
       await shootMenu(page, /^Authorization mode/, 'menu-mode')
 
-      // A Bot its agent makes with create_bot gets what that agent may use, never more.
-      await send(
-        page,
-        'Make one E2E_CALL create_bot {"label":"Make","name":"E2E Made Bot"} E2E_DELIVERY:bot-made',
+      // Any choice saved, even of nothing, is the Bot's answer: the prompt goes.
+      const response = await fetch(
+        `${stack.apiUrl}/agent/conversations/${made.sessionId}/credentials`,
+        {
+          method: 'PATCH',
+          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ teamId: stack.teamId, credentialAccess: { deviceIds: [] } }),
+        },
       )
-      await until('create_bot to make a Bot', async () => botNamed(stack, 'E2E Made Bot'))
-      const minted = botNamed(stack, 'E2E Made Bot')
 
-      if (!minted || JSON.stringify(minted.access?.deviceIds) !== JSON.stringify(deviceIds))
-        throw new Error(`create_bot stored ${JSON.stringify(minted?.access)}, not its maker's`)
-      await archive(stack, minted.sessionId)
-
-      // A turn in its chat runs a command on its owner's computer, which it may now use.
-      const from = agentLog(stack).length
-      const args = JSON.stringify({
-        label: 'Run it',
-        command: 'echo E2E_ON_COMPUTER',
-        device: deviceIds[0],
-      })
-
-      await send(page, `Run it E2E_CALL local_exec ${args} E2E_DELIVERY:bot-computer`)
-      await until('the Bot to run a command on a computer', async () =>
-        agentLog(stack)
-          .slice(from)
-          .some(
-            (entry) =>
-              entry.event === 'called' &&
-              entry.name === 'local_exec' &&
-              JSON.stringify(entry.result).includes('E2E_ON_COMPUTER'),
-          ),
+      if (!response.ok) throw new Error(`Saving a choice answered ${String(response.status)}`)
+      await page.reload()
+      await access(page)
+        .getByRole('button', { name: /^Computers/ })
+        .waitFor()
+      await until(
+        'the prompt to go once a choice is saved',
+        async () => (await page.getByText(CHOOSE).count()) === 0,
       )
+      // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
+      await shootMenu(page, /^Credentials/, 'picker')
 
       // Narrow, the details float over the chat with the same rows.
       const cdp = await page.context().newCDPSession(page)
@@ -198,15 +175,13 @@ export const botAccessScenarios: Scenario[] = [
       }
 
       // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
-      updateBot(stack, made.sessionId, {
-        $set: { linkedResources: [{ ...ISSUE, linkedAt: new Date().toISOString() }] },
-      })
+      setLinkedIssue(stack, made.sessionId, true)
       await page.reload()
       await access(page).waitFor()
       if ((await details(page).getByRole('region', { name: 'Changes', exact: true }).count()) > 0)
         throw new Error('Bot details show Changes')
       await shoot(page, 'no-changes')
-      updateBot(stack, made.sessionId, { $unset: { linkedResources: '' } })
+      setLinkedIssue(stack, made.sessionId, false)
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
@@ -241,8 +216,7 @@ export const botAccessScenarios: Scenario[] = [
 
       // Its chat is made while the Bot is still the viewer's; then it moves to the teammate.
       await openChat(page, SHARED)
-      // Handed to a member, letting the team read it.
-      updateBot(stack, bot.sessionId, { $set: { userId: mate.id, generalAccess: 'team' } })
+      shareAway(stack, bot.sessionId, mate.id)
       await page.reload()
       await openChat(page, SHARED)
       await setBotDetails(page, true)
@@ -264,8 +238,14 @@ export const botAccessScenarios: Scenario[] = [
         })
       ).json()) as { id: string }
 
-      updateBot(stack, bot.sessionId, { $set: { userId: me.id, generalAccess: 'team' } })
-      await archive(stack, bot.sessionId)
+      shareAway(stack, bot.sessionId, me.id)
+      const archived = await fetch(`${stack.apiUrl}/agent/conversations/${bot.sessionId}/archive`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ teamId: stack.teamId, archived: true }),
+      })
+
+      if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
       // The scenarios after this one run in the E2E Bot's chat.
       await openChat(page, 'E2E Bot')
       await until(
