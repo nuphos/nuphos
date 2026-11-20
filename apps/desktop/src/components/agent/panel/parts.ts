@@ -229,6 +229,18 @@ export type Part =
   | TurnInterruptedPart
   | StepStartPart
 
+/** A tool part's sub-agent tags, from a live event or a saved part; malformed values are dropped. */
+export function subagentAttribution(
+  value: Record<string, unknown>,
+): Pick<ToolPart, 'subagent' | 'parentToolUseId'> {
+  return {
+    ...(value.subagent === true ? { subagent: true as const } : {}),
+    ...(typeof value.parentToolUseId === 'string' && value.parentToolUseId
+      ? { parentToolUseId: value.parentToolUseId }
+      : {}),
+  }
+}
+
 export function isHiddenMemoryIngestPart(part: MemoryIngestPart): boolean {
   return part.text.toLowerCase().includes('queued')
 }

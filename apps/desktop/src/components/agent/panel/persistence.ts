@@ -1,6 +1,6 @@
 import { isAgentMemoryIngestEventItem } from './memoryIngestEvent'
 import { normalizeMemoryProvenanceLabels } from './memoryProvenanceLabels'
-import { normalizeTransferUploadPart } from './parts'
+import { normalizeTransferUploadPart, subagentAttribution } from './parts'
 import { parseSteeringPart } from './steering'
 import { toPersistedMessages } from './toUiMessages'
 import { normalizeTurnInterruptedPart } from './turnInterrupted'
@@ -76,6 +76,7 @@ export function normalizePersistedPart(part: unknown): Part | null {
       ...(value.authorization && typeof value.authorization === 'object'
         ? { authorization: value.authorization as ToolPart['authorization'] }
         : {}),
+      ...subagentAttribution(value),
     }
   }
   if (
@@ -105,6 +106,7 @@ export function normalizePersistedPart(part: unknown): Part | null {
       ...(value.authorization && typeof value.authorization === 'object'
         ? { authorization: value.authorization as ToolPart['authorization'] }
         : {}),
+      ...subagentAttribution(value),
     }
   }
   if (

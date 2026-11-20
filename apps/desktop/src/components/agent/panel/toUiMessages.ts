@@ -70,6 +70,8 @@ export function toUiMessages(messages: Message[]): unknown[] {
             // convertToModelMessages turns an approval-responded part into a
             // ToolApprovalResponse and the SDK executes (or denies) the tool.
             ...(p.approval ? { approval: p.approval } : {}),
+            ...(p.subagent ? { subagent: p.subagent } : {}),
+            ...(p.parentToolUseId ? { parentToolUseId: p.parentToolUseId } : {}),
           },
         ]
       })
