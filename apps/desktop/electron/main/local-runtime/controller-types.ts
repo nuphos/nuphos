@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeFailure } from './agent-cli.ts'
 import { connectionOf } from './tunnel-streams.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
@@ -132,7 +132,6 @@ export type Agent = {
   recheck?: Promise<void>
 }
 
-/** Everything a user's local agents keep lives under their own directory. */
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
   return path.join(dataDir, 'users', userId, ...parts)
 }
@@ -157,7 +156,6 @@ export function freshAgent(): Agent {
   return { runtime: null, cli: null, restartAttempt: 0, generation: 0 }
 }
 
-/** What the backend should see: only the agents running right now. */
 export function tunnelStatusOf(
   running: Record<LocalAgentProvider, Agent>,
   backendUrl: string,
@@ -167,11 +165,10 @@ export function tunnelStatusOf(
   for (const provider of LOCAL_AGENT_PROVIDERS) {
     const agent = running[provider]
 
-    if (agent.cli && !agent.cli.installed && agent.cli.error) {
-      agents[provider] = { cli: { installed: false, loggedIn: false, probeError: agent.cli.error } }
+    if (!agent.runtime || !agent.cli?.installed) {
+      agents[provider] = probeFailure(agent.cli)
       continue
     }
-    if (!agent.runtime || !agent.cli?.installed) continue
     agents[provider] = {
       cli: {
         installed: true,
@@ -188,7 +185,6 @@ export function tunnelStatusOf(
     }
   }
 
-  // A Box's host is the `nuphos` CLI (`nuphos agent` sets it); the backend offers its update.
   const cliVersion = process.env.NUPHOS_CLI_VERSION
 
   return { agents, backendUrl, ...(cliVersion ? { cliVersion } : {}) }

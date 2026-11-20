@@ -11,6 +11,7 @@ test(
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-probe-'))
+
     t.after(() => rmSync(dir, { recursive: true, force: true }))
     writeFileSync(path.join(dir, 'node'), '#!/bin/sh\necho v20.20.2\n', { mode: 0o755 })
     const env = { HOME: dir, PATH: dir }
@@ -18,6 +19,7 @@ test(
     for (const script of ['#!/bin/sh\nexit 0\n', '#!/bin/sh\necho 0.2.2\nexit 1\n']) {
       writeFileSync(path.join(dir, 'dsh'), script, { mode: 0o755 })
       const status = await probeAgentCli('dsh', env, dir)
+
       assert.equal(status.installed, false)
       assert.match(status.installed ? '' : (status.error ?? ''), /Node 24\.9 or newer.*v20\.20\.2/)
     }
@@ -29,6 +31,7 @@ test(
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-probe-'))
+
     t.after(() => rmSync(dir, { recursive: true, force: true }))
     writeFileSync(path.join(dir, 'node'), '#!/bin/sh\necho v20.20.2\n', { mode: 0o755 })
     writeFileSync(path.join(dir, 'dsh'), '#!/bin/sh\necho development-build\n', { mode: 0o755 })
@@ -43,6 +46,7 @@ test(
   { skip: process.platform === 'win32' },
   async (t) => {
     const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-probe-'))
+
     t.after(() => rmSync(dir, { recursive: true, force: true }))
     writeFileSync(path.join(dir, 'node'), '#!/bin/sh\necho v22.17.0\n', { mode: 0o755 })
     writeFileSync(path.join(dir, 'dsh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 })

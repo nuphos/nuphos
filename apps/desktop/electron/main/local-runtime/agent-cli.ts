@@ -19,6 +19,12 @@ import type { LocalAgentProvider } from './providers.ts'
 export { LOCAL_AGENT_PROVIDERS } from './providers.ts'
 export type { LocalAgentProvider } from './providers.ts'
 
+export function probeFailure(cli: AgentCliStatus | null) {
+  return cli && !cli.installed && cli.error
+    ? { cli: { installed: false, loggedIn: false, probeError: cli.error } }
+    : undefined
+}
+
 export type AgentCliStatus =
   | { installed: false; error?: string }
   | {
@@ -215,14 +221,16 @@ export async function probeAgentCli(
     : undefined
   let dshVersion: string | undefined
   let dshUsable = false
+
   if (provider === 'dsh') {
     const probeEnv = runtimeEnv ?? env
     let failure = 'dsh --version printed nothing'
 
     try {
       const output = await run(file, ['--version'], probeEnv, true)
+
       dshVersion = versionOf(output)
-      dshUsable = !!output.trim()
+      dshUsable = Boolean(output.trim())
     } catch {
       failure = 'dsh --version failed'
     }
