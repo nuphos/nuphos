@@ -56,6 +56,8 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
+  /** Opened for a look where it has no room beside: shorter, and gone once the mouse leaves. */
+  popover?: boolean
 }
 
 // Matches `.t-summary-slot-out` in index.css.
@@ -190,6 +192,7 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
+  popover = false,
   closing,
 }: Props & { onClose: () => void; onDismiss: () => void; closing: boolean }) {
   const paneId = usePaneId()
@@ -216,9 +219,9 @@ function SummaryBody({
   const triggerHome = summaryTriggerHome(sessionId, conversation)
   const changes = changesOf(conversation?.linkedResources ?? [])
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
-  const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
+  const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked, popover)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing)
+  useDismissOutside(rootRef, dismiss, floating && !closing, popover)
 
   const panel = (
     <aside

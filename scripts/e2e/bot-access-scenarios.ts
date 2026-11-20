@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { openBotTask, setBotDetails } from './ui.ts'
+import { botDetailsToggle, openBotTask, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -97,6 +97,52 @@ async function openChat(page: Page, name: string) {
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
 }
 
+/** Narrow, the details close; opened by hand, a short popover under the Bot's name until the mouse leaves. */
+async function narrowDetails(page: Page) {
+  const cdp = await page.context().newCDPSession(page)
+
+  try {
+    await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
+    await page.locator('[data-summary-toggle][aria-expanded="false"]').waitFor()
+    await details(page).waitFor({ state: 'detached' })
+    await shoot(page, 'narrow-closed')
+    await botDetailsToggle(page).click()
+    await access(page)
+      .getByRole('button', { name: /^Credentials/ })
+      .waitFor()
+    const popover = await details(page).evaluate((panel) => ({
+      fixed: getComputedStyle(panel).position === 'fixed',
+      height: panel.getBoundingClientRect().height,
+    }))
+
+    if (!popover.fixed) throw new Error('Opened narrow, the details sit beside the chat')
+    if (popover.height > 481)
+      throw new Error(`The popover is ${String(popover.height)}px tall, past 480px`)
+    await shoot(page, 'owner-narrow')
+    // Crossing from the name to the popover keeps it; leaving both closes it.
+    await details(page).hover()
+    await page.waitForTimeout(400)
+    await details(page).waitFor()
+    await page.mouse.move(NARROW.width - 24, NARROW.height / 2)
+    await details(page).waitFor({ state: 'detached' })
+    // Esc closes it too, as a dropdown's does.
+    await botDetailsToggle(page).click()
+    await details(page).waitFor()
+    await page.keyboard.press('Escape')
+    await details(page).waitFor({ state: 'detached' })
+  } finally {
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await cdp.detach()
+  }
+  // Wide again, they are back beside the chat, as Choose left them.
+  await access(page)
+    .getByRole('button', { name: /^Credentials/ })
+    .waitFor()
+  if (await details(page).evaluate((panel) => getComputedStyle(panel).position === 'fixed'))
+    throw new Error('Wide again, the details still float')
+  await shoot(page, 'owner-wide-again')
+}
+
 export const botAccessScenarios: Scenario[] = [
   {
     // #3259: a Bot made with "+" stored no selection, so its picker showed every computer
@@ -141,19 +187,7 @@ export const botAccessScenarios: Scenario[] = [
       // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
       await shootMenu(page, /^Credentials/, 'picker')
 
-      // Narrow, the details float over the chat with the same rows.
-      const cdp = await page.context().newCDPSession(page)
-
-      try {
-        await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-        await access(page)
-          .getByRole('button', { name: /^Credentials/ })
-          .waitFor()
-        await shoot(page, 'owner-narrow')
-      } finally {
-        await cdp.send('Emulation.clearDeviceMetricsOverride')
-        await cdp.detach()
-      }
+      await narrowDetails(page)
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)

@@ -60,8 +60,12 @@ export function useBotChatQuestions(
   })
 
   // A Bot never given computers or credentials is asked to choose, below everything said so far.
-  if (ownCredentials?.unset)
-    rows.push({ at: Number.MAX_SAFE_INTEGER, key: 'choose-access', node: <ChooseAccessBanner /> })
+  if (botId && ownCredentials?.unset)
+    rows.push({
+      at: Number.MAX_SAFE_INTEGER,
+      key: 'choose-access',
+      node: <ChooseAccessBanner bot={botId} />,
+    })
 
   return { rows, credentials: botCredentials }
 }
