@@ -1,7 +1,7 @@
 import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
 import { emptyNavigation } from '../../lib/appRoutes'
-import { takeTwoFactorResume } from '../../views/settings/resumeTwoFactor'
+import { clearTwoFactorResume, wantsTwoFactorResume } from '../../views/settings/resumeTwoFactor'
 
 import { connectorsDialogFor } from './store/connectorsDialog'
 import { selectScope } from './store/workspaceState'
@@ -86,7 +86,11 @@ export function useWorkspaceShellState() {
     tabId: string
   } | null>(null)
   const [createOrJoinOpen, setCreateOrJoinOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  // Back to two-factor setup after the sign-in it asked for.
+  const [settingsOpen, setSettingsOpen] = useState(wantsTwoFactorResume)
+
+  useEffect(clearTwoFactorResume, [])
+
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false)
   // Snapshots of recently closed tabs, newest last, for ⌘⇧T reopen. Only the
   // persistable navigation state is kept — runtime state (SSH PTY etc.) is
@@ -95,7 +99,9 @@ export function useWorkspaceShellState() {
   const closedTabSnapshotsRef = useRef<(PersistedWorkspaceTab & { closedId: string })[]>([])
   // Section SettingsPage should land on when opened via a deep entry point
   // (e.g. picking Slack in the connector marketplace); null = default.
-  const [settingsInitialSection, setSettingsInitialSection] = useState<string | null>(null)
+  const [settingsInitialSection, setSettingsInitialSection] = useState<string | null>(() =>
+    wantsTwoFactorResume() ? 'account.mfa' : null,
+  )
   const [settingsInitialFilter, setSettingsInitialFilter] = useState<string | undefined>()
   // Bumped on every deep entry so Settings remounts on the requested section,
   // even when it is already open on another one.
@@ -121,10 +127,6 @@ export function useWorkspaceShellState() {
     },
     [workspaceActions, workspaceStore],
   )
-  // Back to two-factor setup after the sign-in it asked for.
-  useEffect(() => {
-    if (takeTwoFactorResume()) openSettingsSection('account.mfa')
-  }, [openSettingsSection])
   // Connectors opens over whatever the pane shows, on one connector's detail
   // when given, and leaves the page behind it where it was.
   const openConnectors = useCallback(
