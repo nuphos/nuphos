@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
+import { BOT_AVATAR_BACKGROUNDS, BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { startBotOnboarding } from '@/lib/agent/bot-onboarding'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
@@ -28,6 +28,8 @@ const avatarBody = z
       .string()
       .regex(/^\d{2}-[a-z0-9-]{1,40}$/)
       .nullable(),
+    // The tint the face sits on; left out, the Bot keeps the one it has.
+    background: z.enum(BOT_AVATAR_BACKGROUNDS).optional(),
     teamId: z.string().optional(),
   })
   .strict()
@@ -45,7 +47,9 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 
   if (!conversation || conversation.userId !== userId)
     throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!(await setConversationAvatar(sessionId, body.data.avatar, userId))) {
+  const { avatar, background } = body.data
+
+  if (!(await setConversationAvatar(sessionId, avatar, userId, background))) {
     if (body.data.avatar !== null && !conversation.avatar)
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
@@ -55,7 +59,7 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   // A Task is never in a chat.
   if (body.data.avatar === null) await leaveChats(sessionId)
 
-  return c.json({ avatar: body.data.avatar })
+  return c.json({ avatar, ...(background ? { background } : {}) })
 })
 
 // The owner gives a Bot a photo for a face. Like the PATCH above, it never makes a Task a Bot.
@@ -89,6 +93,7 @@ const createBotBody = z
     locale: z.string().min(2).max(35).optional(),
     title: z.string().trim().min(1).max(120).optional(),
     avatar: z.enum(BOT_AVATARS).optional(),
+    background: z.enum(BOT_AVATAR_BACKGROUNDS).optional(),
     runtimeId: z.unknown().optional(),
     agentRuntime: z.unknown().optional(),
     runtimeLabel: z.string().max(200).optional(),
@@ -116,6 +121,7 @@ agent.post('/bots', async (c) => {
       locale: body.data.locale,
       title: body.data.title,
       avatar: body.data.avatar,
+      background: body.data.background,
       agentRuntime,
       runtimeId,
       runtimeLabel,

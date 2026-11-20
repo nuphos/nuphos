@@ -60,10 +60,10 @@ export type AgentTrigger = {
   /** Idempotency key for automation callers: create with the same key returns the existing trigger. */
   dedupeKey?: string
   /**
-   * Minimum seconds between webhook-triggered runs (flood guard). Unset falls
-   * back to config.agent.triggers.webhookCooldownSeconds; 0 disables. Cron
-   * runs are already rate-bound by their schedule and manual test-fires are
-   * user-initiated, so only webhook deliveries consult this.
+   * Minimum seconds between webhook-triggered runs. A delivery sooner gets 429
+   * with Retry-After, so the sender delivers it later. Unset or 0: no limit.
+   * Cron runs are already rate-bound by their schedule and manual test-fires
+   * are user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
   /**

@@ -16,6 +16,7 @@ function matches(doc: Doc, query: Doc): boolean {
     const actual = valueAt(doc, key)
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$not' in expected) return !matches(doc, { [key]: expected.$not })
       if ('$elemMatch' in expected)
         return (
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
@@ -145,12 +146,6 @@ export function portabilityDb() {
       return cursor
     },
     insertOne: async (doc: Doc) => {
-      // The unique { teamId, hostedSlot } index on hosted runtimes.
-      if (
-        typeof doc.hostedSlot === 'number' &&
-        rows(name).some((row) => row.teamId === doc.teamId && row.hostedSlot === doc.hostedSlot)
-      )
-        throw Object.assign(new Error('Duplicate key'), { code: 11000 })
       rows(name).push(doc)
 
       return { insertedId: doc._id }

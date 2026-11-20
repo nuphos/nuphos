@@ -6,6 +6,8 @@ import os
 struct ChatFace: Codable, Equatable, Hashable, Sendable {
     struct Agent: Codable, Equatable, Hashable, Sendable {
         let avatar: String?
+        /// The tint its face sits on, e.g. `sky`; nil for none (#3504).
+        var avatarBackground: String? = nil
         let provider: String?
     }
 
@@ -121,6 +123,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The owner, or a teammate invited to manage it: may switch the mode and
     /// the agent, and archive it.
     let canManage: Bool
+    /// The owner archives it for everyone; someone else in a Task, for themselves.
+    let canArchive: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
     /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
@@ -148,6 +152,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
+    /// The tint a Bot's face sits on, e.g. `sky`; nil for none (#3504).
+    var avatarBackground: String?
     /// Absent when the chat has no post yet, or from an older backend.
     var lastMessage: LastMessage?
     /// Open questions, oldest first; absent when there are none.
@@ -208,6 +214,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage) ?? (isOwner == true && readOnly != true)
+        canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive) ?? canManage
         tokenUsage = try c.decodeIfPresent(TokenUsage.self, forKey: .tokenUsage)
         activitySource = try c.decodeIfPresent(ActivitySource.self, forKey: .activitySource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
@@ -224,6 +231,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        avatarBackground = try? c.decodeIfPresent(String.self, forKey: .avatarBackground)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
@@ -249,6 +257,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.isOwner = isOwner
         self.readOnly = readOnly
         canManage = isOwner == true && readOnly != true
+        canArchive = canManage
         self.tokenUsage = tokenUsage
         self.activitySource = activitySource
         self.agentRuntime = agentRuntime
@@ -380,6 +389,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let runtimeState: JSONValue?
     let isOwner: Bool?
     let canManage: Bool?
+    let canArchive: Bool?
     let readOnly: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
@@ -434,7 +444,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -450,6 +460,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
+        canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)

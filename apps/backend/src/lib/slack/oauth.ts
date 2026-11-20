@@ -13,6 +13,10 @@ export const SLACK_BOT_SCOPES = [
   'channels:history',
   'channels:read',
   'chat:write',
+  // A Bot's post in a Slack channel's external chat shows the Bot's name
+  // (#3702). Adding it requires every workspace to re-install; until then the
+  // post opens with the Bot's name instead (lib/slack/external-chat-post.ts).
+  'chat:write.customize',
   // Slash commands (`/nuphos pickup` — continue a desktop conversation from
   // Slack). Adding it requires every workspace to re-install; until then the
   // command simply does not appear in the workspace.

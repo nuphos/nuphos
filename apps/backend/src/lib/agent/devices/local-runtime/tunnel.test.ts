@@ -60,6 +60,7 @@ async function connectDesktop(
     idleTimeoutMs?: number
     /** Connected but has not sent its first frame yet. */
     silent?: boolean
+    recordAgents?: () => Promise<void>
   } = {},
 ): Promise<Desktop> {
   const desktop = { frames: [] as BackendFrame[] } as Desktop
@@ -85,6 +86,7 @@ async function connectDesktop(
         teams.has(teamId) && (options.members?.get(teamId)?.has(u) ?? true),
       heartbeatMs: options.heartbeatMs ?? 60_000,
       ...(options.idleTimeoutMs ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
+      ...(options.recordAgents ? { recordAgents: options.recordAgents } : {}),
     },
   )
   desktop.send = (frame) => {
@@ -293,6 +295,53 @@ describe('local runtime tunnel', () => {
     expect(after.events.some((event) => event.type === 'close')).toBe(false)
   })
 
+  test('a second tunnel from the same computer leaves the first one’s streams alone', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, silent: true })
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    socket.send('hi')
+    socket.send('again')
+    await eventually(() => events.some((event) => event.data === 'echo:again'))
+    await tick()
+
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
+  test('an agent being added shows in presence as soon as it installs, not at the next heartbeat', async () => {
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(createLocalTunnelBus(), presence, new Set(['t1']), {
+      recordAgents: async () => {},
+    })
+    const instanceId = '62c4cdb9-b7a0-49a4-8438-6eff3e2f60d9'
+
+    // The heartbeat is a minute away: only the status report itself can write this.
+    desktop.send({
+      t: 'status',
+      status: {
+        agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+        instances: [
+          {
+            instanceId,
+            provider: 'claude-code',
+            label: 'Claude Code',
+            state: 'pending',
+            cli: { installed: false, loggedIn: false, installing: true },
+          },
+        ],
+      },
+    })
+    const installing = async () =>
+      (await presence.get(owner.userId, owner.deviceId))?.status?.instances?.[0]?.cli.installing
+
+    for (let i = 0; i < 100 && (await installing()) !== true; i++) await tick()
+    expect(await installing()).toBe(true)
+  })
+
   test('a newer connection from the same computer supersedes the old one', async () => {
     const bus = createLocalTunnelBus()
     const presence = createMemoryPresenceStore()
@@ -305,6 +354,55 @@ describe('local runtime tunnel', () => {
     await eventually(() => events.some((event) => event.type === 'open'))
     expect(second.frames.some((frame) => frame.t === 'open')).toBe(true)
     expect(first.frames.some((frame) => frame.t === 'open')).toBe(false)
+  })
+
+  // #3648: the network reset the computer's socket, so the old tunnel no longer reaches it.
+  test('a stream the computer had not opened moves to the tunnel that took it over', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const first = await connectDesktop(bus, presence, new Set(['t1']))
+    const { events } = openStream(bus, presence, 't1')
+
+    await eventually(() => first.frames.some((frame) => frame.t === 'open'))
+    const second = await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    expect(first.closed?.code).toBe(TUNNEL_CLOSE_SUPERSEDED)
+    expect(second.frames.some((frame) => frame.t === 'open')).toBe(true)
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
+  test('a stream sent to a tunnel already gone opens on its replacement at the next check', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    // Presence still names a tunnel whose holder is gone, as in the moment after it ended.
+    await presence.claim(owner.userId, owner.deviceId, 'gone', { conn: 'gone', seenAt: Date.now() })
+    const socket = openLocalRuntimeSocket(
+      localRuntimeUrl(owner, 't1'),
+      ['openab.bearer.transport', 'acp.v1'],
+      { bus, presence, livenessMs: 10, closeRetryMs: 5 },
+    )
+    const lines = await logged('warn', async () => {
+      await tick()
+      await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+      await eventually(() => socket.readyState === 1)
+    })
+
+    expect(lines.filter((line) => line.event === 'agent.local_runtime.stream_failed')).toEqual([])
+    socket.close()
+  })
+
+  test('a stream the computer had not opened ends at once when its tunnel ends for good', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(bus, presence, new Set(['t1']))
+    const { events } = openStream(bus, presence, 't1')
+
+    await eventually(() => desktop.frames.some((frame) => frame.t === 'open'))
+    desktop.tunnel.closed()
+    await eventually(() => events.some((event) => event.type === 'close'))
+    expect(events[0]?.reason).toContain('disconnected')
   })
 
   test('counts each held computer once, however its tunnel ends', async () => {

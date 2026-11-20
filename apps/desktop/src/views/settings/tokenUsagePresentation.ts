@@ -2,13 +2,8 @@ import { t } from '../../i18n/index.ts'
 
 import type { TeamUsageNames, TeamUsageRow, UsageDimension } from '../../types/usage'
 
-export const TOKEN_USAGE_RANGES = {
-  '7d': { days: 7, label: t('7d') },
-  '30d': { days: 30, label: t('30d') },
-  '90d': { days: 90, label: t('90d') },
-} as const
-
-export type TokenUsageRange = keyof typeof TOKEN_USAGE_RANGES
+/** The page always shows this many days. */
+const TOKEN_USAGE_DAYS = 30
 
 /** The dimensions the page offers to group by, in menu order. */
 export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string }[] = [
@@ -17,9 +12,10 @@ export const TOKEN_USAGE_GROUPS: readonly { value: UsageDimension; label: string
   { value: 'runtime', label: t('Runtime') },
   { value: 'computer', label: t('Computer') },
   { value: 'trigger', label: t('Trigger') },
-  { value: 'bot', label: t('Bot') },
-  { value: 'task', label: t('Task') },
-  { value: 'conversation', label: t('Conversation') },
+  // A Bot's row counts its Tasks too.
+  { value: 'bot', label: t('Bot and its Tasks') },
+  // A Bot's own chat is a Task too.
+  { value: 'conversation', label: t('Task') },
   { value: 'source', label: t('Source') },
   { value: 'outcome', label: t('Outcome') },
 ]
@@ -65,14 +61,22 @@ export function clearFilter(filters: UsageFilters, dimension: UsageDimension): U
   return rest
 }
 
+/** When runtime turns began recording cached tokens in input and cost (#3262 reached
+ *  production); rows before it carry them only in the total, and are left as recorded. */
+const CACHE_RECORDED_SINCE = '2026-11-17T14:24:20Z'
+
+/** That moment in the viewer's own date and time format. */
+export function usageCacheCutoff(): string {
+  return new Date(CACHE_RECORDED_SINCE).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  })
+}
+
 /** The query window: whole local days ending tonight at midnight, so today is included. */
-export function tokenUsageWindow(range: TokenUsageRange, now: Date): { from: string; to: string } {
+export function tokenUsageWindow(now: Date): { from: string; to: string } {
   const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  const start = new Date(
-    end.getFullYear(),
-    end.getMonth(),
-    end.getDate() - TOKEN_USAGE_RANGES[range].days,
-  )
+  const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - TOKEN_USAGE_DAYS)
 
   return { from: start.toISOString(), to: end.toISOString() }
 }
@@ -137,7 +141,7 @@ export function tokenUsageLines(
     .sort((a, b) => b.totalTokens - a.totalTokens || a.label.localeCompare(b.label))
 }
 
-/** The backend's one row for every conversation other members made private. */
+/** The backend's one row for every Task other members made private. */
 export const OTHERS_PRIVATE = 'private:others'
 
 /** A grouped value as the page shows it: the backend's name, a runtime's name, or the id. */
@@ -146,13 +150,16 @@ export function usageLabel(
   groupBy: UsageDimension,
   names: UsageNames,
 ): string {
+  if (value === null && groupBy === 'bot') return t('Not in a Bot')
   if (value === null) return t('Not recorded')
-  if (value === OTHERS_PRIVATE) return t('Other members’ private conversations')
+  // A runtime turn whose model was never named.
+  if (groupBy === 'model' && value === 'unknown') return t('Unknown model')
+  if (value === OTHERS_PRIVATE) return t('Other members’ private Tasks')
 
   const served = names.served?.[groupBy]?.[value]
 
   // A teammate's conversation the viewer may not name shows as plainly that, as team activity does.
-  if (served === null) return usageGroupLabel(groupBy)
+  if (served === null) return groupBy === 'bot' ? t('Bot') : usageGroupLabel(groupBy)
 
   return served ?? (groupBy === 'runtime' ? names.runtimes.get(value) : undefined) ?? value
 }
@@ -213,6 +220,21 @@ export function tokenUsageSplit(
   })
 
   return { series, points, total: ranked.reduce((sum, [, value]) => sum + value, 0) }
+}
+
+/** What the models with a list price cost, from rows grouped by model so an unpriced model
+ *  never hides a priced one; `complete` when every model had a price. Undefined when none did. */
+export function listPriceTotal(
+  rows: readonly TeamUsageRow[],
+): { costUsd: number; complete: boolean } | undefined {
+  const priced = rows.filter((row) => row.costUsd !== undefined)
+
+  if (priced.length === 0) return undefined
+
+  return {
+    costUsd: priced.reduce((sum, row) => sum + (row.costUsd ?? 0), 0),
+    complete: priced.length === rows.length,
+  }
 }
 
 /** 1234 → "1.2K", 3_400_000 → "3.4M". */

@@ -2,13 +2,17 @@ import SwiftUI
 
 /// "+" on Bots: a name and a face, then the new Bot's 1:1 chat opens (#1691).
 /// It stays open, with what was picked, when creating fails, and says why.
+/// With no runtime chosen, Create asks for one first, then creates (#3947).
 struct NewBotSheet: View {
+    /// Read when needed, not from the environment: see `RuntimePickerSheet`.
+    let hasRuntime: () -> Bool
     let create: (_ title: String, _ avatar: String) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var face = BotAvatars.files.randomElement()!.replacingOccurrences(of: ".svg", with: "")
     @State private var creating = false
     @State private var failure: String?
+    @State private var choosingRuntime = false
     @FocusState private var nameFocused: Bool
 
     private var title: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -49,21 +53,15 @@ struct NewBotSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        creating = true
-                        Task {
-                            do {
-                                try await create(title, face)
-                                dismiss()
-                            } catch {
-                                failure = error.localizedDescription
-                            }
-                            creating = false
-                        }
+                        if hasRuntime() { make() } else { choosingRuntime = true }
                     }
                     .disabled(title.isEmpty || title.count > 120 || creating)
                 }
             }
             .onAppear { nameFocused = true }
+            .sheet(isPresented: $choosingRuntime, onDismiss: { if hasRuntime() { make() } }) {
+                RuntimePickerSheet()
+            }
             .alert("Couldn't create Bot", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -71,5 +69,18 @@ struct NewBotSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    private func make() {
+        creating = true
+        Task {
+            do {
+                try await create(title, face)
+                dismiss()
+            } catch {
+                failure = error.localizedDescription
+            }
+            creating = false
+        }
     }
 }

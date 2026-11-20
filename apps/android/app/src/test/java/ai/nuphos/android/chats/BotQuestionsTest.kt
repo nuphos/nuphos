@@ -52,6 +52,12 @@ class BotQuestionsTest {
         assertEquals("https://nuphos.ai/teams/t1/agent/canary", questions.last().link("t1"))
     }
 
+    @Test fun aQuestionKeepsItsTasksRuntime() {
+        // A Task has no face, so its question card shows this runtime's mark (#3988).
+        val task = row("docs", "bot-1", true, "q-docs" to "a").copy(agentRuntime = "claude-code")
+        assertEquals("claude-code", BotQuestions.under("bot-1", listOf(row("bot-1"), task)).single().runtime)
+    }
+
     @Test fun leavesOutOtherBotsTeammatesAndLoops() {
         val rows = listOf(
             row("elsewhere", "other-bot", true, "q-1" to "a"),
@@ -111,9 +117,9 @@ class BotQuestionsTest {
             """{"id":"q","question":"Direction OK?","body":"**Why:** see [#412](https://example.com/412)","status":"open"}""")
         assertEquals("**Why:** see [#412](https://example.com/412)", request.body)
         assertNull(Http.json.decodeFromString(InputRequest.serializer(), """{"id":"q","question":"Ship?"}""").body)
-        // Up to three short lines show whole; more collapses behind "Show more".
-        assertFalse(isLongBody("One finding.\nA second.\nA third."))
-        assertTrue(isLongBody("1\n2\n3\n4"))
+        // Up to four short lines show whole, as #2879 cuts the body; more collapses behind "Show more".
+        assertFalse(isLongBody("One finding.\nA second.\nA third.\nA fourth."))
+        assertTrue(isLongBody("1\n2\n3\n4\n5"))
         assertTrue(isLongBody("x".repeat(241)))
     }
 

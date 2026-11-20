@@ -504,6 +504,10 @@ pub struct AcpConnection {
     /// The MCP servers this agent's session was opened with. The agent reads
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
+    /// The system prompt its session opened with, in whichever `_meta` shape the agent reads.
+    pub system_prompt: Option<serde_json::Value>,
+    /// Its env as it opened, without the credentials refreshed through files on every prompt.
+    pub stable_env: Option<serde_json::Value>,
     pub supports_load_session: bool,
     /// The agent also offers `session/resume`: the same restore without replaying
     /// the history, which nobody here reads.
@@ -685,6 +689,24 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
                     stdin,
                     terminal,
                 ));
+                continue;
+            }
+        }
+
+        // Of the agent's own requests only `session/request_permission` has an answerer
+        // past this point. Any other one (Antigravity's `elicitation/create`) would be
+        // dropped there, leaving the agent to wait out the inactivity timeout in silence.
+        // Refused at once, the agent carries on without it.
+        if let (Some(id), Some(method), Some(stdin)) =
+            (msg.id, msg.method.as_deref(), stdin.clone())
+        {
+            if method != "session/request_permission" {
+                let refusal = json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": {"code": -32601, "message": format!("Method not found: {method}")},
+                });
+                tokio::spawn(async move { write_to_stdin(&stdin, &refusal.to_string()).await });
                 continue;
             }
         }
@@ -1027,6 +1049,8 @@ impl AcpConnection {
             idle_notify_tx,
             acp_session_id: None,
             mcp_servers: Vec::new(),
+            system_prompt: None,
+            stable_env: None,
             supports_load_session: false,
             supports_resume_session: false,
             supports_steering: false,
@@ -1215,6 +1239,8 @@ impl AcpConnection {
         info!(session_id = %session_id, "session created");
         self.acp_session_id = Some(session_id.clone());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
             if !self.config_options.is_empty() {
@@ -1514,6 +1540,8 @@ impl AcpConnection {
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
         }
@@ -1535,6 +1563,35 @@ impl AcpConnection {
             kill_process_group(pgid);
         }
     }
+}
+
+/// The system prompt in a client's `_meta`: Claude Code's `systemPrompt`, Codex's
+/// developer instructions, or the ACP shim's session prompt (backend `sessionMeta`).
+pub(crate) fn meta_system_prompt(meta: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+    let meta = meta?;
+    meta.get("systemPrompt")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("developerInstructions"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("systemPrompt"))
+}
+
+/// The env in a client's `_meta`, in the same three shapes as the system prompt, without the
+/// credentials it also hands over to be refreshed as files: those change on every prompt.
+pub(crate) fn meta_stable_env(meta: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    let meta = meta?;
+    let env = meta
+        .pointer("/claudeCode/options/env")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("env"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("env"))?
+        .as_object()?;
+    let refreshed = meta
+        .get(super::session_credentials::SESSION_CREDENTIALS_META_KEY)
+        .and_then(serde_json::Value::as_object);
+    Some(serde_json::Value::Object(
+        env.iter()
+            .filter(|(name, _)| !refreshed.is_some_and(|keys| keys.contains_key(*name)))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
+    ))
 }
 
 /// `session/new` params. `mcp_servers` are client-declared http-type entries

@@ -1,6 +1,6 @@
 ---
 name: nuphos-dashboards
-description: Build and update a Nuphos Dashboard (the Dashboards page; not Grafana) — a blank canvas of panels, each backed by a JavaScript script that re-runs on one of the team's agent runtimes, pulls any Nuphos API or connected-provider data, and emits a chart, number, or table. Use it for cloud spend, AI usage, infrastructure inventory, reliability, or any other metric the team wants charted.
+description: "Build and update Nuphos Dashboards (not Grafana): panels backed by JavaScript that pull Nuphos or provider data and chart spend, AI usage, inventory or any metric."
 ---
 
 # Nuphos Dashboards
@@ -134,7 +134,7 @@ Key facts:
 
 - `timeRange` is the single source of truth for time; **every panel inherits it**. Panels carry only `staticParams` (provider, accountId, filters) — never their own start/end.
 - Editing a panel's `code` creates a **new script version**; existing snapshots keep the version they ran against (immutable). Re-running produces a new snapshot.
-- A schedule belongs to the whole dashboard and refreshes every panel at 09:00 UTC: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
+- A schedule belongs to the whole dashboard and refreshes every panel at 00:00 UTC, when rolling ranges start their new day: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
 - Adding a panel runs it immediately.
 
 ## Building the initial dashboard
@@ -158,4 +158,4 @@ These apply to every panel you create or edit, not just the initial build.
 1. For spend panels, prefer the provider's native billing/usage export and mark data `actual`. Otherwise compute from official provider pricing and label it `estimated` with assumptions — never turn missing usage into zero cost. For any metric, never turn missing data into zero.
 2. A panel script must be deterministic given `params` and must not mutate infrastructure — it only reads and shapes data.
 3. Never make changes during analysis; any change needs a **Plan** the user confirms.
-4. If a panel run fails, read the snapshot's `error.kind` (`timeout` / `oversize` / `nonzero_exit` / `invalid_output`) and fix the script — usually an off-contract payload (a row missing `xKey`, a string where a number is required) or an unhandled `nuphos` response. `runtime_unavailable` (no runtime online, or it was busy/unreachable) and `runtime_outdated` (the runtime image cannot run panels) are not script bugs: report the snapshot's `error.message` to the user instead of editing the script.
+4. If a panel run fails, read the snapshot's `error.kind` (`timeout` / `oversize` / `nonzero_exit` / `invalid_output`) and fix the script — usually an off-contract payload (a row missing `xKey`, a string where a number is required) or an unhandled `nuphos` response. `runtime_unavailable` (no runtime online, or it was busy/unreachable) and `runtime_outdated` (the runtime image cannot run panels) are not script bugs: report the snapshot's `error.message` to the user instead of editing the script. Neither is `not_connected`: an integration the script reads is no longer connected to the team (the message's first line names it), so ask the user to reconnect it in Connectors.

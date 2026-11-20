@@ -1,6 +1,6 @@
 ---
 name: k8s-monitoring
-description: Set up cluster-internal health monitoring (Deployments, Nodes, CronJobs, PVCs, certs) using the industry-standard kube-prometheus-stack pipeline, alerting into the team's Better Stack via its official Prometheus integration. Use when the user asks to "monitor my cluster", "set up cluster monitoring", or wants alerts for resources that have no public endpoint.
+description: Set up in-cluster health monitoring (Deployments, Nodes, CronJobs, PVCs, certs) with kube-prometheus-stack alerting into Better Stack. Use for "monitor my cluster".
 ---
 
 # K8s cluster monitoring

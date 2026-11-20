@@ -1,6 +1,6 @@
 ---
 name: volcengine
-description: Call Volcengine (火山引擎) OpenAPI or the `ve` CLI from the sandbox to inspect or change Volcengine resources (VKE, ECS, CLB, VPC, TOS, CDN/DCDN, 证书中心, etc.). Includes scripts to load a Nuphos-bound Volcengine account's credentials and to look up the exact service, action, version and parameters of any Volcengine API.
+description: Call Volcengine OpenAPI or the ve CLI to inspect or change VKE, ECS, CLB, VPC, TOS, CDN and more. Includes scripts for credentials and to look up any API's parameters.
 ---
 
 # Volcengine (火山引擎)

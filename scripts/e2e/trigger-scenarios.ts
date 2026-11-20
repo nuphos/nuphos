@@ -1,7 +1,8 @@
-// Scenarios about a Task's scheduled Triggers.
+// Scenarios about a Task's Triggers: scheduled, and webhooks a monitoring sender calls.
 import { join } from 'node:path'
 
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
+import { inDatabase } from './agent-sign-in-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -66,6 +67,34 @@ async function createTrigger(stack: Stack, sessionId: string, name: string, mess
   })
 }
 
+type Hook = Trigger & { webhookSecret: string }
+
+async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
+  return client(stack)<Hook>('POST', '/agent/triggers', {
+    teamId: stack.teamId,
+    targetSessionId: sessionId,
+    name,
+    triggerType: 'webhook',
+    messageTemplate: 'Alert {{payload.state}} {{payload.hold}} E2E_DELIVERY:{{payload.id}}',
+    ...extra,
+  })
+}
+
+/** One delivery as a sender makes it, signed with the Trigger's secret. */
+async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
+  const response = await fetch(`${stack.apiUrl}/webhooks/${hook.id}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'X-Webhook-Secret': hook.webhookSecret },
+    body: JSON.stringify({ hold: '', ...payload }),
+  })
+
+  return {
+    status: response.status,
+    retryAfter: response.headers.get('Retry-After'),
+    body: (await response.json()) as { ok: boolean; reason?: string },
+  }
+}
+
 export const triggerScenarios: Scenario[] = [
   {
     // #3160: a Trigger whose turns could never succeed kept firing, and its owner was never told.
@@ -120,6 +149,119 @@ export const triggerScenarios: Scenario[] = [
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
+    },
+  },
+  {
+    // #3703: a delivery within a minute of the one before got 200 rate_limited and was dropped.
+    name: 'webhook alerts seconds apart all reach the Task, the later ones together after the running turn',
+    // The minIntervalSeconds part expects its second delivery to be refused.
+    expected: /"path":"\/webhooks\/[^"]+","status":429/u,
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Home of the webhook E2E_DELIVERY:hook-home')
+      await page.getByText('ACK E2E_DELIVERY:hook-home').waitFor()
+      const sessionId = await taskWith(stack, 'E2E_DELIVERY:hook-home')
+      const hook = await createWebhook(stack, sessionId, 'Grafana alerts')
+
+      // The first alert starts a turn that keeps running.
+      const firing = await deliver(stack, hook, {
+        state: 'firing',
+        hold: 'E2E_HOLD',
+        id: 'hook-firing',
+      })
+
+      await until('the agent to start the first alert', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:hook-firing'),
+      )
+      // Seconds later, while it runs: each is accepted, not acknowledged and dropped.
+      const resolved = await deliver(stack, hook, { state: 'resolved', id: 'hook-resolved' })
+      const again = await deliver(stack, hook, { state: 'firing again', id: 'hook-again' })
+
+      console.log(`Deliveries: ${JSON.stringify([firing, resolved, again])}`)
+      for (const answer of [firing, resolved, again])
+        if (answer.status !== 200 || !answer.body.ok)
+          throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
+      // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
+      // E2E_HOLD: that turn keeps running too, so its start is what shows it.
+      await page.locator('button[title="Stop"]').click()
+      await until('the later alerts to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
+      )
+      const turns = agentLog(stack)
+        .filter((entry) => entry.sessionId && entry.event === 'start')
+        .map((entry) => entry.markers ?? [])
+        .filter((markers) => markers.some((marker) => marker.startsWith('E2E_DELIVERY:hook-')))
+      const after = turns.filter((markers) => markers.includes('E2E_DELIVERY:hook-resolved'))
+
+      console.log(`Turns: ${JSON.stringify(turns)}`)
+      // One turn after the running one, carrying both later alerts in the order they came.
+      if (
+        after.length !== 1 ||
+        after[0]!.indexOf('E2E_DELIVERY:hook-resolved') >
+          after[0]!.indexOf('E2E_DELIVERY:hook-again')
+      )
+        throw new Error(`The later alerts did not run together, in order: ${JSON.stringify(turns)}`)
+      await page.locator('button[title="Stop"]').click()
+      await until('the later alerts to stop', async () =>
+        agentEvents(stack).includes('cancelled E2E_DELIVERY:hook-again'),
+      )
+
+      // A Trigger set to fire at most every 5 minutes asks the sender to come back, not ok.
+      const limited = await createWebhook(stack, sessionId, 'At most every 5 minutes', {
+        minIntervalSeconds: 300,
+      })
+      const first = await deliver(stack, limited, { state: 'firing', id: 'hook-limited' })
+      const soon = await deliver(stack, limited, { state: 'resolved', id: 'hook-limited-soon' })
+
+      console.log(`Rate-limited deliveries: ${JSON.stringify([first, soon])}`)
+      if (first.status !== 200 || soon.status !== 429 || soon.retryAfter !== '300')
+        throw new Error(`A delivery inside the limit was not refused: ${JSON.stringify(soon)}`)
+      await until('the accepted one to start', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:hook-limited'),
+      )
+      await page.locator('button[title="Stop"]').click()
+    },
+  },
+  {
+    // #3718: a fire whose agent is gone failed before its turn and was never counted, so it never paused.
+    name: 'a Trigger whose agent is gone pauses after three fires and says to move the Task',
+    expected: /runtime_not_found|This agent is no longer available to you/,
+    run: async (page, stack) => {
+      await newTask(page)
+      await send(page, 'Soon without its agent E2E_DELIVERY:trigger-gone')
+      await page.getByText('ACK E2E_DELIVERY:trigger-gone').waitFor()
+      const sessionId = await taskWith(stack, 'E2E_DELIVERY:trigger-gone')
+
+      // The agent's computer is gone: the Task now names one that is not in the team.
+      inDatabase(
+        stack.mongoUri,
+        `const row = await db.collection('agent_conversations').findOne({ sessionId: process.argv[2] })
+        await db.collection('agent_conversations').updateOne({ sessionId: process.argv[2] },
+          { $set: { runtimeId: 'local_' + row.userId + '_gone-computer' } })`,
+        sessionId,
+      )
+      const api = client(stack)
+      const trigger = await createTrigger(
+        stack,
+        sessionId,
+        'Gone report',
+        'Report E2E_DELIVERY:gone',
+      )
+      const read = () => api<Trigger>('GET', `/agent/triggers/${trigger.id}?teamId=${stack.teamId}`)
+
+      for (let fire = 1; fire <= 3; fire++) {
+        await api('POST', `/agent/triggers/${trigger.id}/test-fire?teamId=${stack.teamId}`)
+        // Each fails before any turn starts; give it time to be recorded.
+        await new Promise((resolve) => setTimeout(resolve, 3_000))
+        if (fire < 3 && !(await read()).enabled)
+          throw new Error(`${String(fire)} failures paused the Trigger`)
+      }
+      await until('the Trigger to pause', async () => !(await read()).enabled)
+      const paused = await read()
+
+      console.log(`Agent gone 3 times: ${JSON.stringify(paused)}`)
+      if (!paused.executionAuthorizationError?.includes('Move this conversation to another agent'))
+        throw new Error(`The Trigger was not paused with its reason: ${JSON.stringify(paused)}`)
     },
   },
 ]
