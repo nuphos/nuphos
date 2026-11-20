@@ -24,6 +24,7 @@ import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
+import { newGroupChatScenarios } from './new-group-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
@@ -118,6 +119,7 @@ const scenarios: Scenario[] = [
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
   ...leaveChatScenarios,
+  ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
   {
     name: 'start a Task, send a message and read the reply',
