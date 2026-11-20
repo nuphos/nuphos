@@ -126,18 +126,19 @@ fn remove_if_same_handle<T>(
     }
 }
 
-/// Whether `declared` names different MCP servers than the agent was started with.
-/// Headers carry per-turn credentials, so they never count as a change, and an
-/// empty declaration means the caller declared nothing.
 /// A new system prompt reaches a live agent only through a respawn that loads its session:
 /// it reads the prompt when the session opens. An absent one leaves the agent as it is.
 fn system_prompt_changed(
     started: Option<&serde_json::Value>,
     session_meta: Option<&serde_json::Value>,
 ) -> bool {
-    super::connection::meta_system_prompt(session_meta).is_some_and(|prompt| Some(prompt) != started)
+    super::connection::meta_system_prompt(session_meta)
+        .is_some_and(|prompt| Some(prompt) != started)
 }
 
+/// Whether `declared` names different MCP servers than the agent was started with.
+/// Headers carry per-turn credentials, so they never count as a change, and an
+/// empty declaration means the caller declared nothing.
 fn mcp_declaration_changed(started: &[serde_json::Value], declared: &[serde_json::Value]) -> bool {
     let identity = |servers: &[serde_json::Value]| -> Vec<serde_json::Value> {
         servers
@@ -1758,8 +1759,8 @@ mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
         classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
-        meta_working_dir, system_prompt_changed, purge_session_entries, relay_is_streaming, remove_if_same_handle,
-        PoolState, AGENT_RELAY_GRACE_SECS,
+        meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
+        system_prompt_changed, PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
     use crate::acp::protocol::JsonRpcError;
@@ -1993,12 +1994,13 @@ mod tests {
             Some(&started),
             Some(&serde_json::json!({"creds": "t"}))
         ));
-        assert!(system_prompt_changed(Some(&started), Some(&claude("be thorough"))));
+        assert!(system_prompt_changed(
+            Some(&started),
+            Some(&claude("be thorough"))
+        ));
         assert!(system_prompt_changed(None, Some(&claude("be terse"))));
         // Codex and the ACP shim carry it in their own shapes.
-        let codex = |text: &str| {
-            serde_json::json!({"ai.nuphos/codex": {"developerInstructions": text, "env": {"T": "1"}}})
-        };
+        let codex = |text: &str| serde_json::json!({"ai.nuphos/codex": {"developerInstructions": text, "env": {"T": "1"}}});
         let shim = |text: &str| serde_json::json!({"ai.nuphos/session": {"systemPrompt": text}});
         let old = serde_json::json!("old");
         assert!(!system_prompt_changed(Some(&old), Some(&codex("old"))));
