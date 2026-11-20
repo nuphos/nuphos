@@ -37,14 +37,12 @@ function valid(value: unknown): value is DiskSnooze {
   )
 }
 
-let kept: Record<string, DiskSnooze> | null = null
 let revision = 0
 const listeners = new Set<() => void>()
 
-/** Read once per window: a stored shape from an older build is dropped, not trusted. */
+/** Read the shared store each time so other windows cannot leave a stale cache. */
 function all(): Record<string, DiskSnooze> {
-  if (kept) return kept
-  kept = {}
+  const kept: Record<string, DiskSnooze> = {}
   try {
     const raw = readLocalStorage(KEY)
     const stored: unknown = raw ? JSON.parse(raw) : null
@@ -68,7 +66,6 @@ export function diskSnoozed(deviceId: string, percent: number, now = Date.now())
 export function dismissDisk(deviceId: string, percent: number, now = Date.now()) {
   const next = { ...all(), [deviceId]: dismissal(percent, now) }
 
-  kept = next
   revision += 1
   writeLocalStorage(KEY, JSON.stringify(next))
   for (const listener of listeners) listener()
@@ -76,16 +73,17 @@ export function dismissDisk(deviceId: string, percent: number, now = Date.now())
 
 export function subscribeDiskSnooze(listener: () => void) {
   listeners.add(listener)
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== KEY && event.key !== null) return
+    revision += 1
+    listener()
+  }
+  if (typeof window !== 'undefined') window.addEventListener('storage', onStorage)
 
   return () => {
     listeners.delete(listener)
+    if (typeof window !== 'undefined') window.removeEventListener('storage', onStorage)
   }
 }
 
 export const diskSnoozeRevision = () => revision
-
-/** Tests only: forget what this window read and recorded. */
-export function resetDiskSnooze() {
-  kept = null
-  revision += 1
-}

@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict'
 import { beforeEach, test } from 'node:test'
 
-import {
-  covers,
-  dismissal,
-  dismissDisk,
-  diskSnoozed,
-  resetDiskSnooze,
-  subscribeDiskSnooze,
-} from './diskSnooze.ts'
+import { covers, dismissal, dismissDisk, diskSnoozed, subscribeDiskSnooze } from './diskSnooze.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 const NOW = Date.parse('2026-11-20T16:00:00Z')
@@ -29,7 +22,8 @@ function store() {
 beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { value: globalThis, configurable: true })
   Object.defineProperty(globalThis, 'localStorage', { value: store(), configurable: true })
-  resetDiskSnooze()
+  Object.defineProperty(globalThis, 'addEventListener', { value: () => {}, configurable: true })
+  Object.defineProperty(globalThis, 'removeEventListener', { value: () => {}, configurable: true })
 })
 
 test('a computer with no dismissal is not snoozed', () => {
@@ -54,13 +48,11 @@ test('it comes back early once the disk is materially worse', () => {
 
 test('a dismissal outlives the window that made it', () => {
   dismissDisk('d1', 93, NOW)
-  resetDiskSnooze()
   assert.equal(diskSnoozed('d1', 93, NOW), true)
 })
 
 test('an unreadable store is no snooze rather than a failed render', () => {
   globalThis.localStorage.setItem('nuphos.diskSnooze', '{not json')
-  resetDiskSnooze()
   assert.equal(diskSnoozed('d1', 93, NOW), false)
 })
 
@@ -80,4 +72,28 @@ test('covers and dismissal are the rule, without a store', () => {
   assert.equal(covers(undefined, 93, NOW), false)
   assert.equal(covers({ until: NOW + 1, percent: 93 }, 93, NOW), true)
   assert.equal(covers({ until: NOW, percent: 93 }, 93, NOW), false)
+})
+
+test('a dismissal in another window is read without a stale cache', () => {
+  assert.equal(diskSnoozed('d1', 93, NOW), false)
+  localStorage.setItem('nuphos.diskSnooze', JSON.stringify({ d1: dismissal(93, NOW) }))
+  assert.equal(diskSnoozed('d1', 93, NOW), true)
+  localStorage.removeItem('nuphos.diskSnooze')
+  assert.equal(diskSnoozed('d1', 93, NOW), false)
+})
+
+test('a storage event updates an open window', () => {
+  let handler: ((event: StorageEvent) => void) | undefined
+  Object.defineProperty(globalThis, 'addEventListener', {
+    value: (_type: string, callback: (event: StorageEvent) => void) => {
+      handler = callback
+    },
+    configurable: true,
+  })
+  let heard = 0
+  const stop = subscribeDiskSnooze(() => heard++)
+  handler?.({ key: 'unrelated' } as StorageEvent)
+  handler?.({ key: 'nuphos.diskSnooze' } as StorageEvent)
+  assert.equal(heard, 1)
+  stop()
 })
