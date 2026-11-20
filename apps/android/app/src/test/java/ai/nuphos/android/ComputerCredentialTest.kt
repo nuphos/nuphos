@@ -73,7 +73,8 @@ class ComputerCredentialTest {
     /** What `nuphos_ask` stores leaves GitHub unset, which the server reads as every installation (#4034). */
     @Test fun anUnsetTeamWideKindIsShownInFull() {
         val team = CredentialCatalog(JsonValue.parse("""{"awsRoles":[{"roleId":"aws"},{"roleId":"aws2"}],
-            "githubInstallations":[{"installationId":"166","accountLogin":"o"},{"installationId":"177","accountLogin":"p"}]}""")!!)
+            "githubInstallations":[{"installationId":"166","accountLogin":"o"},{"installationId":"177","accountLogin":"p"}]}""")!!,
+            CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
         val github = team.allItems.filter { it.provider.selectionKey == "githubInstallationIds" }
         val aws2 = team.allItems.first { it.id == "aws2" }
         val asked = CredentialSelection(JsonValue.parse("""{"awsRoleIds":["aws"]}""")!!)
