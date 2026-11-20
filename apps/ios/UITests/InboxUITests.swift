@@ -42,7 +42,10 @@ final class InboxUITests: XCTestCase {
                                          ["sessionId": "checker", "title": "Release checker for documentation and deployment notes with an intentionally long conversation title"]]
         task["inputRequests"] = [request]
         try listQuestions([task])
-        app = launch(page: "inbox")
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
         let row = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label BEGINSWITH %@", "inbox.row", "Roll out 1.4 to production?")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), "The Task's question is not listed")
