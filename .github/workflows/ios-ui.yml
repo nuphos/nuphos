@@ -35,7 +35,7 @@ jobs:
   scope:
     name: Approved iOS change
     if: github.event_name != 'pull_request_review' || github.event.review.state == 'approved'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     timeout-minutes: 5
     permissions:
       pull-requests: read
@@ -160,7 +160,7 @@ jobs:
     name: Report a failed nightly run
     needs: ui
     if: failure() && github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     permissions:
       issues: write
     steps:
