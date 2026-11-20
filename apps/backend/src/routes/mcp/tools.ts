@@ -10,6 +10,7 @@ import {
   nuphosStop,
 } from '@/routes/mcp/control'
 import { nuphosListCredentials, nuphosUpdateCredentials } from '@/routes/mcp/credentials'
+import { nuphosFiles } from '@/routes/mcp/files'
 import { nuphosFindPrSessions } from '@/routes/mcp/resources'
 import { nuphosListSessions, nuphosUpdateSession } from '@/routes/mcp/sessions'
 
@@ -43,6 +44,7 @@ export function toolsForContext(ctx: McpCallContext): Record<string, ToolHandler
     nuphos_update_session: (args) => nuphosUpdateSession(args, ctx),
     nuphos_list_credentials: (args) => nuphosListCredentials(args, ctx),
     nuphos_update_credentials: (args) => nuphosUpdateCredentials(args, ctx),
+    nuphos_files: (args) => nuphosFiles(args, ctx),
     nuphos_find_pr_sessions: (args) => nuphosFindPrSessions(args, ctx),
     nuphos_capabilities: async () => toolResult(getCapabilities()),
   }
