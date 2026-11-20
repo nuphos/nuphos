@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 
+import { GROK_BILLING } from '../../../../backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
+
 import { homeOf } from './agent-cli-apps.ts'
 import { readClaudeCredential, readJson } from './agent-cli.ts'
 
@@ -62,43 +64,34 @@ function usageRequest(
   return Promise.resolve(null)
 }
 
-/** Grok keeps its credential to itself and answers its own ACP `_x.ai/billing`,
- *  as the cloud runtime's probe asks it. Run in the agent's home, so it reads the
- *  account this agent signed in to. */
+/** Grok answers its own ACP `_x.ai/billing`, run in the agent's home so it reads
+ *  the account this agent signed in to — the same program the cloud runtime's
+ *  usage probe runs. */
 function readGrokUsage(env: NodeJS.ProcessEnv): Promise<unknown> {
+  const program = `${GROK_BILLING}
+process.stdout.write(JSON.stringify(await grokBilling(process.env.NUPHOS_AGENT_EXECUTABLE || 'grok')))`
+
   return new Promise((resolve) => {
-    const child = spawn(env.NUPHOS_AGENT_EXECUTABLE || 'grok', ['agent', '--no-leader', 'stdio'], {
-      env: { ...env, GROK_DISABLE_AUTOUPDATER: '1' },
-      stdio: ['pipe', 'pipe', 'ignore'],
+    const child = spawn(process.execPath, ['--input-type=module', '-e', program], {
+      env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: ['ignore', 'pipe', 'ignore'],
     })
-    const done = (usage?: unknown) => {
-      clearTimeout(timer)
-      child.kill()
-      resolve(usage)
-    }
-    const timer = setTimeout(done, USAGE_TIMEOUT_MS)
-    const send = (message: object) =>
-      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
-    let buffer = ''
+    let output = ''
 
-    child.on('error', () => done())
-    child.stdin.on('error', () => done())
+    child.on('error', () => resolve(undefined))
     child.stdout.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString()
-      if (buffer.length > MAX_USAGE_CHARS) return done()
-      for (let end; (end = buffer.indexOf('\n')) >= 0; buffer = buffer.slice(end + 1)) {
-        let message: { id?: unknown; result?: unknown }
+      output += chunk.toString()
+      if (output.length > MAX_USAGE_CHARS) child.kill()
+    })
+    child.on('close', () => {
+      try {
+        const answer = JSON.parse(output) as unknown
 
-        try {
-          message = JSON.parse(buffer.slice(0, end)) as typeof message
-        } catch {
-          continue
-        }
-        if (message.id === 1) send({ id: 2, method: '_x.ai/billing', params: {} })
-        if (message.id === 2) done(message.result ?? undefined)
+        resolve(answer && typeof answer === 'object' && !('error' in answer) ? answer : undefined)
+      } catch {
+        resolve(undefined)
       }
     })
-    send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } })
   })
 }
 
