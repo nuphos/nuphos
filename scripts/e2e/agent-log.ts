@@ -25,6 +25,8 @@ type AgentEntry = {
   language?: string
   isError?: boolean
   detail?: string
+  /** How long a permission request took to be answered. */
+  ms?: number
   /** E2E_CALL: the tool it called and that tool's answer. */
   name?: string
   result?: unknown
