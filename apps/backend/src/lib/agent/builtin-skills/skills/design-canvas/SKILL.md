@@ -1,6 +1,6 @@
 ---
 name: design-canvas
-description: Lay out, review and iterate on a product's screens on a Nuphos Design canvas — pages of live HTML frames, sections, notes and flow arrows that the team edits beside you. Use whenever asked to design screens, mock up a UI, put screens on a canvas, build a user flow, or change a frame on an open design.
+description: "Design, mock up and iterate on product screens on a Nuphos Design canvas: live HTML frames, sections, notes and flow arrows. Use for screens, UI mockups and user flows."
 ---
 
 # Design canvas

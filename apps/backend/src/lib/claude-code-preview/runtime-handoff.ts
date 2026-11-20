@@ -1,4 +1,5 @@
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { isBot } from '@/lib/agent/db/read-state'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store/ownership'
@@ -140,6 +141,7 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
       backendUrl: endpoint.backendUrl,
       humanTurn: handoff.humanTurn,
       parentSessionId: conversation.parentSessionId,
+      bot: isBot(conversation),
       toolsVersion: await nuphosToolsVersion({
         userId: handoff.actorUserId,
         conversationOwnerUserId: handoff.ownerUserId,

@@ -143,10 +143,10 @@ const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 
 const scenario: Scenario = {
   name: "a Bot chat's name opens the Bot's details, which stay open from Bot to Bot",
-  // The Bot handed to a teammate in Mongo is one this viewer cannot read: its session and
-  // model settings answer 404, which the panel and the composer leave out.
+  // The Bot handed to a teammate in Mongo is one this viewer cannot read: its session, model
+  // settings and mode answer 404, which the panel and the composer leave out.
   expected:
-    /"method":"GET","path":"\/agent\/conversations\/[0-9a-f-]+(\/model-config)?","status":404,"error_code":"not_found"/,
+    /"method":"GET","path":"\/agent\/(conversations\/[0-9a-f-]+(\/model-config)?|auto-mode\/bypass)","status":404,"error_code":"not_found"/,
   run: async (page, stack) => {
     const second = await call(stack, '/agent/bots', {
       title: SECOND,
