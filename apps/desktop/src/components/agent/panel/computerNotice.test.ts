@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { beforeEach, test } from 'node:test'
 
 import { computerNotice } from './computerNotice.ts'
-import { dismissDisk, resetDiskSnooze } from './diskSnooze.ts'
+import { dismissDisk } from './diskSnooze.ts'
 
 import type { AgentDevice } from '../../../api/device-types'
 
@@ -35,7 +35,6 @@ function noStore() {
 beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { value: globalThis, configurable: true })
   Object.defineProperty(globalThis, 'localStorage', { value: noStore(), configurable: true })
-  resetDiskSnooze()
 })
 
 test('the disk banner shows only to people who can free space on the computer', () => {
