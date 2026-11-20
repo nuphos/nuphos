@@ -150,14 +150,14 @@ function mount() {
   const root = createRoot(container as unknown as HTMLElement)
   let open = false
   const selected: SessionConfigSelection[] = []
-  const render = (data: SessionConfigState | undefined, hint?: string) =>
+  const render = (data: SessionConfigState | undefined, hint?: string, slow = false) =>
     act(() =>
       root.render(
         createElement(ModelSelector, {
           control: {
             data,
             loading: !data,
-            slow: false,
+            slow,
             saving: false,
             error: null,
             writeError: null,
@@ -165,7 +165,7 @@ function mount() {
             open,
             setOpen: (next: boolean) => {
               open = next
-              void render(data, hint)
+              void render(data, hint, slow)
             },
             select: (selection) => selected.push(selection),
             refresh: () => {},
@@ -270,16 +270,18 @@ test('a locked model picker shows the setting and why, and a pick changes nothin
   await act(() => picker.root.unmount())
 })
 
-// #3427: the chip opened before its settings arrived stayed on the bare model list.
-test('a chip opened while its settings load shows models and effort once they arrive', async () => {
+// #3701: on a task's first open the chip was a grey placeholder bar before its model showed.
+test('the chip shows nothing until its settings arrive, then the model', async () => {
   const picker = mount()
 
   await picker.render(undefined)
-  await act(() => picker.chip().click())
-  assert.equal(picker.isOpen(), true, 'the chip opens while its settings load')
+  assert.equal(picker.chip(), null, 'no chip, and no placeholder, while the settings load')
   await picker.render(withEffort)
-  assert.ok(picker.row('gpt-5.5'), 'the models show')
-  assert.ok(dom.document.querySelector('input[type="range"]'), 'the effort slider shows')
+  assert.match(
+    picker.chip().textContent ?? '',
+    /gpt-5\.5/i,
+    'the chip reads the model from its first frame',
+  )
   await act(() => picker.root.unmount())
 })
 
@@ -306,13 +308,14 @@ const notes = (text: RegExp) =>
 test('the notes draw a line above them only under the list or the effort', async () => {
   const picker = mount()
 
-  await picker.render(undefined)
+  // A chip shows before its settings only while the runtime reconnects.
+  await picker.render(undefined, undefined, true)
   await act(() => picker.chip().click())
-  assert.ok(notes(/Getting model settings/), 'the loading note shows')
+  assert.ok(notes(/reconnecting/), 'the reconnecting note shows')
   assert.doesNotMatch(
-    notes(/Getting model settings/)?.className ?? '',
+    notes(/reconnecting/)?.className ?? '',
     /border-t/,
-    'alone in the menu, the loading note has no line above it',
+    'alone in the menu, the reconnecting note has no line above it',
   )
   await act(() => picker.root.unmount())
 
@@ -322,4 +325,16 @@ test('the notes draw a line above them only under the list or the effort', async
   await act(() => locked.chip().click())
   assert.match(notes(/Only the owner/)?.className ?? '', /border-t/, 'under the list, it has one')
   await act(() => locked.root.unmount())
+})
+
+// #3147: a session on Claude Code's Default is reported on the model it stands for, so that
+// model shows checked, and clicking it must still pin it.
+test('clicking the checked model still pins it', async () => {
+  const picker = mount()
+
+  await picker.render(opencode)
+  await act(() => picker.chip().click())
+  await act(() => picker.row('Big Pickle')?.click())
+  assert.deepEqual(picker.selected, [{ configId: 'model', value: 'opencode/big-pickle' }])
+  await act(() => picker.root.unmount())
 })

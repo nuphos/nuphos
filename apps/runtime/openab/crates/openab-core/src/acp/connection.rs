@@ -689,6 +689,24 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
             }
         }
 
+        // Of the agent's own requests only `session/request_permission` has an answerer
+        // past this point. Any other one (Antigravity's `elicitation/create`) would be
+        // dropped there, leaving the agent to wait out the inactivity timeout in silence.
+        // Refused at once, the agent carries on without it.
+        if let (Some(id), Some(method), Some(stdin)) =
+            (msg.id, msg.method.as_deref(), stdin.clone())
+        {
+            if method != "session/request_permission" {
+                let refusal = json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": {"code": -32601, "message": format!("Method not found: {method}")},
+                });
+                tokio::spawn(async move { write_to_stdin(&stdin, &refusal.to_string()).await });
+                continue;
+            }
+        }
+
         // Notification → forward to the turn's subscriber, and fall back to the
         // session-scoped idle subscriber when that turn is gone.
         //

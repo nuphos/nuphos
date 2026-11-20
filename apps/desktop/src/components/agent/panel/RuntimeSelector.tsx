@@ -149,7 +149,7 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
+      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} chip />}
       {dot && (
         <span
           role="img"

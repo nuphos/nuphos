@@ -168,10 +168,14 @@ export async function openMacScreen(
   return SCREEN
 }
 
-/** The CLI's Mac screen host: the bundled binary, holding its own permissions. */
-export function cliMacScreenHost(bundleRoot: string, owner: () => string | null) {
+/** The CLI's Mac screen host: the bundled binary, holding its own permissions, or e2e's stand-in. */
+export function cliMacScreenHost(
+  bundleRoot: string,
+  owner: () => string | null,
+  standIn = process.env.NUPHOS_E2E_MAC_SCREEN_HOST,
+) {
   return {
-    binary: () => path.join(bundleRoot, 'mac-screen-host'),
+    binary: () => standIn || path.join(bundleRoot, 'mac-screen-host'),
     handOver: (human: boolean) =>
       console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
     owner,

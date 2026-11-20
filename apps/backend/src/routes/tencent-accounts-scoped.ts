@@ -6,7 +6,12 @@ import { listTkeClusters, generateTkeKubeconfig, tencentBootstrapRegion } from '
 import { listCvmInstances } from '@/lib/byos/tencent-cvm'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { canRequestUseBinding, requireCanDisconnect, requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -58,10 +63,7 @@ tencentAccountScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('tencentBinding').id
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { tencentAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-    )
+    await disconnectBinding(c, teamId, 'tencentAccounts', { id: accountId })
 
     return c.body(null, 204)
   },

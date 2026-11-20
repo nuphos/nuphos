@@ -1,6 +1,6 @@
 // A real `nuphos agent` host whose Claude Code runtime runs the fixture agent, so its turns go
-// through its tunnel: one whose path to the backend goes silent mid-turn and redials (#3366), and
-// one whose owner updates it from its card mid-turn, which restarts it at once.
+// through its tunnel: one whose path goes silent mid-turn and redials (#3366), one whose path is
+// reset as a turn starts (#3648), and one updated from its card mid-turn, which restarts at once.
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -18,12 +18,13 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const LABEL = 'E2E patchy mini'
+const RESET = 'E2E reset mini'
 const UPDATED = 'E2E office mini'
 const UPDATE_RELEASE = join(artifacts, 'update-release')
 const RELEASE = join(artifacts, 'tunnel-release')
 
 /** The app's local-runtime bundle with the fixture agent as Claude Code; E2E_WAIT_RELEASE waits for `release`. */
-function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
+export function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
   const real = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64')
   const root = join(artifacts, `${name}-bundle`)
   const neverFile = join(artifacts, `${name}-never`)
@@ -151,6 +152,48 @@ export const tunnelScenarios: Scenario[] = [
     },
   },
   {
+    // #3648: a reset between the computer and the edge. The computer redials at once, but the
+    // backend still holds its old tunnel, so a turn sent before the new one takes over is opened
+    // on a tunnel that reaches nothing, and the takeover used to fail it as offline.
+    name: 'a turn sent while a reset tunnel redials runs on the new tunnel',
+    run: async (page, stack) => {
+      const proxy = await proxyTo(Number(new URL(stack.apiUrl).port))
+      const computer = await startSecondComputer(stack, RESET, {
+        apiUrl: proxy.url,
+        runtimeDir: fixtureBundle(stack, 'reset'),
+      })
+
+      try {
+        await newTaskOn(page, RESET)
+        const from = backendLines()
+        // The redial is held a few seconds, longer than in production, so the turn lands inside it.
+        const release = proxy.holdNewConnections()
+
+        proxy.resetOpenConnections()
+        await send(page, 'Across a reset E2E_DELIVERY:tunnel-reset')
+        await new Promise((resolve) => setTimeout(resolve, 3_000))
+        release()
+        await page.getByText('ACK E2E_DELIVERY:tunnel-reset').waitFor({ timeout: 60_000 })
+
+        const lines = about(computer.deviceId, from)
+        const opened = lines.findIndex((line) => line.includes('tunnel_opened'))
+        const takenOver = lines.findIndex((line) => line.includes('"code":4000'))
+
+        // The backend never heard the reset: the new tunnel took the old one over.
+        if (opened < 0 || takenOver < opened)
+          throw new Error(`The redial did not take the old tunnel over:\n${lines.join('\n')}`)
+        const failed = lines.filter((line) => line.includes('agent.local_runtime.stream_failed'))
+
+        if (failed.length > 0)
+          throw new Error(`A stream failed across the reset:\n${failed.join('\n')}`)
+      } finally {
+        await computer.stop()
+        proxy.close()
+        forgetComputer(stack.mongoUri, computer.deviceId)
+      }
+    },
+  },
+  {
     // Yuanlin's Mac mini: Update waited for its running Tasks, so it never started.
     name: 'Update on another computer restarts it at once, and the turn running there ends',
     run: async (page, stack) => {
@@ -181,6 +224,12 @@ export const tunnelScenarios: Scenario[] = [
         // It used to answer "An agent is working on this computer" and leave the turn running.
         await until('the computer to restart into its update', async () => computer.restarts() > 0)
         await page.getByText(`${UPDATED} is back`).waitFor({ timeout: 120_000 })
+        // Back as soon as it reported in again, though it restarted between two readings.
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await card.screenshot({ path: join(artifacts, 'computer-update-back-light.png') })
         await page.getByText('Back to app', { exact: true }).click()
 
         // The turn the restart ended stops running and says it was cut off; the Task carries on.

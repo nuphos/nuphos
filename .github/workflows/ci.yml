@@ -3,8 +3,15 @@ name: CI
 on:
   pull_request:
   merge_group:
+  # Format and lint only, so a regression two merged PRs create together shows on main.
+  push:
+    branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
   workflow_dispatch:
+  # The full macOS package every night, since PRs and the queue build it only
+  # when a packaging input changes.
+  schedule:
+    - cron: '0 19 * * *'
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
@@ -17,9 +24,13 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Every PR in a merge group already passed format and lint on pull_request,
+  # so the merge queue skips them (a skipped job still satisfies its required
+  # check). They run again on main after each merge, which catches what two
+  # PRs break only together, without holding up the queue.
   format:
     name: Format (prettier --check)
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,7 +49,7 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
@@ -63,7 +74,7 @@ jobs:
 
   changes:
     name: Detect changed apps
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04-arm
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
@@ -85,6 +96,10 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
+          # A merge group is judged by all it adds to main, not by its own PR: its base_sha is
+          # the group ahead's head, so a group touching only iOS skipped Backend lint and, as
+          # the queue's green head, merged the failing groups ahead of it.
+          base: ${{ github.event.merge_group.base_ref }}
           filters: |
             # Backend tests import electron main's local runtime, so its typecheck follows it,
             # and from there the desktop's shared types and one runtime-image script.
@@ -179,17 +194,17 @@ jobs:
       - name: Detect a version-only diff
         id: bump
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_ref }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE"
           # A failed diff or jq must fail the step or answer false, never true.
-          git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
+          git diff --no-renames --name-only FETCH_HEAD HEAD > "$RUNNER_TEMP/changed"
           only=true
           while read -r f; do
             case "$f" in
               apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
               apps/*/package.json)
-                old=$(git show "$BASE:$f" | jq -S 'del(.version)') &&
+                old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
                   [ "$old" = "$new" ] || only=false ;;
               *) only=false ;;
@@ -443,8 +458,12 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
-    runs-on: instabox-medium
-    timeout-minutes: 30
+    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    # About 35 minutes with openab from the cache. A change to prepare.mjs or the
+    # openab source misses that cache until it lands on main, here and in the merge
+    # group, and compiling openab adds about 6 minutes.
+    timeout-minutes: 50
     permissions:
       contents: read
       attestations: read
@@ -463,6 +482,11 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
+      # Ubuntu 24.04 keeps unprivileged user namespaces from Chrome, so the headless Chrome the
+      # second computer drives cannot start its sandbox; our own runners do not restrict them.
+      - name: Let Chrome start its sandbox
+        if: runner.environment == 'github-hosted'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
       - id: openab
         uses: ./.github/actions/openab-binaries
@@ -571,18 +595,20 @@ jobs:
           (env -u NUPHOS_AGENT_HOME node "$RUNNER_TEMP/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
 
   # Some tests only run on macOS (the keychain, macOS config paths), and the
-  # native addon only compiles there, so the Mac runs the suite and the build
-  # wherever it runs: in the merge queue, so nothing reaches main without them,
-  # and on a PR that changes a packaging input or the addon.
-  # Staging and electron-builder cost ~4 minutes and have not caught anything
-  # the Linux job missed, so they run only on such a PR; the release workflow
-  # packages before anything ships.
+  # native addon only compiles there. A PR or queue entry gets the Mac only when
+  # it changes a packaging input or the addon (desktop_package); every other
+  # desktop change is checked by the Linux job above, and its skipped Mac job
+  # still passes the required check. The full package runs on main every
+  # night, so what only the Mac catches shows up within a day.
+  # Staging and electron-builder are skipped in the queue: the PR already
+  # packaged the same inputs.
   desktop:
     name: Desktop (Nuphos macOS package)
     needs: changes
+    # On schedule `changes` is skipped; !cancelled() keeps this job running.
     if: >-
-      needs.changes.outputs.desktop == 'true' &&
-      (github.event_name != 'pull_request' || needs.changes.outputs.desktop_package == 'true')
+      ${{ !cancelled() && (github.event_name == 'schedule' ||
+      (needs.changes.outputs.desktop == 'true' && needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -608,16 +634,25 @@ jobs:
         working-directory: apps/desktop
         run: pnpm exec vite build
       - name: Stage the local agent adapter
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Nobody watches the nightly run, so a failure is posted to the maintainers.
+      - name: Report a failed nightly run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          curl -fsS -X POST "$WEBHOOK" -H 'content-type: application/json'
+          -d "{\"run\":\"$RUN\",\"commit\":\"$GITHUB_SHA\"}"
 
   # Type-aware ESLint is the slowest step in both apps, so it runs beside their
   # main jobs instead of after typecheck. A PR then waits for the slower of the
@@ -625,7 +660,8 @@ jobs:
   backend-lint:
     name: Backend lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -655,7 +691,7 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
+    if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -703,6 +739,8 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test which backend log lines fail an e2e run
+        run: node --test --experimental-strip-types scripts/e2e/*.test.ts
       - name: Test filling mobile strings from the Desktop translations
         run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate

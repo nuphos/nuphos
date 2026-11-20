@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
+import { usePrefetchRecentChannels } from '../../components/channels/useChannel'
 import { useAgentSessions } from '../../components/sidebar/agentSessions'
 import { useSidebarMode } from '../../components/sidebar/useSidebarMode'
 
@@ -42,6 +43,8 @@ function TeamSessionPane({
   const bots = useAgentSessions(teamId)
   const firstBot =
     bots.data !== undefined && !bots.data.some((row) => row.avatar && row.kind !== 'channel')
+
+  usePrefetchRecentChannels(teamId, bots.data)
   const sessionId = ws.selectedSessionId
   const channel = useIsChannel(teamId, sessionId)
   const cornerPane = useWorkspacePane()?.cornerPane ?? false

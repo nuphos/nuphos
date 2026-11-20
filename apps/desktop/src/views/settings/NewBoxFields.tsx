@@ -89,7 +89,7 @@ export function NewBoxFields({
               openBoxPlans(
                 teamId,
                 t(
-                  "Your team's plan doesn't include cloud computers. Choose a computer plan to start one.",
+                  "Your team's plan doesn't include computers from Nuphos. Choose a computer plan to start one.",
                 ),
                 onPlanChanged,
                 {

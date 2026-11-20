@@ -155,7 +155,7 @@ export function InboxView({
           icon={Inbox}
           title={t("You're all caught up")}
           description={t(
-            'When an agent needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
+            'When a Bot or task needs you to decide something, it shows up here. Answer it there and it leaves the Inbox.',
           )}
         />
       )}
