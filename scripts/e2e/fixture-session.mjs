@@ -1,5 +1,6 @@
 // How the fixture agent starts, and what a session's system prompt tells it.
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 
 import { botEnv } from './fixture-settings.mjs'
 
@@ -33,3 +34,21 @@ export const opening = (params) => ({
         `${section.slice(0, 24)}#${createHash('sha1').update(section).digest('hex').slice(0, 8)}`,
     ),
 })
+
+/** The model probe names itself, so a fixture can answer turns and still fail discovery. */
+let probing = false
+
+export function noteClient(params) {
+  probing = params?.clientInfo?.name === 'nuphos-model-discovery'
+}
+
+/** Whether this session/new is a model probe that fails, as a CLI that cannot list
+ *  its models does (#4261). Every attempt is logged, probe or not. */
+export function discoveryFails(log) {
+  if (!probing) return false
+  const failing = existsSync(process.env.E2E_MODEL_PROBE_FAILS ?? '')
+
+  log({ event: 'discovery', failed: failing })
+
+  return failing
+}

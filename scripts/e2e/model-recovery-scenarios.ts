@@ -1,7 +1,6 @@
-// #4261: a Task moved to an agent on a computer whose model read had failed opened an
-// empty model picker that said the list had not been reported yet. Trying again asked that
-// computer nothing, so the models never arrived. A computer of its own runs the fixture
-// agent as Codex, and its model discovery fails until this scenario lets it through.
+// #4261: a Task moved to an agent whose model read had failed opened an empty picker that
+// said the list had not been reported yet, and trying again asked that computer nothing. A
+// computer of its own runs the fixture agent as Codex, with discovery failing until let through.
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -123,10 +122,9 @@ export const modelRecoveryScenarios: Scenario[] = [
         await page.screenshot({ path: `${artifacts}/model-recovery-1-failed.png` })
         await page.keyboard.press('Escape')
 
-        // Its CLI can list them again. The computer's own retry brings the list, and the
-        // open picker shows it without anyone reopening the chat. (An agent on the computer
-        // running Desktop is also asked by the picker itself, over an IPC a second computer
-        // has no part in; that path is covered in agent-models.test.ts.)
+        // Its CLI can list them again: the computer's own retry brings the list and the open
+        // picker shows it. The picker's own ask is an IPC to the computer Desktop runs on, so
+        // a second computer is not in that path; agent-models.test.ts covers it.
         rmSync(PROBE_FAILS, { force: true })
         const before = reads(stack)
 
