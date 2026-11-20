@@ -87,17 +87,20 @@ function fixAction(fix: AgentFix, runFix: (fix: AgentFix) => void) {
   return label ? { label, run: () => runFix(fix) } : null
 }
 
-/** A computer whose disk is almost full still takes the message; the banner says what is coming. */
+/**
+ * A computer whose disk is almost full still takes the message; the banner says what is coming,
+ * and Free space opens the Box card's own Clear caches in place.
+ */
 export function diskFullCopy(
   computer: { label: string; percent: number },
-  onSettings?: () => void,
+  clear?: () => void,
 ): BannerCopy {
   return {
     text: t('{box}’s disk is almost full ({percent}%). Bots and tasks on it may fail.', {
       box: computer.label,
       percent: String(computer.percent),
     }),
-    action: onSettings ? { label: t('Free space'), run: onSettings } : null,
+    action: clear ? { label: t('Free space'), run: clear } : null,
   }
 }
 
@@ -117,12 +120,9 @@ export function outdatedCopy(box: string, fix: { update?: () => void; hint?: str
 /** The banner for what is wrong with the agent's computer, which still takes the message. */
 export function noticeCopy(
   notice: ComputerNotice | null,
-  outdatedFix: Parameters<typeof outdatedCopy>[1],
-  onSettings?: () => void,
+  fix: Parameters<typeof outdatedCopy>[1] & { clear?: () => void },
 ): BannerCopy {
   if (!notice) return { text: '', action: null }
 
-  return notice.kind === 'disk'
-    ? diskFullCopy(notice, onSettings)
-    : outdatedCopy(notice.label, outdatedFix)
+  return notice.kind === 'disk' ? diskFullCopy(notice, fix.clear) : outdatedCopy(notice.label, fix)
 }

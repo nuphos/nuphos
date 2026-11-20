@@ -74,6 +74,9 @@ const { ChannelPane } = await import('./ChannelPane')
 const { RuntimeSelector } = await import('../agent/panel/RuntimeSelector')
 const { createRoot } = await import('react-dom/client')
 
+const buttonNamed = (root: Element, name: string) =>
+  [...root.querySelectorAll('button')].find((button) => button.getAttribute('aria-label') === name)
+
 const row = (fields: Partial<AgentConversation> & { sessionId: string }): AgentConversation => ({
   title: '',
   firstMessage: '',
@@ -127,16 +130,28 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     ),
   )
 
-  assert.ok(
-    container.querySelector('[aria-label="Triggers"]'),
-    'Bot chat exposes its triggers directly',
-  )
-  const triggerButton = container.querySelector<HTMLButtonElement>('[aria-label="Triggers"]')
+  // The title bar holds the Bot's name and status, and its details open from the name.
+  for (const name of ['Triggers', 'Task', 'Desktop', 'Edit Bot: Ada'])
+    assert.equal(buttonNamed(container, name), undefined, `the title bar has no ${name}`)
+  const toggle = buttonNamed(container, 'Bot details')
 
-  assert.ok(triggerButton)
-  await act(() => triggerButton.click())
-  assert.deepEqual(triggerQueries, [['team', 'bot']], 'queries the Bot, not its chat or the team')
-  assert.ok(dom.document.body.textContent?.includes('Ask here to schedule recurring work.'))
+  assert.ok(toggle)
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false')
+  await act(() => toggle.click())
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true')
+  const panel = dom.document.body.querySelector<HTMLElement>('aside[aria-label="Bot details"]')
+
+  assert.ok(panel, 'the Bot details panel opens beside the chat')
+  assert.ok(buttonNamed(panel, 'Edit Bot'), 'its owner can edit the Bot')
+  assert.ok(triggerQueries.length > 0)
+  for (const query of triggerQueries)
+    assert.deepEqual(query, ['team', 'bot'], 'queries the Bot, not its chat or the team')
+  assert.ok(panel.textContent.includes('Ask here to schedule recurring work.'))
+  await act(() =>
+    panel.dispatchEvent(new dom.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })),
+  )
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false', 'Esc closes the details')
+  await act(() => toggle.click())
   assert.ok(frames.length > 0)
   // Every frame, the first one included: a frame without them is the composer jumping.
   for (const frame of frames) {
@@ -223,6 +238,12 @@ test("a teammate's Bot chat shows its model locked and no permission mode", asyn
       ),
     ),
   )
+  // The details stay open from the Bot chat before, and a teammate's Bot has no Edit Bot.
+  const panel = dom.document.body.querySelector<HTMLElement>('aside[aria-label="Bot details"]')
+
+  assert.ok(panel, 'the details stay open in the next Bot chat')
+  assert.match(panel.textContent, /Ada/)
+  assert.equal(buttonNamed(panel, 'Edit Bot'), undefined)
   // Only the owner may read or change a Bot's permission mode; everyone sees its model.
   assert.deepEqual(bypassQueries, [])
   assert.equal(frames.at(-1)?.bypassControl, undefined)

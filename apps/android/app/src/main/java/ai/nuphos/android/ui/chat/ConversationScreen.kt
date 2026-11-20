@@ -130,7 +130,8 @@ fun ConversationScreen(
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
-        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack,
+            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
         return
     }
     val auth = LocalAuthSession.current
@@ -251,9 +252,9 @@ fun ConversationScreen(
         TaskSummarySheet(
             session = session,
             token = summaryToken,
-            childIds = store.conversations.filter {
+            children = store.conversations.filter {
                 it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
-            }.mapTo(mutableSetOf()) { it.sessionId },
+            }.sortedByDescending { it.lastActiveAt },
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { child ->
                 showSummary = false

@@ -116,7 +116,7 @@ useTriggerRunExecute({
   },
 })
 
-const { executeTrigger } = await import('./trigger-executor')
+const { executeTrigger, fireTrigger } = await import('./trigger-executor')
 const { startQueuedTurn } = await import('./queued-turn')
 const { installQueuedTurnStarter } = await import('./session-released')
 
@@ -233,6 +233,42 @@ describe('a Trigger bound to an existing session', () => {
         await new Promise((resolve) => setTimeout(resolve, 1))
       expect(runs).toHaveLength(2)
       expect(texts(1)).toEqual(['check the deploy'])
+    } finally {
+      heldTurn = undefined
+      conversation = null
+    }
+  })
+
+  test('distinct webhook alerts during a running turn are accepted at once and run next, in order', async () => {
+    runs.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
+    const alert = { ...bound, messageTemplate: 'alert {{payload.status}}' } as AgentTrigger
+    let finish!: () => void
+
+    heldTurn = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    try {
+      // The first alert starts a turn that is still running.
+      const started = await fireTrigger(alert, { status: 'firing' }, { runKind: 'webhook' })
+
+      for (let i = 0; i < 100 && runs.length === 0; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      // The next one waits in the queue, and the one after joins it there. Each is accepted
+      // (fireTrigger resolves) while that turn still runs.
+      const queued = await fireTrigger(alert, { status: 'resolved' }, { runKind: 'webhook' })
+      const joined = await fireTrigger(alert, { status: 'firing again' }, { runKind: 'webhook' })
+
+      expect(runs).toHaveLength(1)
+      expect(texts(0)).toContain('alert firing')
+      heldTurn = undefined
+      finish()
+      await started.run
+      await Promise.all([queued.run, joined.run])
+      for (let i = 0; i < 100 && runs.length < 2; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      expect(runs).toHaveLength(2)
+      expect(texts(1)).toEqual(['alert resolved', 'alert firing again'])
     } finally {
       heldTurn = undefined
       conversation = null

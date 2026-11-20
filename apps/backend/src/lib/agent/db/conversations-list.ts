@@ -90,6 +90,8 @@ export async function getConversations(
     // Kept apart from the search $or below, which would otherwise replace it.
     $and: [readableByFilter(viewerUserId)],
     kind: options.channels ? 'channel' : { $ne: 'channel' },
+    // A Slack channel's record is the Bots' alone: no listing shows it to anyone.
+    external: { $exists: false },
   }
 
   if (scope === 'mine') query.userId = viewerUserId

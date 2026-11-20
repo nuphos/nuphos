@@ -20,6 +20,7 @@ import { computerScenarios } from './computer-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
@@ -31,10 +32,13 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
+import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
+import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -43,9 +47,11 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
+import { stepUpScenarios } from './step-up-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
+import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -124,21 +130,27 @@ const scenarios: Scenario[] = [
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
+  ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
+  // Turns two-factor authentication on for this account, and off again.
+  ...stepUpScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...outdatedTurnScenarios,
   ...mcpScenarios,
   threadModeScenario,
   ...botFoldScenarios,
@@ -153,6 +165,8 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  // Another app of its own per proxy, reaching the backend only through it, which it quits again.
+  ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
