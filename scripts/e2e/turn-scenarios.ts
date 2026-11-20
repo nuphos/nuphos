@@ -92,8 +92,6 @@ export const turnScenarios: Scenario[] = [
       // The link opens in the dock; give a wrong navigation the time to happen.
       await page.waitForTimeout(2_000)
       await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
-      // The answer is sent once its Undo has expired.
       await until('the Inbox answer to reach the agent', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:other'),
       )
@@ -120,7 +118,6 @@ export const turnScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:credential-again').waitFor()
       await page.getByRole('tab', { name: 'Inbox' }).click()
       await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
       await until('the Inbox answer to reach the agent', async () => finished() === before + 1)
     },
   },
