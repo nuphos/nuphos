@@ -95,6 +95,7 @@ export function BotDetailsPanel({
   onEdited,
   onOpenSession,
   onOpenLink,
+  onEditTrigger,
   credentials,
 }: {
   teamId: string
@@ -108,6 +109,8 @@ export function BotDetailsPanel({
   onEdited: () => void
   onOpenSession: (sessionId: string) => void
   onOpenLink?: (href: string) => void
+  /** Starts this message to the Bot in the chat's composer. */
+  onEditTrigger?: (message: string) => void
   /** The Bot's selection, for its Access section; undefined until it loads. */
   credentials: CredentialSelectorControl | undefined
 }) {
@@ -130,6 +133,7 @@ export function BotDetailsPanel({
       teamId={teamId}
       onOpenLink={(url) => onOpenLink?.(url)}
       onOpenSession={onOpenSession}
+      onEditTrigger={onEditTrigger}
       onOpenRequest={(sessionId) => onOpenSession(sessionId)}
       requests={inputQueue.requests}
       requestsLoaded={inputQueue.loaded}

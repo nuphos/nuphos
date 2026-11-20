@@ -9,6 +9,7 @@ import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
@@ -29,6 +30,7 @@ import { leaveChatScenarios } from './leave-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
@@ -60,6 +62,7 @@ import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
+import { voiceScenarios } from './voice-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -118,6 +121,7 @@ const scenarios: Scenario[] = [
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...channelRestartScenarios,
+  ...mcpDefaultsScenarios,
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
@@ -132,6 +136,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...voiceScenarios,
   ...personalCredentialScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
@@ -142,6 +147,7 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...botTriggerRowScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,

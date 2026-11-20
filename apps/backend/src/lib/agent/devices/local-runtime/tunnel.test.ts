@@ -3,7 +3,12 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus, guardedReconnect } from './bus'
 import { holderChannel, streamChannel } from './protocol'
-import { attachRuntimeTunnel, connectedComputerCount, TUNNEL_CLOSE_SUPERSEDED } from './holder'
+import {
+  attachRuntimeTunnel,
+  closeTunnelsForRestart,
+  connectedComputerCount,
+  TUNNEL_CLOSE_SUPERSEDED,
+} from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
 import { openLocalRuntimeSocket } from './socket'
@@ -418,6 +423,32 @@ describe('local runtime tunnel', () => {
     first.tunnel.closed()
     second.tunnel.closed()
     expect(connectedComputerCount()).toBe(before)
+  })
+
+  test('a restart closes every held tunnel with 1012, spread over the window', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const closes: { code: number; at: number }[] = []
+    const held = await Promise.all(
+      ['r1', 'r2', 'r3'].map((deviceId) =>
+        attachRuntimeTunnel(
+          'u-restart',
+          deviceId,
+          { send: () => {}, close: (code) => closes.push({ code, at: Date.now() }) },
+          { bus, presence, isMember: async () => true, heartbeatMs: 60_000 },
+        ),
+      ),
+    )
+
+    tunnels.push(...held)
+    const start = Date.now()
+
+    closeTunnelsForRestart(90)
+    await eventually(() => closes.length === 3)
+    expect(closes.map((close) => close.code)).toEqual([1012, 1012, 1012])
+    expect(closes[0]!.at - start).toBeLessThan(30)
+    expect(closes[2]!.at - start).toBeGreaterThanOrEqual(55)
+    expect(connectedComputerCount()).toBe(0)
   })
 
   test('closing the backend side tells the computer to drop the stream', async () => {

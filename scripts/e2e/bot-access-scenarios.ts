@@ -1,8 +1,6 @@
 // What a Bot may use, set in its details. Runs in the Bot chat the scenarios before opened.
-import { execFileSync } from 'node:child_process'
-import { resolve } from 'node:path'
-
 import { agentLog } from './agent-log.ts'
+import { botNamed, updateBot } from './bot-access-db.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { openBotTask, send, setBotDetails } from './ui.ts'
@@ -11,56 +9,9 @@ import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
 const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
-
-/** Runs a script against the E2E database; it prints one JSON line. */
-function mongo(stack: Stack, script: string, ...args: string[]): unknown {
-  const out = execFileSync('bun', ['-e', script, stack.mongoUri, ...args], {
-    cwd: BACKEND_DIR,
-    timeout: 10_000,
-  }).toString()
-
-  return out.trim() ? JSON.parse(out) : null
-}
-
-type StoredAccess = {
-  awsRoleIds?: string[]
-  deviceIds?: string[]
-  resendIntegrationIds?: string[]
-} | null
-
-/** A Bot's stored credentialAccess, by its name; null until there is one. */
-function botNamed(stack: Stack, title: string) {
-  return mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    const bot = await bots.findOne({ title: process.argv[2], avatar: { $exists: true } })
-    console.log(bot ? JSON.stringify({ sessionId: bot.sessionId, access: bot.credentialAccess ?? null }) : '')
-    await client.close()`,
-    title,
-  ) as { sessionId: string; access: StoredAccess } | null
-}
-
-/** Updates a Bot's record where no route does what a scenario needs. */
-function updateBot(stack: Stack, sessionId: string, update: object) {
-  mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    await bots.updateOne({ sessionId: process.argv[2] }, JSON.parse(process.argv[3]))
-    await client.close()`,
-    sessionId,
-    JSON.stringify(update),
-  )
-}
 
 /** Archives a conversation and its chat, so later scenarios don't list it. */
 async function archive(stack: Stack, sessionId: string) {
@@ -275,6 +226,20 @@ export const botAccessScenarios: Scenario[] = [
       if ((await composerAccess(page)) > 0)
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')
+      // #4072: switching Bots with the details open keeps them open, with no slide-in again.
+      await openChat(page, 'E2E Bot')
+      await details(page).waitFor()
+      const motion = await details(page).evaluate((panel) => ({
+        classes: `${panel.className} ${panel.parentElement?.className ?? ''}`,
+        running: document
+          .getAnimations()
+          .map((animation) => (animation as CSSAnimation).animationName)
+          .filter((name) => name?.startsWith('t-summary')),
+      }))
+
+      if (/t-summary(-slot)?-in/.test(motion.classes) || motion.running.length > 0)
+        throw new Error(`Bot details slid in again on switching Bots: ${JSON.stringify(motion)}`)
+      await shoot(page, 'switched-open')
       await setBotDetails(page, false)
       // Later scenarios list Bots by name: the Bot goes back to the viewer, who archives it
       // and its chat.
