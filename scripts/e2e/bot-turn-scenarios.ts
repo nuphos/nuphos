@@ -125,7 +125,7 @@ export const botTurnScenarios: Scenario[] = [
       // TODO(#3604): back to 1.5 s once the chat follows the turn's end. Until then the
       // 1 s poll lands every ~1.3 s, so an end right after a listing takes up to ~1.8 s.
       must(lag <= 2_500, `the header to stop saying Thinking within 2.5 s, took ${String(lag)} ms`)
-      // #3970: a Bot's own session skips next-prompt suggestions and keeps Claude Code's compaction.
+      // #3970: a Bot's own session compacts at a 200k window and skips next-prompt suggestions.
       const log = agentLog(stack)
       const turn = log.find((entry) => entry.event === 'finish' && entry.marker === marker)
       const session = log.find(
@@ -133,8 +133,8 @@ export const botTurnScenarios: Scenario[] = [
       )
 
       must(
-        session?.env?.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION === '0' &&
-          session.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW === undefined,
+        session?.env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW === '200000' &&
+          session.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION === '0',
         `the Bot's session to carry its Claude Code settings: ${JSON.stringify(session?.env)}`,
       )
     },
