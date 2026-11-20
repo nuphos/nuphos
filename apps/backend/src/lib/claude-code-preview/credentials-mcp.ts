@@ -174,11 +174,10 @@ export async function previewSessionAccess(
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
       }),
-      // A Bot compacts at 100k tokens (the minimum; read_conversation reaches older
-      // turns) and skips the per-turn next-prompt suggestion inference nobody sees.
-      ...(options?.bot
-        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '100000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
-        : {}),
+      // A Bot skips the per-turn next-prompt suggestion inference nobody sees. Its
+      // prompt and tools alone are ~57k tokens, so a 100k compaction window compacted
+      // on every request and failed the turn (#3970): compaction stays Claude Code's.
+      ...(options?.bot ? { CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' } : {}),
     },
   }
 }
