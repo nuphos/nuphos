@@ -5815,7 +5815,7 @@
   "{name} connection": "{name} 连接",
   "{name} connector for Nuphos.": "适用于 Nuphos 的 {name} 连接器。",
   "{name} connects via the Linode endpoint again": "{name} 已恢复通过 Linode 端点连接",
-  "{name} could not start and was removed.": "{name} 无法启动，已被移除。",
+  "{name} could not start and was removed. Try creating it again.": "{name} 无法启动，已被移除。请重新创建。",
   "{name} did not change": "{name} 未更改",
   "{name} disconnected": "{name} 已断开连接",
   "{name} installed": "{name} 已安装",

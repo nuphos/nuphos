@@ -5815,7 +5815,7 @@
   "{name} connection": "Koneksi {name}",
   "{name} connector for Nuphos.": "Konektor {name} untuk Nuphos.",
   "{name} connects via the Linode endpoint again": "{name} kembali terhubung melalui endpoint Linode",
-  "{name} could not start and was removed.": "{name} tidak dapat dimulai dan telah dihapus.",
+  "{name} could not start and was removed. Try creating it again.": "{name} tidak dapat dimulai dan telah dihapus. Coba buat lagi.",
   "{name} did not change": "{name} tidak berubah",
   "{name} disconnected": "{name} diputuskan",
   "{name} installed": "{name} terinstal",

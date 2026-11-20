@@ -5815,7 +5815,7 @@
   "{name} connection": "การเชื่อมต่อ {name}",
   "{name} connector for Nuphos.": "ตัวเชื่อมต่อ {name} สำหรับ Nuphos",
   "{name} connects via the Linode endpoint again": "{name} เชื่อมต่อผ่าน endpoint ของ Linode อีกครั้ง",
-  "{name} could not start and was removed.": "{name} เริ่มทำงานไม่ได้และถูกนำออกแล้ว",
+  "{name} could not start and was removed. Try creating it again.": "{name} เริ่มทำงานไม่ได้และถูกนำออกแล้ว ลองสร้างใหม่อีกครั้ง",
   "{name} did not change": "{name} ไม่มีการเปลี่ยนแปลง",
   "{name} disconnected": "ยกเลิกการเชื่อมต่อ {name} แล้ว",
   "{name} installed": "ติดตั้ง {name} แล้ว",

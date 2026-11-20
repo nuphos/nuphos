@@ -5815,7 +5815,7 @@
   "{name} connection": "{name} 連線",
   "{name} connector for Nuphos.": "適用於 Nuphos 的 {name} 連接器。",
   "{name} connects via the Linode endpoint again": "{name} 已恢復透過 Linode 端點連線",
-  "{name} could not start and was removed.": "{name} 無法啟動，已將其移除。",
+  "{name} could not start and was removed. Try creating it again.": "{name} 無法啟動，已移除。請再建立一次。",
   "{name} did not change": "{name} 未變更",
   "{name} disconnected": "已中斷連接 {name}",
   "{name} installed": "已安裝 {name}",
