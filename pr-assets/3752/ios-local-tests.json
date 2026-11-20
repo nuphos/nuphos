@@ -1,0 +1,53 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "A01F7EBB-43ED-4224-9E44-4162EB4BE138",
+      "deviceName" : "nuphos-4239-local",
+      "modelName" : "iPhone 17 Pro",
+      "osBuildNumber" : "24B8117",
+      "osVersion" : "27.2",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "20s",
+                  "durationInSeconds" : 20.404356002807617,
+                  "name" : "testNamesTheConversationsThatActOnTheAnswer()",
+                  "nodeIdentifier" : "InboxUITests/testNamesTheConversationsThatActOnTheAnswer()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests/InboxUITests/testNamesTheConversationsThatActOnTheAnswer",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "InboxUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests/InboxUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "nuphos-iosUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/nuphos-ios/nuphos-iosUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "nuphos-ios",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

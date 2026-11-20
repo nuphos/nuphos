@@ -1,0 +1,21 @@
+{
+  "method": "Original InputRequest and dependent field declarations copied verbatim into a standalone Swift wrapper; same JSON round trip at both refs. This is codec verification, not the full app test suite.",
+  "results": [
+    {
+      "ref": "abd48e220a7dcc6864f80022bcc7f1763d9befef",
+      "variant": "baseline",
+      "sourceSha256": "ec868c34a3560ec1acadbd7e2b6914f252dfad0b6fd11f1343b7932acf0103e0",
+      "exitCode": 1,
+      "stdout": "{\"id\":\"release\",\"question\":\"Publish?\"}\n",
+      "stderr": ""
+    },
+    {
+      "ref": "936e63d1b16337a3ffff346ce1ca4fede3542cd6",
+      "variant": "candidate",
+      "sourceSha256": "3e956248067e044bf601421a269dda068d1829dea713fb837f8bbe7597c68324",
+      "exitCode": 0,
+      "stdout": "{\"id\":\"release\",\"question\":\"Publish?\",\"aboutConversations\":[{\"title\":\"Release writer\",\"sessionId\":\"writer\"},{\"title\":\"Release checker\",\"sessionId\":\"checker\"}]}\n",
+      "stderr": ""
+    }
+  ]
+}
