@@ -7,7 +7,7 @@ import {
   listSlackChannelMappings,
 } from '@/lib/slack/agent-bot'
 import { postAgentSlackMessage } from '@/lib/slack/agent-message'
-import { openSlackDm } from '@/lib/slack/api'
+import { fetchSlackChannelHistory, fetchSlackThreadReplies, openSlackDm } from '@/lib/slack/api'
 import { getJoinedSlackChannel, listJoinedSlackChannels } from '@/lib/slack/destinations'
 import {
   getSlackBindingForTeam,
@@ -54,4 +54,6 @@ export const defaultDependencies: SlackOutboundDependencies = {
   // the way out. Deliberately at the wiring seam, not inside post.ts: the
   // stored transcript copy stays the text the agent actually wrote.
   postMessage: postAgentSlackMessage,
+  readHistory: fetchSlackChannelHistory,
+  readReplies: fetchSlackThreadReplies,
 }

@@ -1,3 +1,4 @@
+import type { fetchSlackChannelHistory, fetchSlackThreadReplies } from '@/lib/slack/api'
 import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { ObjectId } from 'mongodb'
 
@@ -43,6 +44,24 @@ export type SlackOutboundContext = {
          *  report was delivered but the thread is not replyable — reported, not
          *  raised: nothing about it is worth failing a delivered message over. */
         replyThread?: { opened: boolean; sessionId?: string; error?: string }
+      }
+    | { ok: false; error: string }
+  >
+  read: (input: {
+    channelId: string
+    slackWorkspaceId?: string
+    threadTs?: string
+    limit?: number
+    cursor?: string
+    oldest?: string
+    latest?: string
+  }) => Promise<
+    | {
+        ok: true
+        channel: { id: string; name: string }
+        messages: Record<string, unknown>[]
+        hasMore: boolean
+        nextCursor?: string
       }
     | { ok: false; error: string }
   >
@@ -102,6 +121,8 @@ export type SlackOutboundDependencies = {
     text: string
     threadTs?: string
   }) => Promise<{ channel?: string | { id?: string }; ts?: string }>
+  readHistory: typeof fetchSlackChannelHistory
+  readReplies: typeof fetchSlackThreadReplies
 }
 
 export type SlackWorkspaceGrant = {

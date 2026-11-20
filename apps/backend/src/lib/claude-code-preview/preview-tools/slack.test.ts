@@ -39,6 +39,7 @@ describe('slack preview tool module', () => {
       'lark_post',
       'slack_list_destinations',
       'slack_post',
+      'slack_read',
     ])
   })
 
