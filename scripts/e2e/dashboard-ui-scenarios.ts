@@ -251,10 +251,8 @@ export const dashboardUiScenarios: Scenario[] = [
       })
       const admin = api(stack, String(signedIn.body.token))
       // A team with no agents, which the app's own person joins as a member.
-      const made = (await admin('POST', '/teams', { name: 'No agent E2E' })).body as {
-        team?: { id: string }
-      }
-      const teamId = String(made.team?.id)
+      const made = await admin('POST', '/teams', { name: 'No agent E2E' })
+      const teamId = String((made.body as { team?: { id: string } }).team?.id)
       const invited = await admin('POST', `/teams/${teamId}/invitations`, {
         inviteeEmail: stack.email,
       })
