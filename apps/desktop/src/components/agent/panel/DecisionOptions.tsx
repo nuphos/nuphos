@@ -145,9 +145,14 @@ export function DecisionOptions({
   )
 }
 
-/** Every button of the row the same pill, as Paper's question card draws a choice. */
+/**
+ * Every button of the row the same pill, as Paper's question card draws a choice.
+ * A long option wraps inside the card and the pill grows taller. `Button` joins
+ * its own `h-8 whitespace-nowrap` with these rather than replacing them, and in
+ * the built CSS those come later and win, so the height and wrapping are forced.
+ */
 export const PILL =
-  'h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
+  '!h-auto min-h-8 min-w-0 max-w-full gap-1.5 !whitespace-normal [overflow-wrap:anywhere] rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
 
 /** How a question's options are picked when Send answers them. */
 function pickRole(question: DecisionQuestion) {
