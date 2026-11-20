@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
+import { navigationForLink } from '../../app/workspace/linkNavigation.ts'
 import { withRenamedPage } from '../../app/workspacePersistence.ts'
 import { emptyNavigation } from '../../lib/appRoutes.ts'
 
@@ -43,6 +44,17 @@ test("a Settings link opens the link's team, not the one on screen", () => {
   // A team the viewer is not in opens nothing rather than the current team's Settings.
   assert.equal(settingsLinkTarget(link, [team.teamId]), null)
   assert.equal(settingsLinkTarget(emptyNavigation(team, 'team.plans'), [team.teamId]), undefined)
+})
+
+test("a team's billing link opens its Billing settings", () => {
+  const link = navigationForLink(new URL(`https://nuphos.ai/teams/${team.teamId}/settings/billing`))
+
+  assert.ok(link)
+  assert.deepEqual(settingsLinkTarget(link, [team.teamId]), {
+    section: 'workspace.billing',
+    filter: undefined,
+    teamId: team.teamId,
+  })
 })
 
 test('Triggers are managed in conversations, not Team Settings', () => {

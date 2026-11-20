@@ -14,6 +14,12 @@ import {
   recordingFilename,
   recordingMimeType,
 } from './voiceDictation'
+import {
+  isSubscriptionRequired,
+  markVoiceUnsubscribed,
+  needsVoiceSubscription,
+  voiceSubscriptionToast,
+} from './voiceSubscription'
 import { createTakes } from './voiceTakes'
 
 export type VoicePhase =
@@ -119,6 +125,11 @@ export function useVoiceDictation({
   const start = useCallback(async () => {
     // One take at a time, including one still waiting on the permission prompt.
     if (!teamId || recorder.current || opening.current) return
+    if (needsVoiceSubscription(teamId)) {
+      voiceSubscriptionToast(teamId)
+
+      return
+    }
     opening.current = true
     discard.current = false
     let stream: MediaStream | null
@@ -196,7 +207,13 @@ export function useVoiceDictation({
             toast.info(t('No speech was heard'), t('Try again closer to the microphone.'))
         })
         .catch((err: unknown) => {
-          if (takes.isCurrent(id)) toast.apiError(t('Voice input failed'), err)
+          if (!isSubscriptionRequired(err)) {
+            if (takes.isCurrent(id)) toast.apiError(t('Voice input failed'), err)
+
+            return
+          }
+          markVoiceUnsubscribed(teamId)
+          if (takes.isCurrent(id)) voiceSubscriptionToast(teamId)
         })
         .finally(() => {
           if (takes.isCurrent(id)) setPhase({ kind: 'idle' })
