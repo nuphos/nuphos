@@ -1,0 +1,9 @@
+[
+  {
+    "type": "error",
+    "errorCode": "stream_unresumable",
+    "errorText": "Agent run stream is no longer available",
+    "details": { "reason": "stream_expired" }
+  },
+  { "type": "atlas-stream-done" }
+]

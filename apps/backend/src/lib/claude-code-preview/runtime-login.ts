@@ -67,7 +67,7 @@ export async function requireLoginInstance(
   }
   const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
-  if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
+  if (instance.kind !== 'external' && instance.kind !== 'local')
     throw new AppError(
       400,
       'runtime_login_unavailable',

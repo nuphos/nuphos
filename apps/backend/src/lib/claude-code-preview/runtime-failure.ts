@@ -5,7 +5,7 @@ export const RUNTIME_INTERNAL_ERROR_CODE = 'runtime_internal_error'
 
 const RUNTIME_FAILURES = {
   [RUNTIME_DISK_FULL_CODE]:
-    'The agent’s runtime is out of disk space, so it could not run this turn. Free up disk space on the runtime or switch this conversation to another runtime, then resend your message.',
+    'The computer this Bot or Task runs on is out of disk space, so this turn could not run. Ask someone who manages that computer to free space, or switch to another runtime, then resend your message.',
   [RUNTIME_INTERNAL_ERROR_CODE]:
     'The agent failed without saying why. Resend your message; if it keeps happening, check the runtime’s logs or switch this conversation to another runtime.',
 } as const

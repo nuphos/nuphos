@@ -34,6 +34,6 @@ export type ConversationShellInput = {
   /** Created as a Bot: its face, and a name the title generator leaves alone. */
   instructions?: string
   botOnboarding?: 'pending'
-  bot?: { avatar: string; change: ConversationTimelineEvent }
+  bot?: { avatar: string; background?: string; change: ConversationTimelineEvent }
   workspace?: NonNullable<AgentConversation['workspace']>
 }

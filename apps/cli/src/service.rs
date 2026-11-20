@@ -21,9 +21,39 @@ const LABEL: &str = "ai.nuphos.agent";
 /// account's own home. PATH finds node, claude and codex.
 const FORWARD: [&str; 5] = ["HOME", "PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
 
-/// The service's environment: the installing shell's values of FORWARD.
+/// The agents' own model provider, set where `nuphos agent` is run: the variables Claude Code
+/// and Codex read, which the host passes on to them. The same list as host-provider.ts in the
+/// desktop app; the service's files are 0600, as they may hold these keys.
+const PROVIDER: [&str; 24] = [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "AWS_REGION",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_BEARER_TOKEN_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "CLOUD_ML_REGION",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "ANTHROPIC_FOUNDRY_API_KEY",
+    "ANTHROPIC_FOUNDRY_RESOURCE",
+    "ANTHROPIC_FOUNDRY_BASE_URL",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_KEY",
+];
+
+/// The service's environment: the installing shell's values of FORWARD and PROVIDER.
 fn service_env(var: impl Fn(&str) -> Option<String>) -> Vec<(&'static str, String)> {
-    FORWARD.iter().filter_map(|key| var(key).map(|value| (*key, value))).collect()
+    FORWARD.iter().chain(&PROVIDER).filter_map(|key| var(key).map(|value| (*key, value))).collect()
 }
 
 /// How long a join may take before the install reports it as not joined.
@@ -35,17 +65,24 @@ const JOIN_WAIT: Duration = Duration::from_secs(60);
 /// only the first, and a process `setsid` left to PID 1 only the second.
 pub fn wanted() -> bool {
     if cfg!(target_os = "macos") {
-        return std::env::var("XPC_SERVICE_NAME").as_deref() != Ok(LABEL);
+        return !running();
     }
-    let unit = std::env::var_os("INVOCATION_ID").is_some()
-        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default());
     cfg!(target_os = "linux")
-        && !unit
+        && !running()
         && systemctl(&["show-environment"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|s| s.success())
+}
+
+/// Whether this process is a service's own: the LaunchAgent's, or a systemd unit's.
+pub fn running() -> bool {
+    if cfg!(target_os = "macos") {
+        return std::env::var("XPC_SERVICE_NAME").as_deref() == Ok(LABEL);
+    }
+    std::env::var_os("INVOCATION_ID").is_some()
+        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default())
 }
 
 /// Writes the unit and its environment, (re)starts the service and, given a join
@@ -327,6 +364,30 @@ mod tests {
         let log = Path::new("/tmp/isolated/Library/Logs/nuphos-agent.log");
         assert!(plist(Path::new("/n"), &env, None, log).contains("<key>HOME</key><string>/tmp/isolated</string>"));
         assert!(env_file(&env, None).contains("HOME=/tmp/isolated\n"));
+    }
+
+    #[test]
+    fn the_service_keeps_the_model_provider_only_when_set() {
+        let shell = |key: &str| match key {
+            "PATH" => Some("/usr/bin".to_owned()),
+            "CLAUDE_CODE_USE_BEDROCK" => Some("1".to_owned()),
+            "OPENAI_API_KEY" => Some("sk-test".to_owned()),
+            "UNRELATED_TOKEN" => Some("other".to_owned()),
+            _ => None,
+        };
+        let env = service_env(shell);
+        assert_eq!(
+            env,
+            [
+                ("PATH", "/usr/bin".to_owned()),
+                ("CLAUDE_CODE_USE_BEDROCK", "1".to_owned()),
+                ("OPENAI_API_KEY", "sk-test".to_owned())
+            ]
+        );
+        assert_eq!(
+            service_env(|key| (key == "PATH").then(|| "/usr/bin".to_owned())),
+            [("PATH", "/usr/bin".to_owned())]
+        );
     }
 
     #[test]

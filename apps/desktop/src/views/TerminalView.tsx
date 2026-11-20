@@ -24,9 +24,7 @@ export function TerminalView({ teamId, filter }: { teamId: string; filter: strin
       icon={<Terminal className="h-3.5 w-3.5" />}
     >
       <div className="flex h-full items-center justify-center p-6">
-        <p className="text-xs text-tertiary">
-          {t('Select an agent to open its runtime terminal.')}
-        </p>
+        <p className="text-xs text-tertiary">{t('Select a runtime to open its terminal.')}</p>
       </div>
     </PageMeta>
   )

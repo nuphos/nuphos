@@ -161,7 +161,7 @@ export function GcpWizardStepContent({
         <StepNote>
           <Fill
             text={t(
-              'Prefer least-privilege? {role} is broad — you can instead add only the roles the agent needs (e.g. Kubernetes Engine Admin, Compute Viewer). Add each one here.',
+              'Prefer least-privilege? {role} is broad — you can instead add only the roles Nuphos needs (e.g. Kubernetes Engine Admin, Compute Viewer). Add each one here.',
             )}
             role={<span className="text-main">{spec.roleLabel}</span>}
           />

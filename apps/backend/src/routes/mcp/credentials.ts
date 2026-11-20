@@ -49,7 +49,10 @@ function credentialAccessPayload(access: {
   secureframeIntegrationIds: string[]
   resendIntegrationIds?: string[]
   trelloIntegrationIds?: string[]
-}): Record<string, string[]> {
+  githubInstallationIds?: string[]
+  personalCredentialIds?: string[]
+  teamIdentity?: string[]
+}): Record<string, string[] | undefined> {
   return {
     aws_role_ids: access.awsRoleIds,
     gcp_service_account_ids: access.gcpServiceAccountIds,
@@ -67,6 +70,9 @@ function credentialAccessPayload(access: {
     secureframe_integration_ids: access.secureframeIntegrationIds,
     resend_integration_ids: access.resendIntegrationIds ?? [],
     trello_integration_ids: access.trelloIntegrationIds ?? [],
+    github_installation_ids: access.githubInstallationIds,
+    personal_credential_ids: access.personalCredentialIds ?? [],
+    team_identity: access.teamIdentity ?? [],
   }
 }
 
@@ -85,7 +91,7 @@ export async function nuphosListCredentials(
 
   const sessionId =
     typeof args.session_id === 'string' && args.session_id.trim() ? args.session_id.trim() : ''
-  let enabled: Record<string, string[]> | undefined
+  let enabled: Record<string, string[] | undefined> | undefined
 
   if (sessionId) {
     const conversation = await requireOwnSessionInTeam(sessionId, teamId, ctx)
@@ -131,6 +137,13 @@ const NAMED_CATEGORIES = {
   trelloIntegrationIds: 'trello_integration_ids',
 } as const
 
+// These newer fields follow PATCH semantics: omission keeps the stored selection.
+const OPTIONAL_CATEGORIES = {
+  githubInstallationIds: 'github_installation_ids',
+  personalCredentialIds: 'personal_credential_ids',
+  teamIdentity: 'team_identity',
+} as const
+
 export async function nuphosUpdateCredentials(
   args: Record<string, unknown>,
   ctx: McpCallContext,
@@ -150,17 +163,23 @@ export async function nuphosUpdateCredentials(
   const source = await credentialSource(conversation)
 
   try {
+    const named = {
+      ...NAMED_CATEGORIES,
+      ...Object.fromEntries(
+        Object.entries(OPTIONAL_CATEGORIES).filter(([, arg]) => args[arg] !== undefined),
+      ),
+    }
     const { access } = await resolveAgentCredentialAccess({
       teamId,
       userId: ctx.userId,
       selection: Object.fromEntries(
-        Object.entries(NAMED_CATEGORIES).map(([key, arg]) => [key, args[arg] ?? []]),
+        Object.entries(named).map(([key, arg]) => [key, args[arg] ?? []]),
       ),
     })
     // Write only what this tool names; the rest of the selection is not read
     // back and rewritten, so an edit made meanwhile in the picker survives.
     const fields = Object.fromEntries(
-      Object.keys(NAMED_CATEGORIES).map((key) => [key, access[key as keyof typeof access]]),
+      Object.keys(named).map((key) => [key, access[key as keyof typeof access]]),
     )
     const updated = await setConversationCredentialFields(
       source.sessionId,

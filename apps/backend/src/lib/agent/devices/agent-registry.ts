@@ -104,6 +104,15 @@ export function reportedAgents(status: LocalRuntimeStatus | undefined): Register
   ]
 }
 
+/** What a status report changes that is worth writing at once: the agents it registers,
+ *  and any agent being added, which streams and its sign-in find while it installs. */
+export function reportedAgentsKey(status: LocalRuntimeStatus): string {
+  return JSON.stringify([
+    reportedAgents(status),
+    status.instances?.map((agent) => [agent.instanceId, agent.state, agent.cli.installing]),
+  ])
+}
+
 /** Registered agents get the latest report, but keep their name; an agent seen signed in
  *  for the first time joins. Nothing leaves here. Returns null when nothing changed. */
 export function mergeAgentRegistry(

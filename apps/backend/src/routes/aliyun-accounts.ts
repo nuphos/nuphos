@@ -5,7 +5,7 @@ import { accessView, canUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { newBindingAccess } from '@/lib/byos/initial-access'
 import { verifyAliyunRole, aliyunOidcInfo } from '@/lib/byos/aliyun'
 import { aliyunConnectorSchema } from '@/lib/byos/connector-schemas'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
+import { appendCheckedBinding } from '@/lib/byos/environment-bindings'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
@@ -74,12 +74,10 @@ aliyunAccountsRoutes.post(
       { projection: { aliyunAccounts: 1 } },
     )
 
-    assertMayBindRole(
-      c,
-      bound?.aliyunAccounts ?? [],
-      (b: { roleArn: string }) => b.roleArn,
-      roleArn,
-    )
+    const check = (bindings: AliyunAccountBinding[]) =>
+      assertMayBindRole(c, bindings, (b: { roleArn: string }) => b.roleArn, roleArn)
+
+    check(bound?.aliyunAccounts ?? [])
 
     // Refuse before the credential round trips below: a workspace at its
     // plan's environment limit shouldn't finish a bind it can't keep.
@@ -91,8 +89,10 @@ aliyunAccountsRoutes.post(
     const createdAt = new Date()
     const access = await newBindingAccess(c, { now: createdAt, highPrivilege: true })
 
-    const inserted = await appendEnvironmentBinding(
+    const inserted = await appendCheckedBinding(
       teamId,
+      'aliyunAccounts',
+      check,
       { 'aliyunAccounts.roleArn': { $ne: roleArn } },
       {
         $push: { aliyunAccounts: { id, label, site, roleArn, oidcProviderArn, createdAt, access } },
