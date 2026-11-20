@@ -1,6 +1,10 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { startVideo, stopVideo } from './browser-video.ts'
+
+import type { OpenHelper, Video } from './browser-video.ts'
+
 /** Response bodies larger than this, or past the recording's total, are left out of the HAR. */
 const MAX_BODY_BYTES = 1024 * 1024
 const MAX_TOTAL_BODY_BYTES = 64 * 1024 * 1024
@@ -39,6 +43,8 @@ type Recording = {
   bodyBytes: number
   bodiesOmitted: number
   onMessage: Listener
+  /** What the tab shows, when record_start asked for it (browser-video.ts). */
+  video?: Video
 }
 type Listener = (event: unknown, method: string, params: Record<string, unknown>) => void
 
@@ -59,8 +65,11 @@ export type HarOutput = { dir: string; creator: { name: string; version: string 
 
 const recordings = new WeakMap<RecordedTab, Recording>()
 
-/** Starts capturing a tab's network traffic over its own debugger, so the page keeps its session. */
-export async function startRecording(contents: RecordedTab): Promise<void> {
+/**
+ * Starts capturing a tab's network traffic over its own debugger, so the page keeps its session;
+ * with `video`, also what it shows, encoded in the helper page that opens.
+ */
+export async function startRecording(contents: RecordedTab, video?: OpenHelper): Promise<void> {
   if (recordings.has(contents)) throw new Error('This tab is already recording.')
   try {
     contents.debugger.attach('1.3')
@@ -81,6 +90,14 @@ export async function startRecording(contents: RecordedTab): Promise<void> {
   contents.debugger.on('message', recording.onMessage)
   recordings.set(contents, recording)
   await contents.debugger.sendCommand('Network.enable')
+  if (video)
+    recording.video = await startVideo(contents.debugger, video).catch((error: unknown) => {
+      // Not recording after all, so record_start may be called again.
+      recordings.delete(contents)
+      contents.debugger.off('message', recording.onMessage)
+      contents.debugger.detach()
+      throw error
+    })
 }
 
 /** Stops the tab's recording and writes it as a HAR file; returns its path and a summary. */
@@ -93,12 +110,20 @@ export async function stopRecording(contents: RecordedTab, { dir, creator }: Har
     (a, b) => a.started - b.started,
   )
   const har = await Promise.all(entries.map(harEntry))
+  const name = join(dir, `tab-${String(contents.id)}-${String(Date.now())}`)
+  const file = `${name}.har`
+
+  await mkdir(dir, { recursive: true, mode: 0o700 })
+  // Before the debugger detaches: the video stops its screencast through it.
+  // A video that fails to finish is reported as failed, and the HAR is still written.
+  const video =
+    recording.video &&
+    (await stopVideo(recording.video, `${name}.webm`).catch((error: unknown) => ({
+      failed: error instanceof Error ? error.message : String(error),
+    })))
 
   contents.debugger.off('message', recording.onMessage)
   if (contents.debugger.isAttached()) contents.debugger.detach()
-  const file = join(dir, `tab-${String(contents.id)}-${String(Date.now())}.har`)
-
-  await mkdir(dir, { recursive: true, mode: 0o700 })
   // Best effort: a concurrent record_stop may delete the same files.
   await prune(dir).catch(() => {})
   await writeFile(
@@ -117,6 +142,7 @@ export async function stopRecording(contents: RecordedTab, { dir, creator }: Har
     file,
     requests: entries.length,
     bodiesOmitted: recording.bodiesOmitted,
+    ...(video ? { video } : {}),
     // Query strings can carry tokens; the HAR keeps the full URL.
     summary: entries
       .slice(0, MAX_SUMMARY_LINES)
