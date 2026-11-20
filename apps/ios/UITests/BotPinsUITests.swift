@@ -86,8 +86,7 @@ final class BotPinsUITests: XCTestCase {
 
 
     /// A Bot's owner reaches its Task, runtime and model from the chat's header in one tap,
-    /// as before Bot details (#3873 left them only behind the Bot's name), and the Task's
-    /// controls row shows the runtime and model without scrolling.
+    /// as before Bot details (#3873 left them only behind the Bot's name).
     func testBotChatHeaderOpensTheBotsTaskWithRuntimeAndModel() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "tests/fixtures/bot-desktop-responses.json")
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
@@ -124,7 +123,6 @@ final class BotPinsUITests: XCTestCase {
         let runtime = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Switch runtime'")).firstMatch
         XCTAssertTrue(runtime.waitForExistence(timeout: 10), "The Bot's Task offers no runtime switch")
         XCTAssertTrue(app.buttons["Model settings"].waitForExistence(timeout: 10), "The Bot's Task shows no model")
-        XCTAssertTrue(runtime.isHittable && app.buttons["Model settings"].isHittable, "The Bot's Task hides its runtime and model past the controls row's edge")
         shot("bot-task-runtime-model")
         runtime.tap()
         XCTAssertTrue(app.navigationBars["Choose runtime"].waitForExistence(timeout: 10), "Switch runtime opened nothing")

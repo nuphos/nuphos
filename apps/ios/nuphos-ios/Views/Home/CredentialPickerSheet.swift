@@ -113,8 +113,11 @@ struct ComposerControls: View {
     @State private var showRuntimes = false
     @State private var showModel = false
 
-    // Runtime and model first, so a phone's narrow row shows them without scrolling.
+    // Desktop's order: Credentials, then how it runs (mode, runtime, model).
     var body: some View {
+        // A Task under a Bot uses the Bot's and has none of its own to change.
+        if session?.followsBot != true { ownSelection }
+
         runtimeChip
 
         if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
@@ -144,9 +147,6 @@ struct ComposerControls: View {
                 await store.loadNewModelConfig()
             }
         }
-
-        // A Task under a Bot uses the Bot's and has none of its own to change.
-        if session?.followsBot != true { ownSelection }
     }
 
     /// Credentials, computers and permission mode: what a conversation with no Bot above it picks.
