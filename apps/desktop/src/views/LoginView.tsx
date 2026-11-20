@@ -145,6 +145,8 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   if (notice) title = t('Sign in again')
   else if (onCancel) title = t('Add an account')
 
+  const lockup = <img className="block h-10" src={`/nuphos-lockup-${resolved}.png`} alt="Nuphos" />
+
   const [codeBefore, codeAfter] = t('Enter the 6-digit code sent to {email}').split('{email}')
 
   return (
@@ -153,11 +155,8 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
       {/* Scrolls, so a long account list never pushes the form out of reach. */}
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
-          <img
-            className={title ? 'mb-5 h-10' : 'mb-1.5 h-10'}
-            src={`/nuphos-lockup-${resolved}.png`}
-            alt="Nuphos"
-          />
+          {/* Without a title the lockup is the page heading, so screen readers still find one. */}
+          {title ? <div className="mb-5">{lockup}</div> : <h1 className="mb-1.5">{lockup}</h1>}
           {title && <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>}
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
