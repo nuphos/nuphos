@@ -4300,7 +4300,6 @@
   "Shared with everyone in this workspace. Injected first.": "이 워크스페이스의 모든 사람과 공유됩니다. 가장 먼저 삽입됩니다.",
   "Shared with {n}": "{n}명과 공유됨",
   "Shared · view-only": "공유됨 · 보기 전용",
-  "Shares quota with {name}": "{name}와(과) 할당량 공유",
   "Shortcut: just @mention {name} in a group the bot is already in — it auto-links on the first mention.": "바로가기: 봇이 이미 참여한 그룹에서 {name}을(를) @멘션하기만 하면 첫 멘션 시 자동으로 연결됩니다.",
   "Show": "표시",
   "Show All": "모두 보기",
