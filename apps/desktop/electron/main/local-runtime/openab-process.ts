@@ -149,10 +149,9 @@ async function capAgentMemory(): Promise<boolean> {
 }
 
 /**
- * OOMPolicy=continue: the kernel kills the one process that ran the slice out of memory,
- * usually a runaway tool. The default `stop` then stops the whole scope with openab and
- * every session in it. TimeoutStopSec: a leftover that ignores SIGTERM is killed after
- * openab's own grace, not systemd's 90 s.
+ * OOMPolicy=continue: the kernel kills only the process that ran the slice out of memory;
+ * the default `stop` then stops the scope with openab and every session in it.
+ * TimeoutStopSec: a leftover ignoring SIGTERM is killed after openab's grace, not 90 s.
  */
 const AGENT_SCOPE = [
   '--user',
@@ -172,18 +171,14 @@ const AGENT_SCOPE = [
 export const agentScope = (configPath: string): string =>
   `nuphos-openab-${createHash('sha256').update(configPath).digest('hex').slice(0, 12)}`
 
-function stopAgentScope(configPath: string): Promise<void> {
-  return new Promise((resolve) => {
-    execFile(
-      '/usr/bin/systemctl',
-      ['--user', 'stop', `${agentScope(configPath)}.scope`],
-      { timeout: 15_000, env: systemdUserEnv() },
-      () => {
-        resolve()
-      },
-    )
+const stopAgentScope = (configPath: string): Promise<void> =>
+  new Promise((resolve) => {
+    const stop = ['--user', 'stop', `${agentScope(configPath)}.scope`]
+
+    execFile('/usr/bin/systemctl', stop, { timeout: 15_000, env: systemdUserEnv() }, () => {
+      resolve()
+    })
   })
-}
 
 /** `systemd-run --scope` execs openab in the same process, inside the agents' cgroup. */
 export function openabCommand(
