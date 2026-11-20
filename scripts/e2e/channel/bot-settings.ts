@@ -1,5 +1,5 @@
-// #3298: the Bot chat's composer edits the Bot's own permission mode and model. The E2E Bot's
-// setup finished in a scenario before; this one opens the Bot's chat itself.
+// #3298: the Bot chat edits the Bot's own permission mode, in Bot details since #3790, and model.
+// The E2E Bot's setup finished in a scenario before; this one opens the Bot's chat itself.
 import { artifacts } from '../processes.ts'
 import { openBotTask, setBotDetails } from '../ui.ts'
 
@@ -12,9 +12,16 @@ const composer = (page: Page) =>
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
 
-/** The composer's permission mode and model, as its two chips read. */
-async function composerSettings(page: Page) {
-  const modeChip = composer(page).getByRole('button', { name: 'Authorization mode' })
+/** The mode control: a Bot chat's in its details' Access section, the Bot's page's in its composer. */
+const modeControl = (page: Page, chat: boolean) =>
+  (chat ? page.getByRole('complementary', { name: 'Bot details' }) : composer(page)).getByRole(
+    'button',
+    { name: 'Authorization mode' },
+  )
+
+/** The permission mode and the composer's model, as their controls read. */
+async function composerSettings(page: Page, chat: boolean) {
+  const modeChip = modeControl(page, chat)
   // What it shows: the other mode's label stays in the chip, unseen, to keep its width.
   const mode = await modeChip.innerText()
   const chip = composer(page).getByRole('button', { name: /^Model settings/ })
@@ -23,9 +30,9 @@ async function composerSettings(page: Page) {
   return { full: Boolean(mode?.includes('Full')), model: model ?? '' }
 }
 
-/** Sets the composer's permission mode and model. */
-async function setComposerSettings(page: Page, full: boolean, model: string) {
-  await composer(page).getByRole('button', { name: 'Authorization mode' }).click()
+/** Sets the permission mode and the composer's model. */
+async function setComposerSettings(page: Page, chat: boolean, full: boolean, model: string) {
+  await modeControl(page, chat).click()
   await page.getByRole('menuitem', { name: full ? /^Full Access/ : /^Auto Mode/ }).click()
   await composer(page)
     .getByRole('button', { name: /^Model settings/ })
@@ -37,7 +44,7 @@ async function setComposerSettings(page: Page, full: boolean, model: string) {
 }
 
 const scenario: Scenario = {
-  name: "the Bot composer and the Bot's own page change the same permission mode and model",
+  name: "the Bot chat and the Bot's own page change the same permission mode and model",
   run: async (page) => {
     const chat = () => composer(page)
 
@@ -53,25 +60,28 @@ const scenario: Scenario = {
     await page.waitForTimeout(1_000)
     await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
     // From the chat: the Bot's page shows what was picked there.
-    await setComposerSettings(page, true, 'fixture-large')
+    await setBotDetails(page, true)
+    await setComposerSettings(page, true, true, 'fixture-large')
     // Its setup has finished, so the Bot's page opens from the chat.
     await openBotTask(page)
     await page.getByText('Back to conversation').waitFor()
     await composer(page)
       .getByRole('button', { name: /^Model settings: fixture-large/ })
       .waitFor()
-    const onPage = await composerSettings(page)
+    const onPage = await composerSettings(page, false)
 
     if (!onPage.full) throw new Error(`The Bot's page shows ${JSON.stringify(onPage)}`)
     // From the Bot's page: the chat shows what was picked there.
-    await setComposerSettings(page, false, 'fixture-small')
+    await setComposerSettings(page, false, false, 'fixture-small')
     await page.getByText('Back to conversation').click()
     await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
-    await setBotDetails(page, false)
     await composer(page)
       .getByRole('button', { name: /^Model settings: fixture-small/ })
       .waitFor()
-    const inChat = await composerSettings(page)
+    await setBotDetails(page, true)
+    const inChat = await composerSettings(page, true)
+
+    await setBotDetails(page, false)
 
     await chat().screenshot({ path: `${artifacts}/bot-controls-composer-after-light.png` })
     if (inChat.full) throw new Error(`The Bot chat shows ${JSON.stringify(inChat)}`)
