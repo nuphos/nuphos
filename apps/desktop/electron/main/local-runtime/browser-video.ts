@@ -38,6 +38,22 @@ const LIMITS = { maxMs: 120_000, maxBytes: 100 * 1024 * 1024 }
 const ABANDONED_MS = 10 * 60_000
 /** The tab's viewport (browser-tabs.ts, cli-browser.ts): frames are drawn at that size. */
 const SIZE = { width: 1440, height: 900 }
+/** How long record_start waits for the first frame: a hidden Electron window may never paint one. */
+const SCREENSHOT_MS = 1_000
+/** How long record_stop waits for the helper to hand the video over. */
+const FINISH_MS = 15_000
+
+/** `work`, or `fallback()` once `ms` have passed. */
+const within = <T>(work: Promise<T>, ms: number, fallback: () => T | Promise<T>) => {
+  let timer: ReturnType<typeof setTimeout> | undefined
+
+  return Promise.race([
+    work,
+    new Promise<T>((resolve, reject) => {
+      timer = setTimeout(() => void Promise.resolve().then(fallback).then(resolve, reject), ms)
+    }),
+  ]).finally(() => clearTimeout(timer))
+}
 
 // Each frame is encoded at the time it arrived, given by the host: a helper page that runs late,
 // as a headless one may, still gives the video its real timing. finish encodes the last frame
@@ -53,11 +69,14 @@ const SETUP = `(() => {
       let binary = ''
 
       for (let i = 0; i < data.length; i += 32768) binary += String.fromCharCode(...data.subarray(i, i + 32768))
+      progress.chunks++
       chunks.push({ ms: chunk.timestamp / 1000, key: chunk.type === 'key', data: btoa(binary) })
     },
     error: (error) => (failed = error),
   })
   let drawn = Promise.resolve()
+  // How far the frames got, for a record_stop that times out.
+  window.progress = { drawn: 0, decoded: 0, encoded: 0, chunks: 0, flushing: false }
   let last
   let keyed = -Infinity
   // A key frame every 2 seconds, so the video seeks quickly.
@@ -67,20 +86,24 @@ const SETUP = `(() => {
 
     if (keyFrame) keyed = ms
     encoder.encode(frame, { keyFrame })
+    progress.encoded++
     frame.close()
   }
 
   encoder.configure({ codec: 'vp8', ...${JSON.stringify(SIZE)}, bitrate: 2000000 })
   window.draw = (jpeg, ms) => {
+    progress.drawn++
     drawn = drawn.then(async () => {
       const blob = await (await fetch('data:image/jpeg;base64,' + jpeg)).blob()
 
       last = await createImageBitmap(blob, { resizeWidth: ${SIZE.width}, resizeHeight: ${SIZE.height} })
+      progress.decoded++
       encode(last, ms)
     })
   }
   window.finish = (ms) => drawn.then(async () => {
     if (last) encode(last, ms)
+    progress.flushing = true
     await encoder.flush()
     if (failed) throw failed
 
@@ -119,9 +142,13 @@ export async function startVideo(
     // The video's clock starts at its first frame, and a tab that does not repaint sends none
     // until it changes, so the first frame is the page as it is now.
     // A refused screenshot only loses that first frame, not the recording.
-    const { data } = (await debug
-      .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
-      .catch(() => ({}))) as { data?: string }
+    const { data } = (await within(
+      debug
+        .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
+        .catch(() => ({})),
+      SCREENSHOT_MS,
+      () => ({}),
+    )) as { data?: string }
 
     if (data) void helper.evaluate(`draw(${JSON.stringify(data)}, 0)`).catch(() => {})
     debug.on('message', video.onMessage)
@@ -177,7 +204,16 @@ export async function stopVideo(video: Video, file: string) {
   stopFrames(video)
   try {
     const ms = Date.now() - video.started
-    const chunks = JSON.parse((await video.helper.evaluate(`finish(${ms})`)) as string) as {
+    const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
+      const progress = await within(
+        video.helper.evaluate('JSON.stringify(progress)'),
+        2_000,
+        () => 'no answer',
+      )
+
+      throw new Error(`The video did not finish in 15 s (${String(progress)}).`)
+    })
+    const chunks = JSON.parse(finished as string) as {
       ms: number
       key: boolean
       data: string
