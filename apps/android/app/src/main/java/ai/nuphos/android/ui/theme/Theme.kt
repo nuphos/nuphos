@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 
 val LocalChatCanvas = staticCompositionLocalOf { SurfaceLight }
 
+val LocalAvatarForeground = androidx.compose.runtime.staticCompositionLocalOf { Color.White }
 val LocalAvatarGradient = androidx.compose.runtime.staticCompositionLocalOf { AvatarGradientLight }
 
 private val LightScheme = lightColorScheme(
@@ -123,6 +124,7 @@ fun NuphosTheme(
         content = { CompositionLocalProvider(
             LocalChatCanvas provides if (darkTheme) CanvasDark else SurfaceLight,
             LocalAvatarGradient provides if (darkTheme) AvatarGradientDark else AvatarGradientLight,
+            LocalAvatarForeground provides if (darkTheme) Color(0xFF1C1A17) else Color.White,
             content = content,
         ) },
     )

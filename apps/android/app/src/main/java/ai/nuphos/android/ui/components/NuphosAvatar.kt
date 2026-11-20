@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.theme.LocalAvatarGradient
+import ai.nuphos.android.ui.theme.LocalAvatarForeground
 import coil3.compose.AsyncImage
 
 @Composable
@@ -51,7 +52,7 @@ fun NuphosAvatar(
             ) {
                 Text(
                     user.initials,
-                    color = androidx.compose.ui.graphics.Color.White,
+                    color = LocalAvatarForeground.current,
                     // Initials are part of the fixed avatar artwork, like an image.
                     fontSize = with(LocalDensity.current) { (size * 0.36f).toSp() },
                     lineHeight = with(LocalDensity.current) { (size * 0.5f).toSp() },
