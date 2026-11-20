@@ -1,6 +1,6 @@
 // Boxes an agent manages on its own: machines on one of the team's instabox
 // accounts (never the deployment's, never a person's computer). Creating one
-// selects it for this conversation, so local_exec, local_cua and update_thread
+// selects it for this conversation, so local_exec, local_cua and update_task
 // can use it at once. The tools run under the conversation's permission mode.
 import { tool } from 'ai'
 import { z } from 'zod'
@@ -93,7 +93,7 @@ export function boxToolModule(
         description:
           "List the team's instabox accounts and the Boxes (computers from Nuphos) on them that you may use, " +
           'with each one’s state. Use an account id with create_box and a deviceId with update_box, ' +
-          'local_exec, local_cua or update_thread.',
+          'local_exec, local_cua or update_task.',
         inputSchema: z.object({ label }).strict(),
         execute: async () => {
           const accounts = await teamAccounts(ctx)
@@ -115,7 +115,7 @@ export function boxToolModule(
           "Create a Box, a Linux computer with a desktop, on one of the team's instabox accounts; " +
           'instabox bills that account. It joins the team as a Nuphos computer and is selected for ' +
           'this conversation and its sub-agents: use it with local_exec and local_cua, or move a ' +
-          'sub-agent onto its agent with update_thread runtimeId (from list_agent_runtimes). ' +
+          'sub-agent onto its agent with update_task runtimeId (from list_agent_runtimes). ' +
           'Waits until it has joined, usually under a minute. Needs a team administrator. ' +
           'Stop or delete it with update_box when the work is done.',
         inputSchema: z
