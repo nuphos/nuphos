@@ -85,8 +85,7 @@ async function newTaskOn(page: Page, label: string) {
   await newTask(page)
   // The computer's row opens its runtimes, named by agent alone.
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText(label).click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+  await pickInSubmenu(page, label, /^Claude Code/)
 }
 
 /** Lines the backend logged about this computer since `from`. */

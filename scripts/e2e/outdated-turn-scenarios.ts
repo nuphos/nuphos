@@ -21,8 +21,7 @@ export const NOT_READY_LINE =
 export async function backOnFixture(page: Page, marker: string) {
   await newTask(page)
   await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-  await page.getByRole('menu').getByText('E2E fixture agent').click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
+  await pickInSubmenu(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
   await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
   await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
 }
@@ -45,8 +44,7 @@ export const outdatedTurnScenarios: Scenario[] = [
         // A new task starts on the laptop, whichever runtime the last one used.
         await newTask(page)
         await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInSubmenu(page, LAPTOP, /Claude Code/)
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
@@ -102,8 +100,7 @@ export const outdatedTurnScenarios: Scenario[] = [
       try {
         await newTask(page)
         await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInSubmenu(page, LAPTOP, /Claude Code/)
         await send(page, 'How to get the update')
         await page.getByText(NOT_READY_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'not-ready-turn-error.png') })

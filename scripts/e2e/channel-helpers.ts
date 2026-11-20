@@ -91,8 +91,7 @@ export async function computerWithUsage(
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText(row).first().click({ timeout: 60_000 })
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: item }).last())
+  await pickInSubmenu(page, row, item)
   // A Bot's move takes a moment; until it lands the composer still names the old runtime.
   await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
 }
