@@ -56,10 +56,9 @@ function shareAway(stack: Stack, botId: string, userId: string) {
   )
 }
 
-// The chat in front: a Bot chat opened before stays mounted, inert, with its own details.
-const details = (page: Page) =>
-  page.getByRole('complementary', { name: 'Bot details' }).filter({ visible: true })
-const access = (page: Page) => details(page).getByRole('region', { name: 'Access' })
+const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
+// Exact: the Bot's card is a region too, named after the Bot.
+const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
   page.locator(
