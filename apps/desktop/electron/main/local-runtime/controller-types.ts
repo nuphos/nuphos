@@ -136,7 +136,6 @@ export function userDir(dataDir: string, userId: string, ...parts: string[]): st
   return path.join(dataDir, 'users', userId, ...parts)
 }
 
-/** The CLI facts worth keeping for the next launch, under the owner's id. */
 export function saveCli(
   deps: Pick<LocalRuntimeControllerDeps, 'writeCliCache'>,
   userId: string | null,
@@ -149,7 +148,6 @@ export const RESTART_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 /** Matches the hold Nuphos keeps on a provider's answer: sampling faster would
  *  spend this person's rate limit on numbers that have not moved. */
 export const USAGE_SAMPLE_MS = 600_000
-/** A sign-in is worth reading again for; mashing Check is not. */
 export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
 export function freshAgent(): Agent {
@@ -166,7 +164,9 @@ export function tunnelStatusOf(
     const agent = running[provider]
 
     if (!agent.runtime || !agent.cli?.installed) {
-      agents[provider] = probeFailure(agent.cli)
+      const failure = probeFailure(agent.cli)
+
+      if (failure) agents[provider] = failure
       continue
     }
     agents[provider] = {
