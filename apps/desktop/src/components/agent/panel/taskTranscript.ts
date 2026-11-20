@@ -1,7 +1,7 @@
 import { api } from '../../../api.ts'
 import { queryKeys } from '../../../lib/query/keys.ts'
 
-import type { AgentConversationDetail } from '../../../api.ts'
+import type { AgentConversation, AgentConversationDetail } from '../../../api.ts'
 import type { QueryClient } from '@tanstack/react-query'
 
 // Opening a conversation fetches only this many trailing messages — about a
@@ -19,22 +19,33 @@ export function readTask(teamId: string | undefined, sessionId: string) {
 }
 
 /**
- * The transcript a Task last showed, if it has no reply in progress: one with a reply in
- * progress opens from a fresh read, which resumes its stream.
+ * The transcript a Task last showed, while it is still current: the session list, polled every
+ * few seconds, shows the same messages and transcript revision. A Task that changed since, or
+ * has a reply in progress, opens from a fresh read, so a stale copy never shows.
  */
 export function cachedTask(client: QueryClient, teamId: string | undefined, sessionId: string) {
   if (!teamId) return undefined
   const detail = client.getQueryData<AgentConversationDetail>(queryKeys.task(teamId, sessionId))
+  const row = client
+    .getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId))
+    ?.find((listed) => listed.sessionId === sessionId)
 
-  return detail?.activeRun ? undefined : detail
+  if (!detail || !row || detail.activeRun) return undefined
+
+  return row.messageCount === detail.messageCount &&
+    (row.transcriptUpdatedAt ?? null) === (detail.transcriptUpdatedAt ?? null)
+    ? detail
+    : undefined
 }
 
-/** Reads a Task before it is opened, once, so the click shows it from memory. */
+/** Reads a Task before it is opened, unless its copy is current, so the click shows it from memory. */
 export function prefetchTask(client: QueryClient, teamId: string, sessionId: string) {
-  const queryKey = queryKeys.task(teamId, sessionId)
-
-  if (client.getQueryState(queryKey)) return
+  if (cachedTask(client, teamId, sessionId)) return
   client
-    .query({ queryKey, queryFn: () => readTask(teamId, sessionId), retry: false })
+    .query({
+      queryKey: queryKeys.task(teamId, sessionId),
+      queryFn: () => readTask(teamId, sessionId),
+      retry: false,
+    })
     .catch(() => {})
 }
