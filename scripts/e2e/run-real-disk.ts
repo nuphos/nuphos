@@ -1,11 +1,10 @@
 // Runs on a disposable mounted filesystem, with the real Electron device metrics and backend.
 import { existsSync, readFileSync, rmSync, statfsSync } from 'node:fs'
-import { hostname } from 'node:os'
 import { join } from 'node:path'
 
 import { startDesktop } from './desktop.ts'
 import { installScenarios } from './install-scenarios.ts'
-import { artifacts, logPath, stopAll } from './processes.ts'
+import { artifacts, logPath, stopAll, until } from './processes.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, pickInSubmenu, send } from './ui.ts'
@@ -27,7 +26,7 @@ function usedPercent() {
 async function chooseLocal(page: Page) {
   await newTask(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText(hostname(), { exact: true }).click()
+  await page.getByRole('menu').getByText('E2E Studio', { exact: true }).click()
   await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
 }
 
@@ -53,9 +52,32 @@ try {
   for (const scenario of signInScenarios) await scenario.run(page, stack)
   // This installs the deterministic fixture agent on the real Desktop computer.
   await installScenarios[2]!.run(page, stack)
+  let deviceId = ''
+
+  await until('the Desktop computer to connect', async () => {
+    const state = await page.evaluate(() =>
+      (
+        window as unknown as {
+          api: { localRuntimeGetState: () => Promise<{ deviceId?: string; connection?: string }> }
+        }
+      ).api.localRuntimeGetState(),
+    )
+
+    deviceId = state.connection === 'online' ? (state.deviceId ?? '') : ''
+
+    return deviceId
+  })
+  const renamed = await fetch(`${stack.apiUrl}/agent/devices/${deviceId}?teamId=${stack.teamId}`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ label: 'E2E Studio' }),
+  })
+
+  if (!renamed.ok) throw new Error(`Renaming the fictional computer failed: ${renamed.status}`)
+  await page.reload()
   await chooseLocal(page)
   await send(page, 'Prepare the fictional release E2E_DELIVERY:disk-first')
-  await page.getByText('ACK E2E_DELIVERY:disk-first').waitFor({ timeout: 60_000 })
+  await page.getByText('Prepare the fictional release E2E_DELIVERY:disk-first').waitFor()
   const warning = (p: Page) => p.getByRole('status').filter({ hasText: 'disk is almost full' })
 
   await warning(page).waitFor({ timeout: 90_000 })
@@ -70,7 +92,7 @@ try {
 
   await chooseLocal(page)
   await send(page, 'Check the fictional changelog E2E_DELIVERY:disk-second')
-  await page.getByText('ACK E2E_DELIVERY:disk-second').waitFor({ timeout: 60_000 })
+  await page.getByText('Check the fictional changelog E2E_DELIVERY:disk-second').waitFor()
   // Device readings refresh every 60 seconds: observe past a full refresh.
   await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned in another chat')
