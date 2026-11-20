@@ -59,6 +59,7 @@ export function serializeTimelineEvents(
         ...(event.agentId ? { agentId: event.agentId } : {}),
         cause: event.cause ?? 'other',
         ...(event.resetsAt ? { resetsAt: event.resetsAt } : {}),
+        ...(event.verifyUrl ? { verifyUrl: event.verifyUrl } : {}),
       }
     const actor = person(event.actorId)
 

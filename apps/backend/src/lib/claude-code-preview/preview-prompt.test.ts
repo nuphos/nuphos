@@ -57,6 +57,8 @@ describe('buildPreviewSystemPrompt', () => {
     expect(prompt).toContain('the kernel kills one process rather than the whole container')
     expect(prompt).toContain('## Credential handling')
     expect(prompt).toContain('`~/.aws/credentials`')
+    // A throwaway checkout goes with the conversation's home when it is archived (#3939).
+    expect(prompt).toContain('Make a throwaway clone or worktree for this conversation under `~`')
     expect(prompt).toContain('## Memory scope')
     expect(prompt).toContain('always pass `scope` explicitly')
     expect(prompt).not.toContain('## Workspace')

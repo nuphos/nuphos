@@ -12,7 +12,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, noteReplyFailed, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -33,6 +33,7 @@ import {
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+import { noteReplyFailed } from './reply-failed'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
@@ -374,6 +375,34 @@ describe('waking a channel’s agents', () => {
       cause: 'usage_limit',
       reason:
         'its account hit its usage limit (You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.).',
+    })
+  })
+
+  test('an agent whose Claude account needs verification says where to verify it', async () => {
+    const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}\n> {"errorKind":"verification_required"}`,
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: 'its account must be verified with Anthropic.',
+      verifyUrl: portal,
     })
   })
 
