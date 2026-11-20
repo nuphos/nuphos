@@ -39,7 +39,11 @@ export const customProviderScenarios: Scenario[] = [
 
         await card.getByRole('button', { name: 'Set up', exact: true }).click()
         await save(`${base}/chat/completions`)
-        await page.getByText(/doesn’t serve the OpenAI Responses API that Codex needs/u).waitFor()
+        // The toast, and the alert that reads it out.
+        await page
+          .getByText(/doesn’t serve the OpenAI Responses API that Codex needs/u)
+          .first()
+          .waitFor()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'custom-provider-1-refused.png') })
         if ((await page.getByText(/Error invoking remote method/u).count()) > 0)
@@ -48,7 +52,10 @@ export const customProviderScenarios: Scenario[] = [
         // The base URL itself passes the check. A dev build keeps no key in the OS credential
         // store, so the save stops there, and says so.
         await save(base)
-        await page.getByText(/no secure credential store/u).waitFor()
+        await page
+          .getByText(/no secure credential store/u)
+          .first()
+          .waitFor()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'custom-provider-2-base-url.png') })
         if (asked.join(' ') !== '/v1/chat/completions/responses /v1/responses')
