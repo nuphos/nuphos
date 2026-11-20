@@ -494,8 +494,8 @@ jobs:
       - name: Use the 0.115.1 Desktop (repro #4260 only)
         run: |
           git fetch --depth=1 origin tag v0.115.1
-          rm -rf apps/desktop
-          git checkout v0.115.1 -- apps/desktop
+          rm -rf apps/desktop apps/runtime
+          git checkout v0.115.1 -- apps/desktop apps/runtime
       - name: Stage the local runtime
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets linux-x64 --require
