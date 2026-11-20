@@ -85,11 +85,12 @@ async function main(): Promise<void> {
       console.log(`rollback record: ${record}`)
       outcome = `done: gave ${String(done.length)} of`
     }
+    const owners = new Set(plan.map((bot) => bot.userId)).size
+    const scope = teams.length ? ` in ${teams.join(', ')}` : ''
+
     console.log(
       `${outcome} ${String(plan.length)} unarchived Bot(s) with no selection their owner's ` +
-        `default, from ${String(new Set(plan.map((bot) => bot.userId)).size)} owner(s)${
-          teams.length ? ` in ${teams.join(', ')}` : ''
-        }`,
+        `default, from ${String(owners)} owner(s)${scope}`,
     )
   } finally {
     await closeDb()
