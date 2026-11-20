@@ -313,6 +313,26 @@ class ConversationUnlinkFixtureDeviceTest {
         assertTrue(requests.none { it.url.encodedPath.contains("stream") || it.url.encodedPath.contains("bypass") })
     }
 
+    /** Someone else in a teammate's Task archives it for themselves (#3686), from its row; renaming stays the owner's. */
+    @Test fun aTeammatesTaskIAmInIsArchivedFromItsRowButNotRenamed() {
+        render()
+        compose.runOnIdle { state(store, "conversations").value = store.conversations.map {
+            if (it.sessionId == "child") it.copy(isOwner = false, canManage = false, canArchive = true) else it } }
+        assertTrue(store.canArchive(child()))
+        assertFalse(store.canRename(child()))
+        assertFalse(store.canArchive(store.conversations.first { it.sessionId == "shared" }))
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
+        compose.onNodeWithTag("menu-archive:child").assertIsDisplayed()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        androidx.test.espresso.Espresso.pressBack()
+        detailBody = """{"messages":[],"isOwner":false,"canManage":false,"canArchive":false,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(child(), true) }
+        assertTrue(requests.none { it.method == "PATCH" })
+        detailBody = """{"messages":[],"isOwner":false,"canManage":false,"canArchive":true,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(child(), true) }
+        assertEquals(1, requests.count { it.method == "PATCH" && it.url.encodedPath.endsWith("/archive") })
+        assertNull(store.rowActionError)
+    }
 
     @Test fun archiveConfirmationCancelAndFullSwipeDoNotWrite() {
         render()
