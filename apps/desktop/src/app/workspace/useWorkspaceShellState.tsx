@@ -1,6 +1,7 @@
 import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
 import { emptyNavigation } from '../../lib/appRoutes'
+import { takeTwoFactorResume } from '../../views/settings/resumeTwoFactor'
 
 import { connectorsDialogFor } from './store/connectorsDialog'
 import { selectScope } from './store/workspaceState'
@@ -120,6 +121,10 @@ export function useWorkspaceShellState() {
     },
     [workspaceActions, workspaceStore],
   )
+  // Back to two-factor setup after the sign-in it asked for.
+  useEffect(() => {
+    if (takeTwoFactorResume()) openSettingsSection('account.mfa')
+  }, [openSettingsSection])
   // Connectors opens over whatever the pane shows, on one connector's detail
   // when given, and leaves the page behind it where it was.
   const openConnectors = useCallback(
