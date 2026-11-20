@@ -89,9 +89,13 @@ export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string):
       kids: working,
     }
   if (activity.kind === 'working') return { kind: 'waiting', kids: working }
-  if (activity.kind === 'background' && working.length > 0) return { kind: 'waiting', kids: working }
+  if (activity.kind === 'background' && working.length > 0)
+    return { kind: 'waiting', kids: working }
   // Someone else's Bot: its Tasks are not in this viewer's list, only how many there are.
-  const unlisted = kids.length === 0 ? (bot?.conversation.tasks?.running ?? 0) + (bot?.conversation.tasks?.waiting ?? 0) : 0
+  const unlisted =
+    kids.length === 0
+      ? (bot?.conversation.tasks?.running ?? 0) + (bot?.conversation.tasks?.waiting ?? 0)
+      : 0
 
   if (unlisted > 0) return { kind: 'waiting', kids: [], count: unlisted }
   if (activity.kind === 'background') return { kind: 'background', kids: [] }

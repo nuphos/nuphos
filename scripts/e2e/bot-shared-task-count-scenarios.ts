@@ -46,14 +46,22 @@ export const botSharedTaskCountScenarios: Scenario[] = [
       await call('', 'POST', '/auth/email/request-code', { email })
       await until('the teammate’s sign-in code', async () => stack.signInCode(email))
       const teammate = String(
-        (await call('', 'POST', '/auth/email/verify-code', { email, code: stack.signInCode(email) }))
-          .token,
+        (
+          await call('', 'POST', '/auth/email/verify-code', {
+            email,
+            code: stack.signInCode(email),
+          })
+        ).token,
       )
       const invited = await call(stack.token, 'POST', `/teams/${stack.teamId}/invitations`, {
         inviteeEmail: email,
       })
 
-      await call(teammate, 'POST', `/invitations/${String((invited.invitation as { id: string }).id)}/accept`)
+      await call(
+        teammate,
+        'POST',
+        `/invitations/${String((invited.invitation as { id: string }).id)}/accept`,
+      )
       const members = ((await call(stack.token, 'GET', `/teams/${stack.teamId}/members`)).members ??
         []) as { id: string; email: string }[]
       const teammateId = String(members.find((member) => member.email === email)?.id)
@@ -68,7 +76,12 @@ export const botSharedTaskCountScenarios: Scenario[] = [
       )
 
       await page.getByRole('tab', { name: 'Bots' }).click()
-      await page.getByRole('tabpanel', { name: 'Bots' }).locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
+      await page
+        .getByRole('tabpanel', { name: 'Bots' })
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: 'E2E Bot' })
+        .first()
+        .click()
       rmSync(release, { force: true })
       try {
         await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-shared-count')
@@ -124,7 +137,7 @@ export const botSharedTaskCountScenarios: Scenario[] = [
 
 /** The visible chat's status pill reads `text`; a light-theme capture for the PR. */
 async function shoot(page: Page, who: string, text: RegExp) {
-  await page.getByText(text).first().waitFor({ timeout: 30_000 })
+  await page.getByText(text).locator('visible=true').first().waitFor({ timeout: 30_000 })
   await page.evaluate(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')

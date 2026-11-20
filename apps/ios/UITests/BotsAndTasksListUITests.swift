@@ -248,6 +248,39 @@ final class BotsAndTasksListUITests: XCTestCase {
     }
 
     /// Starts from no stored folds, so earlier runs leave nothing behind.
+    /// Someone else's Bot (#4270): its Tasks are not in this viewer's list, so the line
+    /// under its name reads the counts on the Bot's own row, and its details name no Task.
+    /// Release Lead, the viewer's own, keeps counting the Tasks it lists.
+    func testASharedBotSaysHowManyOfItsTasksRun() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        var page = try XCTUnwrap(responses["GET /agent/conversations?bots=true"] as? [String: Any])
+        var body = try XCTUnwrap(page["body"] as? [String: Any])
+        body["conversations"] = (body["conversations"] as? [[String: Any]])?.map { row in
+            guard row["sessionId"] as? String == "bot-notes" else { return row }
+            return Self.teammates(row, canArchive: false).merging(["tasks": ["running": 1, "waiting": 0]]) { $1 }
+        }
+        page["body"] = body
+        responses["GET /agent/conversations?bots=true"] = page
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+        launch(page: "chats")
+
+        let notes = app.staticTexts["Notes Bot"].firstMatch
+        XCTAssertTrue(notes.waitForExistence(timeout: 10), "Bots did not load")
+        notes.tap()
+        let name = app.buttons["bot-details-entry"]
+        let running = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label ENDSWITH %@", "1 running"), object: name)
+        XCTAssertEqual(XCTWaiter.wait(for: [running], timeout: 10), .completed, "No count under the shared Bot's name: \(name.label)")
+        shot("4270-shared-bot-teammate")
+        app.navigationBars.buttons.firstMatch.tap()
+
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        lead.tap()
+        XCTAssertTrue(name.waitForExistence(timeout: 10))
+        XCTAssertTrue(name.label.hasSuffix("1 needs input · 1 running"), "The owner's Bot no longer counts its listed Tasks: \(name.label)")
+        shot("4270-own-bot-owner")
+    }
+
     private func launch(page: String) {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", page, "-nuphos.agent.foldedThreads", "{}"]
