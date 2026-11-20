@@ -221,7 +221,11 @@ export const dashboardUiScenarios: Scenario[] = [
       failForNoAgent(stack, panel.body.id)
       await openDashboardsPage(page, stack)
 
-      await page.getByRole('row', { name: /No agent/ }).click()
+      // The name cell's button opens it; a click elsewhere on the row only selects it.
+      await page
+        .getByRole('row', { name: /No agent/ })
+        .getByRole('button', { name: /No agent/ })
+        .click()
       await page.getByText(NO_RUNTIME).waitFor()
       await shot(page, '10-no-agent-panel')
       await page.getByRole('button', { name: 'Rent a computer from Nuphos', exact: true }).click()
