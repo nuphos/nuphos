@@ -2,7 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import { createRedisPresenceStore } from './presence'
+import {
+  createMemoryPresenceStore,
+  createRedisPresenceStore,
+  RUNTIME_PRESENCE_TTL_SEC,
+} from './presence'
 
 const stored = new Map<string, string>()
 const calls: string[][] = []
@@ -47,5 +51,18 @@ describe('redis presence store', () => {
     const store = createRedisPresenceStore()
 
     expect(await Promise.all([store.get('u1', 'd1'), store.get('u1', 'd3')])).toEqual([null, null])
+  })
+})
+
+describe('memory presence store', () => {
+  test('reclaims expired presence but does not replace another live connection', async () => {
+    let now = 1
+    const store = createMemoryPresenceStore(() => now)
+    await store.claim('u1', 'd1', 'c1')
+    now += RUNTIME_PRESENCE_TTL_SEC * 1000
+    expect(await store.put('u1', 'd1', { conn: 'c1', seenAt: now })).toBe(true)
+    expect((await store.get('u1', 'd1'))?.conn).toBe('c1')
+    await store.claim('u1', 'd1', 'c2')
+    expect(await store.put('u1', 'd1', { conn: 'c1', seenAt: now })).toBe(false)
   })
 })
