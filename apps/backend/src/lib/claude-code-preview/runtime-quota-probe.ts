@@ -97,8 +97,9 @@ async function lookup() {
       if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
     }
     const config = await read(join(homedir(), '.claude.json'));
-    const account = config && config.oauthAccount && config.oauthAccount.accountUuid;
-    if (typeof account === 'string' && account) accountId = account;
+    // One login can sit in several organizations, each with its own plan.
+    const { accountUuid: account, organizationUuid: org } = (config && config.oauthAccount) || {};
+    if (typeof account === 'string' && account && typeof org === 'string' && org) accountId = account + ':' + org;
     url = 'https://api.anthropic.com/api/oauth/usage';
     headers = { authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20' };
   }
@@ -113,7 +114,7 @@ async function lookup() {
   if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large', asked: true };
   const { createHash } = await import('node:crypto');
   const provider = params && params.provider === 'codex' ? 'codex' : 'claude-code';
-  const accountKey = accountId && createHash('sha256').update(provider + ':' + accountId).digest('hex').slice(0, 16);
+  const accountKey = accountId && createHash('sha256').update(provider + ':' + accountId).digest('hex').slice(0, 20);
   return { usage: JSON.parse(body), ...(plan ? { plan } : {}), ...(accountKey ? { accountKey } : {}) };
 }
 
