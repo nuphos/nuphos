@@ -230,6 +230,9 @@ export async function startStack(
       SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      // Voice input as on Nuphos Cloud, for a subscription the e2e team lacks; never reached.
+      NUPHOS_BILLING_URL: `${apiUrl}/e2e-billing`,
+      OPENAI_API_KEY: 'e2e-openai-key-not-a-production-credential',
       ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
       ...fakes,
     },

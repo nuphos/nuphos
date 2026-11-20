@@ -77,6 +77,18 @@ const rowClass = 'flex h-7 min-w-0 items-center gap-3 text-left text-[13px] text
 const rowButtonClass = clsx(rowClass, hoverRowClass, rowFocusClass)
 
 /** A row that opens the menu it sits in, under it; lit while the menu is open. */
+/** A Task before its first reply: nothing to list yet. */
+export function SummaryEmpty() {
+  return (
+    <div className="px-1 pt-1 text-[13px] leading-5">
+      <p className="text-main">{t('Nothing here yet')}</p>
+      <p className="text-tertiary">
+        {t('Pull requests, sub-tasks and files from this task appear here after its first reply.')}
+      </p>
+    </div>
+  )
+}
+
 export function SummaryMenuRow({
   title,
   className,
