@@ -103,10 +103,28 @@ try {
   await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned in another chat')
 
-  const otherWindow = page.context().waitForEvent('page')
+  const browser = page.context().browser()
 
-  await page.keyboard.press('Control+Shift+N')
-  const second = await otherWindow
+  if (!browser) throw new Error('Desktop browser is unavailable')
+  const existing = new Set(browser.contexts().flatMap((context) => context.pages()))
+
+  await page.evaluate(() =>
+    (window as unknown as { api: { openPageWindow: (url: string) => void } }).api.openPageWindow(
+      '/',
+    ),
+  )
+  await until('the second Desktop window', async () =>
+    browser
+      .contexts()
+      .flatMap((context) => context.pages())
+      .some((candidate) => !existing.has(candidate)),
+  )
+  const second = browser
+    .contexts()
+    .flatMap((context) => context.pages())
+    .find((candidate) => !existing.has(candidate))
+
+  if (!second) throw new Error('The second Desktop window disappeared')
 
   await second.waitForLoadState('domcontentloaded')
   await second.getByRole('tab', { name: 'Tasks' }).click()
