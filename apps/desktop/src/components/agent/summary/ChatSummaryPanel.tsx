@@ -10,6 +10,7 @@ import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSumma
 import { toast } from '../../ui/toast'
 import { shellsFromRuntimeState } from '../panel/shells'
 
+import { BotInstructionsSection } from './BotInstructionsSection'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
@@ -32,7 +33,6 @@ import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
-import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent, ReactNode } from 'react'
 
@@ -150,19 +150,6 @@ function OutputsSection({
   )
 }
 
-/** A Bot's standing instructions in full, which its transcript only shows clipped. */
-function BotInstructionsSection({ conversation }: { conversation?: AgentConversation }) {
-  if (!conversation?.avatar) return null
-
-  return (
-    <SummarySection title={t('Bot instructions')}>
-      <p className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-5 text-main">
-        {conversation.instructions || <span className="text-tertiary">{t('None yet')}</span>}
-      </p>
-    </SummarySection>
-  )
-}
-
 /**
  * Esc inside the panel closes it and hands focus back to the toggle that opened it. A dialog it
  * opened sits in a portal: its Esc bubbles here through React, but closes only the dialog.
@@ -251,7 +238,7 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
-          <BotInstructionsSection conversation={conversation} />
+          <BotInstructionsSection conversation={conversation} teamId={teamId} />
           {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
