@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
 // How the fixture Bot answers a chat: it reads on until nothing is left, then posts once.
 const MARKER = /E2E_DELIVERY:[a-z0-9-]+/g
 const indexes = (text) => [...text.matchAll(/"index":\s*(\d+)/g)].map((match) => match[1])
@@ -21,6 +24,12 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
   log({ sessionId, event: 'channel', detail: channelId })
   // E2E_SLOW keeps this turn busy, so the posts that follow wait for one notice.
   if (text.includes('E2E_SLOW')) await new Promise((resolve) => setTimeout(resolve, 5_000))
+  // E2E_WAIT_RELEASE answers only once the scenario writes `release` beside the ACP log.
+  if (text.includes('E2E_WAIT_RELEASE')) {
+    const release = join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
   for (let tries = 0; tries < 5 && more(last); tries++) {
     const message = await call(sessionId, 'channel_read', { label: 'Read on', channelId })
 
