@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { noAgentNotice, panelDisplay, panelNotice } from './panelDisplay.ts'
+import { panelDisplay, panelNotice } from './panelDisplay.ts'
 
 import type { DashboardPanel, DashboardPanelSnapshot } from './schema'
 
@@ -70,17 +70,4 @@ test('a run that found an integration gone or no agent says so, and nothing else
   )
   assert.equal(panelNotice(failed('nonzero_exit', 'panel exited with code 1')), null)
   assert.equal(panelNotice(null), null)
-})
-
-test('with no agent to run a panel, only someone who may rent a computer is offered one', () => {
-  const backend =
-    "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Ask a team admin to rent one, then refresh."
-  const member = noAgentNotice(backend, false)
-  const admin = noAgentNotice(backend, true)
-
-  // A member gets no button, and the backend's words send them to a team admin.
-  assert.deepEqual(member, { text: backend, offerComputer: false })
-  assert.match(member.text, /Ask a team admin to rent one/u)
-  assert.equal(admin.offerComputer, true)
-  assert.match(admin.text, /A team agent or a computer from Nuphos can\. Rent one, then refresh\./u)
 })

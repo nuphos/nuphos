@@ -51,7 +51,7 @@ async function openDashboardsPage(page: Page, stack: Stack) {
   return link
 }
 
-const NO_RUNTIME = "Agents on your own computer can't run dashboard panels"
+const NO_RUNTIME = "Runtimes on your own computer can't run dashboard panels"
 
 /** Records the panel's latest run as one no agent could take (#4168), the way the backend fails it. */
 function failForNoAgent(stack: Stack, panelId: string) {
@@ -69,7 +69,7 @@ function failForNoAgent(stack: Stack, panelId: string) {
       finishedAt: new Date(),
     })
     await client.close()`
-  const message = `${NO_RUNTIME}. A team agent or a computer from Nuphos can. Ask a team admin to rent one, then refresh.`
+  const message = `${NO_RUNTIME}. A team runtime or a computer from Nuphos can. Ask a team admin to rent one, then refresh.`
 
   execFileSync('bun', ['-e', script, stack.mongoUri, panelId, message], {
     cwd: resolve(import.meta.dirname, '../../apps/backend'),

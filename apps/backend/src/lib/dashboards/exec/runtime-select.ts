@@ -95,7 +95,7 @@ const defaultDeps: PanelRuntimeDeps = {
 
 /** Agents on someone's own computer never offer the panel job, so say what does (#4168). */
 export const NO_RUNTIME_MESSAGE =
-  "Agents on your own computer can't run dashboard panels. A team agent or a computer from Nuphos can. Ask a team admin to rent one, then refresh."
+  "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Ask a team admin to rent one, then refresh."
 export const UNREACHABLE_RUNTIME_MESSAGE =
   "None of this team's agents could be reached. Check that an agent is online in Settings → Agent, then refresh."
 export const PARTLY_UNREACHABLE_RUNTIME_MESSAGE =

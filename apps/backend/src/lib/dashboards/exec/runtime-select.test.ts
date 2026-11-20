@@ -72,8 +72,8 @@ describe('selectPanelRuntime', () => {
 
     expect(err.kind).toBe('no_runtime')
     expect(err.message).toBe(NO_RUNTIME_MESSAGE)
-    expect(err.message).toContain("Agents on your own computer can't run dashboard panels")
-    expect(err.message).toContain('A team agent or a computer from Nuphos can.')
+    expect(err.message).toContain("Runtimes on your own computer can't run dashboard panels")
+    expect(err.message).toContain('A team runtime or a computer from Nuphos can.')
   })
 
   test('skips unreachable and outdated runtimes for one that runs the job', async () => {
