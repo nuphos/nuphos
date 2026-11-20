@@ -82,43 +82,55 @@ export const channelAwayScenarios: Scenario[] = [
   },
   {
     // #3284: away longer than its session's reattach window, nothing woke the Bot once back.
-    // #3332: each failed wake wrote its own line. One line for the post, one answer.
-    name: 'a Bot whose host is away past the reattach window answers once back, with one line for the post',
+    // A runtime that stayed away stacked a couldn't-reply line per post (#3332 and after): the
+    // chat keeps one, the latest, until the Bot replies.
+    name: 'a Bot away for two posts shows one couldn’t-reply line, gone once it answers',
     run: async (page, stack) => {
       const post = poster(stack)
       const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail ?? ''
-      const failures = () =>
-        Number(
+      // When each of the Bot's couldn't-reply lines in the chat was written.
+      const lines = (): string[] =>
+        JSON.parse(
           inDatabase(
             stack.mongoUri,
             `const row = await db.collection('agent_conversations').findOne({ sessionId: process.argv[2] })
-            console.log((row?.timelineEvents ?? []).filter((e) => e.kind === 'agent_reply_failed').length)`,
+            console.log(JSON.stringify((row?.timelineEvents ?? []).filter((e) => e.kind === 'agent_reply_failed').map((e) => e.at)))`,
             channelId,
           ),
         )
+      const failed = page.getByText(/couldn’t reply/)
 
       await post('Before it goes long E2E_DELIVERY:awake-long')
       await page.getByText('POSTED E2E_DELIVERY:awake-long', { exact: true }).first().waitFor()
-      const before = failures()
 
       await stack.restartAgentHost(async () => {
         await post('While it is away E2E_DELIVERY:away-long')
-        await until('the couldn’t-reply line', async () => failures() > before, 150_000)
-        // Past every reattach attempt (about 108 s), so only its next connection can wake it.
-        await new Promise((resolve) => setTimeout(resolve, 120_000))
+        await until('the couldn’t-reply line', async () => lines().length > 0, 150_000)
+        const first = lines().at(-1)!
+
+        // A second post fails too, once its own wait is over. Past every reattach attempt
+        // (about 108 s) by then, so only the Bot's next connection can wake it.
+        await post('Still away E2E_DELIVERY:away-long-2')
+        await until('the second failure', async () => (lines().at(-1) ?? '') > first, 150_000)
+        await page.waitForTimeout(2_000)
+        await page.screenshot({ path: `${artifacts}/bot-away-two-posts-light.png` })
+        if (lines().length !== 1 || (await failed.count()) !== 1)
+          throw new Error(
+            `Expected 1 couldn’t-reply line, got ${String(lines().length)} (${String(await failed.count())} shown)`,
+          )
       })
       const answered = await shown(
         page,
-        page.getByText('POSTED E2E_DELIVERY:away-long', { exact: true }).first(),
+        page.getByText('POSTED E2E_DELIVERY:away-long-2', { exact: true }).first(),
         150_000,
         'bot-away-long-answered-light.png',
       )
 
       if (!answered)
         throw new Error('The Bot did not answer the missed posts once its host was back')
-      // Every retry while it was away, and its wake once back, add no second line.
-      if (failures() !== before + 1)
-        throw new Error(`Expected 1 couldn’t-reply line, got ${String(failures() - before)}`)
+      // It replied, so nothing says it could not.
+      await until('the line to go', async () => lines().length === 0, 30_000)
+      await failed.first().waitFor({ state: 'detached', timeout: 30_000 })
     },
   },
 ]

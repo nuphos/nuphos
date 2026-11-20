@@ -1298,15 +1298,18 @@ describe('an agent whose computer is offline', () => {
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
   })
 
-  // #3332: a runtime that kept dropping wrote a line for every failed wake.
-  test('says it could not reply once per post, however often a dropping runtime fails again', async () => {
+  // A runtime that kept dropping wrote a line for every failed wake (#3332), then one per post.
+  test('keeps one couldn’t-reply line per agent, the latest, and takes it away once it replies', async () => {
     await say('anyone there?')
     for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
-    expect(await failures()).toHaveLength(1)
-
     await say('still there?')
-    await noteReplyFailed('channel', 'agent-a', offline())
-    expect(await failures()).toHaveLength(2)
+    await noteReplyFailed('channel', 'agent-a', new Error('OpenAB ACP initialize timed out'))
+    expect(await failures()).toEqual([
+      expect.objectContaining({ agentId: 'agent-a', cause: 'other' }),
+    ])
+
+    await postAsAgent('channel', { sessionId: 'agent-a', title: 'Agent A' }, 'Back now')
+    expect(await failures()).toEqual([])
   })
 
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {
