@@ -29,9 +29,9 @@ final class UsageResetsUITests: XCTestCase {
         app.launchArguments = ["-preview-home", "-preview-no-push"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
-        app.buttons["Account"].firstMatch.tap()
-        let computers = app.buttons["Computers"].firstMatch
-        XCTAssertTrue(computers.waitForExistence(timeout: 10), "No Computers in the Account sheet")
+        // Computers & runtimes is on the home toolbar since #3343.
+        let computers = app.buttons["Computers & runtimes"].firstMatch
+        XCTAssertTrue(computers.waitForExistence(timeout: 10), "No Computers & runtimes on the toolbar")
         computers.tap()
 
         // The 5-hour window is the tightest, so the row names its reset, in hours.
