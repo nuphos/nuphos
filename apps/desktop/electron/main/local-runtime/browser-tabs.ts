@@ -5,10 +5,10 @@ import { app, BrowserWindow } from 'electron'
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
-import { callJson, teamQuery } from '../../agent/http.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
 import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
+import { handBack } from './browser-hand-back.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
@@ -82,19 +82,6 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
-}
-
-/**
- * The person closed a tab's window the agent showed them: they hand the browser
- * back, and the conversation is woken to carry on, so they need not tell it they
- * are done. Best effort: a missed wake leaves it waiting for their next message.
- */
-function handBack(team: string, conversation: string, tab: number): void {
-  callJson(
-    'POST',
-    `/agent/conversations/${encodeURIComponent(conversation)}/browser/hand-back${teamQuery(team)}`,
-    { tab },
-  ).catch(() => {})
 }
 
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
@@ -275,9 +262,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'show') {
     show(contents)
 
-    return text(
-      `Tab ${String(contents.id)} is on screen. When the person closes its window, it hides again and you are woken to continue.`,
-    )
+    return text(`Tab ${String(contents.id)} is on screen; closing it wakes you to continue.`)
   }
   if (call.action === 'close') {
     window?.destroy()
