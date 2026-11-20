@@ -4046,6 +4046,7 @@
   "Runtime terminal": "ランタイムのターミナル",
   "Runtime: {label}": "ランタイム：{label}",
   "Runtimes": "ランタイム",
+  "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Rent one, then refresh.": "自分のコンピューター上のランタイムではダッシュボードのパネルを実行できません。チームのランタイムか Nuphos から借りたコンピューターなら実行できます。借りてから更新してください。",
   "Runtimes|search": "ランタイム",
   "S3 Buckets": "S3 バケット",
   "S3 bucket {name} was not found.": "S3 バケット {name} が見つかりませんでした。",

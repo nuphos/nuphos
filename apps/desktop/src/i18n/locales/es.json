@@ -4046,6 +4046,7 @@
   "Runtime terminal": "Terminal del entorno de ejecución",
   "Runtime: {label}": "Entorno de ejecución: {label}",
   "Runtimes": "Entornos de ejecución",
+  "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Rent one, then refresh.": "Los entornos de ejecución de tu propia computadora no pueden ejecutar paneles del tablero. Un entorno de ejecución del equipo o una computadora de Nuphos sí pueden. Alquila una y luego actualiza.",
   "Runtimes|search": "Runtimes",
   "S3 Buckets": "Buckets de S3",
   "S3 bucket {name} was not found.": "No se encontró el bucket de S3 {name}.",
