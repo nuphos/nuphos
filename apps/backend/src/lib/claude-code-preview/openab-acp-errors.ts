@@ -124,7 +124,11 @@ export function isRuntimeAuthRequired(error: unknown): boolean {
 
   const { code, message } = adapterError(error) ?? error
 
-  return code === ACP_AUTH_REQUIRED_CODE && message.includes(ACP_AUTH_REQUIRED_MESSAGE)
+  return (
+    (code === ACP_AUTH_REQUIRED_CODE && message.includes(ACP_AUTH_REQUIRED_MESSAGE)) ||
+    (code === -32603 &&
+      /^Internal error: turn failed: llm-deepseek: no API key for provider route /u.test(message))
+  )
 }
 
 export const RUNTIME_USAGE_EXHAUSTED_CODE = 'runtime_usage_exhausted'

@@ -23,9 +23,15 @@ export type RuntimeFailure = {
  */
 const AGENT_EXITED = /^\*\*Agent Stopped\*\*\n([^\n]+)(?:\n```\n([\s\S]+?)\n```)?$/u
 
+/** One stack frame or JSON dump on a line would swamp the failure row it is quoted in. */
+const QUOTED_STDERR_CHARS = 200
+
+const quoted = (line: string) =>
+  line.length > QUOTED_STDERR_CHARS ? `"${line.slice(0, QUOTED_STDERR_CHARS)}…"` : `"${line}"`
+
 /**
  * Only the runtime saw that computer's agent die, so its sentence is the whole explanation
- * anyone gets. The last stderr line comes with it; the rest stays in the frame's details.
+ * anyone gets. The last stderr line is quoted with it; the rest stays in the frame's details.
  */
 function agentExited(error: unknown): RuntimeFailure | undefined {
   for (let cause = error; cause instanceof Error; cause = cause.cause) {
@@ -36,7 +42,7 @@ function agentExited(error: unknown): RuntimeFailure | undefined {
 
     return {
       code: RUNTIME_AGENT_EXITED_CODE,
-      message: last ? `${said[1]} Its last output: ${last}` : (said[1] ?? ''),
+      message: last ? `${said[1]} Its last output: ${quoted(last)}` : (said[1] ?? ''),
     }
   }
 

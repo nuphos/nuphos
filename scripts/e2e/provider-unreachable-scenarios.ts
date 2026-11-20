@@ -32,7 +32,7 @@ export const providerUnreachableScenarios: Scenario[] = [
     // #4211: the agent's CLI exits during the handshake, as one on too old a Node does.
     // All the person had before was "the connection to the agent was lost".
     name: 'an agent that exits while starting says how it ended and what its stderr said',
-    expected: /connection closed waiting for initialize/,
+    expected: /\*\*Agent Stopped\*\*/,
     run: async (page, stack) => {
       const dying = `${stack.acpLog}.die-at-startup`
 

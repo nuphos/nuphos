@@ -10,7 +10,7 @@ const exited = (stderr?: string) =>
   new OpenAbRpcError(
     [
       '**Agent Stopped**',
-      'The agent stopped while starting (exit code 3). Update Node.js on the computer that runs this agent to the version it asks for, then try again.',
+      'The agent stopped while starting (exit code 3). Update Node.js on the computer that runs it to the version the agent asks for, then try again.',
       ...(stderr ? ['```', stderr, '```'] : []),
     ].join('\n'),
   )
@@ -24,7 +24,7 @@ test('an agent that died while starting keeps the runtime’s reason, live and s
   ]) {
     expect(shown).toContain('stopped while starting (exit code 3)')
     expect(shown).toContain('Update Node.js')
-    expect(shown).toContain('Its last output: Error: the agent requires Node.js 24.9 or newer')
+    expect(shown).toContain('Its last output: "Error: the agent requires Node.js 24.9 or newer')
     expect(shown).not.toContain('The agent failed before it could answer.')
     expect(shown).not.toContain('**')
   }
@@ -32,13 +32,20 @@ test('an agent that died while starting keeps the runtime’s reason, live and s
 
 test('an agent that died silently still says how it ended', () => {
   expect(formatAgentStreamError(exited())).toBe(
-    'The agent stopped while starting (exit code 3). Update Node.js on the computer that runs this agent to the version it asks for, then try again.',
+    'The agent stopped while starting (exit code 3). Update Node.js on the computer that runs it to the version the agent asks for, then try again.',
   )
+})
+
+test('a runaway last line is clipped so it cannot swamp the failure row', () => {
+  const shown = formatAgentStreamError(exited(`Error: ${'x'.repeat(400)}`))
+
+  expect(shown).toContain(`Error: ${'x'.repeat(193)}…"`)
+  expect(shown.length).toBeLessThan(400)
 })
 
 test('only the last stderr line travels with the sentence', () => {
   const shown = formatAgentStreamError(exited('first line\nError: the last line'))
 
-  expect(shown).toContain('Its last output: Error: the last line')
+  expect(shown).toContain('Its last output: "Error: the last line"')
   expect(shown).not.toContain('first line')
 })

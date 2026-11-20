@@ -214,8 +214,8 @@ pub struct SessionActivity {
     /// The agent's most recent stderr lines (redacted, bounded), so an internal
     /// error that carries no detail can still show what the agent last said.
     stderr_tail: std::sync::Mutex<std::collections::VecDeque<String>>,
-    /// The fix the agent's stderr named, matched on the raw line. A line withheld
-    /// from display can still be read for a cause the person can act on.
+    /// The fix the agent's stderr named last, matched on the raw line. A line
+    /// withheld from display can still be read for a cause the person can act on.
     startup_hint: std::sync::Mutex<Option<&'static str>>,
     /// Signalled when the stderr reader reaches EOF. A dying agent's last lines
     /// are still in the pipe when its stdout closes, so a failure waits for them.
@@ -355,10 +355,10 @@ impl SessionActivity {
             *self.process_death.lock().unwrap_or_else(|e| e.into_inner()) =
                 Some(message.to_string());
         }
+        // The latest cause wins: what a process says last is what killed it.
         if ERROR_LIKE.is_match(line) {
-            let mut hint = self.startup_hint.lock().unwrap_or_else(|e| e.into_inner());
-            if hint.is_none() {
-                *hint = crate::error_display::startup_hint(line);
+            if let Some(hint) = crate::error_display::startup_hint(line) {
+                *self.startup_hint.lock().unwrap_or_else(|e| e.into_inner()) = Some(hint);
             }
         }
         let Some(line) = redact_stderr_line(line) else {
@@ -2035,6 +2035,19 @@ mod request_error_tests {
                 assert!(exit
                     .hint
                     .is_some_and(|hint| hint.contains("Sign the agent in")));
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+
+    /// An earlier error-like line must not outrank what the agent died saying.
+    #[tokio::test]
+    async fn the_last_cause_the_agent_named_is_the_one_shown() {
+        let script = r#"echo 'Error: cached api key is stale, refetching' >&2
+            echo 'Error: requires Node.js 24.9 or newer' >&2; read line; exit 1"#;
+        match load_against(script).await {
+            Err(AcpRequestError::ConnectionClosed { exit, .. }) => {
+                assert!(exit.hint.is_some_and(|hint| hint.contains("Update Node.js")))
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }

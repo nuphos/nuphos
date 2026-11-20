@@ -94,10 +94,10 @@ fn format_agent_exit(exit: &AgentExit) -> String {
 const GENERIC_STARTUP_HINT: &str = "Start it once on the computer that runs it to see what it \
      reports, or switch to another runtime, then try again.";
 
-const SIGN_IN_HINT: &str = "Sign the agent in again on the computer that runs it (or give it a \
-     valid API key), then try again.";
+const SIGN_IN_HINT: &str = "Sign the agent in again, or give it a valid API key, on the computer \
+     that runs it, then try again.";
 
-const NODE_HINT: &str = "Update Node.js on the computer that runs this agent to the version it \
+const NODE_HINT: &str = "Update Node.js on the computer that runs it to the version the agent \
      asks for, then try again.";
 
 const DISK_FULL_HINT: &str = "Free up disk space on the computer that runs it, then try again.";
