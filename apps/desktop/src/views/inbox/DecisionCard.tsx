@@ -8,6 +8,7 @@ import {
   parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
+import { DecisionConversations } from '../../components/agent/panel/DecisionConversations'
 import {
   clickOptions,
   formQuestions,
@@ -65,7 +66,7 @@ export function DecisionCard({
   onOpenSource: (source: AgentConversation) => void
 }) {
   const { sessionId } = conversation
-  const source = bot ?? conversation
+  const source = request.aboutConversations?.length ? conversation : (bot ?? conversation)
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
   const connect = parseConnectRequest(request) !== null
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
@@ -107,6 +108,11 @@ export function DecisionCard({
           updatedAt={request.updatedAt}
           onOpen={() => onOpenSource(source)}
         />
+        {page && Boolean(request.aboutConversations?.length) && (
+          <div className="mt-2">
+            <DecisionConversations conversations={request.aboutConversations} teamId={teamId} />
+          </div>
+        )}
         {page ? (
           <>
             <DecisionTitle as="h1" className="mt-3 text-[20px] font-semibold leading-7 text-main">

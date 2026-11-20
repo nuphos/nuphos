@@ -66,4 +66,5 @@
     <string name="chats_presence_sign_in">로그인 필요</string>
     <string name="chats_presence_usage">사용량 소진</string>
     <string name="chats_presence_unavailable">사용할 수 없음</string>
+    <string name="decision_acted_on_by">실행할 대화</string>
 </resources>

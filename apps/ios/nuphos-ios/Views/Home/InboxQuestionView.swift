@@ -36,6 +36,8 @@ struct InboxQuestionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 source
+                DecisionConversations(conversations: question.request.aboutConversations, teamId: inbox.teamId, onLink: open(link:))
+                    .padding(.top, question.request.aboutConversations?.isEmpty == false ? 8 : 0)
                 if question.secretPart == nil {
                     QuestionTitle(text: question.request.question, size: 22, tracking: -0.2, identifier: "inbox.title")
                         .padding(.top, 10)

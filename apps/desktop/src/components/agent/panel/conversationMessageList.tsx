@@ -256,7 +256,7 @@ function MessageList({
           onOpenNuphosLink={onOpenNuphosLink}
         />
       ))}
-      <OpenQuestionCards tab={tab} now={now} />
+      <OpenQuestionCards tab={tab} now={now} teamId={teamId} />
       {tab.movingTo && <MovingSessionLine label={tab.movingTo} />}
       {statusLabel && !tab.agentSetupRequired && (
         <div className="text-[13.5px] flex items-center gap-2">

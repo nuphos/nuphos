@@ -66,4 +66,5 @@
     <string name="chats_presence_sign_in">Needs sign-in</string>
     <string name="chats_presence_usage">Out of usage</string>
     <string name="chats_presence_unavailable">Unavailable</string>
+    <string name="decision_acted_on_by">Acted on by</string>
 </resources>

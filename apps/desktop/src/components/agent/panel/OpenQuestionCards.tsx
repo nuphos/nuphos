@@ -2,7 +2,7 @@ import { useContext, useMemo } from 'react'
 
 import { runtimeIsExecuting } from '../../../lib/runtimeExecution'
 
-import { DecisionToolPart } from './ConnectCard'
+import { DecisionToolPart } from './DecisionToolPart'
 import { ConnectCardContext } from './connectCardContext'
 import { openQuestionParts } from './openQuestionParts'
 
@@ -15,7 +15,15 @@ import type { Tab } from './model'
  * what keeps the question answerable in its own conversation instead of leaving
  * it open in the Inbox alone.
  */
-export function OpenQuestionCards({ tab, now }: { tab: Tab; now: number }) {
+export function OpenQuestionCards({
+  tab,
+  now,
+  teamId,
+}: {
+  tab: Tab
+  now: number
+  teamId?: string
+}) {
   const open = useContext(ConnectCardContext)?.openQuestions
   const cards = useMemo(() => openQuestionParts(tab.messages, open), [tab.messages, open])
 
@@ -31,6 +39,7 @@ export function OpenQuestionCards({ tab, now }: { tab: Tab; now: number }) {
           key={part.toolCallId}
           part={part}
           now={now}
+          teamId={teamId}
           canAct={!runtimeIsExecuting(tab.runtimeState) && canReply}
           canReply={canReply}
         />

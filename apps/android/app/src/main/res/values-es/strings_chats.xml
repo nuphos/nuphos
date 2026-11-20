@@ -66,4 +66,5 @@
     <string name="chats_presence_sign_in">Requiere iniciar sesión</string>
     <string name="chats_presence_usage">Sin uso disponible</string>
     <string name="chats_presence_unavailable">No disponible</string>
+    <string name="decision_acted_on_by">Ejecutado por</string>
 </resources>

@@ -8,6 +8,7 @@ import type { AgentConversation, AgentInputRequest } from '../../../api/agent-ty
  */
 export type ReplyQuestion = {
   id: string
+  aboutConversations?: AgentInputRequest['aboutConversations']
   question: string
   /** The markdown the agent wrote to decide from. */
   body?: string
@@ -50,6 +51,7 @@ export function requestQuestion({
   site,
   providers,
   credentials,
+  aboutConversations,
 }: Pick<
   AgentInputRequest,
   | 'id'
@@ -64,9 +66,11 @@ export function requestQuestion({
   | 'site'
   | 'providers'
   | 'credentials'
+  | 'aboutConversations'
 >): ReplyQuestion {
   return {
     id,
+    ...(aboutConversations?.length && { aboutConversations }),
     question,
     ...(body && { body }),
     ...(options && { options }),

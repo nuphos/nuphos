@@ -2,7 +2,7 @@ import { ArtifactToolPart } from '../artifacts/ArtifactCard'
 import { PermissionGrantCard } from '../PermissionGrantCard'
 
 import { extractProposalIdFromOutput } from './applyEvent'
-import { DecisionToolPart } from './ConnectCard'
+import { DecisionToolPart } from './DecisionToolPart'
 import { ThreadBadge } from './ThreadBadge'
 import { isThreadBadgePart } from './threadBadges'
 import { ChartToolPart } from './toolParts'

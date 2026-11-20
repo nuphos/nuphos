@@ -6,6 +6,7 @@ enum BotQuestionsTests {
         listsTheBotsQuestionsAtAnyDepth()
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
+        decodesConversationRecipients()
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
@@ -198,6 +199,18 @@ enum BotQuestionsTests {
             row("loop-a", parent: "loop-b", asks: [("q-4", "d")]), row("loop-b", parent: "loop-a"),
         ]
         precondition(BotQuestions.under(bot: "bot", rows: rows).isEmpty)
+    }
+
+    private static func decodesConversationRecipients() {
+        let json = """
+        {"id":"release","question":"Publish?","aboutConversations":[
+          {"sessionId":"writer","title":"Release writer"},{"sessionId":"checker","title":"Release checker"}]}
+        """
+        let request = try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(json.utf8))
+        let question = BotQuestion(sessionId: "coordinator", title: "Release coordinator", request: request)
+        precondition(question.request.aboutConversations?.map(\.title) == ["Release writer", "Release checker"])
+        let ordinary = try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(#"{"id":"ordinary","question":"Publish?"}"#.utf8))
+        precondition(ordinary.aboutConversations == nil)
     }
 
     private static func decodesTheOpenRequestsOfAListRow() {

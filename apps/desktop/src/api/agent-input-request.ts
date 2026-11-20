@@ -21,6 +21,8 @@ export type AgentInputRequest = {
   providers?: string[]
   credentials?: { provider: 'personal'; id: PersonalCredentialProvider }[]
   planId?: string
+  /** Conversation recipients resolved by the server for this viewer. */
+  aboutConversations?: { sessionId: string; title: string }[]
   askedAt: string
   /** Set aside by its owner: out of the Inbox until then (ISO), still answerable in its chat. */
   snoozedUntil?: string

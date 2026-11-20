@@ -4,7 +4,7 @@ import { dismissQuestion, snoozeQuestion } from '../../views/inbox/dismissQuesti
 import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { QuestionSource } from '../../views/inbox/QuestionRail'
 import { answerQuestion, useAnswerFailure } from '../../views/inbox/useInbox'
-import { DecisionToolPart } from '../agent/panel/ConnectCard'
+import { DecisionToolPart } from '../agent/panel/DecisionToolPart'
 import { ConnectCardContext } from '../agent/panel/connectCardContext'
 import { parseChoiceRequest } from '../agent/panel/connectCardModel'
 

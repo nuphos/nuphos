@@ -66,4 +66,5 @@
     <string name="chats_presence_sign_in">需要登入</string>
     <string name="chats_presence_usage">用量已用完</string>
     <string name="chats_presence_unavailable">無法使用</string>
+    <string name="decision_acted_on_by">執行對話</string>
 </resources>

@@ -155,6 +155,7 @@ internal fun TaskSummarySheet(
                 key(selected.id) {
                     BotQuestionCard(
                         selected,
+                        onOpenConversation = onOpen,
                         showsFrom = selected.sessionId != session.sessionId,
                         onOpen = { onOpen(selected.sessionId) },
                         onAnswer = { if (allowed()) inbox.answer(selected, it, scope) },

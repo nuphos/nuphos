@@ -52,6 +52,7 @@ struct BotQuestionCard: View {
             if showsFrom {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
             }
+            DecisionConversations(conversations: question.request.aboutConversations, teamId: teamId, onLink: onLink)
             AskedSecretCard(question: question, part: part, teamId: teamId) { saved = true }
             if !saved { dismiss }
         }
@@ -64,6 +65,8 @@ struct BotQuestionCard: View {
                 QuestionSource(question: question, prominent: true, identifier: "botQuestion.source", open: onOpen)
                     .padding(.bottom, 6)
             }
+            DecisionConversations(conversations: question.request.aboutConversations, teamId: teamId, onLink: onLink)
+                .padding(.bottom, question.request.aboutConversations?.isEmpty == false ? 6 : 0)
             QuestionTitle(text: question.request.question, size: 17, identifier: "botQuestion.title")
             if let body = question.ownBody {
                 questionBody(body).padding(.top, 4)
@@ -323,6 +326,38 @@ struct FlowLayout: Layout {
                 x += item.size.width + spacing
             }
             y += height + spacing
+        }
+    }
+}
+
+/// The server has already filtered resources and conversations this viewer cannot read.
+struct DecisionConversations: View {
+    let conversations: [AgentConversation.DecisionConversation]?
+    let teamId: String
+    var onLink: ((URL) -> Void)?
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        if let conversations, !conversations.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Acted on by").foregroundStyle(Theme.muted)
+                ForEach(conversations, id: \.sessionId) { conversation in
+                    Button {
+                        guard let url = URL(string: "https://nuphos.ai/teams/\(teamId)/agent/\(conversation.sessionId)") else { return }
+                        if let onLink { onLink(url) } else { openURL(url) }
+                    } label: {
+                        HStack(spacing: 6) {
+                            AgentAvatar(agentId: conversation.sessionId, runtime: nil, size: 16, showBadge: false)
+                            Text(conversation.title).lineLimit(1)
+                        }
+                        .padding(.horizontal, 8).padding(.vertical, 5)
+                        .background(Theme.control, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .font(.system(size: 13))
+            .accessibilityIdentifier("decision.conversations")
         }
     }
 }

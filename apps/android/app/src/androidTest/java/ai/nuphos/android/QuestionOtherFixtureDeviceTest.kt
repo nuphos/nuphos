@@ -62,7 +62,7 @@ class QuestionOtherFixtureDeviceTest {
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
                 for (question in listOf(deploy, plan)) {
-                    BotQuestionCard(question, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
+                    BotQuestionCard(question, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
                 }
             }
         }
@@ -159,8 +159,8 @@ class QuestionOtherFixtureDeviceTest {
         var connecting by mutableStateOf<BotQuestion?>(null)
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                BotQuestionCard(github, onOpen = {}, onAnswer = {}, onConnect = { connecting = github })
-                BotQuestionCard(own, onOpen = {}, onAnswer = {}, onConnect = { connecting = own })
+                BotQuestionCard(github, onOpenConversation = {}, onOpen = {}, onAnswer = {}, onConnect = { connecting = github })
+                BotQuestionCard(own, onOpenConversation = {}, onOpen = {}, onAnswer = {}, onConnect = { connecting = own })
             }
         }
         compose.onNodeWithText("Use your own GitHub").assertIsDisplayed()
@@ -178,7 +178,7 @@ class QuestionOtherFixtureDeviceTest {
         val answers = mutableListOf<String>()
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                BotQuestionCard(play, onOpen = {}, onAnswer = { answers += it }, onConnect = {})
+                BotQuestionCard(play, onOpenConversation = {}, onOpen = {}, onAnswer = { answers += it }, onConnect = {})
             }
         }
         // No connector names Play Console: no picker that can't answer it, nor "answer it in the task".
@@ -198,7 +198,7 @@ class QuestionOtherFixtureDeviceTest {
             listOf("Delete", "Keep"), body = "Idle since the migration."))
         screen {
             Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
-                BotQuestionCard(long, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
+                BotQuestionCard(long, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
             }
         }
         // One line, cut, with the body under it.

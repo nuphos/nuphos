@@ -387,7 +387,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                         is ChannelItem.Typing -> Unit
                         // A Bot's chat: what the Bot and the agents under it wait on, where it was asked.
                         is ChannelItem.Question -> item.question.let { question ->
-                            BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
+                            BotQuestionCard(question, onOpenConversation = { onLink("${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/${session.teamId}/agent/$it") }, onOpen = { onLink(question.link(session.teamId)) },
                                 onAnswer = { option -> if (allowed()) session.answer(question, option, scope) },
                                 onForm = { body -> if (allowed()) session.answer(question, body, scope) },
                                 // The Bot's own questions are this chat's; only an agent under it is named.

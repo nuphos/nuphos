@@ -42,6 +42,7 @@ import {
   isEmptyCredentialAccess,
 } from './credential-access'
 import { getAgentCredentialOptions } from './credential-options'
+import { withDecisionConversations } from './decision-conversations'
 import { answeringIds } from './decision-reply'
 import { serializeMessageDoc } from './errors'
 import { agent } from './router'
@@ -251,13 +252,17 @@ agent.get('/conversations/:sessionId', async (c) => {
   const inherited = source.sessionId !== sessionId
 
   if (inherited) result.conversation.credentialAccess = source.credentialAccess
-  const conversationForViewer = serializeConversationForViewer(
+  const conversationForViewer = await withDecisionConversations(
+    serializeConversationForViewer(
+      result.conversation,
+      viewer,
+      ownerById,
+      slackThreadRecord,
+      await resolveConversationAccess(result.conversation, viewer.id),
+      await answeringIds(result.conversation),
+    ),
     result.conversation,
-    viewer,
-    ownerById,
-    slackThreadRecord,
-    await resolveConversationAccess(result.conversation, viewer.id),
-    await answeringIds(result.conversation),
+    viewer.id,
   )
 
   return c.json({

@@ -58,7 +58,7 @@ class DecisionFormFixtureDeviceTest {
     @Test fun severalQuestionsAreAnsweredAsOneForm() {
         val sent = mutableListOf<JsonValue>()
         val texts = mutableListOf<String>()
-        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true,
+        screen { BotQuestionCard(release, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = { texts += it }, onForm = { sent += it }, answersInPlace = true,
             onDismiss = {}, asksReason = true, onSnooze = {}) }
         artifact("several")
         // The written-out list is not repeated under the form; the agent's own text is.
@@ -86,7 +86,7 @@ class DecisionFormFixtureDeviceTest {
 
     @Test fun typedWordsTakeThePlaceOfAQuestionsPicks() {
         val sent = mutableListOf<JsonValue>()
-        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
+        screen { BotQuestionCard(release, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
         compose.onNodeWithText("Ship it").performClick()
         // Words only behind "Other…", as a single-choice card has them.
         compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(0)
@@ -101,7 +101,7 @@ class DecisionFormFixtureDeviceTest {
     @Test fun aCardTheAgentCorrectsStartsItsFormOver() {
         val sent = mutableListOf<JsonValue>()
         var card by mutableStateOf(release)
-        screen { BotQuestionCard(card, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
+        screen { BotQuestionCard(card, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
         compose.onNodeWithText("Ship it").performClick()
         // Same card id, one more question: the form is rebuilt for three, not indexed past two.
         val questions = release.request.questions!! + DecisionQuestion("Who watches the rollout?", listOf("Can", "Yuanlin"))
@@ -130,9 +130,9 @@ class DecisionFormFixtureDeviceTest {
         """))
         screen {
             // As the Inbox draws them: Snooze and Dismiss end the row (#3468).
-            BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false,
+            BotQuestionCard(deploy, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false,
                 onDismiss = {}, asksReason = true, onSnooze = {})
-            BotQuestionCard(regions, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false,
+            BotQuestionCard(regions, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false,
                 onDismiss = {}, asksReason = true, onSnooze = {})
         }
         artifact("single-and-multi")
@@ -167,7 +167,7 @@ class DecisionFormFixtureDeviceTest {
             {"id":"q-one","category":"preference","question":"Which regions ship today?","options":["a","b"],
              "questions":[{"question":"Which regions ship today?","options":["x","y"],"multiSelect":true}]}
         """))
-        screen { BotQuestionCard(card, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false) }
+        screen { BotQuestionCard(card, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, onForm = { sent += it }, showsFrom = false) }
         // The entry's own options, picked rather than answered by a tap.
         compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
         compose.onNodeWithText("x").performClick()
@@ -185,7 +185,7 @@ class DecisionFormFixtureDeviceTest {
         val tester = StateRestorationTester(compose)
         val deploy = BotQuestion("bot-release", "Release Lead",
             InputRequest("q-deploy", "approval", "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA")))
-        tester.setContent { NuphosTheme { Surface { BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = {}, showsFrom = false) } } }
+        tester.setContent { NuphosTheme { Surface { BotQuestionCard(deploy, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = {}, showsFrom = false) } } }
         compose.onNodeWithTag("bot-question-other").performClick()
         compose.onNodeWithTag("bot-question-answer").performTextInput("After QA signs off")
         tester.emulateSavedInstanceStateRestore()

@@ -102,6 +102,7 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                     }
                     BotQuestionCard(
                         selected,
+                        onOpenConversation = { nav.navigate("conversation/$it") },
                         onOpen = { nav.navigate("conversation/${selected.sessionId}") },
                         onAnswer = { answer -> if (allowed()) {
                             advance()

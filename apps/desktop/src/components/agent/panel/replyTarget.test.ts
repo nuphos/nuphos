@@ -153,3 +153,21 @@ test('a secret matches its request by id, else by secret name and text, and a ti
   // A tie leaves the card disabled instead of answering the wrong request.
   assert.equal(cardAnswerState(card, unnamed, { latestIdle: false, canReply: true }), 'closed')
 })
+
+test('server-resolved recipients survive mapping an open request to its card', () => {
+  const aboutConversations = [{ sessionId: 'worker', title: 'Release writer' }]
+  const [question] = conversationQuestions({
+    inputRequests: [
+      {
+        id: 'release',
+        category: 'approval',
+        question: 'Publish?',
+        askedAt: '2026-11-20T00:00:00Z',
+        status: 'open',
+        aboutConversations,
+      },
+    ],
+  })
+
+  assert.deepEqual(question?.aboutConversations, aboutConversations)
+})

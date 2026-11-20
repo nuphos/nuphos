@@ -24,6 +24,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class BotQuestionsTest {
+    @Test fun decodesConversationRecipients() {
+        val request = Http.json.decodeFromString<InputRequest>("""{"id":"release","question":"Publish?","aboutConversations":[
+          {"sessionId":"writer","title":"Release writer"},{"sessionId":"checker","title":"Release checker"}]}""")
+        val question = BotQuestion("coordinator", "Release coordinator", request)
+        assertEquals(listOf("Release writer", "Release checker"), question.request.aboutConversations?.map { it.title })
+        assertNull(Http.json.decodeFromString<InputRequest>("""{"id":"ordinary","question":"Publish?"}""").aboutConversations)
+    }
+
     @Test fun setupPreferencesStayInChat() {
         val bot = AgentConversation(sessionId = "setup", title = "Setup", isOwner = true, botOnboarding = "active",
             inputRequests = listOf(InputRequest("purpose", "preference", "What should I own?", null, null)))

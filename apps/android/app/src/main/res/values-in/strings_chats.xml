@@ -66,4 +66,5 @@
     <string name="chats_presence_sign_in">Perlu masuk</string>
     <string name="chats_presence_usage">Kuota habis</string>
     <string name="chats_presence_unavailable">Tidak tersedia</string>
+    <string name="decision_acted_on_by">Ditindaklanjuti oleh</string>
 </resources>

@@ -175,7 +175,12 @@ data class InputRequest(
     val questions: List<DecisionQuestion>? = null,
     /** ISO time its owner snoozed it until: out of their Inbox till then, still open where it was asked. */
     val snoozedUntil: String? = null,
+    /** Conversation recipients the server resolved for this viewer. */
+    val aboutConversations: List<DecisionConversation>? = null,
 )
+
+@Serializable
+data class DecisionConversation(val sessionId: String, val title: String)
 
 /** One input of a card that asks for a web form's details: its file name and what the person reads. */
 @Serializable

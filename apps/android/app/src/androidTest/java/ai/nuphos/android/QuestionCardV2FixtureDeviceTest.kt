@@ -14,6 +14,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import ai.nuphos.android.model.DecisionConversation
 import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.AgentStore
 import ai.nuphos.android.session.BotQuestion
@@ -43,7 +44,7 @@ class QuestionCardV2FixtureDeviceTest {
         "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA"), askedAt = Instant.now().minus(Duration.ofDays(15)).toString(),
         body = (1..8).joinToString("\n") { "Finding $it: the canary held for an hour." }), runtime = "claude-code")
 
-    private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf()) {
+    private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf(), question: BotQuestion = deploy, onOpenConversation: (String) -> Unit = {}) {
         compose.setContent {
             val context = LocalContext.current
             val store = remember { AgentStore("synthetic", context) }
@@ -51,11 +52,25 @@ class QuestionCardV2FixtureDeviceTest {
             NuphosTheme(darkTheme = dark) { Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
                     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 24.dp)) {
-                        BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = true, onDismiss = onDismiss)
+                        BotQuestionCard(question, onOpenConversation = onOpenConversation, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = true, onDismiss = onDismiss)
                     }
                 }
             } }
         }
+    }
+
+    @Test fun namesAndOpensTheConversationsThatActOnTheAnswer() {
+        var opened: String? = null
+        val question = deploy.copy(request = deploy.request.copy(aboutConversations = listOf(
+            DecisionConversation("writer", "Release writer"), DecisionConversation("checker", "Release checker"),
+        )))
+        show(question = question, onOpenConversation = { opened = it })
+        compose.onNodeWithText("Acted on by").assertIsDisplayed()
+        compose.onNodeWithText("Release writer").assertIsDisplayed()
+        compose.onNodeWithText("Release checker").assertIsDisplayed()
+        capture("decision-conversations")
+        compose.onNodeWithText("Release writer").performClick()
+        assertEquals("writer", opened)
     }
 
     private fun bounds(tag: String, index: Int = 0) = compose.onAllNodesWithTag(tag)[index].fetchSemanticsNode().boundsInRoot

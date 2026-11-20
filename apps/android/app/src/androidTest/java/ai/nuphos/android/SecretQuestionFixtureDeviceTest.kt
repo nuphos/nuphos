@@ -145,7 +145,7 @@ class SecretQuestionFixtureDeviceTest {
             NuphosTheme { Surface(Modifier.fillMaxSize()) {
                 CompositionLocalProvider(LocalAgentStore provides store) {
                     Column(Modifier.fillMaxSize().padding(16.dp)) {
-                        BotQuestionCard(form, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
+                        BotQuestionCard(form, onOpenConversation = {}, onOpen = {}, onConnect = {}, onAnswer = {}, answersInPlace = true)
                     }
                 }
             } }

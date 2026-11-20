@@ -1,5 +1,6 @@
 import { resolveConversationAccessList } from '@/lib/agent/devices/conversation-computer'
 import { buildConversationOwnerMap, serializeConversationForViewer } from './conversation-view'
+import { withDecisionConversations } from './decision-conversations'
 import { answeringIds } from './decision-reply'
 import { getLocalActiveAgentRun } from './run-registry'
 
@@ -186,50 +187,56 @@ export async function serializeConversationList<T extends ListedConversation>(
       : undefined,
   ])
 
-  return conversations.map((conversation, index) => {
-    const run = activeRuns[index]
-    const runtimeState = withRunChannels(
-      withDesktops(
-        restingRuntimeState(runtimeStates[index], Boolean(run)),
-        desktops[index] ?? { tools: [], canOpen: false },
-      ),
-      run,
-    )
-    const bot = runtimes ? bots.indexOf(conversation) : -1
-
-    return {
-      ...listRow(
-        serializeConversationForViewer(
-          conversation,
-          viewer,
-          ownerById,
-          slackThreadBySessionId.get(conversation.sessionId),
-          accesses[index] ?? null,
-          answering[index],
+  return Promise.all(
+    conversations.map(async (conversation, index) => {
+      const run = activeRuns[index]
+      const runtimeState = withRunChannels(
+        withDesktops(
+          restingRuntimeState(runtimeStates[index], Boolean(run)),
+          desktops[index] ?? { tools: [], canOpen: false },
         ),
-      ),
-      linkedResources: [
-        ...(threadResources.get(conversation.sessionId) ?? []),
-        ...((conversation.linkedResources as unknown[] | undefined) ?? []),
-      ],
-      activeRun:
-        runtimeState.state === 'active' && run
-          ? { streamId: run.streamId, startedAt: run.startedAt }
-          : null,
-      runtimeState,
-      ...faces[index],
-      ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
-      ...(runtimes && bot >= 0
-        ? {
-            presence: botPresence({
-              ownerRemoved: Boolean(ownerById.get(conversation.userId)?.deactivated),
-              runtime: runtimes[bot] ?? null,
-              busy: runtimeState.state === 'active' && Boolean(run),
-            }),
-          }
-        : {}),
-    }
-  })
+        run,
+      )
+      const bot = runtimes ? bots.indexOf(conversation) : -1
+
+      return {
+        ...listRow(
+          await withDecisionConversations(
+            serializeConversationForViewer(
+              conversation,
+              viewer,
+              ownerById,
+              slackThreadBySessionId.get(conversation.sessionId),
+              accesses[index] ?? null,
+              answering[index],
+            ),
+            conversation as unknown as AgentConversation,
+            viewer.id,
+          ),
+        ),
+        linkedResources: [
+          ...(threadResources.get(conversation.sessionId) ?? []),
+          ...((conversation.linkedResources as unknown[] | undefined) ?? []),
+        ],
+        activeRun:
+          runtimeState.state === 'active' && run
+            ? { streamId: run.streamId, startedAt: run.startedAt }
+            : null,
+        runtimeState,
+        ...faces[index],
+        ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
+        ...(runtimes && bot >= 0
+          ? {
+              presence: botPresence({
+                ownerRemoved: Boolean(ownerById.get(conversation.userId)?.deactivated),
+                runtime: runtimes[bot] ?? null,
+                busy: runtimeState.state === 'active' && Boolean(run),
+              }),
+            }
+          : {}),
+      }
+    }),
+  )
 }
 
 /**

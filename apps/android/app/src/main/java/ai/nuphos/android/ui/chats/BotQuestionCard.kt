@@ -74,6 +74,7 @@ import androidx.compose.ui.res.stringResource
 @Composable
 internal fun BotQuestionCard(
     question: BotQuestion,
+    onOpenConversation: (String) -> Unit,
     onOpen: () -> Unit,
     onAnswer: (String) -> Unit,
     showsFrom: Boolean = true,
@@ -104,6 +105,7 @@ internal fun BotQuestionCard(
         }
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DecisionConversations(question, onOpenConversation)
                 if (chat) ChatQuestionHead(question, showsFrom, onOpen, onLink)
                 else {
                     Text(heading(question.request.category), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
@@ -305,3 +307,24 @@ private fun heading(category: String?): String = stringResource(when (category) 
     "risk_tradeoff" -> R.string.chats_question_heading_tradeoff
     else -> R.string.chats_question_heading_decision
 })
+
+/** Only the backend resolves references and decides whether a title is visible. */
+@Composable
+private fun DecisionConversations(question: BotQuestion, onOpenConversation: (String) -> Unit) {
+    val targets = question.request.aboutConversations.orEmpty()
+    if (targets.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.testTag("decision-conversations")) {
+        Text(stringResource(R.string.decision_acted_on_by), style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        targets.forEach { target ->
+            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+                onClick = { onOpenConversation(target.sessionId) }) {
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ai.nuphos.android.ui.components.AgentAvatar(target.sessionId, null, 16.dp, showBadge = false)
+                    Text(target.title, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}

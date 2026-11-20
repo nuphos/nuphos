@@ -4,32 +4,21 @@ import { api } from '../../../api'
 import { useTeamRole } from '../../../hooks/useTeamRole'
 import { TeamHomeBindFlow } from '../../../views/cloud/team-home-bind-flow'
 
-import { ChoiceCard } from './ChoiceCard'
 import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
   connectBlock,
   connectRowStatus,
-  decisionRequestId,
   newConnectIds,
-  parseChoiceRequest,
-  parseConnectRequest,
-  parseSecretRequest,
   personalConnectStatus,
   withConnectIds,
 } from './connectCardModel'
 import { ConnectHeader, ConnectRow } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
-import { cardAnswerState } from './replyTarget'
 import { setPersonalOnly } from './personalIdentity'
-import { SecretCard } from './SecretCard'
-import { ToolPartView } from './ToolPartView'
-import { isDecisionFailed } from './toolRuns'
 
 import type { ConnectPhase, ConnectProvider, ConnectRowStatus } from './connectCardModel'
 import type { CredentialSelectorControl } from './credentialSections'
-import type { ToolPart } from './parts'
-import type { DecisionCardRef } from './replyTarget'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { TeamHomeBindFlowHandle } from '../../../views/cloud/team-home-bind-flow'
 
@@ -209,66 +198,4 @@ export function ConnectCard({
       )}
     </div>
   )
-}
-
-/** A user decision: a Connect card when it lists `providers`, a secure input card when it names a `secretName`, else its question card; the plain tool row until the input parses. */
-export function DecisionToolPart({
-  part,
-  now,
-  teamId,
-  canAct,
-  canReply,
-}: {
-  part: ToolPart
-  now: number
-  teamId?: string
-  /** The latest idle reply. */
-  canAct: boolean
-  canReply: boolean
-}) {
-  const openQuestions = useContext(ConnectCardContext)?.openQuestions
-  const failed = isDecisionFailed(part)
-  const connect = failed ? null : parseConnectRequest(part.input)
-  const secret = failed || connect ? null : parseSecretRequest(part.input)
-  const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
-  const requestId = decisionRequestId(part.output)
-  const state = (card: Omit<DecisionCardRef, 'toolCallId' | 'requestId'>) =>
-    cardAnswerState({ toolCallId: part.toolCallId, requestId, ...card }, openQuestions, {
-      latestIdle: canAct,
-      canReply,
-    })
-
-  if (connect) {
-    return (
-      <ConnectCard
-        toolCallId={part.toolCallId}
-        teamId={teamId}
-        providers={connect.providers}
-        reason={connect.reason}
-        personal={connect.personal}
-        canAct={state({ question: connect.reason }) === 'open'}
-      />
-    )
-  }
-  if (secret) {
-    return (
-      <SecretCard
-        {...secret}
-        toolCallId={part.toolCallId}
-        requestId={requestId}
-        state={state({ question: secret.reason, secretName: secret.name })}
-      />
-    )
-  }
-  if (choice) {
-    return (
-      <ChoiceCard
-        {...choice}
-        toolCallId={part.toolCallId}
-        canAct={state({ question: choice.question, options: choice.options }) === 'open'}
-      />
-    )
-  }
-
-  return <ToolPartView part={part} now={now} />
 }
