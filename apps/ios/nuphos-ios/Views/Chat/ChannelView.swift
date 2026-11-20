@@ -344,6 +344,7 @@ struct ChannelView: View {
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
+                    onVerify: actionable && owns(event.agentId) ? event.verifyUrl.map { url in { openURL(url) } } : nil,
                     onSwitch: actionable && owns(event.agentId) && ["usage_limit", "auth", "offline"].contains(event.cause ?? "")
                         ? { if let id = event.agentId { switchingBot = store.session(sessionId: id, title: channel.title, teamId: channel.teamId) } }
                         : nil,
@@ -594,15 +595,28 @@ private struct PausedLine: View {
     }
 }
 
-/// An agent could not reply: what happened and why, when its usage returns, and the fix.
+/// An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry.
 private struct ReplyFailedLine: View {
     let event: AgentConversationDetail.TimelineEvent
+    var onVerify: (() -> Void)?
     var onSwitch: (() -> Void)?
     var onRetry: (() -> Void)?
 
     private var resets: String? {
         guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
         return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+    }
+
+    @ViewBuilder private var fixes: some View {
+        if let onVerify {
+            Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
+        }
+        if let onSwitch {
+            Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+        }
+        if let onRetry {
+            Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+        }
     }
 
     var body: some View {
@@ -612,14 +626,11 @@ private struct ReplyFailedLine: View {
                 Text([event.text, resets].compactMap(\.self).joined(separator: " "))
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
-            if onSwitch != nil || onRetry != nil {
-                HStack(spacing: 8) {
-                    if let onSwitch {
-                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
-                    }
-                    if let onRetry {
-                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
-                    }
+            if onVerify != nil || onSwitch != nil || onRetry != nil {
+                // In one line when they fit, else one under another.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { fixes }
+                    VStack(alignment: .leading, spacing: 8) { fixes }
                 }
                 .font(Theme.Text.caption)
                 .padding(.leading, 17)

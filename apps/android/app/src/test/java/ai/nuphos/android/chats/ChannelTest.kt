@@ -19,6 +19,7 @@ import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.ChannelSession
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
@@ -28,6 +29,16 @@ class ChannelTest {
     private val person = """{"id":"m1","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:20:00.000Z"},"parts":[{"type":"text","text":"Morning!"}]}"""
     private val agent = """{"id":"m2","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"agent-ops","displayName":"Release ops"},"sentAt":"2026-11-03T09:23:00.000Z","sourceSessionId":"agent-ops"},"parts":[{"type":"text","text":"Screenshots:"},{"type":"transfer-download","groupId":"g1"},{"type":"transfer-download","groupId":"g2"}]}"""
     private val upload = """{"id":"m3","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:40:00.000Z"},"parts":[{"type":"text","text":"Crash"},{"type":"transfer-upload","groupId":"64b5f1c2e4b0a1d2c3e4f5a7","status":"ready","files":[{"fileName":"crash.png","status":"ready"}]}]}"""
+
+    /** #3967: the portal Anthropic named for a held account, for Verify with Anthropic. */
+    @Test fun readsWhereAHeldAccountIsVerified() {
+        val held = Http.json.decodeFromString<AgentConversationDetail.TimelineEvent>(
+            """{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed","agentId":"bot-1","cause":"usage_limit","verifyUrl":"https://portal.anthropic.com/verify"}""")
+        assertEquals("https://portal.anthropic.com/verify", held.verifyUrl)
+        val other = Http.json.decodeFromString<AgentConversationDetail.TimelineEvent>(
+            """{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed"}""")
+        assertNull(other.verifyUrl)
+    }
 
     @Test fun typingAndPostAvatarsKeepKnownProvidersWithoutInventingMissingOnes() {
         for (provider in listOf("codex", "grok", null)) {
