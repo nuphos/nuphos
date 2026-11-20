@@ -12,7 +12,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, noteReplyFailed, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -1324,6 +1324,17 @@ describe('an agent whose computer is offline', () => {
       }),
     ])
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+  })
+
+  // #3332: a runtime that kept dropping wrote a line for every failed wake.
+  test('says it could not reply once per post, however often a dropping runtime fails again', async () => {
+    await say('anyone there?')
+    for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(1)
+
+    await say('still there?')
+    await noteReplyFailed('channel', 'agent-a', offline())
+    expect(await failures()).toHaveLength(2)
   })
 
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {

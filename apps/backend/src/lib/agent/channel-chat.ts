@@ -138,11 +138,16 @@ export async function postAsAgent(
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
   const quote = await replyQuote(channel, replyTo)
+  // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
+  const id =
+    channel.external === 'slack'
+      ? await slackPost(channel, agent, text, files, quote)
+      : randomUUID()
 
   await postChannelMessage(
     channel,
     {
-      id: randomUUID(),
+      id,
       text,
       metadata: {
         version: 1,
@@ -161,6 +166,20 @@ export async function postAsAgent(
     },
     agent.sessionId,
   )
+}
+
+async function slackPost(
+  channel: AgentConversation,
+  agent: Pick<AgentConversation, 'title'>,
+  text: string,
+  files: object[],
+  quote: MessageMetadata['replyTo'],
+) {
+  if (files.length > 0) throw new Error('Files cannot be posted to a Slack channel yet.')
+  // Lazy so importing this does not pull in the Slack client.
+  const { postToSlack } = await import('@/lib/slack/external-chat-post')
+
+  return await postToSlack(channel, agent, text, quote)
 }
 
 /** One more agent-woken turn, if the budget has room for it. */

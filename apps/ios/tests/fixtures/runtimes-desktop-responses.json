@@ -76,7 +76,9 @@
   "GET /agent/conversations": {
     "status": 200,
     "body": {
-      "conversations": []
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
     }
   },
   "GET /agent/devices": {

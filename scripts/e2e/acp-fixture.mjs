@@ -124,11 +124,11 @@ async function prompt({ sessionId, prompt: parts }) {
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('\n')
-  const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
+  const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
+  const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
-  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
-  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  log({ sessionId, marker, markers, event: 'start', language: promptLanguage(text) })
+  // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
