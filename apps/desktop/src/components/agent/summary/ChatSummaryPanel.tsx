@@ -50,7 +50,7 @@ type Props = {
   lead?: ReactNode
   /** Drawn after a Bot's instructions: what the Bot may use. */
   access?: ReactNode
-  onEditTrigger?: (message: string) => void
+  onEditTrigger?: (message: string) => void // seeds the composer: a Trigger row's Edit
   /** The panel's accessible name; by default "Task summary". */
   label?: string
   /** Closes the panel; by default this pane's Task summary. */

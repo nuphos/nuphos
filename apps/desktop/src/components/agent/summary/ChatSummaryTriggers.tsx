@@ -133,11 +133,11 @@ export function ChatSummaryTriggers({
               onClick={() => setOpenId((open) => (open === trigger.id ? null : trigger.id))}
               className="-mx-1.5 min-w-0 flex-1 rounded-md px-1.5 py-1 text-left hover:bg-state-hover"
             >
-              <p className="break-words text-[13px] text-main">{trigger.name}</p>
-              <p className="mt-1 text-xs leading-5 text-tertiary">
+              <span className="block break-words text-[13px] text-main">{trigger.name}</span>
+              <span className="mt-1 block text-xs leading-5 text-tertiary">
                 {trigger.scheduleDescription ?? scheduleSummary(trigger)}
-              </p>
-              <p className="text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</p>
+              </span>
+              <span className="block text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</span>
             </button>
             <span className="pt-1">
               <Switch
