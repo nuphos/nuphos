@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Run AWS CLI v2 commands from the sandbox to inspect or change AWS resources (CloudWatch, SNS, EKS, EC2, IAM, VPC, etc.). Includes the CloudWatch Alarm to Nuphos Trigger and Slack workflow.
+description: Run AWS CLI v2 to inspect or change AWS resources. Use at once for a Nuphos /s3-buckets/ link (fetch and show it), AccessDenied on the BYOC role, or CloudWatch alarms into Triggers.
 ---
 
 # AWS CLI

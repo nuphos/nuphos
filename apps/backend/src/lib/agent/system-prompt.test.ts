@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'bun:test'
 
 import { getSystemPrompt, renderPromptTemplate } from './system-prompt'
@@ -49,6 +51,19 @@ describe('vendored prompt files', () => {
       '# Response budget',
     ])
       expect(prompt).not.toContain(moved)
+  })
+
+  // The moved S3 and IAM rules apply only once the agent loads the aws skill, so its
+  // description has to name those cases.
+  it('the aws skill description names the cases moved into it', () => {
+    const skill = readFileSync(
+      new URL('./builtin-skills/skills/aws/SKILL.md', import.meta.url),
+      'utf8',
+    )
+    const description = skill.match(/^description: (.*)$/m)?.[1] ?? ''
+
+    expect(description).toContain('/s3-buckets/')
+    expect(description).toContain('AccessDenied on the BYOC role')
   })
 
   // Every Bot loads this prompt, so it must not cast the agent as only a
