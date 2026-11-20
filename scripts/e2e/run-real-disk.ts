@@ -7,7 +7,7 @@ import { installScenarios } from './install-scenarios.ts'
 import { artifacts, logPath, stopAll, until } from './processes.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
-import { newTask, pickInSubmenu, send } from './ui.ts'
+import { newTask, pickAgent, pickInSubmenu, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Page } from 'playwright-core'
@@ -76,6 +76,7 @@ try {
   await page.reload()
   // Persist the first conversation on the healthy fixture runtime before moving it to the full disk.
   await newTask(page)
+  await pickAgent(page, 'E2E fixture agent')
   await send(page, 'Prepare the fictional release E2E_DELIVERY:disk-first')
   await page.getByText('ACK E2E_DELIVERY:disk-first').waitFor({ timeout: 60_000 })
   await chooseLocal(page)
