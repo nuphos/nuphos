@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { rememberVoicePlan } from '../../components/agent/panel/voiceSubscription'
 
 import type { BoxUsage } from '../../api/device-types'
 
@@ -20,6 +21,7 @@ export function useBoxUsage(teamId: string) {
     void api.boxUsage(teamId).then(
       (next) => {
         if (cancelled) return
+        rememberVoicePlan(teamId, next)
         setUsage(next)
         setFailed(false)
       },

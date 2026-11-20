@@ -41,17 +41,25 @@ export const botSubtaskModelScenarios: Scenario[] = [
         if ((await tree.first().getAttribute('aria-label')) === 'Show sub-tasks')
           await tree.first().dispatchEvent('click')
         await kid.click()
+        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
+
+        // #3789: while it still runs, its chip names the model its session reports, not the
+        // agent's listed default. The reply is held until the release file exists.
+        await until("the running sub-Task's chip to name its model", async () =>
+          (await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted'),
+        )
+        await light()
+        await page.screenshot({ path: `${artifacts}/bot-subtask-model-running-light.png` })
         writeFileSync(release, '')
         await until('the sub-Task to reply', async () =>
           agentEvents(stack).includes('finish E2E_DELIVERY:unlisted-kid'),
         )
         await page.getByText('ACK E2E_DELIVERY:unlisted-kid').waitFor()
-        const chip = page.getByRole('button', { name: /^Model settings/ }).last()
-
-        // Opened while it ran, its chip names the model once the app reads it after the turn.
-        await until("the sub-Task's chip to name its model", async () =>
-          (await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted'),
+        // Still after the turn.
+        if (
+          !(await chip.getAttribute('aria-label'))?.startsWith('Model settings: fixture-unlisted')
         )
+          throw new Error("The finished sub-Task's chip no longer names its model")
         await light()
         await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
       } finally {

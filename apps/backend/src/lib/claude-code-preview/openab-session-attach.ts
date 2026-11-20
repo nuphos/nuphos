@@ -77,10 +77,7 @@ export async function attachOpenAbSession(
 
     return { openabSessionId: stored.openabSessionId, fresh: !alive, defaults, workingDirectory }
   }
-  // The session answers with the settings it actually runs, including the model
-  // it picked on its own. Without them the chip has nothing confirmed to show
-  // until the first turn settles. An explicit pick still went out in `defaults`.
-  const { sessionId: openabSessionId, sessionConfig } = await client.createSession(
+  const { sessionId: openabSessionId } = await client.createSession(
     RUNTIME_CWD,
     mcpServers,
     systemPrompt,
@@ -95,7 +92,6 @@ export async function attachOpenAbSession(
     // The computer's own address, whoever's turn made it: an owner's check then matches too.
     runtimeUrl: runtimeAddress(endpoint.url),
     runtimeDefaults: defaults,
-    ...(sessionConfig?.length ? { sessionConfig } : {}),
   })
 
   return { openabSessionId, fresh: true, defaults, workingDirectory }

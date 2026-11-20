@@ -239,29 +239,58 @@ export function useDismissOutside(
   }, [rootRef, close, active])
 }
 
+/** How the panel moves now: sliding in as it opens, out as it closes, or not at all. */
+export type Motion = 'in' | 'out' | null
+
+// Matches `.t-summary-slot-out` in index.css.
+const CLOSE_MS = 300
+
+/**
+ * Mounted while open and while it slides shut. It slides in only when it opens:
+ * one mounted open, as when another chat takes the pane, is simply there.
+ */
+export function useSummaryMotion(open: boolean): { mounted: boolean; motion: Motion } {
+  const [mounted, setMounted] = useState(open)
+  const [opened, setOpened] = useState(false)
+
+  if (open && !mounted) setMounted(true)
+  // Once it has been closed, opening again slides it in, even mid slide-out.
+  if (!open && !opened) setOpened(true)
+
+  useEffect(() => {
+    if (open || !mounted) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const timer = window.setTimeout(() => setMounted(false), reduced ? 0 : CLOSE_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [open, mounted])
+
+  return { mounted, motion: open ? (opened ? 'in' : null) : 'out' }
+}
+
 /** Beside the transcript it is a plain column; floating, a popover like the titlebar menus. */
-export function panelClass(floating: boolean, closing: boolean, reply: boolean) {
+export function panelClass(floating: boolean, motion: Motion, reply: boolean) {
   const content = reply
     ? 'w-[440px] overflow-hidden bg-main'
     : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3'
 
   if (!floating)
-    return clsx('flex flex-shrink-0 flex-col', content, closing ? 't-summary-out' : 't-summary-in')
+    return clsx('flex flex-shrink-0 flex-col', content, motion && `t-summary-${motion}`)
 
   return clsx(
     't-dropdown fixed z-[1000] flex max-w-[calc(100vw-1rem)] flex-col rounded-lg border border-line-control/60 bg-main text-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
     content,
-    !closing && 'is-open',
+    motion !== 'out' && 'is-open',
   )
 }
 
 /** Beside, the slot's width opens and closes with the panel; floating, it takes no room. */
-export function slotClass(floating: boolean, closing: boolean, reply: boolean) {
+export function slotClass(floating: boolean, motion: Motion, reply: boolean) {
   return clsx(
     reply ? '[--summary-width:440px]' : '[--summary-width:304px]',
     floating
       ? 'contents'
       : 'flex w-[var(--summary-width)] flex-shrink-0 justify-end overflow-hidden',
-    !floating && (closing ? 't-summary-slot-out' : 't-summary-slot-in'),
+    !floating && motion && `t-summary-slot-${motion}`,
   )
 }
