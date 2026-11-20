@@ -81,11 +81,19 @@ export async function startSlackStub(): Promise<Record<string, string>> {
 }
 
 type SlackMessage = { ts: string; text: string; user?: string; thread_ts?: string }
-type SlackChannel = { name: string; private?: boolean; joined: boolean; messages: SlackMessage[] }
+type SlackPerson = { id: string; name: string; real_name: string }
+type SlackChannel = {
+  name: string
+  private?: boolean
+  joined: boolean
+  messages: SlackMessage[]
+  members?: SlackPerson[]
+}
 
 const slackChannels = new Map<string, SlackChannel>()
 
-/** A channel conversations.* knows, with its messages oldest first; a thread reply has thread_ts. */
+/** A channel conversations.* knows, with its messages oldest first (a thread reply has thread_ts)
+ *  and its members, whom users.list names. */
 export function addSlackChannel(id: string, channel: SlackChannel) {
   slackChannels.set(id, channel)
 }
@@ -122,6 +130,16 @@ const CHANNEL_METHODS: Record<string, (params: Record<string, string>) => object
     )
 
     return channel && { ok: true, messages: thread, has_more: false }
+  },
+  'conversations.members': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+
+    return channel && { ok: true, members: channel.members?.map((person) => person.id) ?? [] }
+  },
+  'users.list': () => {
+    const people = [...slackChannels.values()].flatMap((channel) => channel.members ?? [])
+
+    return people.length > 0 ? { ok: true, members: people } : undefined
   },
 }
 

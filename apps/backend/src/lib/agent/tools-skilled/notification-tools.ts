@@ -109,6 +109,7 @@ export function createNotificationTools(deps: NotificationToolDeps): {
       },
     }),
     slack_read: slackReadTool(slackOutbound, slackNotConnected),
+    slack_members: slackMembersTool(slackOutbound, slackNotConnected),
   }
 
   const larkNotConnected = () => ({
@@ -204,7 +205,9 @@ function slackReadTool(
         .min(1)
         .max(100)
         .optional()
-        .describe('Messages to return (default 15; 200 for a thread).'),
+        .describe(
+          'Messages to return, at most 100. Without it a channel returns 15 and a thread up to 200.',
+        ),
       cursor: z.string().min(1).max(2048).optional(),
       oldest: z
         .string()
@@ -221,6 +224,47 @@ function slackReadTool(
       if (!slackOutbound) return notConnected()
 
       return await slackOutbound.read(input)
+    },
+  })
+}
+
+// The people in a channel, named for a mention, behind the same gate as slack_read.
+function slackMembersTool(
+  slackOutbound: NotificationToolDeps['slackOutbound'],
+  notConnected: () => unknown,
+) {
+  return tool({
+    description:
+      'List the members of a Slack channel the Nuphos Slack App has joined, so you can mention them in slack_post as <@id>; a plain @Name in a post notifies nobody. ' +
+      'Use only a channelId returned by slack_list_destinations; a private channel needs a team administrator. ' +
+      'Each member has id, name (handle), displayName, realName and isBot; no email. Pass query to match part of a name. ' +
+      'truncated means the list is incomplete (more than 200 matches, or members Slack could not name): narrow it with query.',
+    inputSchema: z.object({
+      label: labelField,
+      channelId: z
+        .string()
+        .trim()
+        .min(1)
+        .describe('Stable Slack channel ID returned by slack_list_destinations.'),
+      slackWorkspaceId: z
+        .string()
+        .min(1)
+        .optional()
+        .describe(
+          'The slackWorkspaceId on the chosen slack_list_destinations entry, when it lists more than one workspace.',
+        ),
+      query: z
+        .string()
+        .trim()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe('Part of a handle, display name or real name, case-insensitive.'),
+    }),
+    execute: async ({ label: _label, ...input }) => {
+      if (!slackOutbound) return notConnected()
+
+      return await slackOutbound.members(input)
     },
   })
 }

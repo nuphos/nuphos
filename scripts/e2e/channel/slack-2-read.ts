@@ -1,5 +1,6 @@
 // #4157: an agent reads a Slack channel the app has joined, and one of its threads, through
-// slack_read, the way it posts there; a channel the app is not in stays closed.
+// slack_read, and finds its members to mention through slack_members, the way it posts
+// there; a channel the app is not in stays closed.
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
@@ -34,29 +35,29 @@ function mongo(stack: Stack, body: string, args: unknown): unknown {
 
 let reads = 0
 
-/** What slack_read answered when the agent called it with `args`. */
-async function slackRead(page: Page, stack: Stack, args: object): Promise<string> {
+/** What `tool` answered when the agent called it with `args`. */
+async function slackCall(page: Page, stack: Stack, tool: string, args: object): Promise<string> {
   const marker = `slack-read-${String(++reads)}`
   const before = agentLog(stack).length
 
   await send(
     page,
-    `Read E2E_CALL slack_read ${JSON.stringify({ label: 'Read Slack', ...args })} E2E_DELIVERY:${marker}`,
+    `Read E2E_CALL ${tool} ${JSON.stringify({ label: 'Read Slack', ...args })} E2E_DELIVERY:${marker}`,
   )
   await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
 
   return JSON.stringify(
     agentLog(stack)
       .slice(before)
-      .find((entry) => entry.event === 'called' && entry.name === 'slack_read')?.result,
+      .find((entry) => entry.event === 'called' && entry.name === tool)?.result,
   )
 }
 
 function expectIn(answer: string, words: string[], absent: string[] = []) {
   for (const word of words)
-    if (!answer.includes(word)) throw new Error(`slack_read lacks "${word}": ${answer}`)
+    if (!answer.includes(word)) throw new Error(`Slack tool lacks "${word}": ${answer}`)
   for (const word of absent)
-    if (answer.includes(word)) throw new Error(`slack_read has "${word}": ${answer}`)
+    if (answer.includes(word)) throw new Error(`Slack tool has "${word}": ${answer}`)
 }
 
 export default {
@@ -75,6 +76,10 @@ export default {
         },
         { ts: '1700000003.000100', user: 'U1', text: 'Deploy finished' },
       ],
+      members: [
+        { id: 'U1', name: 'ada', real_name: 'Ada Lovelace' },
+        { id: 'U2', name: 'grace', real_name: 'Grace Hopper' },
+      ],
     })
     addSlackChannel('PREAD', {
       name: 'e2e-private',
@@ -86,6 +91,7 @@ export default {
       name: 'e2e-elsewhere',
       joined: false,
       messages: [{ ts: '1700000005.000100', user: 'U1', text: 'Not for the app' }],
+      members: [{ id: 'U3', name: 'outsider', real_name: 'Out Sider' }],
     })
     const created = mongo(
       stack,
@@ -103,22 +109,41 @@ export default {
       await newTask(page)
       // The channel's top-level messages, newest first; the thread reply stays in its thread.
       expectIn(
-        await slackRead(page, stack, { channelId: 'CREAD' }),
+        await slackCall(page, stack, 'slack_read', { channelId: 'CREAD' }),
         ['Deploy finished', 'Deploy started'],
         ['rollback?'],
       )
       // The thread: its root and replies, oldest first.
       expectIn(
-        await slackRead(page, stack, { channelId: 'CREAD', threadTs: '1700000001.000100' }),
+        await slackCall(page, stack, 'slack_read', {
+          channelId: 'CREAD',
+          threadTs: '1700000001.000100',
+        }),
         ['Deploy started', 'In the thread: rollback?'],
       )
       // A private channel is open to a team administrator, as this e2e member is.
-      expectIn(await slackRead(page, stack, { channelId: 'PREAD' }), ['Private note'])
+      expectIn(await slackCall(page, stack, 'slack_read', { channelId: 'PREAD' }), ['Private note'])
       // A channel the app has not joined gives nothing of it away.
       expectIn(
-        await slackRead(page, stack, { channelId: 'COUT' }),
+        await slackCall(page, stack, 'slack_read', { channelId: 'COUT' }),
         ['not in that Slack channel'],
         ['Not for the app'],
+      )
+      // Its members, named for a mention: only this channel's people, and no email.
+      expectIn(
+        await slackCall(page, stack, 'slack_members', { channelId: 'CREAD' }),
+        ['"id":"U1"', 'Ada Lovelace', '"id":"U2"', 'Grace Hopper'],
+        ['outsider', 'email'],
+      )
+      expectIn(
+        await slackCall(page, stack, 'slack_members', { channelId: 'CREAD', query: 'hopper' }),
+        ['"id":"U2"'],
+        ['"id":"U1"'],
+      )
+      expectIn(
+        await slackCall(page, stack, 'slack_members', { channelId: 'COUT' }),
+        ['not in that Slack channel'],
+        ['outsider'],
       )
     } finally {
       mongo(

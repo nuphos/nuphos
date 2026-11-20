@@ -59,6 +59,7 @@ const dependencies: SlackOutboundDependencies = {
   },
   readHistory: async () => ({ messages: [], hasMore: false }),
   readReplies: async () => ({ messages: [], hasMore: false }),
+  listMembers: async () => ({ members: [], truncated: false }),
 }
 
 beforeEach(() => {

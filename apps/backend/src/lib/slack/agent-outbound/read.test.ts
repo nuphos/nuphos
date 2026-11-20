@@ -36,15 +36,35 @@ const dependencies = {
 
     return { messages: [{ ts: '1.0' }, { ts: '1.5' }], hasMore: false }
   },
+  listMembers: async ({ token, ...input }) => {
+    reads.push({ method: 'members', token, input })
+
+    return { members: people, truncated: false }
+  },
 } as Partial<SlackOutboundDependencies> as SlackOutboundDependencies
 
-async function read(input: Parameters<SlackOutboundContext['read']>[0]) {
-  const context = await createSlackOutboundContext(
+const person = (id: string, name: string, realName: string) => ({
+  id,
+  name,
+  displayName: name,
+  realName,
+  isBot: false,
+})
+let people = [person('U1', 'ada', 'Ada Lovelace'), person('U2', 'grace', 'Grace Hopper')]
+
+async function context() {
+  return (await createSlackOutboundContext(
     { userId: 'user-1', conversationId: 'conv-1', teamId },
     dependencies,
-  )
+  ))!
+}
 
-  return await context!.read(input)
+async function read(input: Parameters<SlackOutboundContext['read']>[0]) {
+  return await (await context()).read(input)
+}
+
+async function members(input: Parameters<SlackOutboundContext['members']>[0]) {
+  return await (await context()).members(input)
 }
 
 beforeEach(() => {
@@ -53,6 +73,7 @@ beforeEach(() => {
   channelGrants = []
   channels = { C1: { isPrivate: false, joined: true } }
   reads.length = 0
+  people = [person('U1', 'ada', 'Ada Lovelace'), person('U2', 'grace', 'Grace Hopper')]
 })
 
 describe('slack read', () => {
@@ -116,5 +137,44 @@ describe('slack read', () => {
     })
     expect(await read({ channelId: 'C1' })).toMatchObject({ ok: true })
     expect(reads.map((entry) => entry.token)).toEqual(['grant-token'])
+  })
+})
+
+describe('slack members', () => {
+  test('lists a joined channel’s members, or those a query matches by any name', async () => {
+    expect(await members({ channelId: 'C1' })).toEqual({
+      ok: true,
+      channel: { id: 'C1', name: 'name-C1' },
+      members: people,
+      truncated: false,
+    })
+    expect(reads).toEqual([{ method: 'members', token: 'own-token', input: { channel: 'C1' } }])
+    expect(await members({ channelId: 'C1', query: 'HOPPER' })).toMatchObject({
+      members: [{ id: 'U2' }],
+    })
+  })
+
+  test('returns at most 200 and says the rest were left out', async () => {
+    people = Array.from({ length: 201 }, (_, i) => person(`U${String(i)}`, `p${String(i)}`, ''))
+
+    const result = await members({ channelId: 'C1' })
+
+    expect(result).toMatchObject({ ok: true, truncated: true })
+    expect(result.ok && result.members.length).toBe(200)
+  })
+
+  test('is closed where slack_read is: an unjoined channel, or a private one to a non-admin', async () => {
+    channels.P1 = { isPrivate: true, joined: true }
+    admin = false
+
+    expect(await members({ channelId: 'C9' })).toEqual({
+      ok: false,
+      error: 'Nuphos is not in that Slack channel.',
+    })
+    expect(await members({ channelId: 'P1' })).toEqual({
+      ok: false,
+      error: 'Only a team administrator can read a private Slack channel.',
+    })
+    expect(reads).toEqual([])
   })
 })

@@ -7,7 +7,12 @@ import {
   listSlackChannelMappings,
 } from '@/lib/slack/agent-bot'
 import { postAgentSlackMessage } from '@/lib/slack/agent-message'
-import { fetchSlackChannelHistory, fetchSlackThreadReplies, openSlackDm } from '@/lib/slack/api'
+import {
+  fetchSlackChannelHistory,
+  fetchSlackChannelMembers,
+  fetchSlackThreadReplies,
+  openSlackDm,
+} from '@/lib/slack/api'
 import { getJoinedSlackChannel, listJoinedSlackChannels } from '@/lib/slack/destinations'
 import {
   getSlackBindingForTeam,
@@ -56,4 +61,5 @@ export const defaultDependencies: SlackOutboundDependencies = {
   postMessage: postAgentSlackMessage,
   readHistory: fetchSlackChannelHistory,
   readReplies: fetchSlackThreadReplies,
+  listMembers: fetchSlackChannelMembers,
 }
