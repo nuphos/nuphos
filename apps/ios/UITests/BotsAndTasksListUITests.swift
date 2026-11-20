@@ -248,6 +248,38 @@ final class BotsAndTasksListUITests: XCTestCase {
         }
     }
 
+    /// Probe: open a running child Task, then receive a later transcript update.
+    func testRunningChildTaskShowsLaterProgress() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        var task = Self.row("agent-deploy", "Deploy to staging", at: "09:47", parent: "bot-lead", working: true)
+        task["messages"] = [Self.post("m1", from: ["type": "user", "id": "507f1f77bcf86cd799439011", "displayName": "You"], text: "Prepare the release.")]
+        task["messagesFirstIndex"] = 0
+        task["messageCount"] = 1
+        responses["GET /agent/conversations/agent-deploy"] = ["status": 200, "body": task]
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        launch(page: "chats")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        lead.tap()
+        let details = app.buttons["bot-details-entry"]
+        XCTAssertTrue(details.waitForExistence(timeout: 10))
+        details.tap()
+        let child = app.buttons.matching(NSPredicate(format: "identifier == 'summary.task' AND label BEGINSWITH 'Deploy to staging'")).firstMatch
+        XCTAssertTrue(child.waitForExistence(timeout: 10))
+        child.tap()
+        XCTAssertTrue(app.staticTexts["Prepare the release."].waitForExistence(timeout: 10))
+        shot("child-task-before-progress")
+        sleep(5)
+        task["messages"] = [Self.post("m1", from: ["type": "user", "id": "507f1f77bcf86cd799439011", "displayName": "You"], text: "Prepare the release."),
+                            Self.post("m2", from: ["type": "agent", "id": "agent-deploy", "displayName": "Task"], text: "Progress: staging is ready.")]
+        task["messageCount"] = 2
+        task["lastActiveAt"] = "2026-11-03T09:59:00Z"
+        responses["GET /agent/conversations/agent-deploy"] = ["status": 200, "body": task]
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        XCTAssertTrue(app.staticTexts["Progress: staging is ready."].waitForExistence(timeout: 20), "The open child Task did not show later progress")
+        shot("child-task-after-progress")
+    }
+
     /// Starts from no stored folds, so earlier runs leave nothing behind.
     private func launch(page: String) {
         app = XCUIApplication()
