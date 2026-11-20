@@ -12,6 +12,7 @@ struct ChannelView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
     var openTask: (String, String) -> Void = { _, _ in }
+    @State private var visible = false
     @State private var canOpenTask = false
     /// The Bot's details, opened from its name (#2983).
     @State private var detailsOpen = false
@@ -159,8 +160,8 @@ struct ChannelView: View {
                 }
             }
             // The Bot's Task list is separate from the channel's messages and questions.
-            .task(id: scenePhase == .active ? channel.botId : nil) {
-                guard scenePhase == .active, channel.botId != nil else { return }
+            .task(id: scenePhase == .active && visible ? channel.botId : nil) {
+                guard scenePhase == .active, visible, channel.botId != nil else { return }
                 while !Task.isCancelled {
                     await store.reload()
                     do { try await Task.sleep(for: .seconds(10)) } catch { return }
@@ -182,7 +183,9 @@ struct ChannelView: View {
             } message: {
                 Text(switchError ?? "")
             }
+            .onDisappear { visible = false }
             .onAppear {
+                visible = true
                 Analytics.shared.screen("channel", teamID: channel.teamId)
                 if draft.isEmpty { draft = ComposerDrafts.text(team: channel.teamId, session: channel.channelId, identity: store.token) }
             }
