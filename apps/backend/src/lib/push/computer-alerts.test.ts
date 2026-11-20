@@ -69,6 +69,51 @@ describe('computer alerts', () => {
     expect(sent.map((request) => request.collapseId)).toEqual(Array(4).fill('computer:mac-1'))
   })
 
+  test('sends FCM only to opted-in Android devices on the configured project', async () => {
+    const android = (token: string, extra: Partial<PushDevice> = {}) =>
+      phone(token, {
+        platform: 'android',
+        environment: 'production',
+        projectId: 'configured',
+        ...extra,
+      })
+
+    phones = [
+      android('enabled', { computerAlerts: true }),
+      android('disabled', { computerAlerts: false }),
+      android('legacy'),
+      android('wrong-project', { computerAlerts: true, projectId: 'other' }),
+    ]
+    const delivered: string[] = []
+    const removed: string[] = []
+    const alert = createComputerAlerts({
+      credentials: () => null,
+      send: async () => {
+        throw new Error('Unexpected APNs send')
+      },
+      fcmProject: () => 'configured',
+      sendFcm: async (project, token, id, event) => {
+        expect([project, id, event.deviceId]).toEqual(['configured', 'user-1', 'mac-1'])
+        delivered.push(token)
+
+        return { status: 404, deadToken: true }
+      },
+      devices: {
+        register: async () => {},
+        unregister: async () => {},
+        listForUser: async () => phones,
+        removeToken: async (token) => {
+          removed.push(token)
+        },
+      },
+      now: () => 0,
+    })
+
+    await alert('user-1', change(false))
+    expect(delivered).toEqual(['enabled'])
+    expect(removed).toEqual(['enabled'])
+  })
+
   test('skip phones that turned them off, and Android', async () => {
     phones = [
       phone('aa', { computerAlerts: false }),

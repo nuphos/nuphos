@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_notifications">Notificaciones</string>
+    <string name="account_computer_alerts">Computadoras sin conexión</string>
+    <string name="account_computer_alerts_help">Recibe un aviso cuando una computadora tuya o que usas lleve 2 minutos sin conexión, y cuando vuelva.</string>
+</resources>
