@@ -512,7 +512,7 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
     registerWait: () => Promise.reject(new Error('an automatic turn asks nobody')),
     awaitDecision: () => Promise.reject(new Error('an automatic turn waits for nobody')),
   }
-  const ask = (toolCall: (typeof request)['toolCall']) => {
+  const ask = (toolCall: { toolCallId: string; title: string; rawInput?: unknown }) => {
     const frames: Record<string, unknown>[] = []
     const tools: Record<string, unknown>[] = []
     const outcome = handleOpenAbPermissionRequest(
