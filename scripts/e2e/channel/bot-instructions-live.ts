@@ -44,13 +44,14 @@ async function askRule(stack: Stack, page: Parameters<Scenario['run']>[0], marke
   let log: ReturnType<typeof agentLog> = []
   let start = -1
 
-  await until(`the Bot to take ${marker}`, async () => {
+  // Until the turn has finished: a Bot still at work reads busy to the scenarios after this one.
+  await until(`the Bot to finish ${marker}`, async () => {
     log = agentLog(stack)
     start = log.findIndex(
       (line) => line.event === 'start' && line.marker === `E2E_DELIVERY:${marker}`,
     )
 
-    return start >= 0
+    return log.some((line) => line.event === 'finish' && line.marker === `E2E_DELIVERY:${marker}`)
   })
   const { sessionId } = log[start] ?? { sessionId: '' }
   const loaded = log
