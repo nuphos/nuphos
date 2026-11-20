@@ -26,7 +26,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,7 +116,7 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                         onConnect = { connect(selected) },
                         onDismiss = { reason -> if (allowed()) {
                             advance()
-                            inbox.dismiss(selected, reason, scope, OpenQuestions.UNDO_MS)
+                            inbox.dismiss(selected, reason, scope)
                         } },
                         asksReason = true,
                         onSnooze = { until -> if (allowed()) {
@@ -172,12 +171,6 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                     })
                 }
             }
-        }
-        if (inbox?.held != null) Snackbar(
-            Modifier.align(Alignment.BottomCenter).padding(16.dp).testTag("inbox-undo"),
-            action = { TextButton(onClick = { inbox.undo() }) { Text(stringResource(R.string.shell_inbox_undo)) } },
-        ) {
-            Text(stringResource(R.string.shell_inbox_dismissed))
         }
     }
 }

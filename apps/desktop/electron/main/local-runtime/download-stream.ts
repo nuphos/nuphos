@@ -102,6 +102,7 @@ export class LocalDownloadStream implements SocketLike {
     if (existing && !overwrite) return this.answer({ t: 'error', error: 'file_exists' })
     // Written beside the target, then put in place whole, so a failed fetch leaves nothing.
     const temporary = join(folder, `.nuphos-download-${randomUUID()}`)
+    let reply: unknown
 
     try {
       const response = await fetch(url, { signal: this.abort.signal })
@@ -116,12 +117,13 @@ export class LocalDownloadStream implements SocketLike {
       if ((await stat(temporary)).size !== size) throw new Error('too_short')
       // rename replaces the file when asked to; otherwise one that appeared meanwhile is kept.
       await (overwrite ? rename(temporary, path) : this.place(temporary, path))
-      this.answer({ t: 'done', path })
+      reply = { t: 'done', path }
     } catch (error) {
-      this.answer({ t: 'error', error: reason(error) })
-    } finally {
-      await unlink(temporary).catch(() => undefined)
+      reply = { t: 'error', error: reason(error) }
     }
+    // Gone before the answer, so whoever reads the folder next never sees it.
+    await unlink(temporary).catch(() => undefined)
+    this.answer(reply)
   }
 
   /** link refuses an existing file; without hard links, an exclusive copy does the same. */

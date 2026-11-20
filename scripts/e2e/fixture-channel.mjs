@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
 // How the fixture Bot answers a chat: it reads on until nothing is left, then posts once.
 const MARKER = /E2E_DELIVERY:[a-z0-9-]+/g
 const indexes = (text) => [...text.matchAll(/"index":\s*(\d+)/g)].map((match) => match[1])
@@ -33,6 +36,14 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
   }
   const marker = (read.match(MARKER) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
   const who = read.includes('E2E_WHO') ? ` from=${whoAsked(read, marker)}` : ''
+
+  // A post marked E2E_DELIVERY:hold-… is answered only once the scenario writes `release` beside
+  // the ACP log. Only while it is the post answered: shown again later, it holds nothing.
+  if (marker.startsWith('E2E_DELIVERY:hold-')) {
+    const release = join(dirname(process.env.E2E_ACP_LOG), 'release')
+
+    while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
+  }
 
   // E2E_TWO_POSTS posts twice and works on, as a Bot that reports and keeps going.
   const twice = read.includes('E2E_TWO_POSTS')

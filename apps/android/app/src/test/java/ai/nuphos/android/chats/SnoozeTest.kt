@@ -77,25 +77,14 @@ class SnoozeTest {
         assertEquals(listOf("a" to "2026-11-18T01:00:00Z", "a" to null), source.snoozed)
     }
 
-    @Test fun aDismissalWaitsOutItsUndoThenTellsTheAgentWhy() = runTest {
+    @Test fun anInboxDismissalLeavesAndTellsTheAgentWhyAtOnce() = runTest {
         val source = Source(listOf(row("a" to null, "b" to null)))
         val inbox = OpenQuestions(source)
         inbox.refresh()
-        val (a, b) = inbox.waiting
-        inbox.dismiss(a, " Already shipped ", this, OpenQuestions.UNDO_MS)
+        inbox.dismiss(inbox.waiting.first(), " Already shipped ", this)
         assertEquals(listOf("b"), inbox.waiting.map { it.request.id })
-        assertEquals(a, inbox.held)
-        testScheduler.advanceTimeBy(OpenQuestions.UNDO_MS - 1)
-        assertTrue(source.dismissed.isEmpty())
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
         assertEquals(listOf("a" to "Already shipped"), source.dismissed)
-        assertNull(inbox.held)
-        // Undone in time: back on the list, and nothing is sent.
-        inbox.dismiss(b, "", this, OpenQuestions.UNDO_MS)
-        inbox.undo()
-        testScheduler.advanceUntilIdle()
-        assertEquals(1, source.dismissed.size)
-        assertTrue(inbox.waiting.any { it.request.id == "b" })
     }
 
     @Test fun aDismissalsReasonIsTrimmedAndKeptWithinWhatTheServerTakes() {
