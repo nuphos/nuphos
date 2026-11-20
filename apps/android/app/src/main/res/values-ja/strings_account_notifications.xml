@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="account_notifications">通知</string>
-    <string name="account_computer_alerts">コンピュータのオフライン</string>
-    <string name="account_computer_alerts_help">所有または使用しているコンピュータが 2 分間オフラインになったときと、オンラインに戻ったときに通知します。</string>
-</resources>
