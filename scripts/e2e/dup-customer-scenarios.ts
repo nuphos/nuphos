@@ -142,9 +142,10 @@ export function dupCustomerScenarios(proxy: NetProxy): Scenario[] {
           } catch {
             await note('no-take-back')
           }
-          for (let s = 1; s <= 8; s++) {
-            await page.waitForTimeout(5000)
-            await note(`turn+${String(s * 5)}s`)
+          // About four minutes, as the reported turn ran (08:45:12 to 08:49:04).
+          for (let s = 1; s <= 24; s++) {
+            await page.waitForTimeout(10_000)
+            await note(`turn+${String(s * 10)}s`)
           }
           await page.screenshot({ path: `${artifacts}/dupc-${label}-during.png` })
           writeFileSync(release, '')
