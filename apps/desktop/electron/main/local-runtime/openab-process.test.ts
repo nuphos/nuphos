@@ -164,7 +164,9 @@ test("a Box runs openab in the memory-capped agents cgroup, keeping openab's own
   const [command, args] = openabCommand('/b/openab', '/l/openab.toml', true)
 
   assert.equal(command, '/usr/bin/systemd-run')
-  assert.ok(args.slice(0, 5).includes(`--slice=${AGENT_SLICE}`))
+  assert.ok(args.includes(`--slice=${AGENT_SLICE}`))
+  // One tool's OOM kill must not stop the scope, and with it openab and every session.
+  assert.ok(args.includes('--property=OOMPolicy=continue'))
   // stopStaleOpenab finds a stale run by this suffix; `--scope` execs openab in place.
   assert.ok(args.join(' ').endsWith('openab run -c /l/openab.toml'))
 })
