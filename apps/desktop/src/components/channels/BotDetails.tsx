@@ -10,6 +10,7 @@ import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
 import { useChatSummaryShortcut } from '../agent/summary/useChatSummaryShortcut'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 import { useAgentSessions } from '../sidebar/agentSessions'
+import { setSidebarMode } from '../sidebar/sidebarModeStore'
 
 import { BotAccessSection } from './BotAccessSection'
 import { botOfChannel } from './botChats'
@@ -134,6 +135,8 @@ export function BotDetailsPanel({
       onOpenRequest={(sessionId) => onOpenSession(sessionId)}
       // A Bot's questions, its own and its Tasks', are answered in the Inbox, open on the one picked.
       onSelectRequest={(request) => {
+        // As the Inbox tab and then the question would: the sidebar shows the Inbox list too.
+        setSidebarMode(teamId, 2)
         selectInboxQuestion(teamId, request.inputRequest.id)
         onOpenLink?.(`/teams/${teamId}/inbox`)
       }}

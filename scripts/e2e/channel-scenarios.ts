@@ -242,6 +242,7 @@ export const channelScenarios: Scenario[] = [
       await page
         .getByRole('heading', { level: 1, name: 'Which marker should the fixture use?' })
         .waitFor()
+      await page.getByRole('tab', { name: /^Inbox/, selected: true }).waitFor({ timeout: 5_000 })
       await page.screenshot({ path: `${artifacts}/bot-details-question-inbox-light.png` })
       await page.getByRole('tab', { name: /^Inbox/ }).click()
       const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })

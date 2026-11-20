@@ -20,11 +20,17 @@ mock.module('../agent/summary/useSessionInputRequests', () => ({
   useSessionInputRequests: () => ({ requests: [], loaded: true, failed: false }),
 }))
 mock.module('../sidebar/agentSessions', () => ({ useAgentSessions: () => ({ data: [] }) }))
-mock.module('../agent/panel/sessionBypass', () => ({ useBypassControl: () => undefined }))
+mock.module('../agent/panel/sessionBypass', () => ({ useBypassControl: () => {} }))
 const picked: [string, string][] = []
 
 mock.module('../../views/inbox/inboxSelection', () => ({
   selectInboxQuestion: (teamId: string, id: string) => picked.push([teamId, id]),
+}))
+
+const modes: [string, number][] = []
+
+mock.module('../sidebar/sidebarModeStore', () => ({
+  setSidebarMode: (teamId: string, page: number) => modes.push([teamId, page]),
 }))
 
 const { BotDetailsPanel } = await import('./BotDetails')
@@ -56,5 +62,7 @@ test("a question under the Bot details' Needs your input opens the Inbox on it",
   } as SessionInputRequest)
 
   assert.deepEqual(picked, [['team-a', 'q1']])
+  // The sidebar turns to the Inbox list (page 2), as the Inbox tab would.
+  assert.deepEqual(modes, [['team-a', 2]])
   assert.deepEqual(opened, ['/teams/team-a/inbox'])
 })
