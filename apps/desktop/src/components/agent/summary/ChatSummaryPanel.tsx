@@ -290,7 +290,8 @@ function SummaryBody({
   )
 
   return (
-    // Beside the transcript the slot resizes with the panel. Floating, it is a popover under the
+    // Beside the transcript the slot's width grows and shrinks so the transcript
+    // reflows with the panel. Floating, the panel is a popover under the
     // titlebar toggle, above the header's fade, so it renders at the root.
     <div className={slotClass(floating, closing, selected !== null)}>
       <span ref={frameRef} aria-hidden className="pointer-events-none absolute inset-0" />
