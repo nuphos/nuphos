@@ -348,7 +348,9 @@ class BotQuestionsTest {
             BotQuestion("s", "Agent", InputRequest("r", category, "Go?", listOf("Approve", "Reject"), planId = planId))
         assertTrue(ask("preference").typed)
         assertFalse(ask("approval", planId = "p1").typed)
-        assertFalse(ask("credential").typed)
+        // A credential question with options is a choice like any other; its secret card takes no words (#4029).
+        assertTrue(ask("credential").typed)
+        assertFalse(BotQuestion("s", "Agent", ask("credential").request.copy(secretName = "API_KEY")).typed)
         // An integration question naming nothing to select, e.g. a service with no connector, takes words.
         assertTrue(ask("integration").typed)
         assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)
