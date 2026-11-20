@@ -1,6 +1,5 @@
-import { clsx } from 'clsx'
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
@@ -14,21 +13,30 @@ import { shellsFromRuntimeState } from '../panel/shells'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
-import { SummaryRow, SummarySection } from './ChatSummaryRows'
+import { SummaryEmpty, SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
 import { summaryTriggerHome } from './chatSummaryTriggerHome'
 import { ChatSummaryTriggers } from './ChatSummaryTriggers'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
-import { PANE, TOGGLE, useDismissOutside, useSummaryPlacement } from './summaryPlacement'
+import {
+  PANE,
+  TOGGLE,
+  panelClass,
+  slotClass,
+  useDismissOutside,
+  useSummaryMotion,
+  useSummaryPlacement,
+} from './summaryPlacement'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
+import type { Motion } from './summaryPlacement'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, ReactNode } from 'react'
 
 type Props = {
   sessionId: string
@@ -40,26 +48,34 @@ type Props = {
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
+  /** Drawn first, above everything the chat did: a Bot chat's card of the Bot. With it, no Changes. */
+  lead?: ReactNode
+  /** Drawn after a Bot's instructions: what the Bot may use. */
+  access?: ReactNode
+  onEditTrigger?: (message: string) => void // seeds the composer: a Trigger row's Edit
+  /** The panel's accessible name; by default "Task summary". */
+  label?: string
+  /** Closes the panel; by default this pane's Task summary. */
+  onClose?: () => void
+  /** What a press outside the floating panel does; by default onClose. */
+  onDismiss?: () => void
 }
 
-// Matches `.t-summary-slot-out` in index.css.
-const CLOSE_MS = 300
-
 /** The panel beside the transcript, mounted while open and while it slides shut. */
-export function ChatSummaryPanel({ open, ...props }: Props & { open: boolean }) {
-  const [mounted, setMounted] = useState(open)
+export function ChatSummaryPanel({
+  open,
+  onClose,
+  onDismiss,
+  ...props
+}: Props & { open: boolean }) {
+  const paneId = usePaneId()
+  const { mounted, motion } = useSummaryMotion(open)
 
-  if (open && !mounted) setMounted(true)
+  const close = onClose ?? (() => setChatSummaryOpen(paneId, false))
 
-  useEffect(() => {
-    if (open || !mounted) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timer = window.setTimeout(() => setMounted(false), reduced ? 0 : CLOSE_MS)
-
-    return () => window.clearTimeout(timer)
-  }, [open, mounted])
-
-  return mounted ? <SummaryBody {...props} closing={!open} /> : null
+  return mounted ? (
+    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} motion={motion} />
+  ) : null
 }
 
 function Skeleton() {
@@ -137,39 +153,16 @@ function BotInstructionsSection({ conversation }: { conversation?: AgentConversa
   )
 }
 
-/** Esc inside the panel closes this pane's summary and hands focus back to the toggle that opened it. */
-function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, paneId: string) {
+/**
+ * Esc inside the panel closes it and hands focus back to the toggle that opened it. A dialog it
+ * opened sits in a portal: its Esc bubbles here through React, but closes only the dialog.
+ */
+function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: () => void) {
   if (event.key !== 'Escape' || event.defaultPrevented) return
+  if (!event.currentTarget.contains(event.target as Node)) return
   event.preventDefault()
-  setChatSummaryOpen(paneId, false)
-  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE())?.focus()
-}
-
-/** Beside the transcript it is a plain column; floating, a popover like the titlebar menus. */
-function panelClass(floating: boolean, closing: boolean, reply: boolean) {
-  const content = reply
-    ? 'w-[440px] overflow-hidden bg-main'
-    : 'w-[304px] gap-3 overflow-y-auto px-3.5 py-3'
-
-  if (!floating)
-    return clsx('flex flex-shrink-0 flex-col', content, closing ? 't-summary-out' : 't-summary-in')
-
-  return clsx(
-    't-dropdown fixed z-[1000] flex max-w-[calc(100vw-1rem)] flex-col rounded-lg border border-line-control/60 bg-main text-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]',
-    content,
-    !closing && 'is-open',
-  )
-}
-
-/** Beside, the slot's width opens and closes with the panel; floating, it takes no room. */
-function slotClass(floating: boolean, closing: boolean, reply: boolean) {
-  return clsx(
-    reply ? '[--summary-width:440px]' : '[--summary-width:304px]',
-    floating
-      ? 'contents'
-      : 'flex w-[var(--summary-width)] flex-shrink-0 justify-end overflow-hidden',
-    !floating && (closing ? 't-summary-slot-out' : 't-summary-slot-in'),
-  )
+  close()
+  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
@@ -182,8 +175,15 @@ function SummaryBody({
   requests,
   requestsLoaded,
   requestsFailed,
-  closing,
-}: Props & { closing: boolean }) {
+  lead,
+  access,
+  onEditTrigger,
+  label,
+  onClose: close,
+  onDismiss: dismiss,
+  motion,
+}: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
+  const closing = motion === 'out'
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const frameRef = useRef<HTMLSpanElement>(null)
@@ -210,17 +210,17 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, paneId, floating && !closing)
+  useDismissOutside(rootRef, dismiss, floating && !closing)
 
   const panel = (
     <aside
       ref={rootRef}
-      aria-label={t('Task summary')}
+      aria-label={label ?? t('Task summary')}
       inert={closing}
-      onKeyDown={(event) => closeOnEscape(event, frameRef.current, paneId)}
+      onKeyDown={(event) => closeOnEscape(event, frameRef.current, close)}
       style={style}
       data-origin="top-right"
-      className={panelClass(floating, closing, selected !== null)}
+      className={panelClass(floating, motion, selected !== null)}
     >
       {selected ? (
         <SessionInputReply
@@ -230,11 +230,12 @@ function SummaryBody({
           teamId={teamId}
           onSelect={select}
           onBack={() => setSelected(null)}
-          onClose={() => setChatSummaryOpen(paneId, false)}
+          onClose={close}
           onOpenSession={onOpenRequest}
         />
       ) : (
         <>
+          {lead}
           <SessionInputQueue
             requests={requests}
             loaded={requestsLoaded}
@@ -243,14 +244,17 @@ function SummaryBody({
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
           <BotInstructionsSection conversation={conversation} />
+          {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
             key={`${teamId}:${triggerHome}`}
             teamId={teamId}
             sessionId={triggerHome}
+            onEdit={onEditTrigger}
           />
           {!loaded && <Skeleton />}
-          {changes.length > 0 && (
+          {/* A Bot's details leave out a Task's pull requests and issues. */}
+          {changes.length > 0 && !lead && (
             <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
           )}
           {subAgents.length > 0 && (
@@ -259,16 +263,8 @@ function SummaryBody({
           {outputs.length > 0 && (
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
-          {loaded && !conversation && (
-            <div className="px-1 pt-1 text-[13px] leading-5">
-              <p className="text-main">{t('Nothing here yet')}</p>
-              <p className="text-tertiary">
-                {t(
-                  'Pull requests, sub-tasks and files from this task appear here after its first reply.',
-                )}
-              </p>
-            </div>
-          )}
+          {/* A Task's first reply fills it; a Bot's card already stands in. */}
+          {loaded && !conversation && !lead && <SummaryEmpty />}
         </>
       )}
     </aside>
@@ -278,7 +274,7 @@ function SummaryBody({
     // Beside the transcript the slot's width grows and shrinks so the transcript
     // reflows with the panel. Floating, the panel is a popover under the
     // titlebar toggle, above the header's fade, so it renders at the root.
-    <div className={slotClass(floating, closing, selected !== null)}>
+    <div className={slotClass(floating, motion, selected !== null)}>
       <span ref={frameRef} aria-hidden className="pointer-events-none absolute inset-0" />
       {floating ? createPortal(panel, document.body) : panel}
     </div>

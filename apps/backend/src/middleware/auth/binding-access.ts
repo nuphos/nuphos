@@ -1,4 +1,4 @@
-import { canEditAccess, canPrincipalsUseAllowList, canUseBinding } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 
 import type { AgentRef } from '@/lib/agents/identity'
@@ -51,32 +51,6 @@ export function requireBindingMemberAccess<E extends Env>(
   return async (c, next) => {
     if (!canRequestUseBinding(c as Context, accessOf(c))) {
       throw new AppError(403, code, message)
-    }
-    await next()
-  }
-}
-
-/**
- * Only its owner may disconnect a private binding; an admin may disconnect a
- * shared one or one without an owner. Otherwise an admin could disconnect a
- * member's private cloud binding and connect the same role again as their own.
- */
-export function requireCanDisconnect(
-  /** The context key holding the binding (`…Binding`) or its member list (`…Access`). */
-  key: string,
-): MiddlewareHandler {
-  return async (c, next) => {
-    const value = (c as unknown as { get: (k: string) => unknown }).get(key)
-    const access = (
-      key.endsWith('Binding') ? (value as { access?: BindingAccess } | undefined)?.access : value
-    ) as BindingAccess | undefined
-
-    if (!canEditAccess(access, c.get('userId'), c.get('teamRole'))) {
-      throw new AppError(
-        403,
-        'binding_private',
-        "Only its owner can disconnect another member's private binding",
-      )
     }
     await next()
   }

@@ -2,11 +2,14 @@
 // team the client adopts as active without refetching, so a response that drops
 // `role` reads as "not an admin" and strands the workspace creator behind every
 // admin-gated surface — the paywall most visibly.
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
+import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
+import { useBoxInstaboxCreate } from '@/lib/test/doubles/box-instabox-create'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useObservability } from '@/lib/test/doubles/observability'
 
 import type { NuphosTeam } from '@/lib/identity/types'
 import type { AuthVariables } from '@/middleware/auth'
@@ -32,11 +35,52 @@ const CREATED: NuphosTeam = {
   billing: { activated: false, active: false },
 }
 
-useIdentity({
+const identity = useIdentity({
   createTeamForUser: () => Promise.resolve(CREATED),
   // `getMyTeams` resolves the caller's membership, so the listing carries a role.
   getMyTeams: () => Promise.resolve([CREATED]),
 })
+
+// The free Box a first team starts (#4186): every `createBox` call, and the events logged.
+const boxes: string[][] = []
+const events: string[] = []
+const boxCreate = useBoxInstaboxCreate({
+  createBox: (...args) => {
+    boxes.push(args.slice(0, 3) as string[])
+
+    return Promise.resolve({})
+  },
+})
+
+useObservability({
+  logEvent: (_level, event) => {
+    events.push(event)
+  },
+  logError: (event) => {
+    events.push(event)
+  },
+})
+
+const savedBox = { ...config.box }
+const savedUrl = config.agent.publicBackendUrl
+
+beforeEach(() => {
+  boxes.length = 0
+  events.length = 0
+  config.box.instabox = { apiKey: 'ibk_test' }
+  config.box.defaultVcpuLimit = 2
+  config.box.defaultMonthlyHours = 50
+  config.agent.publicBackendUrl = 'https://api.example.test'
+})
+
+afterEach(() => {
+  Object.assign(config.box, savedBox)
+  delete config.box.defaultMonthlyHours
+  config.agent.publicBackendUrl = savedUrl
+})
+
+/** Lets the Box start that `POST /teams` does not wait for run to its end. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
 
 const { registerTeamsRootRoutes } = await import('@/routes/teams/root')
 
@@ -91,5 +135,63 @@ describe('POST /teams', () => {
     const fields = (body: TeamBody) => Object.keys(body).sort((a, b) => a.localeCompare(b))
 
     expect(fields(team)).toEqual(fields(teams[0]!))
+  })
+})
+
+describe('POST /teams starts the free Box of a first team', () => {
+  test('a user’s first team starts one Box, Computer 1', async () => {
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(boxes).toEqual([[USER, TEAM, 'Computer 1']])
+    expect(events).toContain('agent.box.first_team_started')
+  })
+
+  test('a second team the user owns starts none', async () => {
+    identity({ getMyTeams: () => Promise.resolve([CREATED, { ...CREATED, id: 'other' }]) })
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(boxes).toEqual([])
+  })
+
+  test('a team the user only joined does not count as theirs', async () => {
+    identity({
+      getMyTeams: () =>
+        Promise.resolve([CREATED, { ...CREATED, id: 'joined', ownerID: 'someone' }]),
+    })
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(boxes).toEqual([[USER, TEAM, 'Computer 1']])
+  })
+
+  test('a deployment without a free Box starts none', async () => {
+    delete config.box.defaultMonthlyHours
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(boxes).toEqual([])
+  })
+
+  test('the team is made, and the failure logged, when the Box cannot start', async () => {
+    boxCreate({ createBox: () => Promise.reject(new Error('instabox is busy')) })
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(events).toContain('agent.box.first_team_failed')
+  })
+
+  test('the team does not wait for a Box that is slow to start', async () => {
+    boxCreate({
+      createBox: () =>
+        new Promise(() => {
+          // never settles
+        }),
+    })
+    const started = performance.now()
+
+    expect((await createTeam()).status).toBe(201)
+    expect(performance.now() - started).toBeLessThan(500)
   })
 })

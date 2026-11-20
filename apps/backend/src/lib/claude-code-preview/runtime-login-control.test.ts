@@ -288,8 +288,34 @@ describe('an added agent whose CLI is missing', () => {
 
     expect(error).toMatchObject({ status: 409, code: 'runtime_not_installed' })
     expect(error?.message).toBe(
-      'OpenCode is not installed on the computer running this agent. Install it there as https://opencode.ai/docs describes, then try again.',
+      "OpenCode isn't installed on this runtime's computer. Update Nuphos there so it can install OpenCode, then try again.",
     )
+    // No shell command to paste: a computer whose Nuphos is up to date installs it on add.
+    expect(error?.message).not.toMatch(/`|curl|npm/u)
+  })
+
+  test('reports an unusable CLI without calling it an installation failure', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has v20.20.2. Update Node.js, then try again."
+    const error = await localAgentNotInstalled(runtimeId, {
+      get: () =>
+        Promise.resolve({
+          conn: 'c1',
+          seenAt: Date.now(),
+          status: {
+            agents: {},
+            instances: [
+              {
+                instanceId,
+                provider: 'opencode',
+                cli: { installed: false, loggedIn: false, probeError: message },
+              },
+            ],
+          },
+        } as never),
+    })
+
+    expect(error?.message).toBe(message)
   })
 
   test('says nothing when the CLI is there or the agent is not reported', async () => {
@@ -350,7 +376,7 @@ describe('an added agent whose CLI its computer installs', () => {
 
     expect(error).toMatchObject({ status: 409, code: 'runtime_install_failed' })
     expect(error?.message).toBe(
-      'Could not install Claude Code on the computer running this agent: curl: (6) no network',
+      "Couldn't install Claude Code on this runtime's computer: curl: (6) no network",
     )
   })
 })

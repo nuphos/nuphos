@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
+import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
@@ -70,17 +71,9 @@ function startMongo(freePort: number): string {
     const dbpath = join(artifacts, 'mongo')
 
     mkdirSync(dbpath, { recursive: true })
-    spawn('mongo', [
-      mongod,
-      '--bind_ip',
-      '127.0.0.1',
-      '--port',
-      port,
-      '--dbpath',
-      dbpath,
-      '--replSet',
-      'rs0',
-    ])
+    const listen = ['--bind_ip', '127.0.0.1', '--port', port]
+
+    spawn('mongo', [mongod, ...listen, '--dbpath', dbpath, '--replSet', 'rs0'])
   } else {
     // Kernel 6.19+: let glibc own rseq, as deploy/compose does (SERVER-121912).
     const run = ['docker', 'run', '--rm', '-e', 'GLIBC_TUNABLES=glibc.pthread.rseq=1']
@@ -143,8 +136,12 @@ export async function startStack(
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
-  // Cloud computers too: only what a scenario puts in this instabox exists.
-  const fakes = { ...(await startStorage(storagePort)), ...(await startInstaboxStub()) }
+  // Cloud computers and Slack too: only what a scenario puts in them exists.
+  const fakes = {
+    ...(await startStorage(storagePort)),
+    ...(await startInstaboxStub()),
+    ...(await startSlackStub()),
+  }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
   const apiUrl = `http://127.0.0.1:${String(backendPort)}`
@@ -226,13 +223,16 @@ export async function startStack(
       CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
       // GitLab: a scenario serves the instance on this computer and answers its redirect.
       GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
-      GITLAB_TOKEN_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d6769746c61622d6b65792d6e6f742d70726f64756374',
+      GITLAB_TOKEN_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWdpdGxhYi1rZXktbm90LXByb2R1Y3Q=',
       OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
-      SONARQUBE_BYOK_ENCRYPTION_KEY:
-        '6c6f63616c2d6532652d736f6e6172717562652d6b65792d6e6f742d70726f64',
+      // Seals two-factor secrets (sealers.mfa).
+      LINODE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWxpbm9kZS1rZXktbm90LXByb2R1Y3Q=',
+      SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      // Voice input as on Nuphos Cloud, for a subscription the e2e team lacks; never reached.
+      NUPHOS_BILLING_URL: `${apiUrl}/e2e-billing`,
+      OPENAI_API_KEY: 'e2e-openai-key-not-a-production-credential',
       ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
       ...fakes,
     },

@@ -11,9 +11,7 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.CancellationException
 import java.time.Instant
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -101,12 +99,6 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
 
     private fun BotQuestion.snoozed(now: Instant) =
         request.snoozedUntil?.let { runCatching { Instant.parse(it) }.getOrNull() }?.isAfter(now) == true
-
-    /** A dismissal waiting out its Undo window, its question already hidden. */
-    var held by mutableStateOf<BotQuestion?>(null)
-        private set
-    private var holding: Pair<BotQuestion, Job>? = null
-    private val undone = mutableSetOf<String>()
 
     /** Which of the listing's questions this list shows: all of them, or a Bot's; kept for refreshes after a save. */
     private var pick: (List<AgentConversation>) -> List<BotQuestion> = BotQuestions::open
@@ -232,47 +224,22 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
     }
 
     /**
-     * Dismisses a question: hidden at once, and after [holdMs], the Inbox's Undo window, closed with
-     * [reason] for the agent that asked. A newer dismissal, or leaving, sends the one held at once.
+     * Dismisses a question: hidden at once and closed with [reason] for the agent that asked.
      * If the server refuses, the card comes back with why.
      */
-    fun dismiss(question: BotQuestion, reason: String?, scope: CoroutineScope, holdMs: Long = 0) {
-        holding?.second?.cancel()
+    fun dismiss(question: BotQuestion, reason: String?, scope: CoroutineScope) {
         answered = answered + question.id
         failures = failures - question.id
-        undone -= question.id
-        val job = scope.launch {
-            try {
-                delay(holdMs)
-            } finally {
-                if (holding?.first == question) { holding = null; held = null }
-                if (!undone.remove(question.id)) withContext(NonCancellable) { sendDismissal(question, reason) }
-            }
-        }
-        if (holdMs > 0) { holding = question to job; held = question }
-    }
-
-    /** Takes back the dismissal still held: its question is back, and nothing is sent. */
-    fun undo() {
-        val (question, job) = holding ?: return
-        holding = null
-        held = null
-        undone += question.id
-        answered = answered - question.id
-        job.cancel()
+        scope.launch { withContext(NonCancellable) { sendDismissal(question, reason) } }
     }
 
     private suspend fun sendDismissal(question: BotQuestion, reason: String?) {
         try {
             source.dismiss(question.sessionId, question.request.id, dismissReason(reason))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             answered = answered - question.id
             failures = failures + (question.id to ChannelSession.postFailureMessage(e))
         }
-    }
-
-    companion object {
-        /** How long an Inbox dismissal waits, its question already gone, before it is sent. */
-        const val UNDO_MS = 5_000L
     }
 }

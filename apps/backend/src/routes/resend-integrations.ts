@@ -9,7 +9,12 @@ import { encryptResendSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireCanDisconnect, requireResendIntegration, requireTeamRole } from '@/middleware/auth'
+import {
+  disconnectBinding,
+  requireCanDisconnect,
+  requireResendIntegration,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { ResendIntegrationVariables, TeamAuthVariables } from '@/middleware/auth'
@@ -125,13 +130,7 @@ integrationScoped.delete(
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const integrationId = new ObjectId(c.get('resendIntegrationId'))
-    const result = await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { resendIntegrations: { id: integrationId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    const result = await disconnectBinding(c, teamId, 'resendIntegrations', { id: integrationId })
 
     if (result.modifiedCount === 0) {
       throw new AppError(404, 'resend_integration_not_bound', 'Resend integration not found')

@@ -12,6 +12,8 @@ data class BotQuestion(
     val title: String,
     val request: InputRequest,
     val sourceBot: AgentConversation? = null,
+    /** The asking session's runtime, for the mark a Task shows in place of a face. */
+    val runtime: String? = null,
 ) {
     val sourceId: String get() = sourceBot?.sessionId ?: sessionId
     val sourceTitle: String get() = sourceBot?.displayTitle ?: title
@@ -154,7 +156,7 @@ object BotQuestions {
                     includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference"
                 }
                 val bot = if (requests.isEmpty()) null else sourceBot(row)
-                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot) }
+                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot, row.agentRuntime) }
             }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }

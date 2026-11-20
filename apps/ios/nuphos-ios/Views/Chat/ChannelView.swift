@@ -8,10 +8,14 @@ struct ChannelView: View {
 
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
-    var openTask: (String) -> Void = { _ in }
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
+    var openTask: (String, String) -> Void = { _, _ in }
     @State private var canOpenTask = false
+    /// The Bot's details, opened from its name (#2983).
+    @State private var detailsOpen = false
+    @State private var botSession: ChatSession?
     @State private var draft = ""
-    @State private var showTriggers = false
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
     /// Raises the keyboard when a reply is chosen.
@@ -38,6 +42,28 @@ struct ChannelView: View {
         return bot
     }
 
+    /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    private var state: (text: String, waiting: Bool)? {
+        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+    }
+
+    private func openDetails() { detailsOpen = botSession != nil }
+
+    /// The Bot's details: its card, then what its own Task's summary lists.
+    private func details(of bot: ChatSession) -> some View {
+        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
+            open(task.sessionId, title: task.displayTitle)
+        }
+        .environment(store)
+    }
+
+    /// Opens a Task over this chat, so Back returns here.
+    private func open(_ task: String, title: String) {
+        detailsOpen = false
+        openTask(task, title)
+    }
+
     private var rows: [ChatRow] {
         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing,
                           questions: channel.questions.list)
@@ -60,12 +86,20 @@ struct ChannelView: View {
     }
 
     var body: some View {
-        transcript
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.chatCanvas)
-            .sheet(isPresented: $showTriggers) {
-                if let bot = channel.botId {
-                    ConversationTriggers(teamId: channel.teamId, sessionId: bot, token: store.token).presentationDetents([.large])
+        // Wide, the Bot's details sit beside the live chat, closed by their ✕;
+        // compact, they come up as a sheet.
+        HStack(spacing: 0) {
+            transcript
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.chatCanvas)
+            if sizeClass == .regular, detailsOpen, let botSession {
+                Divider()
+                details(of: botSession).frame(width: 340)
+            }
+        }
+            .sheet(isPresented: Binding(get: { sizeClass != .regular && detailsOpen }, set: { detailsOpen = $0 })) {
+                if let botSession {
+                    details(of: botSession).presentationDetents([.large]).presentationDragIndicator(.visible)
                 }
             }
             .navigationTitle(channel.title)
@@ -75,27 +109,36 @@ struct ChannelView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Button { showTriggers = true } label: {
+                    Button(action: openDetails) {
                         HStack(spacing: 8) {
                             ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                            Text(channel.title)
-                                .font(Theme.Text.label.weight(.semibold))
-                                .foregroundStyle(Theme.heading)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(channel.title)
+                                    .font(Theme.Text.label.weight(.semibold))
+                                    .foregroundStyle(Theme.heading)
+                                    .lineLimit(1)
+                                if let state {
+                                    Text(state.text)
+                                        .font(.caption2)
+                                        .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                     }
                     .buttonStyle(.plain)
                     .disabled(channel.botId == nil)
-                    .accessibilityIdentifier("bot-trigger-entry")
+                    .accessibilityIdentifier("bot-details-entry")
                 }
+                // One tap to the Bot's own Task, where its runtime and model are switched.
                 if let bot = channel.botId, canOpenTask {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            openTask(bot)
+                            open(bot, title: channel.title)
                         } label: {
                             Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
                         }
-                        .accessibilityIdentifier("bot-task-entry")
+                        .accessibilityIdentifier("chat.botTask")
                     }
                 }
                 if let bot = desktopBot {
@@ -112,6 +155,9 @@ struct ChannelView: View {
             }
             .task(id: channel.botId) {
                 canOpenTask = false
+                // Made before the details open: a sheet shown in the same update that
+                // sets what its content reads comes up empty.
+                botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
                 guard let bot = channel.botId else { return }
                 if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
                     canOpenTask = true

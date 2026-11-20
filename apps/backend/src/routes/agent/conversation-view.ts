@@ -192,6 +192,8 @@ export function serializeConversationForViewer(
     owner,
     isOwner,
     watching: grants.watcherIds?.includes(viewer.id) ?? false,
+    // Someone else's Task is archived for them when they archived it for themselves.
+    archivedAt: grants.archivedAt ?? grants.memberArchivedAt?.[viewer.id],
     // What this viewer may do; the list and detail routes only return what
     // they may at least read, so null here means a personal conversation.
     access,
@@ -205,6 +207,10 @@ export function serializeConversationForViewer(
     // Moving the runtime, credentials, Full Access and archiving are the owner's.
     // Kept for clients that read it.
     canManage: isOwner,
+    // Someone else in a Task archives it for themselves alone; a group chat they leave.
+    canArchive:
+      isOwner ||
+      (conversation.kind !== 'channel' && (grants.participantIds?.includes(viewer.id) ?? false)),
     // A channel's members each have their own marker; any other conversation is the owner's.
     ...(isOwner || conversation.kind === 'channel'
       ? conversationReadState(conversation, viewer.id)

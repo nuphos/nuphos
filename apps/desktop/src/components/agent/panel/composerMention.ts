@@ -2,6 +2,7 @@ import { t } from '../../../i18n/index.ts'
 import { ATLAS_WEB_BASE_URL } from '../../../lib/webBaseUrl.ts'
 
 import type { AgentCredentialOptions } from '../../../api/agent-credential-types.ts'
+import type { AgentConversation } from '../../../api/agent-types.ts'
 import type { TeamMember } from '../../../types'
 
 /** The `@query` being typed right before the caret, or null when there is none.
@@ -28,6 +29,31 @@ export function matchMembers(
         [member.name, member.username, member.email].some((value) =>
           value?.toLowerCase().includes(needle),
         ),
+    )
+    .slice(0, limit)
+}
+
+/** The listed Bots and Tasks, other than `except`, whose title, first message
+ *  or linked PR/issue contains the query — in the list's order, newest first.
+ *  Channels are not offered: they run no agent to read the link. */
+export function matchSessions(
+  sessions: readonly AgentConversation[],
+  query: string,
+  except?: string,
+  limit = 5,
+): AgentConversation[] {
+  const needle = query.toLowerCase()
+
+  return sessions
+    .filter(
+      (session) =>
+        session.kind !== 'channel' &&
+        session.sessionId !== except &&
+        [
+          session.title,
+          session.firstMessage,
+          ...(session.linkedResources ?? []).map((r) => r.title),
+        ].some((value) => value?.toLowerCase().includes(needle)),
     )
     .slice(0, limit)
 }

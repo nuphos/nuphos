@@ -18,6 +18,7 @@ const phone = (token: string, extra: Partial<PushDevice> = {}): PushDevice => ({
 
 let phones: PushDevice[]
 let sent: ApnsRequest[]
+let subscriptions: string[]
 
 const alerts = () =>
   createComputerAlerts({
@@ -39,6 +40,7 @@ const alerts = () =>
       listForUser: async () => phones,
       removeToken: async () => {},
     },
+    subscribed: async (_userId, deviceId) => subscriptions.includes(deviceId),
     now: () => 0,
   })
 
@@ -52,9 +54,21 @@ const change = (online: boolean) => ({
 beforeEach(() => {
   phones = [phone('aa'), phone('bb')]
   sent = []
+  subscriptions = ['mac-1']
 })
 
 describe('computer alerts', () => {
+  test('legacy true and missing preferences do not subscribe a computer', async () => {
+    subscriptions = []
+    phones = [phone('aa', { computerAlerts: true }), phone('bb')]
+    await alerts()('user-1', change(false))
+    expect(sent).toHaveLength(0)
+  })
+  test('only the explicitly subscribed computer sends alerts', async () => {
+    subscriptions = ['mac-2']
+    await alerts()('user-1', change(false))
+    expect(sent).toHaveLength(0)
+  })
   test('open the app, and back online replaces the offline alert', async () => {
     const alert = alerts()
 
@@ -69,7 +83,7 @@ describe('computer alerts', () => {
     expect(sent.map((request) => request.collapseId)).toEqual(Array(4).fill('computer:mac-1'))
   })
 
-  test('skip phones that turned them off, and Android', async () => {
+  test('explicit account subscriptions replace legacy phone preferences and skip Android', async () => {
     phones = [
       phone('aa', { computerAlerts: false }),
       phone('bb'),
@@ -77,6 +91,6 @@ describe('computer alerts', () => {
     ]
     await alerts()('user-1', change(false))
 
-    expect(sent.map((request) => request.deviceToken)).toEqual(['bb'])
+    expect(sent.map((request) => request.deviceToken)).toEqual(['aa', 'bb'])
   })
 })

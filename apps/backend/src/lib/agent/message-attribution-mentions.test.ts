@@ -157,3 +157,46 @@ test('someone who cannot use the computer it runs on gets no Inbox entry', async
   } as never)
   expect(await listChannelMentions(TEAM, 'daniel')).toEqual([])
 })
+
+/** A Task the owner shares with Daniel and Amy, archived by Daniel and Amy for themselves. */
+async function archivedByMembers() {
+  await agentConversations().updateOne(
+    { sessionId: 'session' },
+    {
+      $set: {
+        participantIds: ['daniel', 'amy'],
+        memberArchivedAt: { daniel: new Date(), amy: new Date() },
+      },
+    },
+  )
+}
+
+/** The members it is archived for, once the send's bookkeeping has landed. */
+async function archivedFor() {
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  const task = await agentConversations().findOne({ sessionId: 'session' })
+
+  return Object.keys((task as { memberArchivedAt?: object } | null)?.memberArchivedAt ?? {}).sort(
+    (a, b) => a.localeCompare(b),
+  )
+}
+
+const send = (messages: UIMessage[], actorId: string) =>
+  attributeAppMessages(messages, 'session', 'owner', actorId, false, undefined, undefined, TEAM)
+
+test("the owner's message leaves a Task archived for those who archived it", async () => {
+  await archivedByMembers()
+  await send(said('Status update'), 'owner')
+
+  expect(await archivedFor()).toEqual(['amy', 'daniel'])
+})
+
+test('a member who posts, or is mentioned, has the Task back; the others keep it archived', async () => {
+  await archivedByMembers()
+  await send(said('@daniel@example.com take a look', ['daniel']), 'owner')
+
+  expect(await archivedFor()).toEqual(['amy'])
+  await send(said('I am back'), 'amy')
+
+  expect(await archivedFor()).toEqual([])
+})

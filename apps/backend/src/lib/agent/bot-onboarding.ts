@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { noteReplyFailed } from './channel-wake'
+import { noteReplyFailed } from './reply-failed'
 import { startConversationTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'

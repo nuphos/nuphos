@@ -23,7 +23,6 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -98,19 +97,11 @@ class InboxSnoozeFixtureDeviceTest {
         compose.onNodeWithText("Which region should the docs site deploy to?").performClick()
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").assertTextContains("We deploy the docs from CI now.")
-        // The test clock would otherwise skip the Undo window while waiting for idle.
-        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468):
-        // scrolled to while the clock still runs, since a paused clock never ends the scroll.
-        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo()
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithTag("bot-question-dismiss-send").performClick()
-        compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("inbox-undo").assertIsDisplayed()
-        capture("5-dismiss-undo")
-        assertTrue(source.dismissed.isEmpty())
-        compose.mainClock.advanceTimeBy(OpenQuestions.UNDO_MS)
-        compose.mainClock.autoAdvance = true
-        compose.waitUntil(5_000) { source.dismissed.isNotEmpty() }
+        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468).
+        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo().performClick()
+        // Sent at once: nothing waits for an Undo.
+        compose.waitUntil(1_000) { source.dismissed.isNotEmpty() }
+        capture("5-dismissed")
         assertEquals("q-region" to "We deploy the docs from CI now.", source.dismissed.single())
     }
 
@@ -136,14 +127,9 @@ class InboxSnoozeFixtureDeviceTest {
         compose.onNodeWithTag("bot-question-dismiss").performClick()
         compose.onNodeWithTag("bot-question-dismiss-reason").performTextInput("Use the token already in CI")
         capture("8-inbox-secret-reason")
-        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468):
-        // scrolled to while the clock still runs, since a paused clock never ends the scroll.
-        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo()
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithTag("bot-question-dismiss-send").performClick()
-        compose.mainClock.advanceTimeBy(OpenQuestions.UNDO_MS + 500)
-        compose.mainClock.autoAdvance = true
-        compose.waitUntil(5_000) { source.dismissed.isNotEmpty() }
+        // The reason sits under the card's own row, and on a small screen under the keyboard too (#3468).
+        compose.onNodeWithTag("bot-question-dismiss-send").performScrollTo().performClick()
+        compose.waitUntil(1_000) { source.dismissed.isNotEmpty() }
         // A dismissal with its reason, never a value.
         assertEquals("q-token" to "Use the token already in CI", source.dismissed.single())
     }
