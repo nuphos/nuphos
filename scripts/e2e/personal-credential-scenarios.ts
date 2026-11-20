@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { askOverMcp, mcp, prompt } from './mcp-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -156,6 +157,54 @@ export const personalCredentialScenarios: Scenario[] = [
         )
       } finally {
         if (triggerId) await owner('DELETE', `/agent/triggers/${triggerId}?teamId=${stack.teamId}`)
+        inDatabase(
+          stack,
+          `await db.collection('personal_credentials').deleteMany({ login: process.argv[2] })`,
+          login,
+        )
+      }
+    },
+  },
+  {
+    // #4034: `nuphos_ask` stores lists for the opt-in kinds and no team-wide key, which the
+    // backend reads as every one. The picker showed such a kind unticked.
+    name: 'a Task started with nuphos_ask shows its unset team-wide credentials ticked',
+    run: async (page, stack) => {
+      const owner = client(stack.apiUrl, stack.token)
+      const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
+      const userId = me.user?.id ?? me.id ?? ''
+      const login = 'e2e-unset@example.com'
+      const marker = 'E2E_DELIVERY:personal-unset'
+
+      inDatabase(
+        stack,
+        `await db.collection('personal_credentials').insertOne({
+          userId: process.argv[2], provider: 'google-calendar', providerUserId: 'e2e-google-unset',
+          login: process.argv[4], teamId: process.argv[3], encryptedRefreshToken: null,
+          accessTokenExpiresAt: null, createdAt: new Date(), updatedAt: new Date(),
+        })`,
+        userId,
+        stack.teamId,
+        login,
+      )
+
+      try {
+        await askOverMcp(mcp(owner).tool, stack.teamId, marker)
+        must(selected(stack, userId) === 'null', 'nuphos_ask to leave the key unset')
+        await page.reload()
+        await page.getByRole('tab', { name: 'Tasks' }).click()
+        await page.getByText(prompt(marker), { exact: true }).first().click()
+        await page.getByText(`ACK ${marker}`, { exact: true }).waitFor()
+        await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
+        const row = page.getByRole('menuitemcheckbox', {
+          name: `Google Calendar · You (${login}) · Personal`,
+        })
+
+        await row.waitFor()
+        await page.screenshot({ path: `${artifacts}/personal-unset-row-light.png` })
+        must((await row.getAttribute('aria-checked')) === 'true', 'an unset key to show ticked')
+        await page.keyboard.press('Escape')
+      } finally {
         inDatabase(
           stack,
           `await db.collection('personal_credentials').deleteMany({ login: process.argv[2] })`,
