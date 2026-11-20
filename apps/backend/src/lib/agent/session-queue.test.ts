@@ -8,6 +8,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import * as lifecycle from '@/lib/lifecycle'
@@ -1020,6 +1021,58 @@ test('a release starts a queue waiting out refusals at once, since the runtime i
     sessionReleased(OWNER, session)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(runs).toHaveLength(2)
+    expect(await listPendingUserMessages(OWNER, session)).toEqual([])
+  } finally {
+    await clearPendingUserMessages(OWNER, session)
+  }
+}, 10_000)
+
+test('a queued turn whose agent is out of usage keeps the queue, and it runs once the agent can', async () => {
+  const session = 'usage-limit-session'
+  let limited = true
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, session)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (limited)
+        throw new OpenAbRpcError(
+          "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8:10am (UTC)",
+          -32603,
+        )
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const sent = [agent('first'), agent('second'), agent('third')]
+
+    for (const message of sent) await enqueuePendingUserMessage(OWNER, session, message)
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // One try, and nothing is dropped or reported as not run.
+    expect(runs).toHaveLength(1)
+    expect(runs[0]?.waitsOutUsage).toBe(true)
+    expect(kept).toEqual([])
+    expect((await listPendingUserMessages(OWNER, session)).map((message) => message.id)).toEqual(
+      sent.map((message) => message.id),
+    )
+
+    // Moved to an agent with usage left: the queue runs, once.
+    limited = false
+    await new Promise((resolve) => setTimeout(resolve, 2_200))
+    expect(
+      runs
+        .at(-1)
+        ?.messages.slice(-3)
+        .map((message) => message.id),
+    ).toEqual(sent.map((message) => message.id))
     expect(await listPendingUserMessages(OWNER, session)).toEqual([])
   } finally {
     await clearPendingUserMessages(OWNER, session)

@@ -71,6 +71,8 @@ export type TriggerRunParams = {
   frameSink?: AgentRunFrameSink
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
+  /** An agent out of usage is not recorded either; the caller requeues its messages. */
+  waitsOutUsage?: boolean
   /** The channels whose posts this turn answers. */
   channelIds?: string[]
   /** Only channel posts started this turn: its end is not pushed to the owner. */
@@ -260,6 +262,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       ...(channelDefaults || source === 'lark.agent' ? { channelTurn: true } : {}),
       ...(params.turnContext ? { turnContext: params.turnContext } : {}),
       ...(params.clientResendsRefusal ? { clientResendsRefusal: true } : {}),
+      ...(params.waitsOutUsage ? { waitsOutUsage: true } : {}),
       ...(slackThread
         ? {
             slackThread: {
