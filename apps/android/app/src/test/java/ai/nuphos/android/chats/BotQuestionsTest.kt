@@ -215,8 +215,8 @@ class BotQuestionsTest {
         failSave = true
         inbox.select(stored, ask)
         assertNotNull(inbox.failures[ask.id])
-        // A new chat never starts as the member.
-        assertTrue(CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"].isNullOrEmpty())
+        // A new chat starts with the member's own credentials, as on the desktop (#4028).
+        assertEquals(setOf("github"), CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"])
     }
 
     @Test fun aQuestionNamingTheMembersOwnGithubIsAnsweredByThatAlone() = runTest {
