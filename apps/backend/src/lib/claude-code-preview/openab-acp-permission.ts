@@ -1,5 +1,8 @@
 import { logError, logEvent } from '@/lib/observability'
 
+import { agentHostAway } from './openab-acp-connect'
+import { OpenAbConnectionLostError } from './openab-acp-errors'
+
 import type {
   OpenAbPermissionHandler,
   OpenAbPermissionOutcome,
@@ -104,10 +107,15 @@ export async function answerPermissionRequest(args: {
       result = await handler(request)
     } catch (err) {
       // Permission handling is an authorization boundary; still fail closed.
-      logError('agent.openab_permission.handler_failed', err, {
+      const fields = {
         openab_session_id: request.sessionId,
         tool_call_id: request.toolCall.toolCallId,
-      })
+      }
+
+      // A host that is away or hung up, as while it restarts, is expected: a warning (#3425).
+      if (agentHostAway(err) || err instanceof OpenAbConnectionLostError)
+        logEvent('warn', 'agent.openab_permission.host_away', fields)
+      else logError('agent.openab_permission.handler_failed', err, fields)
     }
   }
   try {
