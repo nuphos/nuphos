@@ -57,7 +57,7 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 /** Chats where people and agents talk, and each Bot without a chat yet, as on iOS and Desktop. */
 @Composable
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
-    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true) {
+    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
     val scope = rememberCoroutineScope()
@@ -112,7 +112,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         CircularProgressIndicator()
     // Bots always lists, so its "+" can make the first one.
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
-        item(key = "bots-header") {
+        if (showCreateButton) item(key = "bots-header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.chats_bots), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -131,22 +131,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     }
-    if (showNewBot) {
-        val auth = ai.nuphos.android.ui.LocalAuthSession.current
-        val account = auth.user?.id
-        NewBotSheet(store.creatingBot, store.newBotError, store.newBotWaitingForChat != null,
-            onCreate = { title, avatar ->
-                // On the runtime a new chat would use, so the Bot's composer shows it.
-                val runtime = if (account != null && team != null) auth.runtimeSelections.bind(account, team).binding else null
-                scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
-                    val chat = store.createBot(title, avatar, runtime) ?: return@launch
-                    showNewBot = false
-                    nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
-                }
-            },
-            onDismiss = { store.forgetNewBot(); showNewBot = false },
-        )
-    }
+    if (showNewBot && showCreateButton) CreateBotDialog(nav) { showNewBot = false }
 }
 
 @Composable

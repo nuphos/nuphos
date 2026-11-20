@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { conversationSettingsHistoryResponseSchema } from '@/lib/api/conversation-settings'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { AppError } from '@/lib/errors'
+import { requestClient } from '@/lib/request-origin'
 
+import { buildConversationOwnerMap } from './conversation-view'
+import { serializeSettingsHistory, settingsAgents, settingsUserIds } from './settings-history-view'
 import {
   assertConversationWritable,
   readTeamIdCandidate,
@@ -64,6 +68,40 @@ sessionConfigRoutes.patch('/conversations/:sessionId/model-config', async (c) =>
       conversation,
       { configId: body.configId, value: body.value },
       c.get('userId'),
+      {
+        actorId: c.get('userId'),
+        via: 'picker',
+        client: requestClient((name) => c.req.header(name)),
+      },
     ),
+  )
+})
+
+sessionConfigRoutes.get('/conversations/:sessionId/settings-history', async (c) => {
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+
+  if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
+  const conversation = await getReadableConversation(
+    c.req.param('sessionId'),
+    c.get('userId'),
+    teamId,
+  )
+
+  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
+  const legacyActors = (conversation.timelineEvents ?? []).flatMap((event) =>
+    event.kind === 'runtime_moved' ? [event.actorId] : [],
+  )
+  const lookup = {
+    owners: await buildConversationOwnerMap(teamId, [
+      ...settingsUserIds(conversation.settingsHistory),
+      ...legacyActors,
+    ]),
+    agents: await settingsAgents(conversation.settingsHistory),
+  }
+
+  return c.json(
+    conversationSettingsHistoryResponseSchema.parse({
+      changes: serializeSettingsHistory(conversation, lookup),
+    }),
   )
 })

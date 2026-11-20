@@ -50,6 +50,9 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
       return
     }
+    // A team key that has expired: instabox refuses to kill the machine (#3733).
+    if (request.method === 'DELETE' && machine)
+      return send(401, { error: { code: 'expired_key', message: 'API key expired' } })
     // The machine's own work (its idle pause, its install) never finishes.
     if (request.method !== 'GET') return
     if (path === '/v1/templates') return send(200, { templates: [{ id: 'agent-browser' }] })

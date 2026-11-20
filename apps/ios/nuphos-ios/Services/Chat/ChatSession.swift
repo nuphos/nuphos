@@ -28,6 +28,9 @@ final class ChatSession {
     /// agent, change credentials, and archive.
     private(set) var manages = false
     var canManage: Bool { loaded && manages && !readOnly }
+    private(set) var archives = false
+    /// The owner archives it for everyone; someone else in a Task, for themselves.
+    var canArchive: Bool { loaded && archives }
     /// Renaming, model settings and feedback stay with the owner.
     var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
@@ -345,6 +348,7 @@ final class ChatSession {
         s.loaded = true
         s.isOwner = true
         s.manages = true
+        s.archives = true
         return s
     }
 
@@ -373,6 +377,7 @@ final class ChatSession {
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
             manages = detail.canManage ?? isOwner
+            archives = detail.canArchive ?? manages
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
@@ -746,7 +751,7 @@ final class ChatSession {
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can archive it.") }
+        guard canArchive else { throw NuphosAPI.Failure.http(403, message: "Only someone in the task can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }

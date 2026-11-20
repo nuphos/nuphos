@@ -58,7 +58,7 @@ async function render() {
 
 const cloudChoice = (container: { querySelectorAll: (s: string) => Iterable<unknown> }) =>
   [...container.querySelectorAll('button')].find((button) =>
-    (button as HTMLElement).textContent?.startsWith('Nuphos cloud computer'),
+    (button as HTMLElement).textContent?.startsWith('Rent a computer from Nuphos'),
   ) as HTMLElement | undefined
 
 test('a new user who may make a cloud computer is offered one, and once made it opens Computers', async () => {
@@ -73,7 +73,7 @@ test('a new user who may make a cloud computer is offered one, and once made it 
     await act(() => openAgentSetup('team-1'))
     const choice = cloudChoice(container)
 
-    assert.ok(choice, 'the setup offers a Nuphos cloud computer')
+    assert.ok(choice, 'the setup offers to rent a computer from Nuphos')
     assert.doesNotMatch(choice.textContent ?? '', /with Claude Code and Codex\./)
     await act(() => choice.click())
     assert.match(container.textContent ?? '', /Add computer for team-1/)

@@ -8,6 +8,7 @@ import { agentTokenUsage, cleanRecord } from './token-usage-db'
 import { refreshConversationTokenUsageSummary } from './token-usage-summary'
 
 import type { ConversationTriggerRun } from './conversation-trigger-run'
+import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
 import type {
   AgentTokenUsageKind,
   AgentTokenUsageRecord,
@@ -77,7 +78,40 @@ export async function writeRuntimeTurnUsage(turn: RuntimeTurnUsage): Promise<voi
 async function turnModelId(sessionId: string, teamId: string): Promise<string> {
   const attachment = await getConversationPreviewAttachment(sessionId, teamId).catch(() => null)
 
-  return storedPick(attachment ?? undefined).model ?? 'unknown'
+  return pickedModelId(attachment ?? undefined)
+}
+
+/**
+ * The model a session's picker is on, as a model id. Claude Code offers aliases
+ * (`default`, `opus`, `sonnet`, …) that move with each release, so an alias is
+ * read through the label the runtime gave it, "Opus 5.5" → `claude-opus-5-5`;
+ * `default` names its model in the description. A Claude alias no label names
+ * is `unknown`; any other value, such as `opencode/big-pickle`, is kept.
+ */
+export function pickedModelId(attachment?: Parameters<typeof storedPick>[0]): string {
+  const value = storedPick(attachment).model
+
+  return value ? resolveModelAlias(value, attachment?.sessionConfig) : 'unknown'
+}
+
+const CLAUDE_FAMILIES = 'opus|sonnet|haiku|fable|mythos'
+
+/** `value` as a model id, read through `sessionConfig`'s labels when it is an alias. */
+export function resolveModelAlias(value: string, sessionConfig?: SessionConfigOption[]): string {
+  // A model id carries a version; an alias does not.
+  if (/\d/.test(value)) return value
+  const choice = sessionConfig
+    ?.find((option) => option.kind === 'model')
+    ?.options.find((option) => option.value === value)
+  const [, family, version] =
+    new RegExp(`^(${CLAUDE_FAMILIES}) (\\d+(?:\\.\\d+)*)$`, 'i').exec(
+      (value === 'default' ? choice?.description : choice?.name)?.trim() ?? '',
+    ) ?? []
+
+  if (family && version) return `claude-${family.toLowerCase()}-${version.replaceAll('.', '-')}`
+
+  // A Claude alias the picker does not name is unknown, never shown as the alias.
+  return new RegExp(`^(default|${CLAUDE_FAMILIES})$`, 'i').test(value) ? 'unknown' : value
 }
 
 // claude-agent-acp and codex-acp send the uncached remainder as ACP `inputTokens`;

@@ -75,7 +75,7 @@ export function ModelSelector({
   ].filter(Boolean)
   const blocked =
     disabled || saving || (status !== 'ready' && status !== 'dormant' && status !== 'busy')
-  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast))
+  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast), data?.reason)
 
   const setOpen = control.setOpen
   const open = control.open
@@ -114,7 +114,7 @@ export function ModelSelector({
   const select = (configId: string, value: string) => control.select({ configId, value })
   const pickModel = (value: string) => {
     if (!model) return
-    if (value !== model.currentValue) select(model.id, value)
+    select(model.id, value)
     control.setOpen(false)
   }
   const footer = {
@@ -140,6 +140,9 @@ export function ModelSelector({
   // Closing returns to the message box, so typing carries on.
   const finalFocus = () =>
     composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true
+
+  // Shown once the task's own settings are known, never a placeholder before them.
+  if (loading && !slow && !error && !data) return null
 
   // One menu: the models, with effort and fast pinned under them. A runtime
   // without effort opens straight on its models; one without a model list
@@ -187,7 +190,6 @@ export function ModelSelector({
           {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
           <ModelChipLabel
             name={name}
-            loading={loading && !slow && !error && !data}
             level={level}
             levels={effortLevels}
             fast={fast?.currentValue}

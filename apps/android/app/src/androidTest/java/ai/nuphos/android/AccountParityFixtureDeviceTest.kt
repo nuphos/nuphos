@@ -337,7 +337,7 @@ class AccountParityFixtureDeviceTest {
         assertEquals("Recreation changed the bound draft", text, auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
         compose.onNodeWithContentDescription(app.getString(R.string.composer_ask_nuphos)).assertTextEquals(text)
         compose.onNodeWithTag("new-task-cancel").performClick()
-        compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         tap(app.getString(R.string.profile_withdraw_action))
         compose.onNodeWithText(app.getString(R.string.profile_withdraw_confirm)).performClick()
         awaitText(app.getString(R.string.profile_consent_title))
@@ -519,12 +519,12 @@ class AccountParityFixtureDeviceTest {
         awaitText("Agree and continue")
         tap("Agree and continue")
         compose.waitUntil(8_000) { count("GET", "/teams") > 0 }
-        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Profile").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
-        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.home_toolbar_account)).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         tap("Withdraw AI sharing consent")
         compose.onNodeWithText("Withdraw").performClick()
         awaitText("Before you use AI agents")
-        compose.onNodeWithContentDescription("Profile").assertDoesNotExist()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).assertDoesNotExist()
         screenshot("withdrawn")
         assertFalse("Withdrawal left local AI access enabled", app.authSession.aiAllowed)
         assertEquals("Consent did not require explicit agree and withdraw", 2, count("PUT", "/auth/ai-consent"))
@@ -678,7 +678,7 @@ class AccountParityFixtureDeviceTest {
         assertFalse("Rejected consent write granted AI access", app.authSession.aiAllowed)
         assertEquals("Rejected consent write initialized teams", 0, count("GET", "/teams"))
         assertEquals("Rejected consent write was retried automatically", 1, count("PUT", "/auth/ai-consent"))
-        compose.onNodeWithContentDescription("Profile").assertDoesNotExist()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).assertDoesNotExist()
     }
 
     @Test fun oldSameAccountConsentReadCannotUndoNewerRevocation() {
