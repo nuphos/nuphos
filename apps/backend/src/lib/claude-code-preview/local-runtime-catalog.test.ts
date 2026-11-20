@@ -259,7 +259,7 @@ describe('local runtime catalog', () => {
 
   test('an unusable CLI reports its probe failure on a conversation turn', async () => {
     const message =
-      "DeepSeek Harness didn't start (dsh --version printed nothing). It needs Node 24.9 or newer; node on PATH is v20.20.2."
+      "DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has v20.20.2. Update Node.js, then try again."
 
     presence = {
       ...online(),

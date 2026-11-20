@@ -21,7 +21,10 @@ test(
       const status = await probeAgentCli('dsh', env, dir)
 
       assert.equal(status.installed, false)
-      assert.match(status.installed ? '' : (status.error ?? ''), /Node 24\.9 or newer.*v20\.20\.2/)
+      assert.match(
+        status.installed ? '' : (status.error ?? ''),
+        /Node\.js 24\.9 or newer.*v20\.20\.2.*Update Node\.js, then try again/,
+      )
     }
   },
 )
@@ -54,5 +57,26 @@ test(
 
     assert.equal(status.installed, false)
     assert.match(status.installed ? '' : (status.error ?? ''), /v22\.17\.0/)
+  },
+)
+
+test(
+  'a recent or unavailable Node gives a reinstall hint without blaming the version',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'dsh-probe-'))
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    writeFileSync(path.join(dir, 'dsh'), '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+    for (const node of ['#!/bin/sh\necho v24.9.0\n', '#!/bin/sh\nexit 1\n']) {
+      writeFileSync(path.join(dir, 'node'), node, { mode: 0o755 })
+      const status = await probeAgentCli('dsh', { HOME: dir, PATH: dir }, dir)
+
+      assert.equal(status.installed, false)
+      assert.equal(
+        status.installed ? '' : status.error,
+        "DeepSeek Harness couldn't start on this computer (`dsh --version printed nothing`). Reinstall it, then try again.",
+      )
+    }
   },
 )

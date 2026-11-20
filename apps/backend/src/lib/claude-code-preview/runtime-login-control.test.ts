@@ -296,7 +296,7 @@ describe('an added agent whose CLI is missing', () => {
 
   test('reports an unusable CLI without calling it an installation failure', async () => {
     const message =
-      "DeepSeek Harness didn't start (dsh --version printed nothing). It needs Node 24.9 or newer; node on PATH is v20.20.2."
+      "DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has v20.20.2. Update Node.js, then try again."
     const error = await localAgentNotInstalled(runtimeId, {
       get: () =>
         Promise.resolve({

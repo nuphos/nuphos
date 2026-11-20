@@ -244,9 +244,17 @@ export async function probeAgentCli(
         () => 'unavailable',
       )
 
+      const [major, minor] = node.replace(/^v/u, '').split('.').map(Number)
+      const outdated =
+        Number.isFinite(major) &&
+        Number.isFinite(minor) &&
+        (major < 24 || (major === 24 && minor < 9))
+
       return {
         installed: false,
-        error: `DeepSeek Harness didn't start (${failure}). It needs Node 24.9 or newer; node on PATH is ${node}.`,
+        error: outdated
+          ? `DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has ${node}. Update Node.js, then try again.`
+          : `DeepSeek Harness couldn't start on this computer (\`${failure}\`). Reinstall it, then try again.`,
       }
     }
   }
