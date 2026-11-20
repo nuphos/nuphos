@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 
 import { errorHandler } from '@/lib/errors'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
+import { useBoxInstabox } from '@/lib/test/doubles/box-instabox'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type { TransferTeamOwnershipResult } from '@/lib/identity/team-roles'
@@ -42,16 +43,39 @@ useIdentity({
   transferTeamOwnership: (_teamId, newOwnerId) => Promise.resolve(TRANSFER_RESULTS[newOwnerId]!),
   updateTeamMemberRole: (_teamId, _memberId, role) =>
     Promise.resolve({ kind: 'updated', member: { ...MEMBER, role } } as never),
+  deleteTeam: (teamId) => Promise.resolve(teamId === 'team-other-owner' ? 'forbidden' : 'deleted'),
 })
 
 // Which team's cloud computers were looked up to close someone's open agents on them.
 const boxLookups: string[] = []
 
+// What deleting a team did to its Boxes: machines killed and rows removed, per owner/device.
+const killed: string[] = []
+const removed: string[] = []
+
 useAgentDeviceStore({
   listTeamBoxes: async (teamId: string) => {
     boxLookups.push(teamId)
+    if (teamId === 'team-1') return []
 
-    return []
+    return [
+      { userId: 'owner-1', deviceId: 'box-a' },
+      { userId: 'member-2', deviceId: 'box-b' },
+    ] as never
+  },
+  revokeAgentDeviceCredential: () => Promise.resolve(false),
+  deleteAgentDevice: (userId: string, deviceId: string) => {
+    removed.push(`${userId}/${deviceId}`)
+
+    return Promise.resolve(true)
+  },
+})
+
+useBoxInstabox({
+  destroyBox: (userId: string, deviceId: string) => {
+    killed.push(`${userId}/${deviceId}`)
+
+    return Promise.resolve(true)
   },
 })
 
@@ -138,5 +162,27 @@ describe('PATCH /members/:memberId', () => {
     }
     // Since #1391 a team role confers nothing on a computer: only its access list does.
     expect(boxLookups).toEqual([])
+  })
+})
+
+describe('DELETE /', () => {
+  test('deleting a team deletes every Box the team owns', async () => {
+    killed.length = 0
+    removed.length = 0
+    const response = await createApp('team-with-boxes').request('/', { method: 'DELETE' })
+
+    expect(response.status).toBe(204)
+    expect(killed).toEqual(['owner-1/box-a', 'member-2/box-b'])
+    expect(removed).toEqual(['owner-1/box-a', 'member-2/box-b'])
+  })
+
+  test('a refused delete leaves the team’s Boxes alone', async () => {
+    killed.length = 0
+    removed.length = 0
+    const response = await createApp('team-other-owner').request('/', { method: 'DELETE' })
+
+    expect(response.status).toBe(403)
+    expect(killed).toEqual([])
+    expect(removed).toEqual([])
   })
 })
