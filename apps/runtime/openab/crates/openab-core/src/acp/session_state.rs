@@ -364,6 +364,12 @@ mod tests {
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Inspect fictional project"}]}})));
         assert_eq!(state.snapshot()["planStep"], "Inspect fictional project");
         assert_eq!(state.snapshot()["tools"], json!({}));
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"First step"},{"status":"in_progress","content":"Second step"}]}})));
+        assert_eq!(state.snapshot()["planStep"], "First step");
+        state.observe(Some(
+            &json!({"update":{"sessionUpdate":"plan","entries":[]}}),
+        ));
+        assert!(state.snapshot()["planStep"].is_null());
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"completed","content":"Inspect fictional project"}]}})));
         assert!(state.snapshot()["planStep"].is_null());
         state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Old step"}]}})));
