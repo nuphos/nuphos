@@ -4,7 +4,12 @@
 import { createServer } from 'node:http'
 
 export type StubOperation = { type: string; state: string; trigger?: string; createdAt: string }
-export type StubMachine = { id: string; state: string; operations: StubOperation[] }
+export type StubMachine = {
+  id: string
+  state: string
+  operations: StubOperation[]
+  commands?: string[]
+}
 
 const machineView = (machine: StubMachine) => ({
   id: machine.id,
@@ -46,6 +51,20 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
         machines.set(name, { id: name, state: 'running', operations: [] })
         send(202, { id: `op_${name}`, type: 'create', state: 'succeeded', machineId: name })
+      })
+
+      return
+    }
+    if (request.method === 'POST' && machine && part === 'exec') {
+      const chunks: Buffer[] = []
+
+      request.on('data', (chunk: Buffer) => chunks.push(chunk))
+      request.on('end', () => {
+        const { cmd } = JSON.parse(Buffer.concat(chunks).toString()) as { cmd: string }
+
+        machine.commands ??= []
+        machine.commands.push(cmd)
+        send(200, { stdout: '12345\n', stderr: '', exitCode: 0 })
       })
 
       return

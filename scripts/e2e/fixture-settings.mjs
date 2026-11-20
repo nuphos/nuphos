@@ -98,3 +98,28 @@ export function applySetting(sessionId, id, value, log) {
 export function promptLanguage(text) {
   return /Response language: ([^.\n]+)\./.exec(text)?.[1]
 }
+
+/** What a turn's prompt says: its language, and the conversation a fresh session carries (#3970). */
+export function turnFacts(text) {
+  const history = text.includes('continues from earlier turns')
+    ? {
+        chars: text.length,
+        omitted: text.includes('Earlier turns are omitted'),
+        readConversation: text.includes('read_conversation'),
+      }
+    : undefined
+
+  return { language: promptLanguage(text), history }
+}
+
+/** The Claude Code settings a session was opened with that only a Bot's carry (#3970). */
+export const botEnv = (params) =>
+  Object.fromEntries(
+    Object.entries(params._meta?.claudeCode?.options?.env ?? {}).filter(([key]) =>
+      ['CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION'].includes(key),
+    ),
+  )
+
+/** E2E_LONG_REPLY: about 12k characters, so a few turns outgrow a fresh session's history. */
+export const longReply = (text) =>
+  text.includes('E2E_LONG_REPLY') ? ` ${'filler '.repeat(1_700)}` : ''

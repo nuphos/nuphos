@@ -8,8 +8,8 @@ import { closeDb, connectDb } from '@/lib/db'
 
 import { agentConversations } from './db'
 import { agentTokenUsage } from './token-usage'
-import { OTHERS_PRIVATE, mergeOthersPrivate, usageNames } from './usage-names'
-import { queryTeamUsage } from './usage-query'
+import { usageNames } from './usage-names'
+import { OTHERS_PRIVATE, queryTeamUsage } from './usage-query'
 
 import type { UsageQuery } from './usage-query'
 
@@ -75,7 +75,13 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
 
   const day = { from: new Date('2026-11-17T00:00:00Z'), to: new Date('2026-11-18T00:00:00Z') }
   const run = async (query: Partial<UsageQuery>) => {
-    const rows = await queryTeamUsage(TEAM, { ...day, groupBy: [], filters: {}, ...query })
+    const rows = await queryTeamUsage(TEAM, {
+      ...day,
+      groupBy: [],
+      filters: {},
+      viewerId: ADMIN,
+      ...query,
+    })
 
     return Object.fromEntries(rows.map((row) => [JSON.stringify(row.keys), row.totalTokens]))
   }
@@ -88,7 +94,12 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       team,
       { userId, teamRole },
       ['conversation'],
-      await queryTeamUsage(team, { ...day, groupBy: ['conversation'], filters: {} }),
+      await queryTeamUsage(team, {
+        ...day,
+        groupBy: ['conversation'],
+        filters: {},
+        viewerId: userId,
+      }),
     )
 
   test('the team is grouped by sender', async () => {
@@ -103,6 +114,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       [JSON.stringify({ bot: BOT })]: 1370,
       [JSON.stringify({ bot: null })]: 50,
     })
+    expect(await run({ groupBy: ['conversation'], filters: { model: ['haiku'] } })).toEqual({
+      [JSON.stringify({ conversation: TASK })]: 300,
+    })
+    // What a released Desktop still asks for: the same grouping, under its own key.
     expect(await run({ groupBy: ['task'], filters: { model: ['haiku'] } })).toEqual({
       [JSON.stringify({ task: TASK })]: 300,
     })
@@ -133,13 +148,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
   test('a conversation its owner made private is one merged row to others, and itself to its owner', async () => {
     const team = `${TEAM}-private`
     const secret = `${team}-secret`
-    const grouped = async (userId: string, teamRole: 'ADMINISTRATOR' | 'EDITOR') =>
-      mergeOthersPrivate(
-        team,
-        { userId, teamRole },
-        ['conversation'],
-        await queryTeamUsage(team, { ...day, groupBy: ['conversation'], filters: {} }),
-      )
+    const grouped = async (viewerId: string) =>
+      (
+        await queryTeamUsage(team, { ...day, groupBy: ['conversation'], filters: {}, viewerId })
+      ).map((row) => row.keys)
 
     await agentConversations().insertOne({
       sessionId: secret,
@@ -152,18 +164,97 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('team usage query', () => {
       turn(secret, MEMBER, 'opus', 10).map((row) => ({ ...row, teamId: team })),
     )
     try {
-      expect((await grouped(ADMIN, 'ADMINISTRATOR')).map((row) => row.keys)).toEqual([
-        { conversation: OTHERS_PRIVATE },
-      ])
-      expect((await grouped(MEMBER, 'EDITOR')).map((row) => row.keys)).toEqual([
-        { conversation: secret },
-      ])
+      expect(await grouped(ADMIN)).toEqual([{ conversation: OTHERS_PRIVATE }])
+      expect(await grouped(MEMBER)).toEqual([{ conversation: secret }])
       expect(await named(team, MEMBER, 'EDITOR')).toEqual({
         conversation: { [secret]: 'Salary review' },
       })
     } finally {
       await agentTokenUsage().deleteMany({ teamId: team })
       await agentConversations().deleteMany({ teamId: team })
+    }
+  })
+
+  test('grouped by Bot or by conversation, the same usage adds up the same, private included', async () => {
+    const team = `${TEAM}-groupings`
+    const bot = `${team}-bot`
+    const privateTask = `${team}-private-task`
+    const privateChat = `${team}-private-chat`
+    const chat = `${team}-chat`
+    const totals = async (dimension: 'bot' | 'conversation') =>
+      Object.fromEntries(
+        (
+          await queryTeamUsage(team, { ...day, groupBy: [dimension], filters: {}, viewerId: ADMIN })
+        ).map((row) => [String(row.keys[dimension]), row.totalTokens]),
+      )
+
+    await agentConversations().insertMany([
+      { sessionId: bot, teamId: team, userId: ADMIN, title: 'Bot', avatar: '05-rembrandt' },
+      // A teammate's private Task under the admin's Bot, and a private chat in no Bot.
+      {
+        sessionId: privateTask,
+        teamId: team,
+        userId: MEMBER,
+        title: 'Private task',
+        parentSessionId: bot,
+        generalAccess: 'none',
+      },
+      {
+        sessionId: privateChat,
+        teamId: team,
+        userId: MEMBER,
+        title: 'Mine',
+        generalAccess: 'none',
+      },
+      { sessionId: chat, teamId: team, userId: ADMIN, title: 'Chat' },
+    ] as never)
+    await agentTokenUsage().insertMany(
+      [
+        ...turn(bot, ADMIN, 'opus', 1000),
+        ...turn(privateTask, MEMBER, 'opus', 200),
+        ...turn(privateChat, MEMBER, 'opus', 30),
+        ...turn(chat, ADMIN, 'opus', 4),
+      ].map((row) => ({ ...row, teamId: team })),
+    )
+    try {
+      const byBot = await totals('bot')
+      const byConversation = await totals('conversation')
+      const sum = (rows: Record<string, number>) =>
+        Object.values(rows).reduce((total, value) => total + value, 0)
+
+      expect(sum(byBot)).toBe(sum(byConversation))
+      // Other members' private usage is the same in both, never a Bot's or "not recorded".
+      expect(byBot[OTHERS_PRIVATE]).toBe(230)
+      expect(byConversation[OTHERS_PRIVATE]).toBe(230)
+      expect(byBot).toEqual({ [bot]: 1000, [OTHERS_PRIVATE]: 230, null: 4 })
+    } finally {
+      await agentTokenUsage().deleteMany({ teamId: team })
+      await agentConversations().deleteMany({ teamId: team })
+    }
+  })
+
+  test('a group with any model that has no list price has no cost, never a partial one', async () => {
+    const team = `${TEAM}-prices`
+
+    await agentTokenUsage().insertMany(
+      [
+        ...turn(`${team}-a`, ADMIN, 'claude-opus-5-5', 1_000_000),
+        // Listed only at OpenAI's Flex tier, so it has no list price here.
+        ...turn(`${team}-a`, ADMIN, 'gpt-6.1-terra', 1_000_000),
+      ].map((row) => ({ ...row, teamId: team })),
+    )
+    try {
+      const [row] = await queryTeamUsage(team, {
+        ...day,
+        groupBy: ['member'],
+        filters: {},
+        viewerId: ADMIN,
+      })
+
+      expect(row?.totalTokens).toBe(2_000_000)
+      expect(row?.costUsd).toBeUndefined()
+    } finally {
+      await agentTokenUsage().deleteMany({ teamId: team })
     }
   })
 })

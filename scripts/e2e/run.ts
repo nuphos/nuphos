@@ -17,6 +17,7 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
@@ -31,6 +32,7 @@ import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
+import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
@@ -127,6 +129,7 @@ const scenarios: Scenario[] = [
   },
   ...linkChipScenarios,
   ...personalCredentialScenarios,
+  ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
@@ -145,6 +148,7 @@ const scenarios: Scenario[] = [
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...mcpFileScenarios,
   ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,

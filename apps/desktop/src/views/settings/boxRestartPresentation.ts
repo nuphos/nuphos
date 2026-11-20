@@ -12,35 +12,29 @@ export type BoxRestartKind = 'update' | 'resume'
 export type BoxRestart = {
   kind: BoxRestartKind
   startedAt: number
-  /** Whether the list has shown the host away since the request. */
-  sawOffline: boolean
+  /** The host's lastSeenAt when the update was asked for; a new connection's first report changes it. */
+  lastSeenAt?: string
 }
 
 export type BoxRestartOutcome = 'restarting' | 'back' | 'timeout' | 'gone'
 
 // A host that has not come back after this long will not on its own; the backend's window too.
 export const BOX_RESTART_TIMEOUT_MS = 5 * 60_000
-// The update waits up to 30 s for the host to stop; one still online well after that
-// restarted between two readings.
-export const BOX_RESTART_MISSED_MS = 90_000
 
 /** Where a restart stands after a fresh list: back once its host is online again. */
 export function boxRestartStep(
   restart: BoxRestart,
   device: AgentDevice | undefined,
   now = Date.now(),
-): { restart: BoxRestart; outcome: BoxRestartOutcome } {
-  if (!device) return { restart, outcome: 'gone' }
-  const online = device.online === true
-  const next = { ...restart, sawOffline: restart.sawOffline || !online }
-  const elapsed = now - restart.startedAt
-  // An update is back once the host left and returned; the backend says so when it knows.
-  const updated =
-    !device.box?.updateStartedAt && (next.sawOffline || elapsed > BOX_RESTART_MISSED_MS)
+): { outcome: BoxRestartOutcome } {
+  if (!device) return { outcome: 'gone' }
+  // An update is back once the host reported in on a new connection, even one made between two
+  // readings; the backend says so too when it knows.
+  const updated = !device.box?.updateStartedAt && device.lastSeenAt !== restart.lastSeenAt
 
-  if (online && (restart.kind === 'resume' || updated)) return { restart: next, outcome: 'back' }
+  if (device.online === true && (restart.kind === 'resume' || updated)) return { outcome: 'back' }
 
-  return { restart: next, outcome: elapsed > BOX_RESTART_TIMEOUT_MS ? 'timeout' : 'restarting' }
+  return { outcome: now - restart.startedAt > BOX_RESTART_TIMEOUT_MS ? 'timeout' : 'restarting' }
 }
 
 /** The restart a card shows: this window's own, else an update the backend reports. */
@@ -50,9 +44,7 @@ export function boxRestartOf(
 ): BoxRestart | undefined {
   const since = device.box?.updateStartedAt
 
-  return (
-    own ?? (since ? { kind: 'update', startedAt: Date.parse(since), sawOffline: false } : undefined)
-  )
+  return own ?? (since ? { kind: 'update', startedAt: Date.parse(since) } : undefined)
 }
 
 /** The card's status while its host restarts. */

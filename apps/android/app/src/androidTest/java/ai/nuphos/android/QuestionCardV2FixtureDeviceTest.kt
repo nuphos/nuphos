@@ -41,7 +41,7 @@ class QuestionCardV2FixtureDeviceTest {
 
     private val deploy = BotQuestion("agent-release", "Release ops", InputRequest("q-deploy", "approval",
         "Roll out 1.4 to production?", listOf("Ship it", "Wait for QA"), askedAt = Instant.now().minus(Duration.ofDays(15)).toString(),
-        body = (1..8).joinToString("\n") { "Finding $it: the canary held for an hour." }))
+        body = (1..8).joinToString("\n") { "Finding $it: the canary held for an hour." }), runtime = "claude-code")
 
     private fun show(onDismiss: (String?) -> Unit = {}, answers: MutableList<String> = mutableListOf()) {
         compose.setContent {
