@@ -49,12 +49,14 @@ jobs:
             exit 0
           fi
           tag=$(git tag -l 'android-v*' --sort=-v:refname | head -1)
+          [ -n "$tag" ] || { echo "::error::No android-v* tag to continue from; dispatch with a version name and code."; exit 1; }
           if git diff --quiet "$tag" HEAD -- apps/android; then
             echo "No Android changes since $tag; nothing to release."
             exit 0
           fi
           # The release job below writes "... as <name> (<code>) from commit ..." into every release body.
           code=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json body -q .body | sed -nE 's/.* as [^ ]+ \(([0-9]+)\) from commit .*/\1/p' | head -1)
+          [ -n "$code" ] || { echo "::error::No version code in the $tag release body; dispatch with a version name and code."; exit 1; }
           IFS=. read -r major minor _ <<< "${tag#android-v}"
           echo "version_code=$((code + 1))" >> "$GITHUB_OUTPUT"
           echo "version_name=$major.$((minor + 1)).0" >> "$GITHUB_OUTPUT"
