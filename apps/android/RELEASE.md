@@ -64,9 +64,12 @@ and background notification delivery/navigation.
 
 1. Merge reviewed Android changes to official `main` after the required checks
    pass. Forks, PR refs, tags and other branches cannot run these jobs.
-2. Open **Actions → Android release artifacts → Run workflow**, select `main`,
-   and supply the reviewed version name and version code. Check Play Console
-   and choose a code higher than **every** prior submission, including test
+2. The workflow runs daily at 03:00 UTC. When `apps/android` changed since the
+   last `android-v*` release, it releases the next minor version with the last
+   release's version code + 1; otherwise it builds nothing. To release sooner,
+   open **Actions → Android release artifacts → Run workflow** on `main`; leave
+   the inputs empty for the same automatic version, or supply a version name
+   and a code higher than **every** prior Play submission, including test
    tracks. CI validates the range (1–2100000000), but does not query Play's
    current version code. Never use the workflow run number as the version.
 3. The build job runs Python and JVM tests, release lint and `bundleRelease`.

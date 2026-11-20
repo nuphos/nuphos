@@ -1,15 +1,17 @@
 name: Android release artifacts
 
 on:
+  schedule:
+    - cron: '0 3 * * *' # Daily; skipped when apps/android is unchanged since the last release
   workflow_dispatch:
     inputs:
       version_code:
-        description: 'Play version code (1-2100000000; higher than every previous submission)'
-        required: true
+        description: 'Play version code (1-2100000000; higher than every previous submission). Empty: last release + 1'
+        required: false
         type: string
       version_name:
-        description: 'Reviewed Android version name, for example 1.0.1'
-        required: true
+        description: 'Android version name, for example 1.0.1. Empty: next minor after the last release'
+        required: false
         type: string
 
 permissions:
@@ -20,16 +22,55 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: Pick the release version
+    if: github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version_code: ${{ steps.pick.outputs.version_code }}
+      version_name: ${{ steps.pick.outputs.version_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Use the inputs, or the next version after the last Android release
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          if [ -n "$VERSION_CODE$VERSION_NAME" ]; then
+            echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+            echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          tag=$(git tag -l 'android-v*' --sort=-v:refname | head -1)
+          if git diff --quiet "$tag" HEAD -- apps/android; then
+            echo "No Android changes since $tag; nothing to release."
+            exit 0
+          fi
+          # The release job below writes "... as <name> (<code>) from commit ..." into every release body.
+          code=$(gh release view "$tag" -R "$GITHUB_REPOSITORY" --json body -q .body | sed -nE 's/.* as [^ ]+ \(([0-9]+)\) from commit .*/\1/p' | head -1)
+          IFS=. read -r major minor _ <<< "${tag#android-v}"
+          echo "version_code=$((code + 1))" >> "$GITHUB_OUTPUT"
+          echo "version_name=$major.$((minor + 1)).0" >> "$GITHUB_OUTPUT"
+          echo "Releasing $major.$((minor + 1)).0 ($((code + 1))); last was $tag ($code)."
+
   build:
     name: Check and build unsigned AAB
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    needs: plan
+    if: needs.plan.outputs.version_code != '' || needs.plan.outputs.version_name != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
     env:
-      VERSION_CODE: ${{ inputs.version_code }}
-      VERSION_NAME: ${{ inputs.version_name }}
+      VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+      VERSION_NAME: ${{ needs.plan.outputs.version_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -89,8 +130,8 @@ jobs:
 
   sign:
     name: Sign approved upload bundle
-    needs: build
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    needs: [plan, build]
+    if: github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: android-release
@@ -109,8 +150,8 @@ jobs:
           path: ${{ runner.temp }}/android-unsigned
       - name: Sign and verify bundle
         env:
-          VERSION_CODE: ${{ inputs.version_code }}
-          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+          VERSION_NAME: ${{ needs.plan.outputs.version_name }}
           ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
           ANDROID_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
           ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
@@ -222,8 +263,8 @@ jobs:
       - name: Release to Play production
         env:
           TOKEN: ${{ steps.play-auth.outputs.access_token }}
-          VERSION_CODE: ${{ inputs.version_code }}
-          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+          VERSION_NAME: ${{ needs.plan.outputs.version_name }}
         run: |
           set -euo pipefail
           api=https://androidpublisher.googleapis.com/androidpublisher/v3/applications/ai.nuphos.android
@@ -245,8 +286,8 @@ jobs:
 
   release:
     name: Publish the GitHub release
-    needs: sign
-    if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
+    needs: [plan, sign]
+    if: github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -255,8 +296,8 @@ jobs:
       - name: Tag the released commit and publish the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION_CODE: ${{ inputs.version_code }}
-          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ needs.plan.outputs.version_code }}
+          VERSION_NAME: ${{ needs.plan.outputs.version_name }}
         run: |
           set -euo pipefail
           tag="android-v$VERSION_NAME"
