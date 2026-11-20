@@ -3,6 +3,7 @@ import { useRef } from 'react'
 import { useWorkspacePane } from '../../app/workspace/WorkspacePaneContext'
 import { t } from '../../i18n'
 import { dismissBotDetails, setBotDetailsOpen, useBotDetailsOpen } from '../../lib/botDetailsPanel'
+import { selectInboxQuestion } from '../../views/inbox/inboxSelection'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
@@ -131,6 +132,11 @@ export function BotDetailsPanel({
       onOpenLink={(url) => onOpenLink?.(url)}
       onOpenSession={onOpenSession}
       onOpenRequest={(sessionId) => onOpenSession(sessionId)}
+      // A Bot's questions, its own and its Tasks', are answered in the Inbox, open on the one picked.
+      onSelectRequest={(request) => {
+        selectInboxQuestion(teamId, request.inputRequest.id)
+        onOpenLink?.(`/teams/${teamId}/inbox`)
+      }}
       requests={inputQueue.requests}
       requestsLoaded={inputQueue.loaded}
       requestsFailed={inputQueue.failed}
