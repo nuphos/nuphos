@@ -237,8 +237,9 @@ export const dashboardUiScenarios: Scenario[] = [
     },
   },
   {
-    // #4168: someone who may not rent a computer reads the backend's words, with no button.
+    // #4168: a member reads the backend's words, no button; the open Task 404s in the new team.
     name: 'a member sees why no agent can run a panel, and is sent to a team admin',
+    expected: /dashboard\.panel\.exec_failed|"path":"\/agent\/conversations\/[\w-]+","status":404/,
     run: async (page, stack) => {
       const anonymous = api(stack, '')
       const email = `e2e-no-agent-${String(Date.now())}@example.com`
@@ -250,7 +251,6 @@ export const dashboardUiScenarios: Scenario[] = [
         code: stack.signInCode(email),
       })
       const admin = api(stack, String(signedIn.body.token))
-      // A team with no agents, which the app's own person joins as a member.
       const made = await admin('POST', '/teams', { name: 'No agent E2E' })
       const teamId = String((made.body as { team?: { id: string } }).team?.id)
       const invited = await admin('POST', `/teams/${teamId}/invitations`, {
