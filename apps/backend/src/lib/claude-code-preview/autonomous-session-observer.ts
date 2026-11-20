@@ -7,6 +7,7 @@ import {
   isTrackedCodexAsyncTaskToolUpdate,
   observeCodexAsyncTask,
 } from './codex-async-task-wakeup'
+import { storeSessionConfig } from './session-config-record'
 
 import type { OpenAbSessionUpdate } from './openab-acp-client'
 import type { OpenAbPermissionOutcome, OpenAbPermissionRequest } from './openab-acp-session'
@@ -209,6 +210,20 @@ export function observeAutonomousUpdates(session: TeamSession): void {
       return
     if (update.kind === 'async-task') {
       observeCodexAsyncTask(session, update)
+
+      return
+    }
+    if (update.kind === 'session-config') {
+      // What the session reports it runs is the agent's own doing (#3789).
+      void storeSessionConfig(
+        session.conversationId,
+        session.teamId,
+        session.openabSessionId,
+        update.options,
+        { actorId: 'system', via: 'runtime_reported' },
+      ).catch((error: unknown) => {
+        logHandlerError(error, session)
+      })
 
       return
     }
