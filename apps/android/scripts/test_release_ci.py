@@ -171,20 +171,22 @@ class WorkflowBoundaryTest(unittest.TestCase):
                 if succeeds:
                     self.assertEqual(json.loads(target.read_text()), valid)
 
-    def test_release_is_manual_canonical_main_and_secrets_are_isolated(self):
+    def test_release_runs_on_canonical_main_and_secrets_are_isolated(self):
         text = WORKFLOW.read_text()
-        guard = "github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
+        guard = "github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'"
         self.assertEqual(text.count('if: ' + guard), 3)
-        self.assertNotIn('pull_request:', text)
+        triggers = text.split('\npermissions:', 1)[0]
+        for forbidden in ('pull_request', 'push:', 'workflow_run'):
+            self.assertNotIn(forbidden, triggers)
         build, rest = text.split('\n  sign:\n', 1)
         sign, release = rest.split('\n  release:\n', 1)
         self.assertNotIn('secrets.', build)
         self.assertNotIn('actions/checkout', sign)
         self.assertIn('environment: android-release', sign)
-        self.assertIn('needs: build', sign)
+        self.assertIn('needs: [plan, build]', sign)
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', sign)
         self.assertIn('if: always()', sign)
-        self.assertIn('needs: sign', release)
+        self.assertIn('needs: [plan, sign]', release)
         self.assertIn('contents: write', release)
         self.assertNotIn('contents: write', build + sign)
         for forbidden in ('secrets.', 'id-token', 'actions/checkout', 'environment:'):
