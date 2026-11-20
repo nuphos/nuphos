@@ -104,7 +104,7 @@ export function createRedisPresenceStore(): LocalRuntimePresenceStore {
       const updated = await withRedis((c) =>
         c.eval(
           `local raw = redis.call('GET', KEYS[1])
-         if not raw or cjson.decode(raw).conn ~= ARGV[1] then return 0 end
+         if raw and cjson.decode(raw).conn ~= ARGV[1] then return 0 end
          redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
          return 1`,
           1,
@@ -152,7 +152,7 @@ export function createMemoryPresenceStore(now = () => Date.now()): LocalRuntimeP
     put(userId, deviceId, presence) {
       const old = entries.get(presenceKey(userId, deviceId))
 
-      if (!old || old.expiresAt <= now() || old.presence.conn !== presence.conn)
+      if (old && old.expiresAt > now() && old.presence.conn !== presence.conn)
         return Promise.resolve(false)
       entries.set(presenceKey(userId, deviceId), {
         presence,

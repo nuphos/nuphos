@@ -94,6 +94,8 @@ test('the same settings again record nothing', async () => {
   })
 
   expect(history()).toBeUndefined()
+  // Nor write at all: a session reports its settings with every turn (#3789).
+  expect(stored().settingsRevision).toBeUndefined()
 })
 
 test('a setting the agent changed by itself after a turn is recorded as the system’s', async () => {
