@@ -30,6 +30,7 @@ import { leaveChatScenarios } from './leave-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
@@ -119,6 +120,7 @@ const scenarios: Scenario[] = [
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
   ...channelRestartScenarios,
+  ...mcpDefaultsScenarios,
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
