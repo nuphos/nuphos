@@ -71,11 +71,13 @@ useIdentity({
     ] as never,
 })
 useSlackInstallations({
-  resolveSlackBotForWorkspace: async () => ({
-    botToken: 'xoxb-1',
-    botUserId: 'UBOT',
-    nuphosTeamId: 'team',
-  }),
+  resolveSlackBotForWorkspace: async () =>
+    ({
+      botToken: 'xoxb-1',
+      botUserId: 'UBOT',
+      nuphosTeamId: 'team',
+      binding: { scope: 'chat:write' },
+    }) as never,
 })
 useSlackAgentBot({
   getSlackChannelMapping: async () => ({
@@ -85,11 +87,15 @@ useSlackAgentBot({
   }),
   getSlackUserMapping: async (_workspace: string, _team: string, slackUserId: string) =>
     links[slackUserId] ?? null,
+  getSlackChannelMappingByExternalChat: async () =>
+    ({ slackWorkspaceId: 'T1', slackChannelId: 'C1', teamId: 'team', enabled: true }) as never,
   markSlackEvent: async (_id: string, status: string) => {
     marked.push(status)
   },
 })
 useSlackApi({
+  // The Bot's answers, as Slack takes them.
+  slackApi: async () => ({ ok: true, ts: '30.1' }) as never,
   slackApiGet: async (_token: string, method: string, params: Record<string, unknown>) => {
     const user = slackUsers[String(params.user)]
 

@@ -207,5 +207,10 @@
     <string name="chat_summary_triggers">Pemicu</string>
     <string name="chat_summary_no_triggers">Minta agen menjadwalkan pekerjaan berulang dalam tugas ini.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Detail bot</string>
+    <string name="chat_bot_state_waiting">%1$d perlu masukan Anda</string>
+    <string name="chat_bot_state_running">%1$d berjalan</string>
+    <string name="chat_summary_idle_since">Menganggur · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_summary_paused">Dijeda</string>
 </resources>

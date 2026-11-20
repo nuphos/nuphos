@@ -277,8 +277,18 @@ struct AgentPage: View {
                         NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
                     } else if conversation.isBot {
                         // A Bot with no 1:1 chat yet: the list stays while it is made.
+                        // A Button, not a link: picking a link would show the chat before it exists, and
+                        // hide the list that reports a failure (#1738). It ends with the links' chevron (#3614).
                         Button { Task { await openBotChat(conversation.sessionId) } } label: {
-                            treeRow(item) { ChannelRow(channel: conversation) }.contentShape(Rectangle())
+                            HStack(spacing: 0) {
+                                treeRow(item) { ChannelRow(channel: conversation) }
+                                Image(systemName: "chevron.forward")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.leading, 11)
+                                    .opacity(store.creatingBot ? 0 : 1)
+                            }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(store.creatingBot)
@@ -301,7 +311,7 @@ struct AgentPage: View {
                         pinAction(conversation)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -316,7 +326,7 @@ struct AgentPage: View {
                     }
                 } else {
                     row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -389,7 +399,7 @@ struct AgentPage: View {
 
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation, tinted: Bool = true) -> some View {
-        if conversation.canManage { Button {
+        if conversation.canArchive { Button {
             if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {

@@ -9,6 +9,8 @@ type AgentEntry = {
   sessionId: string
   event: string
   marker?: string
+  /** Every marker in a turn's prompt, in order. */
+  markers?: string[]
   /** The model settings a new session was created with. */
   defaults?: { model?: string; effort?: string; fast?: string }
   /** The Bot-only Claude Code env a new session was created with. */

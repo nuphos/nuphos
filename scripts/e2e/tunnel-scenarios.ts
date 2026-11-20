@@ -24,7 +24,7 @@ const UPDATE_RELEASE = join(artifacts, 'update-release')
 const RELEASE = join(artifacts, 'tunnel-release')
 
 /** The app's local-runtime bundle with the fixture agent as Claude Code; E2E_WAIT_RELEASE waits for `release`. */
-function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
+export function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
   const real = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64')
   const root = join(artifacts, `${name}-bundle`)
   const neverFile = join(artifacts, `${name}-never`)
