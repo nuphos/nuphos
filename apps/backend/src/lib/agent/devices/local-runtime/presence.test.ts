@@ -58,6 +58,7 @@ describe('memory presence store', () => {
   test('reclaims expired presence but does not replace another live connection', async () => {
     let now = 1
     const store = createMemoryPresenceStore(() => now)
+
     await store.claim('u1', 'd1', 'c1')
     now += RUNTIME_PRESENCE_TTL_SEC * 1000
     expect(await store.put('u1', 'd1', { conn: 'c1', seenAt: now })).toBe(true)
