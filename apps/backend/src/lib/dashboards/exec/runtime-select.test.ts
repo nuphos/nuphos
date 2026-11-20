@@ -67,11 +67,13 @@ async function selectionError(promise: Promise<unknown>): Promise<PanelExecError
 }
 
 describe('selectPanelRuntime', () => {
-  test('fails visibly when the team has no usable runtime', async () => {
+  test('with no agent to run it, says the own computer cannot and a Box can', async () => {
     const err = await selectionError(selectPanelRuntime(context, inOrder, deps([], {})))
 
-    expect(err.kind).toBe('runtime_unavailable')
+    expect(err.kind).toBe('no_runtime')
     expect(err.message).toBe(NO_RUNTIME_MESSAGE)
+    expect(err.message).toContain("Agents on your own computer can't run dashboard panels")
+    expect(err.message).toContain('Rent a Box from Nuphos')
   })
 
   test('skips unreachable and outdated runtimes for one that runs the job', async () => {
