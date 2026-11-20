@@ -1,6 +1,6 @@
 ---
 name: posthog
-description: Query PostHog product analytics — run HogQL (SQL) over events, persons and sessions, and read insights, dashboards, feature flags, cohorts, experiments and event/property definitions — through a PostHog project the user's team has connected to Nuphos with PostHog OAuth. Use whenever the user asks about product usage, funnels, retention, active users, a feature flag's rollout, what an event contains, or wants numbers from PostHog. The agent calls the PostHog API directly, limited to the scopes the team granted; writes need explicit user confirmation.
+description: "Query PostHog analytics in a team-bound project: HogQL over events and persons, insights, dashboards, flags, cohorts and experiments. Writes need user confirmation."
 ---
 
 # posthog

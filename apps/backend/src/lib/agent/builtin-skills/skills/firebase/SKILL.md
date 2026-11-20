@@ -1,6 +1,6 @@
 ---
 name: firebase
-description: Inspect Firebase project and registered-app inventory through a selected Google Cloud service-account binding, using short-lived WIF credentials and official REST APIs. No Firebase CLI authentication or deployment support.
+description: Inspect Firebase project and registered-app inventory through a selected GCP service-account binding, with short-lived credentials and REST APIs. No CLI auth or deploys.
 ---
 
 # Firebase

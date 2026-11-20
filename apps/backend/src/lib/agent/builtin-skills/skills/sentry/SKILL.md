@@ -1,6 +1,6 @@
 ---
 name: sentry
-description: Investigate Sentry errors — list unresolved issues, read stack traces and event details, check release health — through a Sentry account the user's team has bound to Nuphos via OAuth. Use whenever the user asks why something is erroring, what's failing in production, to look up a Sentry issue, or to correlate an incident with a deploy. Nuphos backend hands the agent a short-lived read-only Sentry access token; the agent calls sentry.io/api/0 directly with curl.
+description: "Investigate Sentry errors in a team-bound account (read-only): unresolved issues, stack traces, events and release health; correlate incidents with deploys."
 ---
 
 # sentry
