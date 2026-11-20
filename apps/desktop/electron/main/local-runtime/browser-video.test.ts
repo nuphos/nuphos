@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events'
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { startVideo, stopVideo } from './browser-video.ts'
@@ -14,7 +14,7 @@ const temp = mkdtempSync(join(tmpdir(), 'video-test-'))
 const output = { dir: temp, creator: { name: 'Nuphos Desktop', version: '1.0.0' } }
 
 /** A tab whose debugger records the commands it is sent. */
-function tab({ failScreencast = false, failScreenshot = false } = {}) {
+function tab({ failScreencast = false, failScreenshot = false, hangScreenshot = false } = {}) {
   const debug = Object.assign(new EventEmitter(), {
     commands: [] as { method: string; params?: object }[],
     attached: false,
@@ -29,6 +29,8 @@ function tab({ failScreencast = false, failScreenshot = false } = {}) {
       debug.commands.push({ method, params })
       if (failScreencast && method === 'Page.startScreencast')
         return Promise.reject(new Error('screencast refused'))
+      // A hidden Electron window never paints the frame a screenshot waits for.
+      if (hangScreenshot && method === 'Page.captureScreenshot') return new Promise(() => {})
       if (failScreenshot && method === 'Page.captureScreenshot')
         return Promise.reject(new Error('screenshot refused'))
 
@@ -42,7 +44,7 @@ function tab({ failScreencast = false, failScreenshot = false } = {}) {
 }
 
 /** A helper page that encodes nothing: `finish(ms)` answers with one frame's chunk. */
-function helper({ fail, empty }: { fail?: 'setup' | 'finish'; empty?: boolean } = {}) {
+function helper({ fail, empty }: { fail?: 'setup' | 'finish' | 'hang'; empty?: boolean } = {}) {
   const page = {
     scripts: [] as string[],
     closed: false,
@@ -53,6 +55,9 @@ function helper({ fail, empty }: { fail?: 'setup' | 'finish'; empty?: boolean } 
       if (fail === 'setup' && !finish && !script.startsWith('draw('))
         return Promise.reject(new Error('no VideoEncoder'))
       if (fail === 'finish' && finish) return Promise.reject(new Error('encoder crashed'))
+      if (fail === 'hang' && finish) return new Promise(() => {})
+      if (script === 'JSON.stringify(progress)')
+        return Promise.resolve('{"drawn":2,"encoded":2,"chunks":1}')
 
       const chunks = empty ? [] : [{ ms: 0, key: true, data: 'VlA4' }]
 
@@ -191,4 +196,41 @@ test('a video with no frame at all fails record_stop instead of writing an empty
   const video = await startVideo(contents.debugger, () => Promise.resolve(helper({ empty: true })))
 
   await assert.rejects(stopVideo(video, join(temp, 'empty.webm')), /No frame/)
+})
+
+const settle = () => new Promise((resolve) => setImmediate(resolve))
+
+test('a tab that never answers the first screenshot still starts its video within a second', async () => {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const { contents, debug } = tab({ hangScreenshot: true })
+    const started = startVideo(contents.debugger, () => Promise.resolve(helper()))
+
+    await settle()
+    mock.timers.tick(1000)
+    await started
+    assert.ok(methods(debug).includes('Page.startScreencast'))
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('a helper that never finishes fails record_stop within 15 s, saying how far it got', async () => {
+  const { contents } = tab()
+  const video = await startVideo(contents.debugger, () => Promise.resolve(helper({ fail: 'hang' })))
+
+  mock.timers.enable({ apis: ['setTimeout'] })
+  try {
+    const stopped = assert.rejects(
+      stopVideo(video, join(temp, 'hung.webm')),
+      /did not finish in 15 s.*"drawn":2/,
+    )
+
+    await settle()
+    mock.timers.tick(15_000)
+    await settle()
+    await stopped
+  } finally {
+    mock.timers.reset()
+  }
 })
