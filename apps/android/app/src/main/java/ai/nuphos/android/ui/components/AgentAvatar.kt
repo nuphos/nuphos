@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.BotAvatars
+import ai.nuphos.android.ui.theme.avatarBackground
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
 import ai.nuphos.android.NuphosApplication
@@ -48,6 +49,8 @@ fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) {
+            // Behind the character, unclipped: a head may break out of the disc.
+            avatarBackground(ai.nuphos.android.model.BotFaces.background(sessionId))?.let { Box(Modifier.size(size).background(it, CircleShape)) }
             AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
             imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit,
             modifier = Modifier.size(size))

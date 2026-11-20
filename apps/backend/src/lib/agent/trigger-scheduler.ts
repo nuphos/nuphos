@@ -98,7 +98,9 @@ export async function initTriggerScheduler(): Promise<boolean> {
   )
 
   _worker.on('failed', (job, err) => {
-    logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id })
+    void whoseJob(job?.data).then((owner) =>
+      logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }),
+    )
     if (job?.name === 'task-report') {
       void import('./task-reports')
         .then(({ taskReports }) =>
@@ -224,4 +226,16 @@ export async function scheduleCronTrigger(
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
   if (!_queue) return
   await _queue.removeJobScheduler(`trigger:${triggerId}`)
+}
+
+/** The Trigger a failed fire belongs to, so its log line says whose it is (#3718). */
+async function whoseJob(data: unknown): Promise<Record<string, string | undefined>> {
+  const triggerId = (data as { triggerId?: unknown } | undefined)?.triggerId
+
+  if (typeof triggerId !== 'string' || !ObjectId.isValid(triggerId)) return {}
+  const trigger = await agentTriggers()
+    .findOne({ _id: new ObjectId(triggerId) }, { projection: { teamId: 1, targetSessionId: 1 } })
+    .catch(() => null)
+
+  return { trigger_id: triggerId, team_id: trigger?.teamId, session_id: trigger?.targetSessionId }
 }

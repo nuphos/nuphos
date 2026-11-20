@@ -15,6 +15,8 @@ enum ChannelPostTests {
         renamingTheBotChangesTheRevision()
         aGroupChatWithOneBotIsNotItsChat()
         readsAndQuotesReplies()
+        readsInboxAnswersAsTheAnswerersPosts()
+        marksTheLastAnswerOfEachInboxCard()
         print("Chat posts, runs, sending and timeline passed")
     }
 
@@ -62,6 +64,49 @@ enum ChannelPostTests {
         let original = ChannelPost(message("m1", sender: agent, parts: [text(String(repeating: "x", count: 250))]))!
         precondition(original.replyTo == nil)
         precondition(original.asReply == ChannelReply(id: "m1", authorName: "Ops", text: String(repeating: "x", count: 200)))
+    }
+
+    /// An answer given in the Inbox: the answerer's own post, quoting the question.
+    private static func answer(_ id: String, by sender: [String: JSONValue], request: String?, answer: String,
+                               question: String = "Ship it?", answeredIn: String? = "inbox") -> ChatMessage {
+        var message = message(id, sender: sender, parts: [text(answer)])
+        if case .object(var metadata) = message.metadata {
+            metadata["replyTo"] = .object(["authorName": .string("Scribe"), "text": .string(question)])
+            if let answeredIn { metadata["answeredIn"] = .string(answeredIn) }
+            metadata["source"] = .string("nuphos")
+            if let request { metadata["requestId"] = .string(request) }
+            message.metadata = .object(metadata)
+        }
+        return message
+    }
+
+    private static func readsInboxAnswersAsTheAnswerersPosts() {
+        let post = ChannelPost(answer("a1", by: person("me", "Bruce"), request: "req-1", answer: "Ship it"))!
+        precondition(!post.isRecord && !post.isAgent && post.isMine(viewerId: "me") && post.text == "Ship it")
+        // The question is quoted as the asking Bot's; it is not a post here, so there is nowhere to jump.
+        precondition(post.replyTo == ChannelReply(id: nil, authorName: "Scribe", text: "Ship it?"))
+        precondition(post.inboxRequest == "req-1")
+        // Answered on the card in the chat: an answer post too, but not one from the Inbox.
+        let inChat = ChannelPost(answer("a2", by: person("me", "Bruce"), request: "req-1", answer: "x", answeredIn: nil))!
+        precondition(inChat.inboxRequest == nil && inChat.replyTo == ChannelReply(id: nil, authorName: "Scribe", text: "Ship it?"))
+    }
+
+    private static func marksTheLastAnswerOfEachInboxCard() {
+        let diana = person("diana", "Diana")
+        let posts = [
+            ChannelPost(answer("a1", by: diana, request: "req-1", answer: "Friday", question: "When?"))!,
+            ChannelPost(answer("a2", by: diana, request: "req-1", answer: "Staging", question: "Where?"))!,
+            ChannelPost(answer("b1", by: person("me", "Bruce"), request: "req-2", answer: "Yes"))!,
+            ChannelPost(message("p", sender: person("me", "Bruce"), parts: [text("Thanks")]))!,
+            // Answered on the card in the chat: no line.
+            ChannelPost(answer("c1", by: person("me", "Bruce"), request: "req-3", answer: "Later", answeredIn: nil))!,
+        ]
+        let rows = ChannelPost.items(posts: posts, events: [], typing: [])
+        precondition(rows.map(\.id) == ["time.a1", "post.a1", "post.a2", "answered.a2", "post.b1", "answered.b1", "post.p", "post.c1"], "\(rows.map(\.id))")
+        // The line sits on the side of the card's last answer.
+        precondition(rows[3].item == .answeredInInbox(posts[1]) && rows[5].item == .answeredInInbox(posts[2]))
+        // One bubble per question: the answerer's face and name only on the first.
+        precondition(firsts(ChannelPost.items(posts: posts, events: [], typing: [])) == ["a1", "b1"])
     }
 
     private static func readsPeopleAgentsAndFiles() {

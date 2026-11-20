@@ -22,6 +22,9 @@ mock.module('./LocalAgentShareDialog', () => ({
 mock.module('./BoxAccessDialog', () => ({
   BoxAccessDialog: () => createElement('div', { 'data-share-dialog': 'cloud' }),
 }))
+mock.module('./useComputerSettings', () => ({
+  useComputerSettings: () => ({ menuItem: null, dialog: null }),
+}))
 mock.module('./useComputerOwner', () => ({ useComputerOwner: () => null }))
 mock.module('./useComputerUpdate', () => ({
   useComputerUpdate: () => ({ label: null, version: undefined, update: () => {} }),

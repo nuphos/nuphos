@@ -83,7 +83,13 @@ export function DashboardCanvas({
       ) : panels.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <div className="text-[14px] text-tertiary">{t('This dashboard is empty.')}</div>
-          <Button size="sm" type="button" onClick={openPanelAssistant}>
+          {/* Wraps instead of scrolling the panel beside a chat sideways. */}
+          <Button
+            size="sm"
+            type="button"
+            className="!h-auto min-h-8 max-w-full py-1.5 !whitespace-normal"
+            onClick={openPanelAssistant}
+          >
             <Plus className="h-4 w-4" /> {t('Add your first panel')}
           </Button>
         </div>

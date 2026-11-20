@@ -8,6 +8,7 @@ import '@/otel/bootstrap'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
+import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
 import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
@@ -25,6 +26,7 @@ import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/sto
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
 import { validateAwsOidcConfig } from '@/lib/byos/aws-oidc'
+import { installRuntimeWake } from '@/lib/claude-code-preview/agent-chat-registry'
 import {
   publishRuntimeHandoffs,
   startRuntimeHandoffAdoption,
@@ -114,8 +116,9 @@ if (cancelledPlans > 0) {
 
 await backfillPersonalTokenExpiry()
 
-// A message queued behind a turn starts the next one when that turn lets go.
+// A queued message starts when the turn ahead lets go; a runtime back wakes its agents.
 installQueuedTurnStarter(startQueuedTurn)
+installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
 if (await initTriggerScheduler()) {
   logEvent('info', 'backend.trigger_scheduler.ready')

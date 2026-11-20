@@ -54,6 +54,9 @@ struct NewBoxTests {
         precondition(NewBox.phase(madeAt: made, now: made + 300, state: "creating", runtimes: 0) == .starting)
         precondition(NewBox.phase(madeAt: made, now: made + 301, state: "creating", runtimes: 0) == .timeout)
         precondition(NewBox.phase(madeAt: made, now: made + 301, state: nil, runtimes: 1) == .ready)
+        // Runtimes join one by one: the list is still read once the first is up.
+        precondition(NewBox.Phase.starting.reads && NewBox.Phase.ready.reads, "the Ready list stops at the first runtime")
+        precondition(!NewBox.Phase.idle.reads && !NewBox.Phase.error.reads && !NewBox.Phase.timeout.reads)
     }
 
     private static func labelsABoxsStateAndWhoMayResumeIt() {
@@ -69,5 +72,12 @@ struct NewBoxTests {
         precondition(!NewBox.resumable(state: "paused", access: "use"), "a teammate who may only use it cannot resume it")
         precondition(!NewBox.resumable(state: "running", access: "owner"))
         precondition(!NewBox.resumable(state: "creating", access: "owner"))
+
+        precondition(NewBox.deletePath(deviceId: "box-1") == "agent/devices/box-1/box")
+        precondition(NewBox.deletable(isBox: true, access: "owner"))
+        precondition(!NewBox.deletable(isBox: true, access: "manage"), "only its owner deletes a Box")
+        precondition(!NewBox.deletable(isBox: true, access: "use"))
+        precondition(!NewBox.deletable(isBox: true, access: nil))
+        precondition(!NewBox.deletable(isBox: false, access: "owner"), "a personal computer is not deleted here")
     }
 }

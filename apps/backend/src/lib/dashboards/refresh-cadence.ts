@@ -4,9 +4,9 @@ import { nuphosDashboards } from '@/models'
 import type { DashboardRefreshCadence, NuphosDashboard } from '@/models'
 
 const CADENCE_CRON: Record<DashboardRefreshCadence, string> = {
-  daily: '0 9 * * *',
-  weekly: '0 9 * * 1',
-  monthly: '0 9 1 * *',
+  daily: '0 0 * * *',
+  weekly: '0 0 * * 1',
+  monthly: '0 0 1 * *',
 }
 
 /** Most frequent first. */

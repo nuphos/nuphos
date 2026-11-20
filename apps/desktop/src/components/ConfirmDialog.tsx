@@ -11,6 +11,7 @@ type Props = {
   confirmLabel?: string
   cancelLabel?: string
   destructive?: boolean
+  icon?: ReactNode
   onConfirm: () => void | Promise<void>
   onClose: () => void
 }
@@ -22,6 +23,7 @@ export function ConfirmDialog({
   confirmLabel = t('Confirm'),
   cancelLabel = t('Cancel'),
   destructive,
+  icon,
   onConfirm,
   onClose,
 }: Props) {
@@ -33,6 +35,7 @@ export function ConfirmDialog({
       confirmLabel={confirmLabel}
       cancelLabel={cancelLabel}
       destructive={destructive}
+      icon={icon}
       onConfirm={onConfirm}
       onClose={onClose}
     />

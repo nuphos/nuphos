@@ -138,24 +138,18 @@ final class AgentListFailureUITests: XCTestCase {
         responses[watch] = ["status": 500, "body": ["error": ["message": "Too late"]], "delayMs": 15000]
         launch()
         try unwatch()
-        let names = list.compactMap { $0["name"] as? String }
-        for _ in 0..<switches { switchWorkspace(among: names) }
+        for _ in 0..<switches { switchWorkspace() }
         XCTAssertFalse(app.alerts["Couldn't update task"].waitForExistence(timeout: 22), "A failure from the last workspace showed")
     }
 
-    private func switchWorkspace(among names: [String]) {
-        app.buttons["Account"].firstMatch.tap()
-        // The Account sheet's Team section links to the team picker, labelled with the current team.
-        let picker = app.buttons.matching(NSPredicate(format: "label IN %@", names)).firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No team picker")
-        let shown = picker.label
-        picker.tap()
-        let next = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", names.first { $0 != shown } ?? names[0])).firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 5), "No other workspace")
+    private func switchWorkspace() {
+        // The toolbar's Switch team opens the team switcher (#3343); picking a team closes it.
+        app.buttons["Switch team"].firstMatch.tap()
+        let options = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'team-option-'"))
+        XCTAssertTrue(options.firstMatch.waitForExistence(timeout: 5), "No team switcher")
+        let next = options.matching(NSPredicate(format: "selected == false")).firstMatch
+        XCTAssertTrue(next.exists, "No other workspace")
         next.tap()
-        sleep(1)
-        let done = app.buttons["Done"].firstMatch
-        if done.exists { done.tap() } else { app.swipeDown(velocity: .fast) }
         sleep(1)
     }
 

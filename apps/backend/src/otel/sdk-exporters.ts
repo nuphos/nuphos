@@ -1,6 +1,6 @@
 import { ExportResultCode } from '@opentelemetry/core'
 
-import { errorMessage } from '@/lib/observability'
+import { errorMessage, logEvent } from '@/lib/observability'
 import { metricsRegistry } from '@/otel/metrics'
 
 import type { ExportResult } from '@opentelemetry/core'
@@ -27,18 +27,7 @@ export function logJson(
   event: string,
   properties: Record<string, unknown>,
 ): void {
-  const line = JSON.stringify({
-    ts: new Date().toISOString(),
-    level,
-    event,
-    ...properties,
-  })
-
-  if (level === 'error') {
-    console.error(line)
-  } else {
-    console.warn(line)
-  }
+  logEvent(level, event, properties)
 }
 
 // Counts export failures and decides when one is worth a log line. Shared by

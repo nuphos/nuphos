@@ -41,3 +41,55 @@ test("a Bot's post is headed by its name alone, never an Agent tag", () => {
   assert.match(markup, />Scribe</)
   assert.doesNotMatch(markup, />Agent</)
 })
+
+const answer = (viewerId: string, answeredInInbox: boolean) =>
+  renderToStaticMarkup(
+    <ChannelMessage
+      message={
+        {
+          id: 'm2',
+          role: 'user',
+          parts: [{ type: 'text', text: 'us-east' }],
+          createdAt: '2026-11-18T09:00:00Z',
+          metadata: {
+            version: 1,
+            sender: { type: 'user', id: 'u1', displayName: 'Mei' },
+            source: 'nuphos',
+            sentAt: '2026-11-18T09:00:00Z',
+            replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+            answeredIn: 'inbox',
+            requestId: 'q1',
+          },
+        } as unknown as AgentPersistedMessage
+      }
+      at={0}
+      first
+      fresh={false}
+      ownAgent={false}
+      viewerId={viewerId}
+      teamId="t"
+      links={{ channelId: 'c', renderLink: (_, children) => children }}
+      onOpenSession={() => {}}
+      answeredInInbox={answeredInInbox}
+    />,
+  )
+
+test('a reply quotes its post inside its own bubble, above the words', () => {
+  for (const [viewer, bubble, tint] of [
+    ['u1', 'user-message-bubble', 'bg-white/15'],
+    ['someone-else', 'border-line-control', 'bg-black/5'],
+  ] as const) {
+    const markup = answer(viewer, false)
+    const inBubble = markup.slice(markup.indexOf(bubble))
+
+    assert.ok(inBubble.indexOf('Which regions?') >= 0, viewer)
+    assert.ok(inBubble.indexOf('Which regions?') < inBubble.indexOf('us-east'), viewer)
+    assert.ok(inBubble.includes(tint), viewer)
+    assert.ok(inBubble.includes('line-clamp-2'), viewer)
+  }
+})
+
+test('only the last post of an Inbox answer says where it was answered', () => {
+  assert.ok(answer('u1', true).includes('Answered in Inbox'))
+  assert.ok(!answer('u1', false).includes('Answered in Inbox'))
+})
