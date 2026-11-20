@@ -20,7 +20,7 @@ import {
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, botEnv, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -126,7 +126,7 @@ async function prompt({ sessionId, prompt: parts }) {
     .join('\n')
   const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', ...turnFacts(text) })
+  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
   // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
   // #3055: and the answer to a question asked with E2E_ASK_LATE.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
@@ -203,7 +203,7 @@ async function prompt({ sessionId, prompt: parts }) {
       sessionId,
       update: {
         sessionUpdate: 'agent_message_chunk',
-        content: { type: 'text', text: `ACK ${marker}${longReply(text)}` },
+        content: { type: 'text', text: `ACK ${marker}` },
       },
     },
   })
@@ -246,7 +246,7 @@ async function answer(request) {
         }),
       }
 
-      log({ sessionId, event: 'session', defaults, env: botEnv(request.params) })
+      log({ sessionId, event: 'session', defaults })
 
       return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
