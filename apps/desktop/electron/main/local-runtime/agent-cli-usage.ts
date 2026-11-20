@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import path from 'node:path'
 
 import { homeOf } from './agent-cli-apps.ts'
@@ -61,6 +62,46 @@ function usageRequest(
   return Promise.resolve(null)
 }
 
+/** Grok keeps its credential to itself and answers its own ACP `_x.ai/billing`,
+ *  as the cloud runtime's probe asks it. Run in the agent's home, so it reads the
+ *  account this agent signed in to. */
+function readGrokUsage(env: NodeJS.ProcessEnv): Promise<unknown> {
+  return new Promise((resolve) => {
+    const child = spawn(env.NUPHOS_AGENT_EXECUTABLE || 'grok', ['agent', '--no-leader', 'stdio'], {
+      env: { ...env, GROK_DISABLE_AUTOUPDATER: '1' },
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
+    const done = (usage?: unknown) => {
+      clearTimeout(timer)
+      child.kill()
+      resolve(usage)
+    }
+    const timer = setTimeout(done, USAGE_TIMEOUT_MS)
+    const send = (message: object) =>
+      child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...message })}\n`)
+    let buffer = ''
+
+    child.on('error', () => done())
+    child.stdin.on('error', () => done())
+    child.stdout.on('data', (chunk: Buffer) => {
+      buffer += chunk.toString()
+      if (buffer.length > MAX_USAGE_CHARS) return done()
+      for (let end; (end = buffer.indexOf('\n')) >= 0; buffer = buffer.slice(end + 1)) {
+        let message: { id?: unknown; result?: unknown }
+
+        try {
+          message = JSON.parse(buffer.slice(0, end)) as typeof message
+        } catch {
+          continue
+        }
+        if (message.id === 1) send({ id: 2, method: '_x.ai/billing', params: {} })
+        if (message.id === 2) done(message.result ?? undefined)
+      }
+    })
+    send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } })
+  })
+}
+
 /** Asks the provider what is left of this computer's own account. It runs here,
  *  not in Nuphos, because the credential is here — and because the rate limit it
  *  spends is this person's, not a shared one. Every failure reports nothing:
@@ -70,6 +111,7 @@ export async function readAgentUsage(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
+  if (provider === 'grok') return readGrokUsage(env)
   const request = await usageRequest(provider, env)
 
   if (!request) return
