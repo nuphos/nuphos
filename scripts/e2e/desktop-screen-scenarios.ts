@@ -119,11 +119,13 @@ async function makeBox(stack: Stack, deviceId: string, sandboxId: string) {
   })
 }
 
+// A screen's stream is not found until its host has started and the computer reports it.
+const SCREEN_NOT_UP_YET = /\/runtime-desktop\/runtime\/[^"]+\/0","status":404/u
+
 export const desktopScreenScenarios: Scenario[] = [
   {
     name: 'a computer’s screen paints, takes input, and paints again when opened after its host left; one with no picture gives up with Try again',
-    // A screen's stream is not found until its host has started and the computer reports it.
-    expected: /\/runtime-desktop\/runtime\/[^"]+\/0","status":404/u,
+    expected: SCREEN_NOT_UP_YET,
     run: async (page, stack) => {
       writeFileSync(
         HOST,
@@ -164,6 +166,7 @@ export const desktopScreenScenarios: Scenario[] = [
     // #4100: instabox gives a workspace key no desktop link, so a Box's desktop opens through
     // its own host, as any of the owner's computers does, and never asks instabox for a link.
     name: 'a Box’s desktop opens through its host and paints',
+    expected: SCREEN_NOT_UP_YET,
     run: async (page, stack) => {
       writeFileSync(
         HOST,
