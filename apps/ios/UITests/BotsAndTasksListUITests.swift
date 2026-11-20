@@ -250,20 +250,26 @@ final class BotsAndTasksListUITests: XCTestCase {
 
     /// A Task dispatched after the chat opened appears without leaving that chat (#4227).
     func testDispatchedTaskAppearsWhileBotChatIsOpen() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        var page = try XCTUnwrap(responses["GET /agent/conversations"] as? [String: Any])
+        var body = try XCTUnwrap(page["body"] as? [String: Any])
+        var conversations = try XCTUnwrap(body["conversations"] as? [[String: Any]])
+        conversations.removeAll { ($0["parentSessionId"] as? String) == "bot-lead" }
+        body["conversations"] = conversations
+        page["body"] = body
+        responses["GET /agent/conversations"] = page
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+
         launch(page: "chats")
-        let notes = app.staticTexts["Notes Bot"].firstMatch
-        XCTAssertTrue(notes.waitForExistence(timeout: 10))
-        notes.tap()
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10))
+        lead.tap()
         let name = app.buttons["bot-details-entry"]
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         XCTAssertFalse(name.label.contains("running"))
         shot("bot-task-before")
 
-        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
-        var page = try XCTUnwrap(responses["GET /agent/conversations"] as? [String: Any])
-        var body = try XCTUnwrap(page["body"] as? [String: Any])
-        var conversations = try XCTUnwrap(body["conversations"] as? [[String: Any]])
-        conversations.append(Self.row("agent-new", "Draft the notes", at: "09:59", parent: "bot-notes", working: true))
+        conversations.append(Self.row("agent-new", "Draft the notes", at: "09:59", parent: "bot-lead", working: true))
         body["conversations"] = conversations
         page["body"] = body
         responses["GET /agent/conversations"] = page
