@@ -135,7 +135,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
                                         when {
                                             runtime.deleting -> Text(stringResource(R.string.agent_deleting), style = MaterialTheme.typography.bodySmall)
                                             runtime.status != "active" -> Text(stringResource(R.string.agent_disabled), style = MaterialTheme.typography.bodySmall)
-                                            runtime.local?.online == false || group.device?.online == false -> Text(stringResource(R.string.agent_offline), style = MaterialTheme.typography.bodySmall)
+                                            runtime.local?.online == false || group.device?.online == false -> Text(stringResource(offlineWords(group.device)), style = MaterialTheme.typography.bodySmall)
                                         }
                                         RuntimeInventoryQuota(store.quotas[runtime.id], runtime.signedIn == false)
                                     }
@@ -149,6 +149,13 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
             }
         }
     }
+}
+
+/** What a computer that is not online says: a Box still coming up says so, like Desktop and iOS. */
+internal fun offlineWords(device: ai.nuphos.android.data.RuntimeDevice?): Int = when (device?.box?.state) {
+    "creating" -> R.string.convtext_phase_starting
+    "connecting" -> R.string.convtext_phase_connecting
+    else -> R.string.agent_offline
 }
 
 @Composable
