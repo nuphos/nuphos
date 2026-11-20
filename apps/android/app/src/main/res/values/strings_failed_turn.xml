@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">Turn failed.</string>
+    <string name="failed_turn_timed_out">Turn timed out.</string>
+    <string name="failed_turn_stopped">Stopped.</string>
+    <string name="failed_turn_retry">Retry</string>
+    <string name="failed_turn_copy">Copy</string>
+    <string name="failed_turn_copied">Copied</string>
+</resources>

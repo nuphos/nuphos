@@ -53,6 +53,16 @@ export async function triggerActor(
   }
 }
 
+/** The actor of a change, with the app that sent it, for the Trigger's history. */
+export function withClient(
+  c: { req: { header(name: string): string | undefined } },
+  actor: TriggerActorContext,
+): TriggerActorContext {
+  const client = c.req.header('x-atlas-client')?.trim()
+
+  return client ? { ...actor, client } : actor
+}
+
 /**
  * A request body as a plain object. `c.req.json<T>()` is only a TypeScript
  * assertion, so a JSON `null`, array, or scalar would sail through and blow up

@@ -204,21 +204,6 @@ export function sessionState(sessionId, state) {
   }
 }
 
-/** Says in the conversation why the provider turned the turn down. */
-function refusal(sessionId, why) {
-  return {
-    jsonrpc: '2.0',
-    method: 'session/update',
-    params: {
-      sessionId,
-      update: {
-        sessionUpdate: 'agent_message_chunk',
-        content: { type: 'text', text: `The model provider refused the request: ${why}` },
-      },
-    },
-  }
-}
-
 function toolUpdate(sessionId, toolCallId, status, meta) {
   return {
     jsonrpc: '2.0',
@@ -273,8 +258,8 @@ export function runShim({
   const tasks = new Map()
   const internal = new Map()
   const transforms = new Map()
-  // Prompts ended because their provider refused them; the agent's answer to the cancel closes them.
-  const refused = new Set()
+  // Why each prompt's provider refused it; the agent's answer to the cancel closes them.
+  const refused = new Map()
   // When the agent last sent anything for each session.
   const heard = new Map()
   let initialize
@@ -337,10 +322,12 @@ export function runShim({
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
-      const failure = message.result && spec.turnError?.(agentEnvironment, promptSession)
-      // Cancelled by this process, not by the person: the turn ended with the refusal.
-      if (refused.delete(message.id) && message.result)
-        message = { ...message, result: { ...message.result, stopReason: 'end_turn' } }
+      // Cancelled by this process for its provider's refusal, or a refusal the agent ended as
+      // if it had replied.
+      const failure =
+        refused.get(message.id) ??
+        (message.result && spec.turnError?.(agentEnvironment, promptSession))
+      refused.delete(message.id)
       // A failed turn answers as Claude Code's does, so every client shows why it failed.
       forward(
         failure
@@ -435,8 +422,7 @@ export function runShim({
       }
       if (!why) return
       clearInterval(timer)
-      refused.add(id)
-      write(refusal(sessionId, why))
+      refused.set(id, why)
       send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
     }, refusalPollMs)
     timer.unref?.()

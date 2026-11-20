@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">รอบนี้ล้มเหลว</string>
+    <string name="failed_turn_timed_out">รอบนี้หมดเวลา</string>
+    <string name="failed_turn_stopped">หยุดแล้ว</string>
+    <string name="failed_turn_retry">ลองอีกครั้ง</string>
+    <string name="failed_turn_copy">คัดลอก</string>
+    <string name="failed_turn_copied">คัดลอกแล้ว</string>
+</resources>

@@ -65,17 +65,24 @@ const JOIN_WAIT: Duration = Duration::from_secs(60);
 /// only the first, and a process `setsid` left to PID 1 only the second.
 pub fn wanted() -> bool {
     if cfg!(target_os = "macos") {
-        return std::env::var("XPC_SERVICE_NAME").as_deref() != Ok(LABEL);
+        return !running();
     }
-    let unit = std::env::var_os("INVOCATION_ID").is_some()
-        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default());
     cfg!(target_os = "linux")
-        && !unit
+        && !running()
         && systemctl(&["show-environment"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|s| s.success())
+}
+
+/// Whether this process is a service's own: the LaunchAgent's, or a systemd unit's.
+pub fn running() -> bool {
+    if cfg!(target_os = "macos") {
+        return std::env::var("XPC_SERVICE_NAME").as_deref() == Ok(LABEL);
+    }
+    std::env::var_os("INVOCATION_ID").is_some()
+        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default())
 }
 
 /// Writes the unit and its environment, (re)starts the service and, given a join

@@ -22,7 +22,10 @@ import { readAgentUsage } from './agent-cli-usage.ts'
 import { podOwnerAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
+import { cliAutoUpdate } from './cli-auto-update.ts'
+import { cliBrowser } from './cli-browser.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
+import { findBrowser } from './cli-chromium.ts'
 import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts'
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
@@ -37,7 +40,7 @@ import {
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { withHostProvider } from './host-provider.ts'
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
@@ -99,8 +102,10 @@ const currentToken = () => cliSessionToken(readCliConfig(), launch)
 // API calls go out with the session, read as above.
 setTokenSource(() => Promise.resolve(currentToken()))
 
+// e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
+const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
 // A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
-const desktopPool = enableDesktopPool(bundleRoot, dataDir)
+const desktopPool = e2eMacScreenHost ? null : enableDesktopPool(bundleRoot, dataDir)
 const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
 
 if (desktopPool) console.log('Each session gets its own desktop on this computer.')
@@ -157,9 +162,12 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   },
   createProcess: () => new OpenabProcess({ ownsMachine: ownsMachine(deviceCredential) }),
   probeModels: bundledModelProbe(bundle),
-  createTunnel: withE2eStagedUpdate(stop, (runtime, status, onChange, instances) => {
+  createTunnel: withE2eStagedUpdate(stop, (runtime, runtimeStatus, onChange, runtimeInstances) => {
+    const [status, instances] = autoUpdate.wrap(runtimeStatus, runtimeInstances)
+
     tunnel = new RuntimeTunnelClient({
       instances,
+      activity: autoUpdate.activity,
       sampleMetrics: readDeviceMetrics,
       connectBackend: (reclaim) => {
         const fresh = deviceCredential?.credential ?? currentToken()
@@ -178,6 +186,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
+      ...cliBrowser(dataDir, findBrowser()),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 
@@ -207,14 +216,14 @@ const controller = new LocalRuntimeController(withHostProvider(process.env, deps
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
 // A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
-const macScreen = enableMacScreen(dataDir, () => tunnel?.sendStatus())
-const macScreenHost = {
-  binary: () => path.join(bundleRoot, 'mac-screen-host'),
-  handOver: (human: boolean) =>
-    console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
-  owner: () => owner,
-  ownPermissions: true,
-}
+const macScreen = enableMacScreen(
+  dataDir,
+  () => tunnel?.sendStatus(),
+  e2eMacScreenHost ? 'darwin' : process.platform,
+)
+const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
+// Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
+const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 
 /** The tunnel's desktops, whose holders ride along with the agents' status. */
 function desktops(status: () => LocalRuntimeTunnelStatus, instances?: Instances) {

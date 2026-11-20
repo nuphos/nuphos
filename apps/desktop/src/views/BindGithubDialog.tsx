@@ -62,7 +62,7 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
       onClose={close}
       title={t('Connect {name}', { name: 'GitHub' })}
       description={t(
-        'Install the Nuphos GitHub App so the agent can read and act on your repositories.',
+        'Install the Nuphos GitHub App so Nuphos can read and act on your repositories.',
       )}
       width={460}
     >

@@ -5,27 +5,6 @@ import './routes-message-edit'
 import './routes-message-retract'
 
 import {
-  buildConversationOwnerMap,
-  buildSlackThreadLink,
-  serializeConversationForViewer,
-} from './conversation-view'
-import { parseArchivedParam, parseSortParam } from './conversations-list-params'
-import { restingRuntimeState, serializeConversationList } from './conversations-list-view'
-import { parseTriggerIdsParam } from './conversations-trigger-param'
-import {
-  allCredentialAccessFromOptions,
-  hasCredentialOptions,
-  isEmptyCredentialAccess,
-} from './credential-access'
-import { serializeTimelineEvents, timelineEventUserIds } from './conversation-timeline'
-import { getAgentCredentialOptions } from './credential-options'
-import { answeringIds } from './decision-reply'
-import { serializeMessageDoc } from './errors'
-import { agent } from './router'
-import { getLocalActiveAgentRun } from './run-registry'
-import { normalizeOptionalTeamId, readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
-
-import {
   credentialSource,
   getConversationMessages,
   getConversationWithMessages,
@@ -41,12 +20,34 @@ import { liveAttachment } from '@/lib/agent/db/shared'
 import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
-import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { withSessionDesktops } from '@/lib/claude-code-preview/session-desktops'
+import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 import { isTeamIdShape } from '@/lib/team-id'
+
+import { serializeTimelineEvents, timelineEventUserIds } from './conversation-timeline'
+import {
+  buildConversationOwnerMap,
+  buildSlackThreadLink,
+  serializeConversationForViewer,
+} from './conversation-view'
+import { parseArchivedParam, parseSortParam } from './conversations-list-params'
+import { restingRuntimeState, serializeConversationList } from './conversations-list-view'
+import { parseTriggerIdsParam } from './conversations-trigger-param'
+import {
+  allCredentialAccessFromOptions,
+  hasCredentialOptions,
+  isEmptyCredentialAccess,
+} from './credential-access'
+import { getAgentCredentialOptions } from './credential-options'
+import { answeringIds } from './decision-reply'
+import { serializeMessageDoc } from './errors'
+import { agent } from './router'
+import { getLocalActiveAgentRun } from './run-registry'
+import { conversationSettingsLines, settingsUserIds } from './settings-history-view'
+import { normalizeOptionalTeamId, readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
 agent.get('/conversations', async (c) => {
   const userId = c.get('userId')
@@ -134,10 +135,7 @@ agent.get('/conversations', async (c) => {
   for (const conversation of result.conversations)
     void recheckLinkedResources(conversation).catch(() => null)
   const rows = await serializeConversationList(
-    [...result.conversations, ...result.parents] as unknown as (Record<string, unknown> & {
-      userId: string
-      sessionId: string
-    })[],
+    [...result.conversations, ...result.parents],
     c.get('user'),
     teamId,
   )
@@ -183,8 +181,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const openabSessionId = liveAttachment(result.conversation)?.openabSessionId
   // An unreachable runtime answers the way the list does, never "disconnected":
   // whether its Box is online is the agent's own status, not this session's.
+  // A runtime still saying active once its run ended answers as resting, as the list does.
   const resting =
-    probed && probed.state !== 'disconnected'
+    probed && probed.state !== 'disconnected' && (probed.state !== 'active' || transportRun)
       ? probed
       : await withSessionDesktops(
           restingRuntimeState(
@@ -206,7 +205,9 @@ agent.get('/conversations/:sessionId', async (c) => {
   const ownerById = await buildConversationOwnerMap(teamId, [
     result.conversation.userId,
     ...timelineEventUserIds(result.conversation.timelineEvents),
+    ...settingsUserIds(result.conversation.settingsHistory),
   ])
+  const settingsLines = await conversationSettingsLines(result.conversation, ownerById)
   let slackThreadLookupFailed = false
   const slackThreadRecord = await getSlackAgentThreadBySessionId(sessionId).catch(
     (err: unknown) => {
@@ -271,7 +272,11 @@ agent.get('/conversations/:sessionId', async (c) => {
     slackThread,
     messages: (await withCurrentAgentNames(result.messages, teamId)).map(serializeMessageDoc),
     transcriptUpdatedAt: result.conversation.transcriptUpdatedAt?.toISOString() ?? null,
-    timelineEvents: serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
+    // Settings changes live apart from the capped timeline, so none is ever evicted.
+    timelineEvents: [
+      ...serializeTimelineEvents(result.conversation.timelineEvents, ownerById),
+      ...settingsLines,
+    ].sort((a, b) => a.at.localeCompare(b.at)),
     runtimeState,
     promptSuggestion: result.conversation.claudeCodePreviewContext?.promptSuggestion || null,
     // Absolute index of messages[0] in the stored transcript. 0 unless a

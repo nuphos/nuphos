@@ -73,7 +73,7 @@ export function SkillDetailPane({
     return member?.name || member?.username || userId.slice(0, 8)
   }
   const [noSkillMdPre, noSkillMdPost = ''] = t(
-    'No {file} — the agent will skip this skill directory.',
+    'No {file} — Nuphos will skip this skill directory.',
   ).split('{file}')
   const [modifiedPre, modifiedPost = ''] = t('modified {age}').split('{age}')
   const historyEvents = history?.events.filter((event) => event.phase === 'result') ?? []

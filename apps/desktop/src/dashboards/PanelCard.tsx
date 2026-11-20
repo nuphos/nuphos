@@ -13,7 +13,7 @@ import { memo, useState } from 'react'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
 import { t } from '../i18n'
 
-import { panelDisplay } from './panelDisplay'
+import { panelDisplay, panelNotConnected } from './panelDisplay'
 import { PanelOutputView } from './PanelOutputView'
 import { ScriptErrorModal } from './ScriptErrorModal'
 
@@ -52,10 +52,14 @@ function Body({
   const snap = panel.currentSnapshot
 
   if (!snap || snap.status === 'running' || snap.status === 'failed') {
-    const emptyMessage = snap ? t('No successful data yet.') : t('Not run yet.')
+    const notConnected = panelNotConnected(snap)
+    const emptyMessage = notConnected ?? (snap ? t('No successful data yet.') : t('Not run yet.'))
 
     return lastSuccessfulOutput ? (
-      <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
+      <>
+        {notConnected && <p className="mb-2 text-[12px] text-status-warning">{notConnected}</p>}
+        <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
+      </>
     ) : (
       <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
         {snap?.status === 'running' ? null : emptyMessage}
@@ -129,7 +133,7 @@ export const PanelCard = memo(
                 icon={<Sparkles className="h-3.5 w-3.5" />}
                 onClick={() => onAskAgent(panel)}
               >
-                {t('Ask agent')}
+                {t('Ask in a task')}
               </MenuItem>
               <MenuItem
                 icon={<RefreshCw className="h-3.5 w-3.5" />}

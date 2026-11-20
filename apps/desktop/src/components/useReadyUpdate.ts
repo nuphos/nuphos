@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 
+import { readyUpdate } from './readyUpdate'
+
+import type { ReadyUpdate } from './readyUpdate'
 import type { UpdaterState } from '../types'
 
 /** The app updater's state, kept current by main. */
@@ -30,20 +33,14 @@ export function useUpdaterState(): UpdaterState {
   return state
 }
 
-/** The update a restart installs, or null. */
-export function useReadyUpdate(): {
-  version: string
-  /** The installer download, when the last restart came back without this version. */
-  installerUrl: string | null
-  install: () => void
-} | null {
+/** The update a restart installs, or null. `install` does nothing while `percent` is set:
+ * main restarts only into an update that is ready. */
+export function useReadyUpdate(): (ReadyUpdate & { install: () => void }) | null {
   const state = useUpdaterState()
+  const [offered, setOffered] = useState(false)
 
-  if (state.kind !== 'ready') return null
+  if (state.kind === 'ready' && !offered) setOffered(true)
+  const update = readyUpdate(state, offered)
 
-  return {
-    version: state.version,
-    installerUrl: state.installerUrl,
-    install: () => void api.updaterInstall(),
-  }
+  return update && { ...update, install: () => void api.updaterInstall() }
 }

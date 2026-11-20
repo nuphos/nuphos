@@ -295,7 +295,7 @@ describe('interrupted preview turns', () => {
       expect(classifyPreviewInterruption(new Error(error), false)).toEqual({
         reason: 'error',
         message:
-          'The agent’s runtime is out of disk space, so it could not run this turn. Free up disk space on the runtime or switch this conversation to another runtime, then resend your message.',
+          'The computer this Bot or Task runs on is out of disk space, so this turn could not run. Ask someone who manages that computer to free space, or switch to another runtime, then resend your message.',
       })
       expect(classifyPreviewInterruption(new Error(error), true).reason).toBe('cancelled')
     }
