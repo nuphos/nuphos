@@ -36,7 +36,7 @@ export const signInScenarios: Scenario[] = [
       await page.getByText('Enter the 6-digit code').waitFor()
       // Entering the sixth digit submits the form.
       await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
-      await page.getByRole('tab', { name: 'Tasks' }).waitFor({ timeout: 60_000 })
+      await page.getByRole('button', { name: 'New agent' }).or(page.getByRole('tab', { name: 'Tasks' })).first().waitFor({ timeout: 60_000 })
     },
   },
 ]

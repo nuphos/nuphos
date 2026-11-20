@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path'
 
 import { client } from './binding-access-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { send } from './ui.ts'
 
 import type { NetProxy } from './net-proxy.ts'
 import type { Stack } from './stack.ts'
@@ -17,6 +17,18 @@ import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const release = join(artifacts, 'release')
+
+/** A new conversation: the Tasks tab's New task, or the 0.115.1 sidebar's New agent. */
+async function newTask(page: Page) {
+  const tasks = page.getByRole('tab', { name: 'Tasks' })
+
+  if (await tasks.count()) {
+    await tasks.click()
+    await page.getByRole('button', { name: 'New task', exact: true }).click()
+  } else {
+    await page.getByRole('button', { name: 'New agent' }).first().click()
+  }
+}
 
 function run(script: string, args: string[]) {
   return execFileSync('bun', ['-e', script, ...args], { cwd: BACKEND_DIR, timeout: 20_000 })
@@ -103,11 +115,10 @@ export function dupCustomerScenarios(proxy: NetProxy): Scenario[] {
           }
           const reopen = async () => {
             await newTask(page)
-            await page
-              .getByRole('tabpanel', { name: 'Tasks' })
-              .getByText(`Open dupc ${label}`)
-              .first()
-              .click()
+            const panel = page.getByRole('tabpanel', { name: 'Tasks' })
+            const scope = (await panel.count()) ? panel : page
+
+            await scope.getByText(`Open dupc ${label}`).first().click()
           }
 
           rmSync(release, { force: true })
