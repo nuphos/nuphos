@@ -113,7 +113,8 @@ async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
   const banner = page.getByRole('status').filter({ hasText: 'disk is almost full' })
   const pick = async (runtime: string, agent: RegExp) => {
     await page.getByRole('button', { name: /^Runtime:/ }).click()
-    await pickInSubmenu(page, runtime, agent)
+    await page.getByRole('menu').getByText(runtime).first().click()
+    await pickInSubmenu(page, page.getByRole('menuitem', { name: agent }).last())
   }
 
   try {

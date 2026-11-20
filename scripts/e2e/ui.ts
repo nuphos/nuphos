@@ -1,6 +1,6 @@
 // What a person does in the app that most scenarios repeat.
 import type { Stack } from './stack.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
@@ -20,7 +20,12 @@ export async function send(page: Page, text: string) {
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
   await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await pickInSubmenu(page, label, new RegExp(`^${label}.*${provider}`))
+  const runtimes = await openSubmenu(page, label)
+
+  await pickInSubmenu(
+    page,
+    runtimes.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }).last(),
+  )
 }
 
 /** Temporary, until #3862 is fixed: waits until no menu is mounted, a closing one included,
@@ -29,19 +34,23 @@ export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
-/** Opens the submenu the open menu's `row` holds and picks `item` in it, by key throughout: a
- *  press on a row whose submenu opens on hover is ignored, a pointer landing on the submenu
- *  closes it, and `aria-controls` names the portalled list `item` lives in. */
-export async function pickInSubmenu(page: Page, row: string | RegExp, item: RegExp) {
+/** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
+ *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
+ *  away from the menu, and `aria-controls` on the row is what names it. */
+export async function openSubmenu(page: Page, row: string) {
   const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
 
   await trigger.focus()
   await page.keyboard.press('Enter')
-  // `aria-controls` arrives with the submenu, so wait for the row to report it open first.
   await trigger.and(page.locator('[data-popup-open]')).waitFor()
-  const submenu = page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
 
-  await submenu.getByRole('menuitem', { name: item }).last().focus()
+  return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
+}
+
+/** Picks `item` in the submenu a menu row opened, by key. A pointer that jumps from the row onto
+ *  the submenu can land on the row's hover guard instead, and the submenu closes under it. */
+export async function pickInSubmenu(page: Page, item: Locator) {
+  await item.focus()
   await page.keyboard.press('Enter')
 }
 

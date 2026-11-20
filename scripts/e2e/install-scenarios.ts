@@ -72,7 +72,8 @@ export const installScenarios: Scenario[] = [
         // The agent it just installed runs a turn there.
         await newTask(page)
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await pickInSubmenu(page, label, /^Claude Code/)
+        await page.getByRole('menu').getByText(label).click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
         await send(page, 'On the computer it was added to E2E_DELIVERY:installed-turn')
         await page.getByText('ACK E2E_DELIVERY:installed-turn').waitFor({ timeout: 60_000 })
       } finally {
@@ -205,7 +206,8 @@ export const installScenarios: Scenario[] = [
       await newTask(page)
       // This computer's own row lists its agents by name alone.
       await page.getByRole('button', { name: /^Runtime:/ }).click()
-      await pickInSubmenu(page, hostname(), /^Claude Code/)
+      await page.getByRole('menu').getByText(hostname()).click()
+      await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
       await send(page, 'Which Claude Code runs this?')
       await until(
         'the session to start the Claude app’s new copy',
@@ -233,7 +235,8 @@ export const installScenarios: Scenario[] = [
       try {
         await newTask(page)
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await pickInSubmenu(page, hostname(), /^Claude Code/)
+        await page.getByRole('menu').getByText(hostname()).click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
         await send(page, 'Start Claude Code')
         await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()

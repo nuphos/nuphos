@@ -14,7 +14,11 @@ const SECOND = 'E2E second agent'
 async function choose(page: Page, trigger: Locator, label: string) {
   await trigger.click()
   // The computer's row opens a submenu of its runtimes.
-  await pickInSubmenu(page, label, new RegExp(`^${label}.*Claude Code`))
+  await page.getByRole('menu').getByText(label).click()
+  await pickInSubmenu(
+    page,
+    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
+  )
 }
 
 async function call(
