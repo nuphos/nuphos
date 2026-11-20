@@ -28,15 +28,19 @@ final class TeamWideCredentialsUITests: XCTestCase {
             "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/push-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
+        // The composer shows its controls once focused.
+        let composer = app.textViews.firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        composer.tap()
         let choose = app.buttons["Choose Credentials"]
         XCTAssertTrue(choose.waitForExistence(timeout: 10))
         choose.tap()
         XCTAssertTrue(app.staticTexts["preview-org"].waitForExistence(timeout: 5))
-        // Every row ticked: the stored AWS role and, unset, the GitHub installation.
-        XCTAssertTrue(app.buttons["Clear all"].waitForExistence(timeout: 5), "An unset GitHub key must show as selected")
         let picker = XCTAttachment(screenshot: app.screenshot())
         picker.name = "Credentials · unset GitHub · fixture · light"
         picker.lifetime = .keepAlways
         add(picker)
+        // Every row ticked: the stored AWS role and, unset, the GitHub installation.
+        XCTAssertTrue(app.buttons["Clear all"].waitForExistence(timeout: 5), "An unset GitHub key must show as selected")
     }
 }
