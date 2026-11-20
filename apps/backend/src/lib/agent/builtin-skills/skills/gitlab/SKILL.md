@@ -1,6 +1,6 @@
 ---
 name: gitlab
-description: Operate on GitLab projects, merge requests, pipelines, and repository contents through a GitLab account the user's team has bound to Nuphos. Nuphos backend hands out the binding's short-lived OAuth token; the agent talks to the GitLab API and clones or pushes over HTTPS directly. Use whenever the user asks about their GitLab repos, MRs, CI pipelines, wants code read from a GitLab repo, or asks to open/update/comment on merge requests.
+description: "Work with GitLab projects, merge requests, pipelines and repository contents through a team-bound GitLab account: read code, open/update/comment on MRs, check CI."
 ---
 
 # gitlab

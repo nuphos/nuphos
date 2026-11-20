@@ -1,7 +1,8 @@
 import { t } from '../../../i18n/index.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 
-import { localRuntimeOwner, signInRoute } from './agentSignInModel.ts'
+import { signInRoute } from './agentSignInModel.ts'
+import { pausedBoxLabel } from './runtimeControlSignOut.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 import type { TeamMember } from '../../../types/team'
@@ -26,7 +27,8 @@ export type AgentFix =
 
 export type AgentProblem = {
   reason: string
-  fix: AgentFix
+  /** Absent when the state says itself and there is nothing worth pressing, as for a paused Box. */
+  fix?: AgentFix
   /** False when a turn would fail anyway, so the row starts the fix instead of picking it. */
   pickable: boolean
 }
@@ -50,18 +52,11 @@ export function agentProblem(
   const { local } = instance
 
   if (local?.online === false) {
-    const paused = local.box?.state === 'paused'
-    const reason = paused ? t('Paused') : t('Offline')
+    // A Box that is away is parked, not lost: the composer already says the send brings it
+    // back (pausedBoxLabel), so the row says the same word and offers nothing to press.
+    if (pausedBoxLabel(local) !== null) return { reason: t('Paused'), pickable: false }
 
-    if (!paused) return { reason, fix: { kind: 'retry' }, pickable: false }
-    if (local.ownerUserId === viewer.viewerId)
-      return {
-        reason,
-        fix: { kind: 'resume', deviceId: local.deviceId, runtimeId: instance.id },
-        pickable: false,
-      }
-
-    return { reason, fix: { kind: 'ask', name: ownerName(instance, viewer) }, pickable: false }
+    return { reason: t('Offline'), fix: { kind: 'retry' }, pickable: false }
   }
   // The usage probe's sign-in hint is a guess (a token in the environment reads the same),
   // so it offers the fix but never stops the agent being picked.
@@ -90,12 +85,6 @@ export function agentProblem(
             : { kind: 'settings' }
 
   return { reason: t('Signed out'), fix, pickable: !signedOut }
-}
-
-function ownerName(instance: RuntimeInstance, viewer: AgentRowViewer): string | null {
-  const owner = instance.local?.ownerUserId ?? localRuntimeOwner(instance.id)
-
-  return viewer.members?.find((member) => member.id === owner)?.name ?? null
 }
 
 /** The fix's button text; null for "ask", which is said, not clicked. */

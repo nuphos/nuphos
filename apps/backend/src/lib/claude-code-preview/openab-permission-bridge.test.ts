@@ -81,6 +81,43 @@ describe('OpenAB permission bridge', () => {
     expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 
+  test.each([true, false])(
+    'explains a new message cancelling approval (already queued=%s)',
+    async (queued) => {
+      const tools: Record<string, unknown>[] = []
+      const outcome = await handleOpenAbPermissionRequest(
+        {
+          userId: 'actor-1',
+          conversationId: 'conversation-1',
+          request,
+          emit: () => undefined,
+          handleTool: (update) => tools.push(update),
+        },
+        {
+          getSessionBypass: async () => false,
+          registerWait: async (args) => ({ ...args, waitId: 'wait-1', createdAt: 1 }),
+          hasPendingMessages: async () => queued,
+          supersedePermissions: async () => 1,
+          awaitDecision: async () => ({
+            timedOut: false as const,
+            decision: {
+              payload: { decision: 'rejected', reason: 'superseded_by_user_message' },
+              resolvedAt: 2,
+            },
+          }),
+        },
+      )
+
+      expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
+      expect(tools.at(-1)).toMatchObject({
+        status: 'failed',
+        contentText:
+          'Not run: a new message cancelled the pending approval. Ask again if you still want it.',
+        revealed: true,
+      })
+    },
+  )
+
   test.each([
     [false, true],
     [true, undefined],

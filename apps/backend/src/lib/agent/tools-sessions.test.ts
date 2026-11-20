@@ -39,6 +39,13 @@ const bypass = new Map<string, unknown>()
 // The calling conversation's own permission mode.
 let callerBypass = true
 let instructionsSaved = true
+// What the calling conversation may use.
+const callerAccess = {
+  awsRoleIds: ['caller-role'],
+  deviceIds: [],
+  updatedAt: new Date(),
+  updatedBy: 'u',
+}
 
 useDb({
   db: () => ({
@@ -64,6 +71,8 @@ let userRenamed = false
 const named: string[] = []
 
 useAgentDb({
+  credentialSourceOf: async (sessionId) =>
+    sessionId === 'c' ? { sessionId, userId: 'u', credentialAccess: callerAccess } : null,
   getConversations: async (viewer, options) => {
     expect(viewer).toBe('u')
     listOptions = options
@@ -333,6 +342,8 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
+    // What its maker may use, never more: not everything its owner may, as "+" gives.
+    credentialAccess: callerAccess,
     bot: {
       avatar: '07-ada',
       // The record says which conversation's agent made it.

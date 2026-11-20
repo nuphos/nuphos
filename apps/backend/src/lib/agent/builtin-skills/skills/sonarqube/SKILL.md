@@ -1,6 +1,6 @@
 ---
 name: sonarqube
-description: Inspect SonarQube projects, Quality Gate status, code issues, vulnerability findings, Security Hotspots, measures, and completed analyses through a team's bound SonarQube connector. Use when the user asks about static-analysis or code-quality results, wants a project security review, or needs help interpreting a failed Quality Gate.
+description: "Inspect SonarQube projects through a team-bound connector: Quality Gates, issues, vulnerabilities, Security Hotspots, measures and analyses."
 ---
 
 # SonarQube

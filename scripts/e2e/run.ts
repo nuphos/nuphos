@@ -6,8 +6,10 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
+import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botUnreadScenarios } from './bot-unread-scenarios.ts'
 import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
@@ -15,6 +17,7 @@ import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
+import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -27,6 +30,7 @@ import { leaveChatScenarios } from './leave-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
+import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
@@ -46,6 +50,7 @@ import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -57,6 +62,7 @@ import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
+import { voiceScenarios } from './voice-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 
@@ -114,6 +120,8 @@ const scenarios: Scenario[] = [
   ...channelScenarios,
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
+  ...channelRestartScenarios,
+  ...mcpDefaultsScenarios,
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
@@ -128,6 +136,7 @@ const scenarios: Scenario[] = [
     },
   },
   ...linkChipScenarios,
+  ...voiceScenarios,
   ...personalCredentialScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
@@ -138,6 +147,7 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...botTriggerRowScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
@@ -156,6 +166,8 @@ const scenarios: Scenario[] = [
   ...offlineScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
+  ...skillScenarios,
+  ...approvalFeedbackScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,

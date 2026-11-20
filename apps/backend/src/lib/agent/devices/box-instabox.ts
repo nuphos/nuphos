@@ -45,8 +45,6 @@ export type BoxProvider = {
   resume: (userId: string, deviceId: string) => Promise<AgentDevice>
   /** False when the machine may still run at the provider; the computer is deleted either way. */
   destroy: (userId: string, deviceId: string) => Promise<boolean>
-  /** A link to the Box's desktop, to watch and take over what its agents do. */
-  desktop: (userId: string, deviceId: string) => Promise<string>
   /** Starts the host again on a running machine whose host dropped; rate-limited. */
   heal: (userId: string, deviceId: string) => void
   /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
@@ -72,31 +70,6 @@ function requireMachine(device: BoxDevice): string {
     throw new AppError(409, 'box_state', 'The computer is still being created')
 
   return device.box.sandboxId
-}
-
-/**
- * A link to watch and use the Box's desktop (VNC in the browser). The link is a
- * bearer credential for the whole Box, so it is short-lived and never logged.
- */
-export async function boxDesktopUrl(userId: string, deviceId: string): Promise<string> {
-  const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
-  const sandboxId = requireMachine(device)
-
-  try {
-    const sandbox = await startBox(device.box, { sandboxId }, async () =>
-      Sandbox.connect(sandboxId, {
-        ...(await boxConnection(device.box, QUICK_TIMEOUT_MS)),
-        resume: true,
-      }),
-    )
-
-    await sandbox.desktop.start()
-    const { url } = await sandbox.desktop.streamUrl({ viewOnly: false, ttlSeconds: 15 * 60 })
-
-    return url
-  } catch (error) {
-    throw unavailable("Could not open the computer's desktop", error)
-  }
 }
 
 const lastHeal = new Map<string, number>()

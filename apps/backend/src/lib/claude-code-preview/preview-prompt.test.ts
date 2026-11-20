@@ -8,7 +8,7 @@ import { describe, expect, test } from 'bun:test'
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 
-import { buildPreviewSystemPrompt } from './preview-prompt'
+import { buildPreviewSystemPrompt, withPageContext } from './preview-prompt'
 
 import type { AgentDevice } from '@/lib/agent/devices/store'
 
@@ -28,21 +28,36 @@ describe('buildPreviewSystemPrompt', () => {
       teamId: 'team-1',
       sessionId: 'conv-1',
       locale: 'en',
-      diagramId: 'diagram-1',
     })
 
     expect(prompt).toContain('installed in `.claude/skills`')
     expect(prompt).toContain('call `request_user_decision` with category `approval`')
     expect(prompt).not.toContain('nuphos-plan')
-    expect(prompt).toContain('native `architecture-diagram` skill FIRST')
     expect(prompt).toContain('native `nuphos-dashboards` skill FIRST')
     expect(prompt).toContain('canonical Nuphos REST APIs')
     expect(prompt).toContain('through its API script')
     expect(prompt).not.toContain('bound cost_dashboard_')
-    expect(prompt).not.toContain('call the skill tool with "architecture-diagram"')
     expect(prompt).toContain('accepted by the ordinary `/teams/...` APIs')
     expect(prompt).toContain('canonical `_links`/resource paths')
     expect(prompt).not.toContain('skill_load')
+  })
+
+  // #4087: a running agent reloads when its system prompt changes, so where the person is as they
+  // send leads that turn, and a turn woken without it keeps the same system prompt.
+  test('the page, diagram and kubeconfig context lead the turn, not the system prompt', async () => {
+    const lead = await withPageContext('Earlier note', {
+      diagramId: 'diagram-1',
+      kubeContext: 'prod',
+    })
+
+    expect(lead).toStartWith('Earlier note')
+    expect(lead).toContain('native `architecture-diagram` skill FIRST')
+    expect(lead).not.toContain('call the skill tool with "architecture-diagram"')
+    expect(lead).toContain('kubeconfig context "prod"')
+    expect(await withPageContext(undefined, {})).toBeUndefined()
+    expect(await withPageContext(undefined, { provider: 'codex', diagramId: 'd' })).toContain(
+      'Codex’s native `architecture-diagram` skill',
+    )
   })
 
   test('carries the shared sandbox rules and no Codex-only section', async () => {
@@ -57,6 +72,8 @@ describe('buildPreviewSystemPrompt', () => {
     expect(prompt).toContain('the kernel kills one process rather than the whole container')
     expect(prompt).toContain('## Credential handling')
     expect(prompt).toContain('`~/.aws/credentials`')
+    // A throwaway checkout goes with the conversation's home when it is archived (#3939).
+    expect(prompt).toContain('Make a throwaway clone or worktree for this conversation under `~`')
     expect(prompt).toContain('## Memory scope')
     expect(prompt).toContain('always pass `scope` explicitly')
     expect(prompt).not.toContain('## Workspace')

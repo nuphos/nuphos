@@ -7,14 +7,14 @@ import { agentMessages, appendConversationMessages, getConversationBySessionId }
 import {
   channelNotice,
   channelNoticeSender,
-  noteReplyFailed,
   steerQueuedNotice,
   steerRunningTurn,
 } from './channel-wake'
+import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
 import { chatName, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
-import { pushTimelineEvent } from './db/participants'
+import { clearReplyFailed, pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { notePost } from './mentions'
 import { listPendingUserMessages } from './pending-queue'
@@ -66,12 +66,14 @@ export async function postChannelMessage(
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
   await notePost({ ...channel, teamId }, post, authorSessionId !== undefined)
-  if (authorSessionId)
+  if (authorSessionId) {
+    // It replied: its couldn't-reply line no longer says how it is.
+    await clearReplyFailed(channel.sessionId, authorSessionId)
     await agentConversations().updateOne(
       { sessionId: authorSessionId },
       { $addToSet: { channelWakes: channel.sessionId } },
     )
-  else await wakeChannelAgents({ ...channel, teamId }, undefined)
+  } else await wakeChannelAgents({ ...channel, teamId }, undefined)
 
   return true
 }
