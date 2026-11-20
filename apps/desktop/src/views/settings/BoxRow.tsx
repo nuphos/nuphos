@@ -26,7 +26,6 @@ import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
-import { openBoxDesktop } from './boxDesktop'
 import { openDesktop } from './computerDesktop'
 import { ComputerNotices } from './ComputerNotices'
 import { LocalAgentShareDialog } from './LocalAgentShareDialog'
@@ -185,13 +184,7 @@ export function BoxRow({
             </MenuTrigger>
             <MenuContent align="end">
               {screen && (
-                <MenuItem
-                  onClick={() => {
-                    // A Box's tab can switch to its sessions' displays there.
-                    if (cloud) openBoxDesktop(device.deviceId, teamId)
-                    else openDesktop(device.deviceId, teamId, screen)
-                  }}
-                >
+                <MenuItem onClick={() => openDesktop(device.deviceId, teamId, screen, cloud)}>
                   {t('Open desktop')}
                 </MenuItem>
               )}
