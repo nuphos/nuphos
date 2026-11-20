@@ -114,6 +114,8 @@ export type AgentConversation = {
   readOnly?: boolean
   /** The owner: may change the runtime and credentials. */
   canManage?: boolean
+  /** May archive it: the owner for everyone, a participant in a Task for themselves alone. */
+  canArchive?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   /** A Task under a Bot: the conversation whose credentials and computers it uses. */

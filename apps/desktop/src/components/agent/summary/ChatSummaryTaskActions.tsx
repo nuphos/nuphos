@@ -23,7 +23,9 @@ export function ChatSummaryTaskActions({
 
   if (conversation.kind === 'channel' || conversation.avatar || conversation.archivedAt) return null
   const sessionId = conversation.sessionId
-  const canArchive = conversation.isOwner !== false || conversation.canManage
+  // The server's answer: a participant archives a teammate's Task for themselves alone.
+  const canArchive =
+    conversation.canArchive ?? (conversation.isOwner !== false || conversation.canManage)
 
   async function archive() {
     setArchiving(true)
