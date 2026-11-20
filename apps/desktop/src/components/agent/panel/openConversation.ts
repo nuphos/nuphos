@@ -1,23 +1,25 @@
-import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
 import { t } from '../../../i18n/index.ts'
 import { publishRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { trackError } from '../../../lib/analytics'
+import { queryClient } from '../../../lib/query/client'
+import { queryKeys } from '../../../lib/query/keys'
 import { rememberOpenedConversation } from '../../../lib/openedConversation'
 import { toast } from '../../ui/toast'
 
 import { finalizeIncompleteTools } from './clientTools'
 import { openingAfterFailure } from './conversationUnavailable'
 import { storedConversationCredentialAccess } from './conversationCredentialAccess'
-import { credentialSelectionSignature } from './credentialAccess'
+import { credentialOptionsLoaded, credentialSelectionSignature } from './credentialAccess'
 import { loadedCredentialOptions } from './loadedCredentialOptions'
-import { CONVERSATION_TAIL_LIMIT } from './model'
 import { fromPersistedMessages, transcriptSignature } from './persistence'
 import { retainOpenedTabs, touchOpenedTab } from './sessionContinuity'
 import { INTERRUPTED_TOOL_MESSAGE, uid } from './stall'
+import { cachedTask, readTask } from './taskTranscript'
 import { getAgentLocale } from './textUtils'
 import { toUiMessages } from './toUiMessages'
 
+import type { AgentConversationDetail, AgentCredentialOptions } from '../../../api'
 import type { PanelCtx } from './ctx'
 import type { Tab } from './model'
 
@@ -86,37 +88,7 @@ export async function runOpenConversation(
 
     return
   }
-  // Synchronously, before the first await and before the state below: the
-  // reconciliation effect may run again in this very tick.
-  pendingOpenRef.current = sessionId
-  const generation = ++openGenerationRef.current
-  const summary = history.find((conversation) => conversation.sessionId === sessionId)
-
-  setOpeningConversation({
-    sessionId,
-    // Empty when the conversation isn't cached anywhere — the spinner then
-    // shows its neutral "Opening chat" label instead of "Untitled chat".
-    title: summary?.title || summary?.firstMessage || titleHint || '',
-  })
-  try {
-    // The runtime probe is skipped unless a run needs confirming; the catch-up
-    // poll fetches runtime state as soon as the tab is active.
-    const [detail, options] = await Promise.all([
-      api.agentGetConversation(sessionId, teamId, {
-        tail: CONVERSATION_TAIL_LIMIT,
-        runtimeState: 'omit',
-      }),
-      loadedCredentialOptions(teamId, credentialOptions),
-    ])
-
-    if (openGenerationRef.current !== generation) {
-      // Superseded: clear our own spinner only — a newer open may have
-      // already put up its own (or none, when it landed on an existing tab).
-      clearPendingOpen(sessionId)
-      setOpeningConversation((cur) => (cur?.sessionId === sessionId ? null : cur))
-
-      return
-    }
+  const show = (detail: AgentConversationDetail, options: AgentCredentialOptions) => {
     rememberOpenedConversation(detail)
     const historyBaseIndex = detail.messagesFirstIndex ?? 0
     const messages = fromPersistedMessages(detail.messages)
@@ -237,6 +209,48 @@ export async function runOpenConversation(
           )
         })
     }
+  }
+
+  // A Task read before opens from that copy at once; the catch-up read on showing it
+  // brings in anything newer.
+  const cached = cachedTask(queryClient, teamId, sessionId)
+
+  if (cached && credentialOptionsLoaded(credentialOptions)) {
+    openGenerationRef.current += 1
+    show(cached, credentialOptions)
+
+    return
+  }
+  // Synchronously, before the first await and before the state below: the
+  // reconciliation effect may run again in this very tick.
+  pendingOpenRef.current = sessionId
+  const generation = ++openGenerationRef.current
+  const summary = history.find((conversation) => conversation.sessionId === sessionId)
+
+  setOpeningConversation({
+    sessionId,
+    // Empty when the conversation isn't cached anywhere — the spinner then
+    // shows its neutral "Opening chat" label instead of "Untitled chat".
+    title: summary?.title || summary?.firstMessage || titleHint || '',
+  })
+  try {
+    // The runtime probe is skipped unless a run needs confirming; the catch-up
+    // poll fetches runtime state as soon as the tab is active.
+    const [detail, options] = await Promise.all([
+      readTask(teamId, sessionId),
+      loadedCredentialOptions(teamId, credentialOptions),
+    ])
+
+    if (openGenerationRef.current !== generation) {
+      // Superseded: clear our own spinner only — a newer open may have
+      // already put up its own (or none, when it landed on an existing tab).
+      clearPendingOpen(sessionId)
+      setOpeningConversation((cur) => (cur?.sessionId === sessionId ? null : cur))
+
+      return
+    }
+    if (teamId) queryClient.setQueryData(queryKeys.task(teamId, sessionId), detail)
+    show(detail, options)
   } catch (err) {
     if (openGenerationRef.current !== generation) {
       // Superseded: silently clear our own spinner; the failure belongs to
