@@ -47,6 +47,7 @@ import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
@@ -157,6 +158,7 @@ const scenarios: Scenario[] = [
   ...offlineScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
+  ...skillScenarios,
   ...approvalFeedbackScenarios,
   threadModeScenario,
   ...botFoldScenarios,
