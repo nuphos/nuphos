@@ -246,6 +246,22 @@ export const botAccessScenarios: Scenario[] = [
       if ((await composerAccess(page)) > 0)
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')
+      // #4072: switching Bots with the details open keeps them open, with no slide-in again.
+      await openChat(page, 'E2E Bot')
+      const details = page.getByRole('complementary', { name: 'Bot details' })
+
+      await details.waitFor()
+      const motion = await details.evaluate((panel) => ({
+        classes: `${panel.className} ${panel.parentElement?.className ?? ''}`,
+        running: document
+          .getAnimations()
+          .map((animation) => (animation as CSSAnimation).animationName)
+          .filter((name) => name?.startsWith('t-summary')),
+      }))
+
+      if (/t-summary(-slot)?-in/.test(motion.classes) || motion.running.length > 0)
+        throw new Error(`Bot details slid in again on switching Bots: ${JSON.stringify(motion)}`)
+      await shoot(page, 'switched-open')
       await setBotDetails(page, false)
       // Later scenarios list Bots by name: the Bot goes back to the viewer, who archives it
       // and its chat.
