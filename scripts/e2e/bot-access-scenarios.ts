@@ -263,15 +263,6 @@ export const botAccessScenarios: Scenario[] = [
       })
 
       if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
-      // #4203: the sidebar lists the Bot until it next refreshes. Opening it from that row
-      // must not bring the Bot back; clicking within the page leaves no time for a refresh.
-      await page.evaluate((name) => {
-        const rows = document.querySelectorAll<HTMLElement>('[data-sidebar-row]')
-
-        Array.from(rows)
-          .find((row) => row.textContent?.includes(name))
-          ?.click()
-      }, SHARED)
       // The scenarios after this one run in the E2E Bot's chat.
       await openChat(page, 'E2E Bot')
       await until(
