@@ -524,6 +524,14 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:chat-switch
+      # Every way into the product (#4205), each on its own, so one removed way
+      # in names itself instead of ending the run.
+      - name: Check every way into the product
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-entry-points
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:entry-points
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -539,6 +547,9 @@ jobs:
             ${{ runner.temp }}/e2e-chat-switch
             !${{ runner.temp }}/e2e-chat-switch/mongo
             !${{ runner.temp }}/e2e-chat-switch/sign-in
+            ${{ runner.temp }}/e2e-entry-points
+            !${{ runner.temp }}/e2e-entry-points/mongo
+            !${{ runner.temp }}/e2e-entry-points/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
