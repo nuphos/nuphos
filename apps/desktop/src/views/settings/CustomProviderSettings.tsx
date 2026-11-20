@@ -10,8 +10,6 @@ import { inputClasses } from './styles'
 
 import type { CliLoginProvider, LocalRuntimeState } from '../../api'
 
-const IPC_WRAPPER = /^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/u
-
 function hostOf(url: string): string {
   try {
     return new URL(url).host
@@ -57,11 +55,9 @@ export function CustomProviderSettings({
       setEditing(false)
       toast.success(value ? t('Custom provider saved') : t('Custom provider removed'))
     } catch (cause) {
-      // The main process writes these reasons for the person ("Enter the API key."), so they are
-      // shown without Electron's IPC wrapper; `apiError` would drop them as not the backend's.
-      toast.error(
+      toast.apiError(
         value ? t('Could not save the custom provider') : t('Could not remove the custom provider'),
-        String(cause instanceof Error ? cause.message : cause).replace(IPC_WRAPPER, ''),
+        cause,
       )
     } finally {
       setBusy(false)

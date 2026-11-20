@@ -6,6 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { atlasErrorInfo, buildAtlasError } from '../../atlas/error.ts'
+
 import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
 import type { LocalAgentProvider } from './providers.ts'
 
@@ -109,23 +111,23 @@ function writeCustomProvider(
 }
 
 /**
- * Whether the provider serves `<base URL>/responses`, the only API Codex speaks. An empty body
- * is refused (400/422) by a provider that serves it, before any model runs; one that does not
- * answers 404 or 405. Anything else, an unreachable provider among it, is not held against it.
+ * Whether the provider serves Codex's only API: one that does refuses an empty body (400/422)
+ * before any model runs, one that does not answers 404 or 405. An unreachable one may be saved.
  */
-async function servesResponsesApi(endpoint: string, key: string) {
-  try {
-    const { status } = await fetch(endpoint, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-      body: '{}',
-      signal: AbortSignal.timeout(10_000),
-    })
+const servesResponsesApi = (endpoint: string, key: string) =>
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    body: '{}',
+    signal: AbortSignal.timeout(10_000),
+  }).then(
+    ({ status }) => status !== 404 && status !== 405,
+    () => true,
+  )
 
-    return status !== 404 && status !== 405
-  } catch {
-    return true
-  }
+/** A refusal as the app shows it: coded, since the app shows no uncoded error. */
+export const notSaved = (cause: unknown): never => {
+  throw buildAtlasError(atlasErrorInfo(cause).message, 'custom_provider_not_saved')
 }
 
 /**
@@ -156,7 +158,6 @@ export async function saveCustomProvider(
   const probeKey =
     provider === 'codex' && (key || (await store.get(account(userId, provider)).catch(() => null)))
 
-  // Codex's own join: the base URL without its trailing slash, then `/responses`.
   const endpoint = `${parsed.baseUrl.endsWith('/') ? parsed.baseUrl.slice(0, -1) : parsed.baseUrl}/responses`
 
   if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
