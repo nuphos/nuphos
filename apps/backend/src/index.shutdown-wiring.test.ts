@@ -180,6 +180,9 @@ test('loops stop before the drain and storage closes right before exit', () => {
   ]) {
     expect(at(stop), stop).toBeLessThan(drain)
   }
+  // Device tunnels never end on their own, so the HTTP drain waits for them to close.
+  expect(at('closeTunnelsForRestart()')).toBeGreaterThan(at('drainInFlightAgentRuns('))
+  expect(at('closeTunnelsForRestart()')).toBeLessThan(drain)
 
   const closeDb = at('closeDb()')
 

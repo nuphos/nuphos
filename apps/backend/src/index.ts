@@ -10,6 +10,7 @@ import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
 import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
 import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
+import { closeTunnelsForRestart } from '@/lib/agent/devices/local-runtime/holder'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
@@ -230,8 +231,7 @@ async function shutdown(sig: string) {
   // Let k8s see /health/ready return 503 and deregister this pod first.
   await new Promise((r) => setTimeout(r, shutdownBudget.lbGraceMs))
 
-  // 2. Drain in-flight agent SSE runs first — a pod-local run force-closed
-  //    mid-stream surfaces to clients as a 502.
+  // 2. Drain in-flight agent SSE runs first: one force-closed mid-stream reaches clients as a 502.
   try {
     await drainInFlightAgentRuns(shutdownBudget.agentDrainForcePauseAtMs)
   } catch (err) {
@@ -241,7 +241,8 @@ async function shutdown(sig: string) {
     })
   }
 
-  // 3. Drain HTTP and detached producers within the same deadline before closing storage.
+  // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
+  closeTunnelsForRestart()
   const forceTimer = setTimeout(() => {
     logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
       drain_deadline_ms: shutdownBudget.httpDrainMs,
@@ -267,8 +268,7 @@ async function shutdown(sig: string) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
 
-  // 4. Flush busy-guard releases before Redis closes so sessions are not blocked
-  //    until their lease TTL expires; the owner-lease sweep covers later ones.
+  // 4. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
       logError('backend.shutdown.guard_flush_failed', err, {
