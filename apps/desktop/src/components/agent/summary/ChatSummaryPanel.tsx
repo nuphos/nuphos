@@ -57,7 +57,6 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
-  popover?: boolean // Opened for a look with no room beside: gone once the mouse leaves it.
 }
 
 // Matches `.t-summary-slot-out` in index.css.
@@ -193,7 +192,6 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
-  popover,
   closing,
 }: Props & { onClose: () => void; onDismiss: () => void; closing: boolean }) {
   const paneId = usePaneId()
@@ -222,7 +220,7 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing, popover)
+  useDismissOutside(rootRef, dismiss, floating && !closing)
 
   const panel = (
     <aside
