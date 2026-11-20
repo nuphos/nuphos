@@ -1,9 +1,9 @@
-import { MCP_SERVER_NAME } from './protocol-rpc'
 import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
-import { FILE_TOOLS } from './protocol-tools-files'
+import { MCP_SERVER_NAME } from './protocol-rpc'
+
+// ─── Tool definitions (advertised via tools/list) ───────────────────────────
 
 export const TOOL_DEFINITIONS = [
-  ...FILE_TOOLS,
   {
     name: 'nuphos_ask',
     description:

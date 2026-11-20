@@ -14,7 +14,6 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
-import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
@@ -128,7 +127,6 @@ const scenarios: Scenario[] = [
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
-  ...mcpFileScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...offlineScenarios,
