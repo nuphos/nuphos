@@ -38,6 +38,14 @@ export function pushTimelineEvent(event: ConversationTimelineEvent) {
   return { timelineEvents: { $each: [event], $slice: -MAX_TIMELINE_EVENTS } }
 }
 
+/** Takes away an agent's couldn't-reply line in a channel: it replied there, or a newer one replaces it. */
+export async function clearReplyFailed(channelId: string, agentId: string) {
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    { $pull: { timelineEvents: { kind: 'agent_reply_failed', agentId } } },
+  )
+}
+
 /**
  * Bring teammates in on someone's behalf, record who did it, and give each an
  * entry kept like an @mention's, which their desktop announces. Each id is a
