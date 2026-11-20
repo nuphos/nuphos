@@ -336,6 +336,24 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Dismiss left the question in the chat")
     }
 
+    /// A question the agent withdraws leaves its Bot's open chat with the next read, and the
+    /// question still open stays (#4175).
+    func testAWithdrawnQuestionLeavesTheBotChat() throws {
+        try openBotChat(listing: [notes], asking: "Post the 1.4 release notes to the blog too?")
+        let withdrawn = app.staticTexts["Post the 1.4 release notes to the blog too?"]
+        let kept = app.staticTexts["Which tone should the 1.4 release notes take?"]
+        XCTAssertTrue(kept.exists, "The other open question is not in the Bot's chat")
+        shot("20-bot-chat-before-withdraw")
+
+        var row = notes
+        row["inputRequests"] = (row["inputRequests"] as? [[String: Any]] ?? []).filter { $0["id"] as? String != "q-blog" }
+        try listQuestions([row])
+        XCTAssertTrue(withdrawn.waitForNonExistence(timeout: 10), "The withdrawn question is still in the Bot's chat")
+        XCTAssertTrue(kept.exists, "The question still open left the Bot's chat")
+        sleep(1) // past the card's exit animation
+        shot("21-bot-chat-after-withdraw")
+    }
+
     /// A secret a Task under the Bot asks for is given in the Bot's chat, with the task's masked
     /// card: saved on the asking conversation, never sent to the task to be answered there.
     func testABotChatAsksForASecretWithTheSecureInputCard() throws {
