@@ -298,10 +298,13 @@ class BotQuestionsTest {
 
     @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
         fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
-        // A sign-in status card: a credential with options and no secret is answered with them.
+        // A sign-in status card: a credential with options and no secret is answered with them, or in words (#4029).
         val signedIn = ask("""{"id":"q","category":"credential","question":"Sign in?","options":["Signed in","Not now"]}""")
         assertEquals(listOf("Signed in", "Not now"), cardReplies(signedIn)?.map { it.first })
-        assertFalse(signedIn.typed)
+        assertTrue(signedIn.typed)
+        // Without options a credential asks for the value itself, which is never typed; nor is a secret.
+        assertFalse(ask("""{"id":"q","category":"credential","question":"Key?"}""").typed)
+        assertFalse(ask("""{"id":"q","category":"credential","question":"Key?","secretName":"API_KEY"}""").typed)
         // An integration naming no provider keeps its options and its words.
         val play = ask("""{"id":"q","category":"integration","question":"Play review?","options":["I check","Wait"]}""")
         assertEquals(listOf("I check", "Wait"), cardReplies(play)?.map { it.first })
