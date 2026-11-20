@@ -137,7 +137,12 @@ export const botSharedTaskCountScenarios: Scenario[] = [
 
 /** The visible chat's status pill reads `text`; a light-theme capture for the PR. */
 async function shoot(page: Page, who: string, text: RegExp) {
-  await page.getByText(text).locator('visible=true').first().waitFor({ timeout: 30_000 })
+  try {
+    await page.getByText(text).locator('visible=true').first().waitFor({ timeout: 30_000 })
+  } catch (error) {
+    await page.screenshot({ path: join(artifacts, `shared-bot-${who}-failed.png`) })
+    throw error
+  }
   await page.evaluate(() => {
     document.documentElement.classList.remove('dark')
     document.documentElement.classList.add('light')

@@ -89,6 +89,13 @@ test("someone else's Bot, whose Tasks this viewer does not list, waits on as man
   const shared = run('bot', idle, { tasks: { running: 1, waiting: 1 } })
 
   assert.deepEqual(botWorkOf(shared, [], 'c'), { kind: 'waiting', kids: [], count: 2 })
+  // A Bot still in setup that works says it works, as with listed Tasks.
+  const settingUp = run('bot', idle, {
+    tasks: { running: 1, waiting: 0 },
+    botOnboarding: 'pending',
+  })
+
+  assert.deepEqual(botWorkOf(settingUp, [], 'c'), { kind: 'waiting', kids: [], count: 1 })
   assert.equal(botWorkOf(run('bot', idle, { tasks: { running: 0, waiting: 0 } }), [], 'c'), null)
   // The owner lists the Tasks themselves, so their names win over the count.
   assert.equal(botWorkOf(shared, [run('Done', idle)], 'c'), null)
