@@ -57,6 +57,7 @@ export const agentChannels = {
     args: { title: string; body: string; sessionId: string; teamId?: string },
   ) => agent.notifyAgentStopped({ ...args, parentWindow: BrowserWindow.fromWebContents(e.sender) }),
   'agent:abort': (_e: unknown, streamId: string) => agent.abortChat(streamId),
+  'agent:followChanges': (_e: unknown, teamId: string) => agent.followAgentChanges(teamId),
   'agent:reportFailure': (_e: unknown, streamId: string, payload: Record<string, unknown>) =>
     agent.reportFailure(streamId, payload),
   'agent:abortClientTools': (_e: unknown, sessionId: string) => agent.abortClientTools(sessionId),

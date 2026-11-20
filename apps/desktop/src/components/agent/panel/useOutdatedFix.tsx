@@ -61,7 +61,7 @@ export function useOutdatedFix(
         onConfirm={async () => {
           try {
             await update.request(device.deviceId, teamId)
-            boxRestarts.start(device.deviceId, teamId, 'update')
+            boxRestarts.start(device.deviceId, teamId, 'update', device.lastSeenAt)
             onStarted()
           } catch (error) {
             toast.apiError(t('Could not update computer'), error)

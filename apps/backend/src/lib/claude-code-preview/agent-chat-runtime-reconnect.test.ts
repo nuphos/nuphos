@@ -6,8 +6,8 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
+import { agentHostAway } from './openab-acp-connect'
 import { OpenAbRpcError } from './openab-acp-errors'
-import { isRuntimeRefusal } from './runtime-refusal'
 import { classifyPreviewInterruption } from './preview-transcript'
 import { OpenAbTimeoutError, RuntimeStateProbeError, turnDiagnostics } from './turn-diagnostics'
 
@@ -260,7 +260,7 @@ test('changed identity instructions reload an already attached session before pr
   expect(loadedPrompt).toBe('new identity instructions')
 })
 
-test('a state check that times out refuses the turn like a busy agent, so the queue sends it again', async () => {
+test('a state check that times out fails as an agent host away, which the queue waits out for its grace', async () => {
   probeError = new OpenAbTimeoutError(
     'OpenAB ACP _openab/session/state timed out',
     'call-deadline',
@@ -268,7 +268,7 @@ test('a state check that times out refuses the turn like a busy agent, so the qu
   )
   const failure = await run().catch((cause: unknown) => cause)
 
-  expect(isRuntimeRefusal(failure)).toBe(true)
+  expect(agentHostAway(failure)).toBe(true)
   // Nothing reached the agent, so sending it again cannot run it twice.
   expect(calls).toEqual(['observe-control'])
 })

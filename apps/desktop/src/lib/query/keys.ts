@@ -8,6 +8,9 @@ export const queryKeys = {
     [...queryKeys.teamMembers(teamId), 'with-removed'] as const,
   /** The Chats the sidebar lists: the viewer's agents and the channels they joined. */
   agentSessions: (teamId: string) => [...queryKeys.team(teamId), 'agent-sessions'] as const,
+  /** The people in one chat. */
+  participants: (teamId: string, sessionId: string) =>
+    [...queryKeys.team(teamId), 'participants', sessionId] as const,
   inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
   shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,

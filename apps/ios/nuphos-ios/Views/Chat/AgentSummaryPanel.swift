@@ -61,7 +61,7 @@ struct AgentSummaryPanel: View {
                         Label { Text("Archive") } icon: { LucideIcon("archive") }
                     }
                     .buttonStyle(.bordered)
-                    .disabled(session.isArchived || !session.canManage)
+                    .disabled(session.isArchived || !session.canArchive)
                   }
                 }
                 if !background.isEmpty {
