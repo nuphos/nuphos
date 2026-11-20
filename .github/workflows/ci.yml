@@ -521,6 +521,8 @@ jobs:
           disk="$workdir/disk.img"
           mountpoint="$workdir/mount"
           mkdir -p "$mountpoint" "$E2E_ARTIFACTS"
+          # Install Electron before HOME points at the nearly full test filesystem.
+          (cd apps/desktop && xvfb-run --auto-servernum pnpm exec electron --version)
           truncate -s 2G "$disk"
           mkfs.ext4 -q -F -m 0 "$disk"
           sudo mount -o loop "$disk" "$mountpoint"
