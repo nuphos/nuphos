@@ -210,6 +210,8 @@ export const botAccessScenarios: Scenario[] = [
       })
 
       if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
+      // The scenarios after this one run in the E2E Bot's chat.
+      await openChat(page, 'E2E Bot')
     },
   },
 ]
