@@ -246,6 +246,8 @@ export async function probeAgentCli(
 
       const [major, minor] = node.replace(/^v/u, '').split('.').map(Number)
       const outdated =
+        major !== undefined &&
+        minor !== undefined &&
         Number.isFinite(major) &&
         Number.isFinite(minor) &&
         (major < 24 || (major === 24 && minor < 9))
