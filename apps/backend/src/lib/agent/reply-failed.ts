@@ -7,8 +7,8 @@ import {
 import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
-import { getConversationBySessionId, noReplyFailedYet } from './db'
-import { pushTimelineEvent } from './db/participants'
+import { getConversationBySessionId } from './db'
+import { clearReplyFailed, pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 
 import type { AgentConversation } from './db'
@@ -30,15 +30,15 @@ const verifyUrlFor = (error: unknown) => {
 const PROVIDER_REFUSED = 'The model provider refused the request:'
 
 /**
- * Why an agent could not reply, in words fit for the chat; undefined for an internal error,
- * except a model provider's refusal.
+ * Why an agent could not reply, in words fit for the chat. Other internal errors than a model
+ * provider's refusal may name hosts or files, so they say only that the runtime failed.
  */
 function replyFailedReason(
   agent: AgentConversation | null,
   cause: ReplyFailedCause,
   error: unknown,
   resetsAt: string | undefined,
-): string | undefined {
+): string {
   const label = agent?.agentRuntime ? `${runtimeLabel(agent.agentRuntime)} ` : ''
   // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
   const notice = resetsAt ? undefined : claudeNotice(error)
@@ -57,9 +57,9 @@ function replyFailedReason(
 
   if (error instanceof AppError) return error.message
 
-  // A provider's refusal is written for people (and its keys redacted); an adapter's other
-  // internal errors may name hosts or files, so they stay out of the chat.
-  return notice?.startsWith(PROVIDER_REFUSED) ? notice.slice(0, 300) : undefined
+  return notice?.startsWith(PROVIDER_REFUSED)
+    ? notice.slice(0, 300)
+    : `its ${label}runtime ran into an error.`
 }
 
 async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {
@@ -70,7 +70,7 @@ async function usageResetsAtOf(agent: AgentConversation): Promise<string | undef
   return usageResetsAt(agent.teamId, agent.userId, agent.runtimeId)
 }
 
-/** An agent a post woke could not reply: the channel says what happened and why, not just the log. */
+/** An agent a post woke could not reply: the channel keeps one line per agent saying why, the latest. */
 export async function noteReplyFailed(channelId: string, agentId: string, error: unknown) {
   const agent = await getConversationBySessionId(agentId).catch(() => null)
   // A CLI that cannot start is the agent's own cause too: this computer's line offers Install.
@@ -82,12 +82,12 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = withOutdatedHint(replyFailedReason(agent, cause, error, resetsAt), error)
-  const atMessage = (await getConversationBySessionId(channelId).catch(() => null))?.messageCount
   const verifyUrl = cause === 'usage_limit' ? verifyUrlFor(error) : null
 
-  await agentConversations()
-    .updateOne(
-      { sessionId: channelId, ...noReplyFailedYet(agentId, atMessage) },
+  try {
+    await clearReplyFailed(channelId, agentId)
+    await agentConversations().updateOne(
+      { sessionId: channelId },
       {
         $set: { transcriptUpdatedAt: new Date() },
         $push: pushTimelineEvent({
@@ -99,11 +99,11 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
-          ...(atMessage === undefined ? {} : { atMessage }),
           ...(verifyUrl ? { verifyUrl } : {}),
         }),
       },
     )
+  } catch {
     // The failure itself is already logged; a lost notice must not fail the post.
-    .catch(() => undefined)
+  }
 }
