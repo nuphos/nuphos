@@ -3,18 +3,18 @@ import { artifacts } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
+import type { Locator } from 'playwright-core'
 
-// Every animation that ends has ended; looping ones (a shimmer, typing dots) never do.
-const settled = (page: Page) =>
-  page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (animation) =>
-          animation.playState !== 'running' ||
-          animation.effect?.getTiming().iterations === Infinity,
+// A row fades in, and Playwright counts it visible before it shows: wait for its own fade.
+const settled = (rows: Locator[]) =>
+  Promise.all(
+    rows.map((row) =>
+      row.evaluate((element) =>
+        Promise.all(
+          element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+        ),
       ),
+    ),
   )
 
 export const subagentScenarios: Scenario[] = [
@@ -35,8 +35,7 @@ export const subagentScenarios: Scenario[] = [
 
       await run.waitFor()
       await main.waitFor()
-      // Each row fades in, and Playwright counts it visible before it shows.
-      await settled(page)
+      await settled([run, main])
       await page.screenshot({ path: `${artifacts}/subagent-collapsed.png` })
       await run.click()
       const steps = run.locator('xpath=following-sibling::div[1]')
@@ -45,7 +44,7 @@ export const subagentScenarios: Scenario[] = [
       await steps.getByText('Read the tax rules').waitFor()
       if ((await steps.getByText('Check the release notes').count()) > 0)
         throw new Error("The main agent's step is listed under the sub-agent")
-      await settled(page)
+      await settled([steps])
       await page.screenshot({ path: `${artifacts}/subagent-expanded.png` })
     },
   },
