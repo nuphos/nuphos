@@ -135,6 +135,48 @@ test(
 )
 
 test(
+  'a Max 20x tier reads as Ultra, the name Anthropic gave that plan',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-cli-plan-'))
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    const node = `'${process.execPath.replaceAll("'", "'\\''")}'`
+
+    writeFileSync(path.join(dir, 'claude'), `#!/bin/sh\nexec ${node} -e 'console.log("2.1.0")'\n`, {
+      mode: 0o700,
+    })
+    const home = path.join(dir, 'claude-home')
+    const planOf = async (oauth: Record<string, string>) => {
+      writeFileSync(
+        path.join(home, '.credentials.json'),
+        JSON.stringify({ claudeAiOauth: { refreshToken: 'r', ...oauth } }),
+      )
+      const status = await probeAgentCli('claude-code', { PATH: dir, HOME: dir }, home)
+
+      return status.installed ? status.plan : undefined
+    }
+
+    mkdirSync(home)
+    // Claude Code still stores "max" for both; only the rate limit tier tells them apart.
+    assert.equal(
+      await planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_20x' }),
+      'ultra',
+    )
+    assert.equal(
+      await planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_5x' }),
+      'max',
+    )
+    assert.equal(await planOf({ subscriptionType: 'max' }), 'max')
+    assert.equal(await planOf({ subscriptionType: 'pro' }), 'pro')
+    assert.equal(
+      await planOf({ subscriptionType: 'team', rateLimitTier: 'default_claude_max_20x' }),
+      'team',
+    )
+  },
+)
+
+test(
   'Grok Build and DSH are signed in once their credential file is in the agent home',
   { skip: process.platform === 'win32' },
   async (t) => {
