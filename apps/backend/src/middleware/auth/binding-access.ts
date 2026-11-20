@@ -1,9 +1,4 @@
-import {
-  canEditAccess,
-  canPrincipalsUseAllowList,
-  canUseBinding,
-  isPrivateAccess,
-} from '@/lib/byos/access'
+import { canEditAccess, canPrincipalsUseAllowList, canUseBinding } from '@/lib/byos/access'
 import { AppError } from '@/lib/errors'
 
 import type { AgentRef } from '@/lib/agents/identity'
@@ -39,8 +34,6 @@ export function bindingAccessPrincipals(c: Context): string[] {
  */
 export function canRequestUseBinding(c: Context, access: BindingAccess | undefined): boolean {
   const vars = c.var as unknown as PrincipalVariables
-
-  if (vars.teamRole === 'VIEWER' && !isPrivateAccess(access)) return false
 
   if (!vars.agent && !vars.conversationAgent) {
     return canUseBinding(access, vars.userId, vars.teamRole)
