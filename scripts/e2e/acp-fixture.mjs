@@ -20,7 +20,8 @@ import {
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, heldDefaults, promptLanguage } from './fixture-settings.mjs'
+import { applySetting, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import { INITIALIZE, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -124,11 +125,11 @@ async function prompt({ sessionId, prompt: parts }) {
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('\n')
-  const marker = (text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []).at(-1) ?? 'E2E_DELIVERY:missing'
+  const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
+  const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, event: 'start', language: promptLanguage(text) })
-  // #3051: the first agent refuses this prompt as out of usage, as Claude Code words it.
-  // #3055: and the answer to a question asked with E2E_ASK_LATE.
+  log({ sessionId, marker, markers, event: 'start', ...turnFacts(text) })
+  // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
@@ -203,7 +204,7 @@ async function prompt({ sessionId, prompt: parts }) {
       sessionId,
       update: {
         sessionUpdate: 'agent_message_chunk',
-        content: { type: 'text', text: `ACK ${marker}` },
+        content: { type: 'text', text: `ACK ${marker}${longReply(text)}` },
       },
     },
   })
@@ -217,12 +218,7 @@ async function prompt({ sessionId, prompt: parts }) {
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
-      return {
-        protocolVersion: 1,
-        agentCapabilities: { loadSession: true },
-        agentInfo: { name: 'e2e-fixture', version: '1' },
-        authMethods: [],
-      }
+      return INITIALIZE
     case 'session/new': {
       const sessionId = randomUUID()
 
@@ -246,7 +242,7 @@ async function answer(request) {
         }),
       }
 
-      log({ sessionId, event: 'session', defaults })
+      log({ sessionId, event: 'session', defaults, ...opening(request.params) })
 
       return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
@@ -261,7 +257,7 @@ async function answer(request) {
         request.params.sessionId,
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
-      log({ sessionId: request.params.sessionId, event: 'loaded' })
+      log({ sessionId: request.params.sessionId, event: 'loaded', ...opening(request.params) })
 
       return {}
     case 'session/set_mode':

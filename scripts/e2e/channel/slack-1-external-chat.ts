@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
 import { until } from '../processes.ts'
-import { addSlackUser, sealSlackToken, sendSlackEvent } from '../slack-stub.ts'
+import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -62,7 +62,7 @@ async function answer(stack: Stack, chatId: string, text: string) {
 }
 
 export default {
-  name: "a Slack channel's messages reach its Bot as an external chat, and only the owner speaks for them",
+  name: "a Slack channel's messages reach its Bot as an external chat, only the owner speaks for them, and the Bot answers in Slack",
   run: async (_page, stack) => {
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
@@ -97,6 +97,11 @@ export default {
       const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')
 
       await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-owner from=owner')
+      // The answer is a Slack message in the channel, top-level, under the Bot's name.
+      const said = slackPosts().find((post) => post.text?.includes('E2E_DELIVERY:slack-owner'))
+
+      if (said?.channel !== CHANNEL || said.thread_ts || !said.text?.startsWith('*E2E Bot*'))
+        throw new Error(`The Bot's answer reached Slack as ${JSON.stringify(said)}`)
       // Nothing of it shows in Nuphos, even to the Bot's owner with a matching search.
       const listing = await fetch(
         `${stack.apiUrl}/agent/conversations?teamId=${stack.teamId}&scope=team&kind=channel&search=e2e`,
@@ -121,7 +126,7 @@ export default {
           event_id: `EvE2Eagain-${type}`,
           event: { type, channel: CHANNEL, user: 'UOWNER', ts: asked, text: 'Status?' },
         })
-      // A reply in the owner's Slack thread quotes it, and wakes the Bot once more.
+      // A reply in the owner's Slack thread quotes it, and the Bot answers in that thread.
       const botPosts = () =>
         mongo(
           stack,
@@ -129,9 +134,13 @@ export default {
           { chatId },
         ) as number
       const before = botPosts()
-      const reply = await slackMessage(stack, 'UNEW', 'Thread reply', { thread_ts: asked })
+      const reply = await slackMessage(stack, 'UNEW', 'Thread reply E2E_REPLY_TO', {
+        thread_ts: asked,
+      })
 
       await until('the Bot to answer the thread reply', async () => botPosts() > before)
+      if (slackPosts().at(-1)?.thread_ts !== asked)
+        throw new Error(`The Bot answered the thread at ${JSON.stringify(slackPosts().at(-1))}`)
       const stored = mongo(
         stack,
         `const messages = db.collection('agent_messages')

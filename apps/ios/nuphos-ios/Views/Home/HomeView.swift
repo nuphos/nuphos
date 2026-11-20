@@ -82,7 +82,7 @@ struct HomeView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
                                 LucideIcon("chevron-down", size: 14)
                             }
                         }
@@ -95,13 +95,11 @@ struct HomeView: View {
                         .accessibilityLabel("Switch team")
                     }
                 }
+                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
+                // and Account and Computers went with it.
                 if sizeClass != .regular || openChat != nil {
-                    if #available(iOS 27, *) {
-                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
-                        } else {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
-                            }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
@@ -337,6 +335,14 @@ struct HomeView: View {
         }
     }
 
+    /// On an iPhone the team's name takes only the width the rest of the toolbar leaves, so
+    /// Create, Computers and Account never fold into "More". Measured on iOS 27: the team
+    /// pill's margin, avatar, chevron, spacing and padding (82 pt), the trailing pill with
+    /// its margin (136 pt), and a gap between them (16 pt). At most 180 pt.
+    private static var compactTeamNameWidth: CGFloat {
+        min(180, UIScreen.main.bounds.width - 234)
+    }
+
     /// DEBUG: `-page runtimes` opens that page directly, for UI checks.
     private static var initialPage: HomePage {
         #if DEBUG
@@ -352,10 +358,10 @@ struct HomeView: View {
     @ViewBuilder
     private var homeActions: some View {
             Menu {
-                Button { showNewBot = true } label: {
+                // The sheet lives on the Bots page, where the new Bot is listed (#3947).
+                Button { page = .chats; showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }

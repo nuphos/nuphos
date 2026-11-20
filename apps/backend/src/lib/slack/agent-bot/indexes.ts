@@ -16,6 +16,10 @@ export async function setupSlackAgentIndexes(): Promise<void> {
     { unique: true, background: true },
   )
   await slackChannelMappings().createIndex({ teamId: 1, updatedAt: -1 }, { background: true })
+  await slackChannelMappings().createIndex(
+    { externalChatId: 1 },
+    { sparse: true, background: true },
+  )
   await slackUserMappings().createIndex(
     { slackWorkspaceId: 1, teamId: 1, slackUserId: 1 },
     { unique: true, background: true },

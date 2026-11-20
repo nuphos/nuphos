@@ -15,6 +15,7 @@ import { createAgentRun } from '@/routes/agent/run-registry'
 import { acceptAgentRun } from '@/routes/agent/turn-start-frame'
 
 import { startConversationTurn } from './conversation-turn'
+import { systemSender } from './message-metadata'
 import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
@@ -37,6 +38,8 @@ import {
   sessionReleased,
   sweepQueuedSessions,
 } from './session-released'
+import * as failedRuns from './trigger-failed-runs'
+import { TRIGGER_SENDER_PREFIX } from './trigger-missed-runs'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -516,6 +519,27 @@ test('a runtime that has not reattached after the grace: the sender is told', as
   expect(launched).toHaveLength(0)
   expect(await waiting()).toEqual(['next'])
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('did not reconnect')
+})
+
+// #4006: a Trigger has no sender to tell, so a fire its computer never took is a missed run.
+test("a Trigger's fire that outwaits its computer's grace is recorded as a missed run", async () => {
+  const recorded = spyOn(failedRuns, 'recordFailedFires').mockResolvedValue()
+  const fire = buildPendingUserMessage({
+    renderedText: 'scheduled',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+    metadata: systemSender(`${TRIGGER_SENDER_PREFIX}6a0000000000000000000001`, 'Nightly', '/t'),
+  })
+
+  runtimeDetached = true
+  await queue({ ...fire, offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual([])
+  expect(recorded).toHaveBeenCalledWith(expect.objectContaining({ code: 'runtime_offline' }), [
+    expect.objectContaining({ renderedText: 'scheduled' }),
+  ])
+  recorded.mockRestore()
 })
 
 test('two releases racing for one session start its head once', async () => {

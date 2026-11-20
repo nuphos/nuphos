@@ -39,29 +39,32 @@ const RUN_IN_PROGRESS: SessionExecutionState = {
  * A session's state when its runtime is not asked or cannot be reached: what the
  * runtime last pushed, else what a live run implies. The list and the detail
  * both answer with this, so two readers of one session never disagree.
+ *
+ * A turn runs while its run holds the session, which is also where its channels
+ * come from. A push can still say active just after the run ended; read alone,
+ * it would be a turn that answers no channel.
  */
 export function restingRuntimeState(
   stored: SessionExecutionState | null | undefined,
   liveRun: boolean,
 ): SessionExecutionState {
+  if (stored?.state === 'active' && !liveRun) return READY_FOR_NEXT_MESSAGE
+
   return stored ?? (liveRun ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
 }
 
-/** A live run as a list row shows it, with the channels it answers. */
+/** A live run on this replica as a list row shows it, with the channels it answers. */
 async function withChannels(
   conversation: ListedConversation,
-  run: ConversationActiveRun | null,
-): Promise<(ConversationActiveRun & { channelIds: string[] }) | null> {
-  if (!run) return null
-
-  try {
-    return {
-      streamId: run.streamId,
-      startedAt: run.startedAt ?? null,
-      channelIds: await runChannels({ ...conversation, streamId: run.streamId }),
-    }
-  } catch {
-    return null
+  run: ConversationActiveRun & { channelIds: string[] },
+): Promise<ConversationActiveRun & { channelIds: string[] }> {
+  return {
+    streamId: run.streamId,
+    startedAt: run.startedAt ?? null,
+    // A post steered in on another replica is only in the shared store; without it, the run's own.
+    channelIds: await runChannels({ ...conversation, streamId: run.streamId }).catch(
+      () => run.channelIds,
+    ),
   }
 }
 

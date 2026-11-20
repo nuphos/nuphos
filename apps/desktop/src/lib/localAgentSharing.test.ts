@@ -20,7 +20,7 @@ test('moving onto a borrowed computer says its owner can see the work', () => {
   assert.ok(localAgentMoveWarning({ kind: 'local', local }, undefined, 'viewer'))
   assert.ok(
     localAgentMoveWarning(
-      { kind: 'local', local: { ...local, shared: undefined, box: { state: 'running' } } },
+      { kind: 'local', local: { ...local, shared: undefined, box: { provider: 'instabox' } } },
       'use',
       'viewer',
     ),

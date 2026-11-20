@@ -60,6 +60,7 @@ async function connectDesktop(
     idleTimeoutMs?: number
     /** Connected but has not sent its first frame yet. */
     silent?: boolean
+    recordAgents?: () => Promise<void>
   } = {},
 ): Promise<Desktop> {
   const desktop = { frames: [] as BackendFrame[] } as Desktop
@@ -85,6 +86,7 @@ async function connectDesktop(
         teams.has(teamId) && (options.members?.get(teamId)?.has(u) ?? true),
       heartbeatMs: options.heartbeatMs ?? 60_000,
       ...(options.idleTimeoutMs ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
+      ...(options.recordAgents ? { recordAgents: options.recordAgents } : {}),
     },
   )
   desktop.send = (frame) => {
@@ -291,6 +293,53 @@ describe('local runtime tunnel', () => {
 
     await eventually(() => after.events.some((event) => event.type === 'open'))
     expect(after.events.some((event) => event.type === 'close')).toBe(false)
+  })
+
+  test('a second tunnel from the same computer leaves the first one’s streams alone', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, silent: true })
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    socket.send('hi')
+    socket.send('again')
+    await eventually(() => events.some((event) => event.data === 'echo:again'))
+    await tick()
+
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
+  test('an agent being added shows in presence as soon as it installs, not at the next heartbeat', async () => {
+    const presence = createMemoryPresenceStore()
+    const desktop = await connectDesktop(createLocalTunnelBus(), presence, new Set(['t1']), {
+      recordAgents: async () => {},
+    })
+    const instanceId = '62c4cdb9-b7a0-49a4-8438-6eff3e2f60d9'
+
+    // The heartbeat is a minute away: only the status report itself can write this.
+    desktop.send({
+      t: 'status',
+      status: {
+        agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+        instances: [
+          {
+            instanceId,
+            provider: 'claude-code',
+            label: 'Claude Code',
+            state: 'pending',
+            cli: { installed: false, loggedIn: false, installing: true },
+          },
+        ],
+      },
+    })
+    const installing = async () =>
+      (await presence.get(owner.userId, owner.deviceId))?.status?.instances?.[0]?.cli.installing
+
+    for (let i = 0; i < 100 && (await installing()) !== true; i++) await tick()
+    expect(await installing()).toBe(true)
   })
 
   test('a newer connection from the same computer supersedes the old one', async () => {

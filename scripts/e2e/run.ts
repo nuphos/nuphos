@@ -6,6 +6,7 @@ import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
+import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
@@ -17,6 +18,7 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
@@ -31,12 +33,15 @@ import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
+import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
+import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
+import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -125,9 +130,11 @@ const scenarios: Scenario[] = [
   },
   ...linkChipScenarios,
   ...personalCredentialScenarios,
+  ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
+  ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
@@ -142,12 +149,15 @@ const scenarios: Scenario[] = [
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...mcpFileScenarios,
   ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...outdatedTurnScenarios,
   ...mcpScenarios,
+  ...approvalFeedbackScenarios,
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,

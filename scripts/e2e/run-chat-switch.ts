@@ -18,8 +18,8 @@ import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
 const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
-// A Bot chat's poll; the newest post must not wait for it.
-const POLL_MS = 4_000
+// A post said in a Bot chat while away shows this soon after it opens.
+const AWAY_MS = 300
 const POSTS = 40
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
@@ -192,7 +192,7 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
 }
 
-/** What fails the run now, and what is reported until the change that meets it lands. */
+/** What fails the run. */
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
@@ -225,7 +225,6 @@ function check(baseline: Record<string, number> | null) {
   }
   // A chat opened before shows on the first frame, with no request first: a Task, and a Bot
   // chat kept mounted (#3523).
-  const pending: string[] = []
 
   for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
     if (watch.framesToContent === 1 && requests === 0) continue
@@ -233,10 +232,13 @@ function check(baseline: Record<string, number> | null) {
   }
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
-  if (away && (away.watch.newestAfterMs ?? Infinity) >= POLL_MS)
-    pending.push(`${away.name}: the newest post waited for a poll`)
+  // Heard of at once from the backend's push, not on a poll (#3523).
+  if (away && (away.watch.newestAfterMs ?? Infinity) >= AWAY_MS)
+    failed.push(
+      `${away.name}: the newest post took ${String(away.watch.newestAfterMs)} ms, budget ${String(AWAY_MS)} ms`,
+    )
 
-  return { failed, pending, table: lines.join('\n') }
+  return { failed, table: lines.join('\n') }
 }
 
 let desktop: Desktop | undefined
@@ -260,12 +262,9 @@ try {
     ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<string, number>)
     : null
   const result = check(baseline)
-  const report = [
-    result.table,
-    '',
-    ...result.pending.map((line) => `- Not yet: ${line}`),
-    ...result.failed.map((line) => `- **Failed**: ${line}`),
-  ].join('\n')
+  const report = [result.table, '', ...result.failed.map((line) => `- **Failed**: ${line}`)].join(
+    '\n',
+  )
 
   writeFileSync(
     `${artifacts}/chat-switch.json`,

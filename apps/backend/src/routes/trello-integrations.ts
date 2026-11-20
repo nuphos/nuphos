@@ -9,7 +9,7 @@ import { trelloConnectLink } from '@/lib/byos/trello'
 import { publicBackendUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { logError } from '@/lib/observability'
+import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { composioUserId, deleteComposioAccount } from '@/lib/personal-credentials/composio'
 import {
   disconnectBinding,
@@ -102,10 +102,14 @@ integrationScoped.delete(
   async (c) => {
     const binding = c.get('trelloBinding')
 
-    // Remove the remote connection first; on failure the local binding remains retryable.
-    await deleteComposioAccount(binding.composioAccountId)
     await disconnectBinding(c, parseObjectId(c.get('teamId'), 'teamId'), 'trelloIntegrations', {
       id: binding.id,
+    })
+    // After the guarded pull, so a disconnect that loses to an access change never deletes the
+    // connection the binding still uses. Best effort, like the Asana and Plaud revokes: the
+    // binding is already gone, and a failure only leaves an unreferenced Composio account.
+    await deleteComposioAccount(binding.composioAccountId).catch((cause: unknown) => {
+      logEvent('warn', 'trello.disconnect_cleanup_failed', errorTelemetryProperties(cause))
     })
 
     return c.body(null, 204)

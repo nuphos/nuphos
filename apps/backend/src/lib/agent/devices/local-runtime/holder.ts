@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { logEvent } from '@/lib/observability'
 
-import { reportedAgents } from '../agent-registry'
+import { reportedAgentsKey } from '../agent-registry'
 
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
@@ -194,7 +194,8 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        toComputer(message.s, message.d)
+        // Another tunnel of this computer hears it too and must not call it lost.
+        if (!message.conn || message.conn === conn) toComputer(message.s, message.d)
 
         return
       case 'close':
@@ -253,8 +254,8 @@ export async function attachRuntimeTunnel(
           const reported = frame.status
 
           status = reported
-          // Only a changed agent list is written, not every status report.
-          const agents = JSON.stringify(reportedAgents(reported))
+          // Only what reportedAgentsKey names is written at once, not every status report.
+          const agents = reportedAgentsKey(reported)
 
           if (deps.recordAgents && agents !== recorded) {
             const record = deps.recordAgents
