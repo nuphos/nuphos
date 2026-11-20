@@ -235,7 +235,11 @@ test('a queued turn whose agent is out of usage records nothing, so it waits in 
   const run = createAgentRun('user-failure', 'session-failure', 'run-usage-limit')
 
   await expect(
-    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+    runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      clientResendsRefusal: true,
+      waitsOutUsage: true,
+    }),
   ).rejects.toThrow('weekly limit')
   expect(persisted).toHaveLength(before)
 })

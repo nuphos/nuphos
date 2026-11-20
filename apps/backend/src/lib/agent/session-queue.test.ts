@@ -1058,6 +1058,7 @@ test('a queued turn whose agent is out of usage keeps the queue, and it runs onc
 
     // One try, and nothing is dropped or reported as not run.
     expect(runs).toHaveLength(1)
+    expect(runs[0]?.waitsOutUsage).toBe(true)
     expect(kept).toEqual([])
     expect((await listPendingUserMessages(OWNER, session)).map((message) => message.id)).toEqual(
       sent.map((message) => message.id),

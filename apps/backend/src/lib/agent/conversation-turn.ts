@@ -165,6 +165,8 @@ export async function runTurn(
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
+        // An answer keeps its own wait, with its question (#3055).
+        ...(fresh.some((message) => message.answers) ? {} : { waitsOutUsage: true }),
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
@@ -174,7 +176,8 @@ export async function runTurn(
         // nothing, so another one does. A move to another agent releases the session.
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
-        const limited = turnFailureCause(error) === 'usage_limit'
+        const limited =
+          turnFailureCause(error) === 'usage_limit' && !fresh.some((message) => message.answers)
 
         if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []

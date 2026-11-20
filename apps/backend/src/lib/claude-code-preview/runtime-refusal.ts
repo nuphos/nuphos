@@ -23,10 +23,15 @@ export const isRuntimeRefusal = (error: unknown) =>
  */
 export const resentAfter = (
   error: unknown,
-  turn: { clientResendsRefusal?: boolean; queued?: unknown; direct?: boolean },
+  turn: {
+    clientResendsRefusal?: boolean
+    waitsOutUsage?: boolean
+    queued?: unknown
+    direct?: boolean
+  },
 ) =>
   ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
-  ((turn.clientResendsRefusal || (Boolean(turn.queued) && !turn.direct)) &&
+  ((turn.waitsOutUsage || (Boolean(turn.queued) && !turn.direct)) &&
     turnFailureCause(error) === 'usage_limit') ||
   (Boolean(turn.clientResendsRefusal) &&
     (agentHostAway(error) || turnFailureCause(error) === 'offline'))
