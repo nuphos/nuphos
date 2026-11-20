@@ -3,29 +3,13 @@ import { nuphosToolName, parseToolUpdate, prettifyToolTitle } from './preview-ag
 
 import type { OpenAbPermissionRequest } from './openab-acp-session'
 
-/**
- * Nuphos's own tools that only read what the agent can already see. An automatic
- * turn runs them without asking, since nobody is there to answer.
- */
-const UNATTENDED_READ_ONLY_TOOLS = new Set([
-  'channel_read',
-  'memory_get',
-  'read_conversation',
-  'list_recent_conversations',
-  'list_tasks',
-  'list_session_resources',
-  'list_user_decisions',
-  'list_agent_runtimes',
-  'list_boxes',
-  'slack_list_destinations',
-  'lark_list_destinations',
-  'port_forward_list',
-])
+/** The tools an unattended turn may use on a channel that woke it: read it, and answer there. */
+const WAKING_CHANNEL_TOOLS = new Set(['channel_read', 'channel_post'])
 
 /**
- * Whether an automatic turn may run this call without asking: one of Nuphos's
- * read-only tools, or a reply to a channel that woke the turn, since answering
- * where it was called is the point of a channel turn.
+ * Whether an automatic turn may run this call without asking. Only reading the
+ * channel that woke it and answering there: anything else could read what the
+ * channel's members may not see and post it back.
  */
 export function allowedUnattended(
   toolCall: OpenAbPermissionRequest['toolCall'],
@@ -35,14 +19,14 @@ export function allowedUnattended(
 
   if (update.kind !== 'tool') return false
   const tool = nuphosToolName(update.mcpToolId)
+  const channelId = (update.rawInput as { channelId?: unknown } | undefined)?.channelId
 
-  if (tool === 'channel_post') {
-    const channelId = (update.rawInput as { channelId?: unknown } | undefined)?.channelId
-
-    return typeof channelId === 'string' && wokenChannelIds.includes(channelId)
-  }
-
-  return tool !== null && UNATTENDED_READ_ONLY_TOOLS.has(tool)
+  return (
+    tool !== null &&
+    WAKING_CHANNEL_TOOLS.has(tool) &&
+    typeof channelId === 'string' &&
+    wokenChannelIds.includes(channelId)
+  )
 }
 
 export function unattendedDeniedText(title: string): string {

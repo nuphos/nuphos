@@ -531,14 +531,9 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
   }
 
   test.each([
-    // Claude Code names an MCP tool mcp__<server>__<tool>.
-    { title: 'mcp__nuphos-tools__channel_read', rawInput: { channelId: 'c1' } },
-    // codex-acp names it mcp.<server>.<tool> and wraps its arguments.
-    {
-      title: 'mcp.nuphos-tools.memory_get',
-      rawInput: { server: 'nuphos-tools', tool: 'memory_get', arguments: { query: 'q' } },
-    },
-    // A reply where the turn was called: the channel that woke it.
+    // Claude Code names an MCP tool mcp__<server>__<tool>; reading the channel that woke it.
+    { title: 'mcp__nuphos-tools__channel_read', rawInput: { channelId: 'woke-1' } },
+    // codex-acp names it mcp.<server>.<tool> and wraps its arguments; answering there.
     {
       title: 'mcp.nuphos-tools.channel_post',
       rawInput: {
@@ -557,7 +552,10 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
   test.each([
     { title: 'Patch MongoDBCommunity', rawInput: { command: 'kubectl patch x' } },
     { title: 'mcp__nuphos-tools__get_kubeconfig', rawInput: {} },
-    { title: 'mcp__other-server__channel_read', rawInput: {} },
+    { title: 'mcp__other-server__channel_read', rawInput: { channelId: 'woke-1' } },
+    // Reading another channel, or the owner's memory, could be posted back to this one.
+    { title: 'mcp__nuphos-tools__channel_read', rawInput: { channelId: 'other-2' } },
+    { title: 'mcp__nuphos-tools__memory_get', rawInput: { query: 'q' } },
     // Posting anywhere but the channel that woke the turn still needs a person.
     { title: 'mcp__nuphos-tools__channel_post', rawInput: { channelId: 'other-2', text: 'hi' } },
   ])('fails $title at once, saying how to let it run', async (call) => {
