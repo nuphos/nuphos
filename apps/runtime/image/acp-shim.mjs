@@ -11,8 +11,16 @@
 // - The team's skills, the runtime defaults and the MCP credential bridge, exactly as
 //   the patched adapters apply them.
 // - Nuphos's instructions, in whatever form the agent accepts them.
-import { spawn } from 'node:child_process'
-import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import {
+  closeSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readSync,
+  symlinkSync,
+} from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -26,6 +34,43 @@ import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-d
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
 export const SESSION_META = 'ai.nuphos/session'
+
+// npm's POSIX dsh has an env-node shebang. Check only this known launcher: a
+// custom wrapper may choose its own Node and must not be judged by PATH.
+export function dshNodeProblem(executable, env, platform = process.platform) {
+  if (!executable) return
+  let fd
+  let header
+  try {
+    fd = openSync(executable, 'r')
+    const bytes = Buffer.alloc(4096)
+    header = bytes.subarray(0, readSync(fd, bytes, 0, bytes.length, 0)).toString('utf8')
+  } catch {
+    return
+  } finally {
+    if (fd !== undefined) closeSync(fd)
+  }
+  const envNode = /^#!\s*\/usr\/bin\/env\s+node(?:\s|$)/u.test(header)
+  const npmCmd =
+    platform === 'win32' &&
+    /\.cmd$/iu.test(executable) &&
+    /node_modules[\\/]@deepseek-ai[\\/]dsh[\\/]lib[\\/]bin\.js/iu.test(header) &&
+    /%dp0%[\\/]node\.exe/iu.test(header)
+  if (!envNode && !npmCmd) return
+  const adjacent = join(dirname(executable), 'node.exe')
+  const node = npmCmd && existsSync(adjacent) ? adjacent : 'node'
+  const probe = spawnSync(node, ['--version'], {
+    env,
+    encoding: 'utf8',
+    timeout: 5000,
+    windowsHide: true,
+  })
+  const found = /^v?(\d+)\.(\d+)\.(\d+)/u.exec(probe.stdout?.trim() ?? '')
+  if (!found || probe.status !== 0) return
+  const [, major, minor] = found
+  if (Number(major) > 24 || (Number(major) === 24 && Number(minor) >= 9)) return
+  return `Error: DeepSeek Harness requires Node.js 24.9.0 or newer; found Node.js ${found[0]}.`
+}
 
 // Same principal-scoped keys the Codex adapter forwards; nothing else in the
 // session's env reaches the agent.
@@ -275,6 +320,12 @@ export function runShim({
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
     // An adapter runs the CLI itself, named to it in its home's environment.
     const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
+    const nodeProblem = provider === 'dsh' && dshNodeProblem(executable, env)
+    if (nodeProblem) {
+      process.stderr.write(`${nodeProblem}\n`)
+      onExit(1)
+      return
+    }
     const child = spawnAgent([executable, ...args], env)
     agent = child
     agentEnvironment = env
