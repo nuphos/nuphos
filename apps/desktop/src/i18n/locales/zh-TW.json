@@ -3110,6 +3110,8 @@
   "Not run": "未執行",
   "Not run yet": "尚未執行",
   "Not run yet.": "尚未執行。",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "未執行：新訊息已取消「{action}」的核准請求。若仍要執行，請再次提出要求。",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "未執行：新訊息已取消待核准的請求。若仍要執行，請再次提出要求。",
   "Not signed in": "未登入",
   "Not signed in.": "未登入。",
   "Not signed in. Ask a workspace administrator to sign it in.": "尚未登入。請工作區管理員登入。",

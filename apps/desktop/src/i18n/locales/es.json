@@ -3110,6 +3110,8 @@
   "Not run": "No ejecutado",
   "Not run yet": "Aún no se ha ejecutado",
   "Not run yet.": "Aún no se ha ejecutado.",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "No se ejecutó: un mensaje nuevo canceló la aprobación de «{action}». Vuelve a pedirlo si aún lo quieres.",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "No se ejecutó: un mensaje nuevo canceló la aprobación pendiente. Vuelve a pedirlo si aún lo quieres.",
   "Not signed in": "Sin sesión iniciada",
   "Not signed in.": "Sin sesión iniciada.",
   "Not signed in. Ask a workspace administrator to sign it in.": "No ha iniciado sesión. Pídele a un administrador del espacio de trabajo que inicie sesión.",

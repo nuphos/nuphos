@@ -3110,6 +3110,8 @@
   "Not run": "未実行",
   "Not run yet": "まだ実行されていません",
   "Not run yet.": "まだ実行されていません。",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "未実行：新しいメッセージにより「{action}」の承認がキャンセルされました。必要な場合は、もう一度依頼してください。",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "未実行：新しいメッセージにより保留中の承認がキャンセルされました。必要な場合は、もう一度依頼してください。",
   "Not signed in": "未サインイン",
   "Not signed in.": "サインインしていません。",
   "Not signed in. Ask a workspace administrator to sign it in.": "サインインしていません。ワークスペースの管理者にサインインを依頼してください。",

@@ -3110,6 +3110,8 @@
   "Not run": "ไม่ได้รัน",
   "Not run yet": "ยังไม่ได้เรียกใช้",
   "Not run yet.": "ยังไม่ได้รัน",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "ยังไม่ได้ดำเนินการ: ข้อความใหม่ยกเลิกการอนุมัติสำหรับ “{action}” หากยังต้องการ โปรดขออีกครั้ง",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "ยังไม่ได้ดำเนินการ: ข้อความใหม่ยกเลิกคำขออนุมัติที่รออยู่ หากยังต้องการ โปรดขออีกครั้ง",
   "Not signed in": "ยังไม่ได้ลงชื่อเข้าใช้",
   "Not signed in.": "ยังไม่ได้ลงชื่อเข้าใช้",
   "Not signed in. Ask a workspace administrator to sign it in.": "ยังไม่ได้ลงชื่อเข้าใช้ ขอให้ผู้ดูแลเวิร์กสเปซลงชื่อเข้าใช้",

@@ -3110,6 +3110,8 @@
   "Not run": "Tidak dijalankan",
   "Not run yet": "Belum dijalankan",
   "Not run yet.": "Belum dijalankan.",
+  "Not run: a new message cancelled the approval for \"{action}\". Ask again if you still want it.": "Tidak dijalankan: pesan baru membatalkan persetujuan untuk “{action}”. Minta lagi jika masih diperlukan.",
+  "Not run: a new message cancelled the pending approval. Ask again if you still want it.": "Tidak dijalankan: pesan baru membatalkan persetujuan yang tertunda. Minta lagi jika masih diperlukan.",
   "Not signed in": "Belum login",
   "Not signed in.": "Belum masuk.",
   "Not signed in. Ask a workspace administrator to sign it in.": "Belum masuk. Minta administrator workspace untuk masuk.",
