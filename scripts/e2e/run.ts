@@ -140,7 +140,6 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
-  ...usageQueueScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
@@ -148,6 +147,8 @@ const scenarios: Scenario[] = [
   ...stepUpScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
+  ...usageQueueScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
