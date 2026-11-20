@@ -10,15 +10,16 @@ import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
 type Call = [name: string, args: object]
+type Answer = { ok?: boolean; deletedCount?: number; error?: string }
 
-/** One turn whose agent makes `calls` in order; returns each call's answer as text. */
-async function callAll(stack: Stack, calls: Call[]): Promise<string[]> {
+/** One turn whose agent makes `calls` in order; returns each tool's structured answer. */
+async function callAll(stack: Stack, calls: Call[]): Promise<(Answer | undefined)[]> {
   const lines = calls.map(
     ([name, args]) => `E2E_CALL ${name} ${JSON.stringify({ label: 'Call it', ...args })}`,
   )
   const text = `Call them\n${lines.join('\n')}\nE2E_DELIVERY:${randomUUID()}`
   const from = agentLog(stack).length
-  let answers: string[] = []
+  let answers: (Answer | undefined)[] = []
 
   void fetch(`${stack.apiUrl}/agent/chat`, {
     method: 'POST',
@@ -36,7 +37,7 @@ async function callAll(stack: Stack, calls: Call[]): Promise<string[]> {
     answers = agentLog(stack)
       .slice(from)
       .filter((item) => item.event === 'called')
-      .map((item) => JSON.stringify(item.result))
+      .map((item) => (item.result as { structuredContent?: Answer } | undefined)?.structuredContent)
 
     return answers.length === calls.length
   })
@@ -55,14 +56,14 @@ export const skillScenarios: Scenario[] = [
         ['skill_delete', { name }],
       ])
 
-      must(created?.includes('\\"ok\\":true') === true, `skill_create to succeed, got ${created}`)
+      must(created?.ok === true, `skill_create to succeed, got ${JSON.stringify(created)}`)
       must(
-        deleted?.includes('\\"deletedCount\\":1') === true,
-        `skill_delete to remove the skill, got ${deleted}`,
+        deleted?.deletedCount === 1,
+        `skill_delete to remove the skill, got ${JSON.stringify(deleted)}`,
       )
       must(
-        again?.includes('skill_not_found') === true,
-        `a second delete to find nothing, got ${again}`,
+        again?.error?.startsWith('skill_not_found') === true,
+        `a second delete to find nothing, got ${JSON.stringify(again)}`,
       )
       const response = await fetch(`${stack.apiUrl}/teams/${stack.teamId}/skills/manifest`, {
         headers: { authorization: `Bearer ${stack.token}` },
