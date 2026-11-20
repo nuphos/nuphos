@@ -24,11 +24,13 @@ enum LaunchCache {
     }
 
     static func read<T: Decodable>(_ type: T.Type) -> T? {
+        if isPreview { return nil }
         guard let data = try? Data(contentsOf: url(for: type)) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
     static func write<T: Encodable>(_ value: T) {
+        if isPreview { return }
         guard let data = try? JSONEncoder().encode(value) else { return }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try? data.write(to: url(for: T.self), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -36,6 +38,17 @@ enum LaunchCache {
 
     static func clear() {
         try? FileManager.default.removeItem(at: directory)
+    }
+
+    /// A preview run answers from a fixture, so there is nothing here worth painting and
+    /// nothing worth keeping: the cache outlives a launch, and UI test suites share one
+    /// installed app, so suite B would open on suite A's conversations.
+    private static var isPreview: Bool {
+        #if DEBUG
+        PreviewIsolation.isActive
+        #else
+        false
+        #endif
     }
 
     private static let directory = URL.cachesDirectory.appending(path: "launch", directoryHint: .isDirectory)
