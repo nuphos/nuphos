@@ -83,7 +83,7 @@ function Laptop({ brand, screen }: { brand: DeskModel['brand']; screen: ReactNod
   )
 }
 
-/** A Mac mini or a Box: its top from above, then its front as the view turns. */
+/** A Mac mini, a Linux machine or a Box: its top from above, then its front as the view turns. */
 function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
   return (
     <>

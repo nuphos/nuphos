@@ -339,24 +339,7 @@
   background: linear-gradient(#acadb1, #8e8f93);
 }
 
-/* Any other laptop, maker unknown, in matte graphite. */
-.desk-laptop.is-other .desk-outer {
-  background: linear-gradient(180deg, #38393d, #2b2c2f 55%, #232427);
-}
-
-.desk-laptop.is-other .desk-deck {
-  background: linear-gradient(180deg, #333437, #28292c);
-}
-
-.desk-laptop.is-other .desk-key {
-  background: #2a2b2e;
-}
-
-.desk-laptop.is-other .desk-inner {
-  background: #2a2b2e;
-}
-
-/* ---------- Box: a Mac mini, or a Box ---------- */
+/* ---------- Box: a Mac mini, a Linux machine, or a Box ---------- */
 
 /* Centred in a laptop's 300px from above; turning to show its front, it slides left to make room
    for its readings card. Not to the cell's edge: in perspective its front is a little wider than

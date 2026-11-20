@@ -1,10 +1,10 @@
 import type { AgentDevice } from '../../api/device-types'
 
 export type DeskModel = {
-  /** A laptop opens its lid; a box (a Mac mini, a Box) turns to show its front, its readings card
-   * over its side. */
+  /** A laptop opens its lid; a box (a Mac mini, a Linux machine, a Box) turns to show its front,
+   * its readings card over its side. */
   form: 'laptop' | 'box'
-  /** The finish it is drawn in. `other` is the plain laptop for a machine whose maker Nuphos cannot
+  /** The finish it is drawn in. `other` is a plain box for a machine whose maker Nuphos cannot
    * tell; `nuphos` is a Box, black with Nuphos's mark. */
   brand: 'apple' | 'windows' | 'other' | 'nuphos'
 }
@@ -18,10 +18,11 @@ export function deskModel(device: AgentDevice): DeskModel {
   // A Mac that does not name its model is most likely a MacBook.
   if (device.platform === 'darwin')
     return { form: DESKTOP_MAC.test(device.model ?? '') ? 'box' : 'laptop', brand: 'apple' }
-  // Windows and Linux hosts report no model, so neither can be told from a desktop yet.
+  // Windows hosts report no model; most are laptops.
   if (device.platform === 'win32') return { form: 'laptop', brand: 'windows' }
 
-  return { form: 'laptop', brand: 'other' }
+  // Linux and the rest are mostly servers and VMs, not laptops.
+  return { form: 'box', brand: 'other' }
 }
 
 /** The closed view holds this long, then every machine turns at once. */
