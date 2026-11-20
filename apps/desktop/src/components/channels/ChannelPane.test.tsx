@@ -116,6 +116,17 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
       credentialAccess: {
         personalCredentialIds: ['github'],
       } as AgentConversation['credentialAccess'],
+      // A Task's sidebar lists these under Changes; Bot details leave them out.
+      linkedResources: [
+        {
+          id: 'issue',
+          provider: 'linear',
+          title: 'Fix it',
+          url: 'https://linear.app/x/issue/X-1',
+          state: 'open',
+          linkedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ],
     }),
   ])
   let settingsOpened = 0
@@ -158,6 +169,11 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   for (const query of triggerQueries)
     assert.deepEqual(query, ['team', 'bot'], 'queries the Bot, not its chat or the team')
   assert.ok(panel.textContent.includes('Ask here to schedule recurring work.'))
+  assert.equal(
+    panel.querySelector('section[aria-label="Changes"]'),
+    null,
+    'Bot details have no Changes',
+  )
   // #3790: what the Bot may use is set here, each row opening its picker or menu.
   assert.deepEqual(accessRows(panel), [
     { text: 'Credentials0', opens: true },

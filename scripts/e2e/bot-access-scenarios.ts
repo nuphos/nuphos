@@ -56,6 +56,25 @@ function shareAway(stack: Stack, botId: string, userId: string) {
   )
 }
 
+/** Links an issue to a Bot's session, or unlinks it. No route links one without a provider. */
+function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
+  mongo(
+    stack,
+    `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const issue = { id: 'e2e-issue', provider: 'linear', title: 'E2E linked issue',
+      url: 'https://linear.app/e2e/issue/E2E-1', state: 'open', linkedAt: new Date().toISOString() }
+    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
+      { sessionId: process.argv[2] },
+      process.argv[3] === '1' ? { $set: { linkedResources: [issue] } } : { $unset: { linkedResources: '' } },
+    )
+    await client.close()`,
+    sessionId,
+    linked ? '1' : '0',
+  )
+}
+
 const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
 // Exact: the Bot's card is a region too, named after the Bot.
 const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
@@ -154,6 +173,15 @@ export const botAccessScenarios: Scenario[] = [
         await cdp.send('Emulation.clearDeviceMetricsOverride')
         await cdp.detach()
       }
+
+      // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
+      setLinkedIssue(stack, made.sessionId, true)
+      await page.reload()
+      await access(page).waitFor()
+      if ((await details(page).getByRole('region', { name: 'Changes', exact: true }).count()) > 0)
+        throw new Error('Bot details show Changes')
+      await shoot(page, 'no-changes')
+      setLinkedIssue(stack, made.sessionId, false)
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
