@@ -43,9 +43,6 @@ export type PreviewPromptArgs = {
   teamId: string
   sessionId: string
   locale: string
-  kubeContext?: string
-  diagramId?: string
-  currentUrl?: string | null
   slackThread?: { teamId: string; channelId: string; threadTs: string }
   /** The runtime the turn runs on; a computer's own agent is told it runs there. */
   runtimeId?: string | null
@@ -155,31 +152,57 @@ async function credentialAndPermissionWallSections(
   }
 }
 
+// The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
+// Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
+function forProvider(provider: OpenAbProvider = 'claude-code', text: string | null) {
+  return text === null || provider === 'claude-code'
+    ? text
+    : text
+        .replaceAll('Claude Code', runtimeLabel(provider))
+        .replaceAll('.claude/skills', provider === 'grok' ? '.claude/skills' : '.agents/skills')
+}
+
+/**
+ * Where the person is as they send this turn: the page, the diagram and the kubeconfig context
+ * of their tab. It changes from turn to turn, so it leads the turn instead of sitting in the
+ * system prompt, which a running agent reloads for when it changes (#4087).
+ */
+export async function withPageContext(
+  turnContext: string | undefined,
+  args: {
+    provider?: OpenAbProvider
+    kubeContext?: string
+    diagramId?: string
+    currentUrl?: string | null
+  },
+): Promise<string | undefined> {
+  const lead = [
+    turnContext,
+    buildKubeContextMessage(args.kubeContext),
+    forProvider(args.provider, buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
+    await urlContextSection(args.currentUrl),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
+  return lead || undefined
+}
+
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
-  const [base, cloudAccess, urlContext, instructions, where, taskName, channels] =
-    await Promise.all([
-      getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
-      credentialAndPermissionWallSections(args).catch(() => ({
-        credentials: '',
-        permissionWall: '',
-      })),
-      urlContextSection(args.currentUrl),
-      loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
-      runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
-      taskNameSection(args.sessionId).catch(() => null),
-      channelsSection(args.sessionId).catch(() => null),
-    ])
+  const [base, cloudAccess, instructions, where, taskName, channels] = await Promise.all([
+    getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
+    credentialAndPermissionWallSections(args).catch(() => ({
+      credentials: '',
+      permissionWall: '',
+    })),
+    loadInstructionsBlock(args.teamId, args.userId, args.sessionId),
+    runtimeWhere(args.runtimeId).catch(() => 'inside the team sandbox'),
+    taskNameSection(args.sessionId).catch(() => null),
+    channelsSection(args.sessionId).catch(() => null),
+  ])
 
-  // The notes are written for Claude Code. Grok Build reads `.claude/skills` as well;
-  // Codex, Antigravity, OpenCode and DeepSeek Harness read the `.agents/skills` link to it.
-  const provider = args.provider ?? 'claude-code'
-  const nativeText = (text: string | null) =>
-    text === null || provider === 'claude-code'
-      ? text
-      : text
-          .replaceAll('Claude Code', runtimeLabel(provider))
-          .replaceAll('.claude/skills', provider === 'grok' ? '.claude/skills' : '.agents/skills')
+  const nativeText = (text: string | null) => forProvider(args.provider, text)
 
   return [
     base.prompt,
@@ -196,9 +219,6 @@ export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise
     nativeText(cloudAccess.permissionWall),
     TOOL_MEMORY_BUDGET_NOTE,
     MEMORY_SCOPE_NOTE,
-    buildKubeContextMessage(args.kubeContext),
-    nativeText(buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
-    urlContext,
     buildTurnRulesMessage(),
     nativeText(DASHBOARDS_RUNTIME_NOTE),
     BACKGROUND_MONITOR_NOTE,
