@@ -249,6 +249,7 @@ class ChatSession(
     private val hasAiAccess get() = !consentDisposed && aiAllowed()
     private val permissions get() = SessionPermissions(loaded, loadError, readOnly || !hasAiAccess, isOwner, canCancelRun, canRespondToRun)
     private var manages by mutableStateOf(false)
+    private var archives by mutableStateOf(false)
     private var hasActiveRun by mutableStateOf(false)
     var movingAgent by mutableStateOf(false)
         private set
@@ -269,6 +270,8 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive get() = permissions.writable && (if (serverMetadataObserved) archives else isOwner)
     val canOpenDesktop get() = canManage && isOwner && runtimeObservation?.snapshot?.let { snapshot ->
         snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
     } == true
@@ -951,6 +954,7 @@ class ChatSession(
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
         manages = detail.canManage ?: isOwner
+        archives = detail.canArchive ?: manages
         hasActiveRun = detail.activeRun != null
         canCancelRun = detail.canCancelRun ?: false
         canRespondToRun = detail.canRespondToRun ?: false

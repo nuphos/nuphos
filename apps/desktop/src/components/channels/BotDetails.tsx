@@ -3,18 +3,21 @@ import { useRef } from 'react'
 import { useWorkspacePane } from '../../app/workspace/WorkspacePaneContext'
 import { t } from '../../i18n'
 import { dismissBotDetails, setBotDetailsOpen, useBotDetailsOpen } from '../../lib/botDetailsPanel'
+import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
 import { useChatSummaryShortcut } from '../agent/summary/useChatSummaryShortcut'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 import { useAgentSessions } from '../sidebar/agentSessions'
 
+import { BotAccessSection } from './BotAccessSection'
 import { botOfChannel } from './botChats'
 import { BotDetailsCard } from './BotDetailsCard'
 import { ChatHeaderIcon } from './channelParts'
 
 import type { ChannelAgent, ChannelFace } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
+import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /** A Bot chat's face and name: one button for the Bot's details beside the chat, as ⌘I is. */
 function BotDetailsToggle({
@@ -92,6 +95,8 @@ export function BotDetailsPanel({
   onEdited,
   onOpenSession,
   onOpenLink,
+  onEditTrigger,
+  credentials,
 }: {
   teamId: string
   bot: string
@@ -104,7 +109,12 @@ export function BotDetailsPanel({
   onEdited: () => void
   onOpenSession: (sessionId: string) => void
   onOpenLink?: (href: string) => void
+  /** Starts this message to the Bot in the chat's composer. */
+  onEditTrigger?: (message: string) => void
+  /** The Bot's selection, for its Access section; undefined until it loads. */
+  credentials: CredentialSelectorControl | undefined
 }) {
+  const bypassControl = useBypassControl(bot)
   const inputQueue = useSessionInputRequests(bot, teamId)
   // The sidebar's row of the Bot stands in until the chat loads.
   const listed = useAgentSessions(teamId).data?.find((row) => row.sessionId === bot)
@@ -123,10 +133,14 @@ export function BotDetailsPanel({
       teamId={teamId}
       onOpenLink={(url) => onOpenLink?.(url)}
       onOpenSession={onOpenSession}
+      onEditTrigger={onEditTrigger}
       onOpenRequest={(sessionId) => onOpenSession(sessionId)}
       requests={inputQueue.requests}
       requestsLoaded={inputQueue.loaded}
       requestsFailed={inputQueue.failed}
+      access={
+        <BotAccessSection credentials={credentials} bypassControl={bypassControl} owned={owned} />
+      }
       lead={
         <BotDetailsCard
           teamId={teamId}

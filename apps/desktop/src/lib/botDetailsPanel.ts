@@ -6,6 +6,9 @@ const listeners = new Set<() => void>()
 let open: boolean | undefined
 // The Bot chat whose floating details a press outside closed, without changing the choice.
 let dismissedFor: string | null = null
+// Asks to show a Bot's Access section; the section scrolls itself into view and takes the ask.
+let accessAsks = 0
+let accessAsked = false
 
 function saved(): boolean {
   if (open === undefined) {
@@ -44,6 +47,22 @@ export function dismissBotDetails(bot: string): void {
   notify()
 }
 
+/** Opens Bot details at its Access section, as the chat's choose-access banner does. */
+export function showBotAccess(): void {
+  accessAsks++
+  accessAsked = true
+  setBotDetailsOpen(true)
+}
+
+/** Whether the Access section was asked for since it last looked; asking again changes `useBotAccessAsks`. */
+export function takeBotAccessAsk(): boolean {
+  const asked = accessAsked
+
+  accessAsked = false
+
+  return asked
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
 
@@ -55,5 +74,13 @@ export function useBotDetailsOpen(bot: string): boolean {
     subscribe,
     () => isBotDetailsOpen(bot),
     () => false,
+  )
+}
+
+export function useBotAccessAsks(): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => accessAsks,
+    () => 0,
   )
 }

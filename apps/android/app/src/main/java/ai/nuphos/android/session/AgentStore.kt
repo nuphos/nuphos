@@ -468,7 +468,7 @@ class AgentStore(
         reload()
     }
     suspend fun archive(session: ChatSession, archived: Boolean) {
-        require(session.canManage) { "Only the owner can archive this agent." }
+        require(session.canArchive) { "Only someone in this task can archive it." }
         ConversationActions.archive(token, session.teamId, session.sessionId, archived)
         session.reloadFromServer()
         reload()
@@ -479,11 +479,14 @@ class AgentStore(
     var rowActionError: String? by mutableStateOf(null)
         private set
     fun clearRowActionError() { rowActionError = null }
+    /** The owner archives it for everyone; someone else in a Task, for themselves (#3686). */
     fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
-        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+        (it.canArchive ?: it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
 
-    fun canRename(row: AgentConversation) = canArchive(row)
+    fun canRename(row: AgentConversation) = currentActionRow(row)?.let {
+        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+    } == true
 
     suspend fun rename(row: AgentConversation, title: String): Boolean {
         val current = currentActionRow(row) ?: return false
@@ -536,7 +539,7 @@ class AgentStore(
         try {
             val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
-            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+            require(detail.readOnly != true && (detail.canArchive ?: detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
             require((detail.archivedAt != null) == row.isArchived)
             ConversationActions.archive(token, team, current.sessionId, archive)
