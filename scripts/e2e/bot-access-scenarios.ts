@@ -56,7 +56,9 @@ function shareAway(stack: Stack, botId: string, userId: string) {
   )
 }
 
-const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
+// The chat in front: a Bot chat opened before stays mounted, inert, with its own details.
+const details = (page: Page) =>
+  page.getByRole('complementary', { name: 'Bot details' }).filter({ visible: true })
 const access = (page: Page) => details(page).getByRole('region', { name: 'Access' })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
@@ -194,11 +196,9 @@ export const botAccessScenarios: Scenario[] = [
       // Its mode is shown too: whether it runs in Full Access matters to everyone it works for.
       for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)$/])
         await access(page).getByText(row).first().waitFor()
-      // The list cached before the hand-over still names the viewer its owner until it reloads.
-      await until(
-        "a teammate's Bot to offer no access controls",
-        async () => (await access(page).getByRole('button').count()) === 0,
-      )
+      const offered = await access(page).getByRole('button').count()
+
+      if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} access controls`)
       if ((await composerAccess(page)) > 0)
         throw new Error("A teammate's Bot chat composer offers access controls")
       await shoot(page, 'teammate')
