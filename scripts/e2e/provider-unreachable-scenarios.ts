@@ -29,6 +29,40 @@ export const providerUnreachableScenarios: Scenario[] = [
     },
   },
   {
+    // #4211: the agent's CLI exits during the handshake, as one on too old a Node does.
+    // All the person had before was "the connection to the agent was lost".
+    name: 'an agent that exits while starting says how it ended and what its stderr said',
+    expected: /connection closed waiting for initialize/,
+    run: async (page, stack) => {
+      const dying = `${stack.acpLog}.die-at-startup`
+
+      writeFileSync(dying, '')
+      try {
+        await newTask(page)
+        await pickAgent(page, 'E2E fixture agent')
+        await send(page, 'Start the agent E2E_DELIVERY:agent-exit')
+        await page
+          .getByText(/The agent stopped while starting \(exit code 3\)/)
+          .first()
+          .waitFor()
+        await page
+          .getByText(/requires Node\.js 24\.9 or newer/)
+          .first()
+          .waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.screenshot({ path: `${artifacts}/agent-exit-at-startup.png` })
+        if (await page.getByText('The connection to the agent was lost').count()) {
+          throw new Error('The chat still shows the old connection notice')
+        }
+      } finally {
+        rmSync(dying, { force: true })
+      }
+    },
+  },
+  {
     name: 'a Codex install missing its binary says to reinstall, without the raw spawn error',
     // The fixture fails these turns on purpose; the backend still logs the agent's error.
     expected: /Codex process has exited with code 1:.*spawn \/Users\/e2e\/[^"]*ENOENT/,

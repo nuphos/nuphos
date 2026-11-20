@@ -1,4 +1,4 @@
-use crate::acp::connection::AcpRequestError;
+use crate::acp::connection::{AcpRequestError, AgentExit};
 use crate::acp::pool::SessionStartError;
 use std::io::ErrorKind;
 
@@ -12,9 +12,8 @@ pub fn format_user_error(e: &SessionStartError) -> String {
         SessionStartError::Request(AcpRequestError::Timeout { method }) => {
             return format!("**Request Timeout**\nTimeout waiting for {method}, please try again.");
         }
-        SessionStartError::Request(AcpRequestError::ConnectionClosed { .. }) => {
-            return "**Connection Lost**\nThe connection to the agent was lost, please try again."
-                .to_string();
+        SessionStartError::Request(AcpRequestError::ConnectionClosed { exit, .. }) => {
+            return format_agent_exit(exit);
         }
         SessionStartError::PoolExhausted(_) => {
             return "**Service Busy**\nAll agent sessions are in use, please try again shortly."
@@ -72,6 +71,65 @@ pub fn format_user_error(e: &SessionStartError) -> String {
         format!("**Error**\n{}", message)
     }
 }
+
+/// An agent that died while starting: its own exit is the whole explanation the
+/// person gets, since the process is gone and its stderr went nowhere else.
+/// Without a status or any output it stays the connection notice it was.
+fn format_agent_exit(exit: &AgentExit) -> String {
+    if exit.is_empty() {
+        return "**Connection Lost**\nThe connection to the agent was lost, please try again."
+            .to_string();
+    }
+    let ended = match &exit.status {
+        Some(status) => format!("The agent stopped while starting ({status})."),
+        None => "The agent stopped while starting.".to_string(),
+    };
+    let hint = exit.hint.unwrap_or(GENERIC_STARTUP_HINT);
+    match &exit.stderr {
+        Some(tail) => format!("**Agent Stopped**\n{ended} {hint}\n```\n{tail}\n```"),
+        None => format!("**Agent Stopped**\n{ended} {hint}"),
+    }
+}
+
+const GENERIC_STARTUP_HINT: &str = "Start it once on the computer that runs it to see what it \
+     reports, or switch to another runtime, then try again.";
+
+const SIGN_IN_HINT: &str = "Sign the agent in again on the computer that runs it (or give it a \
+     valid API key), then try again.";
+
+const NODE_HINT: &str = "Update Node.js on the computer that runs this agent to the version it \
+     asks for, then try again.";
+
+const DISK_FULL_HINT: &str = "Free up disk space on the computer that runs it, then try again.";
+
+/// The fix an agent named on stderr as it died. Matched on the raw line, before
+/// redaction: a line withheld from display can still say what to do.
+pub(crate) fn startup_hint(line: &str) -> Option<&'static str> {
+    let line = line.to_lowercase();
+    if is_sign_in_notice(&line)
+        || line.contains("authentication required")
+        || line.contains("api key")
+        || line.contains("api_key")
+        || line.contains("not logged in")
+    {
+        return Some(SIGN_IN_HINT);
+    }
+    if NODE_TOO_OLD.is_match(&line) {
+        return Some(NODE_HINT);
+    }
+    if line.contains("enospc") || line.contains("no space left on device") {
+        return Some(DISK_FULL_HINT);
+    }
+    None
+}
+
+/// What a CLI says when the Node.js it was started on is older than it supports.
+static NODE_TOO_OLD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(
+        r"requires? node(\.js)?\b|unsupported engine|engine .?node|node(\.js)? (version )?v?\d[\d.]* (or (newer|higher|above)|is required|or later)",
+    )
+    .expect("valid node version pattern")
+});
 
 /// Claude Code's own sign-in notices and the plain 401s this branch always covered.
 /// Free-text guesses (e.g. "token expired") stay unmatched.
@@ -170,8 +228,62 @@ mod tests {
     fn format_user_error_connection_closed() {
         let e = AcpRequestError::ConnectionClosed {
             method: "initialize".into(),
+            exit: AgentExit::default(),
         };
         assert!(format_user_error(&e.into()).contains("Connection Lost"));
+    }
+
+    fn exited(status: &str, stderr: &str) -> SessionStartError {
+        AcpRequestError::ConnectionClosed {
+            method: "initialize".into(),
+            exit: AgentExit {
+                status: Some(status.into()),
+                stderr: Some(stderr.into()),
+                hint: startup_hint(stderr),
+            },
+        }
+        .into()
+    }
+
+    #[test]
+    fn an_agent_that_died_at_startup_names_its_exit_and_its_last_words() {
+        let result = exited("exit code 1", "Error: dsh failed to start");
+        let result = format_user_error(&result);
+        assert!(result.starts_with("**Agent Stopped**"), "{result}");
+        assert!(result.contains("exit code 1"), "{result}");
+        assert!(result.contains("Error: dsh failed to start"), "{result}");
+        assert!(result.contains("Start it once on the computer"), "{result}");
+    }
+
+    #[test]
+    fn a_recognizable_startup_failure_says_how_to_fix_it() {
+        for (stderr, expected) in [
+            (
+                "Error: DEEPSEEK_API_KEY is not set",
+                "Sign the agent in again",
+            ),
+            (
+                "Error: not logged in. Run `dsh login` first",
+                "Sign the agent in again",
+            ),
+            (
+                "Error: dsh requires Node.js 24.9 or newer (found v20.19.0)",
+                "Update Node.js",
+            ),
+            (
+                "Error: ENOSPC: no space left on device, open '/home/u/.dsh/log'",
+                "Free up disk space",
+            ),
+        ] {
+            let result = format_user_error(&exited("exit code 1", stderr));
+            assert!(result.contains(expected), "{stderr} -> {result}");
+        }
+    }
+
+    #[test]
+    fn an_unrecognized_startup_failure_is_not_guessed_at() {
+        assert_eq!(startup_hint("Error: something went wrong"), None);
+        assert_eq!(startup_hint("listening on port 8080"), None);
     }
 
     #[test]

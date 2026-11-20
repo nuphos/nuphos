@@ -29,10 +29,49 @@ pub enum AcpRequestError {
     #[error("timeout waiting for {method} response")]
     Timeout { method: String },
     #[error("connection closed waiting for {method}")]
-    ConnectionClosed { method: String },
+    ConnectionClosed { method: String, exit: AgentExit },
     /// The request could not be written, or its response was unusable.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+/// What the runtime saw of the agent process's death, for the one person who
+/// cannot look at that machine's logs. Empty when the connection ended without
+/// the process doing so.
+#[derive(Debug, Clone, Default)]
+pub struct AgentExit {
+    /// The child's status once it has ended: "exit code 1", "killed by signal 9".
+    pub status: Option<String>,
+    /// Its last error-like stderr lines, redacted and bounded.
+    pub stderr: Option<String>,
+    /// The fix its stderr named, if any. See [`crate::error_display::startup_hint`].
+    pub hint: Option<&'static str>,
+}
+
+impl AgentExit {
+    /// Nothing observed: the process outlived the connection, or said nothing.
+    pub fn is_empty(&self) -> bool {
+        self.status.is_none() && self.stderr.is_none()
+    }
+}
+
+/// How long a closed connection waits for the child's death to settle — its exit
+/// status, then its last stderr. Both land a moment after stdout closes.
+const DEATH_SETTLES_WITHIN: std::time::Duration = std::time::Duration::from_millis(500);
+
+/// How a child ended, in the words a person can act on.
+fn describe_exit(status: std::process::ExitStatus) -> String {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return format!("killed by signal {signal}");
+        }
+    }
+    match status.code() {
+        Some(code) => format!("exit code {code}"),
+        None => "no exit code".to_string(),
+    }
 }
 
 type NotificationSender = Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>>;
@@ -175,6 +214,12 @@ pub struct SessionActivity {
     /// The agent's most recent stderr lines (redacted, bounded), so an internal
     /// error that carries no detail can still show what the agent last said.
     stderr_tail: std::sync::Mutex<std::collections::VecDeque<String>>,
+    /// The fix the agent's stderr named, matched on the raw line. A line withheld
+    /// from display can still be read for a cause the person can act on.
+    startup_hint: std::sync::Mutex<Option<&'static str>>,
+    /// Signalled when the stderr reader reaches EOF. A dying agent's last lines
+    /// are still in the pipe when its stdout closes, so a failure waits for them.
+    stderr_eof: tokio::sync::Notify,
 }
 
 const STDERR_TAIL_LINES: usize = 20;
@@ -287,6 +332,8 @@ impl SessionActivity {
             agent_permission_wait_ms: AtomicU64::new(0),
             process_death: Default::default(),
             stderr_tail: Default::default(),
+            startup_hint: Default::default(),
+            stderr_eof: Default::default(),
         }
     }
 
@@ -308,6 +355,12 @@ impl SessionActivity {
             *self.process_death.lock().unwrap_or_else(|e| e.into_inner()) =
                 Some(message.to_string());
         }
+        if ERROR_LIKE.is_match(line) {
+            let mut hint = self.startup_hint.lock().unwrap_or_else(|e| e.into_inner());
+            if hint.is_none() {
+                *hint = crate::error_display::startup_hint(line);
+            }
+        }
         let Some(line) = redact_stderr_line(line) else {
             return;
         };
@@ -324,6 +377,20 @@ impl SessionActivity {
     pub fn stderr_tail(&self) -> Option<String> {
         let tail = self.stderr_tail.lock().unwrap_or_else(|e| e.into_inner());
         (!tail.is_empty()).then(|| tail.iter().cloned().collect::<Vec<_>>().join("\n"))
+    }
+
+    /// The fix its stderr named, if it named one.
+    pub fn startup_hint(&self) -> Option<&'static str> {
+        *self.startup_hint.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn note_stderr_eof(&self) {
+        self.stderr_eof.notify_one();
+    }
+
+    /// Resolves once the agent's stderr has been read to the end.
+    pub async fn stderr_drained(&self) {
+        self.stderr_eof.notified().await;
     }
 
     fn mark_connection_ended(&self) {
@@ -353,6 +420,7 @@ impl SessionActivity {
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .clear();
+            *self.startup_hint.lock().unwrap_or_else(|e| e.into_inner()) = None;
         }
         self.prompt_in_flight.store(in_flight, Ordering::Release);
         self.execution
@@ -489,7 +557,9 @@ impl PermissionResponder {
 }
 
 pub struct AcpConnection {
-    _proc: Child,
+    /// Behind a lock so a failing request can read the child's exit status
+    /// without the `&mut` that only teardown holds.
+    proc: Mutex<Child>,
     /// PID of the direct child, used as the process group ID for cleanup.
     child_pgid: Option<i32>,
     stdin: Arc<Mutex<ChildStdin>>,
@@ -525,7 +595,7 @@ pub struct AcpConnection {
     /// gateway talks to today issues those RPCs (see `terminal.rs`).
     pub terminal: Arc<super::terminal::TerminalManager>,
     _reader_handle: JoinHandle<()>,
-    _stderr_handle: Option<JoinHandle<()>>,
+    stderr_handle: Option<JoinHandle<()>>,
     /// The pool must not route to this connection again, even if the reader has not
     /// observed the agent's exit yet. Set with [`AcpConnection::retire`] when a killed
     /// process outlives the grace the caller gave it.
@@ -1016,6 +1086,7 @@ impl AcpConnection {
                         Err(_) => break,
                     }
                 }
+                activity.note_stderr_eof();
             }))
         } else {
             None
@@ -1040,7 +1111,7 @@ impl AcpConnection {
         ));
 
         Ok(Self {
-            _proc: proc,
+            proc: Mutex::new(proc),
             child_pgid,
             stdin,
             next_id: Arc::new(AtomicU64::new(1)),
@@ -1061,7 +1132,7 @@ impl AcpConnection {
             session_reset: false,
             terminal,
             _reader_handle: reader_handle,
-            _stderr_handle: stderr_handle,
+            stderr_handle,
             retired: false,
             facade_token_guard: None,
         })
@@ -1106,6 +1177,28 @@ impl AcpConnection {
         Ok(())
     }
 
+    /// The agent process ending is what closes a connection mid-request, so the
+    /// error carries how it ended and what it last said — on the user's computer,
+    /// nobody else can read that.
+    async fn connection_closed(&self, method: &str) -> AcpRequestError {
+        let status = tokio::time::timeout(DEATH_SETTLES_WITHIN, self.proc.lock().await.wait())
+            .await
+            .ok()
+            .and_then(Result::ok)
+            .map(describe_exit);
+        if self.stderr_handle.is_some() {
+            let _ = tokio::time::timeout(DEATH_SETTLES_WITHIN, self.activity.stderr_drained()).await;
+        }
+        AcpRequestError::ConnectionClosed {
+            method: method.to_string(),
+            exit: AgentExit {
+                status,
+                stderr: self.activity.stderr_tail(),
+                hint: self.activity.startup_hint(),
+            },
+        }
+    }
+
     async fn send_request(
         &self,
         method: &str,
@@ -1139,20 +1232,19 @@ impl AcpConnection {
             "session/new" | "session/load" | "session/resume" => 120,
             _ => 30,
         };
-        let closed = || AcpRequestError::ConnectionClosed {
-            method: method.to_string(),
-        };
-        let resp = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
+        let resp = match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
             .await
             .map_err(|_| AcpRequestError::Timeout {
                 method: method.to_string(),
-            })?
-            .map_err(|_| closed())?;
+            })? {
+            Ok(resp) => resp,
+            Err(_) => return Err(self.connection_closed(method).await),
+        };
 
         // The reader synthesizes an id-less error when stdout closes. It is
         // not an agent acknowledgement and cannot confirm a write's outcome.
         if resp.id.is_none() {
-            return Err(closed());
+            return Err(self.connection_closed(method).await);
         }
         Ok(with_recent_stderr(resp, &self.activity))
     }
@@ -1554,7 +1646,7 @@ impl AcpConnection {
     pub(crate) fn kill_agent(&mut self) {
         // The tree first: on Windows it is found through the agent, which must still be running.
         self.kill_process_group();
-        let _ = self._proc.start_kill();
+        let _ = self.proc.get_mut().start_kill();
     }
 
     /// Kill the entire process group: SIGTERM → SIGKILL.
@@ -1627,7 +1719,7 @@ fn session_load_params(
 impl Drop for AcpConnection {
     fn drop(&mut self) {
         self.activity.mark_connection_ended();
-        if let Some(handle) = self._stderr_handle.take() {
+        if let Some(handle) = self.stderr_handle.take() {
             handle.abort();
         }
         self.kill_process_group();
@@ -1921,8 +2013,38 @@ mod request_error_tests {
     #[tokio::test]
     async fn an_agent_that_exits_is_a_closed_connection() {
         match load_against("read line").await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/load")
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+
+    /// The line names the cause but may carry the key itself, so it is withheld
+    /// from display — the fix it names still has to reach the person.
+    #[tokio::test]
+    async fn a_withheld_last_line_still_names_the_fix() {
+        let script = r#"echo 'Error: DEEPSEEK_API_KEY is not set' >&2; read line; exit 2"#;
+        match load_against(script).await {
+            Err(AcpRequestError::ConnectionClosed { exit, .. }) => {
+                assert_eq!(exit.status.as_deref(), Some("exit code 2"));
+                assert_eq!(
+                    exit.stderr.as_deref(),
+                    Some("[line withheld: it may contain a credential]")
+                );
+                assert!(exit
+                    .hint
+                    .is_some_and(|hint| hint.contains("Sign the agent in")));
+            }
+            other => panic!("expected a closed connection, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_signal_names_the_signal_that_ended_the_agent() {
+        match load_against("read line; kill -9 $$").await {
+            Err(AcpRequestError::ConnectionClosed { exit, .. }) => {
+                assert_eq!(exit.status.as_deref(), Some("killed by signal 9"))
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }
@@ -1936,7 +2058,7 @@ mod request_error_tests {
             .unwrap();
         conn.supports_resume_session = true;
         match conn.session_load("sid", ".", &[], None).await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/resume")
             }
             other => panic!("expected a closed connection, got {other:?}"),
