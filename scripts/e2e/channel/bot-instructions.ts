@@ -133,7 +133,8 @@ const scenario: Scenario = {
     if (stored(stack, bot.sessionId) !== JSON.stringify(LONG))
       throw new Error('A refused save changed the instructions')
 
-    // Someone else's Bot: the same text, no pencil.
+    // Someone else's Bot: no pencil. Its instructions come from the viewer's own list of
+    // Bots, which a teammate's Bot is not on, so the section itself stays out (as before).
     const mate = await joinTeam(stack, 'instructions-mate')
     const me = (await (
       await fetch(`${stack.apiUrl}/auth/me`, {
@@ -144,7 +145,7 @@ const scenario: Scenario = {
     handTo(stack, bot.sessionId, mate.id)
     await page.reload()
     await openChat(page, NAME)
-    await section(page).getByText('1. Check the release notes.').waitFor()
+    await details(page).getByRole('region', { name: 'Access', exact: true }).waitFor()
     if ((await pencil(page).count()) > 0)
       throw new Error("A teammate's Bot offers Edit instructions")
     await shoot(page, 'teammate')
