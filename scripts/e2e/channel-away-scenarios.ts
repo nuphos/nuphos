@@ -102,17 +102,24 @@ export const channelAwayScenarios: Scenario[] = [
 
       await post('Before it goes long E2E_DELIVERY:awake-long')
       await page.getByText('POSTED E2E_DELIVERY:awake-long', { exact: true }).first().waitFor()
+      // A line written after `since`, once its wake has waited out the grace.
+      const failsAfter = (since: string, what: string) =>
+        until(what, async () => lines().some((at) => at > since), 150_000)
 
       await stack.restartAgentHost(async () => {
+        const start = new Date().toISOString()
+
         await post('While it is away E2E_DELIVERY:away-long')
-        await until('the couldn’t-reply line', async () => lines().length > 0, 150_000)
+        await failsAfter(start, 'the first post’s couldn’t-reply line')
+        // A post after that failure is a new wake, so it fails again once its own wait is
+        // over. Past every reattach attempt (about 108 s) by then, so only the Bot's next
+        // connection can wake it.
         const first = lines().at(-1)!
 
-        // A second post fails too, once its own wait is over. Past every reattach attempt
-        // (about 108 s) by then, so only the Bot's next connection can wake it.
         await post('Still away E2E_DELIVERY:away-long-2')
-        await until('the second failure', async () => (lines().at(-1) ?? '') > first, 150_000)
-        await page.waitForTimeout(2_000)
+        await failsAfter(first, 'the second post’s couldn’t-reply line')
+        await failed.last().scrollIntoViewIfNeeded()
+        await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-away-two-posts-light.png` })
         if (lines().length !== 1 || (await failed.count()) !== 1)
           throw new Error(

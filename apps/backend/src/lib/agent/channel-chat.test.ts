@@ -480,8 +480,12 @@ describe('waking a channel’s agents', () => {
       (event) => event.kind === 'agent_reply_failed',
     )
 
-    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
-    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
+    // A short reason for people, never the adapter's paths.
+    expect(failed).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'other',
+      reason: 'its runtime ran into an error.',
+    })
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -1305,7 +1309,11 @@ describe('an agent whose computer is offline', () => {
     await say('still there?')
     await noteReplyFailed('channel', 'agent-a', new Error('OpenAB ACP initialize timed out'))
     expect(await failures()).toEqual([
-      expect.objectContaining({ agentId: 'agent-a', cause: 'other' }),
+      expect.objectContaining({
+        agentId: 'agent-a',
+        cause: 'other',
+        reason: 'its runtime ran into an error.',
+      }),
     ])
 
     await postAsAgent('channel', { sessionId: 'agent-a', title: 'Agent A' }, 'Back now')
