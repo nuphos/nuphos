@@ -5,7 +5,8 @@
 // account. This gives each unarchived Bot that never had a selection written the
 // same default a new Bot now gets: everything its owner may use right now, with
 // Resend and Trello left opt-in. A Bot whose owner saved a selection, even an
-// empty one, is left as it is. --team <id> (repeatable) limits it to those teams.
+// empty one, is left as it is. --team <id> (repeatable) limits it to those teams;
+// --apply needs one, so it never writes to every team's Bots by mistake.
 //
 // Runs from a backend pod before its image carries it: copied into /app/scripts,
 // it uses that pod's config and database. Dry run unless --apply. Each write
@@ -54,10 +55,32 @@ async function writeDefaults(conversations: Collection, plan: Bot[]): Promise<Bo
   return done
 }
 
+/** --apply, --record <file> and --team <id> (repeatable); anything else is refused. */
+export function parseArgs(args: string[]) {
+  const teams: string[] = []
+  let apply = false
+  let record: string | undefined
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    const value = args[i + 1]
+
+    if (arg === '--apply') apply = true
+    else if ((arg === '--team' || arg === '--record') && value && !value.startsWith('--')) {
+      if (arg === '--team') teams.push(value)
+      else record = value
+      i++
+    } else throw new Error(`Unexpected argument: ${String(arg)}`)
+  }
+  // Fail closed: a forgotten or mistyped team must never widen it to every team's Bots.
+  if (!teams.every((team) => /^[a-f\d]{24}$/.test(team))) throw new Error('--team takes a team id')
+  if (apply && !teams.length) throw new Error('--apply needs at least one --team <id>')
+
+  return { apply, teams, record }
+}
+
 async function main(): Promise<void> {
-  const apply = process.argv.includes('--apply')
-  // --team <id>, repeatable: only those teams' Bots.
-  const teams = process.argv.filter((_, i) => process.argv[i - 1] === '--team')
+  const { apply, teams, record: recordArg } = parseArgs(process.argv.slice(2))
   const db = await connectDb()
 
   try {
@@ -75,9 +98,7 @@ async function main(): Promise<void> {
     let outcome = 'dry-run: would give'
 
     if (apply) {
-      const at = process.argv.indexOf('--record')
-      const record =
-        at >= 0 ? process.argv[at + 1] : `/tmp/default-bot-credentials-${String(Date.now())}.json`
+      const record = recordArg ?? `/tmp/default-bot-credentials-${String(Date.now())}.json`
       // Only the Bots this run wrote, so undoing it never clears a choice saved in between.
       const done = await writeDefaults(conversations, plan)
 
