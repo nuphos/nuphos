@@ -4775,7 +4775,7 @@
   "They can view and reply": "Puede ver y responder",
   "Thinking": "Pensando",
   "Thinking…": "Pensando…",
-  "This Bot can't use any computers or credentials yet. Choose what it may use.": "Este Bot todavía no puede usar ningún equipo ni credencial. Elige lo que puede usar.",
+  "This Bot can't use any computers yet. Choose what it may use.": "Este Bot todavía no puede usar ningún equipo. Elige lo que puede usar.",
   "This Bot is not ready to move.": "Este bot aún no se puede mover.",
   "This ConfigMap has no data keys.": "Este ConfigMap no tiene claves de datos.",
   "This Loki datasource has no log streams — nothing has pushed logs to it yet.": "Esta fuente de datos de Loki no tiene flujos de registros: todavía nada le ha enviado registros.",
