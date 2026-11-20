@@ -12,7 +12,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { agentConversations, agentMessages } from './db'
-import { QUEUED_NOTICE_STEER, noteReplyFailed, withChannelPosts } from './channel-wake'
+import { QUEUED_NOTICE_STEER, withChannelPosts } from './channel-wake'
 import { listChannelMentions, readChannelMessages } from './db/channels'
 import {
   CHANNEL_AGENT_TURN_BUDGET,
@@ -33,6 +33,7 @@ import {
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+import { noteReplyFailed } from './reply-failed'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'

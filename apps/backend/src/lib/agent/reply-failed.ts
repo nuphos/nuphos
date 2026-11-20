@@ -7,7 +7,7 @@ import {
 import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 
-import { getConversationBySessionId } from './db'
+import { getConversationBySessionId, noReplyFailedYet } from './db'
 import { pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 
@@ -82,11 +82,12 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
       ? await usageResetsAtOf(agent).catch(() => undefined)
       : undefined
   const reason = withOutdatedHint(replyFailedReason(agent, cause, error, resetsAt), error)
+  const atMessage = (await getConversationBySessionId(channelId).catch(() => null))?.messageCount
   const verifyUrl = cause === 'usage_limit' ? verifyUrlFor(error) : null
 
   await agentConversations()
     .updateOne(
-      { sessionId: channelId },
+      { sessionId: channelId, ...noReplyFailedYet(agentId, atMessage) },
       {
         $set: { transcriptUpdatedAt: new Date() },
         $push: pushTimelineEvent({
@@ -98,6 +99,7 @@ export async function noteReplyFailed(channelId: string, agentId: string, error:
           cause,
           ...(reason ? { reason } : {}),
           ...(resetsAt ? { resetsAt } : {}),
+          ...(atMessage === undefined ? {} : { atMessage }),
           ...(verifyUrl ? { verifyUrl } : {}),
         }),
       },
