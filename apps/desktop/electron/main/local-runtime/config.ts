@@ -216,11 +216,10 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
 }
 
 /**
- * The jobs this runtime offers: everywhere the backend's bundled attachment and session-home
- * programs, given only signed URLs or an id; on a machine Nuphos made also `panel`, which runs
- * the script the backend sends. openab gives a job only its own isolated HOME and splits its
- * command on whitespace, so Electron's run-as-Node switch, and for session homes the user's
- * HOME where the adapter makes them, ride in through `env`. A job with a space is left out.
+ * The jobs this runtime offers: everywhere the bundled attachment and session-home programs
+ * (v2 takes a home generation); on a machine Nuphos made also `panel`. openab gives a job its
+ * own HOME and splits its command on whitespace, so Electron's run-as-Node switch and the
+ * user's HOME, where session homes are, ride in through `env`. A job with a space is left out.
  */
 function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   const program = (file: string) => path.join(launch.bundle.root, file)
