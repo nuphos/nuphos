@@ -23,6 +23,7 @@ import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { startReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
@@ -119,9 +120,7 @@ await backfillPersonalTokenExpiry()
 installQueuedTurnStarter(startQueuedTurn)
 installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
-if (await initTriggerScheduler()) {
-  logEvent('info', 'backend.trigger_scheduler.ready')
-}
+if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
 if (await initJournalSealer()) {
   logEvent('info', 'backend.journal_sealer.ready')
@@ -135,6 +134,7 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 // Counts turns stranded on an unanswered tool call — the one agent failure no
 // request can observe, because it IS the missing request.
 initStuckTurnProbe()
+startReminderSweeper()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
 initRuntimeMetricsSampler()
@@ -155,16 +155,17 @@ process.on('unhandledRejection', (error) => {
 
 const tls = devTlsOptions()
 
+// Both listeners. Bun defaults to a 10s idle timeout, which drops a legitimately
+// slow request (e.g. a burst of reads while MongoDB is reachable only over a
+// high-latency path) mid-flight — the client sees "other side closed". Raise it
+// so slow requests complete instead of failing; healthy requests close normally
+// well before this, so it's inert in prod.
+const listen = { hostname: config.server.listenHost, idleTimeout: 120, websocket }
+
 const server = Bun.serve({
+  ...listen,
   port: config.port,
-  // Bun defaults to a 10s idle timeout, which drops a legitimately slow request
-  // (e.g. a burst of reads while MongoDB is reachable only over a high-latency
-  // path) mid-flight — the client sees "other side closed". Raise it so slow
-  // requests complete instead of failing; healthy requests close normally well
-  // before this, so it's inert in prod.
-  idleTimeout: 120,
   ...(tls ? { tls } : {}),
-  websocket,
   async fetch(req, bunServer) {
     // No global shutdown gate here: readiness (→503) drains the LB and new agent
     // runs are gated at registration, so resumes/in-flight requests keep working
@@ -175,15 +176,14 @@ const server = Bun.serve({
 
 logEvent('info', 'backend.server.listening', {
   protocol: tls ? 'https' : 'http',
-  host: 'localhost',
+  host: config.server.listenHost ?? '0.0.0.0',
   port: config.port,
 })
 
 const devHttpServer = config.server.devHttpPort
   ? Bun.serve({
+      ...listen,
       port: config.server.devHttpPort,
-      idleTimeout: 120,
-      websocket,
       fetch: (req, bunServer) => app.fetch(req, { server: bunServer }),
     })
   : undefined

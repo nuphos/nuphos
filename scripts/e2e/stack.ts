@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { backendEnv } from './backend-env.ts'
+import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startSlackStub } from './slack-stub.ts'
@@ -66,7 +66,7 @@ function onPath(command: string): boolean {
 }
 
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
-function startMongo(freePort: number): string {
+export function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
   const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
@@ -91,7 +91,7 @@ function startMongo(freePort: number): string {
 }
 
 /** The backend needs transactions, so a lone mongod becomes a one-member replica set. */
-function initiateReplicaSet(uri: string): boolean {
+export function initiateReplicaSet(uri: string): boolean {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1], { serverSelectionTimeoutMS: 1000 }).connect()
@@ -223,6 +223,7 @@ export async function startStack(
   const backends = [startBackend()]
 
   await backendReady()
+  await assertLoopbackOnly(backendPort)
 
   const email = `e2e-${String(Date.now())}@example.com`
   let token = ''

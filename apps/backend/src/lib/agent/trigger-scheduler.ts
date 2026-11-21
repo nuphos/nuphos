@@ -21,6 +21,7 @@ import { expireTriggers } from './trigger-service/read'
 export { buildBullMQConnection } from './trigger-scheduler-setup'
 
 const EXPIRY_SWEEP_JOB = 'expire-triggers'
+const HELD_FLUSH_JOB = 'flush-held-deliveries'
 
 let _queue: Queue | undefined
 let _worker: Worker | undefined
@@ -68,6 +69,14 @@ export async function initTriggerScheduler(): Promise<boolean> {
           const { deliverWaitingAnswers } = await import('./deliver-waiting-answers')
 
           await deliverWaitingAnswers((job.data as { sessionId: string }).sessionId)
+
+          return
+        }
+        if (job.name === HELD_FLUSH_JOB) {
+          const { flushHeldDeliveries } = await import('./trigger-held-flush')
+          const { triggerId } = job.data as { triggerId: string }
+
+          await flushHeldDeliveries(triggerId, (delayMs) => enqueueHeldFlush(triggerId, delayMs))
 
           return
         }
@@ -221,6 +230,18 @@ export async function scheduleCronTrigger(
 ): Promise<void> {
   if (!_queue) return
   await _upsertJobScheduler(triggerId, cronExpression, timeZone)
+}
+
+/** A delayed flush for a Trigger's held deliveries; the caller keeps one pending per batch. */
+export async function enqueueHeldFlush(triggerId: string, delayMs: number): Promise<boolean> {
+  if (!_queue) return false
+  await _queue.add(
+    HELD_FLUSH_JOB,
+    { triggerId },
+    { delay: delayMs, removeOnComplete: true, removeOnFail: 50 },
+  )
+
+  return true
 }
 
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
