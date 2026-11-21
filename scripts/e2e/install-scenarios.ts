@@ -8,7 +8,7 @@ import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { fixtureBundle } from './tunnel-scenarios.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -72,8 +72,7 @@ export const installScenarios: Scenario[] = [
         // The agent it just installed runs a turn there.
         await newTask(page)
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(label).click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+        await pickInRow(page, label, /^Claude Code/)
         await send(page, 'On the computer it was added to E2E_DELIVERY:installed-turn')
         await page.getByText('ACK E2E_DELIVERY:installed-turn').waitFor({ timeout: 60_000 })
       } finally {
@@ -208,8 +207,7 @@ export const installScenarios: Scenario[] = [
       await newTask(page)
       // This computer's own row lists its agents by name alone.
       await page.getByRole('button', { name: /^Runtime:/ }).click()
-      await page.getByRole('menu').getByText(hostname()).click()
-      await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+      await pickInRow(page, hostname(), /^Claude Code/)
       await send(page, 'Which Claude Code runs this?')
       await until(
         'the session to start the Claude app’s new copy',
@@ -237,8 +235,7 @@ export const installScenarios: Scenario[] = [
       try {
         await newTask(page)
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(hostname()).click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+        await pickInRow(page, hostname(), /^Claude Code/)
         await send(page, 'Start Claude Code')
         await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
