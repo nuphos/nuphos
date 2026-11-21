@@ -23,7 +23,8 @@ export async function laptopOnline(
   }: {
     diskPercent?: number
     client?: string
-    app?: { version: string; update: { version: string; ready: boolean } }
+    /** Without `update`, a computer that is behind with nothing staged to install. */
+    app?: { version: string; update?: { version: string; ready: boolean } }
     box?: string
     /** The runtime reports an active turn when queried by a pre-#4011 backend. */
     busy?: boolean
