@@ -12,11 +12,15 @@ export const reminderSchema = z.object({
   dueAt: z.string().describe('When it is due (ISO 8601, UTC).'),
   timeZone: z.string().describe('The zone the owner chose, used to show the due time.'),
   status: z
-    .enum(['pending', 'delivered', 'failed', 'cancelled'])
+    .enum(['pending', 'dispatched', 'delivered', 'failed', 'unconfirmed', 'cancelled'])
     .describe(
-      '`delivered` only once the reminder is saved in the conversation. `failed`: it could not be ' +
-        'delivered and the owner was notified once.',
+      '`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed ' +
+        'done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. ' +
+        '`failed`: it could not be delivered or the Bot said it could not do the work. ' +
+        '`unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried.',
     ),
+  kind: z.enum(['text', 'task']),
+  dispatchedAt: z.string().optional(),
   attempts: z.number(),
   createdAt: z.string(),
   ackedAt: z.string().optional().describe('When it was saved in the conversation.'),
@@ -52,6 +56,13 @@ export const reminderApiOperations = [
       dueAt: z.string(),
       timeZone: z.string().optional().describe('IANA name, e.g. `Europe/Stockholm`.'),
       dedupeKey: z.string().optional(),
+      kind: z
+        .enum(['text', 'task'])
+        .optional()
+        .describe(
+          '`text` (default) is written for you to read. `task` is handed to the conversation as a ' +
+            'turn; its Bot must confirm it through the ack route.',
+        ),
       teamId: z.string().optional(),
     }),
     responseSchema: reminderSchema,
@@ -80,6 +91,23 @@ export const reminderApiOperations = [
     description: 'The result of a reminder stays readable after it is delivered or fails.',
     auth: 'bearer',
     pathSchema: idSchema,
+    responseSchema: reminderSchema,
+  },
+  {
+    operationId: 'agent.reminders.ack',
+    method: 'post',
+    path: '/agent/reminders/{reminderId}/ack',
+    tags: ['Reminders'],
+    summary: 'Confirm scheduled work from the conversation it was given to',
+    description:
+      'Only the agent conversation a `task` was dispatched to may call this, with `outcome` ' +
+      '`done` after the work has actually succeeded, or `failed` with a reason. Any other caller, ' +
+      'including the owner outside that conversation, gets 403. Repeating the same outcome changes ' +
+      'nothing. A dispatched task is never run again: without a confirmation it becomes ' +
+      '`unconfirmed` and its owner is told it may have run.',
+    auth: 'bearer',
+    pathSchema: idSchema,
+    requestSchema: z.object({ outcome: z.enum(['done', 'failed']), reason: z.string().optional() }),
     responseSchema: reminderSchema,
   },
   {
