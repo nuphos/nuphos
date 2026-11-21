@@ -98,6 +98,7 @@ async function completionCount(
 export const mcpNotificationScenarios: Scenario[] = [
   {
     name: 'MCP subscription slots reject excess streams and allow reconnect after disconnect',
+    expected: /"method":"GET","path":"\/mcp","status":429/,
     run: async (_page, stack) => {
       const { tool } = mcp(client(stack.apiUrl, stack.token))
       const sessionId = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-subscription-limit')
