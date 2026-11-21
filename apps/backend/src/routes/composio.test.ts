@@ -443,7 +443,9 @@ describe('agents running tools through Composio', () => {
 
   test('a direct OAuth account of the same member never takes part in execute', async () => {
     const { composioAccountId: _, ...direct } = connection('owner', 'gmail', 'direct')
+
     saved.push(direct)
+
     const res = await execute(await turn('owner', true), { tool: 'GMAIL_FETCH_EMAILS' })
 
     expect(res.status).toBe(200)
