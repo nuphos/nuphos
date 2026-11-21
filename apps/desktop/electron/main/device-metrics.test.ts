@@ -27,6 +27,8 @@ test('ignores empty filesystems and fails when nothing could be read', () => {
 
 const vmstat = (kills: number) => `pgfault 912\noom_kill ${String(kills)}\npgmajfault 3\n`
 
+// The same host process across a dropped tunnel: readings stop while it stalls, and the first one
+// after it reconnects sees the rise.
 test('an OOM kill is dated when the kernel count rises between readings, not on the first', () => {
   const first = noteOomKills({}, vmstat(2), '2026-11-21T08:00:00.000Z')
 

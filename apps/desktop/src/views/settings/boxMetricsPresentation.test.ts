@@ -76,12 +76,15 @@ test('only a live reading warns: an old number says nothing about the disk now',
   )
 })
 
-test('a recent OOM kill on the host says memory ran out and what to do', () => {
+test('a recent OOM kill on the host says a process was stopped for memory, and what to do', () => {
   const now = Date.parse('2026-11-21T09:00:00.000Z')
   const killed = { ...sample, oomKilledAt: '2026-11-21T08:09:00.000Z' }
   const warning = memoryWarning({ metricsStatus: 'live', metrics: killed }, now)
 
-  assert.equal(warning?.text, 'Ran out of memory in the last day: the system stopped a process')
+  assert.equal(
+    warning?.text,
+    'In the last day, the system stopped a process because memory ran low',
+  )
   assert.match(warning?.hint ?? '', /Run fewer conversations, builds or browsers at once/u)
   assert.ok(memoryWarning({ metricsStatus: 'stale', metrics: killed }, now))
 })

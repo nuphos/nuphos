@@ -113,12 +113,14 @@ export function diskWarning(
   }
 }
 
-/** How long after an OOM kill the computer goes on saying memory ran out. */
+/** How long after an OOM kill the computer goes on saying so. */
 const OOM_NOTICE_MS = 24 * 60 * 60 * 1000
 
 /**
- * What to say after the kernel killed a process because the computer ran out of memory, from
- * the host's own reading. A disconnect with no kill recorded says nothing about memory.
+ * What to say after the kernel's OOM killer stopped a process, from the host's own reading. The
+ * count rises for any OOM kill, machine-wide or under a cgroup limit, so it says only that memory
+ * ran low: not where, not which process, and not that it dropped the connection. A disconnect
+ * with no kill recorded says nothing about memory.
  */
 export function memoryWarning(
   device: { metricsStatus?: DeviceMetricsStatus; metrics?: unknown } | undefined,
@@ -131,7 +133,7 @@ export function memoryWarning(
   if (!(age >= 0 && age < OOM_NOTICE_MS)) return null
 
   return {
-    text: t('Ran out of memory in the last day: the system stopped a process'),
+    text: t('In the last day, the system stopped a process because memory ran low'),
     hint: t(
       'A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.',
     ),

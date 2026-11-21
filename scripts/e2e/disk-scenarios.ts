@@ -10,7 +10,7 @@ import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 
 const BOX = 'E2E disk Box'
-const MEMORY = 'Ran out of memory in the last day: the system stopped a process'
+const MEMORY = 'In the last day, the system stopped a process because memory ran low'
 
 export const diskScenarios: Scenario[] = [
   {
@@ -148,7 +148,7 @@ export const diskScenarios: Scenario[] = [
   {
     // #4345: a Box whose host saw the kernel's OOM kill count rise says so on its card, through
     // the tunnel, the backend's presence and the devices list; a reading without it says nothing.
-    name: 'a Box whose host recorded an OOM kill says it ran out of memory, and one without says nothing',
+    name: 'a Box whose host recorded an OOM kill says a process was stopped for memory, and one without says nothing',
     run: async (page, stack) => {
       const killedAt = new Date(Date.now() - 12 * 60_000).toISOString()
       let goOffline = await laptopOnline(stack, {
@@ -181,7 +181,7 @@ export const diskScenarios: Scenario[] = [
         // Two more readings of the new Box: still nothing about memory.
         await page.waitForTimeout(10_000)
         if ((await page.getByText(MEMORY).count()) > 0)
-          throw new Error('A reading without an OOM kill still says memory ran out')
+          throw new Error('A reading without an OOM kill still shows the memory notice')
         await page.screenshot({ path: join(artifacts, 'memory-box-card-none-light.png') })
         await page.getByRole('button', { name: 'Back to app', exact: true }).click()
       } finally {
