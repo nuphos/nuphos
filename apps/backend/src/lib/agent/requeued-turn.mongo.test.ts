@@ -6,8 +6,8 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import { closeDb, connectDb } from '@/lib/db'
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { closeDb, connectDb } from '@/lib/db'
 
 import { setupAgentIndexes } from './db/events'
 import { agentConversations, agentMessages } from './db/shared'
@@ -46,7 +46,11 @@ const store = (messages: { id: string; role: string; parts: unknown[] }[]) =>
 /** The runtime finished a background segment of its own and stored what it said. */
 const backgroundReply = () =>
   store([
-    { id: new ObjectId().toHexString(), role: 'assistant', parts: [{ type: 'text', text: 'done' }] },
+    {
+      id: new ObjectId().toHexString(),
+      role: 'assistant',
+      parts: [{ type: 'text', text: 'done' }],
+    },
   ])
 
 const fire = () =>
@@ -84,7 +88,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a fire the runtime refused', () 
       claimAgentRunForSession: async () => () => {},
       runAgentForTrigger: async ({ messages }) => {
         // As the real runner does, the turn stores its input before the runtime answers.
-        await store(messages as never)
+        await store(messages)
         if (refusals > 0) {
           refusals--
           throw refusal('The agent is busy.')
@@ -114,9 +118,9 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a fire the runtime refused', () 
     await startQueuedTurn(OWNER, SESSION)
     // Refused: stored, back in the queue, not run.
     expect(turns).toEqual([])
-    expect(await agentMessages().countDocuments({ sessionId: SESSION, messageId: message.id })).toBe(
-      1,
-    )
+    expect(
+      await agentMessages().countDocuments({ sessionId: SESSION, messageId: message.id }),
+    ).toBe(1)
     expect(await hasPendingUserMessages(OWNER, SESSION)).toBe(true)
 
     await backgroundReply()
