@@ -1,5 +1,4 @@
-// The Personal and Team dashboards screens (#2988) in the app, against the real backend.
-// The app is signed in as the team's owner, its Administrator.
+// The Personal and Team dashboards screens (#2988) against the real backend, as the team's owner.
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
@@ -295,8 +294,7 @@ export const dashboardUiScenarios: Scenario[] = [
       if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
         throw new Error('A member was offered a computer to rent')
       await shot(page, '12-no-agent-member')
-      // Leave the Task that 404s in this team, or its reads fail the next scenario.
-      await newTask(page)
+      await newTask(page) // Leave the Task that 404s here, or its reads fail the next scenario.
     },
   },
 ]
