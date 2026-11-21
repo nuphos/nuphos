@@ -106,6 +106,9 @@ async function botTaskCounts(teamId: string, bots: ListedConversation[]) {
   const counts = new Map(bots.map((bot) => [bot.sessionId, { running: 0, waiting: 0 }]))
   const kids = (await agentConversations()
     .find({
+      // Keyed like the { teamId, userId, parentSessionId, lastActiveAt } index: a Bot's Tasks are its owner's.
+      teamId,
+      userId: { $in: [...new Set(bots.map((bot) => bot.userId))] },
       parentSessionId: { $in: [...counts.keys()] },
       archivedAt: { $exists: false },
       lastActiveAt: { $gt: new Date(Date.now() - TASK_WINDOW_MS) },
