@@ -9,6 +9,7 @@ import { raiseWindow } from '../../window-raise.ts'
 
 import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
+import { openVideoWindow } from './browser-video-window.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
 import { proxyFetch } from './dock-proxy.ts'
@@ -270,7 +271,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'record_start') {
     // A recorded page keeps running at full speed until record_stop.
     contents.setBackgroundThrottling(false)
-    await startRecording(contents)
+    await startRecording(contents, call.video ? openVideoWindow : undefined)
 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }

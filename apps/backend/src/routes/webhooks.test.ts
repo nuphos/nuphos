@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
@@ -221,6 +221,25 @@ describe('POST /webhooks/:triggerId', () => {
 
     expect(res.status).toBe(429)
     expect(res.headers.get('Retry-After')).toBe('180')
+  })
+
+  test('a delivery refused inside the window is logged, so a sender that never retries leaves a trace', async () => {
+    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
+    lastRunAt = stored.lastRunAt
+    const warn = spyOn(console, 'warn').mockImplementation(() => null)
+
+    try {
+      expect((await post()).status).toBe(429)
+      expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toContainEqual(
+        expect.objectContaining({
+          event: 'webhook.rate_limited',
+          trigger_id: String(stored._id),
+          retry_after: 180,
+        }),
+      )
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   test('a Trigger set to fire at most every N seconds asks for the next one later', async () => {

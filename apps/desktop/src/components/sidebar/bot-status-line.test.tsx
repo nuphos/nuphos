@@ -11,7 +11,10 @@ import type { Activity } from './bot-activity'
 const render = (activity: Activity) =>
   renderToStaticMarkup(createElement(BotStatusLine, { activity }))
 
-test('questions and errors still keep their actionable descriptions', () => {
+test('a question keeps its description', () => {
   assert.ok(render({ kind: 'asking', question: 'Choose a project' }).includes('Choose a project'))
-  assert.ok(render({ kind: 'error', label: 'Runtime offline' }).includes('Runtime offline'))
+})
+
+test('an error says only that it failed; the chat explains why', () => {
+  assert.ok(render({ kind: 'error' }).includes('>Failed<'))
 })

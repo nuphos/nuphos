@@ -48,7 +48,11 @@ export function ChatIcon({
     return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
   if (members.length === 1)
     return (
-      <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
+      <span
+        aria-hidden="true"
+        data-looping={looping || undefined}
+        className={clsx('inline-flex shrink-0', className)}
+      >
         <Face face={members[0]} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
@@ -57,6 +61,7 @@ export function ChatIcon({
   return (
     <span
       aria-hidden="true"
+      data-looping={looping || undefined}
       className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
@@ -201,15 +206,16 @@ export function ReplyingBanner({
 }
 
 /**
- * The last line in the chat of a Bot that has never been given computers or
- * credentials: it runs with none until its owner picks them in Bot details'
- * Access section, which Choose opens. Gone once anything is saved.
+ * The last line in the chat of a Bot that has never been given a selection. It
+ * says only that the Bot has no computer: with nothing saved, it still reaches
+ * the kinds that are team-wide when unset. Choose opens Bot details' Access
+ * section. Gone once anything is saved.
  */
 export function ChooseAccessBanner() {
   return (
-    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div className="flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <div className="min-w-0 flex-1 text-secondary">
-        {t("This Bot can't use any computers or credentials yet. Choose what it may use.")}
+        {t("This Bot can't use any computers yet. Choose what it may use.")}
       </div>
       <Button size="sm" variant="secondary" onClick={showBotAccess}>
         {t('Choose')}

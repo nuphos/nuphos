@@ -58,7 +58,8 @@ export function ChoiceCard({
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
   const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
-  const typeable = interactive && category !== 'credential'
+  // A credential takes words only beside its options, never as its value (#4029).
+  const typeable = interactive && (category !== 'credential' || options.length > 0)
   const form = formQuestions({ question, options, multiSelect, questions })
   // One question with one answer is answered by a click, so its keys choose.
   const clicked = clickOptions(form)
@@ -109,11 +110,7 @@ export function ChoiceCard({
       <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
       </DecisionTitle>
-      <DecisionBody
-        text={ownBody(body, questions)}
-        full={ctx?.fullBody}
-        onLinkClick={ctx?.onLinkClick}
-      />
+      <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
       {!chosen && (
         <DecisionOptions
@@ -197,15 +194,7 @@ function AnswerStatus({
  * The question's markdown body: four lines at first, the last fading out, and a
  * full-width "Show more" under them. The collapsed lines open it too.
  */
-function DecisionBody({
-  text,
-  full = false,
-  onLinkClick,
-}: {
-  text: string | undefined
-  full?: boolean
-  onLinkClick?: (href: string, beside: boolean) => boolean
-}) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)
@@ -235,7 +224,6 @@ function DecisionBody({
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
-          onLinkClick={onLinkClick}
         >
           {text}
         </MessageResponse>

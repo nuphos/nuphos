@@ -19,6 +19,7 @@
 // on the Mac.
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
@@ -91,12 +92,18 @@ async function ownedDesktopHost(
   if (typeof owner !== 'string') {
     const ref = parseLocalRuntimeId(owner.runtimeId)
 
-    // Only the computer's own person; a team Box's other members open theirs through a conversation.
-    if (ref?.userId !== userId) throw notFound()
-    // The computer itself, with or without an agent on it; a Box only in its own team.
-    const device = await getAgentDevice(userId, ref.deviceId)
+    if (!ref) throw notFound()
+    // The computer itself, with or without an agent on it.
+    const device = await getAgentDevice(ref.userId, ref.deviceId)
 
-    if (!device || (device.box && device.box.teamId !== teamId)) throw notFound()
+    // Someone's own computer opens only for them. A Box opens only in its own team, for
+    // whoever manages it there, as its desktop always did; its other members open theirs
+    // through a conversation.
+    if (
+      !device ||
+      !(device.box ? allows(deviceAccess(device, userId, teamId), 'manage') : ref.userId === userId)
+    )
+      throw notFound()
 
     return desktopHost(ref, runtimeDesktopSessionId(ref), presence)
   }

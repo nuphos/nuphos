@@ -223,7 +223,7 @@ test('a self-hosted agent reads offline only when its Usage reading could not re
 test("a person's own default agent is removable only while its CLI is signed out", () => {
   const signedIn = local('mac-codex', 'mac', true)
   const computer = local('mac-codex', 'mac', false)
-  const box = { ...signedIn, local: { ...signedIn.local!, box: { state: 'running' } } }
+  const box = { ...signedIn, local: { ...signedIn.local!, box: { provider: 'instabox' } } }
 
   // Its computer's report lists a signed-in CLI whatever Nuphos forgets (#2846).
   assert.equal(ownSignedInCli(signedIn), true)
