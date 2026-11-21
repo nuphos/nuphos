@@ -182,7 +182,6 @@ export function RuntimeFilesView({
         )}
       {error ? (
         <RuntimeFilesError
-          teamId={teamId}
           error={error}
           errorCode={errorCode}
           filePath={filePathShown}

@@ -5,7 +5,6 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
-import type { AgentConversation } from '../../../api/agent-types'
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
 import type { ToolPart } from './parts'
 
@@ -23,13 +22,12 @@ const trigger: AgentTrigger = {
   createdAt: '2026-11-01T00:00:00Z',
   updatedAt: '2026-11-01T00:00:00Z',
 }
-let target: string | undefined
 
 const real = await import('../../../api')
 
 mock.module('../../../api', () => ({
   ...real,
-  api: { ...real.api, agentGetTrigger: async () => ({ ...trigger, targetSessionId: target }) },
+  api: { ...real.api, agentGetTrigger: async () => ({ ...trigger, targetSessionId: 'task-1' }) },
 }))
 
 const dom = new Window()
@@ -45,7 +43,6 @@ for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
 const { createRoot } = await import('react-dom/client')
-const { queryKeys } = await import('../../../lib/query/keys')
 const { TriggerCard } = await import('./TriggerCard')
 
 const part: ToolPart = {
@@ -56,21 +53,8 @@ const part: ToolPart = {
   input: { command: `bash trigger-api.sh team PATCH ${TRIGGER_ID} @trigger.json` },
   output: { stdout: JSON.stringify({ id: TRIGGER_ID, triggerType: 'cron' }) },
 }
-const listed = {
-  sessionId: 'task-listed',
-  title: 'Weekly metrics',
-  firstMessage: '',
-  messageCount: 1,
-  createdAt: '2026-11-01T00:00:00Z',
-  lastActiveAt: '2026-11-01T00:00:00Z',
-} as AgentConversation
-
-/** The card's footer link, as it reads, once the trigger targeting `to` has loaded. */
-async function footer(to: string, shownIn = 'task-here') {
-  target = to
-  const client = new QueryClient()
-
-  client.setQueryData(queryKeys.agentSessions('team'), [listed])
+/** The card's footer, as it reads, once the trigger targeting a Task has loaded. */
+async function footer() {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -78,8 +62,8 @@ async function footer(to: string, shownIn = 'task-here') {
     createRoot(container as unknown as HTMLElement).render(
       createElement(
         QueryClientProvider,
-        { client },
-        createElement(TriggerCard, { part, teamId: 'team', sessionId: shownIn }),
+        { client: new QueryClient() },
+        createElement(TriggerCard, { part, teamId: 'team' }),
       ),
     )
   })
@@ -89,15 +73,7 @@ async function footer(to: string, shownIn = 'task-here') {
   return container.querySelector('footer')?.textContent ?? null
 }
 
-// #4301: the footer said "Open conversation", whatever it opened.
-test("a Trigger card's link names the Task it opens", async () => {
-  assert.equal(await footer('task-listed'), 'Weekly metrics')
-})
-
-test('a target the sidebar has not listed reads Open', async () => {
-  assert.equal(await footer('task-archived'), 'Open')
-})
-
-test('a Trigger that runs in the chat it is shown in has no link', async () => {
-  assert.equal(await footer('task-here', 'task-here'), null)
+// #4301: the footer said "Open conversation"; what it opens is a Task.
+test("a Trigger card's link reads Open Task", async () => {
+  assert.equal(await footer(), 'Open Task')
 })

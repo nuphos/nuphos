@@ -1,13 +1,11 @@
 import { FileQuestion, RefreshCw } from 'lucide-react'
 
-import { SessionLinkLabel } from '../components/agent/SessionLinkLabel'
 import { EmptyState } from '../components/EmptyState'
 import { Button } from '../components/ui/button'
 import { t } from '../i18n'
 
 /** A preview failure belongs to its file and source, not to unrelated chats. */
 export function RuntimeFilesError({
-  teamId,
   error,
   errorCode,
   filePath,
@@ -15,11 +13,10 @@ export function RuntimeFilesError({
   onRetry,
   onOpenConversation,
 }: {
-  teamId: string
   error: string
   errorCode?: string
   filePath: string
-  source: { label: string; sessionId: string } | null
+  source: { conversationTitle?: string; label: string; sessionId: string } | null
   onRetry: () => void
   onOpenConversation: (sessionId: string) => void
 }) {
@@ -40,14 +37,14 @@ export function RuntimeFilesError({
           <p className="mt-2 break-all">{filePath}</p>
           {source && (
             <div className="mt-2">
+              <p>{source.conversationTitle}</p>
               <p>{source.label}</p>
               <Button
                 variant="ghost"
                 size="sm"
-                className="max-w-full"
                 onClick={() => onOpenConversation(source.sessionId)}
               >
-                <SessionLinkLabel teamId={teamId} sessionId={source.sessionId} />
+                {t('Open Task')}
               </Button>
             </div>
           )}
