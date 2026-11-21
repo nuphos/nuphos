@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { agentHostAway } from '@/lib/claude-code-preview/openab-acp-connect'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
@@ -114,6 +115,7 @@ export async function runTurn(
   pending: PendingUserMessage[],
 ): Promise<string | undefined> {
   let taken = pending
+  let attempted = false
   let unmarkRead: (() => Promise<void>) | undefined
 
   try {
@@ -138,6 +140,7 @@ export async function runTurn(
       .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
       .map(persistedMessageToUiMessage)
       .filter((message): message is UIMessage => message !== null)
+    attempted = true
     const outcome = await turnRunner
       .runAgentForTrigger({
         userId: data.userId,
@@ -195,12 +198,15 @@ export async function runTurn(
 
     return outcome.finishReason
   } catch (error) {
-    // Not run, or failed: a later notice shows the same posts again.
+    // A runner error can arrive after the agent has already used tools or replied.
+    const incomplete = source === 'agent.thread' && attempted && !agentHostAway(error)
+    const failure = incomplete ? 'could not finish' : 'did not run'
+
     await unmarkRead?.()
     await reportUndelivered(
       data,
       await keepAnswersThatWait(target, taken, error),
-      `did not run: ${failureLine(error)}`,
+      `${failure}: ${failureLine(error)}`,
       error,
     )
     throw error
