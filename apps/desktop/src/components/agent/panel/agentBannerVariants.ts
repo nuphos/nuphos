@@ -70,8 +70,13 @@ export function bannerCopy(
           ? { label: t('Switch runtime'), run: onSwitchAgent }
           : null,
     }
-  if (reachability === 'signIn' || reachability === 'offline')
-    return reachabilityCopy(reachability, control, fix, fixes, onSwitchAgent)
+  if (reachability === 'signIn' || reachability === 'offline') {
+    const copy = reachabilityCopy(reachability, control, fix, fixes, onSwitchAgent)
+    const problem = control.options?.find((instance) => instance.id === control.value?.id)?.local
+      ?.probeError
+
+    return reachability === 'signIn' && problem ? { ...copy, text: problem } : copy
+  }
   const computer = sharedComputerLabel(control)
   // A new chat has nothing to wait for: it just starts on another agent.
   const switchAgent = onSwitchAgent && { label: t('Switch runtime'), run: onSwitchAgent }

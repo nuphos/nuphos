@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { diskFullCopy, noticeCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
+import { bannerCopy } from './agentBannerVariants.ts'
 import { agentProblem } from './agentRowFix.ts'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix.ts'
@@ -68,6 +69,19 @@ test("this computer's own signed-out agent signs in through its CLI, for members
   assert.equal(copy.text, 'Claude Code on Studio Mac is signed out. Sign it in to send messages.')
   assert.equal(copy.action?.label, 'Sign in')
   assert.deepEqual(copy.runs, [{ kind: 'cli', provider: 'claude-code' }])
+})
+
+test('an unusable runtime shows its existing probe guidance instead of signed-out copy', () => {
+  const guidance =
+    "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+  const instance = agent('u-alex', { probeError: guidance })
+  const calls: AgentFix[] = []
+  const copy = bannerCopy('signIn', { value: instance, options: [instance] }, undefined, {
+    run: (fix) => calls.push(fix),
+    canAsk: () => false,
+  })
+
+  assert.equal(copy.text, guidance)
 })
 
 test('your own other computer signs in with the runtime sign-in', () => {
