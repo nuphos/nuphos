@@ -14,6 +14,7 @@ export type RuntimeHandoff = {
   locale: string
   at: number
   attempts?: number
+  retryAfter?: number
   /** A teammate's own turn; otherwise the turn acts as the conversation owner. */
   humanTurn?: boolean
   /** Crash recovery must never start a fresh session or replace a newer turn. */
