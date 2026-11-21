@@ -121,6 +121,15 @@ export default {
     })
 
     try {
+      // A trigger-style post without a reply target remains a top-level message.
+      await slackMessage(stack, 'UOWNER', 'Status update E2E_DELIVERY:slack-proactive')
+      await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-proactive')
+      const proactive = slackPosts().find((post) =>
+        post.text?.includes('E2E_DELIVERY:slack-proactive'),
+      )
+
+      if (!proactive || proactive.thread_ts)
+        throw new Error(`The untargeted post reached Slack as ${JSON.stringify(proactive)}`)
       const asked = await slackMessage(
         stack,
         'UOWNER',
