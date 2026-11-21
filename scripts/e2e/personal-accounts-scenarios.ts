@@ -68,7 +68,7 @@ export const personalAccountScenarios: Scenario[] = [
         await shoot(page, 'personal-accounts-two')
 
         await page.getByRole('button', { name: `Disconnect ${HOME}` }).click()
-        const dialog = page.getByRole('dialog')
+        const dialog = page.getByRole('alertdialog')
 
         await dialog.getByText(HOME).first().waitFor()
         await shoot(page, 'personal-accounts-confirm')
