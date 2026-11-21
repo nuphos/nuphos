@@ -189,7 +189,7 @@ export const diskScenarios: Scenario[] = [
         await page.getByText(BOX, { exact: true }).filter({ visible: true }).first().waitFor()
         // Two more readings of the new Box: still nothing about memory.
         await page.waitForTimeout(10_000)
-        if ((await page.getByText(MEMORY).count()) > 0)
+        if ((await page.getByText(MEMORY).filter({ visible: true }).count()) > 0)
           throw new Error('A reading without an OOM kill still shows the memory notice')
         await page.getByText(BOX, { exact: true }).first().scrollIntoViewIfNeeded()
         await page.waitForTimeout(500)

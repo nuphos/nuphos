@@ -18,8 +18,10 @@ type Change = {
 const PROMPT =
   'Write the release notes for the November desktop and mobile apps E2E_RETUNE E2E_DELIVERY:retune'
 
-/** The timeline line that reads `text`. */
-const line = (page: Page, text: RegExp) => page.locator('div[title]').filter({ hasText: text })
+/** The timeline line that reads `text` in the chat on screen: one opened before stays in the
+ *  page, hidden, with its own lines. */
+const line = (page: Page, text: RegExp) =>
+  page.locator('div[title]').filter({ hasText: text, visible: true })
 
 async function openChip(page: Page) {
   await page
