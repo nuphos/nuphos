@@ -205,14 +205,11 @@ export async function claimPersonalCredential(
   const other: Record<string, ''> = ready.staged.composioAccountId
     ? { encryptedAccessToken: '' }
     : { composioAccountId: '' }
-  // One account per GitHub / Linear member, as before. A Google member may hold several, so
-  // reconnecting replaces only the same account: its Google id, or for Composio (whose
-  // connected-account id is new each time) its login.
-  const same = !isGoogleProvider(provider)
-    ? {}
-    : ready.staged.composioAccountId
-      ? { login: ready.staged.login, composioAccountId: { $exists: true } }
-      : { providerUserId: ready.staged.providerUserId }
+  // Reconnecting replaces only the same account: its provider id, or for Composio (whose
+  // connected-account id is new each time) its login. Another account of the member is kept.
+  const same = ready.staged.composioAccountId
+    ? { login: ready.staged.login, composioAccountId: { $exists: true } }
+    : { providerUserId: ready.staged.providerUserId }
   const newId = new ObjectId()
   const previous = await personalCredentials().findOneAndUpdate(
     {
