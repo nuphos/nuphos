@@ -26,7 +26,7 @@ async function openLocalRuntime(page: Page) {
 }
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */

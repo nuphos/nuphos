@@ -18,6 +18,12 @@ test('an agent CLI that cannot start is one plain sentence, live and stored alik
   expect(classifyPreviewInterruption(einval, false).message).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
 })
 
+// Reinstalling with npm on Windows brings the same .cmd back, so that alone is not the way out.
+test('a CLI that cannot start is told to switch runtime or use the official installer', () => {
+  expect(formatAgentStreamError(einval)).toContain('Switch this Bot to another runtime')
+  expect(formatAgentStreamError(einval)).toContain('official installer')
+})
+
 test('Node’s spawn error code never reaches the user', () => {
   expect(formatAgentStreamError(einval)).not.toContain('EINVAL')
 })
