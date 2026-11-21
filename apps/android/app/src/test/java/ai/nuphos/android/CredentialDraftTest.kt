@@ -44,10 +44,9 @@ class CredentialDraftTest {
         val selection = loaded(all).selection
         assertEquals(32, providers.size)
         providers.forEach {
-            // Resend stays opt-in, and the member's own GitHub / Linear is never picked for them.
+            // Resend and Trello stay opt-in; the member's own credentials are picked, as on the desktop (#4028).
             val expected = when (it.optionsKey) {
                 "resendIntegrations", "trelloIntegrations" -> emptySet<String>()
-                "personalCredentials" -> null
                 else -> setOf("id-${it.optionsKey}")
             }
             assertEquals(expected, selection.ids[it.selectionKey])
