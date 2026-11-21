@@ -53,6 +53,10 @@ export const snapshotOf = (tab: RecordedTab): Snapshot =>
   tab.capturePage
     ? () => {
         const at = Date.now()
+        if (diag.some((d) => d.includes('start-snapshot none'))) {
+          mark('invalidate')
+          ;(tab as unknown as { invalidate?: () => void }).invalidate?.()
+        }
         mark(`cap-begin ${String((globalThis as { __tabState?: () => string }).__tabState?.() ?? '')}`)
         // Called on the tab itself: WebContents methods need their `this`.
         return tab.capturePage!().then(
@@ -283,6 +287,7 @@ export async function stopVideo(video: Video, file: string) {
     const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
       throw new Error(`The video did not finish in 15 s (${await progressOf(video)}).`)
     })
+    console.error(`[4305] ${diag.join(' | ')}`)
     const chunks = JSON.parse(finished as string) as {
       ms: number
       key: boolean
