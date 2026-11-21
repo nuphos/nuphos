@@ -120,8 +120,8 @@ const scenarios: Scenario[] = [
       )
     },
   },
-  ...botUnreadScenarios,
   { name: 'a reply and low disk warning remain visible together', run: replyDiskScenario },
+  ...botUnreadScenarios,
   ...channelScenarios,
   ...botWorkingDotsScenarios,
   ...channelAwayScenarios,
