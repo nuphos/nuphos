@@ -10,6 +10,7 @@ import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ReplyQuote } from '../agent/panel/ReplyQuote'
 import { Avatar } from '../Avatar'
 
+import { channelMentions } from './channelMentions'
 import { ChannelFiles } from './ChannelFiles'
 import { isChannelRecord, speaksInChannel } from './channelSpeakers'
 import { textOf } from './channelReply'
@@ -17,7 +18,7 @@ import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
 import { ReplyButton } from './ReplyButton'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentPersistedMessage, ChannelAgent } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 export type Links = {
@@ -25,6 +26,7 @@ export type Links = {
   onLinkClick?: (href: string, beside?: boolean) => boolean
   /** The chat: its files load through it, so every member sees them. */
   channelId: string
+  agents?: ChannelAgent[]
 }
 
 /**
@@ -83,7 +85,7 @@ export function ChannelMessage({
       renderLink={links.renderLink}
       onLinkClick={links.onLinkClick}
     >
-      {linkMentions(text, metadata.mentions)}
+      {linkMentions(text, channelMentions(metadata.mentions, links.agents ?? []))}
     </MessageResponse>
   )
 
