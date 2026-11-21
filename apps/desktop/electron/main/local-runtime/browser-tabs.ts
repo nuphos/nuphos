@@ -49,11 +49,13 @@ const VIEWPORT = { width: 1440, height: 900 }
  * for a capture, where a view inside one has nothing to capture.
  */
 const readied = new WeakSet<BrowserWindow>()
+const ev = new WeakMap<BrowserWindow, string[]>()
+const te = Date.now()
 ;(globalThis as { __tabState?: () => string }).__tabState = () =>
   [...tabs]
     .map(
       ([c, t]) =>
-        `#${String(c.id)} vis=${String(t.window.isVisible())} ready=${String(readied.has(t.window))} op=${String(t.window.getOpacity())} thr=${String(c.getBackgroundThrottling())} min=${String(t.window.isMinimized())} load=${String(c.isLoading())}`,
+        `#${String(c.id)} vis=${String(t.window.isVisible())} ready=${String(readied.has(t.window))} ev=${(ev.get(t.window) ?? []).join('/')} op=${String(t.window.getOpacity())} thr=${String(c.getBackgroundThrottling())} min=${String(t.window.isMinimized())} load=${String(c.isLoading())}`,
     )
     .join(',')
 const tabs = new Map<
@@ -77,6 +79,13 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window, opener })
+  const log: string[] = []
+  ev.set(window, log)
+  const at = (e: string) => log.push(`${e}@${String(Date.now() - te)}`)
+  at('new')
+  for (const e of ['show', 'hide', 'ready-to-show'] as const) window.on(e as 'show', () => at(e))
+  contents.on('did-stop-loading', () => at('stop'))
+  contents.on('render-process-gone', () => at('gone'))
   // Its downloads are saved with no save dialog, which the agent could not answer.
   saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
   // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps

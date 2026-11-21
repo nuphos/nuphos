@@ -57,6 +57,13 @@ export const snapshotOf = (tab: RecordedTab): Snapshot =>
           mark('invalidate')
           ;(tab as unknown as { invalidate?: () => void }).invalidate?.()
         }
+        void within(
+          (tab as unknown as { executeJavaScript: (s: string) => Promise<string> })
+            .executeJavaScript('document.visibilityState + "," + String(document.hasFocus())')
+            .catch((e: unknown) => `threw ${String(e)}`),
+          1_000,
+          () => 'timeout',
+        ).then((v) => mark(`vis=${v}`))
         mark(`cap-begin ${String((globalThis as { __tabState?: () => string }).__tabState?.() ?? '')}`)
         // Called on the tab itself: WebContents methods need their `this`.
         return tab.capturePage!().then(
