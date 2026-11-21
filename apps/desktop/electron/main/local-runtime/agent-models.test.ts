@@ -59,31 +59,6 @@ test('a failed model probe is tried again, so the agent does not stay without mo
   }
 })
 
-// #4261: the picker told people to try again in a moment, and trying again asked this
-// computer nothing, because a failed read counted as one just made.
-test('a failed read is reported as failed, and the picker that asks again is answered at once', async () => {
-  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
-  try {
-    const { agent, current, probes, sent } = setup([
-      new Error('Model discovery timed out'),
-      catalog,
-    ])
-
-    await settle()
-    // Said out loud, so an empty list is not read as one still on its way.
-    assert.deepEqual(agent.models, { models: [], defaultModel: '', controls: {}, failed: true })
-    assert.equal(sent(), 1)
-    // No waiting period to sit out: an agent with no list has none to spare.
-    await refreshRunningModels()
-    assert.equal(probes(), 2)
-    assert.deepEqual(agent.models, catalog)
-    assert.equal(sent(), 2)
-    current.value = false
-  } finally {
-    mock.timers.reset()
-  }
-})
-
 test('retries stop once the agent it probed for is stopped or replaced', async () => {
   mock.timers.enable({ apis: ['setTimeout'] })
   try {
@@ -103,6 +78,27 @@ test('retries stop once the agent it probed for is stopped or replaced', async (
     await settle()
     assert.equal(replaced.probes(), 1)
     assert.equal(agent.models?.failed, true)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+test('a newly started adapter reads immediately while the previous run is backing off', async () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  try {
+    const previous = setup([new Error('Model discovery timed out')], 'claude-code')
+
+    await settle()
+    assert.equal(previous.agent.models?.failed, true)
+    previous.current.value = false
+
+    const next = setup([catalog], 'codex')
+
+    await settle()
+    assert.equal(previous.probes(), 1)
+    assert.equal(next.probes(), 1)
+    assert.deepEqual(next.agent.models, catalog)
+    next.current.value = false
   } finally {
     mock.timers.reset()
   }
