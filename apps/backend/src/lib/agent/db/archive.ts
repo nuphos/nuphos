@@ -1,3 +1,4 @@
+import { archiveUpdate, cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { revokeSessionTokens } from '@/lib/internal-token/revocation'
 
 import { conversationParticipantIds } from './participants'
@@ -8,6 +9,7 @@ import type { AgentConversation } from './shared'
 const restore = () => ({
   $unset: { archivedAt: '' as const },
   $set: { archiveRestoredAt: new Date() },
+  $inc: { sessionHomeEpoch: 1 },
 })
 
 type Archivable = Pick<
@@ -123,13 +125,16 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
   })
 
   if (archived) {
+    const cutoff = archivedAt ?? new Date()
+
     await agentConversations().updateMany(
       { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
-      { $set: { archivedAt: archivedAt ?? new Date() } },
+      archiveUpdate(cutoff),
     )
     // A thread never outlives its parent: tokens issued so far stop working.
     await revokeSessionTokens([sessionId, ...descendants], 'archived')
     await withdrawQuestionsAbout(conversation.userId, [sessionId, ...descendants])
+    await cleanUpArchived([sessionId, ...descendants], cutoff)
 
     return
   }
@@ -141,7 +146,7 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
       restore(),
     )
   }
-  await agentConversations().updateOne({ sessionId }, restore())
+  await agentConversations().updateOne({ sessionId, archivedAt: { $exists: true } }, restore())
 }
 
 /**

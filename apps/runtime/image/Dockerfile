@@ -253,7 +253,7 @@ ENV OPENAB_RUNTIME_LOGIN_COMMAND="${RUNTIME_LOGIN_COMMAND}" \
 # The one-shot commands `_openab/runtime/job` may run, as `name=argv`. The caller only
 # names a job; it never supplies argv. `tools` feeds the runtime console's tool list.
 # The timeout ceiling matches the backend's dashboard panel execution budget.
-ENV OPENAB_RUNTIME_JOBS="panel=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;tools=node /opt/nuphos-runtime/tools/nuphos-tools.mjs list --json" \
+ENV OPENAB_RUNTIME_JOBS="panel=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;session-homes-v2=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;tools=node /opt/nuphos-runtime/tools/nuphos-tools.mjs list --json" \
     OPENAB_RUNTIME_JOB_MAX_TIMEOUT_MS=300000
 
 # The volumes whose usage `_openab/runtime/state` reports to the operator.

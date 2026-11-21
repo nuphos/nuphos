@@ -233,6 +233,7 @@ function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   const jobs = [
     job('attachments', [], program('attachment-job.mjs')),
     job('session-homes', [home], program('session-home-reclaim-job.mjs')),
+    job('session-homes-v2', [home], program('session-home-reclaim-job.mjs')),
     ...(launch.ownsMachine
       ? [job('panel', [], '--max-old-space-size=512', program('panel-job.mjs'))]
       : []),

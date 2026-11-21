@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto'
+
 import { ObjectId } from 'mongodb'
 
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
+import { agentConversations } from '../db/shared'
 import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { changedBy, writeTrigger } from '../trigger-history'
@@ -112,6 +115,42 @@ export async function createTrigger(
 
   try {
     await writeTrigger({ after: doc, by: changedBy(ctx) }, async (session) => {
+      const filter = {
+        sessionId: input.targetSessionId,
+        userId: ctx.userId,
+        teamId: ctx.teamId,
+        archivedAt: { $exists: false },
+        archiveTriggersPendingAt: { $exists: false },
+      }
+      // This write shares Mongo's transaction with the Trigger insert. Archive
+      // writes the same conversation, so either the Trigger lands before archive
+      // or creation retries and sees the archived/pending state.
+      const target = await agentConversations().findOne(filter, {
+        session,
+        projection: { triggerArchiveEpoch: 1 },
+      })
+
+      if (!target)
+        throw new AppError(
+          409,
+          'invalid_target_session',
+          'The Task is archived or its Trigger cleanup is pending.',
+        )
+      const fence = await agentConversations().updateOne(
+        filter,
+        {
+          $set: { triggerBindingFence: randomUUID() },
+        },
+        { session },
+      )
+
+      if (fence.matchedCount !== 1)
+        throw new AppError(
+          409,
+          'invalid_target_session',
+          'The Task is archived or its Trigger cleanup is pending.',
+        )
+      doc.archiveEpoch = target.triggerArchiveEpoch ?? 0
       await agentTriggers().insertOne(doc, { session })
 
       return true
