@@ -95,7 +95,11 @@ export function botChatRows({
         dot={rowDot(unread)}
       />
     ),
-    ...(busy && { iconNode: <ChatIcon faces={face} title={chat.label} sidebar looping /> }),
+    // Bots draws a Bot with no chat by its face, so the loop takes that place too.
+    ...(busy && {
+      iconNode: <ChatIcon faces={face} title={chat.label} sidebar looping />,
+      ...(chat.face && { face: <ChatIcon faces={face} title={chat.label} sidebar looping /> }),
+    }),
     ...(previewNode && { previewNode }),
   }
 

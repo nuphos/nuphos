@@ -156,6 +156,10 @@ test("a Bot's row shows typing dots exactly while its chat does, else its latest
   const solo = at('solo-bot').iconNode as ReactElement<{ faces?: { id: string }[] }>
 
   assert.equal(solo.props.faces?.[0]?.id, 'solo-bot', 'solo-bot: its own face moves')
+  // Bots draws a Bot with no chat by its face, so that one moves too.
+  const face = at('solo-bot').face as ReactElement<{ looping?: boolean }>
+
+  assert.ok(face.props.looping, 'solo-bot: the face Bots shows moves')
   assert.ok(
     !markup(at('solo-bot').foldedStatus).includes('animate-spin'),
     'solo-bot shows no spinner when folded',
