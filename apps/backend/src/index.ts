@@ -18,7 +18,7 @@ import {
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
 import { cancelOpenAgentPlans } from '@/lib/agent/plans'
-import { drainAgentProducers, drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { drainAgentProducers, stopHttpWithDeadline } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -243,24 +243,7 @@ async function shutdown(sig: string) {
 
   // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
   closeTunnelsForRestart()
-  const forceTimer = setTimeout(() => {
-    logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
-      drain_deadline_ms: shutdownBudget.httpDrainMs,
-    })
-    void server.stop(true)
-    void devHttpServer?.stop(true)
-  }, shutdownBudget.httpDrainMs)
-
-  try {
-    await drainHttpAndAgentProducers(
-      () => Promise.all([server.stop(false), devHttpServer?.stop(false)]),
-      shutdownBudget.httpDrainMs,
-      workersStopped,
-    )
-  } catch (err) {
-    logError('backend.shutdown.server_stop_failed', err)
-  }
-  clearTimeout(forceTimer)
+  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
   stopRuntimeHandoffAdoption()
   try {
     await publishRuntimeHandoffs()

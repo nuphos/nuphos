@@ -1,5 +1,5 @@
 import { connectedComputerCount } from '@/lib/agent/devices/local-runtime/held-tunnels'
-import { logEvent } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 // Producer completion includes transcript persistence and cleanup after SSE has ended.
 const producers = new Set<Promise<unknown>>()
@@ -101,4 +101,39 @@ export async function drainHttpAndAgentProducers(
     logEvent('warn', 'backend.shutdown.producer_drain_timed_out')
   }
   if (http.status === 'rejected') throw http.reason
+}
+
+type HttpServer = {
+  pendingRequests: number
+  pendingWebSockets: number
+  stop(force: boolean): Promise<void>
+}
+
+/** Drains HTTP and producers; at the deadline force-closes the servers and logs aggregate state. */
+export async function stopHttpWithDeadline(
+  server: HttpServer,
+  devServer: Pick<HttpServer, 'stop'> | undefined,
+  deadlineMs: number,
+  workersStopped: Promise<unknown>,
+): Promise<void> {
+  const diagnostics = createDrainDiagnostics(server, workersStopped)
+  const forceTimer = setTimeout(() => {
+    logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
+      drain_deadline_ms: deadlineMs,
+      ...diagnostics.snapshot(),
+    })
+    void server.stop(true)
+    void devServer?.stop(true)
+  }, deadlineMs)
+
+  try {
+    await drainHttpAndAgentProducers(
+      () => diagnostics.trackHttp(Promise.all([server.stop(false), devServer?.stop(false)])),
+      deadlineMs,
+      workersStopped,
+    )
+  } catch (err) {
+    logError('backend.shutdown.server_stop_failed', err)
+  }
+  clearTimeout(forceTimer)
 }
