@@ -32,7 +32,7 @@ export function reachabilityCopy(
   const problem = control.options?.find((instance) => instance.id === control.value?.id)?.local
     ?.probeError
 
-  return reachability === 'signIn' && problem ? { ...copy, text: problem } : copy
+  return reachability === 'signIn' && problem ? { text: problem, action: null } : copy
 }
 
 function signedOutOrOfflineCopy(

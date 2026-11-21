@@ -75,12 +75,18 @@ test('an unusable runtime shows its existing probe guidance instead of signed-ou
     "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
   const instance = { ...agent('u-alex', { probeError: guidance }), provider: 'dsh' as const }
   const calls: AgentFix[] = []
-  const copy = reachabilityCopy('signIn', { value: instance, options: [instance] }, undefined, {
-    run: (fix) => calls.push(fix),
-    canAsk: () => false,
-  })
+  const copy = reachabilityCopy(
+    'signIn',
+    { value: instance, options: [instance] },
+    { kind: 'cli', provider: 'dsh' },
+    {
+      run: (fix) => calls.push(fix),
+      canAsk: () => false,
+    },
+  )
 
   assert.equal(copy.text, guidance)
+  assert.equal(copy.action, null)
 })
 
 test('your own other computer signs in with the runtime sign-in', () => {
