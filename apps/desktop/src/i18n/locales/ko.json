@@ -96,7 +96,7 @@
   "> greater than": "> 초과",
   "> upper band": "> 상한 밴드",
   "@mention Nuphos": "Nuphos를 @멘션",
-  "A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.": "그때 실행 중이던 Bot 또는 Task가 실패했을 수 있습니다. 동시에 진행하는 대화, 빌드, 브라우저를 줄인 뒤 실패한 내용을 다시 보내세요.",
+  "A Bot or Task that was running then may have failed. Run fewer Bots, Tasks, builds or browsers at once, then resend what failed.": "그때 실행 중이던 Bot 또는 Task가 실패했을 수 있습니다. 동시에 실행하는 Bot, Task, 빌드, 브라우저를 줄인 뒤 실패한 내용을 다시 보내세요.",
   "A CLAUDE.md of {n} characters.": "CLAUDE.md는 {n}자입니다.",
   "A Google Cloud API": "Google Cloud API",
   "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.": "Nuphos가 실행하는, Claude Code, Codex, OpenCode 등이 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 플랜의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다.",

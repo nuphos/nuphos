@@ -96,7 +96,7 @@
   "> greater than": "> mayor que",
   "> upper band": "> banda superior",
   "@mention Nuphos": "Menciona a @Nuphos",
-  "A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.": "Puede que fallara un Bot o una Task que se estaba ejecutando. Ejecuta menos conversaciones, compilaciones o navegadores a la vez y vuelve a enviar lo que falló.",
+  "A Bot or Task that was running then may have failed. Run fewer Bots, Tasks, builds or browsers at once, then resend what failed.": "Puede que fallara un Bot o una Task que se estaba ejecutando. Ejecuta menos Bots, Tasks, compilaciones o navegadores a la vez y vuelve a enviar lo que falló.",
   "A CLAUDE.md of {n} characters.": "Un CLAUDE.md de {n} caracteres.",
   "A Google Cloud API": "Una API de Google Cloud",
   "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.": "Una computadora Linux que ejecuta Nuphos, con Claude Code, Codex, OpenCode y más. Las computadoras en ejecución cuentan para los vCPU de tu plan; las pausadas no.",

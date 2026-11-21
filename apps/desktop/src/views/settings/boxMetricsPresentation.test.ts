@@ -85,7 +85,7 @@ test('a recent OOM kill on the host says a process was stopped for memory, and w
     warning?.text,
     'In the last day, the system stopped a process because memory ran low',
   )
-  assert.match(warning?.hint ?? '', /Run fewer conversations, builds or browsers at once/u)
+  assert.match(warning?.hint ?? '', /Run fewer Bots, Tasks, builds or browsers at once/u)
   assert.ok(memoryWarning({ metricsStatus: 'stale', metrics: killed }, now))
 })
 

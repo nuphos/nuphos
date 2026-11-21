@@ -96,7 +96,7 @@
   "> greater than": "> 大於",
   "> upper band": "> 上限範圍",
   "@mention Nuphos": "@提及 Nuphos",
-  "A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.": "當時執行中的 Bot 或 Task 可能已失敗。請減少同時進行的對話、建置或瀏覽器，再重新送出失敗的內容。",
+  "A Bot or Task that was running then may have failed. Run fewer Bots, Tasks, builds or browsers at once, then resend what failed.": "當時執行中的 Bot 或 Task 可能已失敗。請減少同時執行的 Bot、Task、建置或瀏覽器，再重新送出失敗的內容。",
   "A CLAUDE.md of {n} characters.": "{n} 個字元的 CLAUDE.md。",
   "A Google Cloud API": "某個 Google Cloud API",
   "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.": "由 Nuphos 執行、內建 Claude Code、Codex、OpenCode 等的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。",

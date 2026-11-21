@@ -162,7 +162,7 @@ export const diskScenarios: Scenario[] = [
         const notice = page.getByRole('status').filter({ hasText: MEMORY })
 
         await notice
-          .getByText('Run fewer conversations, builds or browsers at once', { exact: false })
+          .getByText('Run fewer Bots, Tasks, builds or browsers at once', { exact: false })
           .waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')

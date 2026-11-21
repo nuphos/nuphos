@@ -96,7 +96,7 @@
   "> greater than": "> มากกว่า",
   "> upper band": "> ขอบบน",
   "@mention Nuphos": "@mention Nuphos",
-  "A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.": "Bot หรือ Task ที่ทำงานอยู่ตอนนั้นอาจล้มเหลว ลดจำนวนการสนทนา งาน build หรือเบราว์เซอร์ที่ทำงานพร้อมกัน แล้วส่งสิ่งที่ล้มเหลวอีกครั้ง",
+  "A Bot or Task that was running then may have failed. Run fewer Bots, Tasks, builds or browsers at once, then resend what failed.": "Bot หรือ Task ที่ทำงานอยู่ตอนนั้นอาจล้มเหลว ลดจำนวน Bot, Task, งาน build หรือเบราว์เซอร์ที่ทำงานพร้อมกัน แล้วส่งสิ่งที่ล้มเหลวอีกครั้ง",
   "A CLAUDE.md of {n} characters.": "CLAUDE.md ขนาด {n} อักขระ",
   "A Google Cloud API": "Google Cloud API",
   "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.": "คอมพิวเตอร์ Linux ที่ Nuphos รันให้ พร้อม Claude Code, Codex, OpenCode และอื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ",

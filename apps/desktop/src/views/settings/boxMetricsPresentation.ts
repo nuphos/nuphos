@@ -135,7 +135,7 @@ export function memoryWarning(
   return {
     text: t('In the last day, the system stopped a process because memory ran low'),
     hint: t(
-      'A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.',
+      'A Bot or Task that was running then may have failed. Run fewer Bots, Tasks, builds or browsers at once, then resend what failed.',
     ),
   }
 }
