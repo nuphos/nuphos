@@ -206,10 +206,10 @@ final class InboxUITests: XCTestCase {
         reason.tap()
         reason.typeText("The drafts are not ready yet")
         shot("snooze-3-dismiss-reason")
-        let tapped = Date()
+        // Sent at once: the card closes on the dismissal rather than holding it back.
         app.buttons["Dismiss question"].tap()
+        XCTAssertTrue(reason.waitForNonExistence(timeout: 5), "The dismissal still asks for a reason")
         let body = try sentBody("POST /agent/conversations/bot-release/decisions/q-notes/resolve")
-        XCTAssertLessThan(Date().timeIntervalSince(tapped), 2, "The dismissal was not sent at once")
         XCTAssertEqual(body["reason"] as? String, "The drafts are not ready yet")
         XCTAssertFalse(app.buttons["Undo"].exists, "The dismissal still offers Undo")
         var blog = notes

@@ -229,6 +229,8 @@ export async function resolveLocalRuntimeEndpoint(
       // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
       { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
     )
+  if (agent?.cli.probeError && purpose !== 'login')
+    throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)
   if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
       409,

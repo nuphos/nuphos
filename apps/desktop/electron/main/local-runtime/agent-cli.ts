@@ -19,8 +19,14 @@ import type { LocalAgentProvider } from './providers.ts'
 export { LOCAL_AGENT_PROVIDERS } from './providers.ts'
 export type { LocalAgentProvider } from './providers.ts'
 
+export function probeFailure(cli: AgentCliStatus | null) {
+  return cli && !cli.installed && cli.error
+    ? { cli: { installed: false, loggedIn: false, probeError: cli.error } }
+    : undefined
+}
+
 export type AgentCliStatus =
-  | { installed: false }
+  | { installed: false; error?: string }
   | {
       installed: true
       path: string
@@ -49,7 +55,12 @@ const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
-function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
+function run(
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  strict = false,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       file,
@@ -58,7 +69,7 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
       (error, stdout, stderr) => {
         const output = `${stdout}${stderr}`
 
-        if (error && !output.trim()) reject(new Error(error.message))
+        if (error && (strict || !output.trim())) reject(new Error(error.message))
         else resolve(output)
       },
     )
@@ -208,8 +219,52 @@ export async function probeAgentCli(
   const runtimeEnv = agentHome
     ? agentCliEnv({ provider, env, agentHome, cliPath: file })
     : undefined
+  let dshVersion: string | undefined
+  let dshUsable = false
+
+  if (provider === 'dsh') {
+    const probeEnv = runtimeEnv ?? env
+    let failure = 'dsh --version printed nothing'
+
+    try {
+      const output = await run(file, ['--version'], probeEnv, true)
+
+      dshVersion = versionOf(output)
+      dshUsable = Boolean(output.trim())
+    } catch {
+      failure = 'dsh --version failed'
+    }
+    if (!dshUsable) {
+      const node = await run('node', ['--version'], probeEnv, true).then(
+        (output) => {
+          const version = versionOf(output)
+
+          return version ? `v${version}` : 'unavailable'
+        },
+        () => 'unavailable',
+      )
+
+      const [major = Number.NaN, minor = Number.NaN] = node
+        .replace(/^v/u, '')
+        .split('.')
+        .map(Number)
+      const outdated =
+        Number.isFinite(major) &&
+        Number.isFinite(minor) &&
+        (major < 24 || (major === 24 && minor < 9))
+
+      return {
+        installed: false,
+        error: outdated
+          ? `DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has ${node}. Update Node.js, then try again.`
+          : `DeepSeek Harness couldn't start on this computer (${failure}). Reinstall it, then try again.`,
+      }
+    }
+  }
   const [version, auth, accountKey] = await Promise.all([
-    run(file, ['--version'], env).then(versionOf, () => {}),
+    provider === 'dsh'
+      ? Promise.resolve(dshVersion)
+      : run(file, ['--version'], env).then(versionOf, () => {}),
     loginOf(provider, file, runtimeEnv, agentHome),
     runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])
