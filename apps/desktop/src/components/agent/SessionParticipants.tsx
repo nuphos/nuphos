@@ -25,9 +25,9 @@ import type { Pickable } from './PersonFace'
 import type {
   AgentConversationParticipant,
   ChannelAgent,
-  ConversationAccessState,
   GeneralAccess,
 } from '../../api/agent-types'
+import type { ConversationAccessState } from '../../api/window-session-access'
 import type { TeamMember } from '../../types'
 
 /**

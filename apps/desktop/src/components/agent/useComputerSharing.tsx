@@ -9,7 +9,7 @@ import { ComputerUseConfirm } from './ComputerUseConfirm'
 import { joinNames } from './joinNames'
 
 import type { ComputerUseRequest } from './computerUse'
-import type { ConversationAccessState } from '../../api/agent-types'
+import type { ConversationAccessState } from '../../api/window-session-access'
 
 type Apply = (state: ConversationAccessState) => void
 

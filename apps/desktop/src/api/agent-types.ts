@@ -65,13 +65,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
   agent?: AgentFace
 }
 
-export type ConversationAccessState = {
-  generalAccess: GeneralAccess
-  participants: AgentConversationParticipant[]
-  /** After a removal: the chat's computer the removed person can still use. */
-  computerStillShared?: { deviceId: string; label: string }
-}
-
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
