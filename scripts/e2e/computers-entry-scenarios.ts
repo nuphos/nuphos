@@ -20,7 +20,10 @@ async function expectComputersInSettings(page: Page, shot: string, behind: Locat
 }
 
 async function manageFromRuntimeMenu(page: Page, within: Locator) {
-  await within.getByRole('button', { name: /^Runtime:/ }).first().click()
+  await within
+    .getByRole('button', { name: /^Runtime:/ })
+    .first()
+    .click()
   await page.getByRole('menuitem', { name: 'Manage computers and runtimes' }).click()
 }
 
