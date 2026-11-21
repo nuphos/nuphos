@@ -16681,6 +16681,511 @@
           }
         }
       }
+    },
+    "/agent/reminders": {
+      "post": {
+        "operationId": "agent.reminders.create",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Schedule a one-time reminder",
+        "description": "Saves `text` into one of your conversations at `dueAt`, once. The time is an ISO 8601 time with `Z` or an offset, or a local time such as `2026-11-21T09:00` read in `timeZone`. Delivery needs no Bot turn and no model. It is retried a bounded number of times, still happens after a backend restart, and writes the same message however often it is attempted. If it cannot be delivered you are notified once and the reminder stays `failed`. `dedupeKey` makes a retried create return the existing reminder.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "dueAt": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "description": "IANA name, e.g. `Europe/Stockholm`."
+                  },
+                  "dedupeKey": {
+                    "type": "string"
+                  },
+                  "teamId": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "sessionId",
+                  "text",
+                  "dueAt"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Stable ID of this occurrence. Its transcript message ID derives from it."
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "description": "The conversation the reminder is saved into."
+                    },
+                    "teamId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "dueAt": {
+                      "type": "string",
+                      "description": "When it is due (ISO 8601, UTC)."
+                    },
+                    "timeZone": {
+                      "type": "string",
+                      "description": "The zone the owner chose, used to show the due time."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "delivered",
+                        "failed",
+                        "cancelled"
+                      ],
+                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                    },
+                    "attempts": {
+                      "type": "number"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "ackedAt": {
+                      "type": "string",
+                      "description": "When it was saved in the conversation."
+                    },
+                    "failedAt": {
+                      "type": "string"
+                    },
+                    "failureReason": {
+                      "type": "string"
+                    },
+                    "lastError": {
+                      "type": "string",
+                      "description": "The latest failed attempt of a pending reminder."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sessionId",
+                    "teamId",
+                    "text",
+                    "dueAt",
+                    "timeZone",
+                    "status",
+                    "attempts",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "get": {
+        "operationId": "agent.reminders.list",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "List your reminders",
+        "description": "Your own reminders, newest due time first, at most 200.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "teamId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "delivered",
+                "failed",
+                "cancelled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "reminders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Stable ID of this occurrence. Its transcript message ID derives from it."
+                          },
+                          "sessionId": {
+                            "type": "string",
+                            "description": "The conversation the reminder is saved into."
+                          },
+                          "teamId": {
+                            "type": "string"
+                          },
+                          "text": {
+                            "type": "string"
+                          },
+                          "dueAt": {
+                            "type": "string",
+                            "description": "When it is due (ISO 8601, UTC)."
+                          },
+                          "timeZone": {
+                            "type": "string",
+                            "description": "The zone the owner chose, used to show the due time."
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "delivered",
+                              "failed",
+                              "cancelled"
+                            ],
+                            "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                          },
+                          "attempts": {
+                            "type": "number"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "ackedAt": {
+                            "type": "string",
+                            "description": "When it was saved in the conversation."
+                          },
+                          "failedAt": {
+                            "type": "string"
+                          },
+                          "failureReason": {
+                            "type": "string"
+                          },
+                          "lastError": {
+                            "type": "string",
+                            "description": "The latest failed attempt of a pending reminder."
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "sessionId",
+                          "teamId",
+                          "text",
+                          "dueAt",
+                          "timeZone",
+                          "status",
+                          "attempts",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "reminders"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/agent/reminders/{reminderId}": {
+      "get": {
+        "operationId": "agent.reminders.get",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Get a reminder and whether it was delivered",
+        "description": "The result of a reminder stays readable after it is delivered or fails.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reminderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Stable ID of this occurrence. Its transcript message ID derives from it."
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "description": "The conversation the reminder is saved into."
+                    },
+                    "teamId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "dueAt": {
+                      "type": "string",
+                      "description": "When it is due (ISO 8601, UTC)."
+                    },
+                    "timeZone": {
+                      "type": "string",
+                      "description": "The zone the owner chose, used to show the due time."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "delivered",
+                        "failed",
+                        "cancelled"
+                      ],
+                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                    },
+                    "attempts": {
+                      "type": "number"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "ackedAt": {
+                      "type": "string",
+                      "description": "When it was saved in the conversation."
+                    },
+                    "failedAt": {
+                      "type": "string"
+                    },
+                    "failureReason": {
+                      "type": "string"
+                    },
+                    "lastError": {
+                      "type": "string",
+                      "description": "The latest failed attempt of a pending reminder."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sessionId",
+                    "teamId",
+                    "text",
+                    "dueAt",
+                    "timeZone",
+                    "status",
+                    "attempts",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "agent.reminders.cancel",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Cancel a pending reminder",
+        "description": "Only a `pending` reminder can be cancelled; the record stays readable.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reminderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Stable ID of this occurrence. Its transcript message ID derives from it."
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "description": "The conversation the reminder is saved into."
+                    },
+                    "teamId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "dueAt": {
+                      "type": "string",
+                      "description": "When it is due (ISO 8601, UTC)."
+                    },
+                    "timeZone": {
+                      "type": "string",
+                      "description": "The zone the owner chose, used to show the due time."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "delivered",
+                        "failed",
+                        "cancelled"
+                      ],
+                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                    },
+                    "attempts": {
+                      "type": "number"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "ackedAt": {
+                      "type": "string",
+                      "description": "When it was saved in the conversation."
+                    },
+                    "failedAt": {
+                      "type": "string"
+                    },
+                    "failureReason": {
+                      "type": "string"
+                    },
+                    "lastError": {
+                      "type": "string",
+                      "description": "The latest failed attempt of a pending reminder."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sessionId",
+                    "teamId",
+                    "text",
+                    "dueAt",
+                    "timeZone",
+                    "status",
+                    "attempts",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
     }
   }
 }

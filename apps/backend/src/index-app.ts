@@ -15,6 +15,7 @@ import { agent } from '@/routes/agent'
 import { botImportRoutes } from '@/routes/agent/routes-bot-imports'
 import { agentJournal } from '@/routes/agent-journal'
 import { agentSessions } from '@/routes/agent-sessions'
+import { agentRemindersRoutes } from '@/routes/agent-reminders'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { asanaAppRoutes } from '@/routes/asana-app'
 import { auth } from '@/routes/auth'
@@ -109,6 +110,7 @@ app.route('/push', pushRoutes)
 app.route('/teams', teamsRoutes)
 app.route('/invitations', invitationsRoutes)
 app.route('/agent/triggers', agentTriggersRoutes)
+app.route('/agent/reminders', agentRemindersRoutes)
 app.route('/agent', botImportRoutes)
 app.route('/agent', agent)
 

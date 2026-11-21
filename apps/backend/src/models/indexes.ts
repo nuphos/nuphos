@@ -21,6 +21,7 @@ import { setupPlanIndexes } from '@/lib/agent/plans'
 import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
+import { setupReminderIndexes } from '@/lib/agent/reminders'
 import { setupTriggerHistoryIndexes } from '@/lib/agent/trigger-history'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
@@ -99,6 +100,7 @@ export async function setupIndexes(): Promise<void> {
     ['directory', setupDirectoryIndexes],
     ['triggers', setupTriggerIndexes],
     ['trigger-history', setupTriggerHistoryIndexes],
+    ['reminders', setupReminderIndexes],
     ['plans', setupPlanIndexes],
     ['skill-metadata', setupSkillMetadataIndexes],
     ['auto-mode', setupAutoModeIndexes],

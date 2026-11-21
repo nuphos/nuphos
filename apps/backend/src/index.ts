@@ -23,6 +23,7 @@ import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { startReminderSweeper, stopReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
@@ -137,6 +138,7 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 // Counts turns stranded on an unanswered tool call — the one agent failure no
 // request can observe, because it IS the missing request.
 initStuckTurnProbe()
+startReminderSweeper()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
 initRuntimeMetricsSampler()
@@ -224,6 +226,7 @@ async function shutdown(sig: string) {
   shutdownMemoryRetentionRollup()
   conversationAutoArchive.shutdown()
   shutdownStuckTurnProbe()
+  stopReminderSweeper()
   stopBotImportCleanup()
   stopFreeBoxSweep()
   const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
