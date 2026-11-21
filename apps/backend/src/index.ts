@@ -18,7 +18,7 @@ import {
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
 import { cancelOpenAgentPlans } from '@/lib/agent/plans'
-import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { createDrainDiagnostics, drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -240,12 +240,13 @@ async function shutdown(sig: string) {
       force_pause_at_ms: shutdownBudget.agentDrainForcePauseAtMs,
     })
   }
-
   // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
   closeTunnelsForRestart()
+  const diagnostics = createDrainDiagnostics(server, workersStopped)
   const forceTimer = setTimeout(() => {
     logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
       drain_deadline_ms: shutdownBudget.httpDrainMs,
+      ...diagnostics.snapshot(),
     })
     void server.stop(true)
     void devHttpServer?.stop(true)
@@ -253,7 +254,7 @@ async function shutdown(sig: string) {
 
   try {
     await drainHttpAndAgentProducers(
-      () => Promise.all([server.stop(false), devHttpServer?.stop(false)]),
+      () => diagnostics.trackHttp(Promise.all([server.stop(false), devHttpServer?.stop(false)])),
       shutdownBudget.httpDrainMs,
       workersStopped,
     )
@@ -267,7 +268,6 @@ async function shutdown(sig: string) {
   } catch (err) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
-
   // 4. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
