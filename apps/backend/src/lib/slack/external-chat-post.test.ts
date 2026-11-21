@@ -195,11 +195,12 @@ describe("a Bot's post in a Slack channel's external chat", () => {
     expect(posted[0]?.thread_ts).toBe('9.9')
   })
 
-  test('a Slack answer without a target is rejected instead of guessing its location', async () => {
-    const result = await post({ channelId: RECORD, text: 'Where?' })
+  test('a proactive Slack post without a reply target stays top-level', async () => {
+    const result = await post({ channelId: RECORD, text: 'Status update.' })
 
-    expect(result).toMatchObject({ isError: true })
-    expect(posted).toEqual([])
+    expect(result).toMatchObject({ structuredContent: { posted: true } })
+    expect(posted[0]).toMatchObject({ channel: 'C1', text: '*Deploy Bot*\nStatus update.' })
+    expect(posted[0]).not.toHaveProperty('thread_ts')
   })
 
   test('a post Slack refuses fails the call, and the record keeps nothing', async () => {
