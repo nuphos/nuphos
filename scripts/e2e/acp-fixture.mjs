@@ -17,6 +17,7 @@ import {
   call,
   callNamed,
   instruction,
+  confirmWork,
   personalToken,
   recheck,
   reportBack,
@@ -170,6 +171,7 @@ async function prompt({ sessionId, prompt: parts }) {
   scriptedUpdates({ send, sessionId, text })
   scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })
   if (text.includes('E2E_INSTRUCTION')) await instruction({ log, sessionId, marker })
