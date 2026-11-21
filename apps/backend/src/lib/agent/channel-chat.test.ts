@@ -1,6 +1,7 @@
 import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
@@ -38,6 +39,7 @@ import { noteReplyFailed } from './reply-failed'
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { TurnRunner } from './turn-runner'
+import type { TeamSession } from '@/lib/claude-code-preview/team-openab-runtime'
 import type * as dbActual from '@/lib/db'
 
 const TEAM = 'team'
@@ -509,8 +511,12 @@ describe('waking a channel’s agents', () => {
       (event) => event.kind === 'agent_reply_failed',
     )
 
-    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
-    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
+    // A short reason for people, never the adapter's paths.
+    expect(failed).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'other',
+      reason: 'its runtime ran into an error.',
+    })
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -1327,15 +1333,22 @@ describe('an agent whose computer is offline', () => {
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
   })
 
-  // #3332: a runtime that kept dropping wrote a line for every failed wake.
-  test('says it could not reply once per post, however often a dropping runtime fails again', async () => {
+  // A runtime that kept dropping wrote a line for every failed wake (#3332), then one per post.
+  test('keeps one couldn’t-reply line per agent, the latest, and takes it away once it replies', async () => {
     await say('anyone there?')
     for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
-    expect(await failures()).toHaveLength(1)
-
     await say('still there?')
-    await noteReplyFailed('channel', 'agent-a', offline())
-    expect(await failures()).toHaveLength(2)
+    await noteReplyFailed('channel', 'agent-a', new Error('OpenAB ACP initialize timed out'))
+    expect(await failures()).toEqual([
+      expect.objectContaining({
+        agentId: 'agent-a',
+        cause: 'other',
+        reason: 'its runtime ran into an error.',
+      }),
+    ])
+
+    await postAsAgent('channel', { sessionId: 'agent-a', title: 'Agent A' }, 'Back now')
+    expect(await failures()).toEqual([])
   })
 
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {
@@ -1381,5 +1394,56 @@ describe('an agent whose computer is offline', () => {
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
+  })
+})
+
+// #4061: a wake whose turn a runtime restart cut off said the Bot couldn't reply, beside the
+// answer a later wake was already giving, and left its posts read so nothing asked again.
+describe('a channel wake cut off by a runtime restart', () => {
+  beforeEach(async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'], 'agentReadIndex.agent-a': -1 } },
+    )
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: async () => ({ status: 'completed', finishReason: 'connection-lost' }),
+    })
+    // Back on the air with no turn and no outcome: the runtime restarted under it.
+    sessionsByConversation.set(`${TEAM}:agent-a`, {
+      openabSessionId: 'openab-a',
+      reattached: Promise.resolve(true),
+      client: { getSessionExecutionState: async () => ({ state: 'idle' }) },
+    } as unknown as TeamSession)
+  })
+  afterEach(() => {
+    sessionsByConversation.delete(`${TEAM}:agent-a`)
+  })
+
+  test('is not reported as a couldn’t-reply line: its posts wait for the next wake', async () => {
+    await say('anyone there?')
+    const [notice] = await listPendingUserMessages('agent-a-owner', 'agent-a')
+
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    await runTurn(
+      { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'agent.resource',
+      [notice!],
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.filter(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed ?? []).toEqual([])
+    expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+    // Asked again, with the same post.
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
   })
 })

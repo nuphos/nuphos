@@ -130,6 +130,17 @@ struct ChannelView: View {
                     .disabled(channel.botId == nil)
                     .accessibilityIdentifier("bot-details-entry")
                 }
+                // One tap to the Bot's own Task, where its runtime and model are switched.
+                if let bot = channel.botId, canOpenTask {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            open(bot, title: channel.title)
+                        } label: {
+                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
+                        }
+                        .accessibilityIdentifier("chat.botTask")
+                    }
+                }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
                         Button {

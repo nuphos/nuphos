@@ -1,6 +1,6 @@
 ---
 name: instructions
-description: List, add, edit, disable, or delete the user's personal and the team's shared Nuphos Instructions (standing markdown guidance injected into every conversation, like CLAUDE.md) through the canonical team REST API.
+description: List, add, edit, disable or delete the user's personal and the team's shared Nuphos Instructions (standing guidance in every conversation) through the team REST API.
 ---
 
 # Nuphos Instructions

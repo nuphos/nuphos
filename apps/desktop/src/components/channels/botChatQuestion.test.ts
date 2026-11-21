@@ -115,4 +115,9 @@ test('every open question the Inbox lists is answered on its card', () => {
     assert.ok(question.part.input && typeof question.part.input === 'object')
   }
   assert.equal(botChatQuestion(request({ category: 'integration', options: ['A'] })).typed, true)
+  // A credential question with options also takes words, with Other… (#4029).
+  assert.equal(
+    botChatQuestion(request({ category: 'credential', options: ['Signed in', 'Not now'] })).typed,
+    true,
+  )
 })

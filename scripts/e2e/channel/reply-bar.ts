@@ -30,6 +30,8 @@ const layout = (page: Page, post: string) =>
 
     return {
       fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
+      // The dots stay in the DOM, folded away, once the turn ends: only open ones count.
+      working: scroller.querySelector('[data-open="true"] .t-typing-dot') !== null,
       scroller: box(scroller)!,
       post: box(target)!,
       bar: box(bar),
@@ -54,6 +56,11 @@ const scenario: Scenario = {
     const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
     if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+    const wakes = () =>
+      agentLog(stack).filter((entry) => entry.event === 'channel' && entry.detail === channelId)
+        .length
+    const woken = wakes()
+
     for (let n = 1; n <= 8; n++) {
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
@@ -67,12 +74,15 @@ const scenario: Scenario = {
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
     }
     await page.getByText(/^Reply bar 8:/).waitFor()
-    // Settled at the bottom: the newest post stays put between two looks.
+    // The posts wake the Bot, and its answers land below them as they come: wait for its turn to
+    // end, or opening the reply races a post arriving under it.
+    await until('the Bot to read the posts', async () => wakes() > woken)
+    // Settled at the bottom: the Bot done, the newest post stays put between two looks.
     let last = -1
 
     await until('the chat to settle', async () => {
-      const { fromBottom, post } = await layout(page, 'Reply bar 8:')
-      const still = post.bottom === last && fromBottom <= 1
+      const { fromBottom, post, working } = await layout(page, 'Reply bar 8:')
+      const still = post.bottom === last && fromBottom <= 1 && !working
 
       last = post.bottom
 

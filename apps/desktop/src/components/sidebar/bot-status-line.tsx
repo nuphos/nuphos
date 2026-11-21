@@ -34,11 +34,7 @@ export function BotStatusLine({ activity }: { activity: Activity }) {
       </span>
     )
   if (activity.kind === 'error')
-    return (
-      <span className="truncate text-status-danger">
-        {activity.label ? `${t('Failed')}: ${activity.label}` : t('Failed')}
-      </span>
-    )
+    return <span className="truncate text-status-danger">{t('Failed')}</span>
 
   return null
 }

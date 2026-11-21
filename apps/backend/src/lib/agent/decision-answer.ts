@@ -102,7 +102,7 @@ export async function answerDecision(args: {
   if (
     (request.category === 'integration' &&
       (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
-    (request.category === 'credential' && !credentialStatusChoice(request, answer))
+    (request.category === 'credential' && !credentialChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
   if (request.planId) {
@@ -245,14 +245,16 @@ async function tellAbout(
   }
 }
 
-/** A login-status button is ordinary text; secret values never enter this endpoint. */
-function credentialStatusChoice(request: InputRequest, answer: DecisionAnswer): boolean {
-  return (
-    !request.secretName &&
-    !request.questions?.length &&
-    answer.text === undefined &&
-    answer.questions === undefined &&
-    (answer.choices?.length ?? 0) > 0 &&
-    (answer.choices?.every((choice) => request.options?.includes(choice)) ?? false)
-  )
+/**
+ * A credential question with options is a choice like any other: one of them, or words, as with
+ * Other… (#4029). A secret card, or one with no options, asks for a value, which never enters here.
+ */
+function credentialChoice(request: InputRequest, answer: DecisionAnswer): boolean {
+  if (request.secretName || request.questions?.length || !request.options?.length) return false
+  if (answer.questions !== undefined) return false
+  const picked = answer.choices ?? []
+
+  if (answer.text !== undefined) return picked.length === 0 && answer.text.trim() !== ''
+
+  return picked.length > 0 && picked.every((choice) => request.options?.includes(choice))
 }

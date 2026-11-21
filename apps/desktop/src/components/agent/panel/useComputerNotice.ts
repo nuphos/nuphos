@@ -1,6 +1,9 @@
+import { useSyncExternalStore } from 'react'
+
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 
 import { computerNotice } from './computerNotice'
+import { diskSnoozeRevision, subscribeDiskSnooze } from './diskSnooze'
 import { pausedBoxLabel } from './runtimeControlSignOut'
 
 import type { ComputerNotice as DeviceNotice } from './computerNotice'
@@ -33,6 +36,9 @@ export function useComputerNotice({
     teamId,
   })
   const device = devices.list?.devices.find((candidate) => candidate.deviceId === local?.deviceId)
+
+  // Dismissing a disk warning quiets it in every open chat at once, not only the one dismissed.
+  useSyncExternalStore(subscribeDiskSnooze, diskSnoozeRevision, diskSnoozeRevision)
   // The runtime list already carries the Box's state, so this is said without the device read.
   const notice: ComputerNotice | null =
     paused !== null ? { kind: 'paused', label: paused } : computerNotice(device)

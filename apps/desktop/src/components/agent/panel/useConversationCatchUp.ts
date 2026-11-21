@@ -12,8 +12,8 @@ import {
   shouldDeferTranscriptCatchUp,
 } from './conversationCatchUp.ts'
 import { listsRuntimeState } from './listedRuntimeState.ts'
-import { CONVERSATION_TAIL_LIMIT } from './model.ts'
 import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
+import { CONVERSATION_TAIL_LIMIT } from './taskTranscript.ts'
 import { getAgentLocale } from './textUtils.ts'
 import { TIMELINE_CHANGED_EVENT } from './timelineEvents.ts'
 import { toUiMessages } from './toUiMessages.ts'
