@@ -7,7 +7,11 @@ import { getTeamMembership } from '@/lib/identity'
 import { getConversationBySessionId } from './db'
 import { isTimeZone, parseDueAt } from './reminder-time'
 
-export type ReminderStatus = 'pending' | 'delivered' | 'failed' | 'cancelled'
+export type ReminderStatus =
+  'pending' | 'dispatched' | 'delivered' | 'failed' | 'unconfirmed' | 'cancelled'
+
+/** `text` is written for its owner to read. `task` is work a Bot must carry out and confirm. */
+export type ReminderKind = 'text' | 'task'
 
 /**
  * One occurrence of a one-time reminder. `_id` is its stable identity: the transcript message
@@ -22,7 +26,11 @@ export type Reminder = {
   text: string
   dueAt: Date
   timeZone: string
+  /** Absent on a plain reminder. */
+  kind?: ReminderKind
   status: ReminderStatus
+  /** When a `task` was accepted by its conversation. It is never dispatched again. */
+  dispatchedAt?: Date
   /** Attempts claimed so far, including one a crash cut short. */
   attempts: number
   /** Due time, then the end of a claim or backoff: the earliest the next attempt may start. */
@@ -69,6 +77,7 @@ type CreateReminder = {
   dueAt: string
   timeZone?: string
   dedupeKey?: string
+  kind?: ReminderKind
   /** The authenticated conversation when an agent is the caller. It may only act on itself. */
   callerSessionId?: string
 }
@@ -133,6 +142,7 @@ export async function createReminder(
     text,
     dueAt,
     timeZone: input.timeZone ?? 'UTC',
+    ...(input.kind === 'task' ? { kind: 'task' as const } : {}),
     status: 'pending',
     attempts: 0,
     nextAttemptAt: dueAt,

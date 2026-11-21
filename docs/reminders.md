@@ -45,3 +45,25 @@ message is not required.
 - Acknowledging an already delivered reminder changes nothing.
 
 Reminders only run where the backend runs its sweeper, which does not need Redis.
+
+## Scheduled work a Bot must confirm
+
+`"kind": "task"` hands the text to the conversation as a normal turn at the due time, for work that
+needs the Bot to do something. Dispatching it is not completing it.
+
+```sh
+curl -X POST "$API/agent/reminders" -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"sessionId":"<conversation>","kind":"task","text":"Rotate the key","dueAt":"2026-11-21T09:00","timeZone":"Europe/Stockholm"}'
+```
+
+- The turn carries the occurrence ID and the confirmation call. Once the work has actually
+  succeeded the Bot sends `POST /teams/<teamId>/agent-reminders/<id>/ack` with `{"outcome":"done"}`,
+  or `{"outcome":"failed","reason":"..."}` if it cannot. Only the conversation the task was given
+  to may confirm it: the owner outside that conversation gets 403 and another conversation gets 404.
+  Repeating the same outcome changes nothing, and a contradicting one is a 409.
+- A task is dispatched once, under a stable message ID. If the model is out of quota, the runtime
+  crashes or the Bot never confirms within 15 minutes, the task becomes `unconfirmed`. The work may
+  have run, so it is never run again. Its owner gets one notice in the conversation saying so, and a
+  late `done` still corrects it. `failed` and `unconfirmed` read back through `GET /agent/reminders/<id>`.
+- A task is a turn like a Trigger fire, with the conversation's existing permissions. It grants no
+  extra authority or approval.
