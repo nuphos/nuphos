@@ -3,6 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
+import { must } from './binding-access-scenarios.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
 import {
   computerWithUsage,
@@ -18,6 +19,7 @@ import { screencast } from './question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -32,6 +34,10 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
+
+/** A post in the open chat's transcript. A sidebar row can preview the same words. */
+const transcriptPost = (page: Page, text: string) =>
+  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
@@ -67,7 +73,7 @@ export const channelScenarios: Scenario[] = [
       for (let n = 0; n < 51; n++) await post(`Burst ${String(n)}`)
       await post('The newest E2E_DELIVERY:newest')
       // The Bot posts only once it has read on, so any repeat is logged by now.
-      await page.getByText('POSTED E2E_DELIVERY:newest', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:newest').waitFor()
       const repeats = agentLog(stack).filter((entry) => entry.event === 'channel-repeat')
 
       if (repeats.length > 0) {
@@ -97,7 +103,7 @@ export const channelScenarios: Scenario[] = [
       )
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
-      await page.getByText('POSTED E2E_DELIVERY:reply', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:reply').waitFor()
       // The quote above the answer is a button titled with the post it answers.
       await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
     },
@@ -144,7 +150,7 @@ export const channelScenarios: Scenario[] = [
 
       try {
         await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
-        await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
+        await transcriptPost(page, 'POSTED E2E_DELIVERY:two').waitFor()
         // Still in its turn: the row has the dots exactly while the chat types.
         await row.locator('.t-typing-dot').first().waitFor()
         await page.getByRole('status', { name: 'E2E Bot is thinking' }).waitFor()
@@ -226,7 +232,7 @@ export const channelScenarios: Scenario[] = [
     name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
     run: async (page, stack) => {
       await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
-      await page.getByText('POSTED E2E_DELIVERY:inbox-bot', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-bot').waitFor()
       await page.getByRole('tab', { name: /^Inbox/ }).click()
       const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
 
@@ -239,6 +245,18 @@ export const channelScenarios: Scenario[] = [
       // The sidebar slides over to Bots; shoot it once it has.
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
+      // #4065: a link in the Bot's question card opens in the dock, as in a Task's
+      // chat, never in the system browser.
+      await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
+      const address = page.getByRole('textbox', { name: 'Search or enter URL' })
+
+      await address.waitFor({ timeout: 10_000 })
+      must(
+        (await address.inputValue()).endsWith('/health/ready'),
+        `the dock's browser to open the card's link, got ${await address.inputValue()}`,
+      )
+      await page.screenshot({ path: `${artifacts}/bot-question-link-dock-light.png` })
+      await page.getByRole('button', { name: 'Close workspace panel' }).click()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),

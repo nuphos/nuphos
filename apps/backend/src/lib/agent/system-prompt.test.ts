@@ -46,6 +46,7 @@ describe('vendored prompt files', () => {
     expect(prompt).toContain('its identity block (`<nuphos_bot_identity>`) sets your role')
     expect(prompt).toContain('# Research and reports')
     expect(prompt).toContain('Never make up numbers.')
+    expect(prompt).toContain('Cite only pages you opened or that a search returned')
     expect(prompt).toContain('`render_artifact`')
     expect(prompt).not.toContain('Coding agents are single-player')
   })

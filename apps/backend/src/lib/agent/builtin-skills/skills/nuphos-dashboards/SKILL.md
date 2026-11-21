@@ -1,6 +1,6 @@
 ---
 name: nuphos-dashboards
-description: Build and update a Nuphos Dashboard (the Dashboards page; not Grafana) — a blank canvas of panels, each backed by a JavaScript script that re-runs on one of the team's agent runtimes, pulls any Nuphos API or connected-provider data, and emits a chart, number, or table. Use it for cloud spend, AI usage, infrastructure inventory, reliability, or any other metric the team wants charted.
+description: "Build and update Nuphos Dashboards (not Grafana): panels backed by JavaScript that pull Nuphos or provider data and chart spend, AI usage, inventory or any metric."
 ---
 
 # Nuphos Dashboards

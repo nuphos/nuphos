@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 import { logEvent } from '@/lib/observability'
 
-import { reportedAgents } from '../agent-registry'
+import { reportedAgentsKey } from '../agent-registry'
 
+import { heldTunnels } from './held-tunnels'
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
 import { streamRelay } from './stream-relay'
@@ -13,6 +14,7 @@ import type { BoxMetrics } from '../metrics-schema'
 import type { HolderMessage, LocalRuntimeStatus } from './protocol'
 
 export type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
+export { closeTunnelsForRestart, connectedComputerCount } from './held-tunnels'
 
 const DEFAULT_IDLE_TIMEOUT_MS = 15_000
 const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
@@ -20,13 +22,6 @@ const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
 export const TUNNEL_CLOSE_SUPERSEDED = 4000
 export const TUNNEL_CLOSE_IDLE = 4001
 export const TUNNEL_CLOSE_REVOKED = 4003
-
-let openTunnels = 0
-
-/** Computers whose tunnel this replica holds right now. */
-export function connectedComputerCount(): number {
-  return openTunnels
-}
 
 /**
  * Holds one desktop's reverse tunnel on this replica. Streams opened from any
@@ -100,7 +95,7 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
-    openTunnels--
+    heldTunnels.delete(shut)
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
@@ -194,7 +189,8 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        toComputer(message.s, message.d)
+        // Another tunnel of this computer hears it too and must not call it lost.
+        if (!message.conn || message.conn === conn) toComputer(message.s, message.d)
 
         return
       case 'close':
@@ -221,7 +217,7 @@ export async function attachRuntimeTunnel(
   }, heartbeatMs)
 
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
-  openTunnels++
+  heldTunnels.add(shut)
 
   return {
     receive(raw) {
@@ -253,8 +249,8 @@ export async function attachRuntimeTunnel(
           const reported = frame.status
 
           status = reported
-          // Only a changed agent list is written, not every status report.
-          const agents = JSON.stringify(reportedAgents(reported))
+          // Only what reportedAgentsKey names is written at once, not every status report.
+          const agents = reportedAgentsKey(reported)
 
           if (deps.recordAgents && agents !== recorded) {
             const record = deps.recordAgents

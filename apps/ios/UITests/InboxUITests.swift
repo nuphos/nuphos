@@ -47,8 +47,11 @@ final class InboxUITests: XCTestCase {
         inboxTab.tap()
         openQuestion("Roll out 1.4 to production?")
         XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "The question did not open")
+        let tapped = Date()
         app.buttons["Ship it"].tap()
         let body = try answerBody(session: "agent-ops", request: "q-deploy")
+        // Sent at once: nothing waits for an Undo.
+        XCTAssertLessThan(Date().timeIntervalSince(tapped), 2, "The Inbox's answer was not sent at once")
         XCTAssertEqual(body["choices"] as? [String], ["Ship it"])
         XCTAssertEqual(body["answeredIn"] as? String, "inbox", "The Inbox's answer does not say it was given in the Inbox")
     }
@@ -63,9 +66,13 @@ final class InboxUITests: XCTestCase {
         XCTAssertNil(body["answeredIn"], "An answer in the chat says it was given in the Inbox")
     }
 
-    /// The body of the answer the app sent for a question, once it has gone (the Inbox holds one five seconds).
+    /// The body of the answer the app sent for a question, once it has gone.
     private func answerBody(session: String, request: String) throws -> [String: Any] {
-        let key = "POST /agent/conversations/\(session)/decisions/\(request)/answer"
+        try sentBody("POST /agent/conversations/\(session)/decisions/\(request)/answer")
+    }
+
+    /// The body the app sent with `key`, once it has gone.
+    private func sentBody(_ key: String) throws -> [String: Any] {
         var body: [String: Any]?
         let found = NSPredicate { _, _ in
             let lines = (try? String(contentsOf: self.sent, encoding: .utf8))?.split(separator: "\n") ?? []
@@ -74,12 +81,12 @@ final class InboxUITests: XCTestCase {
             return body != nil
         }
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: found, object: nil)], timeout: 15),
-                       .completed, "No answer was sent to \(key)")
+                       .completed, "Nothing was sent to \(key)")
         return try XCTUnwrap(body)
     }
 
     /// The list groups the questions by who asked, one line each; a question opens on its own,
-    /// an answer leaves the list with a toast and opens the next one.
+    /// an answer leaves the list and opens the next one.
     func testAnswersAQuestionFromTheInbox() throws {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent"]
@@ -114,21 +121,11 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Skip"].exists, "Skip is still offered")
         shot("3-question")
 
-        // The answer leaves the list, says so, and opens the next question.
+        // The answer leaves the list and opens the next question; there is nothing to undo.
         app.buttons["Ship it"].tap()
-        let toast = app.staticTexts["Answered “Ship it”"]
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying what was answered")
-        XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
         XCTAssertTrue(app.buttons["Friendly"].waitForExistence(timeout: 5), "The next question did not open")
+        XCTAssertFalse(app.buttons["Undo"].exists, "The answer still offers Undo")
         shot("4-answered")
-
-        // Undo takes it back before it is sent: the question is open again.
-        app.buttons["Undo"].tap()
-        XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "Undo did not bring the question back")
-        XCTAssertFalse(toast.exists)
-        app.buttons["Ship it"].tap()
-        // Sent after five seconds: the toast goes with it.
-        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The answer was never sent")
         try listQuestions([notes, staging])
 
         // The source's name opens the conversation that asked.
@@ -142,7 +139,7 @@ final class InboxUITests: XCTestCase {
 
     /// Snooze sets a question aside until one of its times: it leaves the list for the Snoozed section,
     /// which says when it comes back, and Unsnooze brings it back now. Dismiss asks for an optional
-    /// reason for the agent, and is held for Undo as an answer is, then sent.
+    /// reason for the agent, and is sent at once.
     func testSnoozesAndDismissesAQuestionInTheInbox() throws {
         responses["POST /agent/conversations/agent-ops/decisions/q-deploy/snooze"] = ["status": 200, "body": ["ok": true]]
         responses["POST /agent/conversations/bot-release/decisions/q-notes/resolve"] = ["status": 200, "body": ["ok": true]]
@@ -183,14 +180,15 @@ final class InboxUITests: XCTestCase {
         reason.tap()
         reason.typeText("The drafts are not ready yet")
         shot("snooze-3-dismiss-reason")
+        // Sent at once: the card closes on the dismissal rather than holding it back.
         app.buttons["Dismiss question"].tap()
-        let toast = app.staticTexts["Dismissed"]
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying it was dismissed")
-        XCTAssertTrue(app.buttons["Undo"].exists, "No Undo on the toast")
+        XCTAssertTrue(reason.waitForNonExistence(timeout: 5), "The dismissal still asks for a reason")
+        let body = try sentBody("POST /agent/conversations/bot-release/decisions/q-notes/resolve")
+        XCTAssertEqual(body["reason"] as? String, "The drafts are not ready yet")
+        XCTAssertFalse(app.buttons["Undo"].exists, "The dismissal still offers Undo")
         var blog = notes
         blog["inputRequests"] = (notes["inputRequests"] as? [[String: Any]])?.filter { $0["id"] as? String == "q-blog" }
         try listQuestions([snoozed, blog, staging])
-        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The dismissal was never sent")
 
         // On iPhone the next question is open over the list: back to it.
         if !wide {
@@ -251,7 +249,7 @@ final class InboxUITests: XCTestCase {
         shot("5-other")
         app.buttons["Send answer"].firstMatch.tap()
         try listQuestions([staging, plan])
-        XCTAssertTrue(app.buttons["Undo"].waitForExistence(timeout: 5), "No toast for the answer")
+        XCTAssertEqual(try answerBody(session: "agent-ops", request: "q-deploy")["text"] as? String, "Ship after the 18:00 freeze")
 
         // Words only: the box is there without Other….
         openQuestion("Which node pool should the staging cluster use?")
@@ -419,10 +417,9 @@ final class InboxUITests: XCTestCase {
         reason.typeText("Use the token already in CI")
         shot("21-inbox-secret-dismiss-reason")
         app.buttons["Dismiss question"].tap()
-        let toast = app.staticTexts["Dismissed"]
-        XCTAssertTrue(toast.waitForExistence(timeout: 5), "No toast saying it was dismissed")
+        let body = try sentBody("POST /agent/conversations/agent-ops/decisions/q-token/resolve")
+        XCTAssertEqual(body["reason"] as? String, "Use the token already in CI")
         try listQuestions([])
-        XCTAssertTrue(toast.waitForNonExistence(timeout: 10), "The dismissal was never sent")
         XCTAssertFalse(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].exists, "A value was sent")
         XCTAssertFalse(listed("The rollout needs a deploy token.").exists, "The dismissed secret is still listed")
     }

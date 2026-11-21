@@ -18,6 +18,21 @@ const slackUsers = new Map<string, SlackUser>()
 export function addSlackUser(id: string, user: SlackUser) {
   slackUsers.set(id, user)
 }
+const posts: Record<string, string>[] = []
+
+/** What the backend posted with chat.postMessage, oldest first. */
+export const slackPosts = () => [...posts]
+
+function postMessage(params: Record<string, string>) {
+  posts.push(params)
+
+  return {
+    ok: true,
+    channel: params.channel,
+    ts: `1900000000.${String(posts.length).padStart(6, '0')}`,
+  }
+}
+
 function usersInfo(id: string) {
   const user = slackUsers.get(id)
 
@@ -25,6 +40,11 @@ function usersInfo(id: string) {
   const profile = { email: user.email, real_name: user.name }
 
   return { ok: true, user: { id, team_id: user.team_id, real_name: user.name, profile } }
+}
+
+const METHODS: Record<string, (params: Record<string, string>) => object> = {
+  'users.info': (params) => usersInfo(params.user ?? ''),
+  'chat.postMessage': postMessage,
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */
@@ -39,7 +59,8 @@ export async function startSlackStub(): Promise<Record<string, string>> {
       const body = chunks.length > 0 ? (JSON.parse(Buffer.concat(chunks).toString()) as object) : {}
       const params = { ...Object.fromEntries(url.searchParams), ...body } as Record<string, string>
 
-      const answer = method === 'users.info' ? usersInfo(params.user ?? '') : { ok: true }
+      const answer =
+        CHANNEL_METHODS[method]?.(params) ?? (METHODS[method] ?? (() => ({ ok: true })))(params)
 
       response.writeHead(200, { 'content-type': 'application/json' })
       response.end(JSON.stringify(answer))
@@ -57,6 +78,69 @@ export async function startSlackStub(): Promise<Record<string, string>> {
     SLACK_SIGNING_SECRET: SIGNING_SECRET,
     SLACK_TOKEN_ENCRYPTION_KEY: SLACK_TOKEN_KEY,
   }
+}
+
+type SlackMessage = { ts: string; text: string; user?: string; thread_ts?: string }
+type SlackPerson = { id: string; name: string; real_name: string }
+type SlackChannel = {
+  name: string
+  private?: boolean
+  joined: boolean
+  messages: SlackMessage[]
+  members?: SlackPerson[]
+}
+
+const slackChannels = new Map<string, SlackChannel>()
+
+/** A channel conversations.* knows, with its messages oldest first (a thread reply has thread_ts)
+ *  and its members, whom users.list names. */
+export function addSlackChannel(id: string, channel: SlackChannel) {
+  slackChannels.set(id, channel)
+}
+
+// Answer only for a channel a scenario added; any other falls through to METHODS.
+const CHANNEL_METHODS: Record<string, (params: Record<string, string>) => object | undefined> = {
+  'conversations.info': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+
+    return (
+      channel && {
+        ok: true,
+        channel: {
+          id: params.channel,
+          name: channel.name,
+          is_private: channel.private === true,
+          is_member: channel.joined,
+        },
+      }
+    )
+  },
+  'conversations.history': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+    const roots = channel?.messages.filter(
+      (message) => (message.thread_ts ?? message.ts) === message.ts,
+    )
+
+    return channel && { ok: true, messages: roots?.toReversed(), has_more: false }
+  },
+  'conversations.replies': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+    const thread = channel?.messages.filter(
+      (message) => (message.thread_ts ?? message.ts) === params.ts,
+    )
+
+    return channel && { ok: true, messages: thread, has_more: false }
+  },
+  'conversations.members': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+
+    return channel && { ok: true, members: channel.members?.map((person) => person.id) ?? [] }
+  },
+  'users.list': () => {
+    const people = [...slackChannels.values()].flatMap((channel) => channel.members ?? [])
+
+    return people.length > 0 ? { ok: true, members: people } : undefined
+  },
 }
 
 /** A bot token sealed the way the backend stores it, under the stub's key. */

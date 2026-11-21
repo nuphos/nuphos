@@ -214,5 +214,10 @@
     <string name="chat_summary_triggers">Triggers</string>
     <string name="chat_summary_no_triggers">Ask the agent to schedule recurring work in this task.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot details</string>
+    <string name="chat_bot_state_waiting">%1$d needs input</string>
+    <string name="chat_bot_state_running">%1$d running</string>
+    <string name="chat_summary_idle_since">Idle · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Ask here to schedule recurring work.</string>
     <string name="chat_summary_paused">Paused</string>
 </resources>

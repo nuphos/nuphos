@@ -46,6 +46,7 @@ const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
   'team.agents': 'workspace.computers',
   'team.agent-skills': 'workspace.skills',
   'team.agent-memories': 'workspace.memories',
+  'team.billing': 'workspace.billing',
 }
 
 export function settingsSectionForPage(key: string): string | undefined {

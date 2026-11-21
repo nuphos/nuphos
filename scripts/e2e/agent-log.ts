@@ -9,8 +9,18 @@ type AgentEntry = {
   sessionId: string
   event: string
   marker?: string
+  /** Every marker in a turn's prompt, in order. */
+  markers?: string[]
   /** The model settings a new session was created with. */
   defaults?: { model?: string; effort?: string; fast?: string }
+  /** The Bot-only Claude Code env a new session was created with. */
+  env?: Record<string, string>
+  /** A fresh session's history preamble: the prompt's length and what it says about omitted turns. */
+  history?: { chars: number; omitted: boolean; readConversation: boolean }
+  /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
+  rule?: string
+  /** Each system prompt section's start and hash, as the session opened or loaded with it. */
+  sections?: string[]
   /** The response language a turn's prompt names. */
   language?: string
   isError?: boolean
