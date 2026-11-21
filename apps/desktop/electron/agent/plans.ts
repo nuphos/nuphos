@@ -111,4 +111,3 @@ export async function listPlans(args: {
 export async function getPlan(planId: string, teamId?: string): Promise<Plan> {
   return callJson<Plan>('GET', `/agent/plans/${encodeURIComponent(planId)}${teamQuery(teamId)}`)
 }
-
