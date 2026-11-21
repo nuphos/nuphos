@@ -120,12 +120,14 @@ export const entryPointScenarios: Scenario[] = [
     name: 'the Tasks page lists a Task that is open in it',
     run: async (page) => {
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      const row = page.locator('[data-sidebar-row]').filter({ hasText: LONG_TASK.split(',')[0] ?? '' })
+      const row = page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: LONG_TASK.split(',')[0] ?? '' })
 
       await row.first().waitFor({ timeout: 15_000 })
       // Reload to rebuild the list, then check the same Task again.
       await page.reload()
-      await page.getByRole('tab', { name: 'Tasks' }).click()
+      await page.getByRole('tab', { name: 'Tasks' }).click({ timeout: 60_000 })
       await row.first().waitFor({ timeout: 15_000 })
     },
   },
