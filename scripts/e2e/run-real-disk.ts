@@ -167,9 +167,7 @@ try {
   failed = true
   console.error(error)
   if (existsSync(logPath('real-disk')))
-    console.error(
-      `Desktop log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`,
-    )
+    console.error(`Desktop log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`)
   if (desktop) await screenshot(desktop.page, 'failure').catch(() => {})
 } finally {
   await desktop?.close(failed)
