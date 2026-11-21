@@ -46,13 +46,6 @@ export async function startConversationFresh(
         ({ id: messageId, role, parts, metadata }) as UIMessage,
     )
 
-    if (messageCount > 0)
-      await updateCompactionSummary(
-        sessionId,
-        ownerId,
-        freshStartSummary(quoted, messageCount, at),
-        messageCount,
-      )
     const attachment = await getConversationPreviewAttachment(sessionId, teamId)
 
     if (attachment)
@@ -62,6 +55,14 @@ export async function startConversationFresh(
         attachment.openabSessionId,
         storedPick(attachment),
         { actorId, via: 'fresh_start' },
+      )
+    // Only once the session is gone: a kept one with this summary would skip its messages if lost.
+    if (messageCount > 0)
+      await updateCompactionSummary(
+        sessionId,
+        ownerId,
+        freshStartSummary(quoted, messageCount, at),
+        messageCount,
       )
     // Its runtime would keep the idle session for hours; ending it is best effort.
     void closePreviewConversationSession(teamId, sessionId)

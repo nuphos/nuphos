@@ -31,6 +31,7 @@ const said = (index: number, role: 'user' | 'assistant', text: string) =>
 
 let caller = owner
 let replying = false
+let forgetFails = false
 let writes: unknown[][] = []
 let closed: string[] = []
 
@@ -61,6 +62,7 @@ useAgentDb({
       runtimeDefaults: { model: 'opus' },
     }),
   forgetConversationPreviewSession: (...args) => {
+    if (forgetFails) return Promise.reject(new Error('settings write failed'))
     writes.push(['forget', ...args])
 
     return Promise.resolve()
@@ -91,6 +93,7 @@ app.onError((error, c) =>
 beforeEach(() => {
   caller = owner
   replying = false
+  forgetFails = false
   writes = []
   closed = []
   sessionsByConversation.set(`${teamId}:bot`, {
@@ -149,6 +152,16 @@ test('while it replies, starting it fresh is refused and nothing changes', async
     error: 'conversation_busy',
     message: 'Wait for Scout to finish replying, then start it fresh.',
   })
+  expect(writes).toEqual([])
+  expect(sessionsByConversation.has(`${teamId}:bot`)).toBe(true)
+})
+
+test('if its session cannot be forgotten, no summary claims an earlier start', async () => {
+  forgetFails = true
+  const response = await startFresh('bot')
+
+  expect(response.status).toBe(500)
+  // It keeps its live session, so a summary here would hide messages from a later lost one.
   expect(writes).toEqual([])
   expect(sessionsByConversation.has(`${teamId}:bot`)).toBe(true)
 })

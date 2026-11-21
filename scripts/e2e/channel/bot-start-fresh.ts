@@ -3,19 +3,21 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { agentLog } from '../agent-log.ts'
+import { agentEvents, agentLog } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
 import { setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const NAME = 'Fresh Bot'
 const OLD = ['fresh-1', 'fresh-2', 'fresh-3', 'fresh-4']
 
 const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
+const header = (page: Page) =>
+  page.locator('.workspace-agent-titlebar').filter({ hasText: NAME }).first()
 
 /** The Bot as Mongo holds it: what must not change, and the session its next turn runs in. */
 function stored(stack: Stack, sessionId: string) {
@@ -61,6 +63,81 @@ async function post(page: Page, marker: string) {
   await page.getByText(`POSTED E2E_DELIVERY:${marker}`, { exact: true }).first().waitFor()
 }
 
+/** Waits out the turn that answered `marker`: no Thinking in the header, no typing in the chat. */
+async function idle(page: Page, stack: Stack, marker: string) {
+  await until(`the turn for ${marker} to finish`, async () =>
+    agentEvents(stack).includes(`finish E2E_DELIVERY:${marker}`),
+  )
+  await header(page).getByText('Thinking…').first().waitFor({ state: 'hidden' })
+  await page.getByRole('status', { name: `${NAME} is thinking` }).waitFor({ state: 'hidden' })
+}
+
+/** Once its last turn is over, Replace can be pressed. */
+async function replaceReady(page: Page, stack: Stack, replace: Locator) {
+  await replace.waitFor()
+  await idle(page, stack, OLD.at(-1)!)
+  await until('Replace to be enabled', () => replace.isEnabled())
+}
+
+/** The link its sidebar row's Copy link puts on the clipboard. */
+async function copyLink(page: Page) {
+  await page.evaluate(() => {
+    const clipboard = navigator.clipboard as Clipboard & { copied?: string }
+
+    clipboard.writeText = async (text) => {
+      clipboard.copied = text
+    }
+  })
+  await page.locator('[data-sidebar-row]').filter({ hasText: NAME }).first().click({
+    button: 'right',
+  })
+  await page.getByRole('menuitem', { name: 'Copy link', exact: true }).click()
+  let link: string | undefined
+
+  await until('the link to be copied', async () => {
+    link = await page.evaluate(() => (navigator.clipboard as { copied?: string }).copied)
+
+    return link
+  })
+  // Removes the stand-in, so the clipboard is the browser's own again.
+  await page.evaluate(() => Reflect.deleteProperty(navigator.clipboard, 'writeText'))
+
+  return link!
+}
+
+/** The face its chat header shows. */
+const face = (page: Page) => header(page).locator('img').first().getAttribute('src')
+
+/** Its chat's link and face before Replace, to compare with once it has started fresh. */
+async function linkAndFace(page: Page) {
+  const link = await copyLink(page)
+  const shown = await face(page)
+
+  if (!shown?.includes('07-ada')) throw new Error(`Its header shows ${String(shown)}`)
+
+  return { link, face: shown }
+}
+
+/** Opens `link` from another chat, and checks it shows this Bot by its name and `shown` face. */
+async function opensSameBot(page: Page, stack: Stack, link: string, shown: string) {
+  await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
+  await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+  await page.evaluate(
+    async ([modulePath, href]) => {
+      const { openInApp } = (await import(modulePath)) as { openInApp: (href: string) => void }
+
+      openInApp(href)
+    },
+    ['/src/app/workspace/openInApp.ts', link] as const,
+  )
+  await page.locator(`[aria-placeholder="Message ${NAME}"]`).waitFor()
+  await header(page).waitFor()
+  await idle(page, stack, 'fresh-new')
+  const now = await face(page)
+
+  if (now !== shown) throw new Error(`${link} opened a chat whose face is ${String(now)}`)
+}
+
 /** The fixture turn that answered `marker`. */
 function turn(stack: Stack, marker: string) {
   const found = agentLog(stack).find(
@@ -95,8 +172,10 @@ const scenario: Scenario = {
     const card = details(page).getByRole('region', { name: NAME })
     const replace = card.getByRole('button', { name: 'Replace', exact: true })
 
-    await replace.waitFor()
+    await replaceReady(page, stack, replace)
     await shoot(page, 'card')
+    const shared = await linkAndFace(page)
+
     await replace.click()
     const dialog = page.getByRole('alertdialog')
 
@@ -150,6 +229,9 @@ const scenario: Scenario = {
       throw new Error(`Replace changed the Bot: ${JSON.stringify({ before, after })}`)
     if (!after.inner || after.inner === before.inner)
       throw new Error('The next turn did not record a session of its own')
+
+    // A link to its chat from before still opens this Bot.
+    await opensSameBot(page, stack, shared.link, shared.face)
 
     await fetch(`${stack.apiUrl}/agent/conversations/${bot.sessionId}/archive`, {
       method: 'PATCH',
