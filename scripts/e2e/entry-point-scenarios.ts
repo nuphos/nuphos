@@ -37,13 +37,15 @@ export const entryPointScenarios: Scenario[] = [
     // update called machines and runtimes "very well hidden".
     name: "the sidebar's workspace menu reaches Computers & runtimes",
     run: async (page, stack) => {
-      // The team is named E2E, which the Bot's row and its menu also say.
-      const workspace = page
-        .locator('aside')
-        .getByRole('button', { name: await teamName(stack), exact: true })
-        .first()
+      // The sidebar's own menu button, which the team's name labels along with
+      // its avatar, so the name alone does not find it.
+      const workspace = page.locator('aside button[aria-haspopup="menu"]').first()
 
       await workspace.waitFor({ timeout: 15_000 })
+      must(
+        (await workspace.innerText()).includes(await teamName(stack)),
+        "the sidebar's first menu button to be the workspace's own",
+      )
       await workspace.click()
       const computers = page.getByRole('menuitem', { name: 'Computers & runtimes' })
 
@@ -83,7 +85,8 @@ export const entryPointScenarios: Scenario[] = [
       const panel = page.getByRole('complementary', { name: 'Bot details' })
       const task = panel.getByRole('button', { name: 'Task', exact: true })
 
-      await task.waitFor({ timeout: 15_000 })
+      // A Bot still getting started has no Task to open yet, on purpose.
+      await task.waitFor({ timeout: 30_000 })
       await task.click()
       await page.getByRole('textbox', { name: 'Message' }).first().waitFor({ timeout: 15_000 })
     },
@@ -95,7 +98,11 @@ export const entryPointScenarios: Scenario[] = [
     run: async (page) => {
       await page.getByRole('tab', { name: 'Tasks' }).click()
       // A long title, so it is clipped and the marquee runs: #3910's condition.
-      const row = page.locator('[data-sidebar-row]').filter({ hasText: LONG_TASK }).first()
+      // The row's title is clipped, so only its first words are in the DOM.
+      const row = page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: LONG_TASK.split(',')[0] ?? '' })
+        .first()
 
       await row.waitFor({ timeout: 15_000 })
       const more = row.getByRole('button', { name: /^More actions for / })
