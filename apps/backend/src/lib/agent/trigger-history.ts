@@ -17,6 +17,7 @@ export const TRIGGER_CONFIG = [
   'enabled',
   'expiresAt',
   'minIntervalSeconds',
+  'payloadFilters',
   'credentialMode',
   'executionCredentialAccess',
   'source',

@@ -30,6 +30,7 @@ export type CreateTriggerInput = {
   enabled?: boolean
   /** Webhook flood guard: min seconds between runs (default from config; 0 disables). */
   minIntervalSeconds?: number
+  payloadFilters?: unknown
 }
 
 export type UpdateTriggerPatch = {
@@ -39,6 +40,8 @@ export type UpdateTriggerPatch = {
   cronExpression?: string
   timeZone?: string
   minIntervalSeconds?: number
+  /** An empty list removes the rules. */
+  payloadFilters?: unknown
 }
 
 /** A Trigger is created in a Task its creator owns, and that Task's owner owns it from then on. */

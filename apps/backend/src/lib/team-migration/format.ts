@@ -188,6 +188,7 @@ export const portableSchemas = {
       messageTemplate: text,
       expiresAt: date.optional(),
       minIntervalSeconds: z.number().optional(),
+      payloadFilters: z.unknown().optional(),
     })
     .transform((row) => ({ ...row, enabled: false as const })),
   panel: z.object({

@@ -70,6 +70,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
+        ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
       },
       {
         ...actor,
@@ -120,6 +121,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),
+      ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
     })
 
     return c.json(updated)
