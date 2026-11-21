@@ -50,7 +50,13 @@ export function parsePayloadFilters(triggerType: TriggerType, value: unknown): P
 const valueAt = (payload: unknown, path: string): unknown =>
   path
     .split('.')
-    .reduce<unknown>((at, key) => (at as Record<string, unknown> | null)?.[key], payload)
+    .reduce<unknown>(
+      (at, key) =>
+        typeof at === 'object' && at !== null && Object.hasOwn(at, key)
+          ? (at as Record<string, unknown>)[key]
+          : undefined,
+      payload,
+    )
 
 /** A missing or non-string value never matches `in` and always passes `notIn`. */
 export function matchesPayloadFilters(payload: unknown, filters: PayloadFilter[] = []): boolean {

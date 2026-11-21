@@ -32,6 +32,18 @@ describe('matchesPayloadFilters', () => {
   })
 })
 
+describe('matchesPayloadFilters own properties', () => {
+  test('inherited keys such as constructor and __proto__ are not read', () => {
+    const payload = { action: 'opened' }
+
+    expect(matchesPayloadFilters(payload, [{ path: 'constructor.name', in: ['Object'] }])).toBe(
+      false,
+    )
+    expect(matchesPayloadFilters(payload, [{ path: '__proto__.x', notIn: ['y'] }])).toBe(true)
+    expect(matchesPayloadFilters(payload, [{ path: 'action', in: ['opened'] }])).toBe(true)
+  })
+})
+
 describe('parsePayloadFilters', () => {
   test('accepts a valid list and drops nothing', () => {
     const rules = [{ path: 'sender.login', in: ['a'], notIn: ['b'] }]
