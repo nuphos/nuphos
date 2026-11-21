@@ -77,7 +77,8 @@ async function addWebhook(page: Page, as: Client, teamId: string) {
     'the form to say the header is saved',
   )
   await shoot(page, 'webhook-saved-header')
-  await page.keyboard.press('Escape')
+  // Escape would leave Settings too.
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await main.getByRole('button', { name: 'Send test' }).click()
   await page.getByText('Test event delivered').waitFor()
   await received('the test event', (r) => r.body.type === 'webhook.test')
