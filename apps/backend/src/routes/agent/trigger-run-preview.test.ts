@@ -362,8 +362,14 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
   })
 
   test.each([
-    ['a busy runtime that refused it', () => new AppError(409, 'runtime_not_accepting_message', 'Running tools…')],
-    ['an agent host that did not connect', () => new OpenAbConnectError('OpenAB ACP connection timed out')],
+    [
+      'a busy runtime that refused it',
+      () => new AppError(409, 'runtime_not_accepting_message', 'Running tools…'),
+    ],
+    [
+      'an agent host that did not connect',
+      () => new OpenAbConnectError('OpenAB ACP connection timed out'),
+    ],
   ])('%s, on a turn the queue retries, is a warning, not an error', async (_case, failure) => {
     captured.length = 0
     capturedExceptions.length = 0
