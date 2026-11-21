@@ -180,10 +180,10 @@ final class InboxUITests: XCTestCase {
         reason.tap()
         reason.typeText("The drafts are not ready yet")
         shot("snooze-3-dismiss-reason")
-        let tapped = Date()
+        // Sent at once: the card closes on the dismissal rather than holding it back.
         app.buttons["Dismiss question"].tap()
+        XCTAssertTrue(reason.waitForNonExistence(timeout: 5), "The dismissal still asks for a reason")
         let body = try sentBody("POST /agent/conversations/bot-release/decisions/q-notes/resolve")
-        XCTAssertLessThan(Date().timeIntervalSince(tapped), 2, "The dismissal was not sent at once")
         XCTAssertEqual(body["reason"] as? String, "The drafts are not ready yet")
         XCTAssertFalse(app.buttons["Undo"].exists, "The dismissal still offers Undo")
         var blog = notes
@@ -332,6 +332,24 @@ final class InboxUITests: XCTestCase {
 
         app.buttons["Dismiss"].tap()
         XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Dismiss left the question in the chat")
+    }
+
+    /// A question the agent withdraws leaves its Bot's open chat with the next read, and the
+    /// question still open stays (#4175).
+    func testAWithdrawnQuestionLeavesTheBotChat() throws {
+        try openBotChat(listing: [notes], asking: "Post the 1.4 release notes to the blog too?")
+        let withdrawn = app.staticTexts["Post the 1.4 release notes to the blog too?"]
+        let kept = app.staticTexts["Which tone should the 1.4 release notes take?"]
+        XCTAssertTrue(kept.exists, "The other open question is not in the Bot's chat")
+        shot("20-bot-chat-before-withdraw")
+
+        var row = notes
+        row["inputRequests"] = (row["inputRequests"] as? [[String: Any]] ?? []).filter { $0["id"] as? String != "q-blog" }
+        try listQuestions([row])
+        XCTAssertTrue(withdrawn.waitForNonExistence(timeout: 10), "The withdrawn question is still in the Bot's chat")
+        XCTAssertTrue(kept.exists, "The question still open left the Bot's chat")
+        sleep(1) // past the card's exit animation
+        shot("21-bot-chat-after-withdraw")
     }
 
     /// A secret a Task under the Bot asks for is given in the Bot's chat, with the task's masked

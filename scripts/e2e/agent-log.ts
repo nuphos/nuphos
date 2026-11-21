@@ -17,6 +17,8 @@ type AgentEntry = {
   env?: Record<string, string>
   /** A fresh session's history preamble: the prompt's length and what it says about omitted turns. */
   history?: { chars: number; omitted: boolean; readConversation: boolean }
+  /** Whether the system prompt a session opened with tells it to delegate work (#4156). */
+  delegates?: boolean
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
   rule?: string
   /** Each system prompt section's start and hash, as the session opened or loaded with it. */
