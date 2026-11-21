@@ -597,18 +597,31 @@ describe('Google token handout', () => {
         headers: { Authorization: `Bearer ${await turn('owner', true)}` },
       })
 
-    test('the call must name one, and the error lists the choices without a token', async () => {
+    // The owner selects which accounts this conversation may use.
+    const authorize = (...docs: Doc[]) => {
+      conversation = {
+        userId: 'owner',
+        credentialAccess: {
+          personalCredentialIds: ['gmail'],
+          personalConnectionIds: docs.map(ref),
+        },
+      }
+    }
+
+    test('several authorized and none named is a 409, never a silent pick', async () => {
       const { a, b } = accounts()
+
+      authorize(a, b)
       const res = await fetchToken('gmail', await turn('owner', true))
 
       expect(res.status).toBe(409)
       expect(await res.json()).toEqual({ code: 'personal_credential_account_required' })
-      expect(ref(a)).not.toBe(ref(b))
     })
 
     test('each named account hands out its own token', async () => {
       const { a, b } = accounts()
 
+      authorize(a, b)
       expect(await (await named(ref(a))).json()).toMatchObject({ token: 'owner-mail' })
       expect(await (await named(ref(b))).json()).toMatchObject({
         token: 'mail-b',
@@ -616,8 +629,32 @@ describe('Google token handout', () => {
       })
     })
 
+    test('an account the conversation was not given is refused, named or not', async () => {
+      const { a, b } = accounts()
+
+      authorize(a)
+      expect((await named(ref(b))).status).toBe(403)
+      // One authorized account is unambiguous, so it is used without being named.
+      expect(await (await fetchToken('gmail', await turn('owner', true))).json()).toMatchObject({
+        token: 'owner-mail',
+      })
+    })
+
+    test('a selection made before a second account existed never reaches it', async () => {
+      const { a, b } = accounts()
+
+      // The stored selection names no accounts: legacy, from when only one was connected.
+      const res = await named(ref(b))
+
+      expect(res.status).toBe(403)
+      expect((await named(ref(a))).status).toBe(403)
+      expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
+    })
+
     test('another member’s account id is refused, never used', async () => {
-      accounts()
+      const { a, b } = accounts()
+
+      authorize(a, b)
       const res = await named(ref(saved.find((doc) => doc.userId === 'teammate')!))
 
       expect(res.status).toBe(404)

@@ -873,6 +873,13 @@
                           ]
                         }
                       },
+                      "personalConnectionIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        }
+                      },
                       "deviceIds": {
                         "type": "array",
                         "items": {
@@ -1109,6 +1116,17 @@
                               "google-calendar"
                             ]
                           }
+                        },
+                        "personalConnectionIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          }
+                        },
+                        "personalAccountCount": {
+                          "type": "integer",
+                          "minimum": 0
                         },
                         "deviceIds": {
                           "type": "array",

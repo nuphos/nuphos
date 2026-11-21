@@ -7,7 +7,6 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useModels } from '@/lib/test/doubles/models'
 import { createFakeInstructionsCollection } from '@/lib/test/fake-instructions-collection'
 
-import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { NuphosTeamRole } from '@/lib/identity'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
@@ -17,7 +16,7 @@ const collection = createFakeInstructionsCollection()
 let currentUserId = 'admin-user'
 let currentRole: NuphosTeamRole = 'ADMINISTRATOR'
 
-type ConversationTurn = { key?: string; origin?: AgentSessionOrigin } | null
+type ConversationTurn = { key?: string } | null
 let conversationTurn: ConversationTurn = null
 
 useModels({ agentInstructions: () => collection })
@@ -26,7 +25,6 @@ useAgentDb({
     sessionId,
     claudeCodePreviewContext: {
       activeTurnKey: conversationTurn?.key,
-      activeTurnOrigin: conversationTurn?.origin,
     },
   }),
 })
@@ -182,26 +180,19 @@ describe('instructions API', () => {
     expect((await create({ scope: 'team', title: 'overflow', content: 'x' })).status).toBe(422)
   })
 
-  test('runtime conversations change instructions only during a live user turn', async () => {
-    const refusedTurns: ConversationTurn[] = [
-      { key: 'turn-1', origin: 'trigger' },
-      { origin: 'user' },
-      {},
-    ]
+  test('runtime conversations change instructions only during a live turn', async () => {
+    conversationTurn = {}
+    expect((await app.request('/')).status).toBe(200)
+    const refused = await create({ scope: 'personal', title: 't', content: 'x' })
 
-    for (const turn of refusedTurns) {
-      conversationTurn = turn
-      expect((await app.request('/')).status).toBe(200)
-      const refused = await create({ scope: 'personal', title: 't', content: 'x' })
-
-      expect(refused.status).toBe(403)
-      expect(((await refused.json()) as { error: { code: string } }).error.code).toBe(
-        'instructions_user_conversation_required',
-      )
-    }
+    expect(refused.status).toBe(403)
+    expect(((await refused.json()) as { error: { code: string } }).error.code).toBe(
+      'instructions_active_turn_required',
+    )
     expect(collection.docs).toHaveLength(0)
 
-    conversationTurn = { key: 'turn-4', origin: 'user' }
+    // What woke the turn does not matter, only that one is live.
+    conversationTurn = { key: 'turn-1' }
     expect((await create({ scope: 'personal', title: 't', content: 'x' })).status).toBe(201)
   })
 })

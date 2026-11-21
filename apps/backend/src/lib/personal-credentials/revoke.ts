@@ -35,8 +35,8 @@ export function revokeQuietly(doc: PersonalCredential): Promise<void> {
 }
 
 /**
- * Removes one of a member's connections. Google accounts are per team and a member may hold
- * several, so removing one names the team and, when there is more than one, the connection.
+ * Removes one of a member's connections. A member may hold several accounts of a provider, so
+ * removing one names the connection when there is more than one. Google accounts are per team.
  */
 export async function deletePersonalCredential(
   userId: string,
@@ -54,11 +54,7 @@ export async function deletePersonalCredential(
     ...(connectionId ? { _id: ObjectId.createFromHexString(connectionId) } : {}),
   }
 
-  if (
-    !connectionId &&
-    isGoogleProvider(provider) &&
-    (await personalCredentials().countDocuments(filter)) > 1
-  ) {
+  if (!connectionId && (await personalCredentials().countDocuments(filter)) > 1) {
     throw new AppError(
       409,
       'personal_credential_account_required',

@@ -1,0 +1,36 @@
+name: Release failure alert
+
+# Nobody watches a release run to the end, so a failed, cancelled or timed-out one
+# is posted to the maintainers. Successful runs post nothing.
+
+on:
+  workflow_run:
+    workflows:
+      - Release Backend Image
+      - Release Desktop
+      - Release iOS
+      - Release CLI
+      - Android release artifacts
+      - Release runtime
+      - Build runtime image
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  report:
+    if: contains(fromJSON('["failure","cancelled","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    steps:
+      # The nightly macOS package failure webhook also receives release failures;
+      # `kind` tells the two apart.
+      - env:
+          WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+          RUN: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          COMMIT: ${{ github.event.workflow_run.head_sha }}
+          EVENT: ${{ github.event.workflow_run.event }}
+        run: >-
+          jq -n '{kind:"release",workflow:env.WORKFLOW,run:env.RUN,conclusion:env.CONCLUSION,commit:env.COMMIT,event:env.EVENT}'
+          | curl -fsS -X POST "$WEBHOOK" -H 'content-type: application/json' -d @-

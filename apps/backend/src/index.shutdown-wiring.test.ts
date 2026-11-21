@@ -175,6 +175,7 @@ test('loops stop before the drain and storage closes right before exit', () => {
     'shutdownStuckTurnProbe()',
     'stopBotImportCleanup()',
     'stopFreeBoxSweep()',
+    'stopWebhookDelivery()',
     'shutdownJournalSealer()',
     'quiesceAgentWorkers()',
   ]) {

@@ -244,6 +244,10 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
     instaboxAccountIds: normalizeOptionalObjectIdList(raw.instaboxAccountIds, 'instaboxAccountIds'),
     teamIdentity: normalizeProviders(raw, 'teamIdentity', ['github', 'linear'] as const),
     personalCredentialIds: normalizeProviders(raw, 'personalCredentialIds', PERSONAL_PROVIDERS),
+    personalConnectionIds: normalizeOptionalObjectIdList(
+      raw.personalConnectionIds,
+      'personalConnectionIds',
+    ),
   }
 }
 
@@ -266,20 +270,13 @@ function normalizeOptionalStringList(value: unknown, field: string): string[] | 
 }
 
 function normalizeObjectIdList(value: unknown, field: string): string[] {
-  if (value == null) return []
-  if (!Array.isArray(value)) {
-    throw new AppError(400, 'invalid_request', `${field} must be an array`)
-  }
-  const ids = new Set<string>()
+  const ids = normalizeStringList(value, field)
 
-  for (const item of value) {
-    if (typeof item !== 'string' || !/^[a-f0-9]{24}$/i.test(item)) {
-      throw new AppError(400, 'invalid_request', `${field} contains an invalid ObjectId`)
-    }
-    ids.add(item)
+  if (!ids.every((id) => /^[a-f0-9]{24}$/i.test(id))) {
+    throw new AppError(400, 'invalid_request', `${field} contains an invalid ObjectId`)
   }
 
-  return [...ids]
+  return ids
 }
 
 function normalizeStringList(value: unknown, field: string): string[] {

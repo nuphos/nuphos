@@ -991,5 +991,18 @@
   "GET /trello-app/setup": "public",
   "POST /agent-sessions/:sessionId/teams/:teamId/trello-integrations/:integrationId/execute": "user",
   "POST /teams/:teamId/trello-integrations/start-oauth": "admin",
-  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member"
+  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member",
+  "DELETE /teams/:teamId/webhooks/:id": "admin",
+  "GET /teams/:teamId/webhooks": "admin",
+  "PATCH /teams/:teamId/webhooks/:id": "admin",
+  "POST /teams/:teamId/webhooks": "admin",
+  "POST /teams/:teamId/webhooks/:id/test": "admin",
+  "DELETE /vault/devices/:id": "user",
+  "DELETE /vault/items/:name": "user",
+  "GET /vault/devices": "user",
+  "GET /vault/items": "user",
+  "GET /vault/items/:name": "user",
+  "POST /vault/devices": "user",
+  "POST /vault/devices/:id/approve": "user",
+  "PUT /vault/items/:name": "user"
 }

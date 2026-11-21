@@ -11,7 +11,7 @@ import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { DESKTOP_DIR, startSecondComputer } from './second-computer.ts'
 import { proxyTo } from './tcp-proxy.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -85,8 +85,7 @@ async function newTaskOn(page: Page, label: string) {
   await newTask(page)
   // The computer's row opens its runtimes, named by agent alone.
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText(label).click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+  await pickInRow(page, label, /^Claude Code/)
 }
 
 /** Lines the backend logged about this computer since `from`. */

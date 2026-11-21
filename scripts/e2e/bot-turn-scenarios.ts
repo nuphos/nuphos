@@ -4,7 +4,7 @@ import { agentEvents, agentLog } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
-import { openBotTask, pickInSubmenu, send, setBotDetails } from './ui.ts'
+import { openBotTask, pickInRow, send, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -65,11 +65,7 @@ export const botTurnScenarios: Scenario[] = [
       if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
       // The refused turn stays with the Bot and would ride along with its next turn, so the
       // Bot moves on from this list and the turn runs once on the second agent. It stays there.
-      await lists.getByText('E2E second agent').click()
-      await pickInSubmenu(
-        page,
-        page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }),
-      )
+      await pickInRow(page, 'E2E second agent', /^E2E second agent.*Claude Code/)
       await until('the refused turn to finish on the second agent', async () =>
         agentLog(stack).some(
           (entry) =>
