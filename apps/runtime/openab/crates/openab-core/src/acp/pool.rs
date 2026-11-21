@@ -624,6 +624,9 @@ impl SessionPool {
             .creating
             .get(thread_id)
             .is_some_and(|gate| gate.try_lock().is_err());
+        if loading && std::env::var_os("E2E_4302_TRACE").is_some() {
+            info!(thread_id = %thread_id, active = state.active.contains_key(thread_id), "e2e4302 loading snapshot");
+        }
         match state.activity.get(thread_id) {
             Some(activity) => {
                 let mut snapshot = activity.execution.snapshot();
@@ -1066,6 +1069,7 @@ impl SessionPool {
                 thread_id = %thread_id,
                 existing = existing.is_some(),
                 saved = saved_session_id.is_some(),
+                restore_only,
                 "e2e4302 gate acquired"
             );
         }

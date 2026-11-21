@@ -125,6 +125,15 @@ const scenarios: Scenario[] = [
       const loads = () =>
         agentLog(stack).filter((entry) => entry.event === 'load-start' && entry.sessionId === botSession).length
       const loadingBefore = loads()
+      const listed = await fetch(`${stack.apiUrl}/agent/conversations?teamId=${stack.teamId}`, {
+        headers: { authorization: `Bearer ${stack.token}` },
+      })
+      if (!listed.ok) throw new Error(`E2E_4302: list answered ${String(listed.status)}`)
+      const { conversations } = (await listed.json()) as {
+        conversations: { title?: string; avatar?: unknown; sessionId: string }[]
+      }
+      const bot = conversations.find((conversation) => conversation.title === 'E2E Bot' && conversation.avatar)
+      if (!bot) throw new Error('E2E_4302: Bot conversation not found')
       const release = stack.holdSessionOpening()
       const restored = 'E2E_DELIVERY:observe-restore'
       const live = 'E2E_DELIVERY:observe-live'
@@ -137,7 +146,16 @@ const scenarios: Scenario[] = [
         await until('the fixture to start loading', async () =>
           loads() > loadingBefore,
         )
-        console.log(`E2E_4302: ${new Date().toISOString()} load-start observed; releasing held session/load`)
+        const response = await fetch(
+          `${stack.apiUrl}/agent/conversations/${bot.sessionId}?teamId=${stack.teamId}&messages=omit`,
+          { headers: { authorization: `Bearer ${stack.token}` } },
+        )
+        if (!response.ok) throw new Error(`E2E_4302: state answered ${String(response.status)}`)
+        const { runtimeState } = (await response.json()) as {
+          runtimeState: { state?: string; phase?: string; operation?: string; actions?: { send?: boolean } }
+        }
+        console.log(`E2E_4302: ${new Date().toISOString()} held state ${JSON.stringify(runtimeState)}`)
+        console.log(`E2E_4302: ${new Date().toISOString()} releasing held session/load`)
       } finally {
         release()
       }
