@@ -186,7 +186,12 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
 
   if (provider === 'github' || provider === 'linear') {
     const claims = await ownerClaims(authorization, provider)
-    const personal = await personalOwnToken(claims.own, provider)
+    const personal = await personalOwnToken(
+      claims.own,
+      provider,
+      c.req.query('connectionId'),
+      claims.connectionIds,
+    )
 
     if (!personal) throw notConnected(NAMES[provider])
     // In the shape each skill's setup script already reads for the team handout.
