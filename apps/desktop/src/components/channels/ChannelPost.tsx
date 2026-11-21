@@ -59,7 +59,7 @@ export function ChannelMessage({
   links: Links
   onOpenSession: (sessionId: string) => void
   /** Right-click: the post's menu, unless text is selected to copy. */
-  onMenu?: (event: ReactMouseEvent) => void
+  onMenu?: (event: ReactMouseEvent) => boolean
   /** Replies to the post from the button beside it on hover; absent where the viewer cannot. */
   onReply?: () => void
   /** The last post of an answer given in the Inbox: it says so beneath. */
@@ -107,9 +107,12 @@ export function ChannelMessage({
     'data-post-id': message.id,
     title: exactTime(at),
     onContextMenu: (event: ReactMouseEvent) => {
-      if (!onMenu || !window.getSelection()?.isCollapsed) return
-      event.preventDefault()
-      onMenu(event)
+      if (
+        !window.getSelection()?.isCollapsed ||
+        !event.currentTarget.contains(event.target as Node)
+      )
+        return
+      if (onMenu?.(event)) event.preventDefault()
     },
   }
 

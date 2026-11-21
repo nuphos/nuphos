@@ -26,7 +26,7 @@ function ToastList() {
   const { toasts } = Toast.useToastManager()
 
   return (
-    <Toast.Viewport className="fixed bottom-4 right-4 z-[2000] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none">
+    <Toast.Viewport className="fixed bottom-4 right-4 z-[2000] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2 outline-none [body:has([data-image-lightbox])_&]:bottom-14">
       {toasts.map((item) => {
         const type: ToastType =
           (item.type as ToastType) in TONES ? (item.type as ToastType) : 'info'

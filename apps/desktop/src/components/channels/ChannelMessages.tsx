@@ -1,7 +1,8 @@
-import { CornerUpLeft, Pause } from 'lucide-react'
+import { Copy, CornerUpLeft, Pause } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
+import { copyTransferImage } from '../agent/panel/copyTransferImage'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
@@ -21,6 +22,7 @@ import type {
   ChannelAgent,
 } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
+import type { ContextMenuItem } from '../ContextMenu'
 import type { ReactNode } from 'react'
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
@@ -53,6 +55,33 @@ export type TimelineRow = { at: number; key: string; node: ReactNode }
 const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
 const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
+
+function copyImageAction(
+  target: EventTarget,
+  teamId: string,
+  channelId: string,
+): ContextMenuItem | undefined {
+  if (!(target instanceof Element)) return
+  const thumbnail = target.closest<HTMLElement>('[data-transfer-file-id]')
+
+  if (!thumbnail) return
+  const {
+    transferGroupId: groupId,
+    transferFileId: fileId,
+    transferContentType: contentType,
+  } = thumbnail.dataset
+
+  if (!groupId || !fileId) return
+  const fileName = thumbnail.querySelector('img')?.alt ?? ''
+
+  return {
+    key: 'copy-image',
+    label: t('Copy image'),
+    icon: Copy,
+    onSelect: () =>
+      copyTransferImage({ teamId, channelId, groupId, fileId, fileName, contentType }),
+  }
+}
 
 export function ChannelMessages({
   botId,
@@ -102,7 +131,7 @@ export function ChannelMessages({
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
   )
   const [openedAt] = useState(Date.now)
-  const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
+  const [menu, setMenu] = useState<{ items: ContextMenuItem[]; x: number; y: number } | null>(null)
   const lastEvent = events.at(-1)
   const lastPostAt = Math.max(0, ...messages.map(postedAt))
   // Posts and timeline lines in the order they happened.
@@ -133,14 +162,29 @@ export function ChannelMessages({
               links={links}
               onOpenSession={onOpenSession}
               answeredInInbox={endsInboxAnswer(messages, i)}
-              onMenu={
-                onReply &&
-                ((event) => {
+              onMenu={(event) => {
+                const items: ContextMenuItem[] = []
+
+                if (onReply) {
                   const reply = replyTo(message)
 
-                  if (reply) setMenu({ reply, x: event.clientX, y: event.clientY })
-                })
-              }
+                  if (reply)
+                    items.push({
+                      key: 'reply',
+                      label: t('Reply'),
+                      icon: CornerUpLeft,
+                      onSelect: () => onReply(reply),
+                    })
+                }
+
+                const copy = copyImageAction(event.target, teamId, channelId)
+
+                if (copy) items.push(copy)
+                if (!items.length) return false
+                setMenu({ items, x: event.clientX, y: event.clientY })
+
+                return true
+              }}
               onReply={
                 onReply &&
                 (() => {
@@ -184,20 +228,8 @@ export function ChannelMessages({
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
       <Typing agents={agents} channelId={channelId} botId={botId} />
-      {menu && onReply && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            {
-              key: 'reply',
-              label: t('Reply'),
-              icon: CornerUpLeft,
-              onSelect: () => onReply(menu.reply),
-            },
-          ]}
-        />
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menu.items} />
       )}
     </div>
   )

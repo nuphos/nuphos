@@ -88,6 +88,7 @@ export const databasesApi = {
     teamId: string
     groupId: string
     fileId: string
+    channelId?: string
     maxBytes: number
   }) => ipcRenderer.invoke('fileTransfer:readOne', args),
   fileTransferRevealInFolder: (path: string) =>
