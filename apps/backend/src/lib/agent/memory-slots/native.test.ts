@@ -320,14 +320,10 @@ const makeObserver = (): { observer: MemoryObserver; events: ObservedEvents } =>
   }
 }
 
-const toolCtx = (
-  observer: MemoryObserver,
-  origin: MemoryToolContext['origin'] = 'user',
-): MemoryToolContext => ({
+const toolCtx = (observer: MemoryObserver): MemoryToolContext => ({
   userId: USER,
   teamId: TEAM,
   conversationId: CONV,
-  origin,
   observer,
   getActivePlanId: async () => null,
 })
