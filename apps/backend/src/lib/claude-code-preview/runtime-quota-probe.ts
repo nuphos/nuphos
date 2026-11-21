@@ -113,7 +113,10 @@ async function lookup() {
       return { error: 'Sign in required' };
     } else {
       token = oauth.accessToken;
-      if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
+      // Max 20x is now called Ultra, but Claude Code still stores "max" for it; only the
+      // rate limit tier tells it from Max 5x (as Desktop's agent-cli.ts reads it).
+      if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType)
+        plan = oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x' ? 'ultra' : oauth.subscriptionType;
     }
     const config = await read(join(homedir(), '.claude.json'));
     // One login can sit in several organizations, each with its own plan.
