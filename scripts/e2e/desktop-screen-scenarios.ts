@@ -48,6 +48,22 @@ async function painted(page: Page) {
   })
 }
 
+/**
+ * The colour bars, not a blank or transparent canvas (about 1000 samples, 8 bars), with nothing
+ * over them: the viewer draws its connecting text over the first frames until it is connected.
+ */
+async function shown(page: Page, what: string) {
+  const connecting = page
+    .getByRole('status')
+    .filter({ hasText: /Connecting to the desktop|Reconnecting/u })
+
+  await until(what, async () => {
+    const { opaque, colours } = await painted(page)
+
+    return opaque > 500 && colours >= 6 && (await connecting.count()) === 0
+  })
+}
+
 async function openDesktop(page: Page, label: string) {
   await openComputers(page)
   await page.getByRole('button', { name: `Manage ${label}` }).click()
@@ -56,12 +72,7 @@ async function openDesktop(page: Page, label: string) {
 
 async function openScreen(page: Page, hostLog: string, round: string) {
   await openDesktop(page, LABEL)
-  // The colour bars, not a blank or transparent canvas: about 1000 samples, 8 bars.
-  await until(`the screen to paint (${round})`, async () => {
-    const { opaque, colours } = await painted(page)
-
-    return opaque > 500 && colours >= 6
-  })
+  await shown(page, `the screen to paint (${round})`)
   await page.screenshot({ path: join(artifacts, `desktop-screen-${round}.png`) })
   // Input reaches the computer once the viewer takes it over.
   const pointers = () =>
@@ -201,11 +212,7 @@ export const desktopScreenScenarios: Scenario[] = [
           managerIds: [manager.id],
         })
         await openDesktop(page, BOX_LABEL)
-        await until('the Box’s desktop to paint', async () => {
-          const { opaque, colours } = await painted(page)
-
-          return opaque > 500 && colours >= 6
-        })
+        await shown(page, 'the Box’s desktop to paint')
         await page.screenshot({ path: join(artifacts, 'desktop-screen-box.png') })
         await page.getByRole('button', { name: /^Close tab Desktop/u }).click()
 
