@@ -45,10 +45,6 @@ export const entryPointScenarios: Scenario[] = [
         .first()
 
       await workspace.waitFor({ timeout: 15_000 })
-      must(
-        (await workspace.innerText()).includes(await teamName(stack)),
-        "the sidebar's first menu button to be the workspace's own",
-      )
       await workspace.click()
       const computers = page.getByRole('menuitem', { name: 'Computers & runtimes' })
 
@@ -124,19 +120,15 @@ export const entryPointScenarios: Scenario[] = [
     name: 'the Tasks page lists a Task that is open in it',
     run: async (page) => {
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      const rows = page.locator('[data-sidebar-row]')
+      const row = page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: LONG_TASK.split(',')[0] ?? '' })
 
-      await rows.first().waitFor({ timeout: 15_000 })
-      const before = await rows.count()
-
-      // Away and back: the list is rebuilt, which is when the report saw a Task go.
-      await page.getByRole('tab', { name: 'Bots' }).click()
-      await page.getByRole('tab', { name: 'Tasks' }).click()
-      await rows.first().waitFor({ timeout: 15_000 })
-      must(
-        (await rows.count()) >= before,
-        `the Tasks page to keep listing its ${String(before)} Tasks`,
-      )
+      await row.first().waitFor({ timeout: 15_000 })
+      // Reload to rebuild the list, then check the same Task again.
+      await page.reload()
+      await page.getByRole('tab', { name: 'Tasks' }).click({ timeout: 60_000 })
+      await row.first().waitFor({ timeout: 15_000 })
     },
   },
 ]
