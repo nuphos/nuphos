@@ -28,6 +28,7 @@ import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
+import { newGroupChatScenarios } from './new-group-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
@@ -59,6 +60,7 @@ import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
 import { stepUpScenarios } from './step-up-scenarios.ts'
+import { twoFactorResumeScenarios } from './two-factor-resume-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -69,6 +71,7 @@ import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
+import { webhookSecretScenarios } from './webhook-secret-scenarios.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
@@ -132,6 +135,7 @@ const scenarios: Scenario[] = [
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
   ...leaveChatScenarios,
+  ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
   {
     name: 'start a Task, send a message and read the reply',
@@ -154,11 +158,13 @@ const scenarios: Scenario[] = [
   ...questionScenarios,
   ...triggerScenarios,
   ...botTriggerRowScenarios,
+  ...webhookSecretScenarios,
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
   // Turns two-factor authentication on for this account, and off again.
   ...stepUpScenarios,
+  ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,

@@ -37,3 +37,21 @@ test('a quote of one long unbroken line wraps and clamps inside its box, in ever
     assert.match(markup, new RegExp(csvHeader))
   }
 })
+
+test('a quoted Markdown link reads as its label, not its source', () => {
+  for (const mine of [true, false]) {
+    const markup = renderToStaticMarkup(
+      <ReplyQuote
+        reply={{
+          id: 'm2',
+          authorName: 'Account Manager',
+          text: "Handed off to [Rin's Task](https://example.com/teams/abc123/agent/0f3c9e7a-1b2c-4d5e-8f90-123456789abc)",
+        }}
+        mine={mine}
+      />,
+    )
+
+    assert.match(markup, /Handed off to Rin&#x27;s Task/)
+    assert.doesNotMatch(markup, /example\.com|\]\(/, `no link source (mine=${String(mine)})`)
+  }
+})
