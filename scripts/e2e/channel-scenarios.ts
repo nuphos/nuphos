@@ -16,10 +16,9 @@ import {
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -34,10 +33,6 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
-
-/** A post in the open chat's transcript. A sidebar row can preview the same words. */
-const transcriptPost = (page: Page, text: string) =>
-  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
