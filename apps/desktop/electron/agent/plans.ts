@@ -112,20 +112,3 @@ export async function getPlan(planId: string, teamId?: string): Promise<Plan> {
   return callJson<Plan>('GET', `/agent/plans/${encodeURIComponent(planId)}${teamQuery(teamId)}`)
 }
 
-export async function getPlanApprovalPolicy(teamId: string): Promise<PlanApprovalRequirement> {
-  return callJson<PlanApprovalRequirement>(
-    'GET',
-    `/agent/plan-approval-policy?teamId=${encodeURIComponent(teamId)}`,
-  )
-}
-
-export async function updatePlanApprovalPolicy(
-  teamId: string,
-  minimumOtherApprovals: number,
-): Promise<PlanApprovalRequirement> {
-  return callJson<PlanApprovalRequirement>('PUT', '/agent/plan-approval-policy', {
-    teamId,
-    requesterApprovalRequired: true,
-    minimumOtherApprovals,
-  })
-}
