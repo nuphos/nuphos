@@ -865,7 +865,10 @@ final class AgentStore {
         session.me = me
         session.userId = userId
         recentSessions.insert(session, at: 0)
-        if recentSessions.count > 20 { recentSessions.removeLast() }
+        // A session still streaming stays, or reopening it would build a second one following the same run.
+        if recentSessions.count > 20, let oldest = recentSessions.lastIndex(where: { !$0.streaming }) {
+            recentSessions.remove(at: oldest)
+        }
         Task { await session.load() }
         return session
     }

@@ -365,6 +365,9 @@ final class ChatSession {
     /// Loads the tail of an existing conversation; if a reply is still
     /// running on the server, attaches to it.
     func load() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
         do {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
@@ -414,19 +417,23 @@ final class ChatSession {
             Task { await refreshResourcesAndDownloads() }
             if isNativeRuntime, !transportStreaming { Task { await refreshSessionConfig() } }
         } catch {
+            // A failed reread keeps the transcript already shown.
+            guard !loaded else { return }
             loadError = error.localizedDescription
             loaded = true
         }
     }
 
-    private var revalidating = false
+    /// One read at a time: a second one would replay the same run again.
+    private var loading = false
 
-    /// A reopened chat keeps showing what it has while this reads it again.
-    /// A turn this device started is still streaming into it, so it is left alone.
+    /// A turn this device started is still streaming into this session.
+    var streaming: Bool { streamTask != nil || submitting }
+
+    /// A reopened chat keeps showing what it has while this reads it again,
+    /// unless its own turn is still streaming into it.
     func revalidate() async {
-        guard !revalidating, streamTask == nil, !submitting else { return }
-        revalidating = true
-        defer { revalidating = false }
+        guard !streaming else { return }
         await load()
     }
 
