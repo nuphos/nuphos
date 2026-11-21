@@ -1,5 +1,5 @@
 import { Inbox } from 'lucide-react'
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { EmptyState } from '../components/EmptyState'
 import { toast } from '../components/ui/toast'
@@ -8,7 +8,9 @@ import { t } from '../i18n'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
-import { openQuestion } from './inbox/inboxItems'
+import { dismissQuestions } from './inbox/dismissAll'
+import { DismissAllButton } from './inbox/DismissAllButton'
+import { openQuestion, shownQuestions } from './inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
 import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
@@ -28,11 +30,21 @@ type Props = {
   onOpenConversation: (sessionId: string) => void
 }
 
+/** Dismisses `questions` at once, as a single Dismiss is. Those refused come back in the list, and a toast counts them. */
+function dismissAll(teamId: string, questions: readonly InboxQuestion[]) {
+  dismissQuestions(teamId, questions, ({ failed, reason }) => {
+    if (failed.length === 1) toast.error(t('Could not dismiss question'), reason)
+    else if (failed.length > 1)
+      toast.error(t('Could not dismiss {n} questions', { n: failed.length }))
+  })
+}
+
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
  * Answering or dismissing it opens the next and wakes the agent that asked at once.
- * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
+ * Snooze sets it aside until a time, and "Dismiss all" dismisses every question shown.
+ * ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -43,18 +55,14 @@ export function InboxView({
   onOpenConversation,
 }: Props) {
   const { isActive } = useWorkspaceTab()
+  const [confirming, setConfirming] = useState(false)
+  // Keys rest while "Dismiss all" asks first.
+  const keys = isActive && !confirming
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
   // An invite is only announced, never listed.
   const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
-  const needle = query.trim().toLowerCase()
-  const rows = all?.filter(
-    ({ conversation, request }) =>
-      !needle ||
-      [request.question, request.body, conversation.title].some((text) =>
-        text?.toLowerCase().includes(needle),
-      ),
-  )
+  const rows = all ? shownQuestions(all, query) : undefined
   const open = rows ? openQuestion(rows, selected) : undefined
   const openId = open?.request.id
   const at = open && rows ? rows.indexOf(open) : -1
@@ -75,7 +83,7 @@ export function InboxView({
 
   // ↑ and ↓ open the question above or below, unless a field has the caret.
   useEffect(() => {
-    if (!isActive || !rows) return
+    if (!keys || !rows) return
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
 
@@ -94,7 +102,7 @@ export function InboxView({
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isActive, rows, at, move])
+  }, [keys, rows, at, move])
 
   const answer = (row: InboxQuestion, reply: InboxReply) => {
     // The answered question leaves the list, and the one that takes its place opens.
@@ -113,6 +121,13 @@ export function InboxView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <DismissAllButton
+        questions={rows}
+        active={isActive}
+        confirming={confirming}
+        onConfirming={setConfirming}
+        onConfirm={(questions) => dismissAll(teamId, questions)}
+      />
       <ChannelMentions
         mentions={mentions}
         onOpen={(sessionId) =>
@@ -135,7 +150,7 @@ export function InboxView({
           conversation={open.conversation}
           bot={open.bot}
           request={open.request}
-          keys={isActive}
+          keys={keys}
           onAnswer={(reply) => answer(open, reply)}
           onSnooze={(until) => {
             // The snoozed question leaves the list, and its neighbour opens, as after an answer.
