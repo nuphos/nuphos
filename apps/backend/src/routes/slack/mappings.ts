@@ -25,12 +25,17 @@ import { normalizeSlackId, requireTeamAdmin, serializeMapping } from '@/routes/s
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
 
-export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVariables }>): void {
-  slackRoutes.use('/mappings', requireAuth)
-  slackRoutes.use('/mappings/*', requireAuth)
+export function registerSlackMappingRoutes(
+  slackRoutes: Hono<{ Variables: AuthVariables }>,
+  teamScoped = false,
+): void {
+  if (!teamScoped) {
+    slackRoutes.use('/mappings', requireAuth)
+    slackRoutes.use('/mappings/*', requireAuth)
+  }
 
   slackRoutes.get('/mappings', async (c) => {
-    const teamId = await resolveVerifiedTeamId(c, c.req.query('teamId'))
+    const teamId = await resolveVerifiedTeamId(c, c.req.param('teamId') ?? c.req.query('teamId'))
 
     if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
     const mappings = await listSlackChannelMappings(teamId)
@@ -125,7 +130,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
     const body = await c.req.json()
     const teamId = await resolveVerifiedTeamId(
       c,
-      typeof body.teamId === 'string' ? body.teamId : undefined,
+      c.req.param('teamId') ?? (typeof body.teamId === 'string' ? body.teamId : undefined),
     )
 
     if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
@@ -202,7 +207,7 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
   })
 
   slackRoutes.delete('/mappings/:workspaceId/:channelId', async (c) => {
-    const teamId = await resolveVerifiedTeamId(c, c.req.query('teamId'))
+    const teamId = await resolveVerifiedTeamId(c, c.req.param('teamId') ?? c.req.query('teamId'))
 
     if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
     await requireTeamAdmin(c, teamId)
@@ -221,7 +226,10 @@ export function registerSlackMappingRoutes(slackRoutes: Hono<{ Variables: AuthVa
 
 /** The connected channel the path names, in a team the caller is in: its hidden record. */
 async function connectedChannel(c: Context<{ Variables: AuthVariables }>, team: unknown) {
-  const teamId = await resolveVerifiedTeamId(c, typeof team === 'string' ? team : undefined)
+  const teamId = await resolveVerifiedTeamId(
+    c,
+    c.req.param('teamId') ?? (typeof team === 'string' ? team : undefined),
+  )
 
   if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
   const mapping = await getSlackChannelMapping(
