@@ -471,7 +471,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        part: ['1', '2', standalone]
+        part: ['2']
+        rep: [a, b, c]
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     # Not in the merge queue: each PR already passed it, and one flaky run there ejects
@@ -604,7 +605,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: e2e${{ matrix.part != '1' && format('-{0}', matrix.part) || '' }}
+          name: e2e-${{ matrix.part }}-${{ matrix.rep }}
           path: |
             ${{ runner.temp }}/e2e
             !${{ runner.temp }}/e2e/mongo

@@ -220,7 +220,7 @@ const selected =
   shard === '1'
     ? scenarios
     : shard === '2'
-      ? [...signInScenarios, ...later]
+      ? [...signInScenarios, ...computerScenarios]
       : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
