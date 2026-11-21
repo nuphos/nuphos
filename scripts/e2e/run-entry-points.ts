@@ -2,7 +2,7 @@
 // own. Unlike `run.ts`, one failure does not end the run: a removed way in should
 // name itself in the report, and so should the four that are still there.
 import { startDesktop } from './desktop.ts'
-import { entryPointScenarios, LONG_TASK } from './entry-point-scenarios.ts'
+import { entryPointScenarios, LONG_TASK, MORE_TASK } from './entry-point-scenarios.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { startStack } from './stack.ts'
 import { send } from './ui.ts'
@@ -39,6 +39,10 @@ try {
   await page.getByRole('button', { name: 'New task', exact: true }).click()
   await send(page, `${LONG_TASK} E2E_DELIVERY:entry`)
   await page.getByText('ACK E2E_DELIVERY:entry').waitFor()
+  // The More scenario uses its own row, independent of the Task list check.
+  await page.getByRole('button', { name: 'New task', exact: true }).click()
+  await send(page, `${MORE_TASK} E2E_DELIVERY:more`)
+  await page.getByText('ACK E2E_DELIVERY:more').waitFor()
 
   const failures: string[] = []
 

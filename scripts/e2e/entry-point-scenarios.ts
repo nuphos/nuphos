@@ -30,6 +30,7 @@ async function teamName(stack: Stack) {
 
 /** The Task whose row these scenarios read. Long, so its title is clipped. */
 export const LONG_TASK = 'Entry points into the product, read from the sidebar'
+export const MORE_TASK = 'More actions in the sidebar, checked with a scrolling title'
 
 export const entryPointScenarios: Scenario[] = [
   {
@@ -100,7 +101,7 @@ export const entryPointScenarios: Scenario[] = [
       // The row's title is clipped, so only its first words are in the DOM.
       const row = page
         .locator('[data-sidebar-row]')
-        .filter({ hasText: LONG_TASK.split(',')[0] ?? '' })
+        .filter({ hasText: MORE_TASK.split(',')[0] ?? '' })
         .first()
 
       await row.waitFor({ timeout: 15_000 })
