@@ -44,6 +44,7 @@ import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalAccountScenarios } from './personal-accounts-scenarios.ts'
 import { personalConnectScenarios } from './personal-connect-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -153,6 +154,7 @@ const scenarios: Scenario[] = [
   ...voiceScenarios,
   ...personalCredentialScenarios,
   ...personalConnectScenarios,
+  ...personalAccountScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
