@@ -272,7 +272,6 @@ teamScoped.route('/jira-sites', jiraSitesRoutes)
 teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
-
 teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
 teamScoped.route('/discord', discordAgentRoutes)
@@ -298,5 +297,4 @@ teamScoped.route('/monitoring', monitoringRoutes)
 teamScoped.route('/file-transfers', fileTransfersRoutes)
 teamScoped.route('/skills', teamSkillsRoutes)
 teamScoped.route('/database-connections', databaseConnectionsRoutes)
-
 teamsRoutes.route('/:teamId', teamScoped)
