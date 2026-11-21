@@ -1,5 +1,6 @@
 // A Task's turn: Stop while it runs or starts, and the questions its agent asks.
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
+import { client } from './binding-access-scenarios.ts'
 import { checkDecisionOutline } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -27,6 +28,87 @@ export const turnScenarios: Scenario[] = [
         events.indexOf('cancelled E2E_DELIVERY:held') > events.indexOf('start E2E_DELIVERY:queued')
       ) {
         throw new Error(`The queued message ran before the turn was stopped: ${events.join(', ')}`)
+      }
+    },
+  },
+  {
+    // #4371: a parent ran one turn per Task that reported while it worked, so Stop kept waking it.
+    name: 'Tasks that report while their parent works are answered in one turn after Stop',
+    run: async (page, stack) => {
+      const names = ['a', 'b', 'c']
+      const report = (name: string) =>
+        JSON.stringify({
+          label: 'Report',
+          report_id: `e2e-${name}`,
+          status: 'done',
+          summary: `Done E2E_DELIVERY:report-${name}`,
+        })
+      const delegate = (name: string) =>
+        `E2E_CALL create_thread ${JSON.stringify({
+          label: 'Delegate',
+          title: `E2E reporter ${name}`,
+          prompt: `Report E2E_CALL report_task ${report(name)} E2E_DELIVERY:reporter-${name}`,
+        })}`
+      const reported = () =>
+        agentLog(stack).filter((entry) => entry.event === 'called' && entry.name === 'report_task')
+
+      await newTask(page)
+      // The first message names the Task, and a Task's prompt carries its parent's name.
+      await send(page, 'Collect reports E2E_DELIVERY:collect')
+      await page.getByText('ACK E2E_DELIVERY:collect').waitFor()
+      // One E2E_CALL per line, in one message.
+      await page
+        .getByRole('textbox', { name: 'Message' })
+        .fill([...names.map(delegate), 'Wait for them E2E_HOLD E2E_DELIVERY:collecting'].join('\n'))
+      await page.keyboard.press('Enter')
+      await until('every Task to report while its parent works', async () =>
+        reported().length >= names.length ? true : undefined,
+      )
+      const parent = agentLog(stack).find((entry) => entry.marker === 'E2E_DELIVERY:collecting')
+      const turns = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.sessionId === parent?.sessionId &&
+            entry.event === 'start' &&
+            names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)) &&
+            entry.marker !== 'E2E_DELIVERY:collecting',
+        )
+
+      await page.locator('button[title="Stop"]').click()
+      await page.getByText('Turn stopped').waitFor()
+      await until('the parent to answer the reports', async () =>
+        turns().length > 0 ? true : undefined,
+      )
+      // Long enough for a second turn to start, were the reports still run one at a time.
+      await page.waitForTimeout(5_000)
+      const started = turns()
+
+      if (
+        started.length !== 1 ||
+        !names.every((name) => started[0]!.markers?.includes(`E2E_DELIVERY:report-${name}`))
+      ) {
+        throw new Error(`The reports did not run in one turn: ${JSON.stringify(started)}`)
+      }
+      // Each report keeps its own Task as its sender.
+      const read = await client(stack.apiUrl, stack.token)(
+        'GET',
+        `/agent/conversations/${parent!.sessionId}?teamId=${stack.teamId}`,
+      )
+
+      for (const name of names) {
+        const task = agentLog(stack).find(
+          (entry) => entry.marker === `E2E_DELIVERY:reporter-${name}`,
+        )?.sessionId
+        const message = (read.body as { messages: unknown[] }).messages
+          .map((entry) => JSON.stringify(entry))
+          .find(
+            (entry) =>
+              entry.includes(`E2E_DELIVERY:report-${name}`) && entry.includes('reported done'),
+          )
+
+        if (!task || !message?.match(new RegExp(`"sender":\\{[^}]*"id":"${task}"`))) {
+          throw new Error(`The report from ${name} lost its sender: ${message ?? 'missing'}`)
+        }
       }
     },
   },
