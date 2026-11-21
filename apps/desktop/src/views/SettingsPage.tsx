@@ -21,6 +21,7 @@ import type { ReactNode } from 'react'
 
 type Props = {
   onClose: () => void
+  onOpenConnectors?: () => void
   team: AtlasTeam | undefined
   user: UserInfo
   onUserUpdated: (user: UserInfo) => void
@@ -46,6 +47,7 @@ type Props = {
  */
 export function SettingsPage({
   onClose,
+  onOpenConnectors,
   team,
   user,
   onTeamUpdated,
@@ -127,6 +129,7 @@ export function SettingsPage({
                     onSignOut={onSignOut}
                     onOpenConversation={onOpenConversation}
                     onOpenSection={setSection}
+                    onOpenConnectors={onOpenConnectors}
                   />
                 </div>
               </HeaderEdge>

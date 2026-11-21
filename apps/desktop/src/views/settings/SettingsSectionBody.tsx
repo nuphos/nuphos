@@ -1,9 +1,11 @@
+import { Button } from '../../components/ui/button'
+import { t } from '../../i18n'
+
 import { GeneralSection } from './GeneralSection'
 import { InstructionsSection } from './InstructionsSection'
 import { LocalExecSection } from './LocalExecSection'
 import { LocalRuntimeSection } from './LocalRuntimeSection'
 import { LocalSetupSection } from './LocalSetupSection'
-import { PersonalCredentialsSection } from './PersonalCredentialsSection'
 import { AppearanceSection } from './personalSections'
 import { PrivacySection } from './PrivacySection'
 import { ProfileSection } from './ProfileSection'
@@ -23,6 +25,7 @@ type SectionProps = {
   onSignOut: () => void
   onOpenConversation?: (sessionId: string) => void
   onOpenSection?: (section: string) => void
+  onOpenConnectors?: () => void
 }
 
 const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
@@ -40,8 +43,14 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
-  'account.personalCredentials': ({ team, onOpenSection }) => (
-    <PersonalCredentialsSection team={team} onOpenSection={onOpenSection} />
+  'account.personalCredentials': ({ onOpenConnectors }) => (
+    <div className="space-y-4">
+      <h2 className="text-lg font-medium">{t('Personal Credentials')}</h2>
+      <p className="text-secondary">
+        {t('Connect your own accounts so your Bots and tasks act as you.')}
+      </p>
+      <Button onClick={onOpenConnectors}>{t('Connectors')}</Button>
+    </div>
   ),
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'account.mfa': ({ onSignOut }) => <TwoFactorSection onSignOut={onSignOut} />,

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 
 import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
+import { ConnectorHeaderContext } from '../../views/cloud/connector-header'
 import { TeamHomeView } from '../../views/CloudViews'
 import { ConnectorInfoView } from '../../views/ConnectorInfoView'
 import {
@@ -18,6 +19,7 @@ import type { ConnectorsDialogState } from './store/connectorsDialog'
 import type { WorkspaceController } from './useWorkspaceController'
 import type { ConnectorDetailRef } from '../../lib/appRoutes'
 import type { UserInfo } from '../../types'
+import type { ConnectorHeader } from '../../views/cloud/connector-header'
 import type { ConnectorInfoContext } from '../scopeContent/connectorInfoActions'
 
 const ignoreCount = () => {
@@ -46,6 +48,7 @@ function TeamConnectorsDialog({
 }) {
   const { connectorsDialog, workspaceActions, workspaceStore } = ws
   const open = connectorsDialog !== null
+  const [catalogHeader, setCatalogHeader] = useState<ConnectorHeader | null>(null)
   // The last open state keeps the panel's content on screen while it closes.
   const [shown, setShown] = useState<ConnectorsDialogState>(
     () => connectorsDialog ?? connectorsDialogFor(),
@@ -94,51 +97,55 @@ function TeamConnectorsDialog({
     <Modal
       open={open}
       onClose={close}
-      title={detail?.name ?? t('Connectors')}
-      // The body's own heading names it on screen; the title stays for screen readers.
-      titleHidden
+      title={detail?.name ?? catalogHeader?.title ?? t('Connectors')}
       width={920}
       fillHeight
       focusFirstControl={false}
       headerInset="wide"
-      headerDivider={false}
+      titleHidden
+      headerDivider="scroll"
+      scrollResetKey={detail ? JSON.stringify(detail) : (catalogHeader?.title ?? t('Connectors'))}
       headerLeading={
-        detail ? (
+        detail || catalogHeader?.back ? (
           <button
             type="button"
             aria-label={t('Back')}
-            onClick={() => setDetail(null)}
-            className="-ml-1.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
+            onClick={() => (detail ? setDetail(null) : catalogHeader?.back?.())}
+            className="relative top-0.5 -ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-state-hover hover:text-main"
           >
             <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         ) : undefined
       }
     >
-      {detail ? (
-        <ConnectorDetail
-          ws={ws}
-          user={user}
-          info={infoContext}
-          detail={detail}
-          onDetailChange={setDetail}
-          onOpenAgentChat={onOpenAgentChat}
-          onOpenSettingsSection={onOpenSettingsSection}
-        />
-      ) : (
-        <ConnectorsList
-          ws={ws}
-          info={infoContext}
-          filter={filter}
-          onFilterChange={setFilter}
-          addIntegrationOpen={shown.addIntegrationOpen}
-          onAddIntegrationOpenChange={(addIntegrationOpen) => updateDialog({ addIntegrationOpen })}
-          slackBindRequested={open && ws.slackBindRequested}
-          onOpenAgentChat={onOpenAgentChat}
-          onOpenSettingsSection={onOpenSettingsSection}
-          onOpenConnectorInfo={setDetail}
-        />
-      )}
+      <ConnectorHeaderContext.Provider value={setCatalogHeader}>
+        {detail ? (
+          <ConnectorDetail
+            ws={ws}
+            user={user}
+            info={infoContext}
+            detail={detail}
+            onDetailChange={setDetail}
+            onOpenAgentChat={onOpenAgentChat}
+            onOpenSettingsSection={onOpenSettingsSection}
+          />
+        ) : (
+          <ConnectorsList
+            ws={ws}
+            info={infoContext}
+            filter={filter}
+            onFilterChange={setFilter}
+            addIntegrationOpen={shown.addIntegrationOpen}
+            onAddIntegrationOpenChange={(addIntegrationOpen) =>
+              updateDialog({ addIntegrationOpen })
+            }
+            slackBindRequested={open && ws.slackBindRequested}
+            onOpenAgentChat={onOpenAgentChat}
+            onOpenSettingsSection={onOpenSettingsSection}
+            onOpenConnectorInfo={setDetail}
+          />
+        )}
+      </ConnectorHeaderContext.Provider>
     </Modal>
   )
 }

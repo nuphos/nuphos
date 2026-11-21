@@ -68,8 +68,12 @@ const CONNECTED_AS = t('Connected as {login}').split('{login}')
 export function PersonalCredentialsSection({
   team,
   onOpenSection,
+  provider: selectedProvider,
+  hideHeading = false,
 }: {
   team: AtlasTeam | undefined
+  hideHeading?: boolean
+  provider?: PersonalCredentialProvider
   /** Switch Settings to another section, e.g. Team settings for the Google OAuth client. */
   onOpenSection?: (section: string) => void
 }) {
@@ -137,10 +141,12 @@ export function PersonalCredentialsSection({
 
   return (
     <div>
-      <SectionHeader
-        title={t('Personal Credentials')}
-        description={t('Connect your own accounts so your Bots and tasks act as you.')}
-      />
+      {!hideHeading && (
+        <SectionHeader
+          title={selectedProvider ? nameOf(selectedProvider) : t('Personal Credentials')}
+          description={t('Connect your own accounts so your Bots and tasks act as you.')}
+        />
+      )}
       {!credentials && loadFailed && (
         <p className="text-[12.5px] text-tertiary">
           {t('Couldn’t load your Personal Credentials.')}{' '}
@@ -160,7 +166,9 @@ export function PersonalCredentialsSection({
           }
         >
           <div className="space-y-3">
-            {PROVIDERS.map(({ provider, name, description }) => {
+            {PROVIDERS.filter(
+              ({ provider }) => !selectedProvider || provider === selectedProvider,
+            ).map(({ provider, name, description }) => {
               const credential = credentialFor(credentials, provider, team?.id)
               const needsTeamClient = needsTeamGoogleClient(provider, googleClient)
               const viaComposio =

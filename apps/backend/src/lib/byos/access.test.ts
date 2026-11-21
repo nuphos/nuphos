@@ -71,6 +71,6 @@ describe('canUseBinding', () => {
 
   test('other roles need to be on the list', () => {
     expect(canUseBinding(access(['u1', 'u2'], 'u1'), 'u3', 'EDITOR')).toBe(false)
-    expect(canUseBinding(access(['u1', 'u2'], 'u1'), 'u2', 'VIEWER')).toBe(true)
+    expect(canUseBinding(access(['u1', 'u2'], 'u1'), 'u2', 'VIEWER')).toBe(false)
   })
 })

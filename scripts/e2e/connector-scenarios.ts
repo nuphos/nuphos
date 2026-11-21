@@ -48,9 +48,11 @@ export const connectorScenarios: Scenario[] = [
         await page.getByRole('button', { name: 'Connectors' }).click()
         const dialog = page.getByRole('dialog', { name: 'Connectors', exact: true })
         const route = page.url()
-        const row = dialog.getByRole('button', { name: 'Add GitHub', exact: true }).locator('..')
 
-        await row.getByText('Connect', { exact: true }).click()
+        await dialog.getByRole('button', { name: 'Add GitHub', exact: true }).click()
+        const service = page.getByRole('dialog', { name: 'GitHub', exact: true })
+
+        await service.getByRole('button', { name: 'Connect', exact: true }).click()
         await until('the personal OAuth URL to open', async () =>
           fixture.evaluate((state) => state.opened.length > 0),
         )
@@ -63,7 +65,7 @@ export const connectorScenarios: Scenario[] = [
         assert.deepEqual(evidence.providerRequests, ['github'])
         assert.deepEqual(evidence.openedUrls, [evidence.expectedUrl])
         assert.equal(page.url(), route)
-        await dialog.waitFor({ state: 'visible' })
+        await service.waitFor({ state: 'visible' })
         assert.equal(
           await page.getByRole('heading', { name: 'Personal Credentials', exact: true }).count(),
           0,
@@ -73,7 +75,7 @@ export const connectorScenarios: Scenario[] = [
           JSON.stringify({ ...evidence, routeBefore: route, routeAfter: page.url() }, null, 2),
         )
         await page.screenshot({ path: `${artifacts}/personal-connect-start.png` })
-        await dialog.getByLabel('Close modal').click()
+        await service.getByLabel('Close modal').click()
       } finally {
         await fixture.evaluate((state) => state.restore())
         await fixture.dispose()
