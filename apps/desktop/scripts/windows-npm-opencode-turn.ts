@@ -53,7 +53,7 @@ createInterface({ input: shim.stdout }).on('line', (line) => {
     const update = message.params.update
 
     if (update.sessionUpdate === 'agent_message_chunk' && update.content?.type === 'text')
-      reply += update.content.text
+      reply += String(update.content.text)
   } else if (message.method && message.id !== undefined) {
     shim.stdin.write(
       `${JSON.stringify({ jsonrpc: '2.0', id: message.id, error: { code: -32601, message: 'unsupported' } })}\n`,
