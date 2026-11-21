@@ -58,7 +58,7 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
   await call(sessionId, 'channel_post', {
     label: 'Answer',
     channelId,
-    text: `POSTED ${marker}${who}`,
+    text: `POSTED ${marker}${who}${marker === 'E2E_DELIVERY:link-file-bot' ? ' [missing-report.md](/tmp/nuphos-e2e-missing/missing-report.md)' : ''}`,
     ...(asked ? { replyTo: Number(asked[1]) } : {}),
   })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
