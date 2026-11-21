@@ -513,6 +513,11 @@ jobs:
           bun install --frozen-lockfile
           (cd apps/backend && bun install --frozen-lockfile)
           (cd apps/desktop && pnpm install --frozen-lockfile)
+      # Before the 35-minute run, since a scenario that does not typecheck fails late and
+      # obscurely. Here rather than in its own job: the scenarios reach into the Desktop
+      # sources, so they need the install above to resolve what those import.
+      - name: Typecheck the scenarios
+        run: ./node_modules/.bin/tsc -p scripts/tsconfig.json
       # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
       # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
       - name: Pull the MongoDB and file store images
