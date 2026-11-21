@@ -614,6 +614,7 @@ final class InboxUITests: XCTestCase {
         // A sign-in status card: its options, never "Answer it in" the task.
         openQuestion("Sign in to GitHub once on the Mac mini, then pick Signed in")
         XCTAssertTrue(app.buttons["Signed in"].waitForExistence(timeout: 5), "A sign-in status card hides its options")
+        XCTAssertTrue(app.buttons["Other…"].exists, "A credential question with options can't be answered in words (#4029)")
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Answer it in")).firstMatch.exists,
                        "A card sends its answer elsewhere")
         shot("7-status-card-options")
