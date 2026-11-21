@@ -142,7 +142,7 @@ test('an agent that is gone counts as a lasting failure', async () => {
   for (let run = 0; run < PAUSE_AFTER_FAILED_RUNS; run++)
     await recordFailedFires(runtimeGone(), fire, deps)
   expect(row.enabled).toBe(false)
-  expect(row.executionAuthorizationError).toContain('Move this conversation to another agent')
+  expect(row.executionAuthorizationError).toContain('Move this conversation to another runtime')
   expect(alerts).toEqual([
     { title: 'Trigger paused', body: `Hourly report: ${row.executionAuthorizationError}` },
   ])

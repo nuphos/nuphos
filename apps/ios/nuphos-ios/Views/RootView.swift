@@ -50,7 +50,6 @@ private struct SplashView: View {
                 Image("NuphosMark")
                     .resizable()
                     .scaledToFit()
-                    .foregroundStyle(Theme.heading)
                     .frame(width: 72, height: 72)
                 ProgressView().tint(Theme.muted)
             }

@@ -188,6 +188,12 @@ class ChatRowTest {
         assertFalse(hint.isError)
         assertTrue(ChatRow.rows(listOf(message()), isStreaming = true, presence = ComputerPresence.Paused("Work Box")).none { it is ChatRow.Hint })
     }
+    @Test fun aStartingBoxSaysItIsStartingNotOffline() {
+        val hint = ChatRow.rows(listOf(message()), presence = ComputerPresence.Starting("Work Box")).filterIsInstance<ChatRow.Hint>().single()
+        assertEquals("runtime-starting", hint.id)
+        assertEquals("Work Box is starting. It will be ready in a few seconds.", hint.text)
+        assertFalse(hint.isError)
+    }
     @Test fun aQueuedSendHidesTheComputerHintWhileItsComputerWakes() {
         assertTrue(ChatRow.rows(listOf(message()), presence = ComputerPresence.Paused("Work Box"), sendQueued = true).none { it is ChatRow.Hint })
         assertTrue(ChatRow.rows(listOf(message()), presence = ComputerPresence.Offline, sendQueued = true).none { it is ChatRow.Hint })

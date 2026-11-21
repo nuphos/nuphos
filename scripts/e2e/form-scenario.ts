@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { freePorts, logPath, until } from './processes.ts'
+import { pickAgent } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
@@ -69,25 +70,25 @@ export const formScenario = {
       await stack.restartAgentHost(undefined, `panel=${process.execPath} ${PANEL_JOB}`)
       await page.getByRole('tab', { name: 'Tasks' }).click()
       await page.getByRole('button', { name: 'New task', exact: true }).click()
-      // An earlier scenario may have left the other agent as the one a new Task starts on.
-      // The restarted host is listed again a moment later, and the list drawn again closes an
-      // open submenu: a pick that misses starts over.
-      await until('the fixture agent to be picked', async () => {
-        try {
-          await page.getByRole('button', { name: /^Runtime:/ }).click({ timeout: 5_000 })
-          await page.getByRole('menu').getByText('E2E fixture agent').click({ timeout: 5_000 })
-          await page
-            .getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ })
-            .click({ timeout: 5_000 })
+      // An earlier scenario may have left the other agent as the one a new Task starts on, and
+      // the host restarted above is listed again a moment later: that redraw closes an open
+      // submenu, and nothing reopens it, so a pick it catches starts over on a fresh menu.
+      await until(
+        'the fixture agent to be picked',
+        async () => {
+          try {
+            await pickAgent(page, 'E2E fixture agent')
 
-          return true
-        } catch (error) {
-          // Closes the submenu, then the menu.
-          await page.keyboard.press('Escape')
-          await page.keyboard.press('Escape')
-          throw error
-        }
-      })
+            return true
+          } catch (error) {
+            // Closes the submenu, then the menu.
+            await page.keyboard.press('Escape')
+            await page.keyboard.press('Escape')
+            throw error
+          }
+        },
+        180_000,
+      )
       await page.getByRole('textbox', { name: 'Message' }).click()
       await page.keyboard.type(`fill the form E2E_FORM:${site} E2E_DELIVERY:form`)
       await page.keyboard.press('Enter')

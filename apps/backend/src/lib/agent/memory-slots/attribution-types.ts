@@ -62,7 +62,6 @@ export type TurnDistillOutcome =
   | 'no_learn' // model decided nothing durable was taught (expected common case)
   | 'skipped_short' // combined query+answer under the length gate
   | 'skipped_volatile' // learned, but classified as knowledge that goes stale
-  | 'skipped_origin' // non-user origin: durable writes are user-origin only
   | 'skipped_plan_approval' // the turn was a surface-generated plan approval
   | 'skipped_disabled' // MEMORY_AUTO_INGEST off
   | 'failed' // distiller model error/timeout

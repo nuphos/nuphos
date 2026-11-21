@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto'
 
 import { db } from '@/lib/db'
 import { getTeamMembership } from '@/lib/identity'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
 import { enqueueTaskReport } from './thread-queue'
 
-export const TASK_STATUSES = ['working', 'waiting', 'ready', 'blocked', 'failed', 'done'] as const
+// No 'working': each report wakes the parent for a turn, and "still working" gives it nothing to do.
+export const TASK_STATUSES = ['waiting', 'ready', 'blocked', 'failed', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskReport = {
   _id: string
@@ -110,6 +112,7 @@ export async function reportTask(
       },
     },
   )
+  queueWebhookEvents(sessionId, 'task.reported')
   if (!saved.deliveredAt && !saved.droppedAt) {
     await taskReports().updateOne({ _id: id }, { $unset: { deliveryError: '' } })
     try {

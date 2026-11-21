@@ -8,8 +8,8 @@ export const channelsApi = {
   agentApplyBotImport: (...args: Parameters<typeof window.api.agentApplyBotImport>) =>
     window.api.agentApplyBotImport(...args),
   agentSaveGrokExportSkill: () => window.api.agentSaveGrokExportSkill(),
-  agentCreateChannel: (teamId: string, group?: boolean) =>
-    window.api.agentCreateChannel(teamId, group),
+  agentCreateChannel: (teamId: string, group?: boolean, title?: string) =>
+    window.api.agentCreateChannel(teamId, group, title),
   agentCreateBot: (teamId: string, bot?: Parameters<typeof window.api.agentCreateBot>[1]) =>
     window.api.agentCreateBot(teamId, bot),
   agentStartBotOnboarding: (sessionId: string, teamId: string, channelId: string) =>

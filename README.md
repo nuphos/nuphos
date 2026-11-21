@@ -1,4 +1,4 @@
-![Nuphos, the open source Grok Bot alternative](assets/nuphos-banner.jpg)
+<img alt="Nuphos, the open source Grok Bot alternative" src="assets/nuphos-banner.jpg" width="1200">
 
 # Nuphos
 

@@ -4,7 +4,6 @@ import { Component } from 'react'
 import { t } from '../i18n'
 import { captureRendererException } from '../lib/analytics'
 
-import { NuphosLogo } from './NuphosLogo'
 import { Button } from './ui/button'
 
 import type { ErrorInfo, ReactNode } from 'react'
@@ -82,7 +81,7 @@ function CrashPage({
     <main className="flex h-full w-full items-center justify-center overflow-auto bg-main px-6 py-8 text-main">
       <section className="flex w-full max-w-4xl flex-col gap-6">
         <header className="flex items-center gap-3">
-          <NuphosLogo className="h-7 w-7 flex-shrink-0" variant="white-bg" />
+          <img className="h-7 w-7 flex-shrink-0" src="/nuphos-icon.png" alt="" aria-hidden="true" />
           <div className="min-w-0">
             <div className="text-[13px] font-medium text-main">Nuphos</div>
             <div className="text-[12px] text-tertiary">{t('Renderer crash recovery')}</div>

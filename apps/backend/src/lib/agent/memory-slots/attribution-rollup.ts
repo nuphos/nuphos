@@ -139,7 +139,6 @@ export function computeTurnScorecard(turns: MemoryTurnSummary[]) {
     no_learn: 0,
     skipped_short: 0,
     skipped_volatile: 0,
-    skipped_origin: 0,
     skipped_plan_approval: 0,
     skipped_disabled: 0,
     failed: 0,

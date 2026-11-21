@@ -35,4 +35,18 @@ describe("a conversation's stored selection, as its picker shows it", () => {
     assert.deepEqual(shown.deviceIds, ['mac-mini'])
     assert.deepEqual(shown.awsRoleIds, [])
   })
+
+  // What `nuphos_ask` stores: lists for the opt-in kinds and none of the team-wide keys (#4034).
+  test('a team-wide kind a stored selection leaves unset shows every one', () => {
+    const shown = storedConversationCredentialAccess({ awsRoleIds: ['prod'] }, options)
+
+    assert.deepEqual(shown.awsRoleIds, ['prod'])
+    assert.deepEqual(shown.githubInstallationIds, ['gh'])
+  })
+
+  test('a team-wide kind stored as none shows none', () => {
+    const shown = storedConversationCredentialAccess({ githubInstallationIds: [] }, options)
+
+    assert.deepEqual(shown.githubInstallationIds, [])
+  })
 })

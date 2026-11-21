@@ -176,6 +176,25 @@ export async function setMemberArchived(
   )
 }
 
+/**
+ * Archive or restore as `userId`, as the app's Archive does: the owner moves the
+ * conversation and what moves with it, anyone else in a Task only their own
+ * view. Null when they may do neither, as for someone viewing a group chat.
+ */
+export async function archiveConversationAs(
+  conversation: Pick<AgentConversation, 'sessionId' | 'userId' | 'kind' | 'participantIds'>,
+  userId: string,
+  archived: boolean,
+): Promise<ArchiveUnit | null> {
+  if (conversation.userId === userId) {
+    return await setConversationArchived(conversation.sessionId, archived)
+  }
+  if (conversation.kind === 'channel' || !conversation.participantIds?.includes(userId)) return null
+  await setMemberArchived(conversation.sessionId, userId, archived)
+
+  return { sessionIds: [conversation.sessionId] }
+}
+
 /** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
 export async function descendantSessionIds(
   rootId: string,

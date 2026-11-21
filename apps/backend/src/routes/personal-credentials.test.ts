@@ -34,6 +34,8 @@ function matches(doc: Doc, filter: Doc): boolean {
       if ('$in' in value) return (value.$in as unknown[]).includes(doc[key])
     }
 
+    if (value instanceof ObjectId) return String(doc[key]) === value.toHexString()
+
     return doc[key] === value
   })
 }
@@ -46,6 +48,9 @@ function collection(rows: Doc[]) {
       return Promise.resolve({ acknowledged: true })
     },
     findOne: (filter: Doc) => Promise.resolve(rows.find((doc) => matches(doc, filter)) ?? null),
+    find: (filter: Doc) => ({
+      toArray: () => Promise.resolve(rows.filter((doc) => matches(doc, filter))),
+    }),
     countDocuments: (filter: Doc) =>
       Promise.resolve(rows.filter((doc) => matches(doc, filter)).length),
     findOneAndDelete: (filter: Doc) => {
@@ -177,7 +182,7 @@ fetchSpy.mockImplementation(((input: string | URL | Request, init?: RequestInit)
     )
   }
   if (url.includes('googleapis.com/oauth2/v2/userinfo'))
-    return Promise.resolve(Response.json({ id: 'g9', email: 'victim' }))
+    return Promise.resolve(Response.json(googleUser))
   if (url.includes('oauth2.googleapis.com/revoke')) {
     revoked.push(url)
 
@@ -236,7 +241,10 @@ function complete(provider: string, userId: string, state: string, code: string)
   })
 }
 
+let googleUser = { id: 'g9', email: 'victim' }
+
 beforeEach(() => {
+  googleUser = { id: 'g9', email: 'victim' }
   pending.length = 0
   saved.length = 0
   revoked.length = 0
@@ -335,6 +343,62 @@ describe('Google Personal Credentials', () => {
     ])
   })
 
+  test('a second Google account is added beside the first, and reconnecting one replaces only it', async () => {
+    const connect = async (account: { id: string; email: string }) => {
+      googleUser = account
+      const state = await start('gmail', 'alice')
+      const link = await callback('gmail', state)
+
+      return complete('gmail', 'alice', state, link.searchParams.get('code') ?? '')
+    }
+    const a = (await (await connect({ id: 'ga', email: 'a@example.com' })).json()) as { id: string }
+    const b = (await (await connect({ id: 'gb', email: 'b@example.com' })).json()) as { id: string }
+
+    expect(a.id).not.toBe(b.id)
+    expect(saved.map((doc) => doc.login)).toEqual(['a@example.com', 'b@example.com'])
+    const again = (await (await connect({ id: 'ga', email: 'a@example.com' })).json()) as {
+      id: string
+    }
+
+    expect(again.id).toBe(a.id)
+    expect(saved).toHaveLength(2)
+    const listed = await app.request('/personal-credentials', {
+      headers: { 'x-test-user': 'alice' },
+    })
+
+    expect(
+      ((await listed.json()) as { credentials: { id: string }[] }).credentials.map((c) => c.id),
+    ).toEqual([a.id, b.id])
+  })
+
+  test('disconnecting one of two accounts needs its id and leaves the other working', async () => {
+    const a = googleGrant('alice', 'gmail', 'mail-a')
+    const b = {
+      ...googleGrant('alice', 'gmail', 'mail-b'),
+      providerUserId: 'alice-b',
+      login: 'b@example.com',
+    }
+
+    saved.push(a, b)
+    expect((await disconnect('gmail')).status).toBe(409)
+    expect(saved).toHaveLength(2)
+    const res = await app.request(
+      `/personal-credentials/gmail?teamId=${TEAM}&connectionId=${(a._id as ObjectId).toHexString()}`,
+      { method: 'DELETE', headers: { 'x-test-user': 'alice' } },
+    )
+
+    expect(res.status).toBe(204)
+    expect(saved).toEqual([b])
+    expect(revoked).toHaveLength(1)
+    const bad = await app.request(`/personal-credentials/gmail?teamId=${TEAM}&connectionId=nope`, {
+      method: 'DELETE',
+      headers: { 'x-test-user': 'alice' },
+    })
+
+    expect(bad.status).toBe(404)
+    expect(saved).toEqual([b])
+  })
+
   test('a member removed before approving is refused, and nothing is stored', async () => {
     const state = await start('gmail', 'alice')
 
@@ -400,8 +464,10 @@ const disconnect = (provider: string, teamId = TEAM) =>
 
 function googleGrant(userId: string, provider: string, token: string): Doc {
   return {
+    _id: new ObjectId(),
     userId,
     provider,
+    providerUserId: userId,
     login: `${userId}@example.com`,
     teamId: TEAM,
     encryptedAccessToken: fakeSeal(token),
@@ -425,7 +491,7 @@ const turn = (actor: string, humanTurn: boolean, teamId = TEAM) =>
 // conv-1's selection, as the conversation document stores it.
 let conversation: { userId: string; credentialAccess?: Doc } | null = null
 
-useAgentDb({ getConversationBySessionId: (async () => conversation) as never })
+useAgentDb({ getConversationBySessionId: async () => conversation })
 
 describe('Google token handout', () => {
   const handout = new Hono()
@@ -510,6 +576,89 @@ describe('Google token handout', () => {
 
     expect(res.status).toBe(404)
     expect(await res.json()).toEqual({ code: 'personal_credential_not_connected' })
+  })
+
+  describe('a member with two Gmail accounts', () => {
+    const accounts = () => {
+      const a = saved.find((doc) => doc.userId === 'owner')!
+      const b = {
+        ...googleGrant('owner', 'gmail', 'mail-b'),
+        providerUserId: 'owner-b',
+        login: 'b@example.com',
+      }
+
+      saved.push(b)
+
+      return { a, b }
+    }
+    const ref = (doc: Doc) => (doc._id as ObjectId).toHexString()
+    const named = async (id: string) =>
+      handout.request(`/personal-credentials/gmail/token?connectionId=${id}`, {
+        headers: { Authorization: `Bearer ${await turn('owner', true)}` },
+      })
+
+    // The owner selects which accounts this conversation may use.
+    const authorize = (...docs: Doc[]) => {
+      conversation = {
+        userId: 'owner',
+        credentialAccess: {
+          personalCredentialIds: ['gmail'],
+          personalConnectionIds: docs.map(ref),
+        },
+      }
+    }
+
+    test('several authorized and none named is a 409, never a silent pick', async () => {
+      const { a, b } = accounts()
+
+      authorize(a, b)
+      const res = await fetchToken('gmail', await turn('owner', true))
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ code: 'personal_credential_account_required' })
+    })
+
+    test('each named account hands out its own token', async () => {
+      const { a, b } = accounts()
+
+      authorize(a, b)
+      expect(await (await named(ref(a))).json()).toMatchObject({ token: 'owner-mail' })
+      expect(await (await named(ref(b))).json()).toMatchObject({
+        token: 'mail-b',
+        login: 'b@example.com',
+      })
+    })
+
+    test('an account the conversation was not given is refused, named or not', async () => {
+      const { a, b } = accounts()
+
+      authorize(a)
+      expect((await named(ref(b))).status).toBe(403)
+      // One authorized account is unambiguous, so it is used without being named.
+      expect(await (await fetchToken('gmail', await turn('owner', true))).json()).toMatchObject({
+        token: 'owner-mail',
+      })
+    })
+
+    test('a selection made before a second account existed never reaches it', async () => {
+      const { a, b } = accounts()
+
+      // The stored selection names no accounts: legacy, from when only one was connected.
+      const res = await named(ref(b))
+
+      expect(res.status).toBe(403)
+      expect((await named(ref(a))).status).toBe(403)
+      expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
+    })
+
+    test('another member’s account id is refused, never used', async () => {
+      const { a, b } = accounts()
+
+      authorize(a, b)
+      const res = await named(ref(saved.find((doc) => doc.userId === 'teammate')!))
+
+      expect(res.status).toBe(404)
+    })
   })
 
   test('only conversation tokens, and only Google providers', async () => {

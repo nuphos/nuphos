@@ -77,7 +77,7 @@ const answer = (viewerId: string, answeredInInbox: boolean) =>
 test('a reply quotes its post inside its own bubble, above the words', () => {
   for (const [viewer, bubble, tint] of [
     ['u1', 'user-message-bubble', 'bg-white/15'],
-    ['someone-else', 'border-line-control', 'bg-black/5'],
+    ['someone-else', 'bg-state-selected', 'bg-black/5'],
   ] as const) {
     const markup = answer(viewer, false)
     const inBubble = markup.slice(markup.indexOf(bubble))
@@ -92,4 +92,34 @@ test('a reply quotes its post inside its own bubble, above the words', () => {
 test('only the last post of an Inbox answer says where it was answered', () => {
   assert.ok(answer('u1', true).includes('Answered in Inbox'))
   assert.ok(!answer('u1', false).includes('Answered in Inbox'))
+})
+
+test("a teammate's bubble is filled like a Bot's, not outlined", () => {
+  const render = (message: AgentPersistedMessage) =>
+    renderToStaticMarkup(
+      <ChannelMessage
+        message={message}
+        at={0}
+        first
+        fresh={false}
+        ownAgent={false}
+        viewerId="viewer"
+        teamId="t"
+        links={{ channelId: 'c', renderLink: (_, children) => children }}
+        onOpenSession={() => {}}
+      />,
+    )
+  const bubbleClass = (markup: string) => markup.match(/class="([^"]*rounded-tl-md[^"]*)"/)?.[1]
+  const teammate = {
+    ...botPost,
+    metadata: {
+      ...botPost.metadata,
+      sender: { type: 'user', id: 'u2', displayName: 'Mei' },
+      source: 'nuphos',
+      sourceSessionId: undefined,
+    },
+  } as unknown as AgentPersistedMessage
+
+  assert.ok(bubbleClass(render(botPost))?.includes('bg-state-selected'))
+  assert.equal(bubbleClass(render(teammate)), bubbleClass(render(botPost)))
 })
