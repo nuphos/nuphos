@@ -6,6 +6,7 @@ import { getReadableConversation } from '@/lib/agent/db'
 import { fail } from '@/lib/mcp/protocol'
 import { logError } from '@/lib/observability'
 import { nuphosCheck } from '@/routes/mcp/check'
+import { admitMcpSubscription } from '@/routes/mcp/subscription-limit'
 
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
@@ -56,6 +57,21 @@ export async function subscribeMcpSession(c: Context<{ Variables: AuthVariables 
   const initial = await sessionNotification(sessionId, userId)
 
   if (!initial) return c.json(fail(null, -32000, 'Session not found.'), 404)
+  const admission = await admitMcpSubscription(userId)
+
+  if (admission === 'limited') {
+    c.header('Retry-After', '5')
+
+    return c.json(fail(null, -32000, 'Too many active subscriptions. Retry after 5 seconds.'), 429)
+  }
+  if (admission === 'unavailable') {
+    c.header('Retry-After', '5')
+
+    return c.json(
+      fail(null, -32000, 'Subscription coordination unavailable. Retry after 5 seconds.'),
+      503,
+    )
+  }
   c.header('Cache-Control', 'no-cache, no-transform')
   c.header('X-Accel-Buffering', 'no')
 
@@ -63,6 +79,12 @@ export async function subscribeMcpSession(c: Context<{ Variables: AuthVariables 
     let previous = after
     let current: Awaited<ReturnType<typeof sessionNotification>> = initial
     const until = Date.now() + 55_000
+    // Bound the stream even if a state read stalls, before its reservation expires.
+    const deadline = setTimeout(() => {
+      stream.abort()
+    }, 60_000)
+
+    stream.onAbort(() => void admission.release())
 
     try {
       await stream.write(': connected\nretry: 1000\n\n')
@@ -90,6 +112,7 @@ export async function subscribeMcpSession(c: Context<{ Variables: AuthVariables 
         await stream.sleep(1000)
         if (stream.aborted) return
         current = await sessionNotification(sessionId, userId)
+        if (stream.aborted) return
         await stream.write(': keepalive\n\n')
       }
     } catch (error) {
@@ -102,6 +125,9 @@ export async function subscribeMcpSession(c: Context<{ Variables: AuthVariables 
           params: { reason: 'retry' },
         }),
       })
+    } finally {
+      clearTimeout(deadline)
+      await admission.release()
     }
   })
 }
