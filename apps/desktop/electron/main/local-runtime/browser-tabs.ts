@@ -276,14 +276,18 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }
   if (call.action === 'record_stop') {
-    contents.setBackgroundThrottling(true)
-
-    return text(
-      await stopRecording(contents, {
-        dir: path.join(app.getPath('userData'), 'har'),
-        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
-      }),
-    )
+    // Throttled again only once stopped: the stop captures a still page, which a hidden window
+    // may never paint while throttled.
+    try {
+      return text(
+        await stopRecording(contents, {
+          dir: path.join(app.getPath('userData'), 'har'),
+          creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+        }),
+      )
+    } finally {
+      if (!contents.isDestroyed()) contents.setBackgroundThrottling(true)
+    }
   }
   const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 
