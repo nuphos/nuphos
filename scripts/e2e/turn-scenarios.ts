@@ -1,4 +1,7 @@
 // A Task's turn: Stop while it runs or starts, and the questions its agent asks.
+import { rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { agentEvents, agentLog } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
 import { checkDecisionOutline } from './chat-presentation.ts'
@@ -34,11 +37,13 @@ export const turnScenarios: Scenario[] = [
   {
     // #4371: a parent ran one turn per Task that reported while it worked, so Stop kept waking it.
     // Tasks report here with send_message_to_thread: report_task needs Redis, which this stack has
-    // not, and its delivery queues the same agent.thread message on the parent.
-    name: 'Tasks that report while their parent works are answered in one turn after Stop',
+    // not, and its delivery queues the same agent.thread message on the parent. The parent's turn
+    // ends on its own, as a Stopped message is carried into the next turn and would run again.
+    name: 'Tasks that report while their parent works are answered in one turn',
     run: async (page, stack) => {
       const names = ['a', 'b', 'c']
       const log = () => agentLog(stack)
+      const release = join(artifacts, 'release')
 
       await newTask(page)
       // The first message names the Task, and a Task's prompt carries its parent's name.
@@ -68,10 +73,15 @@ export const turnScenarios: Scenario[] = [
       const reported = () =>
         log().filter((entry) => entry.event === 'called' && entry.name === 'send_message_to_thread')
 
+      rmSync(release, { force: true })
       // One E2E_CALL per line, in one message.
       await page
         .getByRole('textbox', { name: 'Message' })
-        .fill([...names.map(delegate), 'Wait for them E2E_HOLD E2E_DELIVERY:collecting'].join('\n'))
+        .fill(
+          [...names.map(delegate), 'Wait for them E2E_WAIT_RELEASE E2E_DELIVERY:collecting'].join(
+            '\n',
+          ),
+        )
       await page.keyboard.press('Enter')
       await until('every Task to report while its parent works', async () =>
         reported().length >= names.length ? true : undefined,
@@ -90,14 +100,15 @@ export const turnScenarios: Scenario[] = [
             names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)),
         )
 
-      await page.locator('button[title="Stop"]').click()
-      await page.getByText('Turn stopped').waitFor()
+      writeFileSync(release, '')
       await until('the parent to answer the reports', async () =>
         turns().length > 0 ? true : undefined,
       )
       // Long enough for a second turn to start, were the reports still run one at a time.
       await page.waitForTimeout(5_000)
       const started = turns()
+
+      rmSync(release, { force: true })
 
       if (
         started.length !== 1 ||
