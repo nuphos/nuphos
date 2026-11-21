@@ -57,8 +57,8 @@ import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
+import { teamSlackMappings } from '@/routes/slack/mappings'
 import { slackInstallationsRoutes } from '@/routes/slack-installations'
-import { registerSlackMappingRoutes } from '@/routes/slack/mappings'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
 import { teamConnectorsRoutes } from '@/routes/team-connectors'
@@ -91,7 +91,7 @@ import { registerRuntimeLoginRoutes } from './teams/runtime-login'
 import { registerSignInRequestRoutes } from './teams/sign-in-requests'
 
 import type { UsageDimension } from '@/lib/agent/usage-query'
-import type { AuthVariables, TeamAuthVariables } from '@/middleware/auth'
+import type { TeamAuthVariables } from '@/middleware/auth'
 import type { ConversationTeamAuthVariables } from '@/routes/teams/conversation-auth'
 
 export const teamsRoutes = new Hono<{ Variables: ConversationTeamAuthVariables }>()
@@ -269,9 +269,6 @@ teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
 
-const teamSlackMappings = new Hono<{ Variables: AuthVariables }>()
-
-registerSlackMappingRoutes(teamSlackMappings, true)
 teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
 teamScoped.route('/discord', discordAgentRoutes)

@@ -1,3 +1,5 @@
+import { Hono } from 'hono'
+
 import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { listChannelAgents } from '@/lib/agent/db/channel-agents'
 import { isChannel, ownsChannelAgent, removeChannelAgent } from '@/lib/agent/db/channels'
@@ -23,7 +25,7 @@ import { resolveVerifiedTeamId } from '@/routes/agent'
 import { normalizeSlackId, requireTeamAdmin, serializeMapping } from '@/routes/slack/shared'
 
 import type { AuthVariables } from '@/middleware/auth'
-import type { Context, Hono } from 'hono'
+import type { Context } from 'hono'
 
 export function registerSlackMappingRoutes(
   slackRoutes: Hono<{ Variables: AuthVariables }>,
@@ -256,3 +258,7 @@ async function channelBots(externalChatId: string | undefined, viewerId: string,
     return { ...bot, mine: bot.ownerId === viewerId, ownerName: owner?.name || owner?.email }
   })
 }
+
+export const teamSlackMappings = new Hono<{ Variables: AuthVariables }>()
+
+registerSlackMappingRoutes(teamSlackMappings, true)

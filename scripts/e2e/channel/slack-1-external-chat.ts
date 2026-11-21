@@ -7,7 +7,7 @@ import { resolve } from 'node:path'
 import { artifacts, until } from '../processes.ts'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
-import { verifyConversationMapping } from './slack-conversation-auth.ts'
+import { verifyConversationMapping } from '../slack-conversation-auth.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'

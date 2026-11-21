@@ -1,8 +1,8 @@
 import { createHmac } from 'node:crypto'
 
-import { E2E_JWT_SECRET } from '../slack-stub.ts'
+import { E2E_JWT_SECRET } from './slack-stub.ts'
 
-import type { Stack } from '../stack.ts'
+import type { Stack } from './stack.ts'
 
 export async function verifyConversationMapping(
   stack: Stack,
