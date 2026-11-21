@@ -4,6 +4,8 @@ import { Hono } from 'hono'
 import { decryptWebhookSecret } from '@/lib/byos/secrets'
 import { errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import { nuphosWebhooks } from '@/routes/mcp/webhooks'
 
 import { teamWebhooksRoutes } from './team-webhooks'
 
@@ -64,6 +66,11 @@ function collection(name: string) {
 useDb({ db: () => ({ collection }) as never })
 
 let role = 'ADMINISTRATOR'
+let member = true
+
+useIdentity({
+  getTeamMembership: async () => (member ? { role, team: {} } : null),
+})
 const app = new Hono()
 
 app.onError(errorHandler)
@@ -102,6 +109,7 @@ const stored = () => table('team_webhooks')[0] as unknown as TeamWebhook
 beforeEach(() => {
   tables.clear()
   role = 'ADMINISTRATOR'
+  member = true
 })
 
 describe('team webhooks routes', () => {
@@ -171,5 +179,44 @@ describe('team webhooks routes', () => {
     expect(table('team_webhooks')).toHaveLength(0)
     expect(table('team_webhook_deliveries')).toHaveLength(0)
     expect((await call('DELETE', `/${id}`)).status).toBe(404)
+  })
+})
+
+describe('nuphos_webhooks MCP tool', () => {
+  const team = 'a'.repeat(24)
+  const tool = (args: Record<string, unknown>) =>
+    nuphosWebhooks({ team_id: team, ...args }, { userId: 'mcp-admin' })
+
+  test('manages webhooks through the Team settings routes', async () => {
+    const created = await tool({ action: 'create', ...valid })
+    const id = (created.structuredContent as { webhook: { id: string } }).webhook.id
+
+    expect(created.isError).not.toBe(true)
+    expect(JSON.stringify(created)).not.toContain('s3cret')
+    expect(stored()).toMatchObject({ teamId: team, createdBy: 'mcp-admin' })
+    expect(decryptWebhookSecret(stored().headers[0]!.value)).toBe('Bearer s3cret')
+
+    await tool({ action: 'update', webhook_id: id, enabled: false, events: ['task.reported'] })
+    expect(stored()).toMatchObject({ enabled: false, events: ['task.reported'] })
+    const listed = await tool({ action: 'list' })
+
+    expect(listed.structuredContent).toMatchObject({
+      webhooks: [{ id, headers: ['Authorization'] }],
+    })
+    expect((await tool({ action: 'delete', webhook_id: id })).isError).not.toBe(true)
+    expect(table('team_webhooks')).toHaveLength(0)
+  })
+
+  test('refuses what the routes refuse', async () => {
+    const http = await tool({ action: 'create', ...valid, url: 'http://hooks.example.com/x' })
+
+    expect(http.isError).toBe(true)
+    expect(JSON.stringify(http)).toContain('URL must be https://')
+    expect((await tool({ action: 'update' })).isError).toBe(true)
+    role = 'MEMBER'
+    expect(JSON.stringify(await tool({ action: 'list' }))).toContain('ADMINISTRATOR')
+    member = false
+    expect(JSON.stringify(await tool({ action: 'list' }))).toContain('not a member')
+    expect(table('team_webhooks')).toHaveLength(0)
   })
 })

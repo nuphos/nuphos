@@ -14,6 +14,7 @@ import { nuphosListCredentials, nuphosUpdateCredentials } from '@/routes/mcp/cre
 import { nuphosFiles } from '@/routes/mcp/files'
 import { nuphosFindPrSessions } from '@/routes/mcp/resources'
 import { nuphosListSessions, nuphosUpdateSession } from '@/routes/mcp/sessions'
+import { nuphosWebhooks } from '@/routes/mcp/webhooks'
 
 import type { ToolHandler, ToolResult } from '@/lib/mcp/protocol'
 import type { McpCallContext } from '@/routes/mcp/types'
@@ -48,6 +49,7 @@ export function toolsForContext(ctx: McpCallContext): Record<string, ToolHandler
     nuphos_update_credentials: (args) => nuphosUpdateCredentials(args, ctx),
     nuphos_files: (args) => nuphosFiles(args, ctx),
     nuphos_find_pr_sessions: (args) => nuphosFindPrSessions(args, ctx),
+    nuphos_webhooks: (args) => nuphosWebhooks(args, ctx),
     nuphos_capabilities: async () => toolResult(getCapabilities()),
   }
 }

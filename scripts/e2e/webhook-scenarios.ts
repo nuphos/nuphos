@@ -1,5 +1,6 @@
 // #4361: an administrator adds a webhook in Team settings, and the team's own endpoint gets
 // what its conversations and Tasks do, retried after a failure and switched off by 410 Gone.
+// An MCP client then manages webhooks with nuphos_webhooks.
 import { writeFileSync } from 'node:fs'
 
 import { client, must } from './binding-access-scenarios.ts'
@@ -136,6 +137,43 @@ async function failures(
   return hook!.id
 }
 
+/** An MCP client adds an endpoint that gets the next reply, then removes both endpoints. */
+async function overMcp(
+  tool: ReturnType<typeof mcp>['tool'],
+  teamId: string,
+  ask: (p: string) => Promise<string>,
+  switchedOff: string,
+) {
+  const manage = async (args: Record<string, unknown>) => {
+    const reply = await tool<{ webhook?: { id: string } }>('nuphos_webhooks', {
+      team_id: teamId,
+      ...args,
+    })
+
+    must(!reply.isError, `nuphos_webhooks to ${String(args.action)}, got ${JSON.stringify(reply)}`)
+
+    return reply
+  }
+  const created = await manage({
+    action: 'create',
+    name: 'E2E MCP endpoint',
+    url: webhookUrl(),
+    events: ['session.turn.completed'],
+    headers: [{ name: 'Authorization', value: KEY }],
+  })
+
+  must(!JSON.stringify(created).includes(KEY), 'nuphos_webhooks to omit header values')
+  const replied = await ask('Reply E2E_DELIVERY:webhook-mcp')
+
+  // The endpoint added in Settings is switched off, so only this one sends it.
+  await received(
+    'the reply, at the endpoint added over MCP',
+    (r) => r.body.data.session_id === replied,
+  )
+  await manage({ action: 'delete', webhook_id: created.structuredContent!.webhook!.id })
+  await manage({ action: 'delete', webhook_id: switchedOff })
+}
+
 export const webhookScenarios: Scenario[] = [
   {
     name: 'a team webhook receives its conversations and Tasks, retries, and stops on 410',
@@ -155,6 +193,8 @@ export const webhookScenarios: Scenario[] = [
       await addWebhook(page, as, stack.teamId)
       await delegate(ask)
       const id = await failures(page, as, stack.teamId, ask)
+
+      await overMcp(tool, stack.teamId, ask, id)
       const log = webhookRequests().map(({ headers, body, status }) => ({
         status,
         'webhook-id': headers['webhook-id'],
@@ -164,7 +204,6 @@ export const webhookScenarios: Scenario[] = [
       }))
 
       writeFileSync(`${artifacts}/webhook-requests.json`, JSON.stringify(log, null, 2))
-      await as('DELETE', `/teams/${stack.teamId}/webhooks/${id}`)
     },
   },
 ]
