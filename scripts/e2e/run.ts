@@ -38,6 +38,7 @@ import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
+import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
@@ -165,6 +166,7 @@ const scenarios: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
+  newTaskGreetingScenario,
   ...offlineScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
