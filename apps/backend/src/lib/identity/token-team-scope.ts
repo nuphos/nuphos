@@ -12,6 +12,14 @@ export function runInTokenTeamScope<T>(teamId: string, fn: () => T): T {
   return scope.run({ teamId }, fn)
 }
 
+/**
+ * Runs `fn` with no token limit. A connection shared by every request must be made this way:
+ * its events run where it was made, so one made inside a limited request would limit them all.
+ */
+export function outsideTokenTeamScope<T>(fn: () => T): T {
+  return scope.exit(fn)
+}
+
 /** The team the current request is limited to, or undefined for no limit. */
 export function tokenTeamScope(): string | undefined {
   return scope.getStore()?.teamId

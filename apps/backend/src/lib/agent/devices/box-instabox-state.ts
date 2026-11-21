@@ -1,6 +1,8 @@
 // What a client sees of a Box's machine. Nothing is stored: the device's
 // presence says running, and instabox says the rest.
 
+import { setTimeout as sleep } from 'node:timers/promises'
+
 import { InstaboxError } from '@insforge/instabox-sdk'
 
 import { logEvent } from '@/lib/observability'
@@ -55,7 +57,18 @@ export async function boxState(device: AgentDevice, online: boolean): Promise<Bo
   return state === 'running' && !device.lastSeenAt ? 'connecting' : state
 }
 
-async function readMachineState(box: AgentDeviceBox, sandboxId: string) {
+/**
+ * The read gets its budget as a whole: the SDK retries each of its requests, timed out ones
+ * included, so the request timeout alone let one read run for most of a minute.
+ */
+function readMachineState(box: AgentDeviceBox, sandboxId: string) {
+  return Promise.race([
+    readMachineStateOnce(box, sandboxId),
+    sleep(READ_TIMEOUT_MS, 'error' as const, { ref: false }),
+  ])
+}
+
+async function readMachineStateOnce(box: AgentDeviceBox, sandboxId: string) {
   try {
     const state = await machineState(await boxConnection(box, READ_TIMEOUT_MS), sandboxId)
 

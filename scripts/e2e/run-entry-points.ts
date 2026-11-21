@@ -1,0 +1,82 @@
+// `bun run e2e:entry-points`: every way into the product from #4205, each on its
+// own. Unlike `run.ts`, one failure does not end the run: a removed way in should
+// name itself in the report, and so should the four that are still there.
+import { startDesktop } from './desktop.ts'
+import { entryPointScenarios, LONG_TASK, MORE_TASK } from './entry-point-scenarios.ts'
+import { artifacts, stopAll } from './processes.ts'
+import { startStack } from './stack.ts'
+import { send } from './ui.ts'
+
+import type { Desktop } from './desktop.ts'
+
+let desktop: Desktop | undefined
+let failed = false
+
+try {
+  console.log(`Artifacts: ${artifacts}`)
+  const stack = await startStack()
+
+  desktop = await startDesktop(stack.apiUrl)
+  const { page } = desktop
+
+  page.setDefaultTimeout(30_000)
+  // Signed in, with a Bot and a Task: the screens these ways in start from.
+  await page.locator('input[type=email]').fill(stack.email)
+  await page.getByRole('button', { name: 'Continue with email' }).click()
+  await page.getByText('Enter the 6-digit code').waitFor()
+  await page.locator('input[placeholder="000000"]').fill(stack.signInCode(stack.email) ?? '')
+  await page.getByText('Start with your first Bot').waitFor()
+  await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Entry Bot')
+  await page.getByRole('button', { name: 'Create', exact: true }).click()
+  // The Bot introduces itself unprompted, then gets through getting started: a
+  // Bot still on it has no Task of its own to open, on purpose.
+  await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+  await send(page, 'Confirmed: watch the release branch. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:bot')
+  await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+  await page.getByText('Getting started', { exact: true }).first().waitFor({ state: 'hidden' })
+  await page.getByRole('tab', { name: 'Tasks' }).click()
+  await page.getByRole('button', { name: 'New task', exact: true }).click()
+  await send(page, `${LONG_TASK} E2E_DELIVERY:entry`)
+  await page.getByText('ACK E2E_DELIVERY:entry').waitFor()
+  // The More scenario uses its own row, independent of the Task list check.
+  await page.getByRole('button', { name: 'New task', exact: true }).click()
+  await send(page, `${MORE_TASK} E2E_DELIVERY:more`)
+  await page.getByText('ACK E2E_DELIVERY:more').waitFor()
+
+  const failures: string[] = []
+
+  for (const [index, scenario] of entryPointScenarios.entries()) {
+    try {
+      await scenario.run(page, stack)
+      console.log(`PASS ${scenario.name}`)
+    } catch (error) {
+      failures.push(`${scenario.name}: ${error instanceof Error ? error.message : String(error)}`)
+      console.error(`FAIL ${scenario.name}`)
+      console.error(error)
+    }
+    await page.screenshot({ path: `${artifacts}/entry-point-${String(index + 1)}.png` })
+    // Each way in is read from a fresh window: a Computers page one of them
+    // opened leaves the sidebar off screen, and the next must not inherit it.
+    await page.reload()
+    await page.getByRole('tab', { name: 'Bots' }).click({ timeout: 60_000 })
+  }
+  if (failures.length > 0) {
+    failed = true
+    const total = String(entryPointScenarios.length)
+
+    console.error(`FAIL ${String(failures.length)} of ${total} ways in:`)
+    for (const failure of failures) console.error(`  ${failure}`)
+  } else {
+    console.log(`PASS all ${String(entryPointScenarios.length)} ways into the product`)
+  }
+} catch (error) {
+  failed = true
+  console.error(error)
+  if (desktop) await desktop.page.screenshot({ path: `${artifacts}/entry-points-failed.png` })
+  console.error(`FAIL: logs and the last screenshot are in ${artifacts}`)
+} finally {
+  await desktop?.close(failed)
+  await stopAll()
+}
+process.exit(failed ? 1 : 0)

@@ -34,7 +34,7 @@ export function CreateAppStep({ domain }: { domain: LarkDomain }) {
         <li>
           {t('Use the Nuphos logo as its icon:')}
           <div className="mt-2">
-            <WizardDownloadLink href="/logo-white-bg.svg" download="nuphos-logo.svg">
+            <WizardDownloadLink href="/nuphos-icon.png" download="nuphos-logo.png">
               {t('Download Nuphos logo')}
             </WizardDownloadLink>
           </div>

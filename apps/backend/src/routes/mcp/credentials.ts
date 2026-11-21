@@ -51,6 +51,7 @@ function credentialAccessPayload(access: {
   trelloIntegrationIds?: string[]
   githubInstallationIds?: string[]
   personalCredentialIds?: string[]
+  personalConnectionIds?: string[]
   teamIdentity?: string[]
 }): Record<string, string[] | undefined> {
   return {
@@ -72,6 +73,7 @@ function credentialAccessPayload(access: {
     trello_integration_ids: access.trelloIntegrationIds ?? [],
     github_installation_ids: access.githubInstallationIds,
     personal_credential_ids: access.personalCredentialIds ?? [],
+    personal_connection_ids: access.personalConnectionIds,
     team_identity: access.teamIdentity ?? [],
   }
 }
@@ -141,6 +143,7 @@ const NAMED_CATEGORIES = {
 const OPTIONAL_CATEGORIES = {
   githubInstallationIds: 'github_installation_ids',
   personalCredentialIds: 'personal_credential_ids',
+  personalConnectionIds: 'personal_connection_ids',
   teamIdentity: 'team_identity',
 } as const
 

@@ -3,7 +3,8 @@ import { toolsServer } from './fixture-mcp.mjs'
 
 /**
  * Asks which marker to use: a choice, a credential choice (E2E_ASK_CREDENTIAL), or a secret only
- * the person can type, in its masked card (E2E_ASK_SECRET). */ export function askSteps({
+ * the person can type, in its masked card (E2E_ASK_SECRET). E2E_ASK_PERSONAL:<id> asks for the
+ * member's own credential instead, which only selecting it answers. */ export function askSteps({
   call,
   log,
   refused,
@@ -11,6 +12,8 @@ import { toolsServer } from './fixture-mcp.mjs'
   return async (sessionId, text) => {
     // The newest ask decides: a session reopened on another runtime is sent its history too.
     const kind = (text.match(/E2E_ASK\w*/g) ?? []).at(-1)
+
+    if (kind === 'E2E_ASK_PERSONAL') return askPersonal({ call, log, refused }, sessionId, text)
     const secret = kind === 'E2E_ASK_SECRET'
     const credential = secret || kind === 'E2E_ASK_CREDENTIAL'
     const message = await call(sessionId, 'request_user_decision', {
@@ -28,4 +31,28 @@ import { toolsServer } from './fixture-mcp.mjs'
 
     log({ sessionId, event: 'asked', isError: refused(message) })
   }
+}
+
+async function askPersonal({ call, log, refused }, sessionId, text) {
+  const id = /E2E_ASK_PERSONAL:([a-z-]+)/.exec(text)?.[1]
+  const message = await call(sessionId, 'request_user_decision', {
+    label: 'Ask for a Personal Credential',
+    category: 'integration',
+    question: `Connect your ${id} so the fixture can read support@ mail`,
+    credentials: [{ provider: 'personal', id }],
+  })
+
+  log({ sessionId, event: 'asked-personal', detail: id, isError: refused(message) })
+}
+
+const SELECTED =
+  /now selected for this conversation \(([^)]+)\), so your question is answered \(requestId ([^)]+)\)/
+
+/** Logs the turn Nuphos starts once a question's credentials are selected: what, and which question. */
+export function credentialsSelected(log, sessionId, text) {
+  const said = SELECTED.exec(text)
+
+  if (said) log({ sessionId, event: 'credentials-selected', detail: `${said[1]} ${said[2]}` })
+
+  return Boolean(said)
 }

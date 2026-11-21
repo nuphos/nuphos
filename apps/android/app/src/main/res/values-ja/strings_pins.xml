@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">Bot を固定</string>
+    <string name="pins_unpin_bot">Bot の固定を解除</string>
+    <string name="pins_pin">固定</string>
+    <string name="pins_unpin">固定を解除</string>
+    <string name="pins_no_messages">まだメッセージはありません</string>
+    <string name="pins_needs_input">入力が必要です</string>
+    <string name="pins_running">実行中</string>
+    <string name="pins_unread">未読の投稿</string>
+</resources>

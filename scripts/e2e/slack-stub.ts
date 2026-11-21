@@ -7,6 +7,8 @@ import type { Stack } from './stack.ts'
 
 // Made per run, as only this process signs events for the backend it starts.
 const SIGNING_SECRET = randomBytes(32).toString('hex')
+
+export const E2E_JWT_SECRET = 'local-e2e-jwt-secret-not-a-production-credential'
 /** Hex, so the backend reads it as the 32-byte key it seals Slack tokens with. */
 const SLACK_TOKEN_KEY = '6c6f63616c2d6532652d736c61636b2d6b65792d6e6f742d666f722d70726f64'
 
@@ -45,6 +47,11 @@ function usersInfo(id: string) {
 const METHODS: Record<string, (params: Record<string, string>) => object> = {
   'users.info': (params) => usersInfo(params.user ?? ''),
   'chat.postMessage': postMessage,
+  // The connected channel, as the settings describe it.
+  'conversations.info': (params) => ({
+    ok: true,
+    channel: { id: params.channel, name: 'e2e-deploys', is_member: true, is_private: false },
+  }),
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */

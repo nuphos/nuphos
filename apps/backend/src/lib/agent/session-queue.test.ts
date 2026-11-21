@@ -85,7 +85,7 @@ useIdentity({
   getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null),
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async () => ({
     ...conversation,
     claudeCodePreview: {} as never,
@@ -184,13 +184,17 @@ test('the head of the queue is the oldest transcript message; an app send runs a
 
   expect(queueHead([slack, a, b, h, c], OWNER)).toEqual([a, b])
   expect(queueHead([h, a], OWNER)).toEqual([h])
-  // Agent messages batch only with the same sending session.
+  // Agent messages from different sending sessions run in one turn.
   const other = {
     ...agent('other'),
     metadata: { sender: { type: 'agent', id: 'other-session' } } as never,
   }
 
-  expect(queueHead([a, other, b], OWNER)).toEqual([a])
+  expect(queueHead([a, other, b], OWNER)).toEqual([a, other, b])
+  // A resource event runs in the same turn as agent messages.
+  const event = { ...agent('event'), source: 'agent.resource' }
+
+  expect(queueHead([a, event, b], OWNER)).toEqual([a, event, b])
   // An older client's steering message from a teammate is never a head.
   expect(queueHead([{ ...agent('t'), source: 'app', actorUserId: 'teammate' }], OWNER)).toEqual([])
 })
@@ -220,6 +224,30 @@ test('agent messages at the head run together; the person behind them goes next'
   ])
   expect(released).toBe(1)
   expect(await waiting()).toEqual(['h', 'c'])
+})
+
+test("a resource event, a Task's report and the owner's steering run in one turn", async () => {
+  const event = buildPendingUserMessage({
+    renderedText: 'event',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+  })
+  const steer = buildPendingUserMessage({
+    renderedText: 'steer',
+    source: 'app',
+    actorUserId: OWNER,
+  })
+
+  await queue(event, agent('report'), steer)
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.messages.map((message) => message.parts)).toEqual([
+    [{ type: 'text', text: 'event' }],
+    [{ type: 'text', text: 'report' }],
+    [{ type: 'text', text: 'steer' }],
+  ])
+  expect(await waiting()).toEqual([])
 })
 
 test("a teammate's message runs with the teammate as its sender", async () => {

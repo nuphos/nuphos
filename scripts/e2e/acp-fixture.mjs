@@ -8,21 +8,30 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
-import { askSteps } from './fixture-ask.mjs'
+import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { scriptedUpdates } from './fixture-commands.mjs'
+import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
 import { answerPermission, askPermission } from './fixture-permission.mjs'
-import { hop, inherit } from './fixture-hop.mjs'
+import { hop, inherit, startThread } from './fixture-hop.mjs'
 import {
   call,
   callNamed,
+  instruction,
+  confirmWork,
   personalToken,
   recheck,
+  reportBack,
   reporting,
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import {
+  applySetting,
+  currentModel,
+  heldDefaults,
+  longReply,
+  turnFacts,
+} from './fixture-settings.mjs'
 import { INITIALIZE, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
@@ -75,24 +84,6 @@ async function delegate(sessionId, fast) {
   if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
-/** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
-async function startThread(sessionId, marker) {
-  const started = await call(sessionId, 'create_thread', {
-    label: 'Start a thread',
-    title: 'E2E thread',
-    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
-  })
-
-  thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(started))?.[1]
-  const change = await call(sessionId, 'update_thread', {
-    label: 'Move the thread to Auto Mode',
-    threadId: thread,
-    fullAccess: false,
-  })
-
-  log({ sessionId, marker, event: refused(change) ? 'thread-mode-refused' : 'thread-mode-changed' })
-}
-
 const permission = (...args) => askPermission({ send, log }, ...args)
 
 // Sessions whose answer the first agent refuses as out of usage (#3055).
@@ -106,7 +97,14 @@ async function prompt({ sessionId, prompt: parts }) {
   const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
   const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, markers, event: 'start', ...turnFacts(text) })
+  log({
+    sessionId,
+    marker,
+    markers,
+    event: 'start',
+    ...turnFacts(text),
+    model: currentModel(sessionId),
+  })
   // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
@@ -125,7 +123,9 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
     await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) await ask(sessionId, text)
+  // The turn that says a question's credentials are selected continues; it never asks again.
+  if (!credentialsSelected(log, sessionId, text) && text.includes('E2E_ASK'))
+    await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
@@ -153,7 +153,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
-    await startThread(sessionId, marker)
+    thread = await startThread({ call, log, sessionId, marker })
   }
   if (text.includes('E2E_POKE')) {
     await call(sessionId, 'send_message_to_thread', {
@@ -164,8 +164,12 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
+  if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })
+  if (text.includes('E2E_INSTRUCTION')) await instruction({ log, sessionId, marker })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
   // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
