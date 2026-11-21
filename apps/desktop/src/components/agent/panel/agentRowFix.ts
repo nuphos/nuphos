@@ -13,8 +13,6 @@ export type AgentFix =
   | { kind: 'signIn'; instance: RuntimeInstance }
   /** This computer's agent: its own CLI sign-in. */
   | { kind: 'cli'; provider: 'claude-code' | 'codex' }
-  /** The viewer's own paused Box, woken the way a sign-in wakes it (#1109). */
-  | { kind: 'resume'; deviceId: string; runtimeId: string }
   /** An offline computer: look again. */
   | { kind: 'retry' }
   /**
@@ -90,7 +88,6 @@ export function agentProblem(
 /** The fix's button text; null for "ask", which is said, not clicked. */
 export function agentFixLabel(fix: AgentFix): string | null {
   if (fix.kind === 'signIn' || fix.kind === 'cli') return t('Sign in')
-  if (fix.kind === 'resume') return t('Resume')
   if (fix.kind === 'retry') return t('Retry')
   if (fix.kind === 'settings') return t('Open settings')
 
@@ -100,35 +97,4 @@ export function agentFixLabel(fix: AgentFix): string | null {
 /** "Ask <name>" for a fix only someone else can make. */
 export function agentAskText(fix: Extract<AgentFix, { kind: 'ask' }>): string {
   return fix.name ? t('Ask {name}', { name: fix.name }) : t('Ask an administrator')
-}
-
-/**
- * Wakes a paused Box through the same request a sign-in uses (#1109: `/status?wake=1`, which
- * enforces the team's vCPU limit). The computer reads as waking only while the request is in
- * flight, so a Box that does not come back, or is paused again, can be woken again.
- */
-export async function resumeComputer({
-  fix,
-  wake,
-  begin,
-  onResumed,
-  onFailed,
-}: {
-  fix: Extract<AgentFix, { kind: 'resume' }>
-  wake: (runtimeId: string) => Promise<unknown>
-  /** Marks the computer waking; returns the call that ends it. */
-  begin: (deviceId: string) => () => void
-  onResumed: () => void
-  onFailed: (error: unknown) => void
-}): Promise<void> {
-  const end = begin(fix.deviceId)
-
-  try {
-    await wake(fix.runtimeId)
-    onResumed()
-  } catch (error) {
-    onFailed(error)
-  } finally {
-    end()
-  }
 }

@@ -33,6 +33,13 @@ else if (args.includes('setup-token')) {
   console.log(`visit: ${authorize}`)
   afterCode(() => {
     mkdirSync(config, { recursive: true })
-    writeFileSync(credential, JSON.stringify({ claudeAiOauth: { accessToken: 'e2e' } }))
+    // As Claude Code stores an Ultra (formerly Max 20x) login: "max", told apart by its tier.
+    const oauth = {
+      accessToken: 'e2e',
+      subscriptionType: 'max',
+      rateLimitTier: 'default_claude_max_20x',
+    }
+
+    writeFileSync(credential, JSON.stringify({ claudeAiOauth: oauth }))
   })
 } else process.exit(1)

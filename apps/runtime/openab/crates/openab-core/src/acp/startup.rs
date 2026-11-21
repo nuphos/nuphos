@@ -210,7 +210,11 @@ done
             panic!("an unrelated failure must surface");
         };
 
-        assert!(format!("{err:#}").contains("invalid config.toml"));
+        let shown = format!("{err:#}");
+        assert!(
+            shown.contains("invalid config.toml"),
+            "surfaced instead: {shown}"
+        );
         assert_eq!(fixture.helper_pids().len(), 1);
     }
 }

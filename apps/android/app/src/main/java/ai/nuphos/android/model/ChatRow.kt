@@ -177,6 +177,8 @@ sealed class ChatRow {
                 ComputerPresence.Offline -> rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
                 // Sending resumes a paused Box, so nothing points away from it.
                 is ComputerPresence.Paused -> rows += Hint("runtime-paused", Words(R.string.convtext_runtime_paused, presence.label), false)
+                // A starting Box comes online by itself, so nothing points away from it either.
+                is ComputerPresence.Starting -> rows += Hint("runtime-starting", Words(R.string.convtext_runtime_starting, presence.label), false)
                 ComputerPresence.Online -> Unit
             }
             rows += Bottom

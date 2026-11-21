@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { LAPTOP, laptopOnline } from '../laptop-fixture.ts'
 import { artifacts } from '../processes.ts'
-import { botDetailsToggle, pickInSubmenu, setBotDetails } from '../ui.ts'
+import { botDetailsToggle, checkBotDetailsFloating, pickInSubmenu, setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -83,23 +83,9 @@ async function expectOpen(page: Page, open: boolean, why: string) {
     throw new Error(`${why}: the details are ${state === 'true' ? 'open' : 'closed'}`)
 }
 
-/** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */
-async function checkFloating(page: Page) {
-  // It scales in from the name; measure where it lands.
-  await page.waitForTimeout(500)
-  const toggle = await botDetailsToggle(page).boundingBox()
-  const panel = await details(page).boundingBox()
-
-  if (!toggle || !panel) throw new Error('The name or the floating details are not on screen')
-  if (Math.abs(panel.x - toggle.x) > 1 || panel.y < toggle.y + toggle.height)
-    throw new Error(
-      `The details float at ${JSON.stringify(panel)}, not under ${JSON.stringify(toggle)}`,
-    )
-}
-
 /** Floating, the panel ends above a bar the composer holds over the chat. */
 async function stopsAbove(page: Page, bar: Locator) {
-  await checkFloating(page)
+  await checkBotDetailsFloating(page)
   const panel = await details(page).boundingBox()
   const top = await bar.boundingBox()
 
@@ -122,6 +108,8 @@ async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
     await banner.waitFor()
     await shoot(page, 'owner-wide-banner')
     await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
+    await details(page).waitFor({ state: 'detached' })
+    await botDetailsToggle(page).click()
     await stopsAbove(page, banner)
     await shoot(page, 'owner-narrow-banner')
   } finally {
@@ -188,16 +176,16 @@ const scenario: Scenario = {
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').waitFor({ state: 'detached' })
 
-    // Esc inside the panel closes it and hands focus back to the name. Focus back on Edit Bot
-    // shows its tooltip, and an Esc closes that first.
+    // Closing Edit Bot hands focus back to its pencil without opening the pencil's tooltip
+    // (#3961), so one Esc inside the panel closes it and hands focus back to the name.
     const edit = card.getByRole('button', { name: 'Edit Bot' })
 
-    await edit.focus()
-    await page.waitForTimeout(300)
-    if ((await edit.getAttribute('data-popup-open')) !== null) {
-      await page.keyboard.press('Escape')
-      await card.locator('button[aria-label="Edit Bot"]:not([data-popup-open])').waitFor()
-    }
+    if (!(await edit.evaluate((button) => button === document.activeElement)))
+      throw new Error('Closing Edit Bot did not hand focus back to its button')
+    // Longer than the tooltip's 300 ms delay, so a tooltip that would open has opened.
+    await page.waitForTimeout(600)
+    if ((await edit.getAttribute('data-popup-open')) !== null)
+      throw new Error('Focus handed back to Edit Bot opened its tooltip (#3961)')
     await page.keyboard.press('Escape')
     await details(page).waitFor({ state: 'detached' })
     await expectOpen(page, false, 'After Esc')
@@ -247,13 +235,17 @@ const scenario: Scenario = {
 
     try {
       await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-      await page.waitForTimeout(500)
-      await checkFloating(page)
+      // #4077: with no room beside, the open details close, and open by hand as a popover.
+      await details(page).waitFor({ state: 'detached' })
+      await expectOpen(page, false, 'Narrowed')
+      await botDetailsToggle(page).click()
+      await checkBotDetailsFloating(page)
       await shoot(page, 'teammate-narrow-open')
-      // Floating, it is a popover: a press outside closes it in that chat, and saves nothing.
+      // Opened by hand in one Bot chat, they start closed in the next.
       await openChat(page, 'E2E Bot')
-      await expectOpen(page, true, 'In the next Bot chat after a press outside')
-      await checkFloating(page)
+      await expectOpen(page, false, 'In the next Bot chat, narrow')
+      await setBotDetails(page, true)
+      await checkBotDetailsFloating(page)
       // Right of the panel, which floats from the name at the pane's left.
       await page.mouse.click(780, 400)
       await expectOpen(page, false, 'After a press on the transcript')
@@ -262,7 +254,7 @@ const scenario: Scenario = {
       if (saved !== '1') throw new Error(`A press outside saved the details as ${String(saved)}`)
       await shoot(page, 'owner-narrow-closed')
       await setBotDetails(page, true)
-      await checkFloating(page)
+      await checkBotDetailsFloating(page)
       await shoot(page, 'owner-narrow-open')
       // Replying, the popover ends above the reply bar. A press on a post is a press outside, so
       // the reply starts first.
@@ -280,8 +272,8 @@ const scenario: Scenario = {
       await cdp.detach()
     }
     await openChat(page, 'E2E Bot')
-    // Saved closed for the scenarios after this one, whatever a press outside left.
-    await setBotDetails(page, true)
+    // Wide again, the details are back beside the chat as saved; saved closed for the scenarios after.
+    await expectOpen(page, true, 'Wide again')
     await setBotDetails(page, false)
     // Leave the lists as the scenarios after this one expect them: the Bot back with its
     // owner, then it, its chat and the group archived.

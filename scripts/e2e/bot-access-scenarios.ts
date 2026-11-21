@@ -1,8 +1,9 @@
 // What a Bot may use, set in its details. Runs in the Bot chat the scenarios before opened.
 import { agentLog } from './agent-log.ts'
 import { botNamed, updateBot } from './bot-access-db.ts'
+import { access, details, narrowDetails, shoot } from './bot-details-narrow.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
-import { artifacts, until } from './processes.ts'
+import { until } from './processes.ts'
 import { openBotTask, send, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
@@ -10,7 +11,6 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
-const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 const SHARED = 'Shared access Bot'
 
 /** Archives a conversation and its chat, so later scenarios don't list it. */
@@ -33,24 +33,11 @@ const ISSUE = {
   state: 'open',
 }
 
-const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
-// Exact: the Bot's card is a region too, named after the Bot.
-const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
   page.locator(
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
-
-/** A light capture of the window once the panel or menu has landed. */
-async function shoot(page: Page, name: string) {
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark')
-    document.documentElement.classList.add('light')
-  })
-  await page.waitForTimeout(600)
-  await page.screenshot({ path: `${artifacts}/bot-access-${name}-light.png` })
-}
 
 /** Opens a row's picker or menu, captures it, and closes it again. */
 async function shootMenu(page: Page, row: RegExp, name: string) {
@@ -134,19 +121,7 @@ export const botAccessScenarios: Scenario[] = [
           ),
       )
 
-      // Narrow, the details float over the chat with the same rows.
-      const cdp = await page.context().newCDPSession(page)
-
-      try {
-        await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-        await access(page)
-          .getByRole('button', { name: /^Credentials/ })
-          .waitFor()
-        await shoot(page, 'owner-narrow')
-      } finally {
-        await cdp.send('Emulation.clearDeviceMetricsOverride')
-        await cdp.detach()
-      }
+      await narrowDetails(page)
 
       // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
       updateBot(stack, made.sessionId, {

@@ -18,7 +18,7 @@ import {
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
 import { cancelOpenAgentPlans } from '@/lib/agent/plans'
-import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { drainAgentProducers, drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -279,7 +279,6 @@ async function shutdown(sig: string) {
       logError('backend.shutdown.trace_flush_failed', error)
     }),
   ])
-
   await closeAgentWorkerQueues()
 
   // 5. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
@@ -290,7 +289,8 @@ async function shutdown(sig: string) {
     }),
   ])
 
-  // 6. Close storage last and exit at once, so late work dies with the process.
+  // 6. Let transcript writes started by closed tunnels land, then close storage and exit at once.
+  await drainAgentProducers(shutdownBudget.guardFlushMs)
   await Promise.allSettled([closeRedis(), closeDb()])
   process.exit(0)
 }

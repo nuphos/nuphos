@@ -58,7 +58,8 @@ export function ChoiceCard({
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
   const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
-  const typeable = interactive && category !== 'credential'
+  // A credential takes words only beside its options, never as its value (#4029).
+  const typeable = interactive && (category !== 'credential' || options.length > 0)
   const form = formQuestions({ question, options, multiSelect, questions })
   // One question with one answer is answered by a click, so its keys choose.
   const clicked = clickOptions(form)

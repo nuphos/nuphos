@@ -21,12 +21,14 @@ import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
+import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
+import { newGroupChatScenarios } from './new-group-chat-scenarios.ts'
 import { leaveTaskScenarios } from './leave-task-scenarios.ts'
 import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
@@ -36,6 +38,7 @@ import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
+import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
@@ -128,6 +131,7 @@ const scenarios: Scenario[] = [
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
   ...leaveChatScenarios,
+  ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
   {
     name: 'start a Task, send a message and read the reply',
@@ -161,11 +165,13 @@ const scenarios: Scenario[] = [
   ...providerUnreachableScenarios,
   ...computerScenarios,
   ...mcpFileScenarios,
+  ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
   ...offlineScenarios,
+  ...mcpNotificationScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,
