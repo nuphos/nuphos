@@ -604,9 +604,10 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5), "A question naming no provider can't be answered in words")
         field.typeText("Check the review status by hand and tell me")
         shot("6-no-provider-typed")
+        // Answered first: the app hides it at once, so a poll can't take the card before the tap (#4295).
+        app.buttons["Send answer"].firstMatch.tap()
         ops["inputRequests"] = [signIn, repo]
         try listQuestions([ops])
-        app.buttons["Send answer"].firstMatch.tap()
         XCTAssertTrue(listed("How should I handle Android releases stuck in Play review?").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
 
@@ -617,9 +618,9 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Answer it in")).firstMatch.exists,
                        "A card sends its answer elsewhere")
         shot("7-status-card-options")
+        app.buttons["Signed in"].firstMatch.tap()
         ops["inputRequests"] = [repo]
         try listQuestions([ops])
-        app.buttons["Signed in"].firstMatch.tap()
         XCTAssertTrue(listed("Sign in to GitHub once on the Mac mini, then pick Signed in").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
 
