@@ -66,7 +66,7 @@ function onPath(command: string): boolean {
 }
 
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
-function startMongo(freePort: number): string {
+export function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
   const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
@@ -91,7 +91,7 @@ function startMongo(freePort: number): string {
 }
 
 /** The backend needs transactions, so a lone mongod becomes a one-member replica set. */
-function initiateReplicaSet(uri: string): boolean {
+export function initiateReplicaSet(uri: string): boolean {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1], { serverSelectionTimeoutMS: 1000 }).connect()

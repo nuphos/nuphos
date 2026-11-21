@@ -14,6 +14,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { SSE_HEARTBEAT_INTERVAL_MS } from '@/routes/agent/constants'
+import { agentRemindersRoutes } from '@/routes/agent-reminders'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -256,6 +257,7 @@ teamScoped.route('/dashboards', nuphosDashboardsRoutes)
 // Alias for desktop builds that predate the Dashboards rename.
 teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes)
 teamScoped.route('/agent-triggers', agentTriggersRoutes)
+teamScoped.route('/agent-reminders', agentRemindersRoutes)
 teamScoped.route('/knowledge', knowledgeRoutes)
 teamScoped.route('/github-installations', githubInstallationsRoutes)
 teamScoped.route('/gitlab-bindings', gitlabBindingsRoutes)
@@ -270,7 +272,6 @@ teamScoped.route('/jira-sites', jiraSitesRoutes)
 teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
-
 teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
 teamScoped.route('/discord', discordAgentRoutes)
@@ -296,5 +297,4 @@ teamScoped.route('/monitoring', monitoringRoutes)
 teamScoped.route('/file-transfers', fileTransfersRoutes)
 teamScoped.route('/skills', teamSkillsRoutes)
 teamScoped.route('/database-connections', databaseConnectionsRoutes)
-
 teamsRoutes.route('/:teamId', teamScoped)
