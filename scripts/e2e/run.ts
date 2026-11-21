@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { browserVideoScenarios } from './browser-video-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
@@ -220,7 +221,7 @@ const selected =
   shard === '1'
     ? scenarios
     : shard === '2'
-      ? [...signInScenarios, ...computerScenarios]
+      ? [...signInScenarios, ...computerScenarios, ...Array.from({ length: 20 }, () => browserVideoScenarios).flat()]
       : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
