@@ -176,6 +176,13 @@ try {
 
   check('the flush opened a new window, so the next delivery is held again', during.status === 202)
   await sleep((WINDOW_SECONDS + 6) * 1000)
+  const fires = lines().filter((line) => line.includes('webhook.held_fired'))
+
+  check(
+    'a delivery held right after a flush is fired by its own job, once and unwrapped',
+    fires.length === 2 && JSON.parse(fires[1] ?? '{}').deliveries === 1,
+    `${String(fires.length)} fires`,
+  )
   const quiet = await hook('TAG-E')
 
   check(

@@ -74,7 +74,6 @@ export async function initTriggerScheduler(): Promise<boolean> {
         }
         if (job.name === HELD_FLUSH_JOB) {
           const { flushHeldDeliveries } = await import('./trigger-held-flush')
-
           const { triggerId } = job.data as { triggerId: string }
 
           await flushHeldDeliveries(triggerId, (delayMs) => enqueueHeldFlush(triggerId, delayMs))
@@ -109,7 +108,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker.on('failed', (job, err) => {
     void whoseJob(job?.data).then((owner) =>
-      { logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }); },
+      logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }),
     )
     if (job?.name === 'task-report') {
       void import('./task-reports')
@@ -233,13 +232,13 @@ export async function scheduleCronTrigger(
   await _upsertJobScheduler(triggerId, cronExpression, timeZone)
 }
 
-/** One delayed flush per Trigger: a second hold inside the same window joins the first. */
+/** A delayed flush for a Trigger's held deliveries; the caller keeps one pending per batch. */
 export async function enqueueHeldFlush(triggerId: string, delayMs: number): Promise<boolean> {
   if (!_queue) return false
   await _queue.add(
     HELD_FLUSH_JOB,
     { triggerId },
-    { jobId: `flush-${triggerId}`, delay: delayMs, removeOnComplete: true, removeOnFail: 50 },
+    { delay: delayMs, removeOnComplete: true, removeOnFail: 50 },
   )
 
   return true

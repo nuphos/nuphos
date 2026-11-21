@@ -23,17 +23,25 @@ useDb({
   db: () => ({
     collection: () => ({
       findOne: () => Promise.resolve(stored),
-      updateOne: (
-        _filter: unknown,
-        update: { $push: { heldDeliveries: { $each: unknown[] } } },
-      ) => {
-        held.push(...update.$push.heldDeliveries.$each)
+      updateOne: () => {
+        held.pop()
 
         return Promise.resolve({})
       },
       // The cooldown claim, as Mongo runs it: it wins only once its window has passed.
-      findOneAndUpdate: (filter: { $or: [unknown, { lastRunAt: { $lte: Date } }] }) => {
-        const cutoff = filter.$or[1].lastRunAt.$lte
+      findOneAndUpdate: (
+        filter: { $or?: [unknown, { lastRunAt: { $lte: Date } }] },
+        update: { $push?: { heldDeliveries: { $each: unknown[] } } },
+      ) => {
+        // The hold: pushes a delivery and returns the Trigger as it was before.
+        if (update.$push) {
+          const before = [...held]
+
+          held.push(...update.$push.heldDeliveries.$each)
+
+          return Promise.resolve({ heldDeliveries: before })
+        }
+        const cutoff = filter.$or![1].lastRunAt.$lte
 
         if (lastRunAt && lastRunAt > cutoff) return Promise.resolve(null)
         lastRunAt = new Date()
@@ -247,6 +255,19 @@ describe('POST /webhooks/:triggerId', () => {
     expect(held).toEqual([{ action: 'synchronize' }])
     expect(flushes).toEqual([{ triggerId: String(stored._id), delayMs: 180_000 }])
     expect(fires).toHaveLength(0)
+  })
+
+  test('one flush is pending per batch: a second hold joins it, a hold after a flush starts the next', async () => {
+    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
+    lastRunAt = stored.lastRunAt
+
+    await post({ n: 1 })
+    await post({ n: 2 })
+    expect(flushes).toHaveLength(1)
+    // The flush took the batch: what arrives next is not covered by the job that took it.
+    held.length = 0
+    await post({ n: 3 })
+    expect(flushes).toHaveLength(2)
   })
 
   test('the delivery that opens the window fires with everything held before it', async () => {

@@ -25,7 +25,13 @@ export async function flushHeldDeliveries(
   const deliveries = (claim.payload as { coalesced?: number } | undefined)?.coalesced ?? 1
 
   logEvent('info', 'webhook.held_fired', { trigger_id: triggerId, deliveries })
-  const { run } = await fireTrigger(trigger, claim.payload, { runKind: 'webhook' })
+  const { run } = await fireTrigger(trigger, claim.payload, { runKind: 'webhook' }).catch(
+    (error: unknown) => {
+      logError('webhook.held_lost', error, { trigger_id: triggerId, deliveries })
+
+      throw error
+    },
+  )
 
   void run.catch((err: unknown) => {
     logError('webhook.trigger_execution_failed', err, { trigger_id: triggerId })
