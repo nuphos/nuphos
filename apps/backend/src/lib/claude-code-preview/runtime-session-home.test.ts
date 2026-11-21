@@ -28,6 +28,7 @@ import {
   reclaimPendingArchiveHome,
   reclaimSessionHomes,
 } from './runtime-session-home'
+import { runtimeGone } from './runtime-refusal'
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 
@@ -408,7 +409,7 @@ describe('reclaimSessionHomes', () => {
     requireRuntimeInstance: async (_teamId: string, id: string) => {
       const instance = instances.find((candidate) => candidate.id === id)
 
-      if (!instance) throw new Error('This agent no longer exists.')
+      if (!instance) throw runtimeGone()
 
       return instance
     },
@@ -477,6 +478,7 @@ describe('reclaimSessionHomes', () => {
 
   test('an offline computer retains its queued generation', async () => {
     offline = [LOCAL]
+    instances = [{ id: LOCAL, provider: 'claude-code' }]
     const row = conversation({
       archivedAt: undefined,
       archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
@@ -499,6 +501,7 @@ describe('reclaimSessionHomes', () => {
 
     offered = ['session-homes', 'session-homes-v2']
     offline = [old]
+    instances = [{ id: old, provider: 'claude-code' }]
 
     expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
     expect(jobs).toHaveLength(0)
@@ -509,7 +512,21 @@ describe('reclaimSessionHomes', () => {
     expect(row.archiveHomePendingEpochs).toEqual([])
   })
 
-  test('an older runtime receives no reclaim job and retains the pending generation', async () => {
+  test('an older runtime reclaims its single home with the legacy job while archived', async () => {
+    const row = conversation({
+      archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
+    })
+
+    offered = ['session-homes', 'panel']
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
+    expect(jobs.map(({ job, stdin }) => [job, JSON.parse(stdin)])).toEqual([
+      ['session-homes', { sessionId: 'conversation' }],
+    ])
+    expect(row.archiveHomePendingEpochs).toEqual([])
+  })
+
+  test('an older runtime keeps the single home a restored Task uses again', async () => {
     const row = conversation({
       archivedAt: undefined,
       archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
@@ -517,9 +534,43 @@ describe('reclaimSessionHomes', () => {
 
     offered = ['session-homes', 'panel']
 
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
+    expect(jobs).toHaveLength(0)
+    expect(row.archiveHomePendingEpochs).toEqual([])
+  })
+
+  test('drops a generation with no team or runtime to reclaim it on', async () => {
+    const noRuntime = conversation({
+      archiveHomePendingEpochs: [{ epoch: 0, runtimeId: null, provider: 'claude-code' }],
+    })
+    const noTeam = conversation({
+      sessionId: 'personal',
+      teamId: undefined,
+      archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
+    })
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
+    expect(await reclaimPendingArchiveHome('personal', now)).toBe(true)
+    expect(jobs).toHaveLength(0)
+    expect(noRuntime.archiveHomePendingEpochs).toEqual([])
+    expect(noTeam.archiveHomePendingEpochs).toEqual([])
+  })
+
+  test('drops a generation whose runtime was removed, but keeps one that is only offline', async () => {
+    const removed = 'local_owner_removed'
+    const row = conversation({
+      archiveHomePendingEpochs: [
+        { epoch: 0, runtimeId: removed, provider: 'claude-code' },
+        { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
+      ],
+    })
+
+    offline = [removed, LOCAL]
+    instances = [{ id: LOCAL, provider: 'claude-code' }]
+
     expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
     expect(row.archiveHomePendingEpochs).toEqual([
-      { epoch: 0, runtimeId: LOCAL, provider: 'claude-code' },
+      { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
     ])
     expect(jobs).toHaveLength(0)
   })

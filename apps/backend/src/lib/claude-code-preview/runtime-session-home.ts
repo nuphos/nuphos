@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
@@ -114,13 +115,10 @@ export async function reclaimPendingArchiveHome(
   const conversation = await agentConversations().findOne({ sessionId })
 
   if (!conversation?.archiveHomePendingEpochs?.length) return true
-  if (!conversation.teamId) return false
-  for (const home of conversation.archiveHomePendingEpochs) {
-    if (!home.runtimeId) return false
-    const endpoint = await controlEndpoint(conversation.teamId, home.runtimeId, home.provider)
+  const { teamId, archivedAt } = conversation
 
-    if (!endpoint || !(await runReclaimJob(conversation.teamId, endpoint, sessionId, home.epoch)))
-      return false
+  for (const home of conversation.archiveHomePendingEpochs) {
+    if (!(await reclaimArchivedGeneration(teamId, home, sessionId, archivedAt))) return false
     await agentConversations().updateOne(
       { sessionId },
       { $pull: { archiveHomePendingEpochs: home }, $set: { sessionHomeReclaimedAt: now } },
@@ -129,6 +127,28 @@ export async function reclaimPendingArchiveHome(
 
   return true
 }
+
+/** One archived generation: true once its home is gone or can never be reached again. */
+async function reclaimArchivedGeneration(
+  teamId: string | undefined,
+  home: NonNullable<AgentConversation['archiveHomePendingEpochs']>[number],
+  sessionId: string,
+  archivedAt: Date | undefined,
+): Promise<boolean> {
+  if (!teamId || !home.runtimeId) return true
+  const endpoint = await controlEndpoint(teamId, home.runtimeId, home.provider)
+
+  // Offline waits; a removed runtime takes its homes with it.
+  if (!endpoint) return runtimeRemoved(teamId, home.runtimeId)
+
+  return runReclaimJob(teamId, endpoint, sessionId, { epoch: home.epoch, archived: !!archivedAt })
+}
+
+const runtimeRemoved = (teamId: string, runtimeId: string) =>
+  requireRuntimeInstance(teamId, runtimeId, parseLocalRuntimeId(runtimeId)?.userId).then(
+    () => false,
+    (error: unknown) => error instanceof AppError && error.code === 'runtime_not_found',
+  )
 
 /**
  * A moved conversation's home on the agent it left. Every agent on one computer,
@@ -188,42 +208,27 @@ async function runReclaimJob(
   teamId: string,
   endpoint: NonNullable<Awaited<ReturnType<typeof controlEndpoint>>>,
   sessionId: string,
-  epoch?: number,
+  generation?: { epoch: number; archived: boolean },
 ): Promise<boolean> {
   const client = await controlRegistry.acquire(teamId, endpoint)
   const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+  const epoch = jobs.includes('session-homes-v2') ? generation?.epoch : undefined
 
-  if (epoch !== undefined && !jobs.includes('session-homes-v2')) return false
-  // A computer's own fixed job takes only the session id; `panel`, which runs the
-  // text it is sent, is for the runtime image and older computers that have it.
-  const request =
-    epoch !== undefined
-      ? jobs.includes('session-homes')
-        ? { job: 'session-homes-v2', stdin: JSON.stringify({ sessionId, epoch }) }
-        : {
-            job: 'session-homes-v2',
-            stdin: JSON.stringify({
-              runner: RECLAIM_SESSION_HOME_PROGRAM,
-              script: '',
-              params: { sessionId, epoch },
-            }),
-          }
-      : jobs.includes('session-homes')
-        ? { job: 'session-homes', stdin: JSON.stringify({ sessionId }) }
-        : jobs.includes('panel')
-          ? {
-              job: 'panel',
-              stdin: JSON.stringify({
-                runner: RECLAIM_SESSION_HOME_PROGRAM,
-                script: '',
-                params: { sessionId },
-              }),
-            }
-          : null
+  // A runtime without generations keeps a single home, which a restored Task uses again.
+  if (generation && epoch === undefined && !generation.archived) return true
+  const params = epoch === undefined ? { sessionId } : { sessionId, epoch }
+  // A computer's own fixed jobs take the params alone; the runtime image and older
+  // computers run the program they are sent, as `panel` or their `session-homes-v2`.
+  const fixed = jobs.includes('session-homes')
+  let job = fixed ? 'session-homes' : 'panel'
 
-  if (!request) return false
+  if (epoch !== undefined) job = 'session-homes-v2'
+  if (!jobs.includes(job)) return false
+  const stdin = JSON.stringify(
+    fixed ? params : { runner: RECLAIM_SESSION_HOME_PROGRAM, script: '', params },
+  )
   const result = await client.runJob(
-    { jobId: randomUUID(), env: {}, timeoutMs: 60_000, maxStdoutBytes: 1024, ...request },
+    { jobId: randomUUID(), env: {}, timeoutMs: 60_000, maxStdoutBytes: 1024, job, stdin },
     65_000,
   )
 

@@ -129,15 +129,25 @@ mod unix {
         }
     }
     // Match the runtime adapters' session-home contract. Never inherit runtime secrets.
-    fn session_environment(session: &str) -> io::Result<std::collections::HashMap<String, String>> {
+    // A restored Task's home is a new generation, `<hash>.g-<epoch>`, as in session-home.mjs.
+    fn session_environment(
+        session: &str,
+        epoch: u64,
+    ) -> io::Result<std::collections::HashMap<String, String>> {
+        let generation = if epoch > 0 {
+            format!(".g-{epoch}")
+        } else {
+            String::new()
+        };
         let root = std::path::PathBuf::from(
             std::env::var("OPENAB_RUNTIME_TERMINAL_HOME")
                 .or_else(|_| std::env::var("HOME"))
                 .map_err(io::Error::other)?,
         );
-        let home = root
-            .join(".nuphos/session-homes")
-            .join(format!("{:x}", Sha256::digest(session.as_bytes())));
+        let home = root.join(".nuphos/session-homes").join(format!(
+            "{:x}{generation}",
+            Sha256::digest(session.as_bytes())
+        ));
         use std::os::unix::fs::PermissionsExt;
         for dir in [home.parent().unwrap(), home.as_path()] {
             std::fs::create_dir_all(dir)?;
@@ -153,6 +163,7 @@ mod unix {
             ("HOME".into(), home.clone()),
             ("NUPHOS_SESSION_HOME".into(), home.clone()),
             ("NUPHOS_SESSION_ID".into(), session.into()),
+            ("NUPHOS_SESSION_HOME_EPOCH".into(), epoch.to_string()),
             ("TERM".into(), "xterm-256color".into()),
             (
                 "PATH".into(),
@@ -220,7 +231,14 @@ mod unix {
             .as_str()
             .filter(|s| super::super::runtime_login::valid_attempt_id(s))
             .ok_or_else(|| io::Error::other("Invalid session"))?;
-        let env = session_environment(session)?;
+        let epoch = match &params["homeEpoch"] {
+            Value::Null => 0,
+            value => value
+                .as_u64()
+                .filter(|epoch| *epoch < 1_000_000_000_000_000)
+                .ok_or_else(|| io::Error::other("Invalid home epoch"))?,
+        };
+        let env = session_environment(session, epoch)?;
         let (mut master, mut slave) = (-1, -1);
         if unsafe {
             libc::openpty(
@@ -376,6 +394,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_restored_task_opens_its_current_home_generation() {
+        let _guard = super::super::runtime_login::TEST_GUARD.lock().await;
+        let root = std::env::temp_dir().join(format!("runtime-pty-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::env::set_var("OPENAB_RUNTIME_TERMINAL_CWD", &root);
+        std::env::set_var("OPENAB_RUNTIME_TERMINAL_HOME", &root);
+        let homes = root.join(".nuphos/session-homes");
+        use sha2::{Digest, Sha256};
+        let hash = format!("{:x}", Sha256::digest(b"conversation"));
+        let (out, _frames) = mpsc::unbounded_channel();
+        drop(
+            unix::start(
+                "epoch",
+                &json!({"sessionId":"conversation","homeEpoch":2}),
+                out,
+            )
+            .unwrap(),
+        );
+        assert!(homes.join(format!("{hash}.g-2")).is_dir());
+        assert!(!homes.join(&hash).exists());
+        let (out, _frames) = mpsc::unbounded_channel();
+        assert!(unix::start(
+            "bad",
+            &json!({"sessionId":"conversation","homeEpoch":-1}),
+            out
+        )
+        .is_err());
+        std::env::remove_var("OPENAB_RUNTIME_TERMINAL_CWD");
+        std::env::remove_var("OPENAB_RUNTIME_TERMINAL_HOME");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn duplicate_and_future_acknowledgements_do_not_release_output() {
         // Runtime login and terminal tests share process-global environment variables.
         let _guard = super::super::runtime_login::TEST_GUARD.lock().await;
@@ -399,7 +450,7 @@ mod tests {
             use sha2::{Digest, Sha256};
             let link = std::fs::read_link(
                 root.join(".nuphos/session-homes")
-                    .join(format!("{:x}", Sha256::digest(b"conversation")))
+                    .join(format!("{:x}", sha2::Sha256::digest(b"conversation")))
                     .join("Library/Keychains"),
             )
             .unwrap();

@@ -1,5 +1,7 @@
 import { ObjectId } from 'mongodb'
 
+import { logEvent } from '@/lib/observability'
+
 import { getConversationBySessionId } from './db'
 import { agentTriggers } from './trigger-db'
 import { triggerIdOf } from './trigger-missed-runs'
@@ -40,6 +42,12 @@ export async function liveTriggerMessages(
     const id = triggerIdOf(message)
 
     if (!id || (!archived && (await check.live(id, sessionId)))) kept.push(message)
+    else
+      logEvent('info', 'agent.trigger_fire.dropped', {
+        session_id: sessionId,
+        trigger_id: id,
+        reason: archived ? 'task_archived' : 'trigger_inactive', // Deleted, disabled or moved to another Task.
+      })
   }
 
   return kept

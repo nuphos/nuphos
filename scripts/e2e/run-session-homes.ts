@@ -1,6 +1,6 @@
-// An archived Task's home on someone's own computer is removed, and only that one (#4265).
-// A stack of its own, since the sweep runs once a backend has started and restarting it here
-// touches no other scenario. Everything is fictional: its own backend, database and computers.
+// An archived Task's home on its computer goes with its Triggers, and only that Task's (#4265, #4354).
+// A stack of its own: restarting its backend for the sweep touches no other scenario.
+// Everything is fictional: its own backend, database and computers.
 import { randomUUID } from 'node:crypto'
 import {
   chmodSync,
@@ -25,13 +25,19 @@ import type { Stack } from './stack.ts'
 
 type Home = { sessionId: string; home: string }
 
-/** A Task on the computer, with the home its agent made there, as the adapter makes it. */
+/** The home a Task's agent makes on the computer, as the adapter makes it, in each generation. */
+const homeOf = (sessionId: string, computerHome: string, epoch = '0') =>
+  (
+    nuphosSessionHomeEnv(
+      { NUPHOS_SESSION_ID: sessionId, NUPHOS_SESSION_HOME_EPOCH: epoch },
+      { HOME: computerHome },
+    ) as { HOME: string }
+  ).HOME
+
+/** A Task on the computer, with the home its agent made there. */
 function task(stack: Stack, ownerId: string, deviceId: string, computerHome: string): Home {
   const sessionId = `e2e-home-${randomUUID()}`
-  const { HOME: home } = nuphosSessionHomeEnv(
-    { NUPHOS_SESSION_ID: sessionId },
-    { HOME: computerHome },
-  ) as { HOME: string }
+  const home = homeOf(sessionId, computerHome)
 
   inDatabase(
     stack.mongoUri,
@@ -81,13 +87,36 @@ try {
   const owner = client(stack.apiUrl, stack.token)
   const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
   const ownerId = me.user?.id ?? me.id ?? ''
-  const archive = async ({ sessionId }: Home) => {
-    const archived = await owner('PATCH', `/agent/conversations/${sessionId}/archive`, {
+  const archive = async ({ sessionId }: Home, archived = true) => {
+    const response = await owner('PATCH', `/agent/conversations/${sessionId}/archive`, {
       teamId: stack.teamId,
-      archived: true,
+      archived,
     })
 
-    must(archived.status < 300, `archiving to be taken, got ${String(archived.status)}`)
+    must(response.status < 300, `archiving to be taken, got ${String(response.status)}`)
+  }
+  const trigger = async ({ sessionId }: Home, enabled: boolean) => {
+    const created = await owner('POST', '/agent/triggers', {
+      teamId: stack.teamId,
+      targetSessionId: sessionId,
+      name: `E2E ${enabled ? 'enabled' : 'disabled'} Trigger`,
+      triggerType: 'cron',
+      cronExpression: '0 * * * *',
+      messageTemplate: 'E2E check',
+      enabled,
+    })
+
+    must(created.status < 300, `the Trigger to be created, got ${String(created.status)}`)
+
+    return (created.body as { id: string }).id
+  }
+  const triggersOf = async ({ sessionId }: Home) => {
+    const listed = await owner(
+      'GET',
+      `/agent/triggers?teamId=${stack.teamId}&targetSessionId=${sessionId}`,
+    )
+
+    return (listed.body as { id: string }[]).map(({ id }) => id).sort()
   }
 
   // The real `nuphos agent` host, whose session-homes job #4267 points at this HOME.
@@ -99,38 +128,75 @@ try {
     runtimeDir: fixtureBundle(stack, 'homes-away'),
     prepare: signedIn(ownerId),
   })
+  const online = (label: string, times = 1) =>
+    until(
+      `${label} to have Claude Code online`,
+      async () =>
+        readFileSync(logPath(`computer-${label}`), 'utf8').split('Claude Code: online').length >
+        times,
+    )
 
   // Signed out, a computer gives the backend no control channel and nothing is reclaimed.
-  for (const label of ['E2E homes mini', 'E2E homes away'])
-    await until(`${label} to have Claude Code online`, async () =>
-      readFileSync(logPath(`computer-${label}`), 'utf8').includes('Claude Code: online'),
-    )
+  for (const label of ['E2E homes mini', 'E2E homes away']) await online(label)
   const target = task(stack, ownerId, computer.deviceId, computer.home)
   const control = task(stack, ownerId, computer.deviceId, computer.home)
   const offline = task(stack, ownerId, away.deviceId, away.home)
+  const controlTriggers = [await trigger(control, true)]
 
+  await trigger(target, true)
+  await trigger(target, false)
+  must(
+    (await triggersOf(target)).length === 2,
+    'the Task to have an enabled and a disabled Trigger',
+  )
   await away.stop()
+  // A job looking in another HOME answers "absent" and the backend took that as removed: each
+  // home is there first, so only removing it can pass.
+  for (const { home } of [target, control, offline]) must(existsSync(home), `${home} to exist`)
   await archive(target)
   await archive(offline)
-  // A job looking in another HOME answers "absent" and the backend took that as removed: each
-  // home is there before the sweep, so only removing it can pass.
-  for (const { home } of [target, control, offline]) must(existsSync(home), `${home} to exist`)
 
-  // The sweep runs a minute after the backend starts; the computer redials it before then.
-  await stack.restartBackend()
-  await until(
-    'the archived Task to be marked reclaimed',
-    async () => reclaimedAt(stack, target),
-    180_000,
+  // Archiving removes the Task's Triggers and, its computer online, its home at once.
+  must((await triggersOf(target)).length === 0, "the archived Task's Triggers to be deleted")
+  must(
+    JSON.stringify(await triggersOf(control)) === JSON.stringify(controlTriggers),
+    "the other Task's Trigger to be kept",
   )
-
   must(!existsSync(target.home), "the archived Task's home to be removed from the computer")
+  must(Boolean(reclaimedAt(stack, target)), 'the archived Task to be marked reclaimed')
   must(existsSync(control.home), "the other Task's home on that computer to be kept")
   must(!reclaimedAt(stack, control), 'the Task still in use not to be marked reclaimed')
   must(existsSync(offline.home), 'the home on the computer that is off to be kept')
   must(!reclaimedAt(stack, offline), 'a computer that is off not to be marked reclaimed')
-  console.log('PASS an archived Task’s home is removed from its computer, and only that one')
+
+  // Restored, the Task works in a new home generation, with a Trigger made since.
+  await archive(target, false)
+  const restored = homeOf(target.sessionId, computer.home, '1')
+  const kept = [await trigger(target, true)]
+
+  must(restored !== target.home && existsSync(restored), 'the restored Task to get a new home')
+
+  // The computer that was off comes back; the sweep, a minute after the backend starts,
+  // reclaims the home archived while it was off.
+  await away.start()
+  await online('E2E homes away', 2)
+  await stack.restartBackend()
+  await until(
+    'the home archived while its computer was off to be reclaimed',
+    async () => reclaimedAt(stack, offline),
+    180_000,
+  )
+  must(!existsSync(offline.home), 'the home archived while its computer was off to be removed')
+  must(existsSync(restored), "the restored Task's new home to be kept by the sweep")
+  must(
+    JSON.stringify(await triggersOf(target)) === JSON.stringify(kept),
+    'a Trigger made after restoring to be kept by the sweep',
+  )
+  must(existsSync(control.home), "the other Task's home to be kept by the sweep")
+  console.log('PASS an archived Task’s home and Triggers go, and only that Task’s')
+  console.log('PASS a restored Task keeps its new home and Triggers through the sweep')
   await computer.stop()
+  await away.stop()
 } catch (error) {
   failed = true
   console.error(error)
