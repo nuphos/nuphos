@@ -87,17 +87,22 @@ try {
   page = launched.page
   await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
   await page.reload()
-  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  const googleClick = page.getByRole('button', { name: 'Continue with Google' }).click({ noWaitAfter: true })
+  console.log('Google fixture: click started')
   let handle = ''
   await until('fixture Google native session', async () => {
     handle = /E2E_NATIVE_HANDLE=([^\s]+)/.exec(readFileSync(logPath('backend'), 'utf8'))?.[1] ?? ''
     return Boolean(handle)
   })
   // Drive the fictional provider leg locally; the app still redeems the actual one-time PKCE handoff.
-  const provider = await fetch(`${stack.apiUrl}/auth/social/google/start?handle=${encodeURIComponent(handle)}`, { redirect: 'manual' })
+  console.log('Google fixture: native session registered')
+  const provider = await fetch(`${stack.apiUrl}/auth/social/google/start?handle=${encodeURIComponent(handle)}`, { redirect: 'manual', signal: AbortSignal.timeout(15_000) })
+  console.log(`Google fixture: provider response ${provider.status}`)
   const callback = provider.headers.get('location')
   if (!callback || !callback.startsWith('http://127.0.0.1:')) throw new Error('Fixture Google callback missing')
-  await fetch(callback)
+  await fetch(callback, { signal: AbortSignal.timeout(30_000) })
+  await googleClick
+  console.log('Google fixture: native callback delivered')
   await page.getByText('Start with your first Bot').waitFor()
   online = await laptopOnline(stack, { diskPercent: 91 })
   await newTask(page)
