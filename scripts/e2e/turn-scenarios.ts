@@ -44,7 +44,15 @@ export const turnScenarios: Scenario[] = [
       // The first message names the Task, and a Task's prompt carries its parent's name.
       await send(page, 'Collect reports E2E_DELIVERY:collect')
       await page.getByText('ACK E2E_DELIVERY:collect').waitFor()
-      const parent = log().find((entry) => entry.marker === 'E2E_DELIVERY:collect')!.sessionId
+      const api = client(stack.apiUrl, stack.token)
+      const found = await api(
+        'GET',
+        `/agent/conversations?teamId=${stack.teamId}&search=${encodeURIComponent('Collect reports')}`,
+      )
+      // The Nuphos session, which send_message_to_thread names; the agent's own differs.
+      const parent = (found.body as { conversations: { sessionId: string }[] }).conversations[0]!
+        .sessionId
+      const acpParent = log().find((entry) => entry.marker === 'E2E_DELIVERY:collect')!.sessionId
       const report = (name: string) =>
         JSON.stringify({
           label: 'Report',
@@ -76,7 +84,7 @@ export const turnScenarios: Scenario[] = [
       const turns = () =>
         log().filter(
           (entry) =>
-            entry.sessionId === parent &&
+            entry.sessionId === acpParent &&
             entry.event === 'start' &&
             entry.marker !== 'E2E_DELIVERY:collecting' &&
             names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)),
@@ -98,28 +106,25 @@ export const turnScenarios: Scenario[] = [
         throw new Error(`The reports did not run in one turn: ${JSON.stringify(started)}`)
       }
       // Each report keeps its own Task as its sender.
-      const read = await client(stack.apiUrl, stack.token)(
-        'GET',
-        `/agent/conversations/${parent}?teamId=${stack.teamId}`,
-      )
+      const tasks = log()
+        .filter((entry) => entry.event === 'called' && entry.name === 'create_thread')
+        .map((entry) => /threadId[\\": ]*([0-9a-f-]{36})/.exec(JSON.stringify(entry.result))?.[1])
+      const read = await api('GET', `/agent/conversations/${parent}?teamId=${stack.teamId}`)
       const messages = (read.body as { messages: unknown[] }).messages.map((entry) =>
         JSON.stringify(entry),
       )
+      const senders = names.map((name) =>
+        tasks.find((task) =>
+          messages.some(
+            (entry) =>
+              entry.includes(`Done E2E_DELIVERY:report-${name}`) &&
+              new RegExp(`"sender":\\{[^}]*"id":"${task}"`).test(entry),
+          ),
+        ),
+      )
 
-      for (const name of names) {
-        const task = log().find(
-          (entry) => entry.marker === `E2E_DELIVERY:reporter-${name}`,
-        )?.sessionId
-        const sender = new RegExp(`"sender":\\{[^}]*"id":"${task}"`)
-
-        if (
-          !task ||
-          !messages.some(
-            (entry) => entry.includes(`E2E_DELIVERY:report-${name}`) && sender.test(entry),
-          )
-        ) {
-          throw new Error(`The report from ${name} lost its sender: ${messages.join('\n')}`)
-        }
+      if (senders.some((sender) => !sender) || new Set(senders).size !== names.length) {
+        throw new Error(`A report lost its own sender: ${JSON.stringify(senders)}`)
       }
     },
   },
