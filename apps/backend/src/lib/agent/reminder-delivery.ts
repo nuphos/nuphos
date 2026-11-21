@@ -1,0 +1,144 @@
+import { logError, logEvent } from '@/lib/observability'
+import { notifyNudge } from '@/lib/push/notify'
+
+import { noticeFailedReminders } from './reminder-notice'
+import { PermanentFailure, pushOwner, reminderMessageId, writeOnce } from './reminder-transcript'
+import { reminders } from './reminders'
+
+import type { Notify } from './reminder-transcript'
+import type { Reminder } from './reminders'
+import type { ObjectId } from 'mongodb'
+
+const MAX_ATTEMPTS = 5
+const CLAIM_LEASE_MS = 2 * 60 * 1000
+const BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000]
+const SWEEP_INTERVAL_MS = 30_000
+
+/**
+ * Acknowledges a reminder: it is saved where its owner reads it. The only writer of `ackedAt`,
+ * and a no-op after the first call, so a repeated acknowledgement changes nothing.
+ */
+export async function ackReminder(
+  id: ObjectId,
+  now = new Date(),
+  notify: Notify = notifyNudge,
+): Promise<boolean> {
+  const acked = await reminders().findOneAndUpdate(
+    { _id: id, status: 'pending' },
+    { $set: { status: 'delivered', ackedAt: now }, $unset: { lastError: '' } },
+  )
+
+  if (!acked) return false
+  logEvent('info', 'agent.reminder.delivered', { reminder_id: id.toHexString() })
+  pushOwner(notify, acked, 'Reminder', acked.text)
+
+  return true
+}
+
+/** Saves the reminder text into its conversation under its stable message id. */
+const saveReminder = (reminder: Reminder) =>
+  writeOnce(reminder, reminderMessageId(reminder._id), reminder.text, 'Reminder')
+
+/** Marks a pending reminder failed; the sweep then tells its owner (see reminder-notice). */
+async function failReminder(reminder: Reminder, reason: string, now: Date): Promise<void> {
+  const failed = await reminders().findOneAndUpdate(
+    { _id: reminder._id, status: 'pending' },
+    { $set: { status: 'failed', failedAt: now, failureReason: reason } },
+  )
+
+  if (!failed) return
+  logEvent('warn', 'agent.reminder.failed', {
+    reminder_id: reminder._id.toHexString(),
+    team_id: reminder.teamId,
+    reason,
+  })
+}
+
+async function attemptReminder(reminder: Reminder, now: Date, notify: Notify): Promise<void> {
+  try {
+    await saveReminder(reminder)
+    await ackReminder(reminder._id, now, notify)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+
+    if (error instanceof PermanentFailure || reminder.attempts >= MAX_ATTEMPTS) {
+      await failReminder(
+        reminder,
+        error instanceof PermanentFailure ? reason : 'delivery kept failing',
+        now,
+      )
+
+      return
+    }
+    logError('agent.reminder.attempt_failed', error, { reminder_id: reminder._id.toHexString() })
+    const backoff = BACKOFF_MS[Math.min(reminder.attempts - 1, BACKOFF_MS.length - 1)]!
+
+    await reminders().updateOne(
+      { _id: reminder._id, status: 'pending' },
+      {
+        $set: { lastError: reason.slice(0, 500), nextAttemptAt: new Date(now.getTime() + backoff) },
+      },
+    )
+  }
+}
+
+/**
+ * Claims each due reminder under a lease and delivers it. A claim whose process died simply
+ * expires, so the next sweep, on any replica, finds the reminder due again.
+ * Returns how many reminders it handled.
+ */
+export async function deliverDueReminders(
+  now = new Date(),
+  notify: Notify = notifyNudge,
+): Promise<number> {
+  let handled = 0
+
+  for (;;) {
+    const claimed = await reminders().findOneAndUpdate(
+      { status: 'pending', nextAttemptAt: { $lte: now } },
+      {
+        $inc: { attempts: 1 },
+        $set: { nextAttemptAt: new Date(now.getTime() + CLAIM_LEASE_MS) },
+      },
+      { sort: { nextAttemptAt: 1 }, returnDocument: 'after' },
+    )
+
+    if (!claimed) break
+    handled += 1
+    // Claims that already spent every attempt (each crash costs one) fail instead of retrying forever.
+    if (claimed.attempts > MAX_ATTEMPTS) await failReminder(claimed, 'delivery kept failing', now)
+    else await attemptReminder(claimed, now, notify)
+  }
+  await noticeFailedReminders(now, notify)
+
+  return handled
+}
+
+let sweepTimer: ReturnType<typeof setInterval> | undefined
+let sweeping = false
+
+/** A plain interval, not a queue job, so it runs without Redis and a stuck queue cannot silence it. */
+export function startReminderSweeper(): void {
+  if (sweepTimer) return
+  const sweep = () => {
+    if (sweeping) return
+    sweeping = true
+    deliverDueReminders()
+      .catch((error: unknown) => {
+        logError('agent.reminder.sweep_failed', error)
+      })
+      .finally(() => {
+        sweeping = false
+      })
+  }
+
+  sweepTimer = setInterval(sweep, SWEEP_INTERVAL_MS)
+  sweepTimer.unref()
+  // Overdue reminders from before a restart should not wait a whole interval.
+  sweep()
+}
+
+export function stopReminderSweeper(): void {
+  if (sweepTimer) clearInterval(sweepTimer)
+  sweepTimer = undefined
+}
