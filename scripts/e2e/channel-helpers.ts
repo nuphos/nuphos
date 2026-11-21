@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { noMenuOpen, openComputers, openSubmenu, pickInSubmenu } from './ui.ts'
+import { noMenuOpen, openComputers, pickInRow } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
@@ -91,9 +91,7 @@ export async function computerWithUsage(
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
   await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  const runtimes = await openSubmenu(page, row)
-
-  await pickInSubmenu(page, runtimes.getByRole('menuitem', { name: item }).last())
+  await pickInRow(page, row, item)
   // A Bot's move takes a moment; until it lands the composer still names the old runtime.
   await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
 }
