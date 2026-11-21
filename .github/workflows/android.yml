@@ -91,3 +91,16 @@ jobs:
             apps/android/app/build/reports/androidTests
             apps/android/app/build/outputs/connected_android_test_additional_output
           retention-days: 7
+
+  kvm-probe:
+    name: Android (KVM probe on instabox)
+    runs-on: instabox-medium
+    steps:
+      - name: /dev/kvm present
+        run: ls -l /dev/kvm
+      - name: /dev/kvm usable
+        run: |
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: SDK layout
+        run: test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
