@@ -281,7 +281,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     await finishPreviewTurn({
       ...args,
       requestId,
-      startedAt,
       text: acc.text,
       reasoning: acc.reasoning,
       orderedParts: orderedParts.materialize(toolLog.list()),
