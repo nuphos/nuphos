@@ -1,4 +1,5 @@
 // The disk-almost-full banner: a computer with nothing to free, and a Box that clears caches.
+// Then the out-of-memory notice on a computer's card (#4345).
 import { join } from 'node:path'
 
 import { instaboxMachines } from './instabox-stub.ts'
@@ -9,6 +10,7 @@ import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 
 const BOX = 'E2E disk Box'
+const MEMORY = 'Ran out of memory in the last day: the system stopped a process'
 
 export const diskScenarios: Scenario[] = [
   {
@@ -137,6 +139,50 @@ export const diskScenarios: Scenario[] = [
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'disk-box-card-confirm.png') })
         await confirm.getByRole('button', { name: 'Cancel' }).click()
+        await page.getByRole('button', { name: 'Back to app', exact: true }).click()
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
+    // #4345: a Box whose host saw the kernel's OOM kill count rise says so on its card, through
+    // the tunnel, the backend's presence and the devices list; a reading without it says nothing.
+    name: 'a Box whose host recorded an OOM kill says it ran out of memory, and one without says nothing',
+    run: async (page, stack) => {
+      const killedAt = new Date(Date.now() - 12 * 60_000).toISOString()
+      let goOffline = await laptopOnline(stack, {
+        diskPercent: 50,
+        box: BOX,
+        oomKilledAt: killedAt,
+      })
+
+      try {
+        await openComputers(page)
+        const notice = page.getByRole('status').filter({ hasText: MEMORY })
+
+        await notice
+          .getByText('Run fewer conversations, builds or browsers at once', { exact: false })
+          .waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'memory-box-card-light.png') })
+        goOffline()
+        // The same Box again, its host reporting no kill: a reconnect alone is not a memory story.
+        goOffline = await laptopOnline(stack, { diskPercent: 50, box: BOX })
+        await until(
+          'the removed card and its notice to go',
+          async () => (await notice.count()) === 0,
+        )
+        await page.getByText(BOX, { exact: true }).first().waitFor()
+        // Two more readings of the new Box: still nothing about memory.
+        await page.waitForTimeout(10_000)
+        if ((await page.getByText(MEMORY).count()) > 0)
+          throw new Error('A reading without an OOM kill still says memory ran out')
+        await page.screenshot({ path: join(artifacts, 'memory-box-card-none-light.png') })
         await page.getByRole('button', { name: 'Back to app', exact: true }).click()
       } finally {
         goOffline()
