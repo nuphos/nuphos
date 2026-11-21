@@ -28,6 +28,9 @@ permissions:
   contents: read
   pull-requests: read
 
+# Most Linux jobs run on instabox-medium (amd64, outside the hosted-runner concurrency
+# limit). Only this repository's own code runs there; a fork's pull request stays
+# on GitHub's hosts.
 jobs:
   # Every PR in a merge group already passed format on pull_request, so the merge
   # queue skips it (a skipped job still satisfies its required check); it runs
@@ -36,7 +39,7 @@ jobs:
   format:
     name: Format (prettier --check)
     if: github.event_name == 'pull_request' || github.event_name == 'push'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -55,7 +58,7 @@ jobs:
   dco:
     name: DCO
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -80,7 +83,7 @@ jobs:
   changes:
     name: Detect changed apps
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
@@ -253,7 +256,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     # The image ships rustup and a stable toolchain.
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/cli
@@ -281,7 +284,8 @@ jobs:
   cli-macos:
     name: CLI (macOS clippy + test)
     needs: changes
-    if: needs.changes.outputs.cli == 'true'
+    # Not in the merge queue: each PR already passed it, and macOS runners are scarce.
+    if: github.event_name != 'merge_group' && needs.changes.outputs.cli == 'true'
     # The keychain code (src/secret.rs) compiles only on macOS.
     runs-on: macos-15
     defaults:
@@ -314,7 +318,8 @@ jobs:
     # Local runtimes run these scripts on macOS, the managed image on Linux.
     strategy:
       matrix:
-        os: [ubuntu-24.04-arm, macos-15]
+        # The merge queue drops macOS: each PR already passed it, and macOS runners are scarce.
+        os: ${{ github.event_name == 'merge_group' && fromJSON('["ubuntu-24.04-arm"]') || fromJSON('["ubuntu-24.04-arm", "macos-15"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -327,7 +332,7 @@ jobs:
     name: openab (clippy + test)
     needs: changes
     if: needs.changes.outputs.openab == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/runtime/openab
@@ -350,7 +355,7 @@ jobs:
     name: Backend (typecheck + test + docker build)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     # The runtime-state store's compare-and-set is a Lua script; its suite runs
     # only against a real Redis (TEST_REDIS_URL below).
     services:
@@ -549,6 +554,14 @@ jobs:
             ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
             ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
           if-no-files-found: warn
+      # Check each entry before the shared scenarios can mask a missing path.
+      - name: Check every way into the product
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-entry-points
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:entry-points
       - name: Run the end-to-end scenarios
         if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
@@ -586,6 +599,9 @@ jobs:
             ${{ runner.temp }}/e2e-chat-switch
             !${{ runner.temp }}/e2e-chat-switch/mongo
             !${{ runner.temp }}/e2e-chat-switch/sign-in
+            ${{ runner.temp }}/e2e-entry-points
+            !${{ runner.temp }}/e2e-entry-points/mongo
+            !${{ runner.temp }}/e2e-entry-points/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
@@ -594,7 +610,7 @@ jobs:
     name: Desktop (typecheck, tests, build)
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -710,7 +726,7 @@ jobs:
     needs: changes
     # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.backend == 'true') }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -740,7 +756,7 @@ jobs:
     name: Desktop lint
     needs: changes
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.desktop == 'true') }}
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -769,7 +785,7 @@ jobs:
     name: Dev scripts
     needs: changes
     if: needs.changes.outputs.dev_scripts == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -810,7 +826,7 @@ jobs:
     name: Lint config integrity
     needs: changes
     if: needs.changes.outputs.lint_config == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -845,7 +861,7 @@ jobs:
     name: Import cycles
     needs: changes
     if: needs.changes.outputs.import_cycles == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

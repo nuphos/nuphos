@@ -13,7 +13,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
 /** Runs `script` against the database; it reads its arguments from process.argv. */
-function inDatabase(stack: Stack, script: string, ...args: string[]): string {
+export function inDatabase(stack: Stack, script: string, ...args: string[]): string {
   const run = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()

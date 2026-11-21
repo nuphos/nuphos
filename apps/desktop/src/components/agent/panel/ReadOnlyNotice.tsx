@@ -194,8 +194,9 @@ export function AgentStatusBanner({
         // Leaving, it keeps its words for the exit animation but takes no focus or clicks.
         inert={!active}
         className={clsx(
-          't-toast absolute bottom-full',
-          hero ? 'inset-x-6' : 'inset-x-4',
+          't-toast',
+          active ? 'relative' : 'absolute bottom-0',
+          active ? (hero ? 'mx-6' : 'mx-4') : hero ? 'inset-x-6' : 'inset-x-4',
           active ? 'is-open' : 'pointer-events-none',
         )}
       >

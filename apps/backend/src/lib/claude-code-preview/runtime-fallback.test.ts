@@ -63,7 +63,7 @@ useModels({
 })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   agentConversations: () => ({
     updateOne: async (_filter: unknown, update: Record<string, unknown>) => {
       updates.push(update)

@@ -481,6 +481,11 @@ private struct ChannelPostRow: View {
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if mine { Spacer(minLength: 48) }
@@ -493,8 +498,8 @@ private struct ChannelPostRow: View {
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -565,7 +570,7 @@ private struct ChannelPostRow: View {
         VStack(alignment: .leading, spacing: 6) {
             if let reply = post.replyTo { quote(reply) }
             if !post.text.isEmpty {
-                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
             }
         }
             .padding(.horizontal, 14)
@@ -614,8 +619,8 @@ private struct ReplyFailedLine: View {
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
     }
 
     @ViewBuilder private var fixes: some View {

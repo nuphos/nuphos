@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
 import { deleteTeamBoxes } from '@/lib/agent/devices/box-delete'
+import { listTeamBoxes } from '@/lib/agent/devices/store'
 import { revokeDepartedMember } from '@/lib/byos/departing-member'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
@@ -230,10 +231,11 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
   // Disband the whole team. Owner-only (enforced inside deleteTeam); the
   // ADMINISTRATOR gate just rejects non-admins early with a clean 403.
   teamScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
+    const boxes = await listTeamBoxes(c.get('teamId'))
     const result = await deleteTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'deleted') {
-      await deleteTeamBoxes(c.get('teamId'))
+      await deleteTeamBoxes(c.get('teamId'), boxes)
 
       return c.body(null, 204)
     }

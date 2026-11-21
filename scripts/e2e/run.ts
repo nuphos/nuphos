@@ -43,12 +43,14 @@ import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalConnectScenarios } from './personal-connect-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
 import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { replyFileScenarios } from './reply-file-scenarios.ts'
+import { replyDiskScenario } from './reply-disk-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -59,6 +61,7 @@ import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { startStack } from './stack.ts'
 import { stepUpScenarios } from './step-up-scenarios.ts'
+import { twoFactorResumeScenarios } from './two-factor-resume-scenarios.ts'
 import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
@@ -121,6 +124,7 @@ const scenarios: Scenario[] = [
       )
     },
   },
+  { name: 'a reply and low disk warning remain visible together', run: replyDiskScenario },
   ...botUnreadScenarios,
   ...channelScenarios,
   ...botWorkingDotsScenarios,
@@ -145,6 +149,7 @@ const scenarios: Scenario[] = [
   ...linkChipScenarios,
   ...voiceScenarios,
   ...personalCredentialScenarios,
+  ...personalConnectScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
@@ -161,6 +166,7 @@ const scenarios: Scenario[] = [
   ...connectorScenarios,
   // Turns two-factor authentication on for this account, and off again.
   ...stepUpScenarios,
+  ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
