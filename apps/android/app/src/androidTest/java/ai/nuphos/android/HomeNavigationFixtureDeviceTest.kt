@@ -191,6 +191,7 @@ class HomeNavigationFixtureDeviceTest {
                 state(AiAccess, "state", false).value = savedAccess
                 app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit().apply {
                     if (savedLastTeam == null) remove("nuphos.workspace.lastTeamId") else putString("nuphos.workspace.lastTeamId", savedLastTeam)
+                    remove("nuphos.resumeTwoFactor") // A failed two-factor test must not open the next test's account sheet.
                 }.commit()
             }
             originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
@@ -634,6 +635,15 @@ class HomeNavigationFixtureDeviceTest {
         assertEquals(2, requests.count { it.method == "PATCH" })
     }
 
+    /** Saved where CI collects it (the android-device-tests artifact), unlike [shot]. */
+    private fun evidence(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(250) // Wait for the platform popup window to draw before capturing its pixels.
+        val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: return
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        try { File(dir, "two-factor-resume-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
+    }
+
     private fun signIn() = compose.runOnIdle {
         AiAccess.activate(token); AiAccess.grant(token)
         AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
@@ -647,14 +657,14 @@ class HomeNavigationFixtureDeviceTest {
         waitText("Turn on")
         compose.onNodeWithText("Turn on").performClick()
         waitText("Sign in again to turn on two-factor authentication.")
-        shot("two-factor-sign-in-again")
+        evidence("two-factor-sign-in-again")
         compose.onNodeWithText("Sign out and sign in again").performClick()
         compose.waitUntil(8_000) { auth.state is AuthSession.State.SignedOut }
 
         signedInAgain = true
         signIn()
         // Captured either way: the screen this sign-in lands on is the change under review.
-        try { waitText("Turn on") } finally { shot("two-factor-after-sign-in") }
+        try { waitText("Turn on") } finally { evidence("two-factor-after-sign-in") }
         compose.onNodeWithText("Turn on").performClick()
         waitText("JBSW Y3DP EHPK 3PXP")
 
