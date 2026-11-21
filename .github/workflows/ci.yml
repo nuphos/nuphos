@@ -484,9 +484,10 @@ jobs:
     # Keep real-disk evidence on hosted runners after the Instabox loop-mount failure.
     # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    # Hosted disk evidence does not wait for an Instabox slot, and each leg has its own slots.
+    # Hosted disk evidence does not wait for an Instabox slot. Each leg has five of the ten
+    # trusted Instabox slots, so at most ten e2e machines run at once.
     concurrency:
-      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}-${{ matrix.part }}
+      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || (endsWith(github.run_id, '0') || endsWith(github.run_id, '5')) && 'a' || (endsWith(github.run_id, '1') || endsWith(github.run_id, '6')) && 'b' || (endsWith(github.run_id, '2') || endsWith(github.run_id, '7')) && 'c' || (endsWith(github.run_id, '3') || endsWith(github.run_id, '8')) && 'd' || 'e' }}-${{ matrix.part }}
       queue: max
     # The main leg takes about 46 minutes with openab from the cache, the standalone one
     # about 6. A change to prepare.mjs or the openab source misses that cache until it
