@@ -3243,6 +3243,7 @@
   "Only {name} can change the plan.": "只有 {name} 可以更改套餐。",
   "Only {name} can change this.": "只有 {name} 可以更改此项。",
   "Open": "打开",
+  "Open Bot": "打开 Bot",
   "Open Connectors": "打开连接器",
   "Open DM": "打开私信",
   "Open IAM in Google Cloud Console": "在 Google Cloud 控制台中打开 IAM",

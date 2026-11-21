@@ -8,6 +8,7 @@ import { act, createElement } from 'react'
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
 import type { ToolPart } from './parts'
 
+let target = 'task-1'
 const TRIGGER_ID = '6b00eb7166ad4469f8cbc41a'
 const trigger: AgentTrigger = {
   id: TRIGGER_ID,
@@ -27,7 +28,7 @@ const real = await import('../../../api')
 
 mock.module('../../../api', () => ({
   ...real,
-  api: { ...real.api, agentGetTrigger: async () => ({ ...trigger, targetSessionId: 'task-1' }) },
+  api: { ...real.api, agentGetTrigger: async () => ({ ...trigger, targetSessionId: target }) },
 }))
 
 const dom = new Window()
@@ -43,6 +44,7 @@ for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
 const { createRoot } = await import('react-dom/client')
+const { queryKeys } = await import('../../../lib/query/keys')
 const { TriggerCard } = await import('./TriggerCard')
 
 const part: ToolPart = {
@@ -53,8 +55,19 @@ const part: ToolPart = {
   input: { command: `bash trigger-api.sh team PATCH ${TRIGGER_ID} @trigger.json` },
   output: { stdout: JSON.stringify({ id: TRIGGER_ID, triggerType: 'cron' }) },
 }
-/** The card's footer, as it reads, once the trigger targeting a Task has loaded. */
-async function footer() {
+// The chats the sidebar listed: a Bot wears a face, a Task does not.
+const chat = { firstMessage: '', messageCount: 1, createdAt: '', lastActiveAt: '' }
+const listed = [
+  { ...chat, sessionId: 'task-1', title: 'Weekly metrics' },
+  { ...chat, sessionId: 'bot-1', title: 'Metrics Bot', avatar: '07-ada' },
+]
+
+/** The card's footer, as it reads, once the trigger running in `to` has loaded. */
+async function footer(to: string) {
+  target = to
+  const client = new QueryClient()
+
+  client.setQueryData(queryKeys.agentSessions('team'), listed)
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -62,7 +75,7 @@ async function footer() {
     createRoot(container as unknown as HTMLElement).render(
       createElement(
         QueryClientProvider,
-        { client: new QueryClient() },
+        { client },
         createElement(TriggerCard, { part, teamId: 'team' }),
       ),
     )
@@ -73,7 +86,11 @@ async function footer() {
   return container.querySelector('footer')?.textContent ?? null
 }
 
-// #4301: the footer said "Open conversation"; what it opens is a Task.
-test("a Trigger card's link reads Open Task", async () => {
-  assert.equal(await footer(), 'Open Task')
+// #4301: the footer said "Open conversation", whatever it opened.
+test('a Trigger that runs in a Task links to Open Task', async () => {
+  assert.equal(await footer('task-1'), 'Open Task')
+})
+
+test('a Trigger that runs in a Bot links to Open Bot', async () => {
+  assert.equal(await footer('bot-1'), 'Open Bot')
 })

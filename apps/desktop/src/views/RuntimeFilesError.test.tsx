@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
@@ -27,13 +28,18 @@ test('a file Files cannot load offers to open its Task', async () => {
   dom.document.body.append(container)
   await act(async () => {
     createRoot(container as unknown as HTMLElement).render(
-      createElement(RuntimeFilesError, {
-        error: 'File not found',
-        filePath: '/workspace/report.md',
-        source: { conversationTitle: 'Weekly metrics', label: 'Runtime', sessionId: 'task-1' },
-        onRetry: () => undefined,
-        onOpenConversation: (sessionId: string) => opened.push(sessionId),
-      }),
+      createElement(
+        QueryClientProvider,
+        { client: new QueryClient() },
+        createElement(RuntimeFilesError, {
+          teamId: 'team',
+          error: 'File not found',
+          filePath: '/workspace/report.md',
+          source: { conversationTitle: 'Weekly metrics', label: 'Runtime', sessionId: 'task-1' },
+          onRetry: () => undefined,
+          onOpenConversation: (sessionId: string) => opened.push(sessionId),
+        }),
+      ),
     )
   })
   const open = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Open Task')

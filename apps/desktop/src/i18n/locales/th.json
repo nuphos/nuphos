@@ -3243,6 +3243,7 @@
   "Only {name} can change the plan.": "มีเพียง {name} ที่เปลี่ยนแพ็กเกจได้",
   "Only {name} can change this.": "มีเพียง {name} ที่เปลี่ยนค่านี้ได้",
   "Open": "เปิด",
+  "Open Bot": "เปิดบอท",
   "Open Connectors": "เปิดตัวเชื่อมต่อ",
   "Open DM": "เปิด DM",
   "Open IAM in Google Cloud Console": "เปิด IAM ใน Google Cloud Console",

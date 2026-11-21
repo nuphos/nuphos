@@ -3243,6 +3243,7 @@
   "Only {name} can change the plan.": "プランを変更できるのは {name} だけです。",
   "Only {name} can change this.": "これを変更できるのは {name} だけです。",
   "Open": "開く",
+  "Open Bot": "ボットを開く",
   "Open Connectors": "コネクタを開く",
   "Open DM": "DM を開く",
   "Open IAM in Google Cloud Console": "Google Cloud コンソールで IAM を開く",

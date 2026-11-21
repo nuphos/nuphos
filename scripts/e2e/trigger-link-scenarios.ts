@@ -1,4 +1,4 @@
-// #4301: the Trigger card's link opens a Task, and says so.
+// #4301: the Trigger card's link says whether it opens a Task or a Bot.
 import { join } from 'node:path'
 
 import { artifacts } from './processes.ts'
@@ -21,7 +21,7 @@ async function api<T>(stack: Stack, method: string, path: string, body?: unknown
 
 export const triggerLinkScenarios: Scenario[] = [
   {
-    name: "a Trigger card's link reads Open Task",
+    name: "a Trigger card's link reads Open Task, or Open Bot for a Bot's Trigger",
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Weekly metrics E2E_DELIVERY:link-home')
@@ -48,9 +48,31 @@ export const triggerLinkScenarios: Scenario[] = [
       const card = page.getByRole('region', { name: 'Trigger Metrics digest' })
 
       await card.getByRole('link', { name: 'Open Task' }).waitFor()
-      await card.scrollIntoViewIfNeeded()
+
+      // A Bot's Trigger, shown in the same Task.
+      const bot = await api<{ sessionId: string }>(stack, 'POST', '/agent/bots', {
+        title: 'Metrics Bot',
+        avatar: '07-ada',
+        agentRuntime: 'claude-code',
+      })
+      const forBot = await api<{ id: string }>(stack, 'POST', '/agent/triggers', {
+        teamId: stack.teamId,
+        targetSessionId: bot.sessionId,
+        name: 'Bot digest',
+        triggerType: 'cron',
+        cronExpression: '0 * * * *',
+        messageTemplate: 'Report to the Bot',
+      })
+
+      await send(page, `And E2E_TRIGGER_CARD:${forBot.id} E2E_DELIVERY:link-bot`)
+      await page.getByText('ACK E2E_DELIVERY:link-bot').waitFor()
+      const botCard = page.getByRole('region', { name: 'Trigger Bot digest' })
+
+      // The sidebar lists the new Bot within its next poll.
+      await botCard.getByRole('link', { name: 'Open Bot' }).waitFor()
+      await botCard.scrollIntoViewIfNeeded()
       await page.waitForTimeout(500)
-      await page.screenshot({ path: join(artifacts, 'trigger-card-open-task.png') })
+      await page.screenshot({ path: join(artifacts, 'trigger-card-open-task-and-bot.png') })
     },
   },
 ]

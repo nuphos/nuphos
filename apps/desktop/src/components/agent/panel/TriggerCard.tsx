@@ -3,6 +3,7 @@ import { AlarmClock, ArrowUpRight } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
+import { useOpenChatLabel } from '../../../hooks/useOpenChatLabel'
 import { t } from '../../../i18n'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
@@ -64,6 +65,7 @@ export function TriggerCard({
   const [busy, setBusy] = useState(false)
   // The transcript is shared, so turning a live trigger on or off asks first.
   const [switching, setSwitching] = useState<boolean | null>(null)
+  const openLabel = useOpenChatLabel(teamId, trigger?.targetSessionId)
 
   if (!info) return null
   if (!trigger) return <Placeholder missing={missing} />
@@ -146,7 +148,7 @@ export function TriggerCard({
             onLinkClick={onOpen}
             className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline hover:bg-state-hover"
           >
-            {t('Open Task')}
+            {openLabel}
             <ArrowUpRight aria-hidden className="size-3.5" />
           </ChatLink>
         )}
