@@ -1,6 +1,7 @@
 // Child processes for the end-to-end run: each one logs to a file in the run's
 // artifact directory and is stopped, newest first, when the run ends.
 import { spawn as spawnChild } from 'node:child_process'
+import { randomInt } from 'node:crypto'
 import { createWriteStream, mkdtempSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -16,17 +17,14 @@ export function logPath(name: string): string {
   return join(artifacts, `${name}.log`)
 }
 
-/**
- * Distinct free ports, from below the system's ephemeral range (32768 and up on Linux, 49152 and
- * up on macOS). A port from that range can become the source port of any outbound connection
- * before its process binds it. They are held open together, so no port is handed out twice.
- */
+// Distinct free ports below the ephemeral range (Linux 32768+, macOS 49152+), where an outbound
+// connection could take one as its source port first. Held open together, none is handed out twice.
 export async function freePorts(count: number): Promise<number[]> {
   const servers: Server[] = []
 
   while (servers.length < count) {
     const server = createServer()
-    const port = 20_000 + Math.floor(Math.random() * 12_000)
+    const port = randomInt(20_000, 32_000)
     const listening = await new Promise<boolean>((done) => {
       server.once('error', () => done(false))
       server.listen(port, '127.0.0.1', () => done(true))
