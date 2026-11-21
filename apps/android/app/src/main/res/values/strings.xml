@@ -1,4 +1,5 @@
 <resources>
+    <string name="chat_bot_settings_owner_only">Only the owner can change model settings.</string>
     <string name="app_name" translatable="false">Nuphos</string>
     <string name="welcome_title">Welcome to Nuphos</string>
     <string name="welcome_body">Sign in or create an account.</string>

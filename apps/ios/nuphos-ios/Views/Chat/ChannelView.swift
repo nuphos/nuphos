@@ -31,7 +31,8 @@ struct ChannelView: View {
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
-        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+        guard let viewerId = channel.viewerId else { return false }
+        return channel.agents.contains { $0.sessionId == agentId && $0.ownerId == viewerId }
     }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
@@ -159,6 +160,8 @@ struct ChannelView: View {
                 // sets what its content reads comes up empty.
                 botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
                 guard let bot = channel.botId else { return }
+                await botSession?.load()
+                guard !Task.isCancelled, channel.botId == bot else { return }
                 if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
                     canOpenTask = true
                 } else {
@@ -255,7 +258,21 @@ struct ChannelView: View {
                 recipient: channel.title,
                 focusRequest: replyFocus,
                 onSend: { channel.send($0) },
-                controls: { EmptyView() }
+                controls: {
+                    if let botSession, botSession.loaded {
+                        ComposerControls(
+                            selection: Binding(
+                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
+                                set: { botSession.setCredentials($0) }
+                            ),
+                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
+                            session: botSession,
+                            switchRuntime: { switchingBot = botSession },
+                            botChat: true,
+                            locked: !owns(channel.botId)
+                        )
+                    }
+                }
             )
         }
     }

@@ -1,4 +1,5 @@
 <resources>
+    <string name="chat_bot_settings_owner_only">只有擁有者可以變更模型設定。</string>
     <string name="welcome_title">歡迎使用 Nuphos</string>
     <string name="welcome_body">登入或建立帳號。</string>
     <string name="sign_in">登入</string>
