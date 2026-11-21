@@ -31,7 +31,7 @@ export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
-/** Opens a computer's submenu by hovering its row, then clicks the visible runtime. */
+/** Hovers a computer's row, then takes the runtime by key without pressing its action chips. */
 export async function pickInRow(page: Page, row: string, item: RegExp) {
   // Offline rows have no submenu until their computer comes back.
   const trigger = page
@@ -42,11 +42,15 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
     .first()
 
   await trigger.hover()
-  await page
+  const runtime = page
     .locator('[role="menu"][data-nested][data-open]')
     .getByRole('menuitem', { name: item })
     .last()
-    .click({ timeout: 60_000 })
+    .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
+
+  await runtime.waitFor({ timeout: 60_000 })
+  await runtime.focus()
+  await page.keyboard.press('Enter')
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
