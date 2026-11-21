@@ -57,7 +57,8 @@ export default {
       await api(stack, 'POST', `/agent/conversations/${chat ?? ''}/channel-messages`, {
         text: `Can you look at this? ${stack.apiUrl}/teams/${stack.teamId}/agent/${busy}`,
       })
-      await page.locator('.t-typing-dot').first().waitFor({ timeout: 30_000 })
+      // The held Task's chat, kept hidden for a quick switch back, shows its dots too.
+      await page.locator('.t-typing-dot:visible').first().waitFor({ timeout: 30_000 })
       await page.screenshot({ path: `${artifacts}/presence-busy-joins-turn-light.png` })
     } finally {
       await api(stack, 'POST', `/agent/conversations/${busy}/cancel-runtime`)
