@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { deleteTeamBoxes } from '@/lib/agent/devices/box-delete'
 import { revokeDepartedMember } from '@/lib/byos/departing-member'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
-import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
+import { extractEmailDomain, hasPublicEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
 import {
   deleteTeam,
@@ -63,7 +63,12 @@ const updateAgentRuntimeSchema = z
 export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
-  return c.json({ ...team, isOwner: team.ownerID === c.get('userId'), role: c.get('teamRole') })
+  return c.json({
+    ...team,
+    isOwner: team.ownerID === c.get('userId'),
+    role: c.get('teamRole'),
+    viewerEmailDomainPublic: hasPublicEmailDomain(c.get('userEmail')),
+  })
 }
 
 export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
