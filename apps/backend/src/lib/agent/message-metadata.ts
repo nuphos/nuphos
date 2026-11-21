@@ -3,6 +3,8 @@ import { trustedAvatarURL } from '../identity/avatar-url'
 import { noticeChannelId, OWNER_DECISION_NOTE } from './db/channel-notes'
 import { fenceUntrusted } from './untrusted-content'
 
+export { systemSender } from './message-system-sender'
+
 /** Server-authored attribution. Never derive authorization from these fields. */
 export type MessageMetadata = {
   version: 1
@@ -58,21 +60,6 @@ export type ChannelPostPreview = {
 }
 
 export type MessageMention = { id: string; displayName: string }
-
-/** Who a turn no person typed is from: a Trigger, a channel, GitHub, or Nuphos itself. */
-export function systemSender(
-  id: string,
-  displayName: string,
-  resourceUrl?: string,
-): MessageMetadata {
-  return {
-    version: 1,
-    sender: { type: 'system', id, displayName },
-    source: 'agent.resource',
-    ...(resourceUrl ? { resourceUrl } : {}),
-    sentAt: new Date().toISOString(),
-  }
-}
 
 const SOURCES = ['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'] as const
 const UNATTESTED = new Set<string>(['discord', 'slack']) // Bridges with unverified authors.
