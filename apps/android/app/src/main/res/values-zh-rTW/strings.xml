@@ -1,5 +1,4 @@
 <resources>
-    <string name="welcome_title">歡迎使用 Nuphos</string>
     <string name="welcome_body">登入或建立帳號。</string>
     <string name="sign_in">登入</string>
     <string name="signing_in">正在登入…</string>
