@@ -93,7 +93,11 @@ export const triggerLinkScenarios: Scenario[] = [
       await page.locator('[data-sidebar-row]').filter({ hasText: 'Metrics Bot' }).first().click()
       await page.locator('[aria-placeholder="Message Metrics Bot"]').waitFor()
       await send(page, 'Report E2E_FILE_LINK E2E_DELIVERY:link-file-bot')
-      await page.getByText('POSTED E2E_DELIVERY:link-file-bot').waitFor()
+      // The Bot's sidebar row previews the same reply, so wait on the message itself.
+      await page
+        .getByRole('paragraph')
+        .filter({ hasText: 'POSTED E2E_DELIVERY:link-file-bot' })
+        .waitFor()
       await page.getByRole('link', { name: 'missing-report.md' }).last().click()
       await page.getByRole('button', { name: 'Open Bot', exact: true }).waitFor()
       await page.waitForTimeout(500)
