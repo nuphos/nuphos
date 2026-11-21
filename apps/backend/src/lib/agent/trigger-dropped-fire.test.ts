@@ -146,11 +146,12 @@ test('a fire whose turn fails for a lasting reason counts toward pausing its Tri
   expect(writes[0]?.update).toEqual({ $inc: { failedRunCount: 1 } })
 })
 
-test('a fire whose turn fails for a passing reason writes nothing to its Trigger', async () => {
+test('a fire whose agent is out of usage waits in the queue and writes nothing to its Trigger', async () => {
   failure = new Error('Gateway (status 402 Payment Required): out of credits')
   await enqueuePendingUserMessage('owner', 'target', fire())
 
-  await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('402')
+  await startQueuedTurn('owner', 'target')
+  expect(await hasPendingUserMessages('owner', 'target')).toBe(true)
   expect(writes).toEqual([])
 })
 
