@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
-import { send } from './ui.ts'
+import { send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -95,7 +95,7 @@ export const botSubtaskModelScenarios: Scenario[] = [
         await send(page, 'Look into the second thing E2E_SUBTASK E2E_DELIVERY:par-b')
         await until('the second sub-Task to start', async () => did('start', 'par-b-kid'))
         await send(page, 'Quick question E2E_DELIVERY:par-quick')
-        await page.getByText('POSTED E2E_DELIVERY:par-quick').waitFor()
+        await transcriptPost(page, 'POSTED E2E_DELIVERY:par-quick').waitFor()
         if (did('finish', 'par-a-kid') || did('finish', 'par-b-kid'))
           throw new Error('A sub-Task finished before the Bot answered')
         await page.screenshot({ path: `${artifacts}/bot-parallel-subtasks-light.png` })
