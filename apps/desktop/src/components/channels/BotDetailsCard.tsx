@@ -74,7 +74,7 @@ export function BotDetailsCard({
       )}
       {(onOpenTask !== undefined || canOpenDesktop) && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          {onOpenTask && (
+          {false && onOpenTask && (
             <Button variant="secondary" size="sm" title={t('Open session')} onClick={onOpenTask}>
               <AgentProviderIcon provider={agent?.provider} className="size-3.5" />
               {t('Task')}
