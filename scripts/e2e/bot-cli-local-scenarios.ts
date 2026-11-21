@@ -113,7 +113,11 @@ else {
         await until('the later reply to fail too', async () => failedAt() > sent)
         await until(
           'one line for the Bot',
-          async () => (await page.getByText(`couldn’t reply: ${REINSTALL}`).count()) === 1,
+          async () =>
+            (await page
+              .getByText(`couldn’t reply: ${REINSTALL}`)
+              .filter({ visible: true })
+              .count()) === 1,
         )
         await page.getByRole('button', { name: 'Install Codex', exact: true }).last().waitFor()
         await page.screenshot({ path: join(artifacts, 'bot-local-codex-reply-light.png') })
