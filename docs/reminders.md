@@ -37,8 +37,11 @@ message is not required.
 - A failed attempt is retried up to five times, with growing delays. Writing the same message again
   is safe, so a crash between saving and acknowledging leaves one visible reminder.
 - If the conversation is gone, archived or no longer yours, or the attempts run out, the reminder
-  becomes `failed` and its owner gets one push notification from the backend. The record keeps
-  `failureReason` and stays readable with `GET /agent/reminders/<id>`.
+  becomes `failed`. The backend then writes a notice into the conversation under a stable ID, so
+  the owner finds exactly one the next time they open it, with push off or the device offline, and
+  sends one push. The notice comes from the record, not from the moment of failure, so a crash in
+  between only delays it. A conversation that is gone cannot hold one: the push and the readable
+  `failed` record (`failureReason`) remain.
 - Acknowledging an already delivered reminder changes nothing.
 
 Reminders only run where the backend runs its sweeper, which does not need Redis.

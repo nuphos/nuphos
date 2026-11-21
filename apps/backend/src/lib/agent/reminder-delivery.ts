@@ -1,12 +1,11 @@
 import { logError, logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
-import { agentMessages, appendConversationMessages } from './db'
-import { bumpConversationActivity } from './db/read-state'
-import { systemSender } from './message-metadata'
-import { describeDueAt } from './reminder-time'
-import { ownConversation, reminders } from './reminders'
+import { noticeFailedReminders } from './reminder-notice'
+import { PermanentFailure, pushOwner, reminderMessageId, writeOnce } from './reminder-transcript'
+import { reminders } from './reminders'
 
+import type { Notify } from './reminder-transcript'
 import type { Reminder } from './reminders'
 import type { ObjectId } from 'mongodb'
 
@@ -14,20 +13,6 @@ const MAX_ATTEMPTS = 5
 const CLAIM_LEASE_MS = 2 * 60 * 1000
 const BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000]
 const SWEEP_INTERVAL_MS = 30_000
-
-export const reminderMessageId = (id: ObjectId | string) => `reminder-${id.toString()}`
-
-/** The reminder's own words are only sent to its owner, never to the conversation's other readers' devices. */
-type Notify = typeof notifyNudge
-
-function pushOwner(notify: Notify, reminder: Reminder, title: string, body: string): void {
-  notify([reminder.userId], {
-    sessionId: reminder.sessionId,
-    teamId: reminder.teamId,
-    title,
-    body,
-  })
-}
 
 /**
  * Acknowledges a reminder: it is saved where its owner reads it. The only writer of `ackedAt`,
@@ -50,55 +35,12 @@ export async function ackReminder(
   return true
 }
 
-/** The reminder cannot be delivered and no retry will change that. */
-class PermanentFailure extends Error {}
+/** Saves the reminder text into its conversation under its stable message id. */
+const saveReminder = (reminder: Reminder) =>
+  writeOnce(reminder, reminderMessageId(reminder._id), reminder.text, 'Reminder')
 
-/**
- * Saves the reminder into its conversation under its stable message id, so writing it again
- * after a crash that came between this write and the acknowledgement stores nothing new.
- */
-async function saveReminder(reminder: Reminder): Promise<void> {
-  const conversation = await ownConversation(reminder.userId, reminder.sessionId, reminder.teamId)
-
-  if (!conversation)
-    throw new PermanentFailure('The conversation is gone, archived or not yours any more')
-  const messageId = reminderMessageId(reminder._id)
-
-  if (
-    await agentMessages().findOne(
-      { sessionId: reminder.sessionId, userId: reminder.userId, messageId },
-      { projection: { _id: 1 } },
-    )
-  )
-    return
-  const saved = await appendConversationMessages({
-    sessionId: reminder.sessionId,
-    userId: reminder.userId,
-    teamId: reminder.teamId,
-    messages: [
-      {
-        id: messageId,
-        role: 'user',
-        parts: [{ type: 'text', text: reminder.text }],
-        metadata: systemSender(`reminder:${reminder._id.toHexString()}`, 'Reminder'),
-      },
-    ],
-  })
-
-  if (!saved) throw new PermanentFailure('The conversation is gone')
-  await bumpConversationActivity(reminder.sessionId, reminder.userId)
-}
-
-/**
- * Marks a pending reminder failed and tells its owner. The status change is the claim, so the
- * owner hears once however many replicas or sweeps reach it. No model is involved.
- */
-async function failReminder(
-  reminder: Reminder,
-  reason: string,
-  now: Date,
-  notify: Notify,
-): Promise<void> {
+/** Marks a pending reminder failed; the sweep then tells its owner (see reminder-notice). */
+async function failReminder(reminder: Reminder, reason: string, now: Date): Promise<void> {
   const failed = await reminders().findOneAndUpdate(
     { _id: reminder._id, status: 'pending' },
     { $set: { status: 'failed', failedAt: now, failureReason: reason } },
@@ -110,12 +52,6 @@ async function failReminder(
     team_id: reminder.teamId,
     reason,
   })
-  pushOwner(
-    notify,
-    reminder,
-    'Reminder not delivered',
-    `Your reminder due ${describeDueAt(reminder.dueAt, reminder.timeZone)} was not delivered: ${reason}. "${reminder.text.slice(0, 120)}"`,
-  )
 }
 
 async function attemptReminder(reminder: Reminder, now: Date, notify: Notify): Promise<void> {
@@ -130,7 +66,6 @@ async function attemptReminder(reminder: Reminder, now: Date, notify: Notify): P
         reminder,
         error instanceof PermanentFailure ? reason : 'delivery kept failing',
         now,
-        notify,
       )
 
       return
@@ -168,13 +103,15 @@ export async function deliverDueReminders(
       { sort: { nextAttemptAt: 1 }, returnDocument: 'after' },
     )
 
-    if (!claimed) return handled
+    if (!claimed) break
     handled += 1
     // Claims that already spent every attempt (each crash costs one) fail instead of retrying forever.
-    if (claimed.attempts > MAX_ATTEMPTS)
-      await failReminder(claimed, 'delivery kept failing', now, notify)
+    if (claimed.attempts > MAX_ATTEMPTS) await failReminder(claimed, 'delivery kept failing', now)
     else await attemptReminder(claimed, now, notify)
   }
+  await noticeFailedReminders(now, notify)
+
+  return handled
 }
 
 let sweepTimer: ReturnType<typeof setInterval> | undefined

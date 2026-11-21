@@ -2,19 +2,25 @@
 // acknowledgement and the single failure notice are query semantics a fake collection would only
 // echo. Runs when TEST_MONGODB_URI is set.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { closeDb, connectDb } from '@/lib/db'
+import { AppError } from '@/lib/errors'
 import { teams } from '@/lib/identity/shared'
+import { agentRemindersRoutes } from '@/routes/agent-reminders'
 
 import { agentMessages } from './db'
 import { agentConversations } from './db/shared'
-import { ackReminder, deliverDueReminders, reminderMessageId } from './reminder-delivery'
+import { ackReminder, deliverDueReminders } from './reminder-delivery'
+import { reminderNoticeId } from './reminder-notice'
+import { reminderMessageId } from './reminder-transcript'
 import { cancelReminder, createReminder, reminders, setupReminderIndexes } from './reminders'
 
 const userId = new ObjectId().toHexString()
 const teamId = new ObjectId()
 const sessionId = `reminder-test-${teamId.toHexString()}`
+const otherSession = `${sessionId}-other`
 const T0 = new Date('2026-11-21T08:00:00.000Z')
 const minutes = (n: number) => new Date(T0.getTime() + n * 60_000)
 
@@ -61,11 +67,21 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('one-time reminders', () => {
       createdAt: new Date(),
       lastActiveAt: new Date(),
     } as never)
+    await agentConversations().insertOne({
+      sessionId: otherSession,
+      teamId: teamId.toHexString(),
+      userId,
+      title: 'other',
+      firstMessage: 'hi',
+      messageCount: 0,
+      createdAt: new Date(),
+      lastActiveAt: new Date(),
+    } as never)
   })
   afterAll(async () => {
     await reminders().deleteMany({ userId })
-    await agentMessages().deleteMany({ sessionId })
-    await agentConversations().deleteMany({ sessionId })
+    await agentMessages().deleteMany({ sessionId: { $in: [sessionId, otherSession] } })
+    await agentConversations().deleteMany({ sessionId: { $in: [sessionId, otherSession] } })
     await teams().deleteOne({ _id: teamId })
     await closeDb()
   })
@@ -142,6 +158,38 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('one-time reminders', () => {
     expect(notices[before]?.title).toBe('Reminder not delivered')
   })
 
+  test('a failed reminder leaves one notice in its conversation, with push off, even across a crash', async () => {
+    const quiet = () => {
+      throw new Error('push is off')
+    }
+    const reminder = await make(minutes(450))
+
+    await reminders().updateOne(
+      { _id: reminder._id },
+      { $set: { attempts: 5, nextAttemptAt: minutes(450) } },
+    )
+    // The first sweep fails the reminder; a push that throws must not lose or repeat the notice.
+    await deliverDueReminders(minutes(451), quiet).catch(() => undefined)
+    const noticeId = reminderNoticeId(reminder)
+    const notices = () => agentMessages().countDocuments({ sessionId, messageId: noticeId })
+
+    expect((await reminders().findOne({ _id: reminder._id }))?.status).toBe('failed')
+    expect(await notices()).toBe(1)
+    // A crash between the failure and the notice: a failed record with none written.
+    const lost = await make(minutes(452))
+
+    await reminders().updateOne(
+      { _id: lost._id },
+      { $set: { status: 'failed', failureReason: 'delivery kept failing' } },
+    )
+    await deliverDueReminders(minutes(460), notify)
+    await deliverDueReminders(minutes(9000), notify)
+    expect(
+      await agentMessages().countDocuments({ sessionId, messageId: reminderNoticeId(lost) }),
+    ).toBe(1)
+    expect((await reminders().findOne({ _id: lost._id }))?.noticedAt).toBeDefined()
+  })
+
   test('a reminder whose attempts keep crashing fails after the bounded number of them', async () => {
     const reminder = await make(minutes(500))
     const before = notices.length
@@ -171,7 +219,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('one-time reminders', () => {
     const claimed = await make(minutes(960))
 
     await reminders().updateOne({ _id: claimed._id }, { $inc: { attempts: 1 } })
-    await expect(cancelReminder(userId, claimed._id.toHexString())).rejects.toMatchObject({
+    await expect(cancelReminder({ userId }, claimed._id.toHexString())).rejects.toMatchObject({
       status: 409,
     })
     expect(
@@ -182,7 +230,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('one-time reminders', () => {
   test('a cancelled reminder is never delivered; a repeated create returns the same one', async () => {
     const reminder = await make(minutes(600))
 
-    await cancelReminder(userId, reminder._id.toHexString())
+    await cancelReminder({ userId }, reminder._id.toHexString())
     expect(await deliverDueReminders(minutes(700), notify)).toBe(0)
     expect(await delivered(reminder._id)).toBe(0)
     const input = {

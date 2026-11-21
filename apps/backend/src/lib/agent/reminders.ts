@@ -34,6 +34,9 @@ export type Reminder = {
   ackedAt?: Date
   failedAt?: Date
   failureReason?: string
+  /** Set once the owner's failure notice is in their conversation. */
+  noticedAt?: Date
+  noticeClaimUntil?: Date
   createdAt: Date
 }
 
@@ -60,14 +63,18 @@ const MAX_TEXT = 2000
 type CreateReminder = {
   userId: string
   teamId?: string
-  sessionId: string
+  /** Omit it when `callerSessionId` is set: the conversation is the caller's own. */
+  sessionId?: string
   text: string
   dueAt: string
   timeZone?: string
   dedupeKey?: string
-  /** Set when an agent conversation is the caller: it may only leave a reminder in itself. */
+  /** The authenticated conversation when an agent is the caller. It may only act on itself. */
   callerSessionId?: string
 }
+
+/** Who is asking: the owner, narrowed to one conversation when an agent conversation is. */
+export type ReminderScope = { userId: string; sessionId?: string }
 
 /** The conversation must be the caller's own, in a team they belong to. */
 export async function ownConversation(userId: string, sessionId: string, teamId?: string) {
@@ -106,20 +113,23 @@ export async function createReminder(
     )
   if (dueAt.getTime() <= now.getTime())
     throw new AppError(400, 'invalid_request', 'dueAt must be in the future')
-  if (input.callerSessionId && input.callerSessionId !== input.sessionId)
+  const sessionId = input.callerSessionId ?? input.sessionId
+
+  if (!sessionId) throw new AppError(400, 'invalid_request', 'sessionId is required')
+  if (input.sessionId && input.sessionId !== sessionId)
     throw new AppError(
       403,
       'reminder_session_out_of_scope',
       'A conversation can only set reminders in itself',
     )
-  const conversation = await ownConversation(input.userId, input.sessionId, input.teamId)
+  const conversation = await ownConversation(input.userId, sessionId, input.teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
   const reminder: Reminder = {
     _id: new ObjectId(),
     userId: input.userId,
     teamId: conversation.teamId,
-    sessionId: input.sessionId,
+    sessionId,
     text,
     dueAt,
     timeZone: input.timeZone ?? 'UTC',
@@ -146,14 +156,19 @@ export async function createReminder(
 }
 
 export async function listReminders(
-  userId: string,
+  scope: ReminderScope,
   filter: { teamId?: string; sessionId?: string; status?: ReminderStatus },
 ): Promise<Reminder[]> {
   return reminders()
     .find({
-      userId,
+      userId: scope.userId,
       ...(filter.teamId ? { teamId: filter.teamId } : {}),
-      ...(filter.sessionId ? { sessionId: filter.sessionId } : {}),
+      // An agent conversation sees only its own, whatever it asks for.
+      ...(scope.sessionId
+        ? { sessionId: scope.sessionId }
+        : filter.sessionId
+          ? { sessionId: filter.sessionId }
+          : {}),
       ...(filter.status ? { status: filter.status } : {}),
     })
     .sort({ dueAt: -1 })
@@ -161,9 +176,13 @@ export async function listReminders(
     .toArray()
 }
 
-export async function getReminder(userId: string, id: string): Promise<Reminder> {
+export async function getReminder(scope: ReminderScope, id: string): Promise<Reminder> {
   const found = ObjectId.isValid(id)
-    ? await reminders().findOne({ _id: new ObjectId(id), userId })
+    ? await reminders().findOne({
+        _id: new ObjectId(id),
+        userId: scope.userId,
+        ...(scope.sessionId ? { sessionId: scope.sessionId } : {}),
+      })
     : null
 
   if (!found) throw new AppError(404, 'not_found', 'Reminder not found')
@@ -172,10 +191,10 @@ export async function getReminder(userId: string, id: string): Promise<Reminder>
 }
 
 /** Only a reminder no delivery attempt has claimed yet can be cancelled, so cancelling never races a write. */
-export async function cancelReminder(userId: string, id: string): Promise<Reminder> {
-  const existing = await getReminder(userId, id)
+export async function cancelReminder(scope: ReminderScope, id: string): Promise<Reminder> {
+  const existing = await getReminder(scope, id)
   const cancelled = await reminders().findOneAndUpdate(
-    { _id: existing._id, userId, status: 'pending', attempts: 0 },
+    { _id: existing._id, userId: scope.userId, status: 'pending', attempts: 0 },
     { $set: { status: 'cancelled' } },
     { returnDocument: 'after' },
   )

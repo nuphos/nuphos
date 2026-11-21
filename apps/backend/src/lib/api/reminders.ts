@@ -40,11 +40,14 @@ export const reminderApiOperations = [
       'Delivery needs no Bot turn and no model. It is retried a bounded number of times, still ' +
       'happens after a backend restart, and writes the same message however often it is attempted. ' +
       'If it cannot be delivered you are notified once and the reminder stays `failed`. ' +
-      '`dedupeKey` makes a retried create return the existing reminder. A conversation can only ' +
-      'set reminders in itself.',
+      '`dedupeKey` makes a retried create return the existing reminder. An agent conversation can only ' +
+      'create, read and cancel reminders of itself.',
     auth: 'bearer',
     requestSchema: z.object({
-      sessionId: z.string(),
+      sessionId: z
+        .string()
+        .optional()
+        .describe('Required for you; an agent conversation always means itself.'),
       text: z.string(),
       dueAt: z.string(),
       timeZone: z.string().optional().describe('IANA name, e.g. `Europe/Stockholm`.'),

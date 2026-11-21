@@ -176,7 +176,7 @@ try {
 
   // 4. The conversation can no longer receive it: the owner is told once, by the backend alone.
   const lost = await create(inSeconds(3600))
-  const failedBefore = count('agent.reminder.failed')
+  const failedBefore = count('agent.reminder.noticed')
 
   await conversations.updateOne({ sessionId }, { $set: { archivedAt: new Date() } })
   await dueNow(lost.id)
@@ -193,13 +193,38 @@ try {
     Boolean(failure.failureReason),
     failure.failureReason,
   )
-  check('the owner is notified exactly once', count('agent.reminder.failed') === failedBefore + 1)
+  check('the owner is notified exactly once', count('agent.reminder.noticed') === failedBefore + 1)
   check('nothing was saved', (await saved(lost.id)) === 0)
   check(
     'the failed reminder stays listed',
     (await call('GET', '/agent/reminders?status=failed')).reminders.some(
       (r: Json) => r.id === lost.id,
     ),
+  )
+
+  // 5. Push is not configured here, so the notice the owner finds on opening the conversation is
+  // the only one. A failure whose notice was never written (a crash between the two) still gets
+  // exactly one.
+  await conversations.updateOne({ sessionId }, { $unset: { archivedAt: '' } })
+  const exhausted = await create(inSeconds(3600))
+  const orphan = await create(inSeconds(3600))
+  const notices = (id: string) =>
+    messages.countDocuments({ sessionId, messageId: `reminder-failed-${id}` })
+
+  await dueNow(exhausted.id, { attempts: 5 })
+  await reminders.updateOne(
+    { _id: new ObjectId(orphan.id) },
+    { $set: { status: 'failed', failureReason: 'delivery kept failing' } },
+  )
+  await until(
+    'both failures to be noticed',
+    async () => (await notices(exhausted.id)) + (await notices(orphan.id)) === 2,
+    70_000,
+  )
+  await wait(SWEEP_WAIT_MS)
+  check(
+    'a failed reminder leaves exactly one durable notice in the conversation, with push off',
+    (await notices(exhausted.id)) === 1 && (await notices(orphan.id)) === 1,
   )
   await mongo.close()
 } catch (error) {
