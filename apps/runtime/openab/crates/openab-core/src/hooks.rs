@@ -419,6 +419,49 @@ mod tests {
         assert!(result.is_err());
     }
 
+    /// An executable script whose write handle closes `held_ms` from now, as the one a
+    /// forking thread carries does at its exec.
+    #[cfg(target_os = "linux")]
+    fn script_held_open(name: &str, held_ms: u64) -> PathBuf {
+        use std::os::unix::fs::OpenOptionsExt;
+        let path = std::env::temp_dir().join(format!("{name}-{}.sh", std::process::id()));
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o700)
+            .open(&path)
+            .unwrap();
+        file.write_all(b"#!/bin/sh\nexit 0").unwrap();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(held_ms));
+            drop(file);
+        });
+        path
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn execute_waits_for_a_script_still_open_for_writing() {
+        let path = script_held_open("openab-test-hook-busy", 150);
+        let result = execute(&path, 0).await;
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_ok(), "{result:?}");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn execute_gives_up_on_a_script_that_stays_open_for_writing() {
+        let path = script_held_open("openab-test-hook-stays-busy", 3_000);
+        let result = execute(&path, 0).await;
+        let _ = std::fs::remove_file(&path);
+        let kind = result
+            .unwrap_err()
+            .downcast_ref::<std::io::Error>()
+            .map(|e| e.kind());
+        assert_eq!(kind, Some(std::io::ErrorKind::ExecutableFileBusy));
+    }
+
     #[test]
     fn config_parses_hooks() {
         let toml_str = "[agent]\ncommand = \"echo\"\n\n[hooks.pre_boot]\ninline = \"echo hello\"\ntimeout_seconds = 30\non_failure = \"warn\"\n";
