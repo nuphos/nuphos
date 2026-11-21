@@ -16,10 +16,12 @@ final class WorkFoldLabelUITests: XCTestCase {
         var body = try XCTUnwrap(chat["body"] as? [String: Any])
         var messages = try XCTUnwrap(body["messages"] as? [[String: Any]])
         let start = 1_700_000_000_000.0
-        let calls: [[String: Any]] = (0..<22).map { i in
-            ["type": "dynamic-tool", "toolName": "bash", "toolCallId": "call-\(i)", "state": "output-available",
-             "input": ["command": "ls docs/page-\(i)"], "output": "page-\(i).md",
-             "startedAt": start + Double(i) * 7_000, "completedAt": i == 21 ? start + 157_000 : start + Double(i) * 7_000 + 5_000]
+        let calls = (0..<22).map { i -> [String: Any] in
+            let startedAt = start + Double(i) * 7_000
+            let completedAt = i == 21 ? start + 157_000 : startedAt + 5_000
+            return ["type": "dynamic-tool", "toolName": "bash", "toolCallId": "call-\(i)", "state": "output-available",
+                    "input": ["command": "ls docs/page-\(i)"], "output": "page-\(i).md",
+                    "startedAt": startedAt, "completedAt": completedAt]
         }
         messages[1]["parts"] = calls + [["type": "text", "text": "The docs site has 22 pages."]]
         body["messages"] = messages
