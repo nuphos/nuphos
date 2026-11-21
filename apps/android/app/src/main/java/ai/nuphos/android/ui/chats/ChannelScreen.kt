@@ -50,6 +50,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -359,6 +360,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
         handledSubmission = session.lastSubmittedKey
     }
     val scrollToLatest = stringResource(R.string.chats_scroll_to_latest)
+    val uri = LocalUriHandler.current
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
@@ -380,6 +382,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             // Only an agent's owner can move it, and only when the agent itself was the cause.
                             val owned = session.agents.any { it.sessionId == agentId && it.ownerId == viewerId }
                             ReplyFailedLine(item.event,
+                                onVerify = item.event.verifyUrl?.takeIf { item.actionable && owned }?.let { url -> { uri.openUri(url) } },
                                 onSwitch = onSwitchAgent?.takeIf { item.actionable && owned && item.event.cause in AGENT_CAUSES && agentId != null }
                                     ?.let { switch -> { switch(agentId!!) } },
                                 onRetry = agentId?.takeIf { item.actionable && allowed() }?.let { id -> { session.retry(id, scope) } })
@@ -540,9 +543,10 @@ private fun RecordLine(text: String) {
 
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
 
-/** An agent could not reply: what happened and why, when its usage returns, and the fix. */
+/** An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
+private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onVerify: (() -> Unit)?, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
     val resets = ai.nuphos.android.ui.agent.resetsInText(ai.nuphos.android.ui.agent.ResetsIn.of(event.resetsAt.takeIf { event.cause == "usage_limit" }))
         ?.let { stringResource(R.string.chats_usage_resets, it) }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
@@ -552,7 +556,10 @@ private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDeta
             Text(listOfNotNull(event.text, resets).joinToString(" "), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Three fixes do not fit a phone's width on one line, so they wrap.
+        if (onVerify != null || onSwitch != null || onRetry != null) FlowRow(Modifier.padding(start = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            onVerify?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_verify_with_anthropic)) } }
             onSwitch?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_switch_runtime)) } }
             onRetry?.let { TextButton(onClick = it) { Text(stringResource(R.string.chats_retry)) } }
         }

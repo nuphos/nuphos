@@ -68,6 +68,7 @@
     <string name="convtext_runtime_not_found">This runtime is no longer available in this workspace. Switch to another runtime to continue.</string>
     <string name="convtext_runtime_offline">The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.</string>
     <string name="convtext_runtime_paused">%1$s is paused. It resumes when you send.</string>
+    <string name="convtext_runtime_starting">%1$s is starting. It will be ready in a few seconds.</string>
     <string name="convtext_ask_owner">Ask owner</string>
     <string name="convtext_ask_admin">Ask an admin</string>
     <string name="convtext_server_status">Nuphos returned status %1$d.</string>

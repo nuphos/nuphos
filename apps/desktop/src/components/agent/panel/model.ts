@@ -147,6 +147,8 @@ export type Tab = {
   foreign?: boolean
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
+  /** The server's `canArchive`: a participant archives a teammate's Task for themselves alone. */
+  canArchive?: boolean
   /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */
   unsaved?: boolean
   /** A message Esc took back while its turn still stops: hidden until the server drops it. */

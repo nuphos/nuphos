@@ -1,6 +1,7 @@
 package ai.nuphos.android.ui.login
 
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +16,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.LoadingIndicator
@@ -32,7 +32,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -101,20 +100,7 @@ fun LoginScreen(
                 onDismissError = auth::dismissSignInError,
                 header = {
                     Column(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Surface(
-                            modifier = Modifier.size(88.dp),
-                            shape = RoundedCornerShape(28.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            shadowElevation = 6.dp,
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(painterResource(R.drawable.ic_nuphos_mark), contentDescription = null,
-                                    modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onPrimary)
-                            }
-                        }
-                        Spacer(Modifier.height(24.dp))
-                        Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall,
-                            color = MaterialTheme.colorScheme.onBackground, textAlign = TextAlign.Center)
+                        Image(painterResource(R.drawable.nuphos_lockup), contentDescription = stringResource(R.string.app_name), modifier = Modifier.height(48.dp))
                         TextButton(onClick = { showServer = true }, enabled = !busy) {
                             Text(if (ai.nuphos.android.data.BackendOrigin.isCloud(origin)) stringResource(R.string.shell_server_cloud_settings)
                                 else stringResource(R.string.shell_server_custom_settings, origin))
@@ -171,16 +157,7 @@ fun SplashScreen(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                painterResource(R.drawable.ic_nuphos_mark),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-                    .padding(16.dp),
-                tint = MaterialTheme.colorScheme.onPrimary,
-            )
+            Image(painterResource(R.drawable.nuphos_icon), contentDescription = null, modifier = Modifier.size(72.dp))
             Spacer(Modifier.height(24.dp))
             LoadingIndicator()
         }
