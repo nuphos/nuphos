@@ -7,10 +7,10 @@ import { resolve } from 'node:path'
 import { artifacts, until } from '../processes.ts'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
+import { shootSettings, verifySlackReplyLocations } from './slack-reply-locations.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
-import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const WORKSPACE = 'TE2E'
@@ -35,30 +35,6 @@ function mongo(stack: Stack, body: string, args: unknown = null): unknown {
 }
 
 let events = 0
-
-/** Opens Slack's settings in light, with the connected channel's Bot shown, and shoots them. */
-async function shootSettings(page: Page, file: string, bot: string) {
-  // The app read its connectors at start, before the scenario installed Slack.
-  await page.reload()
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark')
-    document.documentElement.classList.add('light')
-  })
-  await page.getByRole('button', { name: 'Connectors', exact: true }).click()
-  await page
-    .getByRole('button', { name: /^Open Slack/ })
-    .first()
-    .click()
-  // Not exact: once loaded, the heading also holds the channel count.
-  const channels = page.getByText('Connected channels').first()
-
-  await channels.waitFor()
-  await page.getByText(bot, { exact: true }).first().waitFor()
-  // The dialog scrolls its own body: bring the channel list to its top.
-  await channels.evaluate((element) => element.scrollIntoView({ block: 'start' }))
-  await page.waitForTimeout(300)
-  await page.screenshot({ path: `${artifacts}/${file}` })
-}
 
 /** One call to the Slack settings API as the e2e user, a team admin who owns the E2E Bot. */
 async function settings(
@@ -112,6 +88,7 @@ export default {
   // The teammate's Bot, refused while the viewer's holds the channel.
   expected: /"error_code":"slack_channel_has_bot"/,
   run: async (page, stack) => {
+    addSlackUser('UE2EBOT', { team_id: WORKSPACE, email: 'bot@example.com', name: 'E2E App' })
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
     addSlackUser('UNEW', { team_id: WORKSPACE, email: 'stranger@example.com', name: 'Stranger' })
@@ -144,7 +121,11 @@ export default {
     })
 
     try {
-      const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')
+      const asked = await slackMessage(
+        stack,
+        'UOWNER',
+        '<@UE2EBOT> Status? E2E_REPLY_TO E2E_WHO E2E_DELIVERY:slack-owner',
+      )
 
       await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-owner from=owner')
       // The answer is a Slack message in the channel, top-level, under the Bot's name.
@@ -161,11 +142,13 @@ export default {
 
       if (!listing.ok || conversations.some((row) => row.sessionId === chatId))
         throw new Error('The external chat is listed in Nuphos')
-      await slackMessage(stack, 'UEXT', 'Me too E2E_WHO E2E_DELIVERY:slack-ext', {
+      await slackMessage(stack, 'UEXT', 'Me too E2E_REPLY_TO E2E_WHO E2E_DELIVERY:slack-ext', {
         user_team: 'TOTHER',
       })
       await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-ext from=data')
-      await slackMessage(stack, 'UNEW', 'Hello E2E_WHO E2E_DELIVERY:slack-new')
+      if (slackPosts().find((post) => post.text?.includes('E2E_DELIVERY:slack-ext'))?.thread_ts)
+        throw new Error('The answer to an unmentioned top-level message went into a thread')
+      await slackMessage(stack, 'UNEW', 'Hello E2E_REPLY_TO E2E_WHO E2E_DELIVERY:slack-new')
       await answer(stack, chatId, 'POSTED E2E_DELIVERY:slack-new from=data')
 
       // Slack delivers the owner's message again, and as a mention: still one post.
@@ -203,6 +186,11 @@ export default {
         throw new Error(`The owner's message was stored ${String(stored.asked)} times`)
       if (stored.replyTo !== `slack:${CHANNEL}:${asked}`)
         throw new Error(`The thread reply quotes ${String(stored.replyTo)}, not its root`)
+      await verifySlackReplyLocations(
+        (text, thread) => slackMessage(stack, 'UNEW', text, { thread_ts: thread }),
+        botPosts,
+        asked,
+      )
       // The settings screen as Yuanlin reviews it, in light: one Bot per channel. The
       // viewer has a spare Bot, so the picker shows, closed while their own Bot is there.
       await settings(stack, 'POST', '/agent/bots', { title: 'Spare Bot', avatar: '02-leonardo' })
