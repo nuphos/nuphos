@@ -3,7 +3,6 @@ import { ObjectId } from 'mongodb'
 
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { fireTrigger } from '@/lib/agent/trigger-executor'
-import { matchesPayloadFilters } from '@/lib/agent/trigger-payload-filter'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -119,10 +118,6 @@ webhooksRoutes.post('/:triggerId', async (c) => {
 
   if (!trigger.enabled) {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
-  }
-
-  if (!matchesPayloadFilters(payload, trigger.payloadFilters)) {
-    return c.json({ ok: true, skipped: true, reason: 'filtered' }, 200)
   }
 
   return await deliver(c, trigger, payload)
