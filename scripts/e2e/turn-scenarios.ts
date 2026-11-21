@@ -6,6 +6,7 @@ import { agentEvents, agentLog } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
 import { checkDecisionOutline } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
+import { createWebhook, deliver } from './trigger-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -38,7 +39,7 @@ export const turnScenarios: Scenario[] = [
     // #4371: a parent ran one turn per Task that reported while it worked, so Stop kept waking it.
     // Tasks report here with send_message_to_thread: report_task needs Redis, which this stack has
     // not, and its delivery queues the same agent.thread message on the parent.
-    name: 'Tasks that report while their parent works are answered in one turn',
+    name: 'Tasks and a webhook alert that arrive while their parent works are answered in one turn',
     run: async (page, stack) => {
       const names = ['a', 'b', 'c']
       const log = () => agentLog(stack)
@@ -90,13 +91,21 @@ export const turnScenarios: Scenario[] = [
       )
 
       if (refused.length > 0) throw new Error(`A report was refused: ${JSON.stringify(refused)}`)
+      // A resource event waiting behind the reports joins the same turn.
+      const hook = await createWebhook(stack, parent, 'Alerts for the parent')
+      const alert = await deliver(stack, hook, { state: 'firing', id: 'report-alert' })
+
+      if (alert.status !== 200 || !alert.body.ok)
+        throw new Error(`The alert was not accepted: ${JSON.stringify(alert)}`)
       const turns = () =>
         log().filter(
           (entry) =>
             entry.sessionId === acpParent &&
             entry.event === 'start' &&
             entry.marker !== 'E2E_DELIVERY:collecting' &&
-            names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)),
+            [...names, 'alert'].some((name) =>
+              entry.markers?.includes(`E2E_DELIVERY:report-${name}`),
+            ),
         )
 
       writeFileSync(release, '')
@@ -111,9 +120,13 @@ export const turnScenarios: Scenario[] = [
 
       if (
         started.length !== 1 ||
-        !names.every((name) => started[0]!.markers?.includes(`E2E_DELIVERY:report-${name}`))
+        ![...names, 'alert'].every((name) =>
+          started[0]!.markers?.includes(`E2E_DELIVERY:report-${name}`),
+        )
       ) {
-        throw new Error(`The reports did not run in one turn: ${JSON.stringify(started)}`)
+        throw new Error(
+          `The reports and the alert did not run in one turn: ${JSON.stringify(started)}`,
+        )
       }
       // Each report keeps its own Task as its sender.
       const tasks = log()

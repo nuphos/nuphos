@@ -67,9 +67,9 @@ async function createTrigger(stack: Stack, sessionId: string, name: string, mess
   })
 }
 
-type Hook = Trigger & { webhookSecret: string }
+export type Hook = Trigger & { webhookSecret: string }
 
-async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
+export async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
   return client(stack)<Hook>('POST', '/agent/triggers', {
     teamId: stack.teamId,
     targetSessionId: sessionId,
@@ -81,7 +81,7 @@ async function createWebhook(stack: Stack, sessionId: string, name: string, extr
 }
 
 /** One delivery as a sender makes it, signed with the Trigger's secret. */
-async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
+export async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
   const response = await fetch(`${stack.apiUrl}/webhooks/${hook.id}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'X-Webhook-Secret': hook.webhookSecret },
