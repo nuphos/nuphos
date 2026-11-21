@@ -1,4 +1,3 @@
-import { subagentAttribution } from './parts.ts'
 import { eventEmittedAt } from './sessionContinuity.ts'
 import { normalizeAgentError, uid } from './stall.ts'
 import { appendTextDelta } from './streamText.ts'
@@ -122,7 +121,6 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
   if (type === 'tool-input-available') {
     const toolCallId = event.toolCallId as string
     const toolName = (event.toolName as string) ?? undefined
-    const attribution = subagentAttribution(event)
 
     if (!parts.some((p) => p.type === 'tool' && p.toolCallId === toolCallId)) {
       return [
@@ -134,7 +132,6 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
           state: 'input-available',
           startedAt: emittedAt,
           input: event.input,
-          ...attribution,
         },
       ]
     }
@@ -147,7 +144,6 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
             state: 'input-available',
             startedAt: p.startedAt ?? emittedAt,
             input: event.input,
-            ...attribution,
           }
         : p,
     )

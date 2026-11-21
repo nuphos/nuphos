@@ -1,25 +1,12 @@
-// A Claude Code native sub-agent's steps group under the call that spawned it (#1060).
+// Throwaway: the same #1060 fixture turn rendered by main's UI, for a before shot.
 import { artifacts } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Locator } from 'playwright-core'
-
-// A row fades in, and Playwright counts it visible before it shows: wait for its own fade.
-const settled = (rows: Locator[]) =>
-  Promise.all(
-    rows.map((row) =>
-      row.evaluate((element) =>
-        Promise.all(
-          element.getAnimations({ subtree: true }).map((animation) => animation.finished),
-        ),
-      ),
-    ),
-  )
 
 export const subagentScenarios: Scenario[] = [
   {
-    name: "a native sub-agent's steps sit under its own row, apart from the main agent's",
+    name: 'before: the sub-agent fixture turn on the pre-#4232 UI',
     run: async (page) => {
       await newTask(page)
       await send(page, 'Look into billing E2E_SUBAGENT E2E_DELIVERY:subagent')
@@ -28,24 +15,14 @@ export const subagentScenarios: Scenario[] = [
         .getByRole('button', { name: /^Worked for/ })
         .last()
         .click()
-
-      // The row keeps the sub-agent's task after its own steps land, and counts them.
-      const run = page.getByRole('button', { name: /Survey the billing module.*3 calls/ })
-      const main = page.getByRole('button', { name: /^Check the release notes/ })
+      const run = page.getByRole('button', { name: /calls/ }).last()
 
       await run.waitFor()
-      await main.waitFor()
-      await settled([run, main])
-      await page.screenshot({ path: `${artifacts}/subagent-collapsed.png` })
+      await page.waitForTimeout(1500)
+      await page.screenshot({ path: `${artifacts}/subagent-before-collapsed.png` })
       await run.click()
-      const steps = run.locator('xpath=following-sibling::div[1]')
-
-      await steps.getByText('Find invoice totals').waitFor()
-      await steps.getByText('Read the tax rules').waitFor()
-      if ((await steps.getByText('Check the release notes').count()) > 0)
-        throw new Error("The main agent's step is listed under the sub-agent")
-      await settled([steps])
-      await page.screenshot({ path: `${artifacts}/subagent-expanded.png` })
+      await page.waitForTimeout(1500)
+      await page.screenshot({ path: `${artifacts}/subagent-before-expanded.png` })
     },
   },
 ]

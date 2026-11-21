@@ -129,9 +129,6 @@ export type ToolPart = {
    * model history. */
   liveOutput?: { stdout: string; stderr: string }
   errorText?: string
-  /** Claude Code native sub-agents: the call that spawned one, and the steps it ran. */
-  subagent?: true
-  parentToolUseId?: string
   // AI SDK tool-approval envelope (HMAC-signed): id binds the response to the
   // request; approved is set once the user decides.
   approval?: {
@@ -228,18 +225,6 @@ export type Part =
   | MemoryProvenancePart
   | TurnInterruptedPart
   | StepStartPart
-
-/** A tool part's sub-agent tags, from a live event or a saved part; malformed values are dropped. */
-export function subagentAttribution(
-  value: Record<string, unknown>,
-): Pick<ToolPart, 'subagent' | 'parentToolUseId'> {
-  return {
-    ...(value.subagent === true ? { subagent: true as const } : {}),
-    ...(typeof value.parentToolUseId === 'string' && value.parentToolUseId
-      ? { parentToolUseId: value.parentToolUseId }
-      : {}),
-  }
-}
 
 export function isHiddenMemoryIngestPart(part: MemoryIngestPart): boolean {
   return part.text.toLowerCase().includes('queued')

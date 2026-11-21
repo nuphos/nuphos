@@ -14,8 +14,6 @@ export type PartSegment =
   // run, so the slot exists from the first call and later calls replace its
   // content in place instead of folding a finished call away. Narration
   // between calls ends the run so it stays where it happened in the turn.
-  // A native sub-agent's run is headed by the call that spawned it and holds
-  // the steps the sub-agent (or its own sub-agents) ran later in the same range.
   | { kind: 'toolRun'; indices: number[] }
 
 // Tool calls that render as their own card (chart, artifact, plan, permission grant)
@@ -114,8 +112,6 @@ export function turnDisplayParts(parts: Part[], streaming: boolean): Part[] {
 
 export function segmentParts(parts: readonly Part[], from: number, to: number): PartSegment[] {
   const segments: PartSegment[] = []
-  // Which sub-agent run in this range a call belongs to, by the run's indices.
-  const runOf = new Map<string, number[]>()
   let run: number[] = []
   const flushRun = () => {
     if (run.length > 0) segments.push({ kind: 'toolRun', indices: run })
@@ -124,28 +120,12 @@ export function segmentParts(parts: readonly Part[], from: number, to: number): 
 
   for (let index = from; index < to; index += 1) {
     const part = parts[index]
-    const plain = isPlainToolPart(part)
-    const owner = plain && part.parentToolUseId ? runOf.get(part.parentToolUseId) : undefined
 
-    // A sub-agent's step joins the run of the call that spawned it, earlier in this range.
-    if (owner && plain) {
-      owner.push(index)
-      runOf.set(part.toolCallId, owner)
-      continue
-    }
-    if (plain && part.subagent) {
-      flushRun()
-      const indices = [index]
-
-      runOf.set(part.toolCallId, indices)
-      segments.push({ kind: 'toolRun', indices })
-      continue
-    }
     if (isInvisiblePart(part)) {
       segments.push({ kind: 'part', index })
       continue
     }
-    if (plain) {
+    if (isPlainToolPart(part)) {
       run.push(index)
       continue
     }
