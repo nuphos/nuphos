@@ -16,17 +16,19 @@ final class SelectionHandleDragUITests: XCTestCase {
         sleep(2)
         shot(app, "reply")
 
-        // The one-line reply ends just above the composer, its first word at
-        // the reply's leading edge.
+        // Replies are not in the accessibility tree; the one-line reply sits
+        // below the user's message, "Selectme" at its leading edge.
         let origin = app.coordinate(withNormalizedOffset: .zero)
-        let line = composer.frame.minY - 140
+        let line = app.navigationBars.firstMatch.frame.maxY + 136
         origin.withOffset(CGVector(dx: 40, dy: line)).press(forDuration: 1)
         XCTAssertTrue(app.menuItems["Copy"].firstMatch.waitForExistence(timeout: 5), "The long press selected nothing")
         shot(app, "word")
 
-        // The end handle stands at the end of "Selectme"; drag it right along the line.
-        let handle = origin.withOffset(CGVector(dx: 100, dy: line))
-        handle.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 340, dy: line)))
+        // Grab the end handle by its knob, which hangs below the line past the
+        // end of "Selectme", and swipe it right like a back swipe.
+        let knob = origin.withOffset(CGVector(dx: 86, dy: line + 15))
+        knob.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 300, dy: line + 15)),
+                   withVelocity: .fast, thenHoldForDuration: 0.3)
         shot(app, "dragged")
 
         XCTAssertTrue(composer.waitForExistence(timeout: 2) && composer.isHittable, "The drag left the chat")
