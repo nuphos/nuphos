@@ -120,6 +120,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           # Only the latest nightly counts, and only while it is recent: an old or missing one
           # says nothing about main today, so it must fail rather than pass.
@@ -141,7 +142,11 @@ jobs:
             exit 1
           fi
           echo "Compared with main's nightly run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run (${age} hours old)" >> "$GITHUB_STEP_SUMMARY"
-          node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
+          # The test files this pull request writes. A failing test the baseline lacks is only
+          # its own if it is in one of them; otherwise it came in with a newer main.
+          changed=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/files" \
+            --jq '.[].filename | select(startswith("apps/ios/UITests/"))')
+          node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json" $changed
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: ${{ !cancelled() }}
         with:
