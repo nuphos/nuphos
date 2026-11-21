@@ -526,13 +526,29 @@ jobs:
           truncate -s 2G "$disk"
           mkfs.ext4 -q -F -m 0 "$disk"
           sudo mount -o loop "$disk" "$mountpoint"
-          trap 'sudo umount "$mountpoint"; rm -f "$disk"; rmdir "$mountpoint" "$workdir"' EXIT
+          cleanup() {
+            mkdir -p "$E2E_ARTIFACTS/runtime-logs"
+            find "$mountpoint" -type f -name '*.log' -size -10M -exec cp --parents -t "$E2E_ARTIFACTS/runtime-logs" {} + || true
+            sudo umount "$mountpoint"
+            rm -f "$disk"
+            rmdir "$mountpoint" "$workdir"
+          }
+          trap cleanup EXIT
           sudo chown "$(id -u):$(id -g)" "$mountpoint"
           # ext4 metadata consumes space too; size the filler from the actual filesystem.
           fill_bytes=$(python3 -c 'import os,sys; s=os.statvfs(sys.argv[1]); print(int((s.f_blocks * 0.94 - (s.f_blocks - s.f_bfree)) * s.f_frsize))' "$mountpoint")
           test "$fill_bytes" -gt 0
           fallocate -l "$fill_bytes" "$mountpoint/fill"
-          E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
+          E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-disk-probe.ts
+      - name: Upload disk diagnostic logs
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: disk-diagnostic-logs
+          path: |
+            ${{ runner.temp }}/real-disk-shots/**/*.log
+            ${{ runner.temp }}/real-disk-shots/real-disk-turn-failure.png
+          if-no-files-found: warn
       - name: Upload real-disk screenshots
         if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
