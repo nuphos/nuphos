@@ -5,7 +5,7 @@ import { before, mock, test } from 'node:test'
 import type { BrowserCall } from './browser-stream.ts'
 import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 
-const app = new EventEmitter()
+const app = Object.assign(new EventEmitter(), { getPath: () => '/tmp', getVersion: () => '0' })
 const browserSession = {}
 /** window-session.ts's flag: set by before-quit, and by an update restart before it. */
 let appQuitting = false
@@ -13,6 +13,8 @@ let appQuitting = false
 const handBacks: { route: string; body: unknown }[] = []
 const windows: Window[] = []
 let runBrowserCall: typeof RunBrowserCall
+/** Whether each tab's page was throttled while its recording stopped, for a still page's capture. */
+const throttledAtStop = new Map<unknown, boolean>()
 
 let nextId = 1
 
@@ -124,6 +126,16 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
+  mock.module('./browser-recording.ts', {
+    namedExports: {
+      startRecording: () => Promise.resolve(),
+      stopRecording: (contents: Page) => {
+        throttledAtStop.set(contents, contents.throttled)
+
+        return Promise.resolve({})
+      },
+    },
+  })
   mock.module('../../agent/http.ts', {
     namedExports: {
       callJson: (_method: string, route: string, body: unknown) => {
@@ -339,6 +351,19 @@ test('a screenshot lets the hidden page paint freely only while it is captured',
 
   assert.equal(result.isError, undefined)
   assert.equal(page.throttledAtCapture, false)
+  assert.equal(page.throttled, true)
+})
+
+// #4305: a still page in a hidden window is captured at record_stop, which it may never answer
+// once throttled, as a screenshot would not.
+test('record_stop stops the recording before the hidden page is throttled again', async () => {
+  const { page } = await opened('rec-1')
+  const call = { team: 't1', session: 'rec-1', tab: page.id }
+
+  await runBrowserCall({ ...call, action: 'record_start', video: true })
+  assert.equal(page.throttled, false)
+  await runBrowserCall({ ...call, action: 'record_stop' })
+  assert.equal(throttledAtStop.get(page), false)
   assert.equal(page.throttled, true)
 })
 
