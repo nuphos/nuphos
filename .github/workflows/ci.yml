@@ -457,8 +457,7 @@ jobs:
 
   # The Desktop app driven against a real backend, MongoDB, file store and OpenAB,
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
-  # a contributor runs. In this workflow so the merge queue runs it on the
-  # combined changes, like every other check.
+  # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
   e2e:
     name: Desktop against a real backend
     needs: changes
