@@ -469,8 +469,9 @@ jobs:
     # Loop mounts for real-disk evidence are not supported on the verified Instabox runner.
     # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
+    # Hosted disk evidence does not wait for an Instabox slot.
     concurrency:
-      group: instabox-e2e-${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
+      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
       queue: max
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
@@ -551,6 +552,7 @@ jobs:
             ${{ runner.temp }}/real-disk-shots/real-disk-second-window.png
             ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
             ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-failure.png
           if-no-files-found: warn
       - name: Run the end-to-end scenarios
         if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
