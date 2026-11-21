@@ -35,7 +35,15 @@ export async function noMenuOpen(page: Page) {
  *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
  *  away from the menu, and `aria-controls` on the row is what names it. */
 export async function openSubmenu(page: Page, row: string) {
-  const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
+  // A computer the app has not heard from is an ordinary row with no submenu to open, so the
+  // row is taken only once it says it has one: that wait is also how a scenario waits for a
+  // computer it has just brought back.
+  const trigger = page
+    .getByRole('menu')
+    .getByRole('menuitem')
+    .filter({ hasText: row })
+    .and(page.locator('[aria-haspopup="menu"]'))
+    .first()
 
   await pickInSubmenu(page, trigger)
   // The open row and the id are not set together: the id waits for the list to exist.
