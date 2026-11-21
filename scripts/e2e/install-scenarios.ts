@@ -156,6 +156,8 @@ export const installScenarios: Scenario[] = [
       await code.fill('e2e-code#e2e-state')
       await page.getByRole('button', { name: 'Submit code' }).click()
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
+      // #3916: an Ultra login reads as Ultra, though Claude Code stores "max".
+      await page.getByText('· ultra').waitFor({ timeout: 10_000 })
       await shot(page, 'local-3-signed-in')
       await page.getByRole('button', { name: 'Done', exact: true }).click()
       await page.getByText('Back to app', { exact: true }).click()

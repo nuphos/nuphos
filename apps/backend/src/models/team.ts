@@ -90,7 +90,7 @@ export type TeamByosBindings = {
   larkApps?: LarkAppBinding[]
   /**
    * The team's own Google OAuth client (Web application) for its members'
-   * Gmail and Google Drive Personal Credentials. Unset until an admin adds it.
+   * Gmail, Google Drive and Google Calendar Personal Credentials. Unset until an admin adds it.
    */
   googleOAuthClient?: {
     clientId: string

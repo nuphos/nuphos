@@ -12,6 +12,7 @@ import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
+import { drainAgentProducers } from '@/lib/agent/producer-drain'
 import * as lifecycle from '@/lib/lifecycle'
 import { replicaId } from '@/lib/redis'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -210,6 +211,31 @@ test('a turn in flight ends when the session cannot get back on', async () => {
   }
 
   expect(seen).toEqual(['status', 'text', 'interrupted:runtime_connection_lost'])
+})
+
+// A rollout closes the tunnel mid-turn; storage closes only after the ended turn is saved.
+test('shutdown waits for a turn that a closed tunnel ends while draining', async () => {
+  const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(true)
+  let saved = false
+
+  setClaudeCodeAutonomousUpdateHandler(async ({ update }) => {
+    if (update.kind !== 'interrupted') return
+    await Bun.sleep(20)
+    saved = true
+  })
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(fakeClient('replacement'))
+  const lost = session.client as ReturnType<typeof fakeClient>
+
+  try {
+    observeSession(session)
+    lost.emit({ kind: 'status', status: 'active' })
+    lost.emit({ kind: 'text', text: 'Checking the build' })
+    lost.close()
+    expect(await drainAgentProducers(1000)).toBe(true)
+    expect(saved).toBe(true)
+  } finally {
+    draining.mockRestore()
+  }
 })
 
 test('a turn in flight ends when the reattach finds the agent gone', async () => {

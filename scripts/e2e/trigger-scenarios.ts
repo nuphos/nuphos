@@ -225,7 +225,7 @@ export const triggerScenarios: Scenario[] = [
   {
     // #3718: a fire whose agent is gone failed before its turn and was never counted, so it never paused.
     name: 'a Trigger whose agent is gone pauses after three fires and says to move the Task',
-    expected: /runtime_not_found|This agent is no longer available to you/,
+    expected: /runtime_not_found|This runtime is no longer available to you/,
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Soon without its agent E2E_DELIVERY:trigger-gone')
@@ -260,7 +260,9 @@ export const triggerScenarios: Scenario[] = [
       const paused = await read()
 
       console.log(`Agent gone 3 times: ${JSON.stringify(paused)}`)
-      if (!paused.executionAuthorizationError?.includes('Move this conversation to another agent'))
+      if (
+        !paused.executionAuthorizationError?.includes('Move this conversation to another runtime')
+      )
         throw new Error(`The Trigger was not paused with its reason: ${JSON.stringify(paused)}`)
     },
   },

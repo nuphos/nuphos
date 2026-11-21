@@ -7,14 +7,9 @@ import {
   deleteSlackUserMapping,
   getSlackUserMapping,
   listSlackChannelMappings,
-  listSlackUserMappings,
   upsertSlackUserMapping,
 } from '@/lib/slack/agent-bot'
-import {
-  resolveInstalledWorkspaceBot,
-  resolveSlackBotForTeam,
-  resolveSlackBotForWorkspace,
-} from '@/lib/slack/installations'
+import { resolveInstalledWorkspaceBot, resolveSlackBotForTeam } from '@/lib/slack/installations'
 import { resolveSlackSelfMapping } from '@/lib/slack/self-mapping'
 import { fetchSlackUserName } from '@/lib/slack/user-profile'
 import { requireAuth } from '@/middleware/auth'
@@ -35,52 +30,6 @@ export function registerSlackUserMappingRoutes(
 ): void {
   slackRoutes.use('/user-mappings', requireAuth)
   slackRoutes.use('/user-mappings/*', requireAuth)
-
-  slackRoutes.get('/user-mappings', async (c) => {
-    const teamId = await resolveVerifiedTeamId(c, c.req.query('teamId'))
-
-    if (!teamId) throw new AppError(400, 'invalid_request', 'Valid teamId is required')
-    await requireTeamAdmin(c, teamId)
-    const mappings = await listSlackUserMappings(teamId)
-
-    const workspaceBots = new Map<string, Awaited<ReturnType<typeof resolveSlackBotForWorkspace>>>()
-
-    for (const workspaceId of new Set(mappings.map((mapping) => mapping.slackWorkspaceId))) {
-      workspaceBots.set(
-        workspaceId,
-        await resolveSlackBotForWorkspace(workspaceId).catch(() => null),
-      )
-    }
-    const enriched = await Promise.all(
-      mappings.map(async (mapping) => {
-        const bot = workspaceBots.get(mapping.slackWorkspaceId)
-
-        if (!bot) return { ...serializeUserMapping(mapping), slackUser: null }
-        const displayName = await fetchSlackUserName(
-          bot.botToken,
-          mapping.slackWorkspaceId,
-          mapping.slackUserId,
-        )
-        const matchMethod =
-          mapping.createdBy === 'auto:nuphos-email' || mapping.createdBy === 'auto:slack-email'
-            ? 'email'
-            : bot.binding.installerSlackUserId === mapping.slackUserId
-              ? 'oauth_installer'
-              : 'manual'
-
-        return {
-          ...serializeUserMapping(mapping),
-          slackUser: {
-            id: mapping.slackUserId,
-            displayName: displayName ?? mapping.slackUserId,
-            matchMethod,
-          },
-        }
-      }),
-    )
-
-    return c.json({ mappings: enriched })
-  })
 
   slackRoutes.get('/user-mappings/me', async (c) => {
     const userId = c.get('userId')

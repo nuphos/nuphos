@@ -38,7 +38,12 @@ env file in each call that uses it.
 
 A 404 `personal_credential_not_connected` means this member has not connected
 that provider through this team: ask them to connect Gmail, Google Drive or Google Calendar under
-Settings → Personal Credentials, then retry. A 409
+Settings → Personal Credentials, then retry. A 403
+`personal_credential_not_selected` means the member has connected it, but it is
+not selected for this conversation: ask them to select it with
+`request_user_decision` (category `integration`, `credentials`
+`[{provider: "personal", id: "gmail"}]`, or `google-drive` / `google-calendar`),
+then retry. Do not tell them to reconnect it. A 409
 `google_oauth_client_not_configured` means the team has no Google OAuth client
 yet: a team administrator adds one in Team settings (guide:
 https://docs.nuphos.ai/connectors/google-workspace). There is no team fallback.
