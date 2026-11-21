@@ -18817,13 +18817,13 @@
             "value" : "เฉพาะเจ้าของเท่านั้นที่เปลี่ยนการตั้งค่าโมเดลได้"
           }
         },
-        "zh-CN" : {
+        "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "只有所有者可以更改模型设置。"
           }
         },
-        "zh-TW" : {
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "只有擁有者可以變更模型設定。"
