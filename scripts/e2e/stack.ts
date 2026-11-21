@@ -138,7 +138,7 @@ export async function startStack(
   const mongoUri = startMongo(mongoPort)
   // Cloud computers and Slack too: only what a scenario puts in them exists.
   const fakes = {
-    ...(await startStorage(storagePort)),
+    ...(process.env.NUPHOS_E2E_NO_STORAGE ? {} : await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
   }

@@ -1,0 +1,71 @@
+name: scratch installed Desktop 4216
+on:
+  push:
+    branches: [scratch/4216-installed-macos]
+permissions:
+  contents: read
+concurrency:
+  group: scratch-4216-installed-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  installed:
+    if: contains(github.event.head_commit.message, '[run]')
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: .bun-version
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - name: Install isolated test dependencies
+        run: |
+          bun install --frozen-lockfile
+          cd apps/backend
+          bun install --frozen-lockfile
+      - name: Prepare released app and MongoDB
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$(uname -m)" in
+            arm64) arch=arm64; dmg_arch=arm64 ;;
+            x86_64) arch=x86_64; dmg_arch=x64 ;;
+            *) exit 1 ;;
+          esac
+          work="$RUNNER_TEMP/installed-4216"
+          mkdir -p "$work/mount" "$work/home" "$work/artifacts"
+          chmod 700 "$work" "$work/home" "$work/artifacts"
+          curl -fsSL --retry 2 "https://fastdl.mongodb.org/osx/mongodb-macos-${arch}-8.0.32.tgz" -o "$work/mongo.tgz"
+          tar -xzf "$work/mongo.tgz" -C "$work"
+          mongod="$(find "$work" -path '*/bin/mongod' -type f -print -quit)"
+          test -n "$mongod"
+          echo "MONGOD=$mongod" >> "$GITHUB_ENV"
+          curl -fsSL --retry 2 "https://nuphos-releases.s3.amazonaws.com/desktop/Nuphos-0.130.10-${dmg_arch}.dmg" -o "$work/release.dmg"
+          hdiutil attach -readonly -nobrowse -mountpoint "$work/mount" "$work/release.dmg"
+          app="$(find "$work/mount" -maxdepth 1 -name '*.app' -type d -print -quit)"
+          test -n "$app"
+          ditto "$app" "$work/Nuphos.app"
+          hdiutil detach "$work/mount"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$work/Nuphos.app/Contents/Info.plist")" = '0.130.10'
+          codesign --verify --deep --strict "$work/Nuphos.app"
+          echo "INSTALLED_APP=$work/Nuphos.app" >> "$GITHUB_ENV"
+          echo "OPENAB=$work/Nuphos.app/Contents/Resources/local-runtime/openab" >> "$GITHUB_ENV"
+          echo "E2E_ARTIFACTS=$work/artifacts" >> "$GITHUB_ENV"
+          echo "ISOLATED_HOME=$work/home" >> "$GITHUB_ENV"
+      - name: Verify installed app against isolated backend
+        env:
+          NUPHOS_E2E_NO_STORAGE: '1'
+        run: bun scripts/e2e/installed-4216.ts
+      - name: Upload fictional screenshots and result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: installed-4216-evidence
+          path: |
+            ${{ runner.temp }}/installed-4216/artifacts/*.png
+            ${{ runner.temp }}/installed-4216/artifacts/result.txt
+          if-no-files-found: warn
