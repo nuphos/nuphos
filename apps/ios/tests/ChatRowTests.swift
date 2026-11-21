@@ -295,7 +295,7 @@ enum ChatRowTests {
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {
-        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message."
+        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message."
         let failed = ChatMessage(id: "m", role: .assistant, parts: [interrupted(.error, signIn)])
         // The turn's own stream error repeats the interruption, so it is hidden…
         precondition(ChatRow.shownFailure(in: [failed]) == signIn)
@@ -625,5 +625,12 @@ enum ChatRowTests {
         precondition(anchored["a2"]?.map(\.groupId) == ["late"])
         precondition(anchored["a1"]?.first?.readyFiles.first?.isImage == true)
         precondition(TransferDownloadGroup.anchor([group("x", "2026-10-06T10:00:00.000Z")], in: [ChatMessage.user("only")]).isEmpty)
+
+        // A group the reply cites shows where it is cited, not again as a card below the reply.
+        let cited = "0123456789abcdef01234567"
+        let citing = ChatMessage(id: "a3", role: .assistant,
+                                 parts: [.text(.init(text: "![shot](https://nuphos.ai/_reply-images/\(cited))", state: .done))],
+                                 createdAt: nil)
+        precondition(TransferDownloadGroup.anchor([group(cited, "2026-10-06T10:00:00.000Z")], in: [citing]).isEmpty)
     }
 }

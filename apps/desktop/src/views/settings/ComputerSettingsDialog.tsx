@@ -78,7 +78,7 @@ export function ComputerSettingsDialog({
             <div className="text-[13px] text-main">{t('Install updates automatically')}</div>
             <p className="mt-0.5 text-[12px] text-tertiary">
               {t(
-                'Update Nuphos on this computer to the newest release once nothing has run on it for 10 minutes. The update restarts Nuphos on it.',
+                'Update Nuphos on this computer to the newest release when nothing is running on it. The update restarts Nuphos on it.',
               )}
             </p>
             {!device.online && (

@@ -35,6 +35,7 @@ export const agentCredentialSelectionSchema = z.object({
   instaboxAccountIds: z.array(objectIdStringSchema).optional(),
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
+  personalConnectionIds: z.array(objectIdStringSchema).optional(),
   deviceIds: z.array(z.string().min(1)).default([]),
 })
 
@@ -67,6 +68,7 @@ const agentCredentialAccessSchema = z.object({
   instaboxAccountIds: z.array(objectIdStringSchema).optional(),
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
+  personalConnectionIds: z.array(objectIdStringSchema).optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),

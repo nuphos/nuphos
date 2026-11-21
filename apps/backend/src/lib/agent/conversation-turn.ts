@@ -121,8 +121,8 @@ export async function runTurn(
     const history = await readTurnHistory(data, pending, source)
 
     if (!history) throw new Error('Target conversation no longer exists.')
-    // BullMQ can redeliver a stalled job. An answered message must not run twice;
-    // one after the last reply was accepted by a refused turn and runs again.
+    // BullMQ can redeliver a stalled job: a message a turn already ran must not run
+    // twice. One a refused turn stored and handed back runs again.
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,

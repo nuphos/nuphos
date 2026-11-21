@@ -289,3 +289,27 @@ test('a deleted Trigger is not reported: its card shows it as removed', async ()
 
   assert.deepEqual(reported, ['agentGetConversation'])
 })
+
+test("a pull request the team's GitHub App cannot read is not reported: its chip only links to it", async () => {
+  const { api } = await import('./api.ts')
+  const { setFrontendErrorReporter } = await import('./lib/frontendErrorReporter.ts')
+  const forbidden = new Error(sentinel({ message: 'No access', code: 'pull_forbidden' }))
+  const missing = new Error(sentinel({ message: 'Not found', code: 'pull_not_found' }))
+  const reported: string[] = []
+
+  setFrontendErrorReporter((report) => reported.push(String(report.apiOperation)))
+  ;(globalThis as { window?: unknown }).window = {
+    api: {
+      atlasGetGithubPull: () => Promise.reject(forbidden),
+      agentGetConversation: () =>
+        Promise.reject(new Error(sentinel({ message: 'Boom', code: 'internal_error' }))),
+    },
+  }
+  await api.atlasGetGithubPull('team', 1, 'o', 'r', 1).catch(() => undefined)
+  ;(globalThis as { window: { api: Record<string, unknown> } }).window.api.atlasGetGithubPull =
+    () => Promise.reject(missing)
+  await api.atlasGetGithubPull('team', 1, 'o', 'r', 2).catch(() => undefined)
+  await api.agentGetConversation('c-1').catch(() => undefined)
+
+  assert.deepEqual(reported, ['agentGetConversation'])
+})

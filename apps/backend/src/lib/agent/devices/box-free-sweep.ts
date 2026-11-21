@@ -2,7 +2,7 @@
 // team whose month's hours are used. A Box is used while data moves on its tunnel's streams
 // (agent turns, commands, terminals, desktops), as the replica holding the tunnel records on
 // its presence, or while one of its agents is mid-turn: a tool can run long without output.
-// Every replica sweeps: pausing a paused Box changes nothing.
+// One replica sweeps each minute: two pausing the same Box raced, and usage was noted twice.
 
 import { Sandbox } from '@insforge/instabox-sdk'
 import { ObjectId } from 'mongodb'
@@ -11,6 +11,7 @@ import { config } from '@/config'
 import { boxAgentBusy, hostAgents } from '@/lib/claude-code-preview/box-update'
 import { teams } from '@/lib/identity/shared'
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import { IDLE_PAUSE_MS, freeAllowance, monthVcpuHours } from './box-free'
 import { pauseBox } from './box-instabox'
@@ -74,6 +75,7 @@ export async function sweepFreeBoxes(nowMs = Date.now(), deps = defaultDeps): Pr
   const allowance = freeAllowance()
 
   if (!allowance || !config.box.instabox) return
+  if (!(await claimRun('agent:free-box-sweep', SWEEP_MS - 5_000))) return
   const byTeam = Map.groupBy(await deps.running(), (box) => box.teamId)
   const subscribed = await deps.subscribed([...byTeam.keys()])
 

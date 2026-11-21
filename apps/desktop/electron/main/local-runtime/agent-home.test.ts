@@ -17,7 +17,6 @@ import { test } from 'node:test'
 
 import {
   claudeHomeSettings,
-  podOwnerAgentHome,
   prepareAgentHome,
   prepareClaudeHome,
   prepareCodexHome,
@@ -265,34 +264,4 @@ test('on Windows without the owner’s login nothing is linked', (t) => {
   mkdirSync(home)
   linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(existsSync(path.join(home, 'auth.json')), false)
-})
-
-test('a hosted pod’s owner uses the pod’s own Claude login; other members keep theirs', (t) => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-pod-owner-'))
-
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const data = path.join(dir, 'agent')
-  const home = path.join(dir, 'home')
-  const prepare = podOwnerAgentHome('owner-1', data, { NUPHOS_AGENT_OWNER_ID: 'owner-1' }, home)
-  const member = (id: string) => path.join(data, 'users', id)
-
-  assert.equal(
-    prepare('claude-code', member('owner-1'), path.join(member('owner-1'), 'workspace'), {}),
-    path.join(home, '.claude'),
-  )
-  // Another member on a team-wide pod never reads the owner's login.
-  assert.equal(
-    prepare('claude-code', member('member-2'), path.join(member('member-2'), 'workspace'), {}),
-    path.join(member('member-2'), 'claude-home'),
-  )
-  // Without a named owner, as on a Box or a person's computer, nothing changes.
-  assert.equal(
-    podOwnerAgentHome('owner-1', data, {}, home)(
-      'claude-code',
-      member('owner-1'),
-      path.join(member('owner-1'), 'workspace'),
-      {},
-    ),
-    path.join(member('owner-1'), 'claude-home'),
-  )
 })

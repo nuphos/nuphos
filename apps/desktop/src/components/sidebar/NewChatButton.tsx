@@ -11,7 +11,6 @@ import { BotIdentityFields } from '../agent/BotIdentityFields'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
 import { BotImportDialog } from '../channels/BotImportDialog'
-import { markChannel } from '../channels/channelKind'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
@@ -19,10 +18,11 @@ import { Checkbox } from '../ui/checkbox'
 import { toast } from '../ui/toast'
 
 import { BotStartIntro } from './BotStartIntro'
+import { NewGroupChatDialog } from './NewGroupChatDialog'
 
 import type { BotAvatarBackground } from '../../lib/botAvatarBackgrounds'
 
-/** "+" on Bots: a new Bot, with the face and name picked here, or a new group chat. */
+/** "+" on Bots: a new Bot, with the face and name picked here, or a new group chat with its members. */
 export function NewChatButton({
   teamId,
   onCreated,
@@ -39,6 +39,7 @@ export function NewChatButton({
   const [open, setOpen] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [groupOpen, setGroupOpen] = useState(false)
   const created = (sessionId: string) => {
     setOpen(false)
     onCreated(sessionId)
@@ -68,19 +69,7 @@ export function NewChatButton({
             <MenuItem icon={<Bot className="size-3.5" />} onClick={() => setOpen(true)}>
               {t('New Bot')}
             </MenuItem>
-            <MenuItem
-              icon={<Users className="size-3.5" />}
-              onClick={() => {
-                // An empty chat of the viewer's own: people and Bots join it from Share.
-                api.agentCreateChannel(teamId, true).then(
-                  ({ sessionId }) => {
-                    markChannel(sessionId)
-                    onCreated(sessionId)
-                  },
-                  (error: unknown) => toast.apiError(t('Could not create the group chat'), error),
-                )
-              }}
-            >
+            <MenuItem icon={<Users className="size-3.5" />} onClick={() => setGroupOpen(true)}>
               {t('New Group Chat')}
             </MenuItem>
           </MenuContent>
@@ -130,6 +119,16 @@ export function NewChatButton({
             </div>
           </div>
         </Modal>
+      )}
+      {groupOpen && (
+        <NewGroupChatDialog
+          teamId={teamId}
+          onClose={() => setGroupOpen(false)}
+          onCreated={(sessionId) => {
+            setGroupOpen(false)
+            onCreated(sessionId)
+          }}
+        />
       )}
       {importOpen && (
         <BotImportDialog teamId={teamId} onClose={() => setImportOpen(false)} onOpen={onCreated} />

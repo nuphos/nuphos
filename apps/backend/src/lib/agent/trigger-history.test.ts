@@ -188,3 +188,20 @@ test('a write that leaves the configuration as it was records nothing', async ()
   )
   expect(records).toEqual([])
 })
+
+test('a change its config cannot show is recorded by its reason, still without the secret', async () => {
+  const before = trigger('owners-task')
+
+  await writeTrigger(
+    {
+      before,
+      after: { ...before, webhookSecret: 'whsec_rotated' },
+      by: { actorId: 'owner', via: 'request' },
+      reason: 'webhook_secret_rotated',
+    },
+    () => Promise.resolve(true),
+  )
+  expect(records).toHaveLength(1)
+  expect(records[0]).toMatchObject({ action: 'updated', reason: 'webhook_secret_rotated' })
+  expect(JSON.stringify(records)).not.toContain('whsec_')
+})

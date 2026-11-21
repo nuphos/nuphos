@@ -5,10 +5,15 @@ import { useObservability } from '@/lib/test/doubles/observability'
 
 import type { AgentDevice } from './store'
 
+// A race with nothing in it never settles: an instabox that never answers.
+const never = Promise.race<string>([])
+
 // instabox reports every machine running; nothing here talks to a network.
 // The machine `evicted` was last paused by instabox for its host's memory, the others by a client.
 useInstaboxMachines({
-  machineState: () => Promise.resolve('running'),
+  // `hanging` stands for an instabox that accepts the request and never answers.
+  machineState: (_conn, sandboxId) =>
+    sandboxId === 'hanging' ? never : Promise.resolve('running'),
   lastPausedBy: (_conn, sandboxId) =>
     Promise.resolve(sandboxId === 'evicted' ? 'memory_pressure' : undefined),
 })
@@ -91,4 +96,13 @@ describe('a Box instabox paused on its own', () => {
     await noteBoxEviction('u', 'x', () => Promise.resolve(null))
     expect(logged).toEqual([])
   })
+})
+
+describe('an instabox that never answers', () => {
+  test('reads as error within the 5 s a listing allows, not after the SDK’s retries', async () => {
+    const started = Date.now()
+
+    expect(await boxState(box('hanging', new Date()), false)).toBe('error')
+    expect(Date.now() - started).toBeLessThan(6_000)
+  }, 10_000)
 })

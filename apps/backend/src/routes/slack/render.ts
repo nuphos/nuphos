@@ -1,5 +1,3 @@
-import { logEvent } from '@/lib/observability'
-import { fetchSlackThreadReplies } from '@/lib/slack/api'
 import { fetchSlackUserName } from '@/lib/slack/user-profile'
 
 import type { SlackAgentThread, SlackThreadMessageRecord } from '@/lib/slack/agent-bot'
@@ -50,67 +48,6 @@ export function renderSlackUserMessage(
   }
 
   return `${user} wrote in ${channel}:\n\n${text}`
-}
-
-// How much of an existing thread is replayed to the agent when it joins one:
-// the root message plus the most recent replies, each clipped to a line-ish
-// length. Enough to understand an incident thread without flooding the turn.
-const THREAD_CONTEXT_MAX_MESSAGES = 25
-const THREAD_CONTEXT_MESSAGE_CHARS = 400
-
-// Renders the messages that preceded the mention into a compact briefing
-// block, oldest first. Other bots' messages are kept — in incident threads the
-// alert bot's posts ARE the context. Authors appear by display name (via
-// userNames) with the raw mention syntax only as a lookup-failure fallback.
-function renderSlackThreadContext(
-  messages: Record<string, unknown>[],
-  mentionTs: string,
-  hasMore: boolean,
-  userNames: Map<string, string | null>,
-): string | null {
-  const prior: string[] = []
-
-  for (const message of messages) {
-    const ts = typeof message.ts === 'string' ? message.ts : null
-
-    if (!ts || ts === mentionTs) continue
-    const text = typeof message.text === 'string' ? message.text.trim() : ''
-
-    if (!text) continue
-    const userId = typeof message.user === 'string' ? message.user : null
-    const botProfile = message.bot_profile as { name?: unknown } | undefined
-    const botName =
-      typeof message.username === 'string' && message.username.trim()
-        ? message.username.trim()
-        : typeof botProfile?.name === 'string' && botProfile.name.trim()
-          ? botProfile.name.trim()
-          : null
-    const author = userId ? (userNames.get(userId) ?? `<@${userId}>`) : (botName ?? '(bot)')
-    const clipped =
-      text.length > THREAD_CONTEXT_MESSAGE_CHARS
-        ? `${text.slice(0, THREAD_CONTEXT_MESSAGE_CHARS - 1)}…`
-        : text
-
-    prior.push(`${author}: ${clipped.replace(/\n/g, ' ')}`)
-  }
-  if (prior.length === 0) return null
-  // Keep the root (the report that started the thread) plus the most recent
-  // replies; say what was dropped rather than truncating silently.
-  let lines = prior
-  let omitted = 0
-
-  if (prior.length > THREAD_CONTEXT_MAX_MESSAGES) {
-    omitted = prior.length - THREAD_CONTEXT_MAX_MESSAGES
-    lines = [prior[0]!, ...prior.slice(-(THREAD_CONTEXT_MAX_MESSAGES - 1))]
-  }
-  const header = 'Earlier messages in this thread (oldest first):'
-  const body = lines.map((line) => `- ${line}`).join('\n')
-  const notes: string[] = []
-
-  if (omitted > 0) notes.push(`(${String(omitted)} messages omitted)`)
-  if (hasMore) notes.push('(thread is longer than the fetched window)')
-
-  return [header, body, ...notes].join('\n')
 }
 
 // Rewrites <@U…> to the person's display name. The addressing judge's single
@@ -186,50 +123,4 @@ export function joinThreadContext(...blocks: (string | undefined)[]): string | u
   const present = blocks.filter((block): block is string => !!block)
 
   return present.length > 0 ? present.join('\n\n') : undefined
-}
-
-// How many distinct thread authors get a users.info name lookup per briefing
-// (cached; incident threads rarely have more speakers than this).
-const THREAD_CONTEXT_NAME_LOOKUPS = 10
-
-// Best-effort thread briefing for a mention that pulled the agent into an
-// existing discussion. Any failure (missing scope on old installs, huge
-// thread, transient error) degrades to answering from the mention alone.
-export async function fetchThreadContextSafe(
-  token: string,
-  slackWorkspaceId: string,
-  channel: string,
-  threadTs: string,
-  mentionTs: string,
-): Promise<string | undefined> {
-  try {
-    const { messages, hasMore } = await fetchSlackThreadReplies({ token, channel, threadTs })
-    const userIds: string[] = []
-
-    for (const message of messages) {
-      if (typeof message.user !== 'string' || !message.user) continue
-      if (userIds.includes(message.user)) continue
-      userIds.push(message.user)
-      if (userIds.length >= THREAD_CONTEXT_NAME_LOOKUPS) break
-    }
-    // Independent lookups; run them concurrently so a cold cache doesn't add
-    // one round-trip per distinct author before the turn can start.
-    const userNames = new Map<string, string | null>()
-
-    await Promise.all(
-      userIds.map(async (userId) => {
-        userNames.set(userId, await fetchSlackUserName(token, slackWorkspaceId, userId))
-      }),
-    )
-
-    return renderSlackThreadContext(messages, mentionTs, hasMore, userNames) ?? undefined
-  } catch (err) {
-    logEvent('warn', 'slack.thread_context.fetch_failed', {
-      slack_channel_id: channel,
-      slack_thread_ts: threadTs,
-      error: err instanceof Error ? err.message : String(err),
-    })
-
-    return undefined
-  }
 }

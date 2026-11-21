@@ -18,7 +18,8 @@ fi
 
 base="${NUPHOS_BACKEND_URL:-${NUPHOS_API_URL:-https://api.nuphos.ai}}"
 team_enc="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1")"
-body="$(python3 -c 'import json, sys; print(json.dumps({"tool": sys.argv[1], "arguments": json.loads(sys.argv[2])}))' "$2" "${3:-{\}}")"
+# With several connected accounts, GOOGLE_CONNECTION_ID names the one for this call.
+body="$(python3 -c 'import json, sys; b = {"tool": sys.argv[1], "arguments": json.loads(sys.argv[2])}; b.update({"connectionId": sys.argv[3]} if sys.argv[3] else {}); print(json.dumps(b))' "$2" "${3:-{\}}" "${GOOGLE_CONNECTION_ID:-}")"
 
 curl -sS --fail-with-body --max-time 120 \
   -H @<(printf 'Authorization: Bearer %s\n' "${NUPHOS_TOKEN}") \

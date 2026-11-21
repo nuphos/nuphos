@@ -58,11 +58,13 @@ import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
+import { teamSlackMappings } from '@/routes/slack/mappings'
 import { slackInstallationsRoutes } from '@/routes/slack-installations'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
 import { teamConnectorsRoutes } from '@/routes/team-connectors'
 import { teamSkillsRoutes } from '@/routes/team-skills'
+import { teamWebhooksRoutes } from '@/routes/team-webhooks'
 import { registerAgentRuntimeRoutes } from '@/routes/teams/agent-runtimes'
 import {
   registerClaudeCodeRuntimeRoutes,
@@ -248,6 +250,7 @@ teamScoped.route('/volcengine-accounts', volcengineAccountsRoutes)
 teamScoped.route('/azure-accounts', azureAccountsRoutes)
 teamScoped.route('/huawei-accounts', huaweiAccountsRoutes)
 teamScoped.route('/grafana-instances', grafanaInstancesRoutes)
+teamScoped.route('/webhooks', teamWebhooksRoutes)
 teamScoped.route('/architecture-diagrams', architectureDiagramsRoutes)
 teamScoped.route('/designs', designsRoutes)
 teamScoped.route('/dashboards', nuphosDashboardsRoutes)
@@ -269,6 +272,8 @@ teamScoped.route('/jira-sites', jiraSitesRoutes)
 teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
+
+teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
 teamScoped.route('/discord', discordAgentRoutes)
 teamScoped.route('/lark-installations', larkInstallationsRoutes)

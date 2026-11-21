@@ -45,6 +45,7 @@
     <string name="chats_reply">답장</string>
     <string name="chats_copy">복사</string>
     <string name="chats_usage_resets">사용량: %1$s.</string>
+    <string name="chats_verify_with_anthropic">Anthropic에서 인증</string>
     <string name="chats_switch_runtime">런타임 전환</string>
     <string name="chats_retry">다시 시도</string>
     <string name="chats_send_failed_title">메시지를 보내지 못했습니다</string>
