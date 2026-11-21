@@ -40,7 +40,19 @@ const scenario: Scenario = {
     const forget = await computerWithUsage(stack, COMPUTER, undefined, 92)
 
     try {
-      await pickRuntime(page, COMPUTER, /^Claude Code/)
+      // Diagnostic: exercise the same hover and click a person uses, without the menu helper.
+      await page.getByRole('button', { name: /^Runtime:/ }).click()
+      const computer = page.getByRole('menuitem').filter({ hasText: COMPUTER }).first()
+      await computer.hover()
+      const agent = page.getByRole('menuitem', { name: /^Claude Code/ }).last()
+      await agent.waitFor({ state: 'visible', timeout: 30_000 })
+      await page.screenshot({ path: `${artifacts}/4349-hover-open.png` })
+      await page.waitForTimeout(2_000)
+      if (!(await agent.isVisible())) throw new Error('4349: submenu closed before pointer selection')
+      await agent.click()
+      await page.getByRole('button', { name: /^Runtime: .*E2E full-disk computer/ }).waitFor()
+      await page.screenshot({ path: `${artifacts}/4349-pointer-selected.png` })
+      console.log('4349 POINTER: selected Claude Code on full-disk computer')
       await page
         .getByText(/disk is almost full/)
         .first()
