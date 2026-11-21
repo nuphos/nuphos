@@ -9,14 +9,15 @@ import {
 import { logError } from '@/lib/observability'
 
 /**
- * Deletes a Box: closes its tunnel cleanly before the machine goes, kills the machine,
- * then removes its row. False when the machine may still run at the provider.
+ * Deletes a Box: kills the machine, closes its tunnel, then removes its row. A machine
+ * still pausing throws before anything is revoked, so the Box stays usable. False when
+ * the machine may still run at the provider.
  */
 export async function deleteBox(userId: string, deviceId: string): Promise<boolean> {
-  if (await revokeAgentDeviceCredential(userId, deviceId))
-    await tunnelBus().publish(holderChannel(userId, deviceId), JSON.stringify({ t: 'revoke' }))
   const killed = await destroyBox(userId, deviceId)
 
+  if (await revokeAgentDeviceCredential(userId, deviceId))
+    await tunnelBus().publish(holderChannel(userId, deviceId), JSON.stringify({ t: 'revoke' }))
   await deleteAgentDevice(userId, deviceId)
 
   return killed
