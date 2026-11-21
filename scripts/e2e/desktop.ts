@@ -47,6 +47,8 @@ export async function startDesktop(
       // A name of its own gives the app a profile of its own, away from any installed app's.
       ATLAS_DEV_SUFFIX: `e2e-${String(cdpPort)}`,
       ATLAS_DEV_CDP_PORT: String(cdpPort),
+      // Saving one file from a chat skips the save dialog and lands here.
+      NUPHOS_E2E_SAVE_DIR: join(artifacts, 'saved'),
       // Adding an agent installs fixture-claude.mjs, never a vendor's CLI.
       NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
     },
