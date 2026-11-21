@@ -16,6 +16,7 @@ import {
   assertBindableSession,
   serializeTrigger,
   isDuplicateKeyError,
+  validateExpiresAt,
   validateMinInterval,
 } from './shared'
 
@@ -60,15 +61,7 @@ export async function createTrigger(
     cronExpression = input.cronExpression.trim()
   }
 
-  if (
-    input.expiresAt !== undefined &&
-    !(input.expiresAt instanceof Date && !Number.isNaN(input.expiresAt.getTime()))
-  ) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be a valid date')
-  }
-  if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be in the future')
-  }
+  if (input.expiresAt !== undefined) validateExpiresAt(input.expiresAt)
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
 
