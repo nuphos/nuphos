@@ -8,6 +8,7 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
+import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
@@ -33,7 +34,6 @@ import {
 import { renewTurnCredentials } from './turn-credential-renewal'
 import { probeFailure } from './turn-diagnostics'
 
-import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -195,6 +195,8 @@ async function promptTurn(args: {
     const client = await registry.acquire(session.teamId, session.endpoint)
 
     activeTurn.client = client
+    if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
+    nextContext.runtime.defaults = await pendingTurnDefaults(client, session, currentAttachment)
     if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
     // MCP tokens, runtime environment, and the personal portion of the system
     // prompt are execution-principal scoped. A shared Slack conversation can
