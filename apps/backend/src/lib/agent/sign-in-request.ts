@@ -135,14 +135,22 @@ export const nudgeDeps: NudgeDeps = {
   conversation: (sessionId) => getConversationBySessionId(sessionId),
   members: (teamId) => getTeamMembers(teamId),
   // Loaded on use: the runtime status modules reach the whole runtime graph.
+  // A sign-in its provider refused outranks a computer that still reports one.
   signedIn: async (teamId, runtimeId, userId) => {
     try {
-      const [{ localRuntimeStatus }, { requireRuntimeInstance }, { runtimeStatusWithUpdate }] =
-        await Promise.all([
-          import('@/lib/claude-code-preview/local-runtime-catalog'),
-          import('@/lib/claude-code-preview/runtime-catalog'),
-          import('@/lib/claude-code-preview/runtime-updates'),
-        ])
+      const [
+        { localRuntimeStatus },
+        { requireRuntimeInstance },
+        { runtimeStatusWithUpdate },
+        { authRefusedRuntimes },
+      ] = await Promise.all([
+        import('@/lib/claude-code-preview/local-runtime-catalog'),
+        import('@/lib/claude-code-preview/runtime-catalog'),
+        import('@/lib/claude-code-preview/runtime-updates'),
+        import('@/lib/claude-code-preview/runtime-auth-refusal'),
+      ])
+
+      if ((await authRefusedRuntimes(teamId)).has(runtimeId)) return false
       const status = parseLocalRuntimeId(runtimeId)
         ? await localRuntimeStatus(runtimeId)
         : await runtimeStatusWithUpdate(

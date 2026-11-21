@@ -61,6 +61,30 @@ test('a provider-failed turn is reported with the provider message, not a runtim
   )
 })
 
+const notFound = (url: string, body = '{"detail":"Not Found"}') =>
+  new CodexTurnFailedError(`unexpected status 404 Not Found: ${body}, url: ${url}, cf-ray: a1-LAX`)
+
+test('a provider without the Responses API is named as such, not as a raw 404', () => {
+  expect(
+    classifyPreviewInterruption(
+      notFound('https://api.example.com/v1/chat/completions/responses'),
+      false,
+    ).message,
+  ).toBe(
+    'This provider doesn’t serve the OpenAI Responses API that Codex needs (https://api.example.com/v1/chat/completions/responses). Give Codex’s custom provider a base URL that does, such as https://api.example.com/v1, or use this provider with another agent.',
+  )
+  expect(notFound('https://api-inference.modelscope.cn/v1/responses').userMessage).toStartWith(
+    'This provider doesn’t serve the OpenAI Responses API',
+  )
+  // An unknown model on a provider that serves the API keeps the provider's own words.
+  expect(
+    notFound(
+      'https://api.openai.com/v1/responses',
+      '{"error":{"message":"The model `x` does not exist","code":"model_not_found"}}',
+    ).userMessage,
+  ).toStartWith('The model provider stopped this turn: unexpected status 404')
+})
+
 test('a Claude usage limit is one line: the streamed notice gives way to the interruption', () => {
   const error = new OpenAbRpcError(
     "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 4:20am (UTC)\n\n_The agent did not return any error details. Please check the agent's own logs for more information._",

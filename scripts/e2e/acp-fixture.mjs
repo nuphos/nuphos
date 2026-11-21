@@ -8,9 +8,9 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
-import { askSteps } from './fixture-ask.mjs'
+import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { scriptedUpdates } from './fixture-commands.mjs'
+import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
 import { answerPermission, askPermission } from './fixture-permission.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import {
@@ -126,7 +126,9 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
     await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) await ask(sessionId, text)
+  // The turn that says a question's credentials are selected continues; it never asks again.
+  if (!credentialsSelected(log, sessionId, text) && text.includes('E2E_ASK'))
+    await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
@@ -165,6 +167,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })

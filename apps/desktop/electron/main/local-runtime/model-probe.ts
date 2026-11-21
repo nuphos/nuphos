@@ -2,10 +2,11 @@ import { spawn } from 'node:child_process'
 
 import { agentEnv } from './config.ts'
 import { customProviderLaunch } from './custom-provider.ts'
+import { adapterRpc } from './model-probe-rpc.ts'
 
 import type { LocalRuntimeBundle } from './config.ts'
-import type { KeyStore } from './custom-provider.ts'
 import type { ProbeModelsRun } from './controller-types.ts'
+import type { KeyStore } from './custom-provider.ts'
 
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
@@ -138,70 +139,22 @@ export function probeLocalModels(options: {
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
     })
+    let settled = false
     const timer = setTimeout(() => {
       finish(new Error('Model discovery timed out'))
     }, PROBE_TIMEOUT_MS)
-    let buffer = ''
-    let nextId = 1
-    const waiting = new Map<
-      number,
-      { resolve: (result: Record<string, unknown>) => void; reject: (error: Error) => void }
-    >()
+    // Every way the adapter can go away ends this probe, never the app.
+    const rpc = adapterRpc(child, (error) => finish(error))
+    const call = rpc.call
     const finish = (error: Error | null, catalog?: LocalModelCatalog) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
+      rpc.stop(error ?? new Error('Model discovery finished'))
       child.kill()
       if (error) reject(error)
       else if (catalog) resolve(catalog)
     }
-    const call = (method: string, params: unknown) =>
-      new Promise<Record<string, unknown>>((resolve, reject) => {
-        const id = nextId++
-
-        waiting.set(id, { resolve, reject })
-        child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`)
-      })
-
-    child.once('error', (error) => {
-      finish(error)
-    })
-    child.once('exit', () => {
-      finish(new Error('The runtime exited during model discovery'))
-    })
-    child.stdout.setEncoding('utf8')
-    child.stdout.on('data', (chunk: string) => {
-      buffer += chunk
-      for (let newline = buffer.indexOf('\n'); newline >= 0; newline = buffer.indexOf('\n')) {
-        const line = buffer.slice(0, newline)
-
-        buffer = buffer.slice(newline + 1)
-        let frame: {
-          id?: number
-          method?: string
-          result?: Record<string, unknown>
-          error?: unknown
-        }
-
-        try {
-          frame = JSON.parse(line) as typeof frame
-        } catch {
-          continue
-        }
-        if (frame.method && frame.id !== undefined) {
-          child.stdin.write(
-            `${JSON.stringify({ jsonrpc: '2.0', id: frame.id, error: { code: -32601, message: 'Unavailable' } })}\n`,
-          )
-        } else if (frame.id !== undefined && waiting.has(frame.id)) {
-          const request = waiting.get(frame.id)
-
-          if (frame.error)
-            request?.reject(
-              new Error(`Model discovery failed: ${JSON.stringify(frame.error).slice(0, 300)}`),
-            )
-          else request?.resolve(frame.result ?? {})
-          waiting.delete(frame.id)
-        }
-      }
-    })
 
     void (async () => {
       await call('initialize', {

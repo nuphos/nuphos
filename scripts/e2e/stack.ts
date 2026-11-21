@@ -5,9 +5,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
-import { startSlackStub } from './slack-stub.ts'
+import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
+import { E2E_JWT_SECRET, startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
 import { startWebhookReceiver } from './webhook-receiver.ts'
 
@@ -211,7 +211,7 @@ export async function startStack(
     env: {
       NODE_ENV: 'development',
       PORT: String(backendPort),
-      NUPHOS_JWT_SECRET: 'local-e2e-jwt-secret-not-a-production-credential',
+      NUPHOS_JWT_SECRET: E2E_JWT_SECRET,
       MONGODB_URI: mongoUri,
       MONGODB_DB: 'nuphos_e2e',
       ATLAS_REDIS_ENABLED: 'false',

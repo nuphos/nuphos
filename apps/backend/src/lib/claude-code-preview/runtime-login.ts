@@ -5,6 +5,7 @@ import { settleSignInRequests } from '@/lib/agent/sign-in-settle'
 import { AppError } from '@/lib/errors'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { forgetAuthRefusal } from './runtime-auth-refusal'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
 import { acceptsAnswer } from './runtime-login-step'
@@ -194,7 +195,10 @@ export async function performRuntimeLogin<Target>(
     )
 
     // Whoever asked for this sign-in gets their held message run.
-    if (connected.matchedCount && !signedOut) await settleSignInRequests(doc.teamId, doc.runtimeId)
+    if (connected.matchedCount && !signedOut) {
+      await forgetAuthRefusal(doc.teamId, doc.runtimeId)
+      await settleSignInRequests(doc.teamId, doc.runtimeId)
+    }
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },
