@@ -278,6 +278,22 @@ class RuntimeSheetFixtureDeviceTest {
             }
         }
     }
+    /** #4192: a Box still starting comes online by itself, so it says so instead of offline, and offers nothing else. */
+    @Test fun aStartingBoxSaysItIsStartingWithoutOfferingAnotherRuntime() {
+        catalogBody = catalogBody.replace("\"online\":true", "\"deviceId\":\"box\",\"online\":false")
+        devicesBody = """{"devices":[{"deviceId":"box","label":"Synthetic Box","online":false,"box":{"state":"creating"},"metricsStatus":"offline"}]}"""
+        gate.countDown()
+        render(snapshot(phase="completed",send=true), native=false, owner=true)
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Synthetic Box is starting. It will be ready in a few seconds.").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        compose.onNodeWithText("The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.").assertDoesNotExist()
+        compose.onNodeWithText("Switch runtime").assertDoesNotExist()
+        InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let { dir ->
+            java.io.File(dir, "runtime-starting-4192-android.png").outputStream().use {
+                InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        }
+    }
     @Test fun readOnlyDoesNotExposeMoves() {
         render(snapshot(phase="completed",send=true), native=false, owner=false, readOnly=true)
         // Without manage rights the menu doesn't offer the move, so the sheet can't open.

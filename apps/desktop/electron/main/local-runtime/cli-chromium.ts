@@ -5,7 +5,10 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 
+import { HELPER_URL } from './browser-video.ts'
+
 import type { RecordedTab } from './browser-recording.ts'
+import type { Helper } from './browser-video.ts'
 import type { Readable, Writable } from 'node:stream'
 
 /** The browser's ends of its debugging pipe, and its lifetime. */
@@ -102,6 +105,10 @@ export function launchChromium(executable: string, profile: string): Browser {
     '--no-default-browser-check',
     '--hide-scrollbars',
     '--mute-audio',
+    // A tab behind another window keeps painting at full speed, as a recorded one must.
+    '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding',
+    '--disable-backgrounding-occluded-windows',
   ]
 
   // Chromium will not start as root with its sandbox, as `nuphos agent` may run on a server.
@@ -122,6 +129,46 @@ export function launchChromium(executable: string, profile: string): Browser {
       child.once('exit', () => resolve())
       child.once('error', () => resolve())
     }),
+  }
+}
+
+/** A blank https page in a window of its own, so the tab it records stays in front (browser-video.ts). */
+export async function helperPage(cdp: Cdp): Promise<Helper> {
+  const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
+    url: 'about:blank',
+    newWindow: true,
+  })
+  const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', {
+    targetId,
+    flatten: true,
+  })
+  const blank: Listener = (method, params, session) => {
+    if (method === 'Fetch.requestPaused' && session === sessionId)
+      void cdp
+        .send('Fetch.fulfillRequest', { requestId: params.requestId, responseCode: 200 }, sessionId)
+        .catch(() => {})
+  }
+
+  cdp.listeners.add(blank)
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: HELPER_URL }] }, sessionId)
+  await cdp.send('Page.navigate', { url: HELPER_URL }, sessionId)
+
+  return {
+    evaluate: async (expression) => {
+      const { result, exceptionDetails } = await cdp.send<{
+        result: { value?: unknown }
+        exceptionDetails?: { text: string; exception?: { description?: string } }
+      }>('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }, sessionId)
+
+      if (exceptionDetails)
+        throw new Error(exceptionDetails.exception?.description ?? exceptionDetails.text)
+
+      return result.value
+    },
+    close: () => {
+      cdp.listeners.delete(blank)
+      void cdp.send('Target.closeTarget', { targetId }).catch(() => {})
+    },
   }
 }
 

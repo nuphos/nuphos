@@ -62,7 +62,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     onOpenAuditConversation,
     onOpenConversation,
     onOpenNodeLink,
-    onOpenNuphosLink,
     onSelectActive,
     renderPage,
   } = ctx
@@ -179,7 +178,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         onCount={onCount}
         onLoading={onLoading}
         onOpenConversation={onOpenConversation}
-        onOpenLink={onOpenNuphosLink}
       />,
     )
   }

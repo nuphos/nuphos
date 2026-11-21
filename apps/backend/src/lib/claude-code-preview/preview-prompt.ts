@@ -18,7 +18,6 @@ import {
   buildNuphosLinksMessage,
   buildTurnRulesMessage,
 } from '@/routes/agent/chat-system-messages'
-import { MODEL_OUTPUT_BUDGET_TOKENS } from '@/routes/agent/constants'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 import { renderAgentCredentialPrompt } from '@/routes/agent/credential-prompt'
 import { safePromptField } from '@/routes/agent/credential-prompt-sections'
@@ -191,7 +190,7 @@ export async function withPageContext(
 /** The text appended to Claude Code's system prompt for one conversation. */
 export async function buildPreviewSystemPrompt(args: PreviewPromptArgs): Promise<string> {
   const [base, cloudAccess, instructions, where, taskName, channels] = await Promise.all([
-    getSystemPrompt(args.locale, { max_output_tokens: MODEL_OUTPUT_BUDGET_TOKENS }),
+    getSystemPrompt(args.locale),
     credentialAndPermissionWallSections(args).catch(() => ({
       credentials: '',
       permissionWall: '',

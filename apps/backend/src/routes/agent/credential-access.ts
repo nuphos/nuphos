@@ -85,6 +85,30 @@ export async function resolveTriggerCredentialAccess(
   return allCredentialAccessFromOptions(options, userId, true)
 }
 
+/**
+ * What a new Bot may use: everything its owner may use right now, as Desktop's new chat
+ * selects it. Sending mail (Resend) and Trello stay opt-in.
+ */
+export async function defaultCredentialAccess(
+  teamId: string,
+  userId: string,
+): Promise<AgentCredentialAccess> {
+  const options = await getAgentCredentialOptions(teamId, userId)
+
+  return defaultCredentialAccessFromOptions(options, userId)
+}
+
+export function defaultCredentialAccessFromOptions(
+  options: AgentCredentialOptions,
+  userId: string,
+): AgentCredentialAccess {
+  return {
+    ...allCredentialAccessFromOptions(options, userId, true),
+    resendIntegrationIds: [],
+    trelloIntegrationIds: [],
+  }
+}
+
 export function hasCredentialOptions(options: AgentCredentialOptions): boolean {
   return (
     options.awsRoles.length +

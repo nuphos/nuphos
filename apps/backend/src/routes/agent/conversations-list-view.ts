@@ -1,6 +1,7 @@
 import { resolveConversationAccessList } from '@/lib/agent/devices/conversation-computer'
 import { buildConversationOwnerMap, serializeConversationForViewer } from './conversation-view'
 import { answeringIds } from './decision-reply'
+import { listRow } from './list-row'
 import { getLocalActiveAgentRun } from './run-registry'
 
 import type { ConversationAccessFields } from '@/lib/agent/devices/conversation-computer'
@@ -11,7 +12,8 @@ import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
 import { botPresence, botRuntimes } from '@/lib/agent/bot-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { liveAttachment } from '@/lib/agent/db/shared'
+import { attentionInputRequests } from '@/lib/agent/db/pending-decision'
+import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
 import { lastMessage } from '@/lib/agent/last-message'
 import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunsForSessions } from '@/lib/agent/run-store'
@@ -93,6 +95,43 @@ async function activeRunsFor(conversations: ListedConversation[]) {
   )
 }
 
+const TASK_WINDOW_MS = 24 * 60 * 60 * 1000
+
+/**
+ * How many of each Bot's own Tasks run or wait on someone, as counts anyone who can see
+ * the Bot may read (#4270): the Tasks belong to the Bot's owner, so another member's
+ * list never carries them, and their titles stay the owner's.
+ */
+async function botTaskCounts(teamId: string, bots: ListedConversation[]) {
+  const counts = new Map(bots.map((bot) => [bot.sessionId, { running: 0, waiting: 0 }]))
+  const kids = (await agentConversations()
+    .find({
+      // Keyed like the { teamId, userId, parentSessionId, lastActiveAt } index: a Bot's Tasks are its owner's.
+      teamId,
+      userId: { $in: [...new Set(bots.map((bot) => bot.userId))] },
+      parentSessionId: { $in: [...counts.keys()] },
+      archivedAt: { $exists: false },
+      lastActiveAt: { $gt: new Date(Date.now() - TASK_WINDOW_MS) },
+    })
+    .limit(200)
+    .toArray()) as unknown as (ListedConversation & AgentConversation)[]
+  const states = await readRuntimeStates(
+    teamId,
+    kids.map((kid) => liveAttachment(kid)?.openabSessionId),
+  )
+  const runs = await activeRunsFor(kids)
+
+  kids.forEach((kid, i) => {
+    const count = counts.get(String(kid.parentSessionId))
+
+    if (!count) return
+    if (attentionInputRequests(kid).length > 0) count.waiting += 1
+    else if (restingRuntimeState(states[i], Boolean(runs[i])).state === 'active') count.running += 1
+  })
+
+  return counts
+}
+
 /** Owner, Slack thread and live-run enrichment for one page of `GET /agent/conversations`. */
 export async function serializeConversationList<T extends ListedConversation>(
   conversations: T[],
@@ -159,7 +198,7 @@ export async function serializeConversationList<T extends ListedConversation>(
   const bots = conversations.filter(
     (conversation) => conversation.avatar && conversation.kind !== 'channel',
   )
-  const [desktops, faces, answering, lastMessages, runtimes] = await Promise.all([
+  const [desktops, faces, answering, lastMessages, runtimes, taskCounts] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
@@ -183,6 +222,13 @@ export async function serializeConversationList<T extends ListedConversation>(
             return undefined
           },
         )
+      : undefined,
+    teamId && bots.length
+      ? botTaskCounts(teamId, bots).catch((err: unknown) => {
+          logError('agent.conversations.bot_tasks.error', err, { team_id: teamId })
+
+          return undefined
+        })
       : undefined,
   ])
 
@@ -228,32 +274,9 @@ export async function serializeConversationList<T extends ListedConversation>(
             }),
           }
         : {}),
+      ...(taskCounts?.has(conversation.sessionId)
+        ? { tasks: taskCounts.get(conversation.sessionId) }
+        : {}),
     }
   })
-}
-
-/**
- * A list row without what only the open conversation or the server reads.
- * Clients poll the whole list every few seconds, and the runtime attachment
- * and the per-model token breakdown were a third of each row. Lists show only
- * the cost. The credential selection stays: the desktop chat summary counts
- * it from the polled row.
- */
-function listRow(row: Record<string, unknown>): Record<string, unknown> {
-  const {
-    claudeCodePreview: _claudeCodePreview,
-    claudeCodePreviewContext: _claudeCodePreviewContext,
-    claudeCodePreviewWorkLost: _claudeCodePreviewWorkLost,
-    initialSessionConfig: _initialSessionConfig,
-    compactionSummary: _compactionSummary,
-    compactionMessageCount: _compactionMessageCount,
-    conversationTraceParent: _conversationTraceParent,
-    runtimeMigration: _runtimeMigration,
-    modelFallback: _modelFallback,
-    tokenUsage,
-    ...rest
-  } = row
-  const costUsd = (tokenUsage as { costUsd?: unknown } | undefined)?.costUsd
-
-  return typeof costUsd === 'number' ? { ...rest, tokenUsage: { costUsd } } : rest
 }

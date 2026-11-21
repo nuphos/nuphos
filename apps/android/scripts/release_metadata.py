@@ -56,7 +56,7 @@ def main():
     validate_manifest(args.manifest.read_text(), args.version_code, args.version_name)
     validate_unsigned(args.bundle)
     metadata = {
-        'source_commit': os.environ['GITHUB_SHA'],
+        'source_commit': os.environ['RELEASE_SHA'],
         'repository': os.environ['GITHUB_REPOSITORY'],
         'run_id': os.environ['GITHUB_RUN_ID'],
         'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],

@@ -24,7 +24,7 @@ export function botChatQuestion(
   part: ToolPart
   questions: ReplyQuestion[]
   answerable: boolean
-  /** Whether it can be answered in words: never a plan, which is approved or rejected, nor a credential. */
+  /** Whether it can be answered in words: never a plan, which is approved or rejected, nor a credential's value. */
   typed: boolean
   replyTo: (card?: DecisionCardRef) => string
 } {
@@ -32,7 +32,11 @@ export function botChatQuestion(
   const questions = [question]
   const part = questionPart(question)
   const choice = parseChoiceRequest(part.input)
-  const typed = choice !== null && request.category !== 'credential' && !request.planId
+  // A credential takes words only beside its options, never as its value (#4029).
+  const typed =
+    choice !== null &&
+    !request.planId &&
+    (request.category !== 'credential' || choice.options.length > 0)
 
   return {
     part,

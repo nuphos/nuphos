@@ -380,6 +380,8 @@ struct AgentConversationDetail: Decodable, Sendable {
         var cause: String? = nil
         /// `agent_reply_failed`: when an agent out of usage gets it back.
         var resetsAt: Date? = nil
+        /// `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do.
+        var verifyUrl: URL? = nil
     }
 
     let messages: [ChatMessage]
