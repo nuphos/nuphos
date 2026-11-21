@@ -66,4 +66,6 @@ curl -X POST "$API/agent/reminders" -H "Authorization: Bearer $TOKEN" -H 'conten
   have run, so it is never run again. Its owner gets one notice in the conversation saying so, and a
   late `done` still corrects it. `failed` and `unconfirmed` read back through `GET /agent/reminders/<id>`.
 - A task is a turn like a Trigger fire, with the conversation's existing permissions. It grants no
-  extra authority or approval.
+  extra authority or approval. The record keeps who scheduled it, the owner or the conversation
+  itself with its own token, and the turn's text says which, so work a Bot scheduled for itself is
+  never mistaken for the owner's.

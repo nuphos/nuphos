@@ -10,7 +10,7 @@ import { teams } from '@/lib/identity/shared'
 import { agentMessages } from './db'
 import { agentConversations } from './db/shared'
 import { deliverDueReminders } from './reminder-delivery'
-import { CONFIRM_WAIT_MS, confirmTask } from './reminder-task'
+import { CONFIRM_WAIT_MS, confirmTask, taskPrompt } from './reminder-task'
 import { reminderNoticeId } from './reminder-notice'
 import { reminderMessageId } from './reminder-transcript'
 import { cancelReminder, createReminder, reminders, setupReminderIndexes } from './reminders'
@@ -159,6 +159,26 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       ).toBe(1)
       expect((await confirmTask(own, id, 'done', undefined, minutes(9001))).status).toBe(
         'delivered',
+      )
+    })
+
+    test('a task records who scheduled it, and the delivered text says so', async () => {
+      const input = {
+        userId,
+        teamId: teamId.toHexString(),
+        text: 'Rotate the key',
+        dueAt: minutes(1500).toISOString(),
+        kind: 'task' as const,
+      }
+      const byOwner = (await createReminder({ ...input, sessionId }, minutes(0))).reminder
+      const byBot = (await createReminder({ ...input, callerSessionId: sessionId }, minutes(0)))
+        .reminder
+
+      expect(byOwner.createdBy).toBe('owner')
+      expect(byBot.createdBy).toBe('conversation')
+      expect(taskPrompt(byOwner)).toContain("scheduled by this conversation's owner")
+      expect(taskPrompt(byBot)).toContain(
+        'scheduled by this conversation itself, not typed by its owner',
       )
     })
   },

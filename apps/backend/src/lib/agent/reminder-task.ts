@@ -14,12 +14,17 @@ export const CONFIRM_WAIT_MS = 15 * 60 * 1000
 export const taskMessageId = (reminder: Reminder) => `reminder-task-${reminder._id.toHexString()}`
 export const SCHEDULED_WORK_SENDER = 'scheduled-work:'
 
-function taskPrompt(reminder: Reminder): string {
+export function taskPrompt(reminder: Reminder): string {
   const id = reminder._id.toHexString()
   const ack = `POST /teams/${reminder.teamId}/agent-reminders/${id}/ack`
 
+  const by =
+    reminder.createdBy === 'conversation'
+      ? 'this conversation itself, not typed by its owner'
+      : "this conversation's owner"
+
   return (
-    `Scheduled work ${id}, due ${describeDueAt(reminder.dueAt, reminder.timeZone)}:\n\n${reminder.text}\n\n` +
+    `Scheduled work ${id}, due ${describeDueAt(reminder.dueAt, reminder.timeZone)}, scheduled by ${by}:\n\n${reminder.text}\n\n` +
     `Once it has actually succeeded, confirm it with ${ack} and {"outcome":"done"}. ` +
     `If you cannot do it, send {"outcome":"failed","reason":"..."}. Never confirm before it has succeeded.`
   )

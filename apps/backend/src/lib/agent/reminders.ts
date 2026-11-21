@@ -28,6 +28,8 @@ export type Reminder = {
   timeZone: string
   /** Absent on a plain reminder. */
   kind?: ReminderKind
+  /** Who scheduled a task: its owner, or the conversation itself with its own token. */
+  createdBy?: 'owner' | 'conversation'
   status: ReminderStatus
   /** When a `task` was accepted by its conversation. It is never dispatched again. */
   dispatchedAt?: Date
@@ -142,7 +144,12 @@ export async function createReminder(
     text,
     dueAt,
     timeZone: input.timeZone ?? 'UTC',
-    ...(input.kind === 'task' ? { kind: 'task' as const } : {}),
+    ...(input.kind === 'task'
+      ? {
+          kind: 'task' as const,
+          createdBy: input.callerSessionId ? ('conversation' as const) : ('owner' as const),
+        }
+      : {}),
     status: 'pending',
     attempts: 0,
     nextAttemptAt: dueAt,

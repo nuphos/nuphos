@@ -93,6 +93,10 @@ try {
   check('a Bot that confirms completes the work', (await state(done)).ackedAt !== undefined)
   check('the work was handed over as exactly one turn', (await turnsFor(a, done)) === 1)
   check(
+    'the turn says who scheduled it',
+    (await transcript(a)).some((row) => row.includes("scheduled by this conversation's owner")),
+  )
+  check(
     'the confirmation came from the owning conversation',
     workAcks(done).some((entry) => (entry.result as Json).status === 200),
   )
