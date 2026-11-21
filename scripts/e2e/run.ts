@@ -21,6 +21,7 @@ import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
+import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
@@ -161,6 +162,7 @@ const scenarios: Scenario[] = [
   ...providerUnreachableScenarios,
   ...computerScenarios,
   ...mcpFileScenarios,
+  ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
   ...commandScenarios,
   ...threadScenarios,
