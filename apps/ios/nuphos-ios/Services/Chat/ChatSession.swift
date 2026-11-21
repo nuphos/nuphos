@@ -419,6 +419,17 @@ final class ChatSession {
         }
     }
 
+    private var revalidating = false
+
+    /// A reopened chat keeps showing what it has while this reads it again.
+    /// A turn this device started is still streaming into it, so it is left alone.
+    func revalidate() async {
+        guard !revalidating, streamTask == nil, !submitting else { return }
+        revalidating = true
+        defer { revalidating = false }
+        await load()
+    }
+
     // MARK: - Sending
 
     /// Sends `text`, or queues it while a reply is streaming.
@@ -955,9 +966,9 @@ final class ChatSession {
         var autoResumable: Bool { reason == "model-silence" || reason == "tool-execution-timeout" }
     }
 
-    /// The chat left the screen. Each open builds a new session, so a stream
-    /// left following a run here is never read again; the next open replays
-    /// the run. A turn this device started keeps its stream until it ends.
+    /// The chat left the screen. A stream left following a run here is not
+    /// read off screen; the next open reads the conversation again and
+    /// replays the run. A turn this device started keeps its stream until it ends.
     func leave() {
         guard following else { return }
         streamTask?.cancel()
