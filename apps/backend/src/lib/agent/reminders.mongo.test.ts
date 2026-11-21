@@ -157,6 +157,28 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('one-time reminders', () => {
     expect(notices).toHaveLength(before + 1)
   })
 
+  test('a conversation cannot leave a reminder in another one; a claimed reminder cannot be cancelled', async () => {
+    const input = {
+      userId,
+      teamId: teamId.toHexString(),
+      sessionId,
+      text: 'planted',
+      dueAt: minutes(950).toISOString(),
+      callerSessionId: 'another-conversation',
+    }
+
+    await expect(createReminder(input, minutes(0))).rejects.toMatchObject({ status: 403 })
+    const claimed = await make(minutes(960))
+
+    await reminders().updateOne({ _id: claimed._id }, { $inc: { attempts: 1 } })
+    await expect(cancelReminder(userId, claimed._id.toHexString())).rejects.toMatchObject({
+      status: 409,
+    })
+    expect(
+      (await createReminder({ ...input, callerSessionId: sessionId }, minutes(0))).created,
+    ).toBe(true)
+  })
+
   test('a cancelled reminder is never delivered; a repeated create returns the same one', async () => {
     const reminder = await make(minutes(600))
 

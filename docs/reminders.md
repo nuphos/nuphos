@@ -22,7 +22,8 @@ curl -X DELETE "$API/agent/reminders/<id>" -H "Authorization: Bearer $TOKEN"
 
 A local time with no `timeZone` is rejected rather than guessed, and so is a time in the past.
 `dedupeKey` makes a retried create return the reminder it already made. A conversation Bot reaches
-the same routes under `/teams/<teamId>/agent-reminders`.
+the same routes under `/teams/<teamId>/agent-reminders`, but only for its own conversation. A reminder
+can be cancelled only until a delivery attempt has claimed it.
 
 ## What delivered means
 

@@ -40,7 +40,8 @@ export const reminderApiOperations = [
       'Delivery needs no Bot turn and no model. It is retried a bounded number of times, still ' +
       'happens after a backend restart, and writes the same message however often it is attempted. ' +
       'If it cannot be delivered you are notified once and the reminder stays `failed`. ' +
-      '`dedupeKey` makes a retried create return the existing reminder.',
+      '`dedupeKey` makes a retried create return the existing reminder. A conversation can only ' +
+      'set reminders in itself.',
     auth: 'bearer',
     requestSchema: z.object({
       sessionId: z.string(),
@@ -84,7 +85,8 @@ export const reminderApiOperations = [
     path: '/agent/reminders/{reminderId}',
     tags: ['Reminders'],
     summary: 'Cancel a pending reminder',
-    description: 'Only a `pending` reminder can be cancelled; the record stays readable.',
+    description:
+      'Only a `pending` reminder that no delivery attempt has started can be cancelled; the record stays readable.',
     auth: 'bearer',
     pathSchema: idSchema,
     responseSchema: reminderSchema,

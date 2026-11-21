@@ -52,6 +52,7 @@ agentRemindersRoutes.post('/', async (c) => {
   const actor = await triggerActor(c, body.teamId)
   const { reminder, created } = await createReminder({
     userId: actor.userId,
+    ...(actor.sessionId ? { callerSessionId: actor.sessionId } : {}),
     ...(actor.teamId ? { teamId: actor.teamId } : {}),
     sessionId,
     text: reminderText,

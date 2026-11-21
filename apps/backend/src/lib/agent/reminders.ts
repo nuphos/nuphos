@@ -65,6 +65,8 @@ type CreateReminder = {
   dueAt: string
   timeZone?: string
   dedupeKey?: string
+  /** Set when an agent conversation is the caller: it may only leave a reminder in itself. */
+  callerSessionId?: string
 }
 
 /** The conversation must be the caller's own, in a team they belong to. */
@@ -104,6 +106,12 @@ export async function createReminder(
     )
   if (dueAt.getTime() <= now.getTime())
     throw new AppError(400, 'invalid_request', 'dueAt must be in the future')
+  if (input.callerSessionId && input.callerSessionId !== input.sessionId)
+    throw new AppError(
+      403,
+      'reminder_session_out_of_scope',
+      'A conversation can only set reminders in itself',
+    )
   const conversation = await ownConversation(input.userId, input.sessionId, input.teamId)
 
   if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
@@ -163,16 +171,17 @@ export async function getReminder(userId: string, id: string): Promise<Reminder>
   return found
 }
 
-/** Only a reminder that has not yet been delivered or failed can be cancelled. */
+/** Only a reminder no delivery attempt has claimed yet can be cancelled, so cancelling never races a write. */
 export async function cancelReminder(userId: string, id: string): Promise<Reminder> {
   const existing = await getReminder(userId, id)
   const cancelled = await reminders().findOneAndUpdate(
-    { _id: existing._id, userId, status: 'pending' },
+    { _id: existing._id, userId, status: 'pending', attempts: 0 },
     { $set: { status: 'cancelled' } },
     { returnDocument: 'after' },
   )
 
-  if (!cancelled) throw new AppError(409, 'reminder_not_pending', `Reminder is ${existing.status}`)
+  if (!cancelled)
+    throw new AppError(409, 'reminder_not_cancellable', `Reminder is ${existing.status}`)
 
   return cancelled
 }
