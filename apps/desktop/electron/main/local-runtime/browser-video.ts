@@ -78,6 +78,10 @@ const within = <T>(work: Promise<T>, ms: number, fallback: () => T | Promise<T>)
   ]).finally(() => clearTimeout(timer))
 }
 
+/** How far the helper got with the frames it was sent, for an error that says why a video failed. */
+const progressOf = async (video: Video) =>
+  String(await within(video.helper.evaluate('JSON.stringify(progress)'), 2_000, () => 'no answer'))
+
 // Each frame is encoded at the time it arrived, given by the host: a helper page that runs late,
 // as a headless one may, still gives the video its real timing. finish encodes the last frame
 // again at record_stop, so a page that stopped changing still lasts until then.
@@ -254,13 +258,7 @@ export async function stopVideo(video: Video, file: string) {
       if (still) draw(video, still, 0)
     }
     const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
-      const progress = await within(
-        video.helper.evaluate('JSON.stringify(progress)'),
-        2_000,
-        () => 'no answer',
-      )
-
-      throw new Error(`The video did not finish in 15 s (${String(progress)}).`)
+      throw new Error(`The video did not finish in 15 s (${await progressOf(video)}).`)
     })
     const chunks = JSON.parse(finished as string) as {
       ms: number
@@ -268,7 +266,10 @@ export async function stopVideo(video: Video, file: string) {
       data: string
     }[]
 
-    if (!chunks.length) throw new Error('No frame of the tab was recorded.')
+    if (!chunks.length)
+      throw new Error(
+        `No frame of the tab was recorded (${String(video.frames)} sent, ${await progressOf(video)}).`,
+      )
     const bytes = webm(
       chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
       SIZE,
