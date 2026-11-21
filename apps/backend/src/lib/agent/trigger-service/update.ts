@@ -4,7 +4,6 @@ import { AppError } from '@/lib/errors'
 import { assertTriggerAccess } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
 import { changedBy, writeTrigger } from '../trigger-history'
-import { parsePayloadFilters } from '../trigger-payload-filter'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { assertTriggerCreationQuota } from './quota'
@@ -67,10 +66,6 @@ export async function updateTrigger(
   if (patch.minIntervalSeconds !== undefined) {
     validateMinInterval(trigger.triggerType, patch.minIntervalSeconds)
   }
-  const nextFilters =
-    patch.payloadFilters === undefined
-      ? trigger.payloadFilters
-      : parsePayloadFilters(trigger.triggerType, patch.payloadFilters)
   let nextCronExpression = trigger.cronExpression
 
   if (trigger.triggerType === 'cron' && typeof patch.cronExpression === 'string') {
@@ -88,11 +83,9 @@ export async function updateTrigger(
   const minIntervalChanged =
     patch.minIntervalSeconds !== undefined &&
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
-  const filtersChanged =
-    JSON.stringify(nextFilters ?? []) !== JSON.stringify(trigger.payloadFilters ?? [])
   const enabledChanged = nextEnabled !== trigger.enabled
   const substantiveChanged =
-    messageTemplateChanged || cronChanged || timeZoneChanged || minIntervalChanged || filtersChanged
+    messageTemplateChanged || cronChanged || timeZoneChanged || minIntervalChanged
 
   if (!nameChanged && !enabledChanged && !substantiveChanged) {
     return serializeTrigger(trigger)
@@ -106,7 +99,6 @@ export async function updateTrigger(
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(timeZoneChanged ? { timeZone: nextTimeZone } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
-    ...(filtersChanged && nextFilters?.length ? { payloadFilters: nextFilters } : {}),
   }
   const currentConfigRevision = trigger.configRevision ?? 0
   const updated: AgentTrigger = {
@@ -124,7 +116,6 @@ export async function updateTrigger(
   if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
   // The reason it was paused for, which its owner has now acted on.
   if (enabledChanged && nextEnabled) $unset.executionAuthorizationError = true
-  if (filtersChanged && !nextFilters?.length) $unset.payloadFilters = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }

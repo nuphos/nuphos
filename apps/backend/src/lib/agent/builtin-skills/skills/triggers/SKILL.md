@@ -56,15 +56,6 @@ the only copy of `webhookSecret`, the external `webhookUrl`, and
 `secretHeader`. Never print or persist the secret in a skill, log, or final
 answer.
 
-A webhook trigger can also carry `payloadFilters`, so deliveries you do not care
-about start no turn. Each rule is `{ "path": "action", "in": [...] }` and/or
-`"notIn": [...]`; `path` is a dot path into the JSON payload and values are
-compared as exact strings. A delivery fires only if every rule holds, otherwise
-the endpoint answers `200 {"ok":true,"skipped":true,"reason":"filtered"}`. A
-missing field fails `in` and passes `notIn`. `PATCH` with `[]` removes the rules.
-For GitHub pull requests, `{ "path": "action", "in": ["opened", "synchronize",
-"ready_for_review", "review_requested"] }` skips labeled, edited and closed.
-
 `targetSessionId` is required on every create. It names the Task the trigger
 belongs to, for good:
 
