@@ -11,6 +11,7 @@ import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
+import { fileLink } from './fixture-file-link.mjs'
 import { answerPermission, askPermission } from './fixture-permission.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import {
@@ -169,6 +170,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  fileLink({ send, sessionId, text })
   scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
