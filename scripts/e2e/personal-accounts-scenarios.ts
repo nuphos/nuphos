@@ -79,6 +79,7 @@ export const personalAccountScenarios: Scenario[] = [
         await page.getByText(`Connected as ${WORK}`).waitFor()
         await shoot(page, 'personal-accounts-one')
         assert.equal(logins(), `["${WORK}"]`)
+        await page.getByText('Back to app', { exact: true }).click()
       } finally {
         inDatabase(
           stack,
