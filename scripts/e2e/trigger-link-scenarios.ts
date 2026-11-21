@@ -86,6 +86,7 @@ export const triggerLinkScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Open Task', exact: true }).waitFor()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'files-error-open-task.png') })
+      await page.getByRole('button', { name: 'Close tab Files' }).click()
 
       // And from the Bot's own chat.
       await page.getByRole('tab', { name: /^Bots/ }).click()
@@ -97,6 +98,7 @@ export const triggerLinkScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Open Bot', exact: true }).waitFor()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'files-error-open-bot.png') })
+      await page.getByRole('button', { name: 'Close tab Files' }).click()
     },
   },
 ]
