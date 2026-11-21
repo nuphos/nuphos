@@ -1,16 +1,20 @@
 import SwiftUI
 
 /// The card that leads a Bot's details, as Desktop's Bot details panel has it
-/// (#2983): its face, name and runtime, and the way into the Bot's own Task.
+/// (#2983): its face, name, runtime and model, and the way into the Bot's own Task.
 struct BotDetailsCard: View {
     let channel: ChannelSession
     /// Nil when the viewer cannot open the Bot's own Task.
     let openTask: (() -> Void)?
     @Environment(AgentStore.self) private var store
+    @State private var model: String?
 
+    /// Runtime, model and computer, e.g. "Claude Code · Sonnet · Preview Box".
     private var runtime: String? {
         guard let bot = store.bots.first(where: { $0.sessionId == channel.botId }) else { return nil }
-        return RuntimeInstance.Provider.detail(bot.agentRuntime, instance: bot.runtimeLabel)
+        let provider = RuntimeInstance.Provider.name(bot.agentRuntime)
+        let instance = bot.runtimeLabel.flatMap { $0.isEmpty || $0 == provider ? nil : $0 }
+        return [provider, model, instance].compactMap { $0 }.joined(separator: " · ")
     }
 
     var body: some View {
@@ -28,6 +32,7 @@ struct BotDetailsCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Space.large)
+        .task(id: channel.botId) { if let id = channel.botId { model = await store.botModel(id) } }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.hairline, lineWidth: 1))
     }
