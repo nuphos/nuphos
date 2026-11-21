@@ -3,6 +3,7 @@ import { getCapabilities, toolResult } from '@/lib/mcp/protocol'
 import { nuphosAsk } from '@/routes/mcp/ask'
 import { nuphosCheck } from '@/routes/mcp/check'
 import {
+  nuphosArchiveSession,
   nuphosEvents,
   nuphosListQueue,
   nuphosListRuntimes,
@@ -10,6 +11,8 @@ import {
   nuphosStop,
 } from '@/routes/mcp/control'
 import { nuphosListCredentials, nuphosUpdateCredentials } from '@/routes/mcp/credentials'
+import { nuphosFiles } from '@/routes/mcp/files'
+import { nuphosFindPrSessions } from '@/routes/mcp/resources'
 import { nuphosListSessions, nuphosUpdateSession } from '@/routes/mcp/sessions'
 
 import type { ToolHandler, ToolResult } from '@/lib/mcp/protocol'
@@ -37,11 +40,14 @@ export function toolsForContext(ctx: McpCallContext): Record<string, ToolHandler
     nuphos_list_sessions: (args) => nuphosListSessions(args, ctx),
     nuphos_events: (args) => nuphosEvents(args, ctx),
     nuphos_stop: (args) => nuphosStop(args, ctx),
+    nuphos_archive_session: (args) => nuphosArchiveSession(args, ctx),
     nuphos_list_queue: (args) => nuphosListQueue(args, ctx),
     nuphos_remove_queued: (args) => nuphosRemoveQueued(args, ctx),
     nuphos_update_session: (args) => nuphosUpdateSession(args, ctx),
     nuphos_list_credentials: (args) => nuphosListCredentials(args, ctx),
     nuphos_update_credentials: (args) => nuphosUpdateCredentials(args, ctx),
+    nuphos_files: (args) => nuphosFiles(args, ctx),
+    nuphos_find_pr_sessions: (args) => nuphosFindPrSessions(args, ctx),
     nuphos_capabilities: async () => toolResult(getCapabilities()),
   }
 }

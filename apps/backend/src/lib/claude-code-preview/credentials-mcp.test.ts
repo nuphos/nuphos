@@ -114,6 +114,47 @@ describe('credentialsMcpTools', () => {
     expect(guest.runtimeEnv).toMatchObject({ NUPHOS_SESSION_ACTOR: 'guest' })
   })
 
+  test('every session compacts at a 200k window; only a Bot skips next-prompt suggestions', async () => {
+    const options = { backendUrl: 'https://backend.example' }
+    const bot = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      ...options,
+      bot: true,
+    })
+    const task = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', options)
+
+    expect(bot.runtimeEnv).toMatchObject({
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
+      CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0',
+    })
+    // A long-lived Task grows like a Bot (#4195); its composer still offers the suggestion.
+    expect(task.runtimeEnv).toMatchObject({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' })
+    expect(task.runtimeEnv).not.toHaveProperty('CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION')
+  })
+
+  // Measured on a production Bot (#3970): a 100k window compacted at 69-73k tokens,
+  // so Claude Code keeps about 31k of the window back, and every compacted request
+  // still carried ~57k of fixed prompt, tools and instructions plus an ~11k summary.
+  // At 100k that is already past the trigger, so every request compacted and the
+  // turn failed. The window must leave the Bot room to work after a compaction.
+  test("a Bot's compaction window leaves room after its fixed prompt and summary", async () => {
+    const bot = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+      bot: true,
+    })
+    const trigger = Number(bot.runtimeEnv?.CLAUDE_CODE_AUTO_COMPACT_WINDOW) - 33_000
+    const afterCompaction = 57_000 + 11_000
+
+    expect(trigger - afterCompaction).toBeGreaterThanOrEqual(95_000)
+  })
+
+  test('Claude Code file memory is off: Nuphos memory is the one memory', async () => {
+    const access = await previewSessionAccess('conv-1', 'team-1', 'owner', 'owner', {
+      backendUrl: 'https://backend.example',
+    })
+
+    expect(access.runtimeEnv).toMatchObject({ CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1' })
+  })
+
   test('automated turns act as the session owner, in the owner’s HOME', async () => {
     for (const actor of ['owner', 'guest']) {
       const automated = await previewSessionAccess('conv-1', 'team-1', actor, 'owner', {

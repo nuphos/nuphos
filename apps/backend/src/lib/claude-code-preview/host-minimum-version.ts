@@ -1,5 +1,11 @@
-import { runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
+import {
+  latestCliRelease,
+  newerRuntimeVersion,
+  runtimeVersionAtLeast,
+  stableRuntimeVersion,
+} from './runtime-release'
 
+import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 
 /**
@@ -37,4 +43,81 @@ export function hostOutdated(
       stableRuntimeVersion(reported) && !runtimeVersionAtLeast(reported, MINIMUM_HOST_VERSION[host])
     )
   })
+}
+
+/**
+ * Whether a newer Nuphos than the one on a computer is out: for a Desktop, the update its own
+ * updater found; for a CLI host, the newest CLI release. A Desktop whose updater has not found
+ * one yet counts as current.
+ */
+export async function updateAvailable(
+  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
+  latestCli: () => Promise<RuntimeRelease | null> = latestCliRelease,
+): Promise<boolean> {
+  const app = presence?.status?.app
+
+  if (app) return Boolean(app.update && newerRuntimeVersion(app.update.version, app.version))
+  const [name, connectedAs] = presence?.client?.split('/') ?? []
+  const cli = presence?.status?.cliVersion ?? (name === 'nuphos-cli' ? connectedAs : undefined)
+
+  if (!stableRuntimeVersion(cli)) return false
+  const latest = await latestCli()
+
+  return Boolean(latest && newerRuntimeVersion(latest.version, cli))
+}
+
+/** What a failed turn adds when the computer that ran it is out of date. */
+export const OUTDATED_HOST_HINT =
+  'Nuphos on this computer is out of date. Update it there, then try again.'
+
+export const DESKTOP_UPDATE_READY_HINT =
+  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+export const DESKTOP_OUTDATED_HINT =
+  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
+
+const HOST_LABEL_MAX = 80
+
+/** Only claim a download is ready when the Desktop has reported it staged. */
+export async function hostUpdateHint(
+  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
+  label?: string,
+): Promise<string | undefined> {
+  if (!hostOutdated(presence) && !(await updateAvailable(presence))) return
+  const app = presence?.status?.app
+
+  if (!app && !presence?.client?.startsWith('nuphos-desktop/')) return OUTDATED_HOST_HINT
+
+  const hint =
+    app?.update?.ready && newerRuntimeVersion(app.update.version, app.version)
+      ? DESKTOP_UPDATE_READY_HINT
+      : DESKTOP_OUTDATED_HINT
+
+  // The label is user-set and travels into a Bot's reason: one short line, inserted literally.
+  const host = label?.replace(/\s+/gu, ' ').trim().slice(0, HOST_LABEL_MAX)
+
+  return host ? hint.replace('the computer running this agent', () => host) : hint
+}
+
+/** Preserve only the known product sentence, never the underlying runtime error. */
+export function outdatedHint(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return
+
+  if (error.message.endsWith(OUTDATED_HOST_HINT)) return OUTDATED_HOST_HINT
+  const hint = error.message.match(
+    /Nuphos Desktop on [^\n]{1,120} is out of date\. [^\n]{1,200}$/u,
+  )?.[0]
+
+  return hint &&
+    [DESKTOP_UPDATE_READY_HINT, DESKTOP_OUTDATED_HINT].some((known) =>
+      hint.endsWith(known.slice(known.indexOf(' is out of date.'))),
+    )
+    ? hint
+    : undefined
+}
+
+/** A Bot's plain reason may already include the hint when it came from an AppError. */
+export function withOutdatedHint(message: string | undefined, error: unknown): string | undefined {
+  const hint = outdatedHint(error)
+
+  return hint && !message?.endsWith(hint) ? [message, hint].filter(Boolean).join(' ') : message
 }

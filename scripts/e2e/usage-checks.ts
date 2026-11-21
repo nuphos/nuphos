@@ -84,7 +84,33 @@ export async function computersAndPrivate(page: Page, section: Locator) {
   if (/^[0-9a-f-]{20,}$/.test(label)) throw new Error(`The computer shows as id ${label}`)
   await shot(section, 'token-usage-computers')
   await section.getByRole('combobox', { name: 'Group by' }).click()
-  await page.getByRole('option', { name: 'Conversation' }).click()
-  await table.getByText('Other members’ private conversations').waitFor()
+  await page.getByRole('option', { name: 'Task', exact: true }).click()
+  await table.getByText('Other members’ private Tasks').waitFor()
   await shot(section, 'token-usage-private-merged')
+
+  // By Bot, the same private usage is the same one row, never folded into a Bot or "not in a Bot".
+  const privateTotal = () =>
+    table
+      .getByRole('row')
+      .filter({ hasText: 'Other members’ private Tasks' })
+      .getByRole('cell')
+      .nth(1)
+      .innerText()
+  const byConversation = await privateTotal()
+  // Its first line only: the text sits beside the Group by menu, whose label differs.
+  const footer = async () => (await section.getByText(/^About \$/).innerText()).split('\n')[0]
+  const taskFooter = await footer()
+
+  await section.getByRole('combobox', { name: 'Group by' }).click()
+  await page.getByRole('option', { name: 'Bot and its Tasks' }).click()
+  await table.getByRole('columnheader', { name: 'Bot and its Tasks' }).waitFor()
+  await table.getByText('Not in a Bot').waitFor()
+  const byBot = await privateTotal()
+
+  if (byBot !== byConversation)
+    throw new Error(`Private usage is ${byConversation} by Task but ${byBot} by Bot`)
+  // The cost at list prices is the team's, not the grouping's.
+  if ((await footer()) !== taskFooter)
+    throw new Error(`The cost reads "${taskFooter}" by Task but "${await footer()}" by Bot`)
+  await shot(section, 'token-usage-by-bot')
 }

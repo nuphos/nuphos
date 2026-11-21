@@ -148,7 +148,19 @@ async function capAgentMemory(): Promise<boolean> {
   return capped
 }
 
-const AGENT_SCOPE = ['--user', '--scope', '--quiet', '--collect', `--slice=${AGENT_SLICE}`]
+/**
+ * OOMPolicy=continue: the kernel kills the one process that ran the slice out of memory,
+ * usually a runaway tool. The default `stop` then stops the whole scope with openab and
+ * every session in it.
+ */
+const AGENT_SCOPE = [
+  '--user',
+  '--scope',
+  '--quiet',
+  '--collect',
+  `--slice=${AGENT_SLICE}`,
+  '--property=OOMPolicy=continue',
+]
 
 /** `systemd-run --scope` execs openab in the same process, inside the agents' cgroup. */
 export function openabCommand(

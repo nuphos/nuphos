@@ -51,7 +51,6 @@ export function DecisionCard({
   onSnooze,
   onDismiss,
   onOpenSource,
-  onOpenLink,
 }: {
   teamId: string
   conversation: AgentConversation
@@ -64,8 +63,6 @@ export function DecisionCard({
   onSnooze: (until: Date) => void
   onDismiss: (reason: string) => void
   onOpenSource: (source: AgentConversation) => void
-  /** Opens a link in the question's text, as the conversation does. */
-  onOpenLink: (href: string, beside: boolean) => boolean
 }) {
   const { sessionId } = conversation
   const source = bot ?? conversation
@@ -119,7 +116,6 @@ export function DecisionCard({
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
                 streaming={false}
-                onLinkClick={onOpenLink}
               >
                 {page.body}
               </MessageResponse>
@@ -150,7 +146,6 @@ export function DecisionCard({
               teamId={teamId}
               credentials={credentials}
               onAnswer={(answer) => onAnswer(answer)}
-              onLinkClick={onOpenLink}
               fullBody
             />
             {/* The conversation's own picker, as its composer has it: a personal

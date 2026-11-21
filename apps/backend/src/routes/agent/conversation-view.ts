@@ -207,6 +207,10 @@ export function serializeConversationForViewer(
     // Moving the runtime, credentials, Full Access and archiving are the owner's.
     // Kept for clients that read it.
     canManage: isOwner,
+    // Someone else in a Task archives it for themselves alone; a group chat they leave.
+    canArchive:
+      isOwner ||
+      (conversation.kind !== 'channel' && (grants.participantIds?.includes(viewer.id) ?? false)),
     // A channel's members each have their own marker; any other conversation is the owner's.
     ...(isOwner || conversation.kind === 'channel'
       ? conversationReadState(conversation, viewer.id)

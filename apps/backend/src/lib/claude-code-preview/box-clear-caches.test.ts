@@ -6,7 +6,6 @@ import path from 'node:path'
 import { describe, expect, test } from 'bun:test'
 
 import { BOX_CLEAR_CACHES_COMMAND } from '@/lib/agent/devices/box-instabox-client'
-import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 
 import { requestBoxCacheClear } from './box-clear-caches'
@@ -16,25 +15,25 @@ import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/proto
 
 // Run with: cd apps/backend && bun test src/lib/claude-code-preview/box-clear-caches.test.ts
 
-const claude = localRuntimeId({ userId: 'u1', deviceId: 'box-1', provider: 'claude-code' })
 const status = { agents: { 'claude-code': {} } } as unknown as LocalRuntimeStatus
 
-function deps(overrides: Partial<BoxCacheClearDeps> = {}) {
+// Keep the old busy probe as a regression tripwire: a confirmed clear must not consult it.
+function deps(overrides: Partial<BoxCacheClearDeps & { busy: () => Promise<boolean> }> = {}) {
   const calls = { cleared: [] as string[], asked: [] as string[] }
-  const value: BoxCacheClearDeps = {
-    device: async (actorId) => {
+  const value = {
+    device: async (actorId: string) => {
       if (actorId !== 'admin')
         throw new AppError(404, 'device_not_found', 'Device is not available')
 
       return { userId: 'u1', deviceId: 'box-1', box: true }
     },
     status: async () => status,
-    busy: async (_team, id, actorId) => {
-      calls.asked.push(`${actorId}:${id}`)
+    busy: async () => {
+      calls.asked.push('busy')
 
       return false
     },
-    clear: async ({ userId, deviceId }) => {
+    clear: async ({ userId, deviceId }: { userId: string; deviceId: string }) => {
       calls.cleared.push(`${userId}:${deviceId}`)
     },
     ...overrides,
@@ -53,8 +52,7 @@ describe('Box cache clear', () => {
 
     expect(await requestBoxCacheClear('t1', 'box-1', 'admin', idle.value)).toEqual({ ok: true })
     expect(idle.calls.cleared).toEqual(['u1:box-1'])
-    // Asked as the caller, about each agent the host runs.
-    expect(idle.calls.asked).toEqual([`admin:${claude}`])
+    expect(idle.calls.asked).toEqual([])
   })
 
   test('nobody else can, and nothing is cleared', async () => {
@@ -84,13 +82,11 @@ describe('Box cache clear', () => {
     expect(away.calls.cleared).toEqual([])
   })
 
-  test('a Box whose agent is replying keeps its caches until the turn ends', async () => {
+  test('a confirmed clear starts even while an agent is replying', async () => {
     const replying = deps({ busy: async () => true })
 
-    expect(await refusal(requestBoxCacheClear('t1', 'box-1', 'admin', replying.value))).toBe(
-      'runtime_busy',
-    )
-    expect(replying.calls.cleared).toEqual([])
+    expect(await requestBoxCacheClear('t1', 'box-1', 'admin', replying.value)).toEqual({ ok: true })
+    expect(replying.calls.cleared).toEqual(['u1:box-1'])
   })
 
   test('run on a machine, the command empties the caches and keeps everything else', () => {

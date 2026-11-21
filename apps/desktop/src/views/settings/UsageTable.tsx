@@ -81,7 +81,13 @@ export function UsageTable({
           <span role="cell" className={amount}>
             {formatTokens(line.outputTokens)}
           </span>
-          <span role="cell" className={amount}>
+          <span
+            role="cell"
+            className={amount}
+            title={
+              line.costUsd === undefined ? t('Some of its models have no list price') : undefined
+            }
+          >
             {line.costUsd === undefined ? '—' : formatUsd(line.costUsd)}
           </span>
         </div>

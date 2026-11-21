@@ -29,6 +29,9 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("agent-rollout", "Roll out to staging", at: "09:50", parent: "agent-ops"),
             Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?"),
             Self.row("agent-notes", "Write the changelog", at: "09:40"),
+            // A teammate's: I take part in one, and only read the other (#3686).
+            Self.teammates(Self.row("agent-review", "Review the migration", at: "09:35"), canArchive: true),
+            Self.teammates(Self.row("agent-offsite", "Plan the offsite", at: "09:34"), canArchive: false),
             // What the Bots dispatched, at any depth: listed under Bots, never in Tasks.
             Self.row("agent-ci", "Check the CI flake", at: "09:45", parent: "bot-lead", question: "Retry the flaky iOS job?"),
             Self.row("agent-rerun", "Rerun the iOS job", at: "09:46", parent: "agent-ci"),
@@ -105,6 +108,24 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-flat")
     }
 
+    /// A Bot with no chat yet ends like every other row, with the system chevron,
+    /// so its time lines up with theirs (#3614).
+    func testABotWithNoChatEndsLikeTheOtherRows() throws {
+        launch(page: "chats")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10), "Bots did not load")
+        let helper = app.staticTexts["Helper Bot"].firstMatch
+        XCTAssertTrue(helper.exists, "The Bot with no chat is not listed")
+        // A row's time is the rightmost text on its title's line.
+        func timeEdge(_ title: XCUIElement) -> CGFloat {
+            app.staticTexts.allElementsBoundByIndex
+                .filter { abs($0.frame.midY - title.frame.midY) < 8 }
+                .map(\.frame.maxX).max() ?? 0
+        }
+        XCTAssertEqual(timeEdge(helper), timeEdge(lead), accuracy: 2, "The Bot with no chat ends further right than the other rows")
+        shot("3-bot-without-chat")
+    }
+
     /// A Bot's page says what its Tasks are doing and opens them (#2983). The state sits
     /// under the Bot's name, the name opens Bot details with the Bot's own Task and what it
     /// dispatched, waiting ones first, and Back from one of those returns to the Bot.
@@ -125,7 +146,6 @@ final class BotsAndTasksListUITests: XCTestCase {
         lead.tap()
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         XCTAssertTrue(name.label.hasSuffix("1 needs input · 1 running"), "No state under the Bot's name: \(name.label)")
-        XCTAssertFalse(app.navigationBars.buttons["bot-task-entry"].exists, "The header still has its own Task button")
         // Once the chat and its agents have loaded, so the header and posts show the Bot's face.
         _ = app.buttons["Release Lead"].waitForExistence(timeout: 5)
         sleep(2)
@@ -163,6 +183,34 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertLessThan(ops.frame.minY, notes.frame.minY)
         XCTAssertTrue(app.descendants(matching: .any)["Needs your input"].exists, "The waiting Task has no mark")
         shot("3-tasks")
+    }
+
+    /// Someone else in a teammate's Task archives it for themselves from its row (#3686): by a swipe…
+    func testTeammatesTaskIsArchivedFromItsSwipe() throws {
+        teammatesTask("Review the migration").swipeLeft()
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "A Task I take part in offers no Archive")
+        shot("4-teammates-task-swipe")
+    }
+
+    /// …or from its menu.
+    func testTeammatesTaskIsArchivedFromItsMenu() throws {
+        teammatesTask("Review the migration").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Archive"].waitForExistence(timeout: 5), "Its menu offers no Archive")
+        shot("5-teammates-task-menu")
+    }
+
+    /// A teammate's Task I only read is not mine to archive. Its menu, as it has no swipe actions.
+    func testTeammatesTaskIOnlyReadOffersNoArchive() throws {
+        teammatesTask("Plan the offsite").press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Watch"].waitForExistence(timeout: 5), "Its menu did not open")
+        XCTAssertFalse(app.buttons["Archive"].exists, "A Task I only read offers Archive")
+    }
+
+    private func teammatesTask(_ title: String) -> XCUIElement {
+        launch(page: "agent")
+        let row = app.staticTexts[title].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10), "Tasks did not load")
+        return row
     }
 
     /// What the Inbox opens, as a notification does, lands over the list that has it (#2964): Tasks
@@ -233,6 +281,10 @@ final class BotsAndTasksListUITests: XCTestCase {
         ["id": id, "role": "user", "parts": [["type": "text", "text": text]],
          "metadata": ["version": 1, "sender": sender, "sentAt": "2026-11-03T09:50:00.000Z"],
          "createdAt": "2026-11-03T09:50:00.000Z"]
+    }
+
+    private static func teammates(_ row: [String: Any], canArchive: Bool) -> [String: Any] {
+        row.merging(["isOwner": false, "canManage": false, "canArchive": canArchive, "watching": false]) { $1 }
     }
 
     private static func face(_ id: String, _ name: String, _ avatar: String) -> [String: Any] {

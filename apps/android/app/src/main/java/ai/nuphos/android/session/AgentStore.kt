@@ -16,6 +16,7 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.Words
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.botsList
 import ai.nuphos.android.model.ConversationScope
@@ -79,6 +80,21 @@ class AgentStore(
     fun historyObservation(row: AgentConversation): HistoryStatus.Observation? {
         historyRevision
         return historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
+    }
+    enum class TaskState { Waiting, Running, Idle }
+    /** What a Task is doing: its runtime's word while seen lately, the run its row reported otherwise. */
+    fun taskState(row: AgentConversation, now: Double = RuntimeObservation.now()): TaskState {
+        if (row.isWaiting) return TaskState.Waiting
+        val observed = historyObservation(row)?.takeIf { it.runtime.fresh(now) }
+        val running = if (observed != null) observed.label(now) == Words(R.string.convtext_status_running)
+            else row.activeRun != null && row.activeRun != JsonValue.Null
+        return if (running) TaskState.Running else TaskState.Idle
+    }
+    /** The Tasks a session dispatched: waiting, then running, then idle, newest first within each. */
+    fun tasks(under: String, teamId: String): List<AgentConversation> {
+        val now = RuntimeObservation.now()
+        return conversations.filter { it.parentSessionId == under && (it.teamId == null || it.teamId == teamId) }
+            .sortedWith(compareBy<AgentConversation> { taskState(it, now).ordinal }.thenByDescending { it.lastActiveAt })
     }
     suspend fun markRead(teamId: String, sessionId: String, seq: Long) = ConversationReadApi.mark(token, teamId, sessionId, seq)
     fun applyRead(teamId: String, sessionId: String, seq: Long, state: ConversationReadApi.State) {
@@ -452,7 +468,7 @@ class AgentStore(
         reload()
     }
     suspend fun archive(session: ChatSession, archived: Boolean) {
-        require(session.canManage) { "Only the owner can archive this agent." }
+        require(session.canArchive) { "Only someone in this task can archive it." }
         ConversationActions.archive(token, session.teamId, session.sessionId, archived)
         session.reloadFromServer()
         reload()
@@ -463,11 +479,14 @@ class AgentStore(
     var rowActionError: String? by mutableStateOf(null)
         private set
     fun clearRowActionError() { rowActionError = null }
+    /** The owner archives it for everyone; someone else in a Task, for themselves (#3686). */
     fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
-        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+        (it.canArchive ?: it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
 
-    fun canRename(row: AgentConversation) = canArchive(row)
+    fun canRename(row: AgentConversation) = currentActionRow(row)?.let {
+        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+    } == true
 
     suspend fun rename(row: AgentConversation, title: String): Boolean {
         val current = currentActionRow(row) ?: return false
@@ -520,7 +539,7 @@ class AgentStore(
         try {
             val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
-            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+            require(detail.readOnly != true && (detail.canArchive ?: detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
             require((detail.archivedAt != null) == row.isArchived)
             ConversationActions.archive(token, team, current.sessionId, archive)

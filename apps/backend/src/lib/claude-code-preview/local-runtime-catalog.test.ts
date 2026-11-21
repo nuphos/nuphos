@@ -257,6 +257,26 @@ describe('local runtime catalog', () => {
     ).rejects.toMatchObject({ code: 'runtime_offline' })
   })
 
+  test('an unusable CLI reports its probe failure on a conversation turn', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has v20.20.2. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          'claude-code': { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
+    ).rejects.toMatchObject({
+      code: 'runtime_not_installed',
+      message,
+    })
+  })
+
   test('a signed-out CLI refuses turns with its own reason', async () => {
     presence = online(false)
 

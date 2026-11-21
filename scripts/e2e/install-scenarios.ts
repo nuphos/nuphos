@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
+import { fixtureBundle } from './tunnel-scenarios.ts'
 import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -47,10 +48,13 @@ async function pasteCode(page: Page, name: string) {
 export const installScenarios: Scenario[] = [
   {
     // Yuanlin's case: from one computer, adding an agent to another that lacks its CLI.
-    name: 'adding Claude Code to another computer without it installs it there, then signs it in',
+    name: 'adding Claude Code to a just-connected computer without it installs it there, signs it in, and runs a turn',
     run: async (page, stack) => {
       const label = 'E2E Mac mini'
-      const computer = await startSecondComputer(stack, label)
+      // The fixture agent behind its Claude Code, so the turn below gets the fixture's answer.
+      const computer = await startSecondComputer(stack, label, {
+        runtimeDir: fixtureBundle(stack, 'install'),
+      })
 
       try {
         await openComputers(page)
@@ -64,6 +68,14 @@ export const installScenarios: Scenario[] = [
         await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
         await shot(page, 'remote-4-added')
         await page.getByText('Back to app', { exact: true }).click()
+
+        // The agent it just installed runs a turn there.
+        await newTask(page)
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menu').getByText(label).click()
+        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+        await send(page, 'On the computer it was added to E2E_DELIVERY:installed-turn')
+        await page.getByText('ACK E2E_DELIVERY:installed-turn').waitFor({ timeout: 60_000 })
       } finally {
         await computer.stop()
       }
@@ -145,6 +157,8 @@ export const installScenarios: Scenario[] = [
       await code.fill('e2e-code#e2e-state')
       await page.getByRole('button', { name: 'Submit code' }).click()
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
+      // #3916: an Ultra login reads as Ultra, though Claude Code stores "max".
+      await page.getByText('· ultra').waitFor({ timeout: 10_000 })
       await shot(page, 'local-3-signed-in')
       await page.getByRole('button', { name: 'Done', exact: true }).click()
       await page.getByText('Back to app', { exact: true }).click()
@@ -237,6 +251,4 @@ export const installScenarios: Scenario[] = [
       }
     },
   },
-  // TODO(#3654): adding an agent to a just-connected computer can skip installing its CLI;
-  // this one is back in with that fix.
-].filter((scenario) => !scenario.name.startsWith('adding Claude Code to another computer'))
+]
