@@ -29,7 +29,10 @@ pub enum AcpRequestError {
     #[error("timeout waiting for {method} response")]
     Timeout { method: String },
     #[error("connection closed waiting for {method}")]
-    ConnectionClosed { method: String },
+    ConnectionClosed {
+        method: String,
+        stderr: Option<String>,
+    },
     /// The request could not be written, or its response was unusable.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -175,6 +178,7 @@ pub struct SessionActivity {
     /// The agent's most recent stderr lines (redacted, bounded), so an internal
     /// error that carries no detail can still show what the agent last said.
     stderr_tail: std::sync::Mutex<std::collections::VecDeque<String>>,
+    stderr_done: tokio::sync::Notify,
 }
 
 const STDERR_TAIL_LINES: usize = 20;
@@ -287,6 +291,7 @@ impl SessionActivity {
             agent_permission_wait_ms: AtomicU64::new(0),
             process_death: Default::default(),
             stderr_tail: Default::default(),
+            stderr_done: Default::default(),
         }
     }
 
@@ -1016,6 +1021,7 @@ impl AcpConnection {
                         Err(_) => break,
                     }
                 }
+                activity.stderr_done.notify_one();
             }))
         } else {
             None
@@ -1118,6 +1124,25 @@ impl AcpConnection {
         Ok(resp)
     }
 
+    async fn connection_closed(&self, method: &str) -> AcpRequestError {
+        let startup = matches!(
+            method,
+            "initialize" | "session/new" | "session/load" | "session/resume"
+        );
+        if startup {
+            // stdout and stderr are read independently; allow the final line to arrive.
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_millis(500),
+                self.activity.stderr_done.notified(),
+            )
+            .await;
+        }
+        AcpRequestError::ConnectionClosed {
+            method: method.to_string(),
+            stderr: startup.then(|| self.activity.stderr_tail()).flatten(),
+        }
+    }
+
     /// Preserve explicit agent errors separately from a missing response.
     async fn send_request_response(
         &self,
@@ -1131,7 +1156,16 @@ impl AcpConnection {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
 
-        self.send_raw(&data).await?;
+        if let Err(error) = self.send_raw(&data).await {
+            self.pending.lock().await.remove(&id);
+            if error
+                .downcast_ref::<std::io::Error>()
+                .is_some_and(|e| e.kind() == std::io::ErrorKind::BrokenPipe)
+            {
+                return Err(self.connection_closed(method).await);
+            }
+            return Err(error.into());
+        }
 
         // Restoring a session does everything opening one does (auth, skills, MCP servers, the
         // model list) plus reading its transcript, so it gets at least the same budget.
@@ -1139,22 +1173,18 @@ impl AcpConnection {
             "session/new" | "session/load" | "session/resume" => 120,
             _ => 30,
         };
-        let closed = || AcpRequestError::ConnectionClosed {
-            method: method.to_string(),
-        };
         let resp = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
             .await
             .map_err(|_| AcpRequestError::Timeout {
                 method: method.to_string(),
-            })?
-            .map_err(|_| closed())?;
+            })?;
 
-        // The reader synthesizes an id-less error when stdout closes. It is
-        // not an agent acknowledgement and cannot confirm a write's outcome.
-        if resp.id.is_none() {
-            return Err(closed());
+        if let Ok(message) = resp {
+            if message.id.is_some() {
+                return Ok(with_recent_stderr(message, &self.activity));
+            }
         }
-        Ok(with_recent_stderr(resp, &self.activity))
+        Err(self.connection_closed(method).await)
     }
 
     pub async fn initialize(&mut self) -> Result<(), AcpRequestError> {
@@ -1919,9 +1949,41 @@ mod request_error_tests {
     }
 
     #[tokio::test]
+    async fn a_startup_failure_shows_the_agents_error_output() {
+        let result = load_against("echo 'dsh: fatal uncaught exception: YAMLException: invalid config' >&2; read line; exit 1").await;
+        let Err(error) = result else {
+            panic!("expected a startup failure")
+        };
+        let message = crate::error_display::format_user_error(
+            &crate::acp::pool::SessionStartError::Request(error),
+        );
+        assert!(
+            message.contains("YAMLException: invalid config"),
+            "{message}"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_exits_before_the_request_keeps_its_output() {
+        let args = vec![
+            "-c".into(),
+            "echo 'Error: invalid config' >&2; exit 1".into(),
+        ];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let error = conn.session_load("sid", ".", &[], None).await.unwrap_err();
+        let message = crate::error_display::format_user_error(
+            &crate::acp::pool::SessionStartError::Request(error),
+        );
+        assert!(message.contains("Error: invalid config"), "{message}");
+    }
+
+    #[tokio::test]
     async fn an_agent_that_exits_is_a_closed_connection() {
         match load_against("read line").await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/load")
             }
             other => panic!("expected a closed connection, got {other:?}"),
@@ -1936,7 +1998,7 @@ mod request_error_tests {
             .unwrap();
         conn.supports_resume_session = true;
         match conn.session_load("sid", ".", &[], None).await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/resume")
             }
             other => panic!("expected a closed connection, got {other:?}"),

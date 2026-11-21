@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { useTeamRole } from '../../../hooks/useTeamRole'
 import { locale, t } from '../../../i18n'
 import { toast } from '../../ui/toast'
 
@@ -14,6 +15,13 @@ import {
   recordingFilename,
   recordingMimeType,
 } from './voiceDictation'
+import {
+  isSubscriptionRequired,
+  markVoiceUnsubscribed,
+  needsVoiceSubscription,
+  planAllowsVoice,
+  voiceSubscriptionToast,
+} from './voiceSubscription'
 import { createTakes } from './voiceTakes'
 
 export type VoicePhase =
@@ -94,6 +102,13 @@ export function useVoiceDictation({
   const discard = useRef(false)
   const opening = useRef(false)
   const onTextRef = useRef(onText)
+  // Only an administrator can subscribe; a role still loading gets Subscribe, as Billing explains.
+  const role = useTeamRole(teamId)
+  const canSubscribe = useRef(true)
+
+  useEffect(() => {
+    canSubscribe.current = role === undefined || role === 'ADMINISTRATOR'
+  }, [role])
 
   useEffect(() => {
     onTextRef.current = onText
@@ -121,6 +136,13 @@ export function useVoiceDictation({
     if (!teamId || recorder.current || opening.current) return
     opening.current = true
     discard.current = false
+    // Refused before: ask the plan again, since a teammate may have subscribed since.
+    if (needsVoiceSubscription(teamId) && !(await planAllowsVoice(teamId))) {
+      opening.current = false
+      voiceSubscriptionToast(teamId, canSubscribe.current)
+
+      return
+    }
     let stream: MediaStream | null
 
     try {
@@ -196,7 +218,13 @@ export function useVoiceDictation({
             toast.info(t('No speech was heard'), t('Try again closer to the microphone.'))
         })
         .catch((err: unknown) => {
-          if (takes.isCurrent(id)) toast.apiError(t('Voice input failed'), err)
+          if (!isSubscriptionRequired(err)) {
+            if (takes.isCurrent(id)) toast.apiError(t('Voice input failed'), err)
+
+            return
+          }
+          markVoiceUnsubscribed(teamId)
+          if (takes.isCurrent(id)) voiceSubscriptionToast(teamId, canSubscribe.current)
         })
         .finally(() => {
           if (takes.isCurrent(id)) setPhase({ kind: 'idle' })

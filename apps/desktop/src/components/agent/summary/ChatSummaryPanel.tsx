@@ -1,5 +1,5 @@
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
@@ -10,10 +10,11 @@ import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSumma
 import { toast } from '../../ui/toast'
 import { shellsFromRuntimeState } from '../panel/shells'
 
+import { BotInstructionsSection } from './BotInstructionsSection'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
-import { SummaryRow, SummarySection } from './ChatSummaryRows'
+import { SummaryEmpty, SummaryRow, SummarySection } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
 import { summaryTriggerHome } from './chatSummaryTriggerHome'
@@ -26,13 +27,14 @@ import {
   panelClass,
   slotClass,
   useDismissOutside,
+  useSummaryMotion,
   useSummaryPlacement,
 } from './summaryPlacement'
 import { useChatSummary } from './useChatSummary'
 
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
-import type { AgentConversation } from '../../../api/agent-types'
+import type { Motion } from './summaryPlacement'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent, ReactNode } from 'react'
 
@@ -59,9 +61,6 @@ type Props = {
   onDismiss?: () => void
 }
 
-// Matches `.t-summary-slot-out` in index.css.
-const CLOSE_MS = 300
-
 /** The panel beside the transcript, mounted while open and while it slides shut. */
 export function ChatSummaryPanel({
   open,
@@ -70,22 +69,12 @@ export function ChatSummaryPanel({
   ...props
 }: Props & { open: boolean }) {
   const paneId = usePaneId()
-  const [mounted, setMounted] = useState(open)
-
-  if (open && !mounted) setMounted(true)
-
-  useEffect(() => {
-    if (open || !mounted) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const timer = window.setTimeout(() => setMounted(false), reduced ? 0 : CLOSE_MS)
-
-    return () => window.clearTimeout(timer)
-  }, [open, mounted])
+  const { mounted, motion } = useSummaryMotion(open)
 
   const close = onClose ?? (() => setChatSummaryOpen(paneId, false))
 
   return mounted ? (
-    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} closing={!open} />
+    <SummaryBody {...props} onClose={close} onDismiss={onDismiss ?? close} motion={motion} />
   ) : null
 }
 
@@ -151,19 +140,6 @@ function OutputsSection({
   )
 }
 
-/** A Bot's standing instructions in full, which its transcript only shows clipped. */
-function BotInstructionsSection({ conversation }: { conversation?: AgentConversation }) {
-  if (!conversation?.avatar) return null
-
-  return (
-    <SummarySection title={t('Bot instructions')}>
-      <p className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-5 text-main">
-        {conversation.instructions || <span className="text-tertiary">{t('None yet')}</span>}
-      </p>
-    </SummarySection>
-  )
-}
-
 /**
  * Esc inside the panel closes it and hands focus back to the toggle that opened it. A dialog it
  * opened sits in a portal: its Esc bubbles here through React, but closes only the dialog.
@@ -192,8 +168,9 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
-  closing,
-}: Props & { onClose: () => void; onDismiss: () => void; closing: boolean }) {
+  motion,
+}: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
+  const closing = motion === 'out'
   const paneId = usePaneId()
   const rootRef = useRef<HTMLElement>(null)
   const frameRef = useRef<HTMLSpanElement>(null)
@@ -230,7 +207,7 @@ function SummaryBody({
       onKeyDown={(event) => closeOnEscape(event, frameRef.current, close)}
       style={style}
       data-origin="top-right"
-      className={panelClass(floating, closing, selected !== null)}
+      className={panelClass(floating, motion, selected !== null)}
     >
       {selected ? (
         <SessionInputReply
@@ -253,7 +230,7 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
-          <BotInstructionsSection conversation={conversation} />
+          <BotInstructionsSection conversation={conversation} teamId={teamId} />
           {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers
@@ -274,16 +251,7 @@ function SummaryBody({
             <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
           )}
           {/* A Task's first reply fills it; a Bot's card already stands in. */}
-          {loaded && !conversation && !lead && (
-            <div className="px-1 pt-1 text-[13px] leading-5">
-              <p className="text-main">{t('Nothing here yet')}</p>
-              <p className="text-tertiary">
-                {t(
-                  'Pull requests, sub-tasks and files from this task appear here after its first reply.',
-                )}
-              </p>
-            </div>
-          )}
+          {loaded && !conversation && !lead && <SummaryEmpty />}
         </>
       )}
     </aside>
@@ -293,7 +261,7 @@ function SummaryBody({
     // Beside the transcript the slot's width grows and shrinks so the transcript
     // reflows with the panel. Floating, the panel is a popover under the
     // titlebar toggle, above the header's fade, so it renders at the root.
-    <div className={slotClass(floating, closing, selected !== null)}>
+    <div className={slotClass(floating, motion, selected !== null)}>
       <span ref={frameRef} aria-hidden className="pointer-events-none absolute inset-0" />
       {floating ? createPortal(panel, document.body) : panel}
     </div>
