@@ -149,9 +149,8 @@ async function claudeLogin(
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
     ...(typeof email === 'string' ? { account: email } : {}),
-    // Max 20x is now called Ultra, but Claude Code still stores "max" for it; only the
-    // rate limit tier tells it from Max 5x. The backend's runtime-quota-probe.ts reads
-    // a remote runtime's login with the same rule.
+    // Claude Code stores "max" for Max 20x (now Ultra) too; only the rate limit tier tells it
+    // from Max 5x. The backend's runtime-quota-probe.ts reads a remote login the same way.
     ...(typeof oauth?.subscriptionType === 'string'
       ? {
           plan:
