@@ -13,8 +13,12 @@ export const reminderNoticeId = (reminder: Reminder) =>
   `reminder-failed-${reminder._id.toHexString()}`
 
 const noticeText = (reminder: Reminder) =>
-  `A reminder due ${describeDueAt(reminder.dueAt, reminder.timeZone)} could not be delivered: ` +
-  `${reminder.failureReason ?? 'delivery failed'}.\n\n${reminder.text}`
+  reminder.status === 'unconfirmed'
+    ? `Scheduled work due ${describeDueAt(reminder.dueAt, reminder.timeZone)} was handed to this conversation, ` +
+      `but the Bot never confirmed it. It may or may not have run, and it was not run again: ` +
+      `check before repeating it.\n\n${reminder.text}`
+    : `A ${reminder.kind === 'task' ? 'scheduled task' : 'reminder'} due ${describeDueAt(reminder.dueAt, reminder.timeZone)} could not be delivered: ` +
+      `${reminder.failureReason ?? 'delivery failed'}.\n\n${reminder.text}`
 
 /**
  * Tells the owner of each failed reminder, from the record rather than from the moment it failed:
@@ -26,7 +30,7 @@ export async function noticeFailedReminders(now: Date, notify: Notify): Promise<
   for (;;) {
     const claimed = await reminders().findOneAndUpdate(
       {
-        status: 'failed',
+        status: { $in: ['failed', 'unconfirmed'] },
         noticedAt: { $exists: false },
         $or: [{ noticeClaimUntil: { $exists: false } }, { noticeClaimUntil: { $lte: now } }],
       },
