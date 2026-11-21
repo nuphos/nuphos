@@ -1,3 +1,4 @@
+import { connectorScenarios } from './connector-scenarios.ts'
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll } from './processes.ts'
@@ -15,6 +16,7 @@ try {
   const page = desktop.page
 
   await signInScenarios[1]!.run(page, stack)
+  await connectorScenarios[0]!.run(page, stack)
   await page.getByRole('button', { name: 'Connectors', exact: true }).click()
   const dialog = page.getByRole('dialog')
 
