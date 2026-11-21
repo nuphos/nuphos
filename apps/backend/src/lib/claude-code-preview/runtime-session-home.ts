@@ -61,6 +61,7 @@ type ReclaimCandidate = Pick<
   | 'claudeCodePreview'
   | 'runtimeMigration'
   | 'archivedAt'
+  | 'archiveHomePendingEpochs'
   | 'lastActiveAt'
 > & { sessionHomeReclaimedAt?: Date } // Set once the home is gone since it became reclaimable.
 
@@ -103,6 +104,30 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
   if ((await conversationExecutionState(conversation)).state !== 'dormant') return false
 
   return runReclaimJob(teamId, endpoint, sessionId)
+}
+
+/** Reclaim every archived generation without blocking turns in a restored generation. */
+export async function reclaimPendingArchiveHome(
+  sessionId: string,
+  now = new Date(),
+): Promise<boolean> {
+  const conversation = await agentConversations().findOne({ sessionId })
+
+  if (!conversation?.archiveHomePendingEpochs?.length) return true
+  if (!conversation.teamId) return false
+  for (const home of conversation.archiveHomePendingEpochs) {
+    if (!home.runtimeId) return false
+    const endpoint = await controlEndpoint(conversation.teamId, home.runtimeId, home.provider)
+
+    if (!endpoint || !(await runReclaimJob(conversation.teamId, endpoint, sessionId, home.epoch)))
+      return false
+    await agentConversations().updateOne(
+      { sessionId },
+      { $pull: { archiveHomePendingEpochs: home }, $set: { sessionHomeReclaimedAt: now } },
+    )
+  }
+
+  return true
 }
 
 /**
@@ -163,23 +188,38 @@ async function runReclaimJob(
   teamId: string,
   endpoint: NonNullable<Awaited<ReturnType<typeof controlEndpoint>>>,
   sessionId: string,
+  epoch?: number,
 ): Promise<boolean> {
   const client = await controlRegistry.acquire(teamId, endpoint)
   const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
+
+  if (epoch !== undefined && !jobs.includes('session-homes-v2')) return false
   // A computer's own fixed job takes only the session id; `panel`, which runs the
   // text it is sent, is for the runtime image and older computers that have it.
-  const request = jobs.includes('session-homes')
-    ? { job: 'session-homes', stdin: JSON.stringify({ sessionId }) }
-    : jobs.includes('panel')
-      ? {
-          job: 'panel',
-          stdin: JSON.stringify({
-            runner: RECLAIM_SESSION_HOME_PROGRAM,
-            script: '',
-            params: { sessionId },
-          }),
-        }
-      : null
+  const request =
+    epoch !== undefined
+      ? jobs.includes('session-homes')
+        ? { job: 'session-homes-v2', stdin: JSON.stringify({ sessionId, epoch }) }
+        : {
+            job: 'session-homes-v2',
+            stdin: JSON.stringify({
+              runner: RECLAIM_SESSION_HOME_PROGRAM,
+              script: '',
+              params: { sessionId, epoch },
+            }),
+          }
+      : jobs.includes('session-homes')
+        ? { job: 'session-homes', stdin: JSON.stringify({ sessionId }) }
+        : jobs.includes('panel')
+          ? {
+              job: 'panel',
+              stdin: JSON.stringify({
+                runner: RECLAIM_SESSION_HOME_PROGRAM,
+                script: '',
+                params: { sessionId },
+              }),
+            }
+          : null
 
   if (!request) return false
   const result = await client.runJob(
@@ -218,6 +258,7 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
       projection: {
         sessionId: 1,
         archivedAt: 1,
+        archiveHomePendingEpochs: 1,
         lastActiveAt: 1,
         runtimeMigration: 1,
         sessionHomeReclaimedAt: 1,
@@ -227,6 +268,7 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
   let reclaimed = 0
 
   for (const conversation of candidates) {
+    if (conversation.archiveHomePendingEpochs?.length) continue
     // An unarchived trigger run counts from its last turn, a moved conversation from
     // its move; a later turn or move reclaims again.
     const reason = reclaimReason(conversation)

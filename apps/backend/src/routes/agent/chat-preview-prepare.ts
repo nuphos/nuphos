@@ -258,6 +258,7 @@ export async function preparePreviewTurn(
       humanTurn: args.humanTurn,
       toolsVersion,
       parentSessionId: conversation?.parentSessionId,
+      sessionHomeEpoch: conversation?.sessionHomeEpoch,
       bot: isBot(conversation),
     },
     message: lead(),

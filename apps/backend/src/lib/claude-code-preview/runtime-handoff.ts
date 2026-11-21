@@ -143,6 +143,7 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
       backendUrl: endpoint.backendUrl,
       humanTurn: handoff.humanTurn,
       parentSessionId: conversation.parentSessionId,
+      sessionHomeEpoch: conversation.sessionHomeEpoch,
       bot: isBot(conversation),
       toolsVersion: await nuphosToolsVersion({
         userId: handoff.actorUserId,

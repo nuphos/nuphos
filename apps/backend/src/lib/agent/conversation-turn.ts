@@ -6,21 +6,22 @@ import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { agentMessages, getConversationBySessionId } from './db'
 import { channelIdOf, withChannelPosts } from './channel-wake'
+import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
-import { reconnecting } from './turn-offline'
+import { liveTriggerMessages } from './trigger-pending'
 import { readTurnHistory } from './turn-history'
+import { reconnecting } from './turn-offline'
 import { turnRunner } from './turn-runner'
 import { keepUndelivered, LOST_TURN, runtimeRestarted } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
 
-import type { AgentConversation } from './db'
 import type { ConversationTriggerRun } from './conversation-trigger-run'
+import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { PendingUserMessage } from './pending-messages'
 import type { UIMessage } from 'ai'
@@ -117,6 +118,10 @@ export async function runTurn(
   let unmarkRead: (() => Promise<void>) | undefined
 
   try {
+    // A queued Trigger may have been deleted while waiting for this claim.
+    pending = await liveTriggerMessages(data.targetSessionId, pending)
+    taken = pending
+    if (pending.length === 0) return
     // Read after taking the claim so a just-finished turn cannot be overwritten.
     const history = await readTurnHistory(data, pending, source)
 
