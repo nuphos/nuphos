@@ -25,6 +25,11 @@ function visible(element: HTMLElement | null | undefined): element is HTMLElemen
   return Boolean(element && element.offsetHeight > 0)
 }
 
+// The first match on screen: views kept alive for a quick switch back stay in the page, hidden.
+function shown(root: ParentNode | null | undefined, selector: string) {
+  return [...(root?.querySelectorAll<HTMLElement>(selector) ?? [])].find(visible)
+}
+
 // A pane can hold more than one composer surface (a kept-alive view, an edit
 // box); the chat's own is the visible one lowest in the pane.
 function composerOf(pane: Element | null): HTMLElement | undefined {
@@ -55,8 +60,7 @@ export function floatingEdge(
 function measure(frame: HTMLElement): Geometry {
   const pane = frame.closest(PANE)
   const box = frame.getBoundingClientRect()
-  const toggle = pane?.querySelector<HTMLElement>(TOGGLE)
-  const anchor = visible(toggle) ? toggle.getBoundingClientRect() : null
+  const anchor = shown(pane, TOGGLE)?.getBoundingClientRect() ?? null
   const top = anchor ? anchor.bottom + SIDE_OFFSET : box.top + EDGE
   const edge = anchor
     ? floatingEdge(anchor, pane?.getBoundingClientRect(), window.innerWidth)
@@ -178,7 +182,7 @@ function useDismissOnLeave(
   useEffect(() => {
     if (!active) return
     const root = rootRef.current
-    const toggle = root?.ownerDocument.querySelector<HTMLElement>(`${TOGGLE}[aria-expanded="true"]`)
+    const toggle = shown(root?.ownerDocument, `${TOGGLE}[aria-expanded="true"]`)
     let armed = Boolean(root?.matches(':hover')) || Boolean(toggle?.matches(':hover'))
     let timer: number | undefined
 
@@ -197,8 +201,7 @@ function useDismissOnLeave(
         timer = window.setTimeout(() => {
           timer = undefined
           // A picker, menu or dialog it opened sits outside it, and keeps it open until closed.
-          if (!typingIn(rootRef.current) && !document.querySelector(OUTSIDE_EXEMPT))
-            closeRef.current()
+          if (!typingIn(rootRef.current) && !shown(document, OUTSIDE_EXEMPT)) closeRef.current()
         }, LEAVE_GRACE_MS)
       }
     }
