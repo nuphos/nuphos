@@ -18,7 +18,7 @@ export const turnScenarios: Scenario[] = [
       )
       await send(page, 'Then this E2E_DELIVERY:queued')
       await page.getByText('Queued messages').waitFor()
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await page.getByText('Turn stopped').waitFor()
       await page.getByText('ACK E2E_DELIVERY:queued').waitFor()
       const events = agentEvents(stack)
@@ -42,7 +42,7 @@ export const turnScenarios: Scenario[] = [
         await newTask(page)
         await send(page, 'Stopped before it starts E2E_DELIVERY:stopped')
         await until('the agent to be asked for a session', async () => openings() > before)
-        await page.locator('button[title="Stop"]').click()
+        await page.locator('button[title="Stop"]:visible').click()
         // The Stop has to reach the agent host while the session is still opening.
         await page.waitForTimeout(2_000)
       } finally {

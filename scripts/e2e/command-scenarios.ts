@@ -32,7 +32,7 @@ export const commandScenarios: Scenario[] = [
       await page.reload()
       await page.getByText('E2E long step').first().waitFor()
       await menuLists(page, '/e2e-review')
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await page.getByText('Turn stopped').waitFor()
     },
   },

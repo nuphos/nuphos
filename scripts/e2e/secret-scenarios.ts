@@ -20,7 +20,10 @@ export const secretScenarios: Scenario[] = [
       await newTask(page)
       await send(page, 'Ask me E2E_ASK_SECRET E2E_DELIVERY:secret-chat')
       await page.getByText('ACK E2E_DELIVERY:secret-chat').waitFor()
-      const card = page.locator('[data-tool-call-id]').filter({ hasText: 'E2E_API_KEY' }).last()
+      const card = page
+        .locator('[data-tool-call-id]:visible')
+        .filter({ hasText: 'E2E_API_KEY' })
+        .last()
       const dismiss = card.getByRole('button', { name: 'Dismiss', exact: true })
 
       await dismiss.waitFor()

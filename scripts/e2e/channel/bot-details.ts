@@ -34,7 +34,7 @@ async function shoot(page: Page, name: string) {
 
 /** Replies to the newest post, then scrolls up a little so posts pass under the reply bar (#3553). */
 async function replyAndScroll(page: Page) {
-  const row = page.locator('.group\\/post').last()
+  const row = page.locator('.group\\/post:visible').last()
 
   await row.hover()
   await row.getByRole('button', { name: 'Reply', exact: true }).click()

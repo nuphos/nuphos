@@ -235,7 +235,7 @@ export const tunnelScenarios: Scenario[] = [
         // The turn the restart ended stops running and says it was cut off; the Task carries on.
         await until(
           'the Task to stop running',
-          async () => (await page.locator('button[title="Stop"]').count()) === 0,
+          async () => (await page.locator('button[title="Stop"]:visible').count()) === 0,
           120_000,
         )
         await page.getByText(/This message was cut off/).waitFor({ timeout: 60_000 })

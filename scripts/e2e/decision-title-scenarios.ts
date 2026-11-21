@@ -46,7 +46,7 @@ export const decisionTitleScenarios: Scenario[] = [
         'Delete the staging cluster that has been idle for thirty days, costs forty dollars a day and has no deploys since then?'
 
       await ask(question, 'E2E_DELIVERY:one-line')
-      const card = page.locator(`[data-decision-question="${question}"] h3`)
+      const card = page.locator(`[data-decision-question="${question}"]:visible h3`)
 
       await card.waitFor()
       must(

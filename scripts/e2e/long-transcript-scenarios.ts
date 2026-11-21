@@ -88,7 +88,7 @@ export const longTranscriptScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:long-1').waitFor()
       await page.screenshot({ path: `${artifacts}/long-transcript-after-turn.png` })
       // Page back until the conversation's start is shown: the pager leaves only then.
-      const pager = page.locator('[data-earlier-messages]')
+      const pager = page.locator('[data-earlier-messages]:visible')
       const more = page.getByRole('button', { name: 'Load earlier messages' })
 
       await until('every earlier page to load', async () => {
