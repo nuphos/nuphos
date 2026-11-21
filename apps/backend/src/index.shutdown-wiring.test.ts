@@ -175,6 +175,7 @@ test('loops stop before the drain and storage closes right before exit', () => {
     'shutdownStuckTurnProbe()',
     'stopBotImportCleanup()',
     'stopFreeBoxSweep()',
+    'stopWebhookDelivery()',
     'shutdownJournalSealer()',
     'quiesceAgentWorkers()',
   ]) {
@@ -188,6 +189,11 @@ test('loops stop before the drain and storage closes right before exit', () => {
 
   expect(at('shutdownTelemetry()')).toBeLessThan(closeDb)
   expect(at('shutdownPostHog()')).toBeLessThan(closeDb)
+  // Closing tunnels ends autonomous turns, whose transcript writes must land first.
+  const lastDrain = at('await drainAgentProducers(shutdownBudget.guardFlushMs)')
+
+  expect(lastDrain).toBeGreaterThan(at('await publishRuntimeHandoffs()'))
+  expect(lastDrain).toBeLessThan(closeDb)
   // Nothing may run between closing storage and exiting.
   expect(SHUTDOWN_BODY.slice(closeDb).trim()).toBe('closeDb()])')
 })

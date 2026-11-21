@@ -4,12 +4,8 @@ import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
-import {
-  channelNotice,
-  channelNoticeSender,
-  steerQueuedNotice,
-  steerRunningTurn,
-} from './channel-wake'
+import { channelNotice } from './db/channel-notes'
+import { channelNoticeSender, steerQueuedNotice, steerRunningTurn } from './channel-wake'
 import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
 import { chatName, isChannel } from './db/channels'
@@ -240,22 +236,24 @@ export async function notifyAgent(
   // An agent runs as its owner, so it goes quiet once its owner leaves the team.
   if (!(await getTeamMembership(agent.userId, channel.teamId))) return
   // The title is a member's words, so it travels only in the metadata.
-  const metadata = channelNoticeSender(
-    channel.teamId,
-    channel.sessionId,
-    chatName(channel) || 'Nuphos channel',
-  )
+  const metadata = channelNoticeSender(channel.teamId, channel, wakeName(channel))
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).
-  if (!fromAgent && (await steerRunningTurn(agent, channel.sessionId, metadata))) return
+  if (!fromAgent && (await steerRunningTurn(agent, channel, metadata))) return
   const waiting = (await listPendingUserMessages(agent.userId, sessionId)).find(
     (message) => message.metadata?.sender?.id === metadata.sender.id,
   )
   const queued = waiting?.id ?? (await startNotice(channel, agent, metadata, fromAgent))
 
   // A turn still starting refused the steer above: the post must not wait for its end.
-  if (queued && !fromAgent) steerQueuedNotice(agent, channel.sessionId, metadata, queued)
+  if (queued && !fromAgent) steerQueuedNotice(agent, channel, metadata, queued)
 }
+
+/** What the Bot's own conversation calls the chat that woke it: a Slack channel by its Slack name. */
+export const wakeName = (channel: AgentConversation) =>
+  channel.external === 'slack'
+    ? `Slack #${(channel.title ?? '').replace(/^#/, '')}`
+    : chatName(channel) || 'Nuphos channel'
 
 /** Starts the notice's turn, or queues it: the id of a queued notice. */
 async function startNotice(
@@ -282,7 +280,7 @@ async function startNotice(
     },
     agent,
     // Fixed per channel, so the queue's dedupe keeps one.
-    channelNotice(channel.sessionId),
+    channelNotice(channel),
     'agent.resource',
     metadata,
   )

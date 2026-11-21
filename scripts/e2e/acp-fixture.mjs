@@ -8,15 +8,19 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
-import { askSteps } from './fixture-ask.mjs'
+import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { scriptedUpdates } from './fixture-commands.mjs'
+import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
+import { answerPermission, askPermission } from './fixture-permission.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import {
   call,
   callNamed,
+  instruction,
+  confirmWork,
   personalToken,
   recheck,
+  reportBack,
   reporting,
   setToolsServer,
   subtask,
@@ -38,9 +42,6 @@ const log = (entry) =>
 
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
-// Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
-const asked = new Map()
-let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
 
@@ -95,28 +96,7 @@ async function startThread(sessionId, marker) {
   log({ sessionId, marker, event: refused(change) ? 'thread-mode-refused' : 'thread-mode-changed' })
 }
 
-/** Asks the client to allow a command, as a runtime does before it runs one. */
-async function permission(sessionId, marker) {
-  const id = nextRequest++
-  const answered = new Promise((resolve) => asked.set(id, resolve))
-
-  log({ sessionId, marker, event: 'permission-asked' })
-  send({
-    id,
-    method: 'session/request_permission',
-    params: {
-      sessionId,
-      toolCall: { toolCallId: randomUUID(), title: 'echo e2e', kind: 'execute', status: 'pending' },
-      options: [
-        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-      ],
-    },
-  })
-  const outcome = (await answered)?.outcome
-
-  log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
-}
+const permission = (...args) => askPermission({ send, log }, ...args)
 
 // Sessions whose answer the first agent refuses as out of usage (#3055).
 const late = new Set()
@@ -148,11 +128,17 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
     await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) await ask(sessionId, text)
+  // The turn that says a question's credentials are selected continues; it never asks again.
+  if (!credentialsSelected(log, sessionId, text) && text.includes('E2E_ASK'))
+    await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
-  if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
+  if (channelId) {
+    const ask = (toolCall) => permission(sessionId, marker, toolCall)
+
+    await answerChannel({ call, log, sessionId, channelId, text, ask })
+  }
   if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
     await ask(sessionId, 'preference')
   if (text.includes('E2E_ONBOARDING_COMPLETE')) {
@@ -183,8 +169,12 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
+  if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })
+  if (text.includes('E2E_INSTRUCTION')) await instruction({ log, sessionId, marker })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
   // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
@@ -281,8 +271,7 @@ for await (const line of createInterface({ input: process.stdin })) {
 
   // An answer to a request of this agent's own.
   if (request.method === undefined) {
-    asked.get(request.id)?.(request.result)
-    asked.delete(request.id)
+    answerPermission(request.id, request.result)
     continue
   }
   if (request.method === 'session/cancel') {

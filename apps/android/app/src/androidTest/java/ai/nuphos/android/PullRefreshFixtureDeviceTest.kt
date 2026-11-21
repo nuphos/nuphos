@@ -299,10 +299,11 @@ class PullRefreshFixtureDeviceTest {
         shot("before-light")
         if (InstrumentationRegistry.getArguments().getString("refreshVideo") == "true") Thread.sleep(5000)
         val reads = historyReads()
+        val favorites = pinReads()
         historyTitle = "Fresh history"
         pull(); waitText("Fresh history"); settled(); shot("success-light")
         assertEquals(reads + 1, historyReads())
-        assertEquals("Pins are gone, so favorites are never read", 0, pinReads())
+        assertTrue("Refreshing also reloads the restored favorites", pinReads() > favorites)
         failHistory = true
         pull(); waitText("Could not refresh tasks. Showing last loaded history."); settled()
         shot("failed-retains-light")

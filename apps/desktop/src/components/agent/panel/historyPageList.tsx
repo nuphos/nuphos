@@ -79,11 +79,12 @@ export function HistoryPageList({
   const unreadSessions = useAgentUnreadSessions()
 
   // Rename and Slack pick-up are the owner's (pick-up binds the thread to the
-  // owner's DM); a manager may also archive.
+  // owner's DM). Archive follows the server's canArchive, so a participant can
+  // archive a teammate's Task for themselves alone.
   const isOwn = (conversation: AgentConversation) =>
     historyScope === 'mine' || conversation.isOwner === true
   const canArchive = (conversation: AgentConversation) =>
-    isOwn(conversation) || conversation.canManage === true
+    conversation.canArchive ?? (isOwn(conversation) || conversation.canManage === true)
 
   const openRowMenu = (event: MouseEvent, conversation: AgentConversation) => {
     event.preventDefault()

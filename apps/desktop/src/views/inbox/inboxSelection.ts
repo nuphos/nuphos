@@ -12,7 +12,7 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** Opens a question in the Inbox: picked in the sidebar's list, or moved to with ↑ ↓ or Skip. */
+/** Opens a question in the Inbox: picked in the sidebar's list, or moved to with ↑ ↓, Snooze or Dismiss. */
 export function selectInboxQuestion(teamId: string, id: string) {
   if (selections.get(teamId) === id) return
   selections.set(teamId, id)
