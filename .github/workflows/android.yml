@@ -20,8 +20,15 @@ concurrency:
 jobs:
   android:
     name: Android (tests, lint, APK build)
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     steps:
+      - name: Probe the runner
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
+          ls "${ANDROID_HOME:-/nonexistent}" "${ANDROID_HOME:-/nonexistent}/cmdline-tools" 2>&1 || true
+          java -version 2>&1 || true
+          ls -l /dev/kvm 2>&1 || true
+          nproc; free -g | head -2; df -h / | tail -1; python3 --version; uname -m
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
