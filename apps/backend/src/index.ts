@@ -23,7 +23,7 @@ import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
-import { startReminderSweeper, stopReminderSweeper } from '@/lib/agent/reminder-delivery'
+import { startReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
@@ -122,9 +122,7 @@ await backfillPersonalTokenExpiry()
 installQueuedTurnStarter(startQueuedTurn)
 installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
-if (await initTriggerScheduler()) {
-  logEvent('info', 'backend.trigger_scheduler.ready')
-}
+if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
 if (await initJournalSealer()) {
   logEvent('info', 'backend.journal_sealer.ready')
@@ -226,7 +224,6 @@ async function shutdown(sig: string) {
   shutdownMemoryRetentionRollup()
   conversationAutoArchive.shutdown()
   shutdownStuckTurnProbe()
-  stopReminderSweeper()
   stopBotImportCleanup()
   stopFreeBoxSweep()
   const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
