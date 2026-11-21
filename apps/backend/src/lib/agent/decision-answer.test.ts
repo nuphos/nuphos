@@ -201,7 +201,13 @@ test("a teammate's answer is told apart from the owner's", async () => {
 })
 
 test('a secret or a connection is never answered with text here', async () => {
-  for (const asked of [{ category: 'credential' }, { category: 'integration', providers: ['gcp'] }])
+  for (const asked of [
+    // With no options a credential question asks for the value itself.
+    { category: 'credential', options: undefined },
+    { category: 'credential', secretName: 'API_KEY', options: undefined },
+    { category: 'credential', secretName: 'API_KEY' },
+    { category: 'integration', providers: ['gcp'] },
+  ])
     await expect(
       answerDecision({
         conversation: ask(asked),
@@ -353,6 +359,18 @@ test('credential-category status choices can be answered without entering a secr
     teamId: 't1',
   })
   expect(turns).toHaveLength(1)
+})
+
+test('a credential question with options is answered in words too, as with Other…', async () => {
+  await answerDecision({
+    conversation: ask({ category: 'credential', options: ['Signed in', 'Later'] }),
+    requestId: 'q1',
+    answer: { text: 'Use the other Codex for now' },
+    actor,
+    teamId: 't1',
+  })
+  expect(turns).toHaveLength(1)
+  expect(turns[0]!.text).toContain('Use the other Codex for now')
 })
 
 test('credential status choices cannot smuggle typed text or an unknown choice', async () => {

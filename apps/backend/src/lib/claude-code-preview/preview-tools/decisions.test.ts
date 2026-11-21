@@ -1007,6 +1007,68 @@ describe('decision tool module', () => {
     })
   })
 
+  test('a question answered while the turn runs gives its answer to list, update and withdraw', async () => {
+    const { localQueues, pendingKey } = await import('@/lib/agent/pending-messages')
+    const key = pendingKey(ctx.userId, ctx.sessionId)
+    const notice =
+      'Your question (requestId r1) was answered.\nAnswer:\n- Post it? → Yes, without the mention'
+    const request = {
+      id: 'r1',
+      category: 'approval',
+      question: 'Post it?',
+      askedAt: new Date('2026-01-01'),
+      status: 'open',
+    } as const
+
+    // The answer took the question off the conversation and waits behind the running turn.
+    storedConversation = { inputRequests: [] }
+    localQueues.set(key, [
+      {
+        id: 'm1',
+        renderedText: notice,
+        source: 'agent.resource',
+        receivedAt: new Date().toISOString(),
+        answers: request,
+      },
+    ])
+    try {
+      const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+      const closed = { requestId: 'r1', status: 'closed', notice }
+
+      expect(
+        (await tools.list_user_decisions!({ label: 'List my questions' })).structuredContent,
+      ).toMatchObject({ requests: [], closed: [{ requestId: 'r1', notice }] })
+      const before = conversationUpdates.length
+      const updated = await tools.update_user_decision!({
+        label: 'Fix it',
+        requestId: 'r1',
+        body: 'New draft',
+      })
+
+      expect(updated.isError).toBeFalsy()
+      expect(updated.structuredContent).toMatchObject(closed)
+      const withdrawn = await tools.withdraw_user_decision!({
+        label: 'Withdraw it',
+        requestId: 'r1',
+      })
+
+      expect(withdrawn.isError).toBeFalsy()
+      expect(withdrawn.structuredContent).toMatchObject(closed)
+      expect(conversationUpdates).toHaveLength(before)
+    } finally {
+      localQueues.delete(key)
+    }
+  })
+
+  test('a question that is no longer open, with nothing queued, is not to be asked again', async () => {
+    matchedCount = 0
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    const result = await tools.withdraw_user_decision!({ label: 'Withdraw it', requestId: 'gone' })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('Do not ask it again')
+  })
+
   test('a question names what it is about: a linked resource, never an unknown ref', async () => {
     storedConversation = { sessionId: 'conv-1', linkedResources: [{ id: 'res-1' }] }
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)

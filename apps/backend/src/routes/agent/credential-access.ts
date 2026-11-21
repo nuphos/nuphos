@@ -95,6 +95,13 @@ export async function defaultCredentialAccess(
 ): Promise<AgentCredentialAccess> {
   const options = await getAgentCredentialOptions(teamId, userId)
 
+  return defaultCredentialAccessFromOptions(options, userId)
+}
+
+export function defaultCredentialAccessFromOptions(
+  options: AgentCredentialOptions,
+  userId: string,
+): AgentCredentialAccess {
   return {
     ...allCredentialAccessFromOptions(options, userId, true),
     resendIntegrationIds: [],

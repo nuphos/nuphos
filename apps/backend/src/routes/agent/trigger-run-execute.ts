@@ -208,6 +208,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       isNewConversationPromise,
       ensurePreviewChannelCredentialsSafe({
         selectAllCredentials: channelDefaults,
+        appDefaults: mcpFirstTurn,
         channelOriginated:
           channelDefaults || mcpFirstTurn || Boolean(params.slackReply ?? params.larkReply),
         sessionId,
