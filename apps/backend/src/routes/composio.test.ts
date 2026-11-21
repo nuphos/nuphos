@@ -48,6 +48,9 @@ function collection(rows: Doc[]) {
   return {
     insertOne: (doc: Doc) => Promise.resolve(rows.push(doc)),
     findOne: (filter: Doc) => Promise.resolve(rows.find((doc) => matches(doc, filter)) ?? null),
+    find: (filter: Doc) => ({
+      toArray: () => Promise.resolve(rows.filter((doc) => matches(doc, filter))),
+    }),
     countDocuments: (filter: Doc) =>
       Promise.resolve(rows.filter((doc) => matches(doc, filter)).length),
     findOneAndDelete: (filter: Doc) => {
