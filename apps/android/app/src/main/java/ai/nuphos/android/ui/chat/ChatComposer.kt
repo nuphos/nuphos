@@ -102,6 +102,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -731,18 +732,17 @@ fun ChatComposer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (onChooseAgent != null || agentLabel != null) {
-                            if (lockedHint != null) Box(Modifier.widthIn(max = 175.dp).testTag("bot-composer.runtime").clickable { showLockedHint = true }) {
-                                AgentChip(agent, enabled = false, onClick = {}, labelOverride = agentLabel)
-                            } else AgentChip(agent, enabled = agentEnabled,
-                                onClick = onChooseAgent ?: { showAgentUsage = true }, labelOverride = agentLabel,
-                                modifier = if (botControls) Modifier.widthIn(max = 175.dp).testTag("bot-composer.runtime") else Modifier)
+                            AgentChip(agent, enabled = agentEnabled,
+                                onClick = { if (lockedHint != null) showLockedHint = true else onChooseAgent?.invoke() ?: run { showAgentUsage = true } },
+                                labelOverride = agentLabel,
+                                modifier = if (botControls) Modifier.widthIn(max = 175.dp).alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.runtime") else Modifier)
                         }
                         if (modelSettings != null) {
-                            if (lockedHint != null) Box(Modifier.testTag("bot-composer.model").clickable { showLockedHint = true }) {
-                                FilterChip(selected = modelSettings.pending.isNotEmpty(), enabled = false, onClick = {},
-                                    label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) })
-                            } else FilterChip(selected = modelSettings.pending.isNotEmpty(), onClick = { showModel = true },
-                                modifier = if (botControls) Modifier.testTag("bot-composer.model") else Modifier,
+                            FilterChip(selected = modelSettings.pending.isNotEmpty(),
+                                onClick = { if (lockedHint != null) showLockedHint = true else showModel = true },
+                                modifier = if (botControls) Modifier.alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.model") else Modifier,
                                 label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) })
                         }
                         if (!followsBot) {
