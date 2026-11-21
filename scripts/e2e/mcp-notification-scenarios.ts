@@ -97,6 +97,43 @@ async function completionCount(
 
 export const mcpNotificationScenarios: Scenario[] = [
   {
+    name: 'MCP subscription slots reject excess streams and allow reconnect after disconnect',
+    run: async (_page, stack) => {
+      const { tool } = mcp(client(stack.apiUrl, stack.token))
+      const sessionId = await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp-subscription-limit')
+      const readers = await Promise.all(
+        Array.from({ length: 3 }, () => subscribe(stack, sessionId)),
+      )
+
+      try {
+        const first = await Promise.all(readers.map((reader) => notifications(reader)()))
+        const extra = await fetch(`${stack.apiUrl}/mcp?session_id=${sessionId}`, {
+          headers: { authorization: `Bearer ${stack.token}` },
+        })
+
+        must(
+          extra.status === 429 && extra.headers.get('retry-after') === '5',
+          'the fourth stream to be limited',
+        )
+        await readers[0]!.cancel()
+        let resumed: ReadableStreamDefaultReader<Uint8Array> | undefined
+
+        await until('a disconnected subscription slot to be released', async () => {
+          const response = await fetch(`${stack.apiUrl}/mcp?session_id=${sessionId}`, {
+            headers: { authorization: `Bearer ${stack.token}`, 'Last-Event-ID': first[0]!.id },
+          })
+
+          if (!response.ok || !response.body) return false
+          resumed = response.body.getReader()
+          return true
+        })
+        await resumed?.cancel()
+      } finally {
+        await Promise.all(readers.map((reader) => reader.cancel()))
+      }
+    },
+  },
+  {
     name: 'an MCP client drops SSE mid-turn, resumes by Last-Event-ID, and receives completion once',
     run: async (_page, stack) => {
       const { tool } = mcp(client(stack.apiUrl, stack.token))
