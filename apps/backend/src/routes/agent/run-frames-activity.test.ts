@@ -14,6 +14,7 @@ import { createAgentRun } from './run-registry'
 import type * as dbActual from '@/lib/db'
 
 const bumps: unknown[] = []
+
 beforeEach(() => {
   bumps.length = 0
 })
