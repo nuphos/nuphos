@@ -8,7 +8,6 @@ import { fetchSlackUserName } from '@/lib/slack/user-profile'
 import { slackAgentErrorNotice } from '@/routes/slack/agent-error-notice'
 import { postAgentProducedFiles } from '@/routes/slack/attachments'
 import { postNuphosInteropMessage } from '@/routes/slack/nuphos-interop'
-import { postPlanApprovalCards } from '@/routes/slack/plan-cards'
 import { createSlackReplyToolContext } from '@/routes/slack/reply-tools'
 import { setAssistantStatusSafe } from '@/routes/slack/status'
 import { recordSlackTurnTranscript } from '@/routes/slack/turn'
@@ -30,8 +29,8 @@ export type NuphosSlackTurnDelivery = {
   frameSink: SlackAgentRunSink
   /**
    * Runs after the route's pump has finished (success, stop, or throw):
-   * delivers buffered text, error/stop/pause notices, plan and permission
-   * cards, the thread-transcript record, and produced files. Never throws.
+   * delivers buffered text, error/stop/pause notices, permission cards, the
+   * thread-transcript record, and produced files. Never throws.
    */
   finalize: (outcome: NuphosSlackTurnOutcome) => Promise<void>
 }
@@ -208,16 +207,6 @@ export async function beginNuphosSlackTurn(args: {
             : '_This turn stopped before finishing. Mention me in this thread, or continue it from Nuphos, to pick it back up._',
         )
       }
-      const postedPlanCards = await postPlanApprovalCards({
-        runtime,
-        channel: thread.slackChannelId,
-        threadTs: thread.slackThreadTs,
-        teamId: thread.teamId,
-        agentUserId: args.userId,
-        sessionId: thread.sessionId,
-        plans: slackReply.getCreatedPlans(),
-      })
-
       await setAssistantStatusSafe(
         runtime.botToken,
         thread.slackChannelId,
@@ -228,7 +217,6 @@ export async function beginNuphosSlackTurn(args: {
         threadKey,
         `bot:nuphos:${args.streamId}`,
         sink,
-        postedPlanCards,
       )
     } catch (err) {
       // A Slack delivery failure past this point has nowhere better to go:
