@@ -37,9 +37,12 @@ export const entryPointScenarios: Scenario[] = [
     // update called machines and runtimes "very well hidden".
     name: "the sidebar's workspace menu reaches Computers & runtimes",
     run: async (page, stack) => {
-      // The sidebar's own menu button, which the team's name labels along with
-      // its avatar, so the name alone does not find it.
-      const workspace = page.locator('aside button[aria-haspopup="menu"]').first()
+      // The team's name is in the Bot's row and its menu too; the workspace's
+      // own button is the first of them in the sidebar.
+      const workspace = page
+        .locator('aside')
+        .getByRole('button', { name: await teamName(stack) })
+        .first()
 
       await workspace.waitFor({ timeout: 15_000 })
       must(
@@ -105,10 +108,11 @@ export const entryPointScenarios: Scenario[] = [
         .first()
 
       await row.waitFor({ timeout: 15_000 })
+      // The button shows on hover, which is also what starts the marquee;
+      // #3910 is the click after it landing on the title instead.
+      await row.hover()
       const more = row.getByRole('button', { name: /^More actions for / })
 
-      // The click moves the pointer onto the row first, which is what starts the
-      // marquee; #3910 is this click landing on the title instead.
       await more.click({ timeout: 15_000 })
       await page.getByRole('menu').waitFor({ timeout: 10_000 })
       await page.keyboard.press('Escape')

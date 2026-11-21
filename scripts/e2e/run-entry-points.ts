@@ -32,10 +32,9 @@ try {
   // The Bot introduces itself unprompted, then gets through getting started: a
   // Bot still on it has no Task of its own to open, on purpose.
   await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
-  await send(page, 'Watch the release branch E2E_ASK_CREDENTIAL E2E_DELIVERY:bot')
+  await send(page, 'Confirmed: watch the release branch. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:bot')
   await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
-  await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-  await page.getByText('Getting started', { exact: true }).waitFor({ state: 'hidden' })
+  await page.getByText('Getting started', { exact: true }).first().waitFor({ state: 'hidden' })
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
   await send(page, `${LONG_TASK} E2E_DELIVERY:entry`)
