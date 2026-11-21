@@ -11,7 +11,6 @@ import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedUpdates } from './fixture-commands.mjs'
-import { fileLink } from './fixture-file-link.mjs'
 import { hop, inherit } from './fixture-hop.mjs'
 import {
   call,
@@ -184,7 +183,6 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
-  fileLink({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
