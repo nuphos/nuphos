@@ -33,29 +33,33 @@ export const turnScenarios: Scenario[] = [
   },
   {
     // #4371: a parent ran one turn per Task that reported while it worked, so Stop kept waking it.
+    // Tasks report here with send_message_to_thread: report_task needs Redis, which this stack has
+    // not, and its delivery queues the same agent.thread message on the parent.
     name: 'Tasks that report while their parent works are answered in one turn after Stop',
     run: async (page, stack) => {
       const names = ['a', 'b', 'c']
-      const report = (name: string) =>
-        JSON.stringify({
-          label: 'Report',
-          report_id: `e2e-${name}`,
-          status: 'done',
-          summary: `Done E2E_DELIVERY:report-${name}`,
-        })
-      const delegate = (name: string) =>
-        `E2E_CALL create_thread ${JSON.stringify({
-          label: 'Delegate',
-          title: `E2E reporter ${name}`,
-          prompt: `Report E2E_CALL report_task ${report(name)} E2E_DELIVERY:reporter-${name}`,
-        })}`
-      const reported = () =>
-        agentLog(stack).filter((entry) => entry.event === 'called' && entry.name === 'report_task')
+      const log = () => agentLog(stack)
 
       await newTask(page)
       // The first message names the Task, and a Task's prompt carries its parent's name.
       await send(page, 'Collect reports E2E_DELIVERY:collect')
       await page.getByText('ACK E2E_DELIVERY:collect').waitFor()
+      const parent = log().find((entry) => entry.marker === 'E2E_DELIVERY:collect')!.sessionId
+      const report = (name: string) =>
+        JSON.stringify({
+          label: 'Report',
+          threadId: parent,
+          prompt: `Done E2E_DELIVERY:report-${name}`,
+        })
+      const delegate = (name: string) =>
+        `E2E_CALL create_thread ${JSON.stringify({
+          label: 'Delegate',
+          title: `E2E reporter ${name}`,
+          prompt: `Report E2E_CALL send_message_to_thread ${report(name)} E2E_DELIVERY:reporter-${name}`,
+        })}`
+      const reported = () =>
+        log().filter((entry) => entry.event === 'called' && entry.name === 'send_message_to_thread')
+
       // One E2E_CALL per line, in one message.
       await page
         .getByRole('textbox', { name: 'Message' })
@@ -64,14 +68,18 @@ export const turnScenarios: Scenario[] = [
       await until('every Task to report while its parent works', async () =>
         reported().length >= names.length ? true : undefined,
       )
-      const parent = agentLog(stack).find((entry) => entry.marker === 'E2E_DELIVERY:collecting')
+      const refused = reported().filter((entry) =>
+        JSON.stringify(entry.result).includes('"isError":true'),
+      )
+
+      if (refused.length > 0) throw new Error(`A report was refused: ${JSON.stringify(refused)}`)
       const turns = () =>
-        agentLog(stack).filter(
+        log().filter(
           (entry) =>
-            entry.sessionId === parent?.sessionId &&
+            entry.sessionId === parent &&
             entry.event === 'start' &&
-            names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)) &&
-            entry.marker !== 'E2E_DELIVERY:collecting',
+            entry.marker !== 'E2E_DELIVERY:collecting' &&
+            names.some((name) => entry.markers?.includes(`E2E_DELIVERY:report-${name}`)),
         )
 
       await page.locator('button[title="Stop"]').click()
@@ -92,22 +100,25 @@ export const turnScenarios: Scenario[] = [
       // Each report keeps its own Task as its sender.
       const read = await client(stack.apiUrl, stack.token)(
         'GET',
-        `/agent/conversations/${parent!.sessionId}?teamId=${stack.teamId}`,
+        `/agent/conversations/${parent}?teamId=${stack.teamId}`,
+      )
+      const messages = (read.body as { messages: unknown[] }).messages.map((entry) =>
+        JSON.stringify(entry),
       )
 
       for (const name of names) {
-        const task = agentLog(stack).find(
+        const task = log().find(
           (entry) => entry.marker === `E2E_DELIVERY:reporter-${name}`,
         )?.sessionId
-        const message = (read.body as { messages: unknown[] }).messages
-          .map((entry) => JSON.stringify(entry))
-          .find(
-            (entry) =>
-              entry.includes(`E2E_DELIVERY:report-${name}`) && entry.includes('reported done'),
-          )
+        const sender = new RegExp(`"sender":\\{[^}]*"id":"${task}"`)
 
-        if (!task || !message?.match(new RegExp(`"sender":\\{[^}]*"id":"${task}"`))) {
-          throw new Error(`The report from ${name} lost its sender: ${message ?? 'missing'}`)
+        if (
+          !task ||
+          !messages.some(
+            (entry) => entry.includes(`E2E_DELIVERY:report-${name}`) && sender.test(entry),
+          )
+        ) {
+          throw new Error(`The report from ${name} lost its sender: ${messages.join('\n')}`)
         }
       }
     },
