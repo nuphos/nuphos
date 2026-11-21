@@ -227,8 +227,6 @@ impl Api {
         Ok(v["runtimes"].as_array().cloned().unwrap_or_default())
     }
 
-    /// A Task's Triggers, or with no Task the caller's own (the backend
-    /// returns a bare array of up to 100).
     pub async fn vault_devices(&self) -> Result<Vec<Value>, ApiError> {
         let v = self.call(Method::GET, "/vault/devices", &[], None).await?;
         Ok(v["devices"].as_array().cloned().unwrap_or_default())
@@ -270,6 +268,8 @@ impl Api {
         self.call(Method::DELETE, &format!("/vault/items/{}", name), &[], None).await.map(|_| ())
     }
 
+    /// A Task's Triggers, or with no Task the caller's own (the backend
+    /// returns a bare array of up to 100).
     pub async fn triggers(&self, team: &str, session: Option<&str>) -> Result<Vec<Value>, ApiError> {
         let mut query = vec![("teamId", team)];
         if let Some(session) = session {

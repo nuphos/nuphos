@@ -40,15 +40,19 @@ struct Device {
 }
 
 /// The credential store, or a 0600 file beside `cli.yaml` without one.
-fn device_file(user: &str) -> std::path::PathBuf {
-    config::session_path().with_file_name(format!("vault-{user}.json"))
+/// `user` comes from the backend, so it must stay one plain file name.
+fn device_file(user: &str) -> Result<std::path::PathBuf> {
+    if user.is_empty() || !user.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        bail!("Nuphos returned an unexpected user id");
+    }
+    Ok(config::session_path().with_file_name(format!("vault-{user}.json")))
 }
 
 fn load_device(user: &str) -> Result<Option<Device>> {
     let text = if secret::enabled() {
         secret::imp::get(SERVICE, user)?
     } else {
-        std::fs::read_to_string(device_file(user)).ok()
+        std::fs::read_to_string(device_file(user)?).ok()
     };
     let Some(text) = text else { return Ok(None) };
     let saved: Value = serde_json::from_str(&text).context("reading this device's vault key")?;
@@ -62,7 +66,7 @@ fn save_device(user: &str, device: &Device) -> Result<()> {
     if secret::enabled() {
         secret::imp::set(SERVICE, user, &text)
     } else {
-        config::write_private(&device_file(user), text.as_bytes())
+        config::write_private(&device_file(user)?, text.as_bytes())
     }
 }
 
@@ -70,7 +74,7 @@ fn forget_device(user: &str) -> Result<()> {
     if secret::enabled() {
         secret::imp::delete(SERVICE, user)
     } else {
-        match std::fs::remove_file(device_file(user)) {
+        match std::fs::remove_file(device_file(user)?) {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.into()),
             _ => Ok(()),
         }
@@ -181,7 +185,7 @@ pub async fn enroll(ctx: &Ctx, name: Option<String>) -> Result<()> {
     let devices = ctx.api.vault_devices().await?;
     if let Some(device) = load_device(&ctx.me_id)? {
         if let Some(known) = devices.iter().find(|d| d["id"].as_str() == Some(device.id.as_str())) {
-            return print_enrolled(ctx, known);
+            return print_enrolled(ctx, known, &X25519HkdfSha256::sk_to_pk(&device.key));
         }
         // Removed from the vault elsewhere: start over with a new key.
         forget_device(&ctx.me_id)?;
@@ -190,15 +194,17 @@ pub async fn enroll(ctx: &Ctx, name: Option<String>) -> Result<()> {
     let added = ctx.api.vault_add_device(&name.unwrap_or_else(hostname), &B64.encode(public.to_bytes())).await?;
     let id = added["id"].as_str().ok_or_else(|| anyhow!("Nuphos did not return a device id"))?.to_string();
     save_device(&ctx.me_id, &Device { id, key })?;
-    print_enrolled(ctx, &added)
+    print_enrolled(ctx, &added, &public)
 }
 
-fn print_enrolled(ctx: &Ctx, device: &Value) -> Result<()> {
+/// The fingerprint comes from the key this device holds, never from what the
+/// backend returned, so a swapped key cannot show a matching fingerprint.
+fn print_enrolled(ctx: &Ctx, device: &Value, public: &PublicKey) -> Result<()> {
     if ctx.json {
         ctx.print_json(device);
         return Ok(());
     }
-    let print = fingerprint(&B64.decode(device["publicKey"].as_str().unwrap_or_default())?);
+    let print = fingerprint(&public.to_bytes());
     let id = device["id"].as_str().unwrap_or_default();
     if device["state"] == "enrolled" {
         println!("This device is in your vault ({id}).");

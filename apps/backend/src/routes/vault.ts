@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import {
+  MAX_DEVICES,
+  MAX_ITEMS,
   addVaultDevice,
   approveVaultDevice,
   deleteVaultItem,
@@ -36,8 +38,6 @@ const x25519Key = base64(44).refine((value) => Buffer.from(value, 'base64').leng
 const itemName = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/)
 // A wrapped 32-byte key: HPKE encapsulated key, ciphertext and tag.
 const wrapped = base64(256)
-const MAX_DEVICES = 50
-const MAX_ITEMS = 1000
 
 function nameParam(value: string): string {
   if (!itemName.safeParse(value).success) throw new AppError(404, 'not_found', 'Item not found')

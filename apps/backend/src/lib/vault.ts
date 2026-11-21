@@ -4,10 +4,17 @@
 // does enforce is that every item stays readable by every enrolled device.
 import { randomUUID } from 'node:crypto'
 
+import { MongoServerError } from 'mongodb'
+
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
 
 import type { Collection } from 'mongodb'
+
+export const MAX_DEVICES = 50
+export const MAX_ITEMS = 1000
+/** Longer than any write here takes; a crashed holder frees the vault after it. */
+const LOCK_MS = 30_000
 
 export type VaultDeviceState = 'pending' | 'enrolled'
 
@@ -37,6 +44,37 @@ type VaultItemDoc = {
 
 const devices = (): Collection<VaultDeviceDoc> => db().collection('vault_devices')
 const items = (): Collection<VaultItemDoc> => db().collection('vault_items')
+const locks = (): Collection<{ _id: string; token: string; until: Date }> =>
+  db().collection('vault_locks')
+
+/**
+ * Runs one write of a user's vault at a time. Every write reads the device set
+ * or the item names and then writes against it, so two at once could leave an
+ * item without a key for an enrolled device.
+ */
+async function exclusive<T>(userId: string, body: () => Promise<T>): Promise<T> {
+  const token = randomUUID()
+  const now = new Date()
+
+  try {
+    // Matches only an expired lock; a held one makes the upsert collide on _id.
+    await locks().updateOne(
+      { _id: userId, until: { $lt: now } },
+      { $set: { token, until: new Date(now.getTime() + LOCK_MS) } },
+      { upsert: true },
+    )
+  } catch (error) {
+    if (error instanceof MongoServerError && error.code === 11000) {
+      throw new AppError(409, 'vault_busy', 'Another change to this vault is in progress; retry')
+    }
+    throw error
+  }
+  try {
+    return await body()
+  } finally {
+    await locks().deleteOne({ _id: userId, token })
+  }
+}
 
 export async function setupVaultIndexes(): Promise<void> {
   await Promise.all([
@@ -89,22 +127,27 @@ export async function listVaultDevices(userId: string) {
 }
 
 /** The first device is trusted on first use; any later one waits for an enrolled device. */
-export async function addVaultDevice(userId: string, name: string, publicKey: string) {
-  const first = (await enrolledIds(userId)).length === 0
-  const now = new Date()
-  const doc: VaultDeviceDoc = {
-    _id: randomUUID(),
-    userId,
-    name,
-    publicKey,
-    state: first ? 'enrolled' : 'pending',
-    createdAt: now,
-    ...(first ? { enrolledAt: now } : {}),
-  }
+export function addVaultDevice(userId: string, name: string, publicKey: string) {
+  return exclusive(userId, async () => {
+    if ((await devices().countDocuments({ userId })) >= MAX_DEVICES) {
+      throw new AppError(409, 'vault_device_limit', `A vault holds at most ${MAX_DEVICES} devices`)
+    }
+    const first = (await enrolledIds(userId)).length === 0
+    const now = new Date()
+    const doc: VaultDeviceDoc = {
+      _id: randomUUID(),
+      userId,
+      name,
+      publicKey,
+      state: first ? 'enrolled' : 'pending',
+      createdAt: now,
+      ...(first ? { enrolledAt: now } : {}),
+    }
 
-  await devices().insertOne(doc)
+    await devices().insertOne(doc)
 
-  return deviceView(doc)
+    return deviceView(doc)
+  })
 }
 
 /**
@@ -112,50 +155,71 @@ export async function addVaultDevice(userId: string, name: string, publicKey: st
  * it. Without those keys the device could read nothing, so the backend alone
  * can never enroll one.
  */
-export async function approveVaultDevice(
+export function approveVaultDevice(
   userId: string,
   deviceId: string,
   keys: { name: string; wrapped: string }[],
 ) {
-  const device = await devices().findOne({ _id: deviceId, userId })
+  return exclusive(userId, async () => {
+    const device = await devices().findOne({ _id: deviceId, userId })
 
-  if (!device) throw new AppError(404, 'not_found', 'Device not found')
-  if (device.state !== 'pending') {
-    throw new AppError(409, 'vault_device_enrolled', 'Device is already enrolled')
-  }
-  const names = (await items().find({ userId }).project({ name: 1 }).toArray()).map(
-    (doc) => doc.name as string,
-  )
-
-  if (
-    !coversExactly(
-      keys.map((key) => key.name),
-      names,
+    if (!device) throw new AppError(404, 'not_found', 'Device not found')
+    if (device.state !== 'pending') {
+      throw new AppError(409, 'vault_device_enrolled', 'Device is already enrolled')
+    }
+    const names = (await items().find({ userId }).project({ name: 1 }).toArray()).map(
+      (doc) => doc.name as string,
     )
-  ) {
-    throw new AppError(409, 'vault_items_changed', 'Wrap the key of every vault item, once each')
-  }
-  await Promise.all(
-    keys.map((key) =>
-      items().updateOne(
+
+    if (
+      !coversExactly(
+        keys.map((key) => key.name),
+        names,
+      )
+    ) {
+      throw new AppError(409, 'vault_items_changed', 'Wrap the key of every vault item, once each')
+    }
+    for (const key of keys) {
+      await items().updateOne(
         { userId, name: key.name, 'keys.deviceId': { $ne: deviceId } },
         { $push: { keys: { deviceId, wrapped: key.wrapped } } },
-      ),
-    ),
-  )
-  const enrolledAt = new Date()
+      )
+    }
+    const enrolledAt = new Date()
 
-  await devices().updateOne({ _id: deviceId, userId }, { $set: { state: 'enrolled', enrolledAt } })
+    await devices().updateOne(
+      { _id: deviceId, userId },
+      { $set: { state: 'enrolled', enrolledAt } },
+    )
 
-  return deviceView({ ...device, state: 'enrolled', enrolledAt })
+    return deviceView({ ...device, state: 'enrolled', enrolledAt })
+  })
 }
 
-/** Drops the device and its wrapped keys. Items are not re-keyed. */
-export async function removeVaultDevice(userId: string, deviceId: string): Promise<void> {
-  const { deletedCount } = await devices().deleteOne({ _id: deviceId, userId })
+/**
+ * Drops the device and its wrapped keys. Items are not re-keyed. The last
+ * enrolled device stays while items exist: without it nothing could read them,
+ * and the next device would be trusted on first use.
+ */
+export function removeVaultDevice(userId: string, deviceId: string): Promise<void> {
+  return exclusive(userId, async () => {
+    const device = await devices().findOne({ _id: deviceId, userId })
 
-  if (!deletedCount) throw new AppError(404, 'not_found', 'Device not found')
-  await items().updateMany({ userId }, { $pull: { keys: { deviceId } } })
+    if (!device) throw new AppError(404, 'not_found', 'Device not found')
+    if (
+      device.state === 'enrolled' &&
+      (await enrolledIds(userId)).length === 1 &&
+      (await items().countDocuments({ userId }, { limit: 1 })) > 0
+    ) {
+      throw new AppError(
+        409,
+        'vault_last_device',
+        'Remove the vault items first: this is the only device that can read them',
+      )
+    }
+    await devices().deleteOne({ _id: deviceId, userId })
+    await items().updateMany({ userId }, { $pull: { keys: { deviceId } } })
+  })
 }
 
 export async function listVaultItems(userId: string) {
@@ -176,39 +240,44 @@ export async function getVaultItem(userId: string, name: string) {
   return itemView(doc)
 }
 
-export async function putVaultItem(
-  userId: string,
-  name: string,
-  ciphertext: string,
-  keys: VaultKey[],
-) {
-  if (
-    !coversExactly(
-      keys.map((key) => key.deviceId),
-      await enrolledIds(userId),
+export function putVaultItem(userId: string, name: string, ciphertext: string, keys: VaultKey[]) {
+  return exclusive(userId, async () => {
+    if (
+      !coversExactly(
+        keys.map((key) => key.deviceId),
+        await enrolledIds(userId),
+      )
+    ) {
+      throw new AppError(
+        409,
+        'vault_devices_changed',
+        'Wrap the item key for every enrolled device, once each',
+      )
+    }
+    if (
+      !(await items().countDocuments({ userId, name }, { limit: 1 })) &&
+      (await items().countDocuments({ userId })) >= MAX_ITEMS
+    ) {
+      throw new AppError(409, 'vault_item_limit', `A vault holds at most ${MAX_ITEMS} items`)
+    }
+    const now = new Date()
+    const doc = await items().findOneAndUpdate(
+      { userId, name },
+      {
+        $set: { ciphertext, keys, updatedAt: now },
+        $setOnInsert: { _id: randomUUID(), createdAt: now },
+      },
+      { upsert: true, returnDocument: 'after' },
     )
-  ) {
-    throw new AppError(
-      409,
-      'vault_devices_changed',
-      'Wrap the item key for every enrolled device, once each',
-    )
-  }
-  const now = new Date()
-  const doc = await items().findOneAndUpdate(
-    { userId, name },
-    {
-      $set: { ciphertext, keys, updatedAt: now },
-      $setOnInsert: { _id: randomUUID(), createdAt: now },
-    },
-    { upsert: true, returnDocument: 'after' },
-  )
 
-  return itemView(doc as VaultItemDoc)
+    return itemView(doc as VaultItemDoc)
+  })
 }
 
-export async function deleteVaultItem(userId: string, name: string): Promise<void> {
-  const { deletedCount } = await items().deleteOne({ userId, name })
+export function deleteVaultItem(userId: string, name: string): Promise<void> {
+  return exclusive(userId, async () => {
+    const { deletedCount } = await items().deleteOne({ userId, name })
 
-  if (!deletedCount) throw new AppError(404, 'not_found', 'Item not found')
+    if (!deletedCount) throw new AppError(404, 'not_found', 'Item not found')
+  })
 }
