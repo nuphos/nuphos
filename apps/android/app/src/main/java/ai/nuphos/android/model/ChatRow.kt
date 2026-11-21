@@ -69,7 +69,8 @@ sealed class ChatRow {
             return prompt.takeIf { it.isNotEmpty() }?.let { FailedTurn("interrupted.${reply.id}.${failure.id}", it) }
         }
 
-        private val hiddenTools = setOf("skill")
+        /** Tools the desktop never renders as a row. */
+        private fun isHidden(tool: ChatPart.Tool) = tool.toolName == "skill" || tool.isQuestionCard
 
         /** `presence`: how the conversation's computer stands right now. */
         fun rows(session: ChatSession, presence: ComputerPresence = ComputerPresence.Online): List<ChatRow> = rows(
@@ -177,6 +178,8 @@ sealed class ChatRow {
                 ComputerPresence.Offline -> rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
                 // Sending resumes a paused Box, so nothing points away from it.
                 is ComputerPresence.Paused -> rows += Hint("runtime-paused", Words(R.string.convtext_runtime_paused, presence.label), false)
+                // A starting Box comes online by itself, so nothing points away from it either.
+                is ComputerPresence.Starting -> rows += Hint("runtime-starting", Words(R.string.convtext_runtime_starting, presence.label), false)
                 ComputerPresence.Online -> Unit
             }
             rows += Bottom
@@ -196,7 +199,7 @@ sealed class ChatRow {
                         if (part.text.isNotEmpty()) body += Reasoning("reasoning.${message.id}.$pi", part)
                     }
                     is ChatPart.Tool -> {
-                        if (part.toolName !in hiddenTools) {
+                        if (!isHidden(part)) {
                             body += Tool("tool.${message.id}.${part.toolCallId}", message.id, part, part.toolCallId == lastApprovalCallId)
                         }
                     }

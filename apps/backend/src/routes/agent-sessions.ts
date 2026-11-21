@@ -17,6 +17,7 @@ import {
 } from '@/lib/dashboards/panel-principal'
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
+import { answerMcp } from '@/lib/mcp/http-answer'
 import { calledToolName, fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
@@ -194,11 +195,7 @@ async function serveMcp(
   // Every tool is called on the same path, so the access log needs its name.
   c.set('toolName', calledToolName(payload))
 
-  const { status, body } = await handleMcpHttpPayload(payload, tools, surface)
-
-  if (body === null) return c.body(null, status)
-
-  return c.json(body, status)
+  return answerMcp(c, handleMcpHttpPayload(payload, tools, surface))
 }
 
 // No server->client SSE stream; JSON-response mode only.

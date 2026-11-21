@@ -96,8 +96,12 @@ export function useChatItems({
       picked: avatarPicks.get(conversation.sessionId),
     })
     // A menu rather than a one-click archive: a stray click only opens it.
+    const parent = conversation.parentSessionId && byId.get(conversation.parentSessionId)
     const row = {
       ...item,
+      // A Bot's sub-agents show no status on it when it is folded: only its face says it works.
+      ...(parent &&
+        isBotRow(parent, avatarPicks.get(parent.sessionId)) && { foldedStatus: undefined }),
       ...(pendingReplies.has(conversation.sessionId) && {
         taskState: 'attention' as const,
         finished: false,

@@ -108,7 +108,9 @@ describe('buildSlackHomeViewFromModel', () => {
     expect(text).toContain('arn:aws:iam::1:role/NuphosRole')
     expect(text).toContain('<@B123>')
     expect(text).toContain('nuphos_home_refresh')
-    expect(text).toContain('nuphos_link_channel')
+    // Channels are connected in Nuphos settings, never from Slack (#3702).
+    expect(text).not.toContain('nuphos_link_channel')
+    expect(text).toContain('Nuphos → Settings → Slack')
   })
 
   test('unlinked viewer gets link guidance instead of credentials', () => {
@@ -121,12 +123,11 @@ describe('buildSlackHomeViewFromModel', () => {
 
     expect(text).toContain('Not linked')
     expect(text).toContain('Link your Nuphos account to see which credentials')
-    // Channel linking is admin-only; an unlinked viewer gets no picker.
     expect(text).not.toContain('nuphos_link_channel')
     expect(text).toContain('nuphos_home_refresh')
   })
 
-  test('non-admin members see linked channels but no picker', () => {
+  test('non-admin members see connected channels but no picker', () => {
     const view = buildSlackHomeViewFromModel({
       ...baseModel,
       viewer: { name: 'Jane', email: 'jane@acme.dev', role: 'EDITOR' },

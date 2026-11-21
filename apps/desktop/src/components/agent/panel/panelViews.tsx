@@ -4,12 +4,9 @@ import { useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useStableCallback } from '../../../hooks/useStableCallback'
-import { t } from '../../../i18n'
-import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { cardAsides } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
-import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { ChatColumn } from './ChatColumn'
@@ -52,7 +49,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
-    handleRejectPlan,
     isSidebarMode,
     isTeamAdmin,
     loadEarlierMessages,
@@ -97,22 +93,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
   const fork = useStableCallback(forkConversation)
-  // The backend wakes the agent once the approval completes the plan's gate.
-  const approvePlan = useStableCallback((planId: string) => {
-    if (activeTab?.readOnly) return
-    track('agent_plan_approved', { plan_id: planId, surface: 'inline_card' })
-    void api.agentUpdatePlan(planId, { status: 'approved' }, teamId).catch((err: unknown) => {
-      console.warn('[plan] failed to mark approved', err)
-      toast.apiError(t('Could not approve plan'), err, {
-        fallback: t('The plan was not approved. Please try again.'),
-      })
-    })
-  })
-  const rejectPlan = useStableCallback(
-    (planId: string, reason: string, mode: 'revise' | 'delete') => {
-      void handleRejectPlan(planId, reason, mode, 'the plan')
-    },
-  )
   const editMessage = useMemo(
     () =>
       editableSessionId
@@ -179,7 +159,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
                             .path,
                   openQuestions: c.openQuestions,
-                  onLinkClick: onOpenNuphosLink,
                 }}
               >
                 <TurnSwitchAgentContext.Provider value={turnSwitch}>
@@ -198,9 +177,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       onDockToSidebar={
                         variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
                       }
-                      onStop={stopActive}
-                      onApprovePlan={approvePlan}
-                      onRejectPlan={rejectPlan}
                       activePlanCanAct={activePlanCanAct}
                       onOpenNuphosLink={onOpenNuphosLink}
                       onOpenAgentSettings={onOpenAgentSettings}

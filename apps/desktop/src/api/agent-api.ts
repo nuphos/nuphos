@@ -14,7 +14,6 @@ import type {
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
-import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
@@ -129,6 +128,8 @@ export const agentApi = {
   ) => window.api.agentSetConversationAvatar(sessionId, avatar, teamId, background),
   agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
     window.api.agentUploadConversationAvatar(sessionId, image, teamId),
+  agentSetBotInstructions: (sessionId: string, instructions: string, teamId?: string) =>
+    window.api.agentSetBotInstructions(sessionId, instructions, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
   agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>
@@ -244,8 +245,6 @@ export const agentApi = {
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),
-  agentUpdatePlan: (planId: string, patch: PlanUpdatePatch, teamId?: string) =>
-    window.api.agentUpdatePlan(planId, patch, teamId),
   agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
   agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
     window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),

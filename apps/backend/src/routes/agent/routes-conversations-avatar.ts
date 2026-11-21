@@ -4,9 +4,15 @@ import { z } from 'zod'
 
 import { BOT_AVATAR_BACKGROUNDS, BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
 import { startBotOnboarding } from '@/lib/agent/bot-onboarding'
+import { botInstructions } from '@/lib/agent/bot-instructions'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
-import { claimBotAvatar, getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
+import {
+  claimBotAvatar,
+  getReadableConversation,
+  setConversationAvatar,
+  updateBotSelf,
+} from '@/lib/agent/db'
 import { leaveChats } from '@/lib/agent/db/bot-membership'
 import { systemSender } from '@/lib/agent/message-metadata'
 import {
@@ -60,6 +66,29 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   if (body.data.avatar === null) await leaveChats(sessionId)
 
   return c.json({ avatar, ...(background ? { background } : {}) })
+})
+
+const instructionsBody = z
+  .object({ instructions: botInstructions, teamId: z.string().optional() })
+  .strict()
+
+// The owner rewrites a Bot's standing instructions in Bot details, as the Bot does with
+// `update_self`: the same field and limits. They are in the system prompt the Bot's
+// runtime session reads when it opens.
+agent.patch('/conversations/:sessionId/instructions', async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const body = instructionsBody.safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success)
+    throw new AppError(400, 'invalid_request', 'Instructions must be at most 8000 characters')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
+  const { instructions } = body.data
+
+  if (!(await updateBotSelf(sessionId, userId, teamId, { instructions })))
+    throw new AppError(404, 'not_found', 'Bot not found')
+
+  return c.json({ instructions })
 })
 
 // The owner gives a Bot a photo for a face. Like the PATCH above, it never makes a Task a Bot.

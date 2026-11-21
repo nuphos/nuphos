@@ -31,4 +31,6 @@ export const sessionAccessApi = {
     ipcRenderer.invoke('agent:removeConversationParticipant', sessionId, teamId, userId),
   agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
     ipcRenderer.invoke('agent:uploadConversationAvatar', sessionId, image, teamId),
+  agentSetBotInstructions: (sessionId: string, instructions: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:setBotInstructions', sessionId, instructions, teamId),
 }

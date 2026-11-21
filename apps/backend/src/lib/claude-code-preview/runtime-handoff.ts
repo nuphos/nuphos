@@ -6,6 +6,7 @@ import { getActiveAgentRunForSession } from '@/lib/agent/run-store/ownership'
 import { backfillRunIndexes, sweepAbandonedAgentRuns } from '@/lib/agent/run-store/run-index'
 import { ownerKey } from '@/lib/agent/run-store/shared'
 import { sweepQueuedSessions } from '@/lib/agent/session-released'
+import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
@@ -31,6 +32,7 @@ export type { RuntimeHandoff } from './runtime-handoff-store'
 
 const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
+const OFFLINE_RETRY_DELAY_MS = 10_000
 /** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
 const RUNTIME_STATE_PROBE_MS = 1_000
 const RUNTIME_OWNED_PHASES = new Set([
@@ -192,8 +194,9 @@ export async function adoptRuntimeHandoffs(
   if (isShuttingDown()) return
   for (const handoff of await claimRuntimeHandoffs()) {
     await adopt(handoff).catch(async (error: unknown) => {
-      const attempts = (handoff.attempts ?? 0) + 1
-      const retry = attempts < MAX_ADOPT_ATTEMPTS
+      const offline = error instanceof AppError && error.code === 'runtime_offline'
+      const attempts = (handoff.attempts ?? 0) + (offline ? 0 : 1)
+      const retry = offline || attempts < MAX_ADOPT_ATTEMPTS
 
       logError('agent.runtime_handoff.adopt_failed', error, {
         team_id: handoff.teamId,
@@ -203,7 +206,15 @@ export async function adoptRuntimeHandoffs(
       })
       if (retry)
         await withRedis((redis) =>
-          redis.hsetnx(HANDOFFS_KEY, field(handoff), JSON.stringify({ ...handoff, attempts })),
+          redis.hsetnx(
+            HANDOFFS_KEY,
+            field(handoff),
+            JSON.stringify({
+              ...handoff,
+              attempts,
+              ...(offline ? { retryAfter: Date.now() + OFFLINE_RETRY_DELAY_MS } : {}),
+            }),
+          ),
         )
     })
   }

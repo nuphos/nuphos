@@ -87,7 +87,7 @@ useDb({
   })) as unknown as typeof dbActual.db,
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async (id) =>
     deleted && id === 'target'
       ? null

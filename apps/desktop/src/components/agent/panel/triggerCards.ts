@@ -1,6 +1,7 @@
 import { t } from '../../../i18n/index.ts'
 
 import type { Part, ToolPart } from './parts.ts'
+import type { AgentTrigger } from '../../../api/agent-trigger-types.ts'
 
 const OBJECT_ID = /^[\da-f]{24}$/i
 const ID_FIELD = /"id"\s*:\s*"([\da-f]{24})"/i
@@ -86,6 +87,11 @@ export function triggerCardInfo(part: ToolPart): TriggerCardInfo | null {
 
 export function isTriggerCardPart(part: Part): boolean {
   return part.type === 'tool' && triggerCardInfo(part) !== null
+}
+
+/** Why Nuphos paused the trigger, when it did; otherwise how to resume it. */
+export function pausedNote(trigger: AgentTrigger): string {
+  return trigger.executionAuthorizationError ?? t('Paused. Turn it on to resume its runs.')
 }
 
 function startOfDay(date: Date): number {

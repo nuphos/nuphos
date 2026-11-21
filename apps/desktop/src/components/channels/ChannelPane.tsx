@@ -248,8 +248,7 @@ export function ChannelPane({
             </ChatColumn>
           </HeaderEdge>
           <ChatColumn>
-            {/* Inset past the faces on both sides, so the reply bar and the composer
-            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
+            {/* Inset the composer past the faces on both sides. */}
             <div
               ref={setComposer}
               className="relative px-[2.375rem]"
@@ -257,8 +256,8 @@ export function ChannelPane({
                 if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
               }}
             >
-              {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
               <Composer
+                aboveStatus={replying && <ReplyingBanner reply={replying} onCancel={setReplying} />}
                 onSend={send}
                 onStop={() => {}}
                 readOnly={detail?.readOnly === true}
@@ -290,6 +289,7 @@ export function ChannelPane({
             onEdited={refresh}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenNuphosLink}
+            onEditTrigger={(text) => setRestore({ text, nonce: Date.now() })}
             credentials={questions.credentials}
           />
         )}

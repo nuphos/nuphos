@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { parseChoiceRequest, parseSecretRequest } from '../agent/panel/connectCardModel.ts'
+import {
+  parseChoiceRequest,
+  parseConnectRequest,
+  parseSecretRequest,
+} from '../agent/panel/connectCardModel.ts'
 
 import { botChatQuestion } from './botChatQuestion.ts'
 
@@ -115,4 +119,42 @@ test('every open question the Inbox lists is answered on its card', () => {
     assert.ok(question.part.input && typeof question.part.input === 'object')
   }
   assert.equal(botChatQuestion(request({ category: 'integration', options: ['A'] })).typed, true)
+  // A credential question with options also takes words, with Other… (#4029).
+  assert.equal(
+    botChatQuestion(request({ category: 'credential', options: ['Signed in', 'Not now'] })).typed,
+    true,
+  )
+})
+
+test("a question for the member's own Gmail is its Connect card, never words the server refuses", () => {
+  const gmail = request({
+    category: 'integration',
+    question: 'Connect your Gmail so the support bot can read support@ mail',
+    credentials: [{ provider: 'personal', id: 'gmail' }],
+  })
+  const question = botChatQuestion(gmail, true)
+
+  assert.deepEqual(parseConnectRequest(question.part.input), {
+    providers: ['gmail'],
+    reason: 'Connect your Gmail so the support bot can read support@ mail',
+    personal: true,
+  })
+  assert.equal(parseChoiceRequest(question.part.input), null)
+  assert.equal(question.typed, false)
+  assert.equal(question.answerable, true)
+  // Without the asking conversation's picker, the card is only shown.
+  assert.equal(botChatQuestion(gmail).answerable, false)
+})
+
+test('a connection this app has no card for offers no words or option either', () => {
+  for (const fields of [
+    { providers: ['slack'] },
+    { providers: ['slack'], options: ['Done', 'Skip'] },
+    { providers: ['github'], credentials: [{ provider: 'personal', id: 'github' }] },
+  ] as Partial<AgentInputRequest>[]) {
+    const question = botChatQuestion(request({ category: 'integration', ...fields }), true)
+
+    assert.equal(question.typed, false, JSON.stringify(fields))
+    assert.equal(question.answerable, false, JSON.stringify(fields))
+  }
 })

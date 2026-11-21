@@ -1013,6 +1013,20 @@ impl AdapterRouter {
                         .clone()
                         .ok_or_else(|| anyhow::anyhow!("no session"))?;
                     let (mut rx, request_id) = conn.session_prompt(content_blocks).await?;
+                    // The settings the session reported when it opened (or last changed) go
+                    // up with every turn, so a client shows what this session runs while
+                    // the turn is still going, not only once it ends (#3789).
+                    if platform_is_acp && !conn.config_options.is_empty() {
+                        let _ = adapter
+                            .forward_agent_update(
+                                &thread_channel,
+                                serde_json::json!({
+                                    "sessionUpdate": "config_option_update",
+                                    "configOptions": conn.config_options,
+                                }),
+                            )
+                            .await;
+                    }
                     if assistant_status {
                         let _ = adapter.set_status(&thread_channel, "Thinking…").await;
                     } else {
@@ -1356,7 +1370,12 @@ impl AdapterRouter {
                             {
                                 if matches!(
                                     update.get("sessionUpdate").and_then(|v| v.as_str()),
-                                    Some("agent_thought_chunk" | "tool_call" | "tool_call_update")
+                                    Some(
+                                        "agent_thought_chunk"
+                                            | "tool_call"
+                                            | "tool_call_update"
+                                            | "config_option_update"
+                                    )
                                 ) {
                                     let _ = adapter
                                         .forward_agent_update(&thread_channel, update.clone())

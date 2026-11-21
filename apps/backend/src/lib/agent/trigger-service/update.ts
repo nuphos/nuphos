@@ -7,7 +7,13 @@ import { changedBy, writeTrigger } from '../trigger-history'
 import { scheduleCronTrigger, unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { assertTriggerCreationQuota } from './quota'
-import { findManagedTrigger, parseTriggerId, serializeTrigger, validateMinInterval } from './shared'
+import {
+  findManagedTrigger,
+  parseTriggerId,
+  serializeTrigger,
+  validateExpiresAt,
+  validateMinInterval,
+} from './shared'
 import { rollbackTriggerUpdate } from './update-rollback'
 
 import type { TriggerActor } from '../trigger-access'
@@ -16,7 +22,7 @@ import type { SerializedTrigger, UpdateTriggerPatch } from './shared'
 import type { UpdateFilter } from 'mongodb'
 
 /**
- * Patch name / messageTemplate / enabled / cronExpression. The MongoDB write
+ * Patch name / messageTemplate / enabled / cronExpression / expiresAt. The MongoDB write
  * owns the revision fence; scheduler side effects run only after it succeeds
  * and the row is rolled back if reconciliation fails.
  */
@@ -84,8 +90,16 @@ export async function updateTrigger(
     patch.minIntervalSeconds !== undefined &&
     patch.minIntervalSeconds !== trigger.minIntervalSeconds
   const enabledChanged = nextEnabled !== trigger.enabled
+  const expiresAtChanged =
+    patch.expiresAt !== undefined && patch.expiresAt?.getTime() !== trigger.expiresAt?.getTime()
   const substantiveChanged =
-    messageTemplateChanged || cronChanged || timeZoneChanged || minIntervalChanged
+    messageTemplateChanged ||
+    cronChanged ||
+    timeZoneChanged ||
+    minIntervalChanged ||
+    expiresAtChanged
+
+  if (expiresAtChanged && patch.expiresAt) validateExpiresAt(patch.expiresAt)
 
   if (!nameChanged && !enabledChanged && !substantiveChanged) {
     return serializeTrigger(trigger)
@@ -99,6 +113,7 @@ export async function updateTrigger(
     ...(cronChanged && nextCronExpression ? { cronExpression: nextCronExpression } : {}),
     ...(timeZoneChanged ? { timeZone: nextTimeZone } : {}),
     ...(minIntervalChanged ? { minIntervalSeconds: patch.minIntervalSeconds } : {}),
+    ...(expiresAtChanged && patch.expiresAt ? { expiresAt: patch.expiresAt } : {}),
   }
   const currentConfigRevision = trigger.configRevision ?? 0
   const updated: AgentTrigger = {
@@ -106,6 +121,8 @@ export async function updateTrigger(
     ...$set,
     configRevision: currentConfigRevision + 1,
   }
+
+  if (expiresAtChanged && patch.expiresAt === null) delete updated.expiresAt
 
   // Re-assert the revision in the same write, so an update that raced another
   // edit or a deletion cannot apply on top of it.
@@ -116,6 +133,7 @@ export async function updateTrigger(
   if (cronChanged || timeZoneChanged || enabledChanged) $unset.missedRunAt = true
   // The reason it was paused for, which its owner has now acted on.
   if (enabledChanged && nextEnabled) $unset.executionAuthorizationError = true
+  if (expiresAtChanged && patch.expiresAt === null) $unset.expiresAt = true
   if (Object.keys($unset).length > 0) {
     update.$unset = $unset
   }

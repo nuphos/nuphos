@@ -56,14 +56,14 @@ async function mount(node: ReturnType<typeof createElement>) {
 const access = () => createElement(BotAccessSection, { credentials, owned: true })
 
 test('the choose-access banner opens Bot details at the Access section', async () => {
-  setBotDetailsOpen(false)
+  setBotDetailsOpen('bot', false)
   // Drawn without being asked for, the section stays where it is.
   const quiet = await mount(access())
 
   assert.deepEqual(scrolled, [])
   await quiet.unmount()
 
-  const banner = await mount(createElement(ChooseAccessBanner))
+  const banner = await mount(createElement(ChooseAccessBanner, { bot: 'bot' }))
   const choose = [...banner.container.querySelectorAll('button')].find(
     (button) => button.textContent === 'Choose',
   )

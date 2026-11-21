@@ -178,7 +178,7 @@ test('a signed-out agent runtime opens the sign-in card instead of a stream fail
   const event = agentReauthenticationEvent({
     errorCode: 'runtime_auth_required',
     errorText:
-      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.',
+      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message.',
   })
 
   assert.equal(event?.type, 'agent-setup-required')
