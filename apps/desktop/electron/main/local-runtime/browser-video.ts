@@ -46,37 +46,13 @@ const screenshot =
       .then((shot) => (shot as { data?: string }).data)
 
 /** Desktop captures its tab with capturePage, which a hidden window answers when CDP does not. */
-export const diag: string[] = []
-const t0 = Date.now()
-const mark = (s: string) => diag.push(`${String(Date.now() - t0)}:${s}`)
 export const snapshotOf = (tab: RecordedTab): Snapshot =>
   tab.capturePage
-    ? () => {
-        const at = Date.now()
-        if (diag.some((d) => d.includes('start-snapshot none'))) {
-          mark('invalidate')
-          ;(tab as unknown as { invalidate?: () => void }).invalidate?.()
-        }
-        void within(
-          (tab as unknown as { executeJavaScript: (s: string) => Promise<string> })
-            .executeJavaScript('document.visibilityState + "," + String(document.hasFocus())')
-            .catch((e: unknown) => `threw ${String(e)}`),
-          1_000,
-          () => 'timeout',
-        ).then((v) => mark(`vis=${v}`))
-        mark(`cap-begin ${String((globalThis as { __tabState?: () => string }).__tabState?.() ?? '')}`)
+    ? () =>
         // Called on the tab itself: WebContents methods need their `this`.
-        return tab.capturePage!().then(
-          (image) => {
-            mark(`cap-${image.isEmpty() ? 'empty' : 'ok'} ${String(Date.now() - at)}ms`)
-            return image.isEmpty() ? undefined : image.toJPEG(70).toString('base64')
-          },
-          (e: unknown) => {
-            mark(`cap-threw ${String(e)}`)
-            throw e
-          },
+        tab.capturePage!().then((image) =>
+          image.isEmpty() ? undefined : image.toJPEG(70).toString('base64'),
         )
-      }
     : screenshot(tab.debugger)
 
 /** By default a video ends after 2 minutes or 100 MB of frames, whichever comes first. */
@@ -101,16 +77,6 @@ const within = <T>(work: Promise<T>, ms: number, fallback: () => T | Promise<T>)
     }),
   ]).finally(() => clearTimeout(timer))
 }
-
-/** How far the helper got with the frames it was sent, for an error that says why a video failed. */
-const progressOf = async (video: Video) =>
-  String(
-    await within(
-      video.helper.evaluate('JSON.stringify(progress)').catch(() => 'no answer'),
-      2_000,
-      () => 'no answer',
-    ),
-  )
 
 // Each frame is encoded at the time it arrived, given by the host: a helper page that runs late,
 // as a headless one may, still gives the video its real timing. finish encodes the last frame
@@ -186,8 +152,6 @@ export async function startVideo(
   limits = LIMITS,
   snapshot = screenshot(debug),
 ): Promise<Video> {
-  diag.length = 0
-  mark('start')
   const helper = await open()
   const video: Video = {
     debugger: debug,
@@ -221,7 +185,6 @@ export async function startVideo(
       () => undefined,
     )
 
-    mark(`start-snapshot ${data ? 'data' : 'none'}`)
     if (data) draw(video, data, 0)
     debug.on('message', video.onMessage)
     await debug.sendCommand('Page.startScreencast', {
@@ -276,7 +239,6 @@ function draw(video: Video, jpeg: string, ms: number): void {
 /** Ends the video and writes it to `file`; returns what `record_stop` reports of it. */
 export async function stopVideo(video: Video, file: string) {
   clearTimeout(video.expiry)
-  mark(`stop frames=${String(video.frames)}`)
   stopFrames(video)
   try {
     const ms = Date.now() - video.started
@@ -292,19 +254,21 @@ export async function stopVideo(video: Video, file: string) {
       if (still) draw(video, still, 0)
     }
     const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
-      throw new Error(`The video did not finish in 15 s (${await progressOf(video)}).`)
+      const progress = await within(
+        video.helper.evaluate('JSON.stringify(progress)'),
+        2_000,
+        () => 'no answer',
+      )
+
+      throw new Error(`The video did not finish in 15 s (${String(progress)}).`)
     })
-    console.error(`[4305] ${diag.join(' | ')}`)
     const chunks = JSON.parse(finished as string) as {
       ms: number
       key: boolean
       data: string
     }[]
 
-    if (!chunks.length)
-      throw new Error(
-        `No frame of the tab was recorded (${String(video.frames)} sent, ${await progressOf(video)}) DIAG ${diag.join(' | ')}.`,
-      )
+    if (!chunks.length) throw new Error('No frame of the tab was recorded.')
     const bytes = webm(
       chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
       SIZE,

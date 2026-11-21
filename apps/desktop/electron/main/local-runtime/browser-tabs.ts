@@ -48,16 +48,6 @@ const VIEWPORT = { width: 1440, height: 900 }
  * is shown it (`show`). The page is the window's own: a hidden window paints it
  * for a capture, where a view inside one has nothing to capture.
  */
-const readied = new WeakSet<BrowserWindow>()
-const ev = new WeakMap<BrowserWindow, string[]>()
-const te = Date.now()
-;(globalThis as { __tabState?: () => string }).__tabState = () =>
-  [...tabs]
-    .map(
-      ([c, t]) =>
-        `#${String(c.id)} vis=${String(t.window.isVisible())} ready=${String(readied.has(t.window))} ev=${(ev.get(t.window) ?? []).join('/')} op=${String(t.window.getOpacity())} thr=${String(c.getBackgroundThrottling())} min=${String(t.window.isMinimized())} load=${String(c.isLoading())}`,
-    )
-    .join(',')
 const tabs = new Map<
   WebContents,
   { conversation: string; window: BrowserWindow; opener?: WebContents }
@@ -79,21 +69,11 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window, opener })
-  const log: string[] = []
-  ev.set(window, log)
-  const at = (e: string) => log.push(`${e}@${String(Date.now() - te)}`)
-  at('new')
-  for (const e of ['show', 'hide', 'ready-to-show'] as const) window.on(e as 'show', () => at(e))
-  contents.on('did-stop-loading', () => at('stop'))
-  contents.on('render-process-gone', () => at('gone'))
   // Its downloads are saved with no save dialog, which the agent could not answer.
   saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    readied.add(window)
-    window.setOpacity(1)
-  })
+  // Never shown just to hide again: a window flashed this way may never paint, so its page can
+  // never be captured (#4305).
+  window.once('ready-to-show', () => window.setOpacity(1))
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
@@ -290,18 +270,14 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }
   if (call.action === 'record_stop') {
-    // Throttled again only once stopped: the stop captures a still page, which a hidden window
-    // may never paint while throttled.
-    try {
-      return text(
-        await stopRecording(contents, {
-          dir: path.join(app.getPath('userData'), 'har'),
-          creator: { name: 'Nuphos Desktop', version: app.getVersion() },
-        }),
-      )
-    } finally {
-      if (!contents.isDestroyed()) contents.setBackgroundThrottling(true)
-    }
+    contents.setBackgroundThrottling(true)
+
+    return text(
+      await stopRecording(contents, {
+        dir: path.join(app.getPath('userData'), 'har'),
+        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+      }),
+    )
   }
   const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 
