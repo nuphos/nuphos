@@ -69,23 +69,32 @@ export async function migrateTeamPlanApprovalPolicies(now = new Date()): Promise
   if (teams.size === 0) return raised
   for (const connection of await databaseConnections().find({}).toArray()) {
     const team = teams.get(String(connection.teamId))
-    const current = connection.changeApprovalPolicy
+    // A connection saved without a policy has always needed one approval.
+    const current = connection.changeApprovalPolicy ?? { minimumApprovals: 1, version: 1 }
 
-    if (!team || team.minimumOtherApprovals <= (current?.minimumApprovals ?? 0)) continue
-    await databaseConnections().updateOne(
-      { _id: connection._id },
+    if (!team || team.minimumOtherApprovals <= current.minimumApprovals) continue
+    // Writes only over the policy it read, so a concurrent boot or admin edit wins.
+    const result = await databaseConnections().updateOne(
+      connection.changeApprovalPolicy
+        ? {
+            _id: connection._id,
+            'changeApprovalPolicy.version': current.version,
+            'changeApprovalPolicy.minimumApprovals': current.minimumApprovals,
+          }
+        : { _id: connection._id, changeApprovalPolicy: { $exists: false } },
       {
         $set: {
           changeApprovalPolicy: {
             minimumApprovals: team.minimumOtherApprovals,
-            version: current?.version ?? 1,
+            version: current.version,
             updatedAt: now,
             updatedBy: team.updatedBy,
           },
         },
       },
     )
-    raised++
+
+    raised += result.modifiedCount
   }
   await planApprovalPolicies().updateMany(unmigrated, { $set: { migratedAt: now } })
   if (raised > 0) logEvent('info', 'backend.migration.database_change_policies_raised', { raised })

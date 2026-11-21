@@ -38,12 +38,16 @@ beforeEach(async () => {
     changeApprovalPolicy: policy(1),
   })
   await connections.insertOne({ _id: 'no-policy', teamId: 'team-c' })
+  await connections.insertOne({ _id: 'one', teamId: 'team-d' })
   await memory
     .collection('plan_approval_policies')
     .insertOne({ _id: 'team-a', minimumOtherApprovals: 2, updatedBy: 'team-admin' })
   await memory
     .collection('plan_approval_policies')
     .insertOne({ _id: 'team-b', minimumOtherApprovals: 0, updatedBy: 'team-admin' })
+  await memory
+    .collection('plan_approval_policies')
+    .insertOne({ _id: 'team-d', minimumOtherApprovals: 1, updatedBy: 'team-admin' })
 })
 
 test('each connection keeps the larger of its own and its team minimum', async () => {
@@ -54,6 +58,7 @@ test('each connection keeps the larger of its own and its team minimum', async (
     higher: 3,
     'other-team': 1,
     'no-policy': undefined,
+    one: undefined,
   })
   const lower = await memory.collection('database_connections').findOne({ _id: 'lower' })
 
@@ -76,4 +81,43 @@ test('a policy an admin lowers after the migration stays lowered', async () => {
 
   expect(await migrateTeamPlanApprovalPolicies()).toBe(0)
   expect((await minimums()).unset).toBe(0)
+})
+
+test('a connection without a stored policy keeps needing one approval', async () => {
+  const { changeApprovalPolicy } = await import('@/routes/database-connections/shared')
+  const one = await memory.collection('database_connections').findOne({ _id: 'one' })
+
+  await migrateTeamPlanApprovalPolicies()
+  expect(changeApprovalPolicy(one as never).minimumApprovals).toBe(1)
+})
+
+test('a policy changed after the migration read it is not overwritten', async () => {
+  const real = memory
+  const connections = () => real.collection('database_connections')
+
+  // An admin saves a new policy between the migration's read and its write.
+  memory = {
+    collection: (name: string) =>
+      name !== 'database_connections'
+        ? real.collection(name)
+        : {
+            ...connections(),
+            find: () => ({
+              toArray: async () => {
+                const rows = structuredClone(await connections().find({}).toArray())
+
+                await connections().updateOne(
+                  { _id: 'lower' },
+                  { $set: { changeApprovalPolicy: { minimumApprovals: 0, version: 5 } } },
+                )
+
+                return rows
+              },
+            }),
+          },
+  } as typeof real
+
+  expect(await migrateTeamPlanApprovalPolicies()).toBe(1)
+  memory = real
+  expect((await minimums()).lower).toBe(0)
 })
