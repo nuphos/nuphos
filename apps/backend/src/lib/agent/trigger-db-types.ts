@@ -66,6 +66,8 @@ export type AgentTrigger = {
    * are user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
+  /** Task archive epoch in which this Trigger was created. */
+  archiveEpoch?: number
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.
