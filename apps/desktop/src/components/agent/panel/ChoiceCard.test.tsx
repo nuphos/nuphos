@@ -207,16 +207,16 @@ test('a single- and a multi-select question are one option row: multiSelect only
     },
     dismiss: () => Promise.resolve(false),
   }
-  const render = (multiSelect: boolean, questions?: DecisionQuestion[]) =>
+  const render = (multiSelect: boolean, questions?: DecisionQuestion[], category = 'preference') =>
     act(() =>
       root.render(
         createElement(
           ConnectCardContext.Provider,
           { value: ctx },
           createElement(ChoiceCard, {
-            key: `${String(multiSelect)}${String(questions?.length)}`,
+            key: `${String(multiSelect)}${String(questions?.length)}${category}`,
             toolCallId: 'q1',
-            category: 'preference',
+            category,
             question: 'Which regions first?',
             options: ['us-east', 'eu-west', 'ap-northeast'],
             multiSelect,
@@ -240,6 +240,10 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.equal(container.querySelector('input'), null)
     await click('eu-west')
     assert.deepEqual(answers, [{ choices: ['eu-west'] }])
+
+    // A credential question with options is the same row, "Other…" too (#4029).
+    await render(false, undefined, 'credential')
+    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss'])
 
     await render(true)
     // The same row of pills, with Send for the picks at its end.

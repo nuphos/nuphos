@@ -292,6 +292,16 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        #if DEBUG
+        // DEBUG: `-page inbox` opens a page that does not load the workspace. Only the
+        // Agent page calls `loadTeams()`, and the Inbox lists nothing until a team is
+        // selected, so the shortcut would show an Inbox that stays empty. It used to be
+        // filled by a launch cache another UI test suite had left behind.
+        .task {
+            guard Self.initialPage == .inbox, let store, store.selectedTeam == nil else { return }
+            await store.loadTeams()
+        }
+        #endif
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }

@@ -8,7 +8,10 @@ import type { Run } from '../sidebar/bot-activity.ts'
 
 /** What a run is doing right now, as specific as its runtime says. */
 export type Step =
-  { kind: 'command'; command: string } | { kind: 'tool'; title: string } | { kind: 'thinking' }
+  | { kind: 'command'; command: string }
+  | { kind: 'tool'; title: string }
+  | { kind: 'plan'; title: string }
+  | { kind: 'thinking' }
 
 /**
  * What a Bot's chat says the Bot is doing, from the same reading as its row in
@@ -32,6 +35,8 @@ export function stepOf(runtimeState: RuntimeExecution | undefined): Step {
   const tool = tools.find((item) => RUNNING.has(item.status ?? '') && item.title)
 
   if (tool?.title) return { kind: 'tool', title: oneLine(tool.title) }
+  if (runtimeState?.phase === 'plan' && runtimeState.label)
+    return { kind: 'plan', title: runtimeState.label }
 
   return { kind: 'thinking' }
 }

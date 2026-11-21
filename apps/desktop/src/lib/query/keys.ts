@@ -17,6 +17,9 @@ export const queryKeys = {
   credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  /** A Task's transcript as last read, so it opens without a read first. */
+  task: (teamId: string, sessionId: string) =>
+    [...queryKeys.team(teamId), 'task', sessionId] as const,
   /** The computers in a team the viewer manages: they sign those computers' agents in. */
   managedComputers: (teamId: string) => [...queryKeys.team(teamId), 'managed-computers'] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,

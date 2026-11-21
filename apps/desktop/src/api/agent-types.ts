@@ -82,6 +82,8 @@ export type ChannelFace = {
 }
 
 export type AgentConversation = {
+  /** A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270). */
+  tasks?: { running: number; waiting: number }
   /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
   waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
