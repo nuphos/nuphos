@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
@@ -177,6 +178,7 @@ const scenarios: Scenario[] = [
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
+  ...computerUpdateScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
