@@ -92,10 +92,6 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   // like a background tab, so an idle tab costs no battery.
   window.once('ready-to-show', () => {
     readied.add(window)
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
     window.setOpacity(1)
   })
   extensionHost()?.extensions.addTab(contents, window)
