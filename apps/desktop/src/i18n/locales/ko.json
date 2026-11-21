@@ -5491,6 +5491,8 @@
   "instabox account": "instabox 계정",
   "instabox: {label}": "instabox: {label}",
   "it changed since you reviewed it; import it again to review the new files": "검토 후 변경됨. 새 파일을 검토하려면 다시 가져오세요",
+  "it has over 1,000 files, over 5,000 entries or folders nested over 6 deep; nothing was imported": "파일이 1,000개, 항목이 5,000개를 넘거나 폴더가 6단계보다 깊음, 아무것도 가져오지 않음",
+  "it is larger than the 28 MB a conversation can load; nothing was imported": "대화에서 불러올 수 있는 28MB보다 큼, 아무것도 가져오지 않음",
   "it is no longer on this computer": "이 컴퓨터에 더 이상 없음",
   "it links outside its folder and waits for your review": "폴더 밖을 가리키며 검토를 기다리는 중",
   "just now": "방금",

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, truncateSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, before, describe, it, mock } from 'node:test'
@@ -57,6 +57,15 @@ before(async () => {
     writeSkill('.claude/skills', name, { 'SKILL.md': `---\ndescription: ${name}\n---\n` })
   }
   writeSkill('.agents/skills', 'deploy', { 'SKILL.md': '---\ndescription: codex\n---\n' })
+  // Sparse files: the sizes the walk reports without writing megabytes to disk.
+  writeSkill('.claude/skills', 'assets', { 'SKILL.md': 'x', 'hero.mp4': '' })
+  truncateSync(path.join(home, '.claude/skills/assets/hero.mp4'), 16_000_000)
+  writeSkill('.claude/skills', 'huge', { 'SKILL.md': 'x' })
+  for (let part = 0; part < 4; part += 1) {
+    writeSkill('.claude/skills', 'huge', { [`p${String(part)}.png`]: '' })
+    truncateSync(path.join(home, `.claude/skills/huge/p${String(part)}.png`), 8_000_000)
+  }
+  writeSkill('.claude/skills', 'deep', { 'SKILL.md': 'x', 'a/b/c/d/e/f/g/notes.md': 'deep' })
   store.set('skills/taken/SKILL.md', 1)
   ;({ importLocalSkills } = await import('./local-skill-import.ts'))
   ;({ listLocalSkills } = await import('./local-skills.ts'))
@@ -104,5 +113,29 @@ describe('importLocalSkills', () => {
     assert.deepEqual(outcomes[0]?.keys, ['skills/deploy/SKILL.md'])
     assert.ok(!store.has('skills/stale/SKILL.md'))
     assert.ok(store.has('skills/last/SKILL.md'))
+  })
+
+  it('names the files it leaves out, and refuses a skill it could only import in part', async () => {
+    const deep = (await listLocalSkills()).find((skill) => skill.id === 'claude/deep')
+
+    assert.equal(deep?.truncated, true)
+    const outcomes = await importLocalSkills('t1', 'personal', [
+      await pick('claude/assets'),
+      await pick('claude/huge'),
+      await pick('claude/deep'),
+    ])
+
+    assert.deepEqual(
+      outcomes.map((outcome) => [outcome.id, outcome.status, outcome.reason, outcome.tooLarge]),
+      [
+        ['claude/assets', 'imported', undefined, ['hero.mp4']],
+        // Past what the runtime loads, it would break every skill in the store.
+        ['claude/huge', 'skipped', 'too_large', []],
+        // A folder below the depth cap was never read.
+        ['claude/deep', 'skipped', 'incomplete', []],
+      ],
+    )
+    assert.deepEqual(outcomes[0]?.keys, ['skills/assets/SKILL.md'])
+    assert.ok(![...store.keys()].some((key) => /^skills\/(huge|deep)\//u.test(key)))
   })
 })
