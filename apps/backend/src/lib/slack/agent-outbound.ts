@@ -7,6 +7,10 @@ import {
 import { defaultDependencies } from '@/lib/slack/agent-outbound/default-dependencies'
 import { createListSlackDestinations } from '@/lib/slack/agent-outbound/list-destinations'
 import { createSlackOutboundPost } from '@/lib/slack/agent-outbound/post'
+import {
+  createSlackOutboundMembers,
+  createSlackOutboundRead,
+} from '@/lib/slack/agent-outbound/read'
 
 import type {
   SlackOutboundContext,
@@ -62,5 +66,7 @@ export async function createSlackOutboundContext(
       resolveAccess,
     }),
     post: createSlackOutboundPost({ args, dependencies, resolveAccess }),
+    read: createSlackOutboundRead({ args, dependencies, resolveAccess }),
+    members: createSlackOutboundMembers({ args, dependencies, resolveAccess }),
   }
 }

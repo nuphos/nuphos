@@ -1,6 +1,6 @@
 import { call } from '../atlas/client.ts'
 
-import { callJson, teamQuery } from './http'
+import { callJson, callJsonForRenderer, teamQuery } from './http'
 
 export async function renameConversation(
   sessionId: string,
@@ -28,6 +28,20 @@ export async function setConversationAvatar(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/avatar${teamQuery(teamId)}`,
     background ? { avatar, background } : { avatar },
+  )
+}
+
+/** The owner rewrites a Bot's standing instructions; empty clears them. */
+export async function setBotInstructions(
+  sessionId: string,
+  instructions: string,
+  teamId?: string,
+): Promise<{ instructions: string }> {
+  // A refusal's reason shows under the field, so its code has to survive IPC.
+  return callJsonForRenderer(
+    'PATCH',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/instructions${teamQuery(teamId)}`,
+    { instructions },
   )
 }
 

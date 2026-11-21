@@ -1,53 +1,47 @@
-// OpenCode (1.19) retries a provider's refusal inside the open prompt and sends nothing
-// over ACP, so a turn OpenCode Zen refuses ("Free usage limit reached") never ends. Its
-// own log is the only place the refusal shows.
-import { closeSync, openSync, readSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+// OpenCode can retry a free-tier refusal inside an open prompt without another ACP update.
+// Its loopback status endpoint gives the session-specific retry reason without parsing logs.
+import { randomBytes } from 'node:crypto'
+import { createServer } from 'node:net'
 
-// Enough of the log for the lines one turn writes.
-const TAIL_BYTES = 64 * 1024
+export function openCodeStatusRefusal(status, sessionId) {
+  const entry = status?.[sessionId]
 
-function tail(file) {
-  const fd = openSync(file, 'r')
-  try {
-    const { size } = statSync(file)
-    const length = Math.min(size, TAIL_BYTES)
-    const buffer = Buffer.alloc(length)
-    readSync(fd, buffer, 0, length, size - length)
-    return buffer.toString('utf8')
-  } finally {
-    closeSync(fd)
-  }
+  if (entry?.type !== 'retry') return undefined
+  if (
+    entry.action?.reason !== 'free_tier_limit' &&
+    !/^free usage limit reached\b/i.test(entry.message ?? '')
+  )
+    return undefined
+  return typeof entry.message === 'string' && entry.message.trim() ? entry.message : undefined
 }
 
-/**
- * Why OpenCode cannot answer this session's turn, when it logged since `since` that the
- * provider refused it for good: a usage limit, which retrying does not get past.
- * Undefined while the turn may still be answered.
- */
-export function openCodeRefusal(dataHome, sessionId, since) {
-  const dir = join(dataHome, 'opencode', 'log')
-  let newest
+/** Choose a loopback port and a fresh password for one OpenCode process. */
+export async function openCodeEndpoint() {
+  const server = createServer()
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const port = server.address().port
+  await new Promise((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve())),
+  )
+  return { port, password: randomBytes(24).toString('hex') }
+}
+
+/** An unavailable or malformed endpoint is not a reason to end a turn. */
+export async function openCodeRefusal(endpoint, sessionId, directory) {
   try {
-    newest = readdirSync(dir)
-      .filter((name) => name.endsWith('.log'))
-      .map((name) => ({ file: join(dir, name), at: statSync(join(dir, name)).mtimeMs }))
-      .sort((a, b) => b.at - a.at)[0]?.file
+    const query = directory ? `?directory=${encodeURIComponent(directory)}` : ''
+    const response = await fetch(`http://127.0.0.1:${endpoint.port}/session/status${query}`, {
+      headers: {
+        Authorization: `Basic ${Buffer.from(`opencode:${endpoint.password}`).toString('base64')}`,
+      },
+      signal: AbortSignal.timeout(1500),
+    })
+    if (!response.ok) return undefined
+    return openCodeStatusRefusal(await response.json(), sessionId)
   } catch {
     return undefined
   }
-  if (!newest) return undefined
-  for (const line of tail(newest).split('\n').reverse()) {
-    // The turn's own request, not its title's (small=true).
-    if (
-      !line.includes('message="stream error"') ||
-      !line.includes(` session.id=${sessionId} `) ||
-      !line.includes(' small=false ')
-    )
-      continue
-    if (!(Date.parse(/^timestamp=(\S+)/u.exec(line)?.[1] ?? '') >= since)) return undefined
-    const error = /error\.error="((?:[^"\\]|\\.)*)"/u.exec(line)?.[1]
-    if (error && /usage limit/iu.test(error)) return error.replace(/^\w*Error: /u, '')
-  }
-  return undefined
 }

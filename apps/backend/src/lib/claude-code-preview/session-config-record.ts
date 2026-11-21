@@ -15,7 +15,11 @@ export type QueuedAttachment = ConversationPreviewAttachment & {
   pendingSessionConfig?: RuntimeDefaults
 }
 
-/** A session's settings as the chip reads them. Scoped to the session id, so a newer session's are never overwritten. */
+/**
+ * A session's settings as the chip reads them. Scoped to the session id, so a newer
+ * session's are never overwritten, and written only when they changed: a session
+ * reports them with every turn (#3789).
+ */
 export async function storeSessionConfig(
   conversationId: string,
   teamId: string | undefined,
@@ -24,7 +28,12 @@ export async function storeSessionConfig(
   by: SettingsChangeBy,
 ) {
   await updateConversationSettings(
-    { sessionId: conversationId, teamId, 'claudeCodePreview.openabSessionId': openabSessionId },
+    {
+      sessionId: conversationId,
+      teamId,
+      'claudeCodePreview.openabSessionId': openabSessionId,
+      'claudeCodePreview.sessionConfig': { $ne: options },
+    },
     { $set: { 'claudeCodePreview.sessionConfig': options } },
     by,
   )

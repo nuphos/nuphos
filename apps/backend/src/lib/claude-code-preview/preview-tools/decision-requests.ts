@@ -36,7 +36,24 @@ type RequestFollowUp = {
   questions?: DecisionQuestion[]
 }
 
-const NOT_OPEN = 'No open question has this requestId; the user may have answered it already.'
+const NOT_OPEN =
+  'No open question has this requestId: it was answered, dismissed or withdrawn. Any answer or dismissal reaches you as a message. Do not ask it again.'
+const CLOSED =
+  'The person already answered or dismissed this question; `notice` is what they said. Act on it now and do not ask it again. The same notice also arrives as a message after this turn.'
+
+/**
+ * A question answered while this turn runs: its answer waits behind the turn,
+ * so the agent gets it here instead of a question that seems lost.
+ */
+async function closedNotice(ctx: PreviewToolContext, requestId: string) {
+  const notice = (await queuedAnswers(requestOwner(ctx), ctx.sessionId)).get(
+    requestId,
+  )?.renderedText
+
+  return notice === undefined
+    ? undefined
+    : toolResult({ requestId, status: 'closed', notice, note: CLOSED })
+}
 
 /** The agent lists, corrects or withdraws the questions it asked while the user has not answered them. */
 const requestFollowUps = {
@@ -46,21 +63,34 @@ const requestFollowUps = {
     if (Object.keys(patch).length === 0)
       return toolError('Pass question, body, options, multiSelect or questions to change.')
 
-    return (await updateInputRequest(ctx.sessionId, requestOwner(ctx), requestId, patch))
-      ? toolResult({ ok: true, requestId, status: 'updated' })
-      : toolError(NOT_OPEN)
+    return (
+      (await closedNotice(ctx, requestId)) ??
+      ((await updateInputRequest(ctx.sessionId, requestOwner(ctx), requestId, patch))
+        ? toolResult({ ok: true, requestId, status: 'updated' })
+        : toolError(NOT_OPEN))
+    )
   },
   withdraw_user_decision: async (ctx: PreviewToolContext, { requestId }: RequestFollowUp) =>
-    (await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
+    (await closedNotice(ctx, requestId)) ??
+    ((await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
-      : toolError(NOT_OPEN),
+      : toolError(NOT_OPEN)),
   list_user_decisions: async (ctx: PreviewToolContext) => {
     const owner = requestOwner(ctx)
-    // An answer waiting behind a running turn already settles its question.
-    const answering = new Set((await queuedAnswers(owner, ctx.sessionId)).keys())
-    const open = await listOpenInputRequests(ctx.sessionId, owner, answering)
+    // An answer waiting behind a running turn already settles its question: it is listed with that answer.
+    const answers = await queuedAnswers(owner, ctx.sessionId)
+    const open = await listOpenInputRequests(ctx.sessionId, owner, new Set(answers.keys()))
 
     return toolResult({
+      ...(answers.size
+        ? {
+            closed: [...answers].map(([requestId, { renderedText }]) => ({
+              requestId,
+              notice: renderedText,
+            })),
+            note: CLOSED,
+          }
+        : {}),
       requests: open.map(({ id, category, question, options, about, askedAt, snoozedUntil }) => ({
         requestId: id,
         category,

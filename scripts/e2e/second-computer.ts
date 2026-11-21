@@ -23,11 +23,14 @@ export async function startSecondComputer(
     runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
     stagedUpdate = '',
     env: extra = {},
+    prepare,
   }: {
     apiUrl?: string
     runtimeDir?: string
     stagedUpdate?: string
     env?: Record<string, string>
+    /** Runs on the computer's home and its agent home before the host starts. */
+    prepare?: (home: string, agentHome: string) => void
   } = {},
 ) {
   const deviceId = randomUUID()
@@ -46,6 +49,7 @@ export async function startSecondComputer(
     join(agentHome, 'device-identity.json'),
     JSON.stringify({ deviceId, label, createdAt: new Date().toISOString() }),
   )
+  prepare?.(home, agentHome)
   execFileSync(
     'bun',
     [

@@ -1,5 +1,5 @@
 <resources>
-    <string name="welcome_title">Te damos la bienvenida a Nuphos</string>
+    <string name="chat_bot_settings_owner_only">Solo el propietario puede cambiar la configuración del modelo.</string>
     <string name="welcome_body">Inicia sesión o crea una cuenta.</string>
     <string name="sign_in">Iniciar sesión</string>
     <string name="signing_in">Iniciando sesión…</string>

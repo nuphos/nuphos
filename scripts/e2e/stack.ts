@@ -1,14 +1,16 @@
 // The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
-// ACP agent in place of a model. Nothing here talks to the internet.
+// ACP agent in place of a model and fakes for what it calls out to. Nothing reaches the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
+import { backendEnv } from './backend-env.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
+import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
+import { startWebhookReceiver } from './webhook-receiver.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
@@ -34,6 +36,8 @@ export type Stack = {
   restartAgentHost: (whileDown?: () => Promise<void>, jobs?: string) => Promise<void>
   /** Freezes OpenAB and its agents, so its sockets stay open and nothing answers, runs `whileFrozen`, then lets them go on. */
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
+  /** Stops the backend and starts it again on the same address and database, as a deploy does. */
+  restartBackend: () => Promise<void>
   /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
   freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
@@ -62,7 +66,7 @@ function onPath(command: string): boolean {
 }
 
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
-function startMongo(freePort: number): string {
+export function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
   const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
@@ -77,7 +81,6 @@ function startMongo(freePort: number): string {
   } else {
     // Kernel 6.19+: let glibc own rseq, as deploy/compose does (SERVER-121912).
     const run = ['docker', 'run', '--rm', '-e', 'GLIBC_TUNABLES=glibc.pthread.rseq=1']
-
     // The same port inside and out, so the replica set's one member is the address we dial.
     const publish = ['-p', `127.0.0.1:${port}:${port}`]
 
@@ -88,7 +91,7 @@ function startMongo(freePort: number): string {
 }
 
 /** The backend needs transactions, so a lone mongod becomes a one-member replica set. */
-function initiateReplicaSet(uri: string): boolean {
+export function initiateReplicaSet(uri: string): boolean {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1], { serverSelectionTimeoutMS: 1000 }).connect()
@@ -136,11 +139,11 @@ export async function startStack(
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
-  // Cloud computers and Slack too: only what a scenario puts in them exists.
   const fakes = {
     ...(await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
+    ...(await startWebhookReceiver()),
   }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))
@@ -206,36 +209,20 @@ export async function startStack(
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
-  const backend = spawn('backend', ['bun', 'run', 'src/index.ts'], {
-    cwd: BACKEND_DIR,
-    env: {
-      NODE_ENV: 'development',
-      PORT: String(backendPort),
-      NUPHOS_JWT_SECRET: 'local-e2e-jwt-secret-not-a-production-credential',
-      MONGODB_URI: mongoUri,
-      MONGODB_DB: 'nuphos_e2e',
-      ATLAS_REDIS_ENABLED: 'false',
-      NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
-      NUPHOS_LOCAL_STACK: 'true',
-      // Cloudflare is never reached: a scenario answers for it on this redirect.
-      CLOUDFLARE_OAUTH_CLIENT_ID: 'e2e-cloudflare-client',
-      CLOUDFLARE_OAUTH_CLIENT_SECRET: 'e2e-cloudflare-secret-not-a-production-credential',
-      CLOUDFLARE_OAUTH_SETUP_REDIRECT: `${apiUrl}/cloudflare-app/setup`,
-      // GitLab: a scenario serves the instance on this computer and answers its redirect.
-      GITLAB_OAUTH_SETUP_REDIRECT: `${apiUrl}/gitlab-app/setup`,
-      GITLAB_TOKEN_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWdpdGxhYi1rZXktbm90LXByb2R1Y3Q=',
-      OUTBOUND_ALLOW_PRIVATE_HOSTS: 'true',
-      // Seals two-factor secrets (sealers.mfa).
-      LINODE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLWxpbm9kZS1rZXktbm90LXByb2R1Y3Q=',
-      SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
-      // Where the agent reaches the backend's tools, as a runtime on this computer would.
-      NUPHOS_BACKEND_URL: apiUrl,
-      ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
-      ...fakes,
-    },
-  })
+  const startBackend = () =>
+    spawn('backend', ['bun', 'run', 'src/index.ts'], {
+      cwd: BACKEND_DIR,
+      env: {
+        ...backendEnv(backendPort, apiUrl, mongoUri),
+        ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
+        ...fakes,
+      },
+    })
+  const backendReady = () =>
+    until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
+  const backends = [startBackend()]
 
-  await until('the backend to be ready', async () => (await fetch(`${apiUrl}/health/ready`)).ok)
+  await backendReady()
 
   const email = `e2e-${String(Date.now())}@example.com`
   let token = ''
@@ -291,7 +278,12 @@ export async function startStack(
     offerDefaultStandIn,
     restartAgentHost,
     freezeAgentHost: (whileFrozen) => frozen(agentHosts.at(-1)!, whileFrozen),
-    freezeBackend: (whileFrozen) => frozen(backend, whileFrozen),
+    restartBackend: async () => {
+      await stop(backends.at(-1)!)
+      backends.push(startBackend())
+      await backendReady()
+    },
+    freezeBackend: (whileFrozen) => frozen(backends.at(-1)!, whileFrozen),
     cloudflareState: () => cloudflareState(mongoUri),
   }
 }

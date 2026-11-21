@@ -47,9 +47,6 @@ export type ChannelFields = {
   meeting?: { botId: string; botName: string; url: string; endedAt?: Date }
 }
 
-/** The sender id a channel notice carries, which also picks its instructions. */
-export const CHANNEL_SENDER_PREFIX = 'channel:'
-
 export function isChannel(conversation: ChannelFields | null | undefined): boolean {
   return conversation?.kind === 'channel'
 }
@@ -60,7 +57,10 @@ export function assertNotChannel(conversation: ChannelFields | null | undefined)
     throw new AppError(409, 'channel_conversation', 'A channel has no agent of its own to run')
 }
 
-/** Adding a session leaves it as it was, and only a Bot is added. */
+/**
+ * Adding a session leaves it as it was, and only a Bot is added. Never to a
+ * Slack channel's record (#3702): its one Bot is set by its owner's choice alone.
+ */
 export async function addChannelAgent(
   channelId: string,
   agentSessionId: string,
@@ -68,7 +68,7 @@ export async function addChannelAgent(
   await assertBot(agentSessionId)
 
   return agentConversations().findOneAndUpdate(
-    { sessionId: channelId, kind: 'channel' },
+    { sessionId: channelId, kind: 'channel', external: { $exists: false } },
     { $addToSet: { agentSessionIds: agentSessionId } },
     { returnDocument: 'after' },
   )
