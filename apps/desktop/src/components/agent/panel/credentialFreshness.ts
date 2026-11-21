@@ -1,10 +1,9 @@
+import type { IdentityKey } from './personalIdentity.ts'
+
 import type { AgentCredentialSelection } from '../../../api'
 
 // teamIdentity is who the agent acts as, not an option that can be new.
-type SelectionKey = Exclude<
-  keyof AgentCredentialSelection,
-  'teamIdentity' | 'personalCredentialIds'
->
+type SelectionKey = Exclude<keyof AgentCredentialSelection, IdentityKey>
 
 /** Options present in `available` that were not there when the selection was last saved. */
 export function unseenCredentials(
@@ -24,7 +23,10 @@ export function unseenCredentials(
 }
 
 export function hasUnseenCredentials(unseen: AgentCredentialSelection | undefined): boolean {
-  return unseen !== undefined && Object.values(unseen).some((ids) => ids.length > 0)
+  return (
+    unseen !== undefined &&
+    Object.values(unseen).some((ids) => Array.isArray(ids) && ids.length > 0)
+  )
 }
 
 export function debounced(fn: () => void, ms: number): { trigger: () => void; cancel: () => void } {
