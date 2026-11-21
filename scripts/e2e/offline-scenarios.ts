@@ -6,7 +6,7 @@ import { instaboxMachines } from './instabox-stub.ts'
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
 import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -24,8 +24,7 @@ export const offlineScenarios: Scenario[] = [
       await send(page, 'Before the laptop E2E_DELIVERY:before-offline')
       await page.getByText('ACK E2E_DELIVERY:before-offline').waitFor()
       await page.getByRole('button', { name: /^Runtime:/ }).click()
-      await page.getByRole('menu').getByText(LAPTOP).first().click()
-      await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+      await pickInRow(page, LAPTOP, /Claude Code/)
       await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
       goOffline()
       const banner = page.getByRole('status').filter({ hasText: `${LAPTOP} is offline.` })
@@ -33,11 +32,7 @@ export const offlineScenarios: Scenario[] = [
       await banner.waitFor()
       await page.screenshot({ path: join(artifacts, 'offline-banner.png') })
       await banner.getByRole('button', { name: 'Switch runtime' }).click()
-      await page.getByRole('menu').getByText('E2E fixture agent').click()
-      await pickInSubmenu(
-        page,
-        page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }),
-      )
+      await pickInRow(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
       await until('the banner to leave', async () => (await banner.count()) === 0)
       await send(page, 'After the laptop E2E_DELIVERY:after-offline')
       await page.getByText('ACK E2E_DELIVERY:after-offline').waitFor()
@@ -56,8 +51,7 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-disk')
         await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInRow(page, LAPTOP, /Claude Code/)
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
@@ -121,8 +115,7 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-box-disk')
         await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(BOX).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInRow(page, BOX, /Claude Code/)
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
@@ -181,8 +174,7 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-outdated')
         await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInRow(page, LAPTOP, /Claude Code/)
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page
           .getByRole('status')
@@ -274,11 +266,7 @@ export const offlineScenarios: Scenario[] = [
           return true
         })
         await page.screenshot({ path: join(artifacts, 'disk-shared-meter.png') })
-        await page.getByRole('menu').getByText(MATE_LAPTOP).first().click()
-        await page
-          .getByRole('menuitem', { name: /Claude Code/ })
-          .last()
-          .click()
+        await pickInRow(page, MATE_LAPTOP, /Claude Code/)
         // A teammate's computer asks first: its owner can see the work.
         await page.getByRole('button', { name: 'Move', exact: true }).click()
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
