@@ -21,6 +21,7 @@ import { expireTriggers } from './trigger-service/read'
 export { buildBullMQConnection } from './trigger-scheduler-setup'
 
 const EXPIRY_SWEEP_JOB = 'expire-triggers'
+const HELD_FLUSH_JOB = 'flush-held-deliveries'
 
 let _queue: Queue | undefined
 let _worker: Worker | undefined
@@ -71,6 +72,15 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
           return
         }
+        if (job.name === HELD_FLUSH_JOB) {
+          const { flushHeldDeliveries } = await import('./trigger-held-flush')
+
+          const { triggerId } = job.data as { triggerId: string }
+
+          await flushHeldDeliveries(triggerId, (delayMs) => enqueueHeldFlush(triggerId, delayMs))
+
+          return
+        }
         if (job.name === EXPIRY_SWEEP_JOB) {
           const expired = await expireTriggers()
 
@@ -99,7 +109,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
   _worker.on('failed', (job, err) => {
     void whoseJob(job?.data).then((owner) =>
-      logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }),
+      { logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }); },
     )
     if (job?.name === 'task-report') {
       void import('./task-reports')
@@ -221,6 +231,18 @@ export async function scheduleCronTrigger(
 ): Promise<void> {
   if (!_queue) return
   await _upsertJobScheduler(triggerId, cronExpression, timeZone)
+}
+
+/** One delayed flush per Trigger: a second hold inside the same window joins the first. */
+export async function enqueueHeldFlush(triggerId: string, delayMs: number): Promise<boolean> {
+  if (!_queue) return false
+  await _queue.add(
+    HELD_FLUSH_JOB,
+    { triggerId },
+    { jobId: `flush-${triggerId}`, delay: delayMs, removeOnComplete: true, removeOnFail: 50 },
+  )
+
+  return true
 }
 
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
