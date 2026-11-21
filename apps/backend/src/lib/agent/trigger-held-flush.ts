@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { agentTriggers } from './trigger-db'
 import { fireTrigger } from './trigger-executor'
@@ -22,6 +22,9 @@ export async function flushHeldDeliveries(
 
     return
   }
+  const deliveries = (claim.payload as { coalesced?: number } | undefined)?.coalesced ?? 1
+
+  logEvent('info', 'webhook.held_fired', { trigger_id: triggerId, deliveries })
   const { run } = await fireTrigger(trigger, claim.payload, { runKind: 'webhook' })
 
   void run.catch((err: unknown) => {
