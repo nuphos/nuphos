@@ -174,7 +174,6 @@ async function slackPost(
   quote: MessageMetadata['replyTo'],
 ) {
   if (files.length > 0) throw new Error('Files cannot be posted to a Slack channel yet.')
-  if (!quote) throw new Error('Choose the Slack message to answer using replyTo.')
   // Lazy so importing this does not pull in the Slack client.
   const { postToSlack } = await import('@/lib/slack/external-chat-post')
 
