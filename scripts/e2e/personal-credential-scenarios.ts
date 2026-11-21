@@ -166,9 +166,9 @@ export const personalCredentialScenarios: Scenario[] = [
     },
   },
   {
-    // #4034: `nuphos_ask` stores lists for the opt-in kinds and no team-wide key, which the
-    // backend reads as every one. The picker showed such a kind unticked.
-    name: 'a Task started with nuphos_ask shows its unset team-wide credentials ticked',
+    // #4034: older Tasks can have no team-wide key, which the backend reads as every one.
+    // New MCP Tasks now store app defaults (#4259), so recreate the older stored state.
+    name: 'a Task with an unset team-wide credential shows it ticked',
     run: async (page, stack) => {
       const owner = client(stack.apiUrl, stack.token)
       const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
@@ -189,8 +189,22 @@ export const personalCredentialScenarios: Scenario[] = [
       )
 
       try {
-        await askOverMcp(mcp(owner).tool, stack.teamId, marker)
-        must(selected(stack, userId) === 'null', 'nuphos_ask to leave the key unset')
+        const taskId = await askOverMcp(mcp(owner).tool, stack.teamId, marker)
+        const unset = inDatabase(
+          stack,
+          `const conversations = db.collection('agent_conversations')
+          const result = await conversations.updateOne(
+            { sessionId: process.argv[2] },
+            { $unset: { 'credentialAccess.personalCredentialIds': '' } },
+          )
+          const task = await conversations.findOne({ sessionId: process.argv[2] })
+          console.log(JSON.stringify(result.matchedCount === 1 &&
+            !Object.hasOwn(task?.credentialAccess ?? {}, 'personalCredentialIds')))`,
+          taskId,
+        )
+
+        must(unset === 'true', 'the Task to have no Personal Credential key')
+
         await page.reload()
         await page.getByRole('tab', { name: 'Tasks' }).click()
         await page.getByText(prompt(marker), { exact: true }).first().click()
