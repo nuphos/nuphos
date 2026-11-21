@@ -124,7 +124,6 @@ export async function listOwnLocalRuntimes(
       // added agent appears once signed in; until then only its sign-in reaches it).
       const known = new Map<string, RegisteredAgent>()
       const registered = new Set((device.agents ?? []).map(registryKey))
-      // One removed while the computer was offline stays gone until the computer deletes it.
       const seen = [...(device.agents ?? []), ...reportedAgents(presence?.status)].filter(
         (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
       )
@@ -163,7 +162,6 @@ export async function listOwnLocalRuntimes(
               ...(shared ? { shared: { level: 'full' as const } } : {}),
               ...(instanceId ? { instanceId } : {}),
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
-              // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
