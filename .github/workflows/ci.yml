@@ -222,7 +222,8 @@ jobs:
   ios:
     name: iOS (simulator build)
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
+    # Each PR in the merge queue already passed this; a Mac is too scarce to build it twice.
+    if: github.event_name != 'merge_group' && needs.changes.outputs.ios == 'true'
     # Same Xcode as release-ios.yml.
     runs-on: xcode-27
     env:
@@ -462,14 +463,16 @@ jobs:
     name: Desktop against a real backend
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
+    # Not in the merge queue: each PR already passed it, and one flaky run there ejects
+    # the PR and rebuilds every group behind it.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
-    # openab source misses that cache until it lands on main, here and in the merge
-    # group, and compiling openab adds about 6 minutes.
+    # openab source misses that cache until it lands on main, and compiling openab
+    # adds about 6 minutes.
     timeout-minutes: 50
     permissions:
       contents: read
@@ -653,7 +656,8 @@ jobs:
     # On schedule `changes` is skipped; !cancelled() keeps this job running.
     if: >-
       ${{ !cancelled() && (github.event_name == 'schedule' ||
-      (needs.changes.outputs.desktop == 'true' && needs.changes.outputs.desktop_package == 'true')) }}
+      (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
+      needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
