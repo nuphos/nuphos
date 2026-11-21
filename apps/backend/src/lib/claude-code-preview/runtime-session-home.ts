@@ -107,12 +107,13 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
   return runReclaimJob(teamId, endpoint, sessionId)
 }
 
-/** Reclaim every archived generation without blocking turns in a restored generation. */
+/** Reclaim every archived generation; the Task is stamped reclaimed once none is left. */
 export async function reclaimPendingArchiveHome(
   sessionId: string,
   now = new Date(),
 ): Promise<boolean> {
-  const conversation = await agentConversations().findOne({ sessionId })
+  const conversations = agentConversations()
+  const conversation = await conversations.findOne({ sessionId })
 
   if (!conversation?.archiveHomePendingEpochs?.length) return true
 
@@ -120,19 +121,18 @@ export async function reclaimPendingArchiveHome(
     const done = await reclaimArchivedGeneration(conversation.teamId, home, sessionId)
 
     if (!done) return false
-    // Deleting a single home by session alone could race a restore; the hourly sweep checks again.
-    const $set = done === 'single' ? {} : { sessionHomeReclaimedAt: now }
-
-    await agentConversations().updateOne(
-      { sessionId },
-      { $pull: { archiveHomePendingEpochs: home }, $set },
-    )
+    await conversations.updateOne({ sessionId }, { $pull: { archiveHomePendingEpochs: home } })
+    if (done === true)
+      await conversations.updateOne(
+        { sessionId, archiveHomePendingEpochs: { $not: { $elemMatch: {} } } },
+        { $set: { sessionHomeReclaimedAt: now } },
+      )
   }
 
   return true
 }
 
-/** One archived generation: true once gone or unreachable for good, 'single' without generations. */
+/** One archived generation: true once gone or unreachable for good, 'single' for the sweep. */
 async function reclaimArchivedGeneration(
   teamId: string | undefined,
   home: NonNullable<AgentConversation['archiveHomePendingEpochs']>[number],
