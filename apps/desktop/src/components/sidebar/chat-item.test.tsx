@@ -13,6 +13,7 @@ import { chatSidebarItem } from './chat-item'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
+import type { ReactElement } from 'react'
 
 const conversation: AgentConversation = {
   sessionId: 'bot-a',
@@ -151,6 +152,14 @@ test("a Bot's row shows typing dots exactly while its chat does, else its latest
     assert.ok(!('labelShimmer' in at(id)), `${id} is not greyed out`)
     assert.ok(!markup(at(id).trailing).includes('animate-spin'), `${id} has no spinner`)
   }
+  // With no chat, the face that moves is the Bot's own, and its session's turn spins nothing.
+  const solo = at('solo-bot').iconNode as ReactElement<{ faces?: { id: string }[] }>
+
+  assert.equal(solo.props.faces?.[0]?.id, 'solo-bot', 'solo-bot: its own face moves')
+  assert.ok(
+    !markup(at('solo-bot').foldedStatus).includes('animate-spin'),
+    'solo-bot shows no spinner when folded',
+  )
   const copies = items.filter((item) => item.parentKey === 'agent-session:resting-chat')
 
   assert.equal(copies.length, 1)
