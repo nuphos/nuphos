@@ -28,10 +28,7 @@ export const diskScenarios: Scenario[] = [
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(LAPTOP).first().click()
         await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await page
-          .getByText(`moved this task from E2E fixture agent to`)
-          .filter({ visible: true })
-          .waitFor()
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
         })
@@ -41,10 +38,7 @@ export const diskScenarios: Scenario[] = [
         // #3567, from #3568: the banner floats over the transcript's end, which keeps its last
         // message clear of it. A short, narrow window makes the transcript scroll and the reason
         // wrap, so the banner has something to cover.
-        const last = page
-          .getByText(`moved this task from E2E fixture agent to`)
-          .filter({ visible: true })
-          .last()
+        const last = page.getByText(`moved this task from E2E fixture agent to`).last()
         const size = page.viewportSize()
 
         await page.setViewportSize({ width: 720, height: 420 })
@@ -111,10 +105,7 @@ export const diskScenarios: Scenario[] = [
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await page.getByRole('menu').getByText(BOX).first().click()
         await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await page
-          .getByText(`moved this task from E2E fixture agent to`)
-          .filter({ visible: true })
-          .waitFor()
+        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
         })
@@ -188,7 +179,7 @@ export const diskScenarios: Scenario[] = [
           'the removed card and its notice to go',
           async () => (await notice.count()) === 0,
         )
-        await page.getByText(BOX, { exact: true }).filter({ visible: true }).first().waitFor()
+        await page.getByText(BOX, { exact: true }).first().waitFor()
         // Two more readings of the new Box: still nothing about memory.
         await page.waitForTimeout(10_000)
         if ((await page.getByText(MEMORY).count()) > 0)

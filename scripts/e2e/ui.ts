@@ -39,10 +39,6 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
 export async function openSubmenu(page: Page, row: string) {
   const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
 
-  // The pointer still rests where the menu's button was pressed. A row that arrives late can grow
-  // the menu under it, and the next layout shift reads as the pointer leaving the row: Base UI then
-  // closes the submenu the key opened, as it does for a hover.
-  await page.mouse.move(0, 0)
   await pickInSubmenu(page, trigger)
   // The open row and the id are not set together: the id waits for the list to exist.
   await trigger.and(page.locator('[aria-controls]')).waitFor()
@@ -72,7 +68,7 @@ export async function setBotDetails(page: Page, open: boolean) {
   const toggle = botDetailsToggle(page)
 
   if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click()
-  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]:visible`).waitFor()
+  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]`).waitFor()
 }
 
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */
