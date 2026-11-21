@@ -47,4 +47,9 @@ export type WindowSessionAccessApi = {
     image: Uint8Array,
     teamId?: string,
   ): Promise<{ avatar: string }>
+  agentSetBotInstructions(
+    sessionId: string,
+    instructions: string,
+    teamId?: string,
+  ): Promise<{ instructions: string }>
 }

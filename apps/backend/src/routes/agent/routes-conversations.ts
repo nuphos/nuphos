@@ -13,7 +13,6 @@ import {
   updateConversationCredentialAccess,
 } from '@/lib/agent/db'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { recheckLinkedResources } from '@/lib/agent/resource-recheck'
 import { runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { liveAttachment } from '@/lib/agent/db/shared'
@@ -131,9 +130,6 @@ agent.get('/conversations', async (c) => {
     withParents: true,
   })
 
-  // Sidebar tags catch up too; a repository outside the linked installation sends no webhooks.
-  for (const conversation of result.conversations)
-    void recheckLinkedResources(conversation).catch(() => null)
   const rows = await serializeConversationList(
     [...result.conversations, ...result.parents],
     c.get('user'),

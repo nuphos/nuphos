@@ -2,7 +2,7 @@
 // turn: the agent and only the model and effort it offers, Full Access, and
 // the Bot it starts under.
 
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { currentPick } from '@/lib/agent/thread-runtime'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
@@ -75,6 +75,24 @@ async function ownBot(
     : null
 }
 
+/**
+ * The caller's most recent standalone Task in the team: a new chat in the app
+ * starts on the agent, model and effort of the last one a message was sent in.
+ */
+async function lastStandalone(teamId: string, userId: string) {
+  return await agentConversations().findOne(
+    {
+      userId,
+      teamId,
+      parentSessionId: { $exists: false },
+      avatar: { $exists: false },
+      kind: { $ne: 'channel' },
+      runtimeId: { $exists: true },
+    },
+    { sort: { lastActiveAt: -1 } },
+  )
+}
+
 /** The runtime check and model pick for a new session on `runtimeId`. */
 async function onRuntime(
   teamId: string,
@@ -100,8 +118,10 @@ async function onRuntime(
 /**
  * What a new session starts on: the agent (`runtime_id`) and its model and
  * effort, Full Access, or a Bot (`parent_session_id`) whose agent, model and
- * effort it starts on and whose credentials and mode it uses. An existing
- * session keeps its own; change those with nuphos_update_session.
+ * effort it starts on and whose credentials and mode it uses. Otherwise it
+ * starts as a new Task in the app does: with Full Access, on the agent, model
+ * and effort of the caller's last standalone Task. An existing session keeps
+ * its own; change those with nuphos_update_session.
  */
 export async function startChoice(
   args: Record<string, unknown>,
@@ -142,16 +162,17 @@ export async function startChoice(
       refused:
         "A Task under a Bot runs in its Bot's permission mode. Change Full Access on the Bot.",
     }
-  const base = bot ? { bot } : fullAccess === undefined ? {} : { fullAccess }
+  const base = bot ? { bot } : { fullAccess: fullAccess ?? true }
+  // Naming none of its own: the Bot's agent, model and effort, else the last Task's.
+  const from = runtimeId || pick ? undefined : (bot ?? (await lastStandalone(teamId, userId)))
 
-  // Under a Bot and naming none of its own: the Bot's agent, model and effort.
-  if (bot?.runtimeId && !runtimeId && !pick) {
-    const inherited = await onRuntime(teamId, bot.runtimeId, userId, currentPick(bot))
+  if (from?.runtimeId) {
+    const inherited = await onRuntime(teamId, from.runtimeId, userId, currentPick(from))
 
     if (!('refused' in inherited)) return { ...inherited, ...base }
-    // A model the Bot's agent no longer offers leaves the Task on that agent's
+    // A model its agent no longer offers leaves the session on that agent's
     // defaults; an agent the caller can no longer use, on their default agent.
-    const plain = await onRuntime(teamId, bot.runtimeId, userId, undefined)
+    const plain = await onRuntime(teamId, from.runtimeId, userId, undefined)
 
     return 'refused' in plain ? base : { ...plain, ...base }
   }

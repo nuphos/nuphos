@@ -5,6 +5,8 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import { OpenAbConnectError } from '@/lib/claude-code-preview/openab-acp-connect'
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
@@ -357,5 +359,49 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
       error: expect.any(Error),
       source: 'agent.trigger.request',
     })
+  })
+
+  test.each([
+    [
+      'a busy runtime that refused it',
+      () => new AppError(409, 'runtime_not_accepting_message', 'Running tools…'),
+    ],
+    [
+      'an agent host that did not connect',
+      () => new OpenAbConnectError('OpenAB ACP connection timed out'),
+    ],
+  ])('%s, on a turn the queue retries, is a warning, not an error', async (_case, failure) => {
+    captured.length = 0
+    capturedExceptions.length = 0
+    seen.sinkFrames.length = 0
+    const error = failure()
+
+    previewError = error
+
+    try {
+      await expect(
+        runAgentForTrigger({
+          userId: 'actor-1',
+          nuphosToken: 'tok',
+          teamId: 'team-1',
+          sessionId: 'conv-busy',
+          messages: [
+            { id: 'm3', role: 'user', parts: [{ type: 'text', text: 'cron' }] },
+          ] as UIMessage[],
+          firstMessage: 'cron',
+          source: 'agent.resource',
+          clientResendsRefusal: true,
+        }),
+      ).rejects.toThrow(error.message)
+    } finally {
+      previewError = null
+    }
+
+    const phases = captured.map((entry) => entry.properties?.phase)
+
+    expect(phases).toContain('agent.turn.requeued')
+    expect(phases).not.toContain('agent.trigger.request.error')
+    expect(phases).not.toContain('agent.chat.run.error_frame_appended')
+    expect(capturedExceptions).toEqual([])
   })
 })

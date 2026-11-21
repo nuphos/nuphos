@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { agentConversations, agentMessages } from '@/lib/agent/db'
 import { fromOwner } from '@/lib/agent/db/channel-notes'
 import { readChannelMessages } from '@/lib/agent/db/channels'
+import { attributionHeader } from '@/lib/agent/message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from '@/lib/agent/pending-messages'
 import { installTurnRunner, resetTurnRunner } from '@/lib/agent/turn-runner'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -20,8 +21,10 @@ import type { SlackEventEnvelope, SlackMessageEvent } from '@/routes/slack/types
 
 let memory = portabilityDb()
 let woken: string[] = []
+let wakes: unknown[] = []
 let marked: string[] = []
 let externalChatId: string | undefined = 'chat'
+let notificationThread = false
 // Slack users as users.info reports them: their home workspace and email.
 const slackUsers: Record<string, { team_id: string; email: string; name: string }> = {
   UOWNER: { team_id: 'T1', email: 'Owner@Example.com', name: 'Owner in Slack' },
@@ -89,6 +92,8 @@ useSlackAgentBot({
     links[slackUserId] ?? null,
   getSlackChannelMappingByExternalChat: async () =>
     ({ slackWorkspaceId: 'T1', slackChannelId: 'C1', teamId: 'team', enabled: true }) as never,
+  getSlackAgentThread: async () =>
+    (notificationThread ? { origin: 'agent_notification' } : null) as never,
   markSlackEvent: async (_id: string, status: string) => {
     marked.push(status)
   },
@@ -131,12 +136,15 @@ const lastRead = async () =>
 beforeEach(async () => {
   memory = portabilityDb()
   woken = []
+  wakes = []
   marked = []
   events = 0
   externalChatId = 'chat'
+  notificationThread = false
   installTurnRunner({
     claimAgentRunOrEnqueue: async (args) => {
       woken.push(args.sessionId)
+      wakes.push(args.message)
       await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
 
       return { mode: 'queued' }
@@ -173,6 +181,29 @@ describe('a Slack channel that is an external chat', () => {
     })
     expect(woken).toEqual(['bot'])
     expect(marked).toEqual(['completed'])
+  })
+
+  test("the Bot's own conversation names the Slack channel that woke it", async () => {
+    await agentConversations().updateOne({ sessionId: 'chat' }, { $set: { title: 'deploys' } })
+    await routeSlackToExternalChat(envelope({ user: 'UNEW' }))
+
+    expect(wakes).toEqual([
+      expect.objectContaining({
+        renderedText: 'New messages in a Slack channel (channelId chat).',
+        metadata: expect.objectContaining({
+          // Not `channel:`, which every app draws as a chat to open.
+          sender: expect.objectContaining({
+            id: 'slack-channel:chat',
+            displayName: 'Slack #deploys',
+          }),
+        }),
+      }),
+    ])
+    const notice = wakes[0] as { id: string; metadata: unknown }
+
+    expect(notice.metadata).not.toHaveProperty('resourceUrl')
+    // The Bot still gets a chat's instructions: how to read it and answer there.
+    expect(attributionHeader(notice.id, notice.metadata)).toContain('channel_post')
   })
 
   test('a linked Slack account speaks as its member', async () => {
@@ -228,6 +259,18 @@ describe('a Slack channel that is an external chat', () => {
     ).toMatchObject({ id: 'slack:C1:10.1', text: 'Is the deploy done?' })
   })
 
+  test('a thread reply keeps its Slack root even when that root is not in the record', async () => {
+    await routeSlackToExternalChat(
+      envelope({ user: 'UNEW', ts: '10.2', thread_ts: '9.9', text: 'A reply.' }),
+    )
+
+    expect((await agentMessages().findOne({ messageId: 'slack:C1:10.2' }))?.metadata).toMatchObject(
+      {
+        slackThreadTs: '9.9',
+      },
+    )
+  })
+
   test("the app's own posts and other bots never enter the chat", async () => {
     await routeSlackToExternalChat(envelope({ user: 'UBOT' }))
     await routeSlackToExternalChat(envelope({ user: 'UNEW', bot_id: 'B1' }))
@@ -239,7 +282,13 @@ describe('a Slack channel that is an external chat', () => {
 
   test('a post on the record, even naming a teammate, notifies no one in Nuphos', async () => {
     await routeSlackToExternalChat(envelope({ user: 'UNEW', text: 'Ping @Mei' }))
-    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Ask @Mei.')
+    await postAsAgent(
+      (await chat()).sessionId,
+      { sessionId: 'bot', title: 'Bot' },
+      'Ask @Mei.',
+      [],
+      0,
+    )
 
     expect(await agentMessages().countDocuments({ sessionId: 'chat' })).toBe(2)
     expect((await chat()).mentions ?? {}).toEqual({})
@@ -251,6 +300,15 @@ describe('a Slack channel that is an external chat', () => {
 
     expect(await agentMessages().countDocuments({})).toBe(0)
     expect(woken).toEqual([])
+  })
+
+  test('a reply in a notification thread stays with that thread', async () => {
+    notificationThread = true
+
+    expect(
+      await routeSlackToExternalChat(envelope({ user: 'UNEW', ts: '10.2', thread_ts: '10.1' })),
+    ).toBe(false)
+    expect(await agentMessages().countDocuments({})).toBe(0)
   })
 
   test('a channel with no external chat is left to the existing handlers', async () => {

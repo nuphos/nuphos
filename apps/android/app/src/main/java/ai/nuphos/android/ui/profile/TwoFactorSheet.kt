@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.profile
 
+import android.content.Context
 import ai.nuphos.android.data.AccountApi
 import ai.nuphos.android.data.MfaSetup
 import ai.nuphos.android.data.MfaStatus
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -42,6 +44,15 @@ sealed interface TwoFactorLoad {
 private fun Throwable.needsFreshSignIn() =
     this is NuphosApi.Failure.Http && code == 403 && errorCode in setOf("reauth_required", "session_required")
 
+/** Set before the sign-out this sheet asks for, so the next sign-in opens it once more. */
+object TwoFactorResume {
+    private const val KEY = "nuphos.resumeTwoFactor"
+    private fun prefs(context: Context) = context.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE)
+    fun request(context: Context) = prefs(context).edit().putBoolean(KEY, true).apply()
+    fun pending(context: Context) = prefs(context).getBoolean(KEY, false)
+    fun take(context: Context) = pending(context).also { if (it) prefs(context).edit().remove(KEY).apply() }
+}
+
 /**
  * Profile → Two-factor authentication: turn it on with an authenticator app,
  * see how many recovery codes are left, replace them, or turn it off. Matches
@@ -53,6 +64,7 @@ private fun Throwable.needsFreshSignIn() =
 @Composable
 fun TwoFactorSheet(onDismiss: () -> Unit) {
     val auth = LocalAuthSession.current
+    val context = LocalContext.current
     val token = auth.token ?: return
     val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
@@ -90,7 +102,7 @@ fun TwoFactorSheet(onDismiss: () -> Unit) {
                         Text(stringResource(R.string.profile_two_factor_sign_in_again_title), style = MaterialTheme.typography.titleSmall)
                         Text(stringResource(R.string.profile_two_factor_sign_in_again_body),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Button(onClick = { onDismiss(); auth.signOut() }, modifier = Modifier.padding(top = 6.dp)) {
+                        Button(onClick = { TwoFactorResume.request(context); onDismiss(); auth.signOut() }, modifier = Modifier.padding(top = 6.dp)) {
                             Text(stringResource(R.string.profile_sign_out_and_sign_in_again))
                         }
                     }

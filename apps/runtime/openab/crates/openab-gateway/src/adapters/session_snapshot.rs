@@ -161,7 +161,9 @@ impl SessionSnapshots {
         } else if executing && !tools.is_empty() {
             ("running_tools", "Running tools…".to_string())
         } else if executing {
-            if provider["activity"] == "responding" {
+            if let Some(step) = provider["planStep"].as_str() {
+                ("plan", step.to_string())
+            } else if provider["activity"] == "responding" {
                 ("responding", "Responding…".to_string())
             } else if provider["activity"] == "thinking" {
                 ("thinking", "Thinking…".to_string())
@@ -311,6 +313,17 @@ mod tests {
             snapshots.project("s", json!({"state":"idle","gateway":{"steering":1}}), true)["phase"],
             "steering"
         );
+    }
+    #[test]
+    fn an_active_plan_is_a_status_without_a_tool() {
+        let snapshot = SessionSnapshots::default().project(
+            "plan",
+            json!({"state":"active", "planStep":"Inspect fictional project", "tools":{}}),
+            true,
+        );
+        assert_eq!(snapshot["phase"], "plan");
+        assert_eq!(snapshot["label"], "Inspect fictional project");
+        assert_eq!(snapshot["tools"], json!([]));
     }
     #[test]
     fn owed_continuation_does_not_block_a_person() {

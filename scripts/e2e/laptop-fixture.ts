@@ -14,6 +14,7 @@ export async function laptopOnline(
   stack: Stack,
   {
     diskPercent,
+    oomKilledAt,
     client,
     app,
     box,
@@ -23,6 +24,8 @@ export async function laptopOnline(
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
+    /** When the host saw the kernel's OOM kill count rise (#4345); sent with each reading. */
+    oomKilledAt?: string
     client?: string
     app?: { version: string; update: { version: string; ready: boolean } }
     box?: string
@@ -79,6 +82,7 @@ export async function laptopOnline(
           cpuPercent: 12,
           memory: { used: 6 * GIB, total: 16 * GIB },
           disk: { used: diskPercent * GIB, total: 100 * GIB },
+          ...(oomKilledAt ? { oomKilledAt } : {}),
         },
       }),
     )

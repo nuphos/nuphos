@@ -14,10 +14,19 @@ export async function composioRequest<T>(method: string, path: string, body?: un
   const json = (await res.json().catch(() => ({}))) as T & { error?: { message?: string } }
 
   if (!res.ok) {
+    // A 4xx is the caller's request being refused (an unknown tool, a bad argument): hand it back
+    // as that status, with Composio's reason, so the agent can correct itself instead of retrying.
+    // 401/403 mean our own Composio key is refused, which is ours to fix, so they stay a 502 with
+    // no upstream text; 429 keeps its status and generic text.
+    const refused =
+      res.status >= 400 && res.status < 500 && res.status !== 401 && res.status !== 403
+    const reason =
+      refused && res.status !== 429 && json.error?.message ? `: ${json.error.message}` : ''
+
     throw new AppError(
-      res.status === 429 ? 429 : 502,
+      refused ? (res.status as 400) : 502,
       res.status === 429 ? 'composio_rate_limited' : 'composio_request_failed',
-      `Composio request failed (HTTP ${String(res.status)})`,
+      `Composio request failed (HTTP ${String(res.status)})${reason}`,
       { upstreamStatus: res.status },
     )
   }

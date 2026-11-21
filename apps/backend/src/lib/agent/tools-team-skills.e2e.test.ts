@@ -185,10 +185,16 @@ type SkillTools = {
   skill_list: ExecutableTool
   skill_create: ExecutableTool
   skill_upsert: ExecutableTool
+  skill_delete: ExecutableTool
 }
 
 function requireTeamSkillTools(tools: ReturnType<typeof createTeamSkillTools>): SkillTools {
-  if (!('skill_list' in tools) || !('skill_create' in tools) || !('skill_upsert' in tools)) {
+  if (
+    !('skill_list' in tools) ||
+    !('skill_create' in tools) ||
+    !('skill_upsert' in tools) ||
+    !('skill_delete' in tools)
+  ) {
     throw new Error('expected team skill tools to be enabled')
   }
 
@@ -325,6 +331,42 @@ description: Updated on-call playbook
     })
     expect(upserted).toEqual(created)
     expect(s3Store.size).toBe(0)
+  })
+
+  test('skill_delete removes a team skill on an ADMINISTRATOR turn, as the Skills page does', async () => {
+    const { skill_create, skill_delete } = requireTeamSkillTools(
+      createTeamSkillTools(EDITOR_USER, TEAM_ID),
+    )
+
+    await execTool(skill_create, {
+      label: 'Create throwaway',
+      name: 'throwaway',
+      description: 'Delete me',
+      body: '# Gone soon',
+      files: [{ path: 'scripts/run.sh', content: 'echo ok' }],
+    })
+    const refused = await execTool(skill_delete, { label: 'Delete throwaway', name: 'throwaway' })
+
+    expect(refused).toEqual({
+      ok: false,
+      error: 'forbidden: only an ADMINISTRATOR can delete team skills',
+    })
+    expect(s3Store.size).toBe(2)
+
+    membershipRole = 'ADMINISTRATOR'
+    const deleted = await execTool(skill_delete, { label: 'Delete throwaway', name: 'throwaway' })
+
+    expect(deleted).toEqual({
+      ok: true,
+      scope: `teams/${TEAM_ID}`,
+      name: 'throwaway',
+      deletedCount: 2,
+    })
+    expect(s3Store.size).toBe(0)
+    expect(await execTool(skill_delete, { label: 'Delete again', name: 'throwaway' })).toEqual({
+      ok: false,
+      error: 'skill_not_found: Skill not found: throwaway',
+    })
   })
 
   test('a non-member is offered the tools and told why a write is refused', async () => {
@@ -546,6 +588,29 @@ describe('personal skill tools E2E', () => {
     const team = await execTool(tools.skill_list, { label: 'List team' })
 
     expect(team).toEqual({ ok: true, scope: `teams/${TEAM_ID}`, skills: [], truncated: false })
+  })
+
+  test("the owner's turn deletes a personal skill whatever the team role", async () => {
+    membershipRole = 'VIEWER'
+    const tools = requireTeamSkillTools(
+      createTeamSkillTools(OWNER_USER, TEAM_ID, { conversationOwnerUserId: OWNER_USER }),
+    )
+
+    await execTool(tools.skill_create, {
+      label: 'Create my notes skill',
+      name: 'my-notes',
+      description: 'Only for me',
+      body: '# Notes',
+      scope: 'personal',
+    })
+    const deleted = await execTool(tools.skill_delete, {
+      label: 'Delete my notes',
+      name: 'my-notes',
+      scope: 'personal',
+    })
+
+    expect(deleted).toEqual({ ok: true, scope: PERSONAL_SCOPE, name: 'my-notes', deletedCount: 1 })
+    expect(s3Store.size).toBe(0)
   })
 
   test("a guest's turn is refused personal skills and keeps team access", async () => {

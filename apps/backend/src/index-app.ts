@@ -48,6 +48,7 @@ import { slackRoutes } from '@/routes/slack'
 import { slackAppRoutes } from '@/routes/slack-app'
 import { teamsRoutes } from '@/routes/teams'
 import { trelloAppRoutes } from '@/routes/trello-app'
+import { vaultRoutes } from '@/routes/vault'
 import { webhooksRoutes } from '@/routes/webhooks'
 import { internalWellKnownRoutes, wellKnownRoutes } from '@/routes/well-known'
 
@@ -130,6 +131,7 @@ app.route('/cloudflare-app', cloudflareAppRoutes)
 app.route('/linear-app', linearAppRoutes)
 app.route('/meetings', meetingsRoutes)
 app.route('/personal-credentials', personalCredentialRoutes)
+app.route('/vault', vaultRoutes)
 app.route('/jira-app', jiraAppRoutes)
 app.route('/asana-app', asanaAppRoutes)
 app.route('/trello-app', trelloAppRoutes)

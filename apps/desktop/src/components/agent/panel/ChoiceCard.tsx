@@ -19,6 +19,7 @@ import type { ConnectCardContextValue } from './connectCardContext'
 import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionCardRef } from './replyTarget'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
+import type { ReactNode } from 'react'
 
 /**
  * A user decision other than a Connect card: the question as its heading, under
@@ -38,6 +39,7 @@ export function ChoiceCard({
   multiSelect,
   questions,
   canAct,
+  selectOnly,
 }: {
   toolCallId: string
   category: string
@@ -50,6 +52,8 @@ export function ChoiceCard({
   questions?: DecisionQuestion[]
   /** The viewer may answer this question. */
   canAct: boolean
+  /** Still open, and only selecting what it names answers it: no option or words, which the server refuses. */
+  selectOnly?: boolean
 }) {
   const ctx = useContext(ConnectCardContext)
   // What the server recorded when it woke the agent with the answer, read from the transcript.
@@ -58,11 +62,13 @@ export function ChoiceCard({
   const { chosen, failed, submit } = useSubmit(ctx, card, recorded)
   const [dismissed, setDismissed] = useState<'no' | 'sending' | 'yes'>('no')
   const interactive = Boolean(ctx?.answer) && canAct && !chosen && dismissed !== 'yes'
-  const typeable = interactive && category !== 'credential'
+  const answers = interactive && !selectOnly
+  // A credential takes words only beside its options, never as its value (#4029).
+  const typeable = answers && (category !== 'credential' || options.length > 0)
   const form = formQuestions({ question, options, multiSelect, questions })
   // One question with one answer is answered by a click, so its keys choose.
   const clicked = clickOptions(form)
-  const live = interactive && form.some((q) => q.options.length > 0)
+  const live = answers && form.some((q) => q.options.length > 0)
   const cardRef = useRef<HTMLDivElement | null>(null)
   const choose = (option: string) => submit({ choices: [option] })
   const act = useDecisionKeys(cardRef, live, (key) => {
@@ -109,28 +115,41 @@ export function ChoiceCard({
       <DecisionTitle className="text-[16px] font-semibold leading-[23px] tracking-[-0.01em] text-main">
         {question}
       </DecisionTitle>
-      <DecisionBody
-        text={ownBody(body, questions)}
-        full={ctx?.fullBody}
-        onLinkClick={ctx?.onLinkClick}
-      />
+      <DecisionBody text={ownBody(body, questions)} full={ctx?.fullBody} />
       <AnswerStatus recorded={recorded} failed={failed} dismissed={dismissed === 'yes'} />
-      {!chosen && (
-        <DecisionOptions
-          questions={form}
-          disabled={!interactive}
-          typeable={typeable}
-          hint={
-            canAct && (
-              <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
-            )
-          }
-          keyTitle={(index) => (index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined)}
-          onSubmit={(answer) => act(() => submit(answer))}
-        >
-          {asides}
-        </DecisionOptions>
-      )}
+      {!chosen &&
+        (selectOnly ? (
+          <SelectToAnswer>{asides}</SelectToAnswer>
+        ) : (
+          <DecisionOptions
+            questions={form}
+            disabled={!interactive}
+            typeable={typeable}
+            hint={
+              canAct && (
+                <span className="text-[12px] text-tertiary">{t('Reply below to answer.')}</span>
+              )
+            }
+            keyTitle={(index) =>
+              index < 9 ? comboText(`mod+alt+${String(index + 1)}`) : undefined
+            }
+            onSubmit={(answer) => act(() => submit(answer))}
+          >
+            {asides}
+          </DecisionOptions>
+        ))}
+    </div>
+  )
+}
+
+/** In place of the options of a question only a selection answers: where to make it, then Snooze and Dismiss. */
+function SelectToAnswer({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-3">
+      <span className="text-[12px] text-tertiary">
+        {t('Select what it asks for in the credential picker to answer.')}
+      </span>
+      {children}
     </div>
   )
 }
@@ -197,15 +216,7 @@ function AnswerStatus({
  * The question's markdown body: four lines at first, the last fading out, and a
  * full-width "Show more" under them. The collapsed lines open it too.
  */
-function DecisionBody({
-  text,
-  full = false,
-  onLinkClick,
-}: {
-  text: string | undefined
-  full?: boolean
-  onLinkClick?: (href: string, beside: boolean) => boolean
-}) {
+function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)
@@ -235,7 +246,6 @@ function DecisionBody({
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
-          onLinkClick={onLinkClick}
         >
           {text}
         </MessageResponse>

@@ -3,8 +3,10 @@ import { z } from 'zod'
 
 import { getSessionBypass } from './auto-mode/store'
 import { BOT_AVATARS } from './bot-avatars'
+import { botInstructions } from './bot-instructions'
 import { createBot } from './bots'
 import {
+  credentialSourceOf,
   getConversations,
   getConversationTranscriptForAgent,
   liveTurnTranscriptLine,
@@ -181,10 +183,7 @@ export function createSessionTools(
       ),
     name: z.string().trim().min(1).max(120).optional().describe('Your new name, 1–120 characters.'),
     avatar: z.enum(BOT_AVATARS).optional().describe('Your new face, by name.'),
-    instructions: z
-      .string()
-      .trim()
-      .max(8000)
+    instructions: botInstructions
       .optional()
       .describe('Your complete standing instructions, replacing the old ones. Empty clears them.'),
   }
@@ -221,10 +220,7 @@ export function createSessionTools(
   const createBotShape = {
     name: z.string().trim().min(1).max(120).describe('Its name, 1–120 characters.'),
     avatar: z.enum(BOT_AVATARS).optional().describe('Its face, by name; one is picked otherwise.'),
-    instructions: z
-      .string()
-      .trim()
-      .max(8000)
+    instructions: botInstructions
       .optional()
       .describe('Its standing instructions, in the second person.'),
   }
@@ -234,9 +230,13 @@ export function createSessionTools(
       inputSchema: z.object(createBotShape),
       execute: async ({ name, avatar, instructions }) => {
         // Never more access than the caller has, as create_thread does.
-        const bypass = await getSessionBypass(conversationId, userId)
+        const [bypass, maker] = await Promise.all([
+          getSessionBypass(conversationId, userId),
+          credentialSourceOf(conversationId),
+        ])
         const bot = await createBot(userId, teamId, bypass, {
           source: { via: 'create_bot', sessionId: conversationId },
+          credentialAccess: maker?.credentialAccess ?? null,
           title: name,
           avatar,
         })

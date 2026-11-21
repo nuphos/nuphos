@@ -12,7 +12,6 @@ import type {
   MemoryProvider,
   MemoryRecordItem,
   MemorySavedEvent,
-  MemorySessionOrigin,
 } from './types'
 
 describe('MEMORY_SPI_VERSION', () => {
@@ -132,17 +131,6 @@ describe('provider literals compile against the SPI', () => {
 
     expect(readOnly.records).not.toHaveProperty('delete')
     expect(readOnly.records).not.toHaveProperty('restore')
-  })
-
-  test('session origin covers the shipped AgentSessionOrigin union', () => {
-    // Keyed record: adding a member to MemorySessionOrigin fails compilation
-    // here (a plain array would keep passing regardless).
-    const all: Record<MemorySessionOrigin, true> = {
-      user: true,
-      trigger: true,
-    }
-
-    expect(Object.keys(all)).toHaveLength(2)
   })
 
   test('attribution tier covers the shipped AttributionTier union', () => {

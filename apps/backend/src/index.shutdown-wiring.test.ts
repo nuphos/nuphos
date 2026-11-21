@@ -152,3 +152,48 @@ test('worker consumers stop before draining but producer queues survive HTTP req
   expect(queues).toBeGreaterThan(drain)
   expect(redis).toBeGreaterThan(queues)
 })
+
+// Background work that touches storage after it is closed logs "Database not
+// connected" until the process exits. The order that prevents it: stop loops,
+// drain HTTP, flush exporters, close storage, exit.
+test('loops stop before the drain and storage closes right before exit', () => {
+  const at = (needle: string) => {
+    const index = SHUTDOWN_BODY.indexOf(needle)
+
+    expect(index, needle).toBeGreaterThan(0)
+
+    return index
+  }
+  const drain = at('await drainHttpAndAgentProducers(')
+
+  for (const stop of [
+    'dashboardRefreshScheduler.shutdown()',
+    'shutdownRuntimeMetricsSampler()',
+    'shutdownDiscordGateway()',
+    'shutdownMemoryRetentionRollup()',
+    'conversationAutoArchive.shutdown()',
+    'shutdownStuckTurnProbe()',
+    'stopBotImportCleanup()',
+    'stopFreeBoxSweep()',
+    'stopWebhookDelivery()',
+    'shutdownJournalSealer()',
+    'quiesceAgentWorkers()',
+  ]) {
+    expect(at(stop), stop).toBeLessThan(drain)
+  }
+  // Device tunnels never end on their own, so the HTTP drain waits for them to close.
+  expect(at('closeTunnelsForRestart()')).toBeGreaterThan(at('drainInFlightAgentRuns('))
+  expect(at('closeTunnelsForRestart()')).toBeLessThan(drain)
+
+  const closeDb = at('closeDb()')
+
+  expect(at('shutdownTelemetry()')).toBeLessThan(closeDb)
+  expect(at('shutdownPostHog()')).toBeLessThan(closeDb)
+  // Closing tunnels ends autonomous turns, whose transcript writes must land first.
+  const lastDrain = at('await drainAgentProducers(shutdownBudget.guardFlushMs)')
+
+  expect(lastDrain).toBeGreaterThan(at('await publishRuntimeHandoffs()'))
+  expect(lastDrain).toBeLessThan(closeDb)
+  // Nothing may run between closing storage and exiting.
+  expect(SHUTDOWN_BODY.slice(closeDb).trim()).toBe('closeDb()])')
+})

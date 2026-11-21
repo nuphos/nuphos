@@ -3,6 +3,7 @@ import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
 import { FILE_TOOLS } from './protocol-tools-files'
 import { RESOURCE_TOOLS } from './protocol-tools-resources'
+import { WEBHOOK_TOOLS } from './protocol-tools-webhooks'
 
 export const TOOL_DEFINITIONS = [
   ...FILE_TOOLS,
@@ -18,7 +19,7 @@ export const TOOL_DEFINITIONS = [
       'A prompt sent while that session is running is handed to the turn in flight, ' +
       'which is how you add an instruction or change direction mid-run. ' +
       'Set wait to false to return as soon as the turn is accepted and poll ' +
-      'nuphos_check instead. ' +
+      'nuphos_check instead, or subscribe with GET /mcp?session_id=<id> using the same bearer token for SSE status and Task report notifications. ' +
       'ALWAYS call nuphos_list_teams first: team_id is required, and every ' +
       'conversation runs inside one of your Nuphos teams.',
     inputSchema: {
@@ -54,14 +55,15 @@ export const TOOL_DEFINITIONS = [
         runtime_id: {
           type: 'string',
           description:
-            'The agent a NEW session runs on, from nuphos_list_runtimes. Omitted: ' +
-            'your default agent in the team. An existing session keeps its own agent.',
+            'The agent a NEW session runs on, from nuphos_list_runtimes. Omitted: as a ' +
+            'new Task in the app, the agent, model and effort of your last Task in the ' +
+            'team, else your default agent. An existing session keeps its own agent.',
         },
         model: {
           type: 'string',
           description:
             'The model a NEW session starts on; needs runtime_id. A model the agent does ' +
-            "not offer is refused with its choices. Omitted: the agent's own default. " +
+            "not offer is refused with its choices. Omitted with runtime_id: the agent's own default. " +
             'For an existing session use nuphos_update_session.',
         },
         effort: {
@@ -73,11 +75,11 @@ export const TOOL_DEFINITIONS = [
         full_access: {
           type: 'boolean',
           description:
-            'Full Access for a NEW session, set before its first turn: true runs commands ' +
-            'without asking for approval, so use it only when the person you work for ' +
-            'wants the session to run unattended. Omitted: each tool call that needs ' +
-            'approval waits as a tool_authorization in nuphos_check. For an existing ' +
-            'session use nuphos_update_session.',
+            'Full Access for a NEW session, set before its first turn. Default true, as ' +
+            'a new Task in the app starts: the agent runs commands without asking. Pass ' +
+            'false when the person you work for wants to approve each tool call; each ' +
+            'then waits as a tool_authorization in nuphos_check. For an existing session ' +
+            'use nuphos_update_session.',
         },
         parent_session_id: {
           type: 'string',
@@ -211,6 +213,7 @@ export const TOOL_DEFINITIONS = [
     },
   },
   ...CREDENTIAL_TOOLS,
+  ...WEBHOOK_TOOLS,
   {
     name: 'nuphos_capabilities',
     description:

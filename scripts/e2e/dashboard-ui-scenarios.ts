@@ -1,7 +1,10 @@
 // The Personal and Team dashboards screens (#2988) in the app, against the real backend.
 // The app is signed in as the team's owner, its Administrator.
+import { execFileSync } from 'node:child_process'
+import { resolve } from 'node:path'
+
 import { agentEvents } from './agent-log.ts'
-import { joinTeam } from './dashboard-scenarios.ts'
+import { api, joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -46,6 +49,32 @@ async function openDashboardsPage(page: Page, stack: Stack) {
   await link.click()
 
   return link
+}
+
+const NO_RUNTIME = "Runtimes on your own computer can't run dashboard panels"
+
+/** Records the panel's latest run as one no agent could take (#4168), the way the backend fails it. */
+function failForNoAgent(stack: Stack, panelId: string) {
+  const script = `
+    import { MongoClient, ObjectId } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    const snapshots = client.db('nuphos_e2e').collection('cost_panel_snapshots')
+    const { _id, output, ...latest } = await snapshots
+      .find({ panelId: new ObjectId(process.argv[2]) }).sort({ requestedAt: -1 }).limit(1).next()
+    await snapshots.insertOne({
+      ...latest,
+      status: 'failed',
+      error: { kind: 'no_runtime', message: process.argv[3] },
+      requestedAt: new Date(Date.now() + 60_000),
+      finishedAt: new Date(),
+    })
+    await client.close()`
+  const message = `${NO_RUNTIME}. A team runtime or a computer from Nuphos can. Ask a team admin to rent one, then refresh.`
+
+  execFileSync('bun', ['-e', script, stack.mongoUri, panelId, message], {
+    cwd: resolve(import.meta.dirname, '../../apps/backend'),
+    timeout: 10_000,
+  })
 }
 
 const shot = (page: Page, name: string) =>
@@ -163,6 +192,109 @@ export const dashboardUiScenarios: Scenario[] = [
       await formerSection.waitFor({ state: 'hidden' })
       await expectVisibility(stack, 'Release health', 'team')
       await shot(page, '9-former-member-moved')
+    },
+  },
+  {
+    // #4168: a panel no agent could run said "bring one online" to someone whose agents were.
+    name: 'a panel no agent can run says why, and offers an Administrator a Box',
+    run: async (page, stack) => {
+      const owner = api(stack, stack.token)
+      const created = await owner('POST', `/teams/${stack.teamId}/dashboards`, {
+        name: 'No agent',
+        timeRange: {
+          periodStart: new Date(Date.now() - 7 * 86_400_000).toISOString(),
+          periodEnd: new Date().toISOString(),
+        },
+        visibility: 'team',
+      })
+      const panel = await owner(
+        'POST',
+        `/teams/${stack.teamId}/dashboards/${String(created.body.id)}/panels`,
+        {
+          title: 'Spend',
+          kind: 'scalar',
+          code: 'export default async () => ({ kind: "scalar", title: "Spend", value: 1 })',
+        },
+      )
+
+      if (!panel.body.id) throw new Error(`No panel: ${String(panel.status)}`)
+      failForNoAgent(stack, panel.body.id)
+      await openDashboardsPage(page, stack)
+
+      // The name cell's button opens it; a click elsewhere on the row only selects it.
+      await page
+        .getByRole('row', { name: /No agent/ })
+        .getByRole('button', { name: /No agent/ })
+        .click()
+      await page.getByText(NO_RUNTIME).waitFor()
+      await shot(page, '10-no-agent-panel')
+      await page.getByRole('button', { name: 'Rent a computer from Nuphos', exact: true }).click()
+      await page.getByRole('dialog').getByText('Rent a computer from Nuphos').first().waitFor()
+      await shot(page, '11-no-agent-rent-box')
+      // Opened on this step, the dialog has nothing to go back to.
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+      await page.getByRole('dialog').waitFor({ state: 'hidden' })
+    },
+  },
+  {
+    // #4168: a member reads the backend's words, no button; the open Task 404s in the new team.
+    name: 'a member sees why no agent can run a panel, and is sent to a team admin',
+    expected: /dashboard\.panel\.exec_failed|"path":"\/agent\/conversations\/[\w-]+","status":404/,
+    run: async (page, stack) => {
+      const anonymous = api(stack, '')
+      const email = `e2e-no-agent-${String(Date.now())}@example.com`
+
+      await anonymous('POST', '/auth/email/request-code', { email })
+      await until('the sign-in code to be logged', async () => stack.signInCode(email))
+      const signedIn = await anonymous('POST', '/auth/email/verify-code', {
+        email,
+        code: stack.signInCode(email),
+      })
+      const admin = api(stack, String(signedIn.body.token))
+      const made = await admin('POST', '/teams', { name: 'No agent E2E' })
+      const teamId = String((made.body as { team?: { id: string } }).team?.id)
+      const invited = await admin('POST', `/teams/${teamId}/invitations`, {
+        inviteeEmail: stack.email,
+      })
+
+      await api(stack, stack.token)(
+        'POST',
+        `/invitations/${String(invited.body.invitation?.id)}/accept`,
+      )
+      const created = await admin('POST', `/teams/${teamId}/dashboards`, {
+        name: 'No agent here',
+        timeRange: {
+          periodStart: new Date(Date.now() - 86_400_000).toISOString(),
+          periodEnd: new Date().toISOString(),
+        },
+        visibility: 'team',
+      })
+      const dashboardId = String(created.body.id)
+
+      // Its first run finds no agent at all, so the backend fails it as no_runtime itself.
+      await admin('POST', `/teams/${teamId}/dashboards/${dashboardId}/panels`, {
+        title: 'Spend',
+        kind: 'scalar',
+        code: 'export default async () => ({ kind: "scalar", title: "Spend", value: 1 })',
+      })
+      await newTask(page)
+      await send(
+        page,
+        `Open https://nuphos.ai/teams/${teamId}/dashboards/${dashboardId} E2E_DELIVERY:no-agent-member`,
+      )
+      await until('the agent to read the link', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:no-agent-member'),
+      )
+      await page
+        .getByRole('link', { name: new RegExp(`${dashboardId}$`) })
+        .first()
+        .click()
+      // The app learned its teams before joining this one, as a member's would.
+      await page.getByRole('button', { name: 'Reload workspaces' }).click()
+      await page.getByText('Ask a team admin to rent one, then refresh.').waitFor()
+      if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
+        throw new Error('A member was offered a computer to rent')
+      await shot(page, '12-no-agent-member')
     },
   },
 ]
