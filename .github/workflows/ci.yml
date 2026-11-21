@@ -470,8 +470,9 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    # Trusted jobs use a fresh Instabox VM; forks retain GitHub isolation.
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
+    # Loop mounts for real-disk evidence are not supported on the verified Instabox runner.
+    # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
     concurrency:
       group: instabox-e2e-${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
       queue: max
