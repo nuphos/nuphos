@@ -4860,7 +4860,6 @@
   "This task is read-only": "此任务为只读",
   "This token has no policies attached, so every API call will be denied.": "此令牌未附加任何策略，因此所有 API 调用都会被拒绝。",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "此令牌为账号级，因此 Cloudflare 不会返回其自身的策略列表（只有具备“User Details: Read”的用户级令牌才能自我检查）。该令牌仍可用于已授权的账号/区域 API — 请在 Cloudflare 控制台的 My Profile → API Tokens 中查看具体权限。",
-  "This trigger hasn't run yet.": "此触发器尚未运行。",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "此触发器已不可用。它可能已被删除，或你已无访问权限。",
   "This upload path supports files up to {size}.": "此上传方式支持最大 {size} 的文件。",
   "This view has an empty pipeline.": "此视图的管道为空。",

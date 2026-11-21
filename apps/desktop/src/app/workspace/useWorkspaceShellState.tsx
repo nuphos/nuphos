@@ -1,9 +1,7 @@
 import { readLocalStorage, writeLocalStorage } from '../../app/localStorage'
 import {} from '../../components/agent/AgentPanel'
-import { emptyNavigation } from '../../lib/appRoutes'
 
 import { connectorsDialogFor } from './store/connectorsDialog'
-import { selectScope } from './store/workspaceState'
 
 import {} from '../../views/SettingsPage'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -62,7 +60,7 @@ export function useWorkspaceShellState() {
     Record<string, GcpComputeInstance[] | undefined>
   >({})
   const workspace = useWorkspaceStore()
-  const { workspaceActions, workspaceStore } = workspace
+  const { workspaceActions } = workspace
   const [grafanaInstancesByTeam, setGrafanaInstancesByTeam] = useState<
     Record<string, GrafanaInstance[] | undefined>
   >({})
@@ -99,27 +97,12 @@ export function useWorkspaceShellState() {
   // Bumped on every deep entry so Settings remounts on the requested section,
   // even when it is already open on another one.
   const [settingsRequest, setSettingsRequest] = useState(0)
-  const openSettingsSection = useCallback(
-    (section: string, filter?: string) => {
-      if (section === 'workspace.agent') {
-        const teamId = selectScope(workspaceStore.getState())?.teamId
-
-        if (!teamId) return
-        setSettingsOpen(false)
-        workspaceActions.openMainPage(teamId, (tab) => ({
-          ...tab,
-          ...emptyNavigation({ kind: 'team', teamId }, 'team.agents'),
-        }))
-
-        return
-      }
-      setSettingsInitialSection(section)
-      setSettingsInitialFilter(filter)
-      setSettingsRequest((n) => n + 1)
-      setSettingsOpen(true)
-    },
-    [workspaceActions, workspaceStore],
-  )
+  const openSettingsSection = useCallback((section: string, filter?: string) => {
+    setSettingsInitialSection(section)
+    setSettingsInitialFilter(filter)
+    setSettingsRequest((n) => n + 1)
+    setSettingsOpen(true)
+  }, [])
   // Connectors opens over whatever the pane shows, on one connector's detail
   // when given, and leaves the page behind it where it was.
   const openConnectors = useCallback(

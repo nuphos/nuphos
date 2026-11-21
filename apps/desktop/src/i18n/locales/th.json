@@ -4860,7 +4860,6 @@
   "This task is read-only": "งานนี้เป็นแบบอ่านอย่างเดียว",
   "This token has no policies attached, so every API call will be denied.": "โทเค็นนี้ไม่มีนโยบายแนบอยู่ การเรียก API ทุกครั้งจึงจะถูกปฏิเสธ",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "โทเค็นนี้มีขอบเขตระดับบัญชี Cloudflare จึงไม่ส่งคืนรายการนโยบายของตัวเอง (เฉพาะโทเค็นระดับผู้ใช้ที่มี \"User Details: Read\" เท่านั้นที่ตรวจสอบตัวเองได้) โทเค็นนี้ใช้ได้กับ API ของบัญชี/โซนที่ได้รับสิทธิ์ — ดูสิทธิ์ที่แน่ชัดได้ในแดชบอร์ด Cloudflare ที่ My Profile → API Tokens",
-  "This trigger hasn't run yet.": "ทริกเกอร์นี้ยังไม่เคยทำงาน",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "ทริกเกอร์นี้ไม่พร้อมใช้งานแล้ว อาจถูกลบไป หรือคุณไม่มีสิทธิ์เข้าถึงแล้ว",
   "This upload path supports files up to {size}.": "ช่องทางอัปโหลดนี้รองรับไฟล์ขนาดไม่เกิน {size}",
   "This view has an empty pipeline.": "วิวนี้มีไปป์ไลน์ว่าง",

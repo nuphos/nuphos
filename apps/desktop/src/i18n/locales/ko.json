@@ -4860,7 +4860,6 @@
   "This task is read-only": "이 태스크는 읽기 전용입니다",
   "This token has no policies attached, so every API call will be denied.": "이 토큰에는 연결된 정책이 없으므로 모든 API 호출이 거부됩니다.",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "이 토큰은 계정 범위이므로 Cloudflare가 자체 정책 목록을 반환하지 않습니다(\"User Details: Read\" 권한이 있는 사용자 범위 토큰만 자체 조회 가능). 토큰은 허용된 계정/영역 API에서 작동합니다 — 정확한 권한은 Cloudflare 대시보드의 My Profile → API Tokens에서 확인하세요.",
-  "This trigger hasn't run yet.": "이 트리거는 아직 실행되지 않았습니다.",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "이 트리거를 더 이상 사용할 수 없습니다. 삭제되었거나 액세스 권한이 없습니다.",
   "This upload path supports files up to {size}.": "이 업로드 경로는 최대 {size}의 파일을 지원합니다.",
   "This view has an empty pipeline.": "이 뷰의 파이프라인이 비어 있습니다.",
