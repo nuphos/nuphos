@@ -99,7 +99,6 @@ export type WindowAgentApi = AgentDecisionApi & {
       limit?: number
       scope?: 'mine' | 'team' | 'shared'
       ownerId?: string
-      triggerIds?: string[]
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'

@@ -54,7 +54,6 @@ export function HistoryPageList({
   sentinelRef,
   loadingMore,
   loadMore,
-  emptyLabel,
   onOpenConversation,
   onArchive,
 }: {
@@ -62,10 +61,6 @@ export function HistoryPageList({
   loading: boolean
   debouncedQuery: string
   ownerId: string | null
-  /** Replaces the "no conversations" copy where the list is not Chats — a
-   *  Trigger's runs need to say the trigger hasn't fired, not that nobody has
-   *  chatted. Search and loading still speak for themselves. */
-  emptyLabel?: string
   historyScope: 'mine' | 'team'
   teamId?: string
   openingSessionId: string | null
@@ -102,12 +97,11 @@ export function HistoryPageList({
           ? t('Loading…')
           : debouncedQuery
             ? t('No Bots or tasks match your search.')
-            : (emptyLabel ??
-              (ownerId
-                ? t('No tasks from this member yet.')
-                : historyScope === 'team'
-                  ? t('No team tasks yet.')
-                  : t("You haven't started any tasks yet.")))}
+            : ownerId
+              ? t('No tasks from this member yet.')
+              : historyScope === 'team'
+                ? t('No team tasks yet.')
+                : t("You haven't started any tasks yet.")}
       </div>
     )
   }
