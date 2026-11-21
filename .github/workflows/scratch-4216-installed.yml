@@ -68,4 +68,5 @@ jobs:
           path: |
             ${{ runner.temp }}/installed-4216/artifacts/*.png
             ${{ runner.temp }}/installed-4216/artifacts/result.txt
+            ${{ runner.temp }}/installed-4216/artifacts/diagnostic.txt
           if-no-files-found: warn

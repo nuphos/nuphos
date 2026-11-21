@@ -1,11 +1,11 @@
 // Released macOS Desktop, an isolated real backend, and a fictional runtime reading.
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
 import { laptopOnline, LAPTOP } from './laptop-fixture.ts'
-import { artifacts, freePorts, spawn, stop, stopAll, until } from './processes.ts'
+import { artifacts, freePorts, logPath, spawn, stop, stopAll, until } from './processes.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, pickAgent, pickInSubmenu, send } from './ui.ts'
@@ -155,6 +155,19 @@ try {
 } catch (error) {
   failure = error instanceof Error ? error.message : String(error)
   console.error(`FAIL installed Desktop flow: ${failure}`)
+  const appLog = logPath('installed-0.130.10')
+
+  if (existsSync(appLog)) {
+    const lines = readFileSync(appLog, 'utf8').split('\n')
+    const selected = lines
+      .filter((line) => /fatal|error|sandbox|crash|user-data|exit|abort/i.test(line))
+      .slice(-30)
+    const safe = selected.map((line) =>
+      line.replace(/(bearer|token|password|code)[=: ]+[^ ,]+/gi, '$1=[redacted]'),
+    )
+
+    writeFileSync(join(artifacts, 'diagnostic.txt'), safe.join('\n') + '\n')
+  }
   if (page) await shot(page, 'failure').catch(() => {})
   writeFileSync(join(artifacts, 'result.txt'), `FAIL: ${failure}\n`)
 } finally {
