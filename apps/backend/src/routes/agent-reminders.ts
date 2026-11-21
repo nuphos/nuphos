@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 
+import { confirmTask } from '@/lib/agent/reminder-task'
 import { cancelReminder, createReminder, getReminder, listReminders } from '@/lib/agent/reminders'
 import { reminderSchema } from '@/lib/api/reminders'
 import { AppError } from '@/lib/errors'
@@ -9,7 +10,7 @@ import { jsonObjectBody, triggerActor } from '@/routes/agent-triggers/shared'
 import type { Reminder, ReminderStatus } from '@/lib/agent/reminders'
 import type { AuthVariables } from '@/middleware/auth'
 
-const STATUSES = ['pending', 'delivered', 'failed', 'cancelled']
+const STATUSES = ['pending', 'dispatched', 'delivered', 'failed', 'unconfirmed', 'cancelled']
 
 function present(reminder: Reminder) {
   return reminderSchema.parse({
@@ -19,7 +20,9 @@ function present(reminder: Reminder) {
     text: reminder.text,
     dueAt: reminder.dueAt.toISOString(),
     timeZone: reminder.timeZone,
+    kind: reminder.kind ?? 'text',
     status: reminder.status,
+    dispatchedAt: reminder.dispatchedAt?.toISOString(),
     attempts: reminder.attempts,
     createdAt: reminder.createdAt.toISOString(),
     ackedAt: reminder.ackedAt?.toISOString(),
@@ -66,6 +69,7 @@ agentRemindersRoutes.post('/', async (c) => {
     dueAt,
     ...(text(body.timeZone) ? { timeZone: text(body.timeZone)! } : {}),
     ...(text(body.dedupeKey) ? { dedupeKey: text(body.dedupeKey)! } : {}),
+    ...(body.kind === 'task' ? { kind: 'task' as const } : {}),
   })
 
   return c.json(present(reminder), created ? 201 : 200)
@@ -96,4 +100,24 @@ agentRemindersRoutes.delete('/:reminderId', async (c) => {
   const actor = await triggerActor(c, c.req.query('teamId'))
 
   return c.json(present(await cancelReminder(scopeOf(actor), c.req.param('reminderId'))))
+})
+
+// Only the conversation a task was given to may settle it; confirmTask checks that.
+agentRemindersRoutes.post('/:reminderId/ack', async (c) => {
+  const body = await jsonObjectBody(c)
+  const actor = await triggerActor(c, c.req.query('teamId'))
+
+  if (body.outcome !== 'done' && body.outcome !== 'failed')
+    throw new AppError(400, 'invalid_request', 'outcome must be done or failed')
+
+  return c.json(
+    present(
+      await confirmTask(
+        scopeOf(actor),
+        c.req.param('reminderId'),
+        body.outcome,
+        typeof body.reason === 'string' ? body.reason : undefined,
+      ),
+    ),
+  )
 })
