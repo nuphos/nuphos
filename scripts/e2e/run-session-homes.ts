@@ -34,8 +34,14 @@ const homeOf = (sessionId: string, computerHome: string, epoch = '0') =>
     ) as { HOME: string }
   ).HOME
 
-/** A Task on the computer, with the home its agent made there. */
-function task(stack: Stack, ownerId: string, deviceId: string, computerHome: string): Home {
+/** A Task on the computer, with the home its agent made there; a sub-Task names its parent. */
+function task(
+  stack: Stack,
+  ownerId: string,
+  deviceId: string,
+  computerHome: string,
+  parentSessionId?: string,
+): Home {
   const sessionId = `e2e-home-${randomUUID()}`
   const home = homeOf(sessionId, computerHome)
 
@@ -45,11 +51,13 @@ function task(stack: Stack, ownerId: string, deviceId: string, computerHome: str
     await db.collection('agent_conversations').insertOne({ sessionId: process.argv[2],
       teamId: process.argv[3], userId: process.argv[4], runtimeId: process.argv[5],
       agentRuntime: 'claude-code', title: 'E2E session home', messageCount: 0,
-      createdAt: now, updatedAt: now, lastActiveAt: now })`,
+      createdAt: now, updatedAt: now, lastActiveAt: now,
+      ...(process.argv[6] ? { parentSessionId: process.argv[6] } : {}) })`,
     sessionId,
     stack.teamId,
     ownerId,
     `local_${ownerId}_${deviceId}`,
+    parentSessionId ?? '',
   )
 
   return { sessionId, home }
@@ -139,12 +147,14 @@ try {
   // Signed out, a computer gives the backend no control channel and nothing is reclaimed.
   for (const label of ['E2E homes mini', 'E2E homes away']) await online(label)
   const target = task(stack, ownerId, computer.deviceId, computer.home)
+  const child = task(stack, ownerId, computer.deviceId, computer.home, target.sessionId)
   const control = task(stack, ownerId, computer.deviceId, computer.home)
   const offline = task(stack, ownerId, away.deviceId, away.home)
   const controlTriggers = [await trigger(control, true)]
 
   await trigger(target, true)
   await trigger(target, false)
+  await trigger(child, true)
   must(
     (await triggersOf(target)).length === 2,
     'the Task to have an enabled and a disabled Trigger',
@@ -152,12 +162,15 @@ try {
   await away.stop()
   // A job looking in another HOME answers "absent" and the backend took that as removed: each
   // home is there first, so only removing it can pass.
-  for (const { home } of [target, control, offline]) must(existsSync(home), `${home} to exist`)
+  for (const { home } of [target, child, control, offline])
+    must(existsSync(home), `${home} to exist`)
   await archive(target)
   await archive(offline)
 
   // Archiving removes the Task's Triggers and, its computer online, its home at once.
   must((await triggersOf(target)).length === 0, "the archived Task's Triggers to be deleted")
+  must((await triggersOf(child)).length === 0, 'the Triggers of a sub-Task archived with it to go')
+  must(!existsSync(child.home), "the sub-Task's home to be removed with it")
   must(
     JSON.stringify(await triggersOf(control)) === JSON.stringify(controlTriggers),
     "the other Task's Trigger to be kept",
@@ -198,7 +211,7 @@ try {
     'a Trigger made after restoring to be kept by the sweep',
   )
   must(existsSync(control.home), "the other Task's home to be kept by the sweep")
-  console.log('PASS an archived Task’s home and Triggers go, and only that Task’s')
+  console.log('PASS an archived Task’s home and Triggers go with its sub-Task’s, and only theirs')
   console.log('PASS a restored Task keeps its new home and Triggers through the sweep')
   console.log('PASS archive, restore, then a late reclaim removes only the archived generation')
   await computer.stop()
