@@ -47,12 +47,38 @@ test('a failed model probe is tried again, so the agent does not stay without mo
     const { agent, probes, sent } = setup([new Error('Model discovery timed out'), catalog])
 
     await settle()
-    assert.equal(agent.models, undefined)
+    assert.equal(agent.models?.failed, true)
     mock.timers.tick(60_000)
     await settle()
     assert.equal(probes(), 2)
     assert.deepEqual(agent.models, catalog)
+    // The failed read, then the list it finally got.
+    assert.equal(sent(), 2)
+  } finally {
+    mock.timers.reset()
+  }
+})
+
+// #4261: the picker told people to try again in a moment, and trying again asked this
+// computer nothing, because a failed read counted as one just made.
+test('a failed read is reported as failed, and the picker that asks again is answered at once', async () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  try {
+    const { agent, current, probes, sent } = setup([
+      new Error('Model discovery timed out'),
+      catalog,
+    ])
+
+    await settle()
+    // Said out loud, so an empty list is not read as one still on its way.
+    assert.deepEqual(agent.models, { models: [], defaultModel: '', controls: {}, failed: true })
     assert.equal(sent(), 1)
+    // No waiting period to sit out: an agent with no list has none to spare.
+    await refreshRunningModels()
+    assert.equal(probes(), 2)
+    assert.deepEqual(agent.models, catalog)
+    assert.equal(sent(), 2)
+    current.value = false
   } finally {
     mock.timers.reset()
   }
@@ -76,7 +102,7 @@ test('retries stop once the agent it probed for is stopped or replaced', async (
     mock.timers.tick(3_600_000)
     await settle()
     assert.equal(replaced.probes(), 1)
-    assert.equal(agent.models, undefined)
+    assert.equal(agent.models?.failed, true)
   } finally {
     mock.timers.reset()
   }
@@ -103,7 +129,7 @@ test('a signed-out CLI is not started to list models until it signs in', async (
 
     discoverModels(deps, run, agent, '/w', () => sent++)
     await settle()
-    assert.equal(await refreshRunningModels(), false)
+    await refreshRunningModels()
     mock.timers.tick(3_600_000)
     await settle()
     assert.equal(probes, 0)
@@ -168,18 +194,18 @@ test('a failed read is retried, and the list is read again while the agent runs'
 
     start()
     await settle()
-    assert.equal(ids(), undefined)
+    assert.deepEqual(ids(), [])
     mock.timers.tick(MODEL_RETRY_MS[0] ?? 0)
     await settle()
     assert.deepEqual(ids(), ['terra', 'luna'])
-    // The same list again sends nothing new.
+    // The same list again sends nothing new; the failed read before it said so once.
     mock.timers.tick(MODEL_REFRESH_MS)
     await settle()
-    assert.equal(sent.length, 1)
+    assert.equal(sent.length, 2)
     mock.timers.tick(MODEL_REFRESH_MS)
     await settle()
     assert.deepEqual(ids(), ['astra', 'sol', 'terra', 'luna'])
-    assert.equal(sent.length, 2)
+    assert.equal(sent.length, 3)
     assert.equal(probes.length, 4)
   } finally {
     mock.timers.reset()
@@ -220,18 +246,21 @@ test('an opened picker reads running agents again, at most once a minute', async
     agent.start()
     await settle()
     // Just read at start: nothing new is asked yet.
-    assert.equal(await refreshRunningModels(), false)
+    await refreshRunningModels()
     assert.equal(agent.probes.length, 1)
     mock.timers.tick(MODEL_ON_DEMAND_MS)
-    assert.equal(await refreshRunningModels(), true)
+    await refreshRunningModels()
     assert.deepEqual(agent.ids(), ['astra', 'terra'])
+    assert.equal(agent.probes.length, 2)
+    await refreshRunningModels()
+    assert.equal(agent.probes.length, 2)
     mock.timers.tick(MODEL_ON_DEMAND_MS)
-    assert.equal(await refreshRunningModels(), false)
+    await refreshRunningModels()
     assert.equal(agent.probes.length, 3)
     // A replaced run is asked nothing.
     agent.replaceRun()
     mock.timers.tick(MODEL_ON_DEMAND_MS)
-    assert.equal(await refreshRunningModels(), false)
+    await refreshRunningModels()
     assert.equal(agent.probes.length, 3)
   } finally {
     mock.timers.reset()
@@ -263,7 +292,7 @@ test('an opened picker reads a waiting Hermes at once', async () => {
     const { agent, probes } = setup([catalog], 'hermes')
 
     await settle()
-    assert.equal(await refreshRunningModels(), true)
+    await refreshRunningModels()
     assert.equal(probes(), 1)
     assert.deepEqual(agent.models, catalog)
   } finally {
