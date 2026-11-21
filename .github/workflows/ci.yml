@@ -31,7 +31,7 @@ jobs:
   format:
     name: Format (prettier --check)
     if: github.event_name == 'pull_request' || github.event_name == 'push'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,7 +50,7 @@ jobs:
   dco:
     name: DCO
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -75,7 +75,7 @@ jobs:
   changes:
     name: Detect changed apps
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
@@ -245,7 +245,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     # The image ships rustup and a stable toolchain.
-    runs-on: instabox-medium
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/cli
@@ -306,7 +306,7 @@ jobs:
     # Local runtimes run these scripts on macOS, the managed image on Linux.
     strategy:
       matrix:
-        os: [instabox-medium, macos-15]
+        os: [ubuntu-24.04-arm, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -319,7 +319,7 @@ jobs:
     name: openab (clippy + test)
     needs: changes
     if: needs.changes.outputs.openab == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/runtime/openab
@@ -342,7 +342,7 @@ jobs:
     name: Backend (typecheck + test + docker build)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-latest
     # The runtime-state store's compare-and-set is a Lua script; its suite runs
     # only against a real Redis (TEST_REDIS_URL below).
     services:
@@ -456,7 +456,10 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    runs-on: instabox-medium
+    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
+    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
+    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
     # group, and compiling openab adds about 6 minutes.
@@ -544,7 +547,7 @@ jobs:
     name: Desktop (typecheck, tests, build)
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -659,7 +662,7 @@ jobs:
     needs: changes
     # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
     if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
-    runs-on: instabox-medium
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -689,7 +692,7 @@ jobs:
     name: Desktop lint
     needs: changes
     if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -718,7 +721,7 @@ jobs:
     name: Dev scripts
     needs: changes
     if: needs.changes.outputs.dev_scripts == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -759,7 +762,7 @@ jobs:
     name: Lint config integrity
     needs: changes
     if: needs.changes.outputs.lint_config == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -794,7 +797,7 @@ jobs:
     name: Import cycles
     needs: changes
     if: needs.changes.outputs.import_cycles == 'true'
-    runs-on: instabox-medium
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
