@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
 
 import { appendAutonomousConversationTurn, resolvePlanInputRequests } from '@/lib/agent/db'
+import { logEvent } from '@/lib/observability'
+import { databaseConnections } from '@/models'
 
-import { plans } from './collections'
+import { planApprovalPolicies, plans } from './collections'
 
 const RETIRED =
   'Plans were replaced by approval decisions, so this Plan was cancelled before it ran to completion.'
@@ -49,4 +51,44 @@ export async function cancelOpenAgentPlans(): Promise<number> {
   }
 
   return cancelled
+}
+
+/**
+ * Database changes used to follow the team's Plan approval policy. They follow
+ * each connection's own policy again, so every connection takes the larger of
+ * its own minimum and its team's. Never lowers a minimum, so it is idempotent.
+ */
+export async function migrateTeamPlanApprovalPolicies(now = new Date()): Promise<number> {
+  // Each team policy migrates once, so a connection an admin lowers later stays lowered.
+  const unmigrated = { minimumOtherApprovals: { $gt: 0 }, migratedAt: { $exists: false } }
+  const teams = new Map(
+    (await planApprovalPolicies().find(unmigrated).toArray()).map((policy) => [policy._id, policy]),
+  )
+  let raised = 0
+
+  if (teams.size === 0) return raised
+  for (const connection of await databaseConnections().find({}).toArray()) {
+    const team = teams.get(String(connection.teamId))
+    const current = connection.changeApprovalPolicy
+
+    if (!team || team.minimumOtherApprovals <= (current?.minimumApprovals ?? 0)) continue
+    await databaseConnections().updateOne(
+      { _id: connection._id },
+      {
+        $set: {
+          changeApprovalPolicy: {
+            minimumApprovals: team.minimumOtherApprovals,
+            version: current?.version ?? 1,
+            updatedAt: now,
+            updatedBy: team.updatedBy,
+          },
+        },
+      },
+    )
+    raised++
+  }
+  await planApprovalPolicies().updateMany(unmigrated, { $set: { migratedAt: now } })
+  if (raised > 0) logEvent('info', 'backend.migration.database_change_policies_raised', { raised })
+
+  return raised
 }

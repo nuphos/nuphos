@@ -116,7 +116,7 @@ export function publicView(connection: DatabaseConnection, userId: string, teamR
 export function changeApprovalPolicy(connection: DatabaseConnection): DatabaseChangeApprovalPolicy {
   return (
     connection.changeApprovalPolicy ?? {
-      minimumApprovals: 1,
+      minimumApprovals: 0,
       version: 1,
       updatedAt: connection.createdAt,
       updatedBy: connection.createdBy,

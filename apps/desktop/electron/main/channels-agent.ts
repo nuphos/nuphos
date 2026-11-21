@@ -247,10 +247,6 @@ export const agentChannels = {
     patch: agent.PlanUpdatePatch,
     teamId?: string,
   ) => agent.updatePlan(planId, patch, teamId),
-  'agent:getPlanApprovalPolicy': (_e: unknown, teamId: string) =>
-    agent.getPlanApprovalPolicy(teamId),
-  'agent:updatePlanApprovalPolicy': (_e: unknown, teamId: string, minimumOtherApprovals: number) =>
-    agent.updatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   ...agentTriggerChannels,
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>

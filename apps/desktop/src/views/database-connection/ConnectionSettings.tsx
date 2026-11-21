@@ -1,5 +1,5 @@
 import { ShieldCheck, Trash2 } from 'lucide-react'
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useState } from 'react'
 
 import { api } from '../../api'
 import { Modal } from '../../components/Modal'
@@ -10,43 +10,27 @@ import { t } from '../../i18n'
 
 import { PlanApprovalPolicyModal } from './PlanApprovalPolicyModal'
 
-import type { PlanApprovalRequirement } from '../../api'
 import type { DatabaseConnection } from '../../types'
 
 type PolicyMode = 'requester' | 'one-other' | 'quorum'
 
-/** The team-wide approval policy MongoDB change proposals follow; admins can edit it. */
-function PlanApprovalPolicySection({
+/** The connection's approval policy MongoDB change requests follow; admins can edit it. */
+function ChangeApprovalPolicySection({
   teamId,
+  connection,
   isTeamAdmin,
+  onConnectionChange,
 }: {
   teamId: string
+  connection: DatabaseConnection
   isTeamAdmin: boolean
+  onConnectionChange: (connection: DatabaseConnection) => void
 }) {
-  const [policy, setPolicy] = useState<PlanApprovalRequirement | null>(null)
   const [open, setOpen] = useState(false)
   const [mode, setMode] = useState<PolicyMode>('requester')
   const [quorum, setQuorum] = useState(2)
   const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    let alive = true
-
-    api.agentGetPlanApprovalPolicy(teamId).then(
-      (next) => {
-        if (alive) setPolicy(next)
-      },
-      () => {
-        if (alive) setPolicy(null)
-      },
-    )
-
-    return () => {
-      alive = false
-    }
-  }, [teamId])
-
-  const minimum = policy?.minimumOtherApprovals ?? 0
+  const minimum = connection.changeApprovalPolicy.minimumApprovals
   const edit = () => {
     setMode(minimum === 0 ? 'requester' : minimum === 1 ? 'one-other' : 'quorum')
     setQuorum(Math.max(2, minimum))
@@ -55,11 +39,12 @@ function PlanApprovalPolicySection({
   const save = async () => {
     setSaving(true)
     try {
-      setPolicy(
-        await api.agentUpdatePlanApprovalPolicy(
-          teamId,
-          mode === 'requester' ? 0 : mode === 'one-other' ? 1 : quorum,
-        ),
+      onConnectionChange(
+        await api.atlasUpdateDatabaseConnection(teamId, connection.id, {
+          changeApprovalPolicy: {
+            minimumApprovals: mode === 'requester' ? 0 : mode === 'one-other' ? 1 : quorum,
+          },
+        }),
       )
       setOpen(false)
       toast.success(t('Approval policy updated'))
@@ -75,13 +60,11 @@ function PlanApprovalPolicySection({
   return (
     <div className="mt-3 flex items-center gap-2">
       <span className="text-[12px] text-secondary">
-        {policy
-          ? minimum === 0
-            ? t('Requester only')
-            : t('Requester + {count} other member(s)', { count: String(minimum) })
-          : t('Loading…')}
+        {minimum === 0
+          ? t('Requester only')
+          : t('Requester + {count} other member(s)', { count: String(minimum) })}
       </span>
-      {isTeamAdmin && policy && (
+      {isTeamAdmin && (
         <Button size="sm" variant="secondary" onClick={edit}>
           {t('Edit')}
         </Button>
@@ -106,12 +89,14 @@ export function ConnectionSettingsSection({
   busy,
   isTeamAdmin,
   onRemoveOpen,
+  onConnectionChange,
 }: {
   teamId: string
   connection: DatabaseConnection
   busy: boolean
   isTeamAdmin: boolean
   onRemoveOpen: () => void
+  onConnectionChange: (connection: DatabaseConnection) => void
 }) {
   return (
     <>
@@ -119,19 +104,24 @@ export function ConnectionSettingsSection({
         <section className="px-6 py-4">
           <SectionHeader
             icon={<ShieldCheck className="h-4 w-4 text-primary" strokeWidth={1.8} />}
-            title={t('Plan approval policy')}
-            hint={t('Applies to the whole team')}
+            title={t('Change approval policy')}
+            hint={t('Applies to this connection')}
           />
           <div className="max-w-xl">
             <p className="text-[12px] leading-5 text-tertiary">
               {t(
-                'New MongoDB DML and DDL proposals follow this team-wide policy: requester only, requester plus one teammate, or a larger quorum.',
+                'New MongoDB DML and DDL change requests on this connection follow this policy: requester only, requester plus one teammate, or a larger quorum.',
               )}
             </p>
-            <PlanApprovalPolicySection teamId={teamId} isTeamAdmin={isTeamAdmin} />
+            <ChangeApprovalPolicySection
+              teamId={teamId}
+              connection={connection}
+              isTeamAdmin={isTeamAdmin}
+              onConnectionChange={onConnectionChange}
+            />
             <div className="mt-3 rounded-md border border-line-control bg-state-selected p-2.5 text-[10.5px] leading-4 text-tertiary">
               {t(
-                'Approval and execution remain separate. Only the requester and any additional executors selected when the Plan was proposed may explicitly run its immutable approved statement. Existing legacy database requests retain their original policy snapshot.',
+                'Approval and execution remain separate. Only the requester and any additional executors chosen when the change was requested may run its immutable approved statement.',
               )}
             </div>
           </div>

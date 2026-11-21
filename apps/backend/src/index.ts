@@ -17,7 +17,7 @@ import {
   initMemoryRetentionRollup,
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
-import { cancelOpenAgentPlans } from '@/lib/agent/plans'
+import { cancelOpenAgentPlans, migrateTeamPlanApprovalPolicies } from '@/lib/agent/plans'
 import { drainAgentProducers, drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
@@ -106,8 +106,8 @@ const removedTencent = await migrateLegacyTencentBindings()
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
-// Plans were replaced by approval decisions (#2316): an agent Plan still open
-// would wait forever. Idempotent — a no-op once none remain.
+// Plans gave way to decisions and connection policies (#2316). Both steps are idempotent.
+await migrateTeamPlanApprovalPolicies()
 const cancelledPlans = await cancelOpenAgentPlans()
 
 if (cancelledPlans > 0) {
