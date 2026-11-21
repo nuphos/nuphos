@@ -1,4 +1,5 @@
 import {
+  answeredBySelection,
   parseChoiceRequest,
   parseConnectRequest,
   parseSecretRequest,
@@ -24,7 +25,7 @@ export function botChatQuestion(
   part: ToolPart
   questions: ReplyQuestion[]
   answerable: boolean
-  /** Whether it can be answered in words: never a plan, which is approved or rejected, nor a credential's value. */
+  /** Whether it can be answered in words: never a plan, a credential's value, or a connection the server answers by selection. */
   typed: boolean
   replyTo: (card?: DecisionCardRef) => string
 } {
@@ -32,9 +33,12 @@ export function botChatQuestion(
   const questions = [question]
   const part = questionPart(question)
   const choice = parseChoiceRequest(part.input)
+  // As the server's decision_not_answerable: only selecting what it names answers it.
+  const bySelection = answeredBySelection(request)
   // A credential takes words only beside its options, never as its value (#4029).
   const typed =
     choice !== null &&
+    !bySelection &&
     !request.planId &&
     (request.category !== 'credential' || choice.options.length > 0)
 
@@ -44,7 +48,7 @@ export function botChatQuestion(
     answerable:
       parseSecretRequest(part.input) !== null ||
       (canSelectCredentials && parseConnectRequest(part.input) !== null) ||
-      (choice?.options.length ?? 0) > 0 ||
+      (!bySelection && (choice?.options.length ?? 0) > 0) ||
       typed,
     typed,
     replyTo: (card) => (card ? cardReplyId(card, questions) : question.id),

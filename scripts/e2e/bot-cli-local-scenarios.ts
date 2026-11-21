@@ -11,7 +11,7 @@ import { send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 
 export const botCliLocalScenarios: Scenario[] = [
   {

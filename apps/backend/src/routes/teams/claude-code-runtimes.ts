@@ -1,6 +1,5 @@
 // Team-bound OpenAB runtime registry: members see what runtimes the team can
-// run on, administrators register/disable/remove them. The provisioner writes
-// through the same lib; these routes are the manual/ops surface.
+// run on, administrators register/disable/remove them.
 import { z } from 'zod'
 
 import {

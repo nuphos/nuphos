@@ -8,11 +8,13 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
+import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
+import { noteTurnSignIn } from './runtime-auth-refusal'
 import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import {
@@ -32,7 +34,6 @@ import {
 import { renewTurnCredentials } from './turn-credential-renewal'
 import { probeFailure } from './turn-diagnostics'
 
-import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -67,8 +68,12 @@ export {
  * Runs one prompt on the conversation's OpenAB session, streaming text deltas.
  * Reuses the shared Team connection, reattaches with `session/load` after a transport loss, and
  * keeps one active turn per conversation. `unsent`: stopped before the agent received the prompt.
+ * How it ends also notes whether the agent's provider refused its sign-in (runtime-auth-refusal).
  */
-export async function runClaudeCodePreviewPrompt(args: {
+export const runClaudeCodePreviewPrompt = (args: Parameters<typeof promptTurn>[0]) =>
+  noteTurnSignIn(args.teamId, args.endpoint.runtimeId, promptTurn(args))
+
+async function promptTurn(args: {
   teamId: string
   conversationId: string
   userId: string
@@ -190,6 +195,8 @@ export async function runClaudeCodePreviewPrompt(args: {
     const client = await registry.acquire(session.teamId, session.endpoint)
 
     activeTurn.client = client
+    if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
+    nextContext.runtime.defaults = await pendingTurnDefaults(client, session, currentAttachment)
     if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
     // MCP tokens, runtime environment, and the personal portion of the system
     // prompt are execution-principal scoped. A shared Slack conversation can

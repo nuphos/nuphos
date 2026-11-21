@@ -259,6 +259,18 @@ describe('a Slack channel that is an external chat', () => {
     ).toMatchObject({ id: 'slack:C1:10.1', text: 'Is the deploy done?' })
   })
 
+  test('a thread reply keeps its Slack root even when that root is not in the record', async () => {
+    await routeSlackToExternalChat(
+      envelope({ user: 'UNEW', ts: '10.2', thread_ts: '9.9', text: 'A reply.' }),
+    )
+
+    expect((await agentMessages().findOne({ messageId: 'slack:C1:10.2' }))?.metadata).toMatchObject(
+      {
+        slackThreadTs: '9.9',
+      },
+    )
+  })
+
   test("the app's own posts and other bots never enter the chat", async () => {
     await routeSlackToExternalChat(envelope({ user: 'UBOT' }))
     await routeSlackToExternalChat(envelope({ user: 'UNEW', bot_id: 'B1' }))
@@ -270,7 +282,13 @@ describe('a Slack channel that is an external chat', () => {
 
   test('a post on the record, even naming a teammate, notifies no one in Nuphos', async () => {
     await routeSlackToExternalChat(envelope({ user: 'UNEW', text: 'Ping @Mei' }))
-    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Ask @Mei.')
+    await postAsAgent(
+      (await chat()).sessionId,
+      { sessionId: 'bot', title: 'Bot' },
+      'Ask @Mei.',
+      [],
+      0,
+    )
 
     expect(await agentMessages().countDocuments({ sessionId: 'chat' })).toBe(2)
     expect((await chat()).mentions ?? {}).toEqual({})

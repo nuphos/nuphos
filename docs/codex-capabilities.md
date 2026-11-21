@@ -18,10 +18,13 @@ MCP surface for either agent runtime, without patching another upstream bundle.
    mode (Full Access or Auto Mode) of the conversation at the top of its
    parents, and that mode cannot be changed on the thread. The source can later
    change it, or any other conversation the owner has in the team, with
-   `update_thread`: switch a conversation with no parent
+   `update_task` (formerly `update_thread`): switch a conversation with no parent
    between the two modes (Full Access requires the source itself to be in Full
    Access) or move it, with its history, to another agent picked from
    `list_agent_runtimes`, for example when it hits that agent's usage limit.
+   Given its own session id, a conversation changes only its own model,
+   effort or fast mode, from its next turn; the reply in progress keeps its
+   settings.
    `grant` adds credentials or local devices to the thread's selection, only
    ones the source itself has selected now, as its own `list_credentials`
    shows them. It never removes any; unticking stays with the owner.

@@ -107,46 +107,56 @@ struct ComposerControls: View {
     var session: ChatSession?
     /// Opens the open conversation's runtime switcher; nil leaves its runtime chip out.
     var switchRuntime: (() -> Void)? = nil
+    /// A Bot's chat exposes only its runtime and model, not its credentials or mode.
+    var botChat = false
+    var locked = false
     @State private var showDevices = false
     @State private var showPicker = false
     @State private var showModes = false
     @State private var showRuntimes = false
     @State private var showModel = false
+    @State private var showLockedHint = false
 
     // Runtime and model first, so a phone shows them without scrolling the row.
     var body: some View {
-        runtimeChip
+        Group {
+            runtimeChip
 
-        if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
-            Button { showModel = true } label: {
-                ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session).presentationDetents([.medium, .large]) }
-            .task(id: session.sessionId) {
-                while !Task.isCancelled {
-                    await session.refreshSessionConfig()
-                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
+            if let session, (botChat || !session.isNew), session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
+                Button { if locked { showLockedHint = true } else { showModel = true } } label: {
+                    ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
+                        .opacity(locked ? 0.5 : 1)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Model settings")
+                .accessibilityIdentifier(botChat ? "bot-composer.model" : "composer.model")
+                .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session).presentationDetents([.medium, .large]) }
+                .task(id: session.sessionId) {
+                    while !Task.isCancelled {
+                        await session.refreshSessionConfig()
+                        do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                    }
+                }
+                .onChange(of: session.isStreaming) { _, streaming in
+                    if !streaming { Task { await session.refreshSessionConfig() } }
+                }
+            } else if !botChat && (session == nil || session?.isNew == true), store.canConfigureNewModel {
+                Button { showModel = true } label: {
+                    ComposerChip(title: store.newModelTitle, isActive: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Model settings")
+                .sheet(isPresented: $showModel) { ModelSettingsSheet().presentationDetents([.medium, .large]) }
+                .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
+                    await store.loadNewModelConfig()
                 }
             }
-            .onChange(of: session.isStreaming) { _, streaming in
-                if !streaming { Task { await session.refreshSessionConfig() } }
-            }
-        } else if session == nil || session?.isNew == true, store.canConfigureNewModel {
-            Button { showModel = true } label: {
-                ComposerChip(title: store.newModelTitle, isActive: false)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet().presentationDetents([.medium, .large]) }
-            .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
-                await store.loadNewModelConfig()
-            }
+            // A Task under a Bot uses the Bot's and has none of its own to change.
+            if !botChat && session?.followsBot != true { ownSelection }
         }
-
-        // A Task under a Bot uses the Bot's and has none of its own to change.
-        if session?.followsBot != true { ownSelection }
+        .alert("Only the owner can change model settings.", isPresented: $showLockedHint) {
+            Button("OK") { }
+        }
     }
 
     /// Credentials, computers and permission mode: what a conversation with no Bot above it picks.
@@ -183,14 +193,16 @@ struct ComposerControls: View {
     /// where the composer's other controls are, rather than from a menu.
     @ViewBuilder
     private var runtimeChip: some View {
-        if let session, !session.isNew {
+        if let session, botChat || !session.isNew {
             if let switchRuntime, let name = runtimeName(session) {
-                Button(action: switchRuntime) {
+                Button(action: { if locked { showLockedHint = true } else { switchRuntime() } }) {
                     ComposerChip(logo: RuntimeInstance.Provider.logo(session.agentRuntime), title: name, isActive: true)
+                        .opacity(locked ? 0.5 : 1)
                 }
                 .buttonStyle(.plain)
-                .disabled(session.isStreaming)
+                .disabled(session.isStreaming && !locked)
                 .accessibilityLabel("Switch runtime, \(name)")
+                .accessibilityIdentifier(botChat ? "bot-composer.runtime" : "composer.runtime")
                 .task { await store.loadRuntimes() }
             }
         } else {

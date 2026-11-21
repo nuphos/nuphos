@@ -60,6 +60,7 @@
     <string name="convtext_runtime_not_found">此執行環境已無法在這個工作區使用。請切換到其他執行環境以繼續。</string>
     <string name="convtext_runtime_offline">執行此執行環境的電腦已離線。請在該電腦上開啟 Nuphos，或切換到其他執行環境。</string>
     <string name="convtext_runtime_paused">%1$s 已暫停，傳送訊息後會自動恢復。</string>
+    <string name="convtext_runtime_starting">%1$s 正在啟動，幾秒後即可使用。</string>
     <string name="convtext_ask_owner">請擁有者處理</string>
     <string name="convtext_ask_admin">請管理員處理</string>
     <string name="convtext_server_status">Nuphos 傳回狀態 %1$d。</string>

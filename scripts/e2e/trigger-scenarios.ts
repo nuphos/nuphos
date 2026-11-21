@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 
 type Trigger = { id: string; enabled: boolean; executionAuthorizationError?: string }
 
-function client(stack: Stack) {
+export function client(stack: Stack) {
   return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const response = await fetch(stack.apiUrl + path, {
       method,
@@ -26,7 +26,7 @@ function client(stack: Stack) {
 }
 
 /** The Task whose first message carries `marker`. */
-async function taskWith(stack: Stack, marker: string): Promise<string> {
+export async function taskWith(stack: Stack, marker: string): Promise<string> {
   const api = client(stack)
   const search = encodeURIComponent(marker)
   const { conversations } = await api<{ conversations: { sessionId: string }[] }>(
@@ -67,9 +67,9 @@ async function createTrigger(stack: Stack, sessionId: string, name: string, mess
   })
 }
 
-type Hook = Trigger & { webhookSecret: string }
+export type Hook = Trigger & { webhookSecret: string }
 
-async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
+export async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
   return client(stack)<Hook>('POST', '/agent/triggers', {
     teamId: stack.teamId,
     targetSessionId: sessionId,
@@ -81,7 +81,7 @@ async function createWebhook(stack: Stack, sessionId: string, name: string, extr
 }
 
 /** One delivery as a sender makes it, signed with the Trigger's secret. */
-async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
+export async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
   const response = await fetch(`${stack.apiUrl}/webhooks/${hook.id}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'X-Webhook-Secret': hook.webhookSecret },
@@ -149,6 +149,15 @@ export const triggerScenarios: Scenario[] = [
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
+
+      // #4293: the Trigger's card in the chat says why as well, not only that it is paused.
+      await send(page, `Show it E2E_TRIGGER_CARD:${tooLong.id} E2E_DELIVERY:trigger-card`)
+      await page.getByText('ACK E2E_DELIVERY:trigger-card').waitFor()
+      const card = page.getByRole('region', { name: 'Trigger Hourly report' })
+
+      await card.getByText(notice).waitFor()
+      await card.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: join(artifacts, 'trigger-card-paused.png') })
     },
   },
   {

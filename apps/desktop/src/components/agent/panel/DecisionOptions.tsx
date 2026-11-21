@@ -145,9 +145,12 @@ export function DecisionOptions({
   )
 }
 
-/** Every button of the row the same pill, as Paper's question card draws a choice. */
+/**
+ * Every button of the row the same pill, as Paper's question card draws a choice. A long option
+ * wraps: `!` because Button's `whitespace-nowrap` comes later in the stylesheet and would win.
+ */
 export const PILL =
-  'h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
+  'h-auto min-h-8 gap-1.5 !whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
 
 /** How a question's options are picked when Send answers them. */
 function pickRole(question: DecisionQuestion) {
