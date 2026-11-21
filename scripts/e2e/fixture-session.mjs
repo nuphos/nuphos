@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { botEnv } from './fixture-settings.mjs'
 
 /** What this agent offers when it starts. */
-export const INITIALIZE = {
+const INITIALIZE = {
   protocolVersion: 1,
   agentCapabilities: { loadSession: true },
   agentInfo: { name: 'e2e-fixture', version: '1' },
@@ -36,11 +36,14 @@ export const opening = (params) => ({
     ),
 })
 
-/** The model probe names itself, so a fixture can answer turns and still fail discovery. */
+/** The model probe names itself in `initialize`, so a fixture can answer turns
+ *  and still fail discovery. */
 let probing = false
 
-export function noteClient(params) {
+export function initialize(params) {
   probing = params?.clientInfo?.name === 'nuphos-model-discovery'
+
+  return INITIALIZE
 }
 
 /** Whether this session/new is a model probe that fails, as a CLI that cannot list
