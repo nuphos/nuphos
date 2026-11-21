@@ -23,10 +23,11 @@ const promptOf = (meta = {}) =>
   meta['ai.nuphos/session']?.systemPrompt ??
   ''
 
-/** A session's Bot env, E2E_RULE and a hash per system prompt section, to tell which one changed. */
+/** A session's Bot env, E2E_RULE, whether it is told to delegate (#4156), and a hash per system prompt section. */
 export const opening = (params) => ({
   env: botEnv(params),
   rule: ruleIn(params),
+  delegates: promptOf(params._meta).includes('Delegate work by default'),
   sections: promptOf(params._meta)
     .split(/\n(?=## )/)
     .map(
