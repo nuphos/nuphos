@@ -6,15 +6,17 @@
 // entry, asks Pi whether the provider is ready, and starts every conversation on Pi's
 // default model for that provider (pi-session.mjs), as Pi's own login does: a conversation's
 // model menu changes it. Without it, Pi starts on the first provider in its own order that has
-// any credential on the computer, not the one just signed in to. Signing in with an account in
-// the browser waits for a Pi that can do it without a terminal.
+// any credential on the computer, not the one just signed in to. An account is Pi's own
+// `pi auth login <provider> --no-browser`, run in a terminal of its own (`script`), whose
+// sign-in page and code become a `browser` step: the user opens it wherever they are.
 //
 // The same wrapper signs in Pi on a computer, which names its own CLI and home.
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { pathToFileURL } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 
 import { MODEL_SETTINGS, readJson, writeJson } from './pi-session.mjs'
 
@@ -51,6 +53,24 @@ const PROVIDERS = [
   { value: 'nuphos-custom', label: 'Custom (OpenAI-compatible)' },
 ]
 
+/**
+ * The accounts Pi signs in to without a browser on this computer: a page to open and a code
+ * to paste back, or a device code. Windows has no `script` to give Pi its terminal.
+ */
+const ACCOUNTS =
+  process.platform === 'win32'
+    ? []
+    : [
+        {
+          value: 'anthropic-account',
+          provider: 'anthropic',
+          label: 'Claude Pro/Max account',
+          model: 'claude-opus-5-5',
+        },
+        { value: 'openai-codex', label: 'ChatGPT Plus/Pro (Codex)', model: 'gpt-6.1-sol' },
+        { value: 'github-copilot', label: 'GitHub Copilot', model: 'gpt-6.1-sol' },
+      ]
+
 // The computer itself: a key sent there over plain http never crosses the network.
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -59,6 +79,18 @@ class LoginError extends Error {}
 const restore = (file, before) =>
   Object.keys(before).length ? writeJson(file, before) : rmSync(file, { force: true })
 
+// Not the gateway's environment: no transport keys or session tokens.
+const piEnv = (agentDir) => ({
+  HOME,
+  USERPROFILE: HOME,
+  PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
+  ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
+  PI_CODING_AGENT_DIR: agentDir,
+  // The model catalog Pi ships, without its startup update checks.
+  PI_OFFLINE: '1',
+  NO_COLOR: '1',
+})
+
 /** Runs a Pi command in the agent's home and resolves with what it printed. */
 export function runPi(args, agentDir) {
   return new Promise((resolve, reject) => {
@@ -66,17 +98,7 @@ export function runPi(args, agentDir) {
       PI,
       args,
       {
-        // Not the gateway's environment: no transport keys or session tokens.
-        env: {
-          HOME,
-          USERPROFILE: HOME,
-          PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
-          ...(process.env.SYSTEMROOT ? { SYSTEMROOT: process.env.SYSTEMROOT } : {}),
-          PI_CODING_AGENT_DIR: agentDir,
-          // The model catalog Pi ships, without its startup update checks.
-          PI_OFFLINE: '1',
-          NO_COLOR: '1',
-        },
+        env: piEnv(agentDir),
         timeout: 60_000,
         windowsHide: true,
         shell: PI.endsWith('.cmd'),
@@ -93,6 +115,55 @@ export function listedModels(output, provider) {
     .map((line) => line.trim().split(/\s+/u))
     .filter(([name, model]) => name === provider && model)
     .map(([, model]) => model)
+}
+
+/**
+ * Pi's own account sign-in, in the terminal `script` gives it (util-linux, or BSD on macOS).
+ * The page it prints becomes a `browser` step, which waits for the code when Pi asks for one.
+ */
+export async function piAccountLogin(provider, agentDir, { emit, answer }) {
+  const command = [PI, 'auth', 'login', provider, '--no-browser']
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`
+  const child = spawn(
+    'script',
+    process.platform === 'darwin'
+      ? ['-q', '/dev/null', ...command]
+      : ['-qfec', command.map(quote).join(' '), '/dev/null'],
+    { env: { ...piEnv(agentDir), TERM: 'dumb' }, stdio: ['pipe', 'pipe', 'ignore'] },
+  )
+  const stop = () => child.kill('SIGKILL')
+  process.once('exit', stop)
+  child.stdin.on('error', stop)
+  const exited = new Promise((resolve) => {
+    child.once('error', () => resolve(1))
+    child.once('close', resolve)
+  })
+  let output = ''
+  let domain = false
+  let shown = false
+  child.stdout.on('data', (chunk) => {
+    output = (output + stripVTControlCharacters(chunk.toString())).slice(-65_536)
+    // GitHub Copilot first asks for an Enterprise domain; none is github.com.
+    if (!domain && output.includes('Enterprise URL/domain')) {
+      domain = true
+      child.stdin.write('\r')
+    }
+    if (shown) return
+    const page = /Open this URL to sign in:\s+(https:\/\/\S+)\s/u.exec(output)
+    const device = /Open (https:\/\/\S+) and enter code: ([A-Za-z0-9-]+)\s/u.exec(output)
+    if (page) {
+      shown = true
+      emit({ type: 'browser', url: page[1], paste: 'code' })
+      // A terminal submits on carriage return. No answer ends the sign-in.
+      answer().then((code) => child.stdin.write(`${code}\r`), stop)
+    } else if (device) {
+      shown = true
+      emit({ type: 'browser', url: device[1], instructions: `Enter the code ${device[2]}` })
+    }
+  })
+  const code = await exited
+  process.off('exit', stop)
+  if (code !== 0) throw new LoginError('Account sign-in failed')
 }
 
 export async function runPiLogin({
@@ -119,25 +190,32 @@ export async function runPiLogin({
     return value
   }
 
-  const provider = await choose(
+  const choice = await choose(
     'Choose a model provider',
-    PROVIDERS.map(({ value, label }) => ({ value, label })),
+    [...ACCOUNTS, ...PROVIDERS].map(({ value, label }) => ({ value, label })),
   )
-  const { label, model } = PROVIDERS.find((entry) => entry.value === provider)
+  const account = ACCOUNTS.find((entry) => entry.value === choice)
+  const {
+    label,
+    model,
+    provider = choice,
+  } = account ?? PROVIDERS.find((entry) => entry.value === choice)
   const endpoint = provider === 'nuphos-custom' && {
     baseUrl: await input({ message: 'Base URL', placeholder: 'http://localhost:11434/v1' }),
   }
   if (endpoint && !/^https?:\/\/./u.test(endpoint.baseUrl)) throw new LoginError('Not a URL')
   const preferred = endpoint ? await input({ message: 'Model ID' }) : model
-  const key = await input({
-    message: !endpoint
-      ? `${label} API key`
-      : endpoint.baseUrl.startsWith('http:') && !LOOPBACK.has(new URL(endpoint.baseUrl).hostname)
-        ? 'API key (sent unencrypted over http)'
-        : 'API key',
-    ...(endpoint ? { placeholder: 'Any text if the endpoint takes none' } : {}),
-    secret: true,
-  })
+  const key =
+    !account &&
+    (await input({
+      message: !endpoint
+        ? `${label} API key`
+        : endpoint.baseUrl.startsWith('http:') && !LOOPBACK.has(new URL(endpoint.baseUrl).hostname)
+          ? 'API key (sent unencrypted over http)'
+          : 'API key',
+      ...(endpoint ? { placeholder: 'Any text if the endpoint takes none' } : {}),
+      secret: true,
+    }))
   const agentDir = join(home, '.pi', 'agent')
   const authFile = join(agentDir, 'auth.json')
   const modelsFile = join(agentDir, 'models.json')
@@ -145,7 +223,7 @@ export async function runPiLogin({
   const beforeModels = readJson(modelsFile)
   mkdirSync(agentDir, { recursive: true, mode: 0o700 })
   // In the file, never on a command line, where every process on the computer could read it.
-  writeJson(authFile, { ...before, [provider]: { type: 'api_key', key } })
+  if (key) writeJson(authFile, { ...before, [provider]: { type: 'api_key', key } })
   if (endpoint)
     writeJson(modelsFile, {
       ...beforeModels,
@@ -160,6 +238,7 @@ export async function runPiLogin({
       },
     })
   try {
+    if (account) await piAccountLogin(provider, agentDir, { emit, answer })
     const check = JSON.parse(
       await run(['auth', 'check', '--provider', provider, '--json'], agentDir),
     )
