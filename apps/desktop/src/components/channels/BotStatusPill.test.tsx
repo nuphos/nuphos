@@ -83,11 +83,6 @@ test('the pill rests, opens the Task while working, and shows the oldest questio
     reading = { work: waiting('Draft notes'), since: undefined }
     await render()
     assert.equal(container.textContent, 'Waiting on 1 Task: Draft notes')
-
-    // Someone else's Bot: only how many, never their names.
-    reading = { work: { kind: 'waiting', kids: [], count: 2 }, since: undefined }
-    await render()
-    assert.equal(container.textContent, 'Waiting on 2 Tasks')
     reading = { work: waiting('Draft notes', 'Verify staging'), since: 15_000 }
     await render()
     assert.equal(container.textContent, 'Waiting on 2 Tasks: Draft notes, Verify staging0:45')

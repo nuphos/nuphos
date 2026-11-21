@@ -17,7 +17,7 @@ export type Step =
 export type BotWork =
   | { kind: 'turn'; step: Step; reason: 'chat' | 'report' | 'other'; kids: Run[] }
   | { kind: 'onboarding'; kids: Run[] }
-  | { kind: 'waiting'; kids: Run[]; count?: number }
+  | { kind: 'waiting'; kids: Run[] }
   | { kind: 'background'; kids: Run[] }
   | { kind: 'asking'; question: string; id: string; count: number; kids: Run[] }
 
@@ -72,14 +72,8 @@ export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string):
       kids: working,
     }
   const activity = activityOf(bot, kids)
-  // Someone else's Bot: its Tasks are not in this viewer's list, only how many there are.
-  const unlisted =
-    kids.length === 0
-      ? (bot?.conversation.tasks?.running ?? 0) + (bot?.conversation.tasks?.waiting ?? 0)
-      : 0
 
-  // As with listed Tasks, a Bot at work says so, even while it is still in setup.
-  if (activity.kind === 'onboarding' && unlisted === 0) return { kind: 'onboarding', kids: working }
+  if (activity.kind === 'onboarding') return { kind: 'onboarding', kids: working }
 
   if (
     activity.kind === 'working' &&
@@ -95,10 +89,10 @@ export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string):
       kids: working,
     }
   if (activity.kind === 'working') return { kind: 'waiting', kids: working }
-  if (activity.kind === 'background' && working.length > 0)
-    return { kind: 'waiting', kids: working }
-  if (unlisted > 0) return { kind: 'waiting', kids: [], count: unlisted }
-  if (activity.kind === 'background') return { kind: 'background', kids: [] }
+  if (activity.kind === 'background')
+    return working.length > 0
+      ? { kind: 'waiting', kids: working }
+      : { kind: 'background', kids: [] }
 
   return null
 }
