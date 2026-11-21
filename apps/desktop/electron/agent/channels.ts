@@ -7,13 +7,17 @@ const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(ses
 
 /**
  * A new channel, private until shared; its people and agents are added after.
- * It has no name: each member sees it called by the others in it.
+ * Without a name, each member sees it called by the others in it.
  */
 export async function createChannel(
   teamId: string,
   group?: boolean,
+  title?: string,
 ): Promise<{ sessionId: string }> {
-  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, group ? { group } : {})
+  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, {
+    ...(group ? { group } : {}),
+    ...(title ? { title } : {}),
+  })
 }
 
 /** Where a new Bot runs: the runtime a new chat would start on. */
