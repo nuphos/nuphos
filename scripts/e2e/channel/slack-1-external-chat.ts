@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 import { artifacts, until } from '../processes.ts'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
+import { verifyConversationMapping } from './slack-conversation-auth.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -110,7 +111,8 @@ async function answer(stack: Stack, chatId: string, text: string) {
 export default {
   name: "a Slack channel's messages reach its Bot as an external chat, only the owner speaks for them, and the Bot answers in Slack",
   // The teammate's Bot, refused while the viewer's holds the channel.
-  expected: /"error_code":"slack_channel_has_bot"/,
+  expected:
+    /"error_code":"slack_channel_has_bot"|"method":"GET","path":"\/teams\/[^"/]+\/slack\/mappings","status":403,"error_code":"(?:forbidden|conversation_api_forbidden)"/,
   run: async (page, stack) => {
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
@@ -142,6 +144,8 @@ export default {
     await settings(stack, 'POST', `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`, {
       botSessionId: bot.sessionId,
     })
+
+    await verifyConversationMapping(stack, bot.sessionId, WORKSPACE, CHANNEL)
 
     try {
       const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')

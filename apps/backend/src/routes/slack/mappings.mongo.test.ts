@@ -50,6 +50,16 @@ const app = new Hono<{ Variables: AuthVariables }>()
 
 registerSlackMappingRoutes(app)
 app.onError(errorHandler)
+const teamApp = new Hono<{ Variables: AuthVariables }>()
+const scopedMappings = new Hono<{ Variables: AuthVariables }>()
+
+teamApp.use('*', async (c, next) => {
+  c.set('userId', viewer)
+  await next()
+})
+registerSlackMappingRoutes(scopedMappings, true)
+teamApp.route('/teams/:teamId/slack', scopedMappings)
+teamApp.onError(errorHandler)
 
 let channel = 'C1'
 const send = (method: string, path: string, body?: Record<string, unknown>) =>
@@ -103,6 +113,35 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       channel = `C${new ObjectId().toHexString().toUpperCase()}`
       await seedBot('admin-bot', ADMIN)
       await seedBot('member-bot', MEMBER)
+    })
+
+    test('team-scoped mapping routes preserve admin and Bot owner checks', async () => {
+      const path = `/teams/${TEAM}/slack/mappings`
+      const request = (method: string, suffix: string, body?: object) =>
+        teamApp.request(path + suffix, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+        })
+
+      viewer = MEMBER
+      expect(
+        (await request('PUT', '', { slackWorkspaceId: 'T1', slackChannelId: channel })).status,
+      ).toBe(403)
+      viewer = ADMIN
+      expect(
+        (await request('PUT', '', { slackWorkspaceId: 'T1', slackChannelId: channel })).status,
+      ).toBe(200)
+      expect(
+        (await request('POST', `/T1/${channel}/bots`, { botSessionId: `${TEAM}-member-bot` }))
+          .status,
+      ).toBe(403)
+      viewer = MEMBER
+      expect(
+        (await request('POST', `/T1/${channel}/bots`, { botSessionId: `${TEAM}-member-bot` }))
+          .status,
+      ).toBe(200)
+      expect((await record())?.agentSessionIds).toEqual([`${TEAM}-member-bot`])
     })
 
     test('an admin connects a channel, which makes its hidden record and the grant', async () => {
