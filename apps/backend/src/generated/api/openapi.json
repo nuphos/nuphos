@@ -16594,6 +16594,7 @@
                               "minIntervalSeconds": {
                                 "type": "number"
                               },
+                              "payloadFilters": {},
                               "credentialMode": {
                                 "type": "string"
                               },
@@ -16646,6 +16647,7 @@
                               "minIntervalSeconds": {
                                 "type": "number"
                               },
+                              "payloadFilters": {},
                               "credentialMode": {
                                 "type": "string"
                               },
