@@ -116,6 +116,7 @@ export function DashboardCanvas({
               >
                 <PanelCard
                   panel={panel}
+                  teamId={detail.dashboard.teamId}
                   viewTimeRange={detail.viewTimeRange ?? detail.dashboard.timeRange}
                   loading={refreshing || busyPanels.has(panel.id)}
                   onExecute={onExecutePanel}

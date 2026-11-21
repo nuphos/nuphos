@@ -37,6 +37,8 @@ export function discoverModels(
   const live = () => run.current() && agent.runtime === runtime
   let inFlight: Promise<boolean | undefined> | undefined
   let readAt = 0
+  // Reads failed in a row; an adapter that keeps failing is not started again on demand.
+  let failedReads = 0
   // Whether the list changed; undefined when the read failed or the run is gone.
   const read = () => {
     readAt = Date.now()
@@ -51,6 +53,7 @@ export function discoverModels(
       .then(
         (models) => {
           if (!live()) return undefined
+          failedReads = 0
           const changed = JSON.stringify(models) !== JSON.stringify(agent.models)
 
           agent.models = models
@@ -59,6 +62,7 @@ export function discoverModels(
           return changed
         },
         (error: unknown) => {
+          failedReads++
           if (live())
             deps.log?.('local agent: model discovery failed', {
               provider: run.provider,
@@ -99,11 +103,17 @@ export function discoverModels(
     })
   }
 
+  // An opened picker reads at most once a minute, and after failures no sooner than a retry would.
+  const onDemandGap = () =>
+    failedReads
+      ? MODEL_RETRY_MS[Math.min(failedReads - 1, MODEL_RETRY_MS.length - 1)]
+      : MODEL_ON_DEMAND_MS
+
   readers.add({
     live,
     read: () =>
       inFlight ??
-      (signedOut() || Date.now() - readAt < MODEL_ON_DEMAND_MS ? Promise.resolve(false) : read()),
+      (signedOut() || Date.now() - readAt < onDemandGap() ? Promise.resolve(false) : read()),
   })
   const first = MODEL_FIRST_READ_MS[run.provider]
 

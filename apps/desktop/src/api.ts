@@ -150,6 +150,9 @@ export const api = instrumentApi(
     // A chat keeps the card of a Trigger deleted since, and the card re-reads it
     // on every focus and shows it as removed.
     if (operation === 'agentGetTrigger' && isNotFound(error)) return
+    // A chip for a pull request the team's GitHub App cannot read re-reads it
+    // every minute and still links to it.
+    if (parsed.code === 'pull_forbidden' || parsed.code === 'pull_not_found') return
 
     reportFrontendError(
       {

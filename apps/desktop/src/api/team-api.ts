@@ -131,6 +131,12 @@ export const teamApi = {
   atlasRejectInvitation: (invitationId: string) => window.api.atlasRejectInvitation(invitationId),
   atlasListSlackChannelMappings: (teamId: string) =>
     window.api.atlasListSlackChannelMappings(teamId),
+  atlasSetSlackChannelBot: (
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ) => window.api.atlasSetSlackChannelBot(teamId, channel, botSessionId, answers),
   atlasGetSlackConnectionStatus: (teamId: string) =>
     window.api.atlasGetSlackConnectionStatus(teamId),
   atlasGetSlackInstallation: (teamId: string) => window.api.atlasGetSlackInstallation(teamId),
@@ -156,7 +162,6 @@ export const teamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ) => window.api.atlasDeleteSlackChannelMapping(teamId, slackWorkspaceId, slackChannelId),
-  atlasListSlackUserMappings: (teamId: string) => window.api.atlasListSlackUserMappings(teamId),
   atlasUpsertSlackUserMapping: (
     teamId: string,
     input: {

@@ -130,6 +130,17 @@ struct ChannelView: View {
                     .disabled(channel.botId == nil)
                     .accessibilityIdentifier("bot-details-entry")
                 }
+                // One tap to the Bot's own Task, where its runtime and model are switched.
+                if let bot = channel.botId, canOpenTask {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            open(bot, title: channel.title)
+                        } label: {
+                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
+                        }
+                        .accessibilityIdentifier("chat.botTask")
+                    }
+                }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
@@ -344,6 +355,7 @@ struct ChannelView: View {
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
+                    onVerify: actionable && owns(event.agentId) ? event.verifyUrl.map { url in { openURL(url) } } : nil,
                     onSwitch: actionable && owns(event.agentId) && ["usage_limit", "auth", "offline"].contains(event.cause ?? "")
                         ? { if let id = event.agentId { switchingBot = store.session(sessionId: id, title: channel.title, teamId: channel.teamId) } }
                         : nil,
@@ -469,6 +481,11 @@ private struct ChannelPostRow: View {
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if mine { Spacer(minLength: 48) }
@@ -481,8 +498,8 @@ private struct ChannelPostRow: View {
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -553,7 +570,7 @@ private struct ChannelPostRow: View {
         VStack(alignment: .leading, spacing: 6) {
             if let reply = post.replyTo { quote(reply) }
             if !post.text.isEmpty {
-                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
             }
         }
             .padding(.horizontal, 14)
@@ -594,15 +611,28 @@ private struct PausedLine: View {
     }
 }
 
-/// An agent could not reply: what happened and why, when its usage returns, and the fix.
+/// An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry.
 private struct ReplyFailedLine: View {
     let event: AgentConversationDetail.TimelineEvent
+    var onVerify: (() -> Void)?
     var onSwitch: (() -> Void)?
     var onRetry: (() -> Void)?
 
     private var resets: String? {
         guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
         return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+    }
+
+    @ViewBuilder private var fixes: some View {
+        if let onVerify {
+            Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
+        }
+        if let onSwitch {
+            Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+        }
+        if let onRetry {
+            Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+        }
     }
 
     var body: some View {
@@ -612,14 +642,11 @@ private struct ReplyFailedLine: View {
                 Text([event.text, resets].compactMap(\.self).joined(separator: " "))
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
-            if onSwitch != nil || onRetry != nil {
-                HStack(spacing: 8) {
-                    if let onSwitch {
-                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
-                    }
-                    if let onRetry {
-                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
-                    }
+            if onVerify != nil || onSwitch != nil || onRetry != nil {
+                // In one line when they fit, else one under another.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { fixes }
+                    VStack(alignment: .leading, spacing: 8) { fixes }
                 }
                 .font(Theme.Text.caption)
                 .padding(.leading, 17)

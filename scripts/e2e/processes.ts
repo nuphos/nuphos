@@ -112,3 +112,11 @@ export async function stop(child: ChildProcess): Promise<void> {
 export async function stopAll(): Promise<void> {
   await Promise.all(children.map(stop))
 }
+
+// An interrupted run stops what it started, and only that: each child is its own process group, so
+// without this a signalled runner leaves its database and agents running.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    void stopAll().finally(() => process.exit(1))
+  })
+}

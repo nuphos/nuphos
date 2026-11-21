@@ -1,9 +1,12 @@
 import { createContext } from 'react'
 
-// Actions behind the right-click menu on a link in a chat message. Provided by
-// the workspace shell; without a provider (onboarding demo, previews) links
-// keep the plain browser context behaviour.
+// How a link in rendered markdown opens, provided once by the workspace shell:
+// a left click and the right-click menu. Without a provider (onboarding demo,
+// previews) links keep the plain browser behaviour.
 export type ChatLinkMenuActions = {
+  // A left click, or ⌘-click to open beside this pane; false leaves the
+  // browser default.
+  open: (href: string, beside: boolean) => boolean
   // The same routing a left click uses: an app or bound-provider page opens in
   // a workspace tab, anything else opens in the built-in browser tab.
   openInApp: (href: string) => void

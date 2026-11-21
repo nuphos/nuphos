@@ -1,6 +1,6 @@
 ---
 name: gcloud
-description: Run Google Cloud SDK (gcloud) commands from the sandbox to inspect or change GCP resources (GKE, Compute Engine, IAM, networking). Includes scripts to install the SDK and to load a short-lived access token for an Nuphos-bound project.
+description: Run gcloud to inspect or change GCP resources (GKE, Compute Engine, IAM, networking). Includes scripts to install the SDK and load a token for a Nuphos-bound project.
 ---
 
 # gcloud (Google Cloud SDK)

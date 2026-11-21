@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'bun:test'
 
 import { getSystemPrompt, renderPromptTemplate } from './system-prompt'
@@ -28,13 +30,40 @@ describe('renderPromptTemplate', () => {
 })
 
 describe('vendored prompt files', () => {
-  it('system prompt renders with its load-bearing placeholders', async () => {
-    const resolved = await getSystemPrompt('en', { max_output_tokens: 32000 })
+  it('system prompt renders with no placeholders left', async () => {
+    const resolved = await getSystemPrompt('en')
 
     expect(resolved.source).toBe('repo')
-    expect(resolved.prompt).toContain('32000')
-    expect(resolved.prompt).not.toContain('{{max_output_tokens}}')
+    expect(resolved.prompt).not.toContain('{{')
     expect(resolved.prompt.length).toBeGreaterThan(1000)
+  })
+
+  // Every request re-sends this prompt. Guidance a skill already carries lives
+  // only in that skill, and the output budget only in the turn rules.
+  it('leaves skill-specific guidance to the skills', async () => {
+    const { prompt } = await getSystemPrompt('en')
+
+    for (const moved of [
+      '# Deploy-from-name workflow',
+      '# Nuphos S3 object links',
+      '# Missing IAM permissions on the BYOC role itself',
+      '# Monitoring & uptime',
+      '# Response budget',
+    ])
+      expect(prompt).not.toContain(moved)
+  })
+
+  // The moved S3 and IAM rules apply only once the agent loads the aws skill, so its
+  // description has to name those cases.
+  it('the aws skill description names the cases moved into it', () => {
+    const skill = readFileSync(
+      new URL('./builtin-skills/skills/aws/SKILL.md', import.meta.url),
+      'utf8',
+    )
+    const description = skill.match(/^description: (.*)$/m)?.[1] ?? ''
+
+    expect(description).toContain('/s3-buckets/')
+    expect(description).toContain('AccessDenied on the BYOC role')
   })
 
   // Every Bot loads this prompt, so it must not cast the agent as only a

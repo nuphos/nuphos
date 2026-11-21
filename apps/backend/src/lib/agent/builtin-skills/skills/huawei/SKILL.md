@@ -1,6 +1,6 @@
 ---
 name: huawei
-description: Call Huawei Cloud (华为云) REST APIs from the sandbox with the bundled signer to inspect or change Huawei Cloud resources (CCE, ECS, ELB, VPC, OBS, RDS, etc.). Includes a script to load a Nuphos-bound Huawei Cloud account's short-lived federated credentials.
+description: Call Huawei Cloud REST APIs with the bundled signer to inspect or change CCE, ECS, ELB, VPC, OBS, RDS and more. Includes a script for short-lived federated credentials.
 ---
 
 # Huawei Cloud (华为云)

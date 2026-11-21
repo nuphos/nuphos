@@ -129,6 +129,18 @@ class ChatConflictCodesDeviceTest {
         assertEquals(1, session.queuedSends)
     }
 
+    /** #4024: a signed-out or out-of-usage runtime refuses every retry the same way, so the turn fails once. */
+    @Test fun aRuntimeThatCannotRunFailsOnceWithTheServersWords() {
+        for (code in listOf("runtime_auth_required", "runtime_usage_exhausted")) {
+            posted.clear()
+            val frame = """{"type":"error","errorCode":"$code","errorText":"Words for $code"}"""
+            answers += 200 to "data: $frame\n\ndata: {\"type\":\"atlas-stream-done\"}\n\n"
+            val session = send()
+            assertEquals("No retry for $code", 1, posted.size)
+            assertEquals("Words for $code", session.error)
+        }
+    }
+
     @Test fun outOfSyncRebasesThenResendsAndStopsThereWithTheSameMessage() {
         val stored = """{"storedMessageCount":2}"""
         repeat(5) { answers += 409 to error("transcript_out_of_sync", "Stored transcript has 2 messages; client claimed 12", stored) }

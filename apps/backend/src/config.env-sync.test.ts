@@ -64,6 +64,9 @@ const BYPASS_ALLOWLIST = new Set([
   // Same shape: the usage probe runs inside the agent's container as a runtime
   // `panel` job, and its process.env is that job's cleared environment.
   'src/lib/claude-code-preview/runtime-quota-probe.ts',
+  // The Grok billing program the usage probe embeds, which Desktop also runs
+  // as the agent: its process.env is the agent's, never the backend's.
+  'src/lib/claude-code-preview/runtime-quota-grok-billing.ts',
 ])
 
 // `scripts/` is also scanned (the Dockerfile does `COPY apps/backend/scripts

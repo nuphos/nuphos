@@ -5,6 +5,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { appendAutonomousConversationTurn } from '@/lib/agent/db'
+import { trackAgentProducer } from '@/lib/agent/producer-drain'
 import { withoutEmptyTurnSentinel } from '@/lib/claude-code-preview/empty-turn'
 import { handleOpenAbPermissionRequest } from '@/lib/claude-code-preview/openab-permission-bridge'
 import {
@@ -89,16 +90,19 @@ async function finishTurn(
   turn.finish()
   try {
     if (parts.length > 0) {
-      await appendAutonomousConversationTurn({
-        sessionId: conversationId,
-        userId,
-        teamId,
-        message: {
-          id: turn.messageId,
-          parts,
-        },
-        locale,
-      })
+      // Shutdown waits for this write: a closed tunnel ends the turn while storage is still open.
+      await trackAgentProducer(() =>
+        appendAutonomousConversationTurn({
+          sessionId: conversationId,
+          userId,
+          teamId,
+          message: {
+            id: turn.messageId,
+            parts,
+          },
+          locale,
+        }),
+      )
     }
   } catch (error) {
     logError('agent.chat.preview_autonomous_persist.error', error, {
@@ -125,7 +129,12 @@ export function createClaudeCodeAutonomousUpdateHandler(deps: AutonomousTurnDeps
   return {
     update: (update: ClaudeCodeAutonomousUpdate): void | Promise<void> => {
       if (update.update.kind === 'agent' && update.update.update.kind === 'runtime-state') return
-      if (update.update.kind === 'async-task' || update.update.kind === 'prompt-suggestion') return
+      if (
+        update.update.kind === 'async-task' ||
+        update.update.kind === 'prompt-suggestion' ||
+        update.update.kind === 'session-config'
+      )
+        return
       if (update.update.kind === 'status') {
         if (update.update.status === 'active') {
           // Snapshots are broadcast to all observers, including connections

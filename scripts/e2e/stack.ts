@@ -5,9 +5,9 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
-import { startSlackStub } from './slack-stub.ts'
+import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
+import { E2E_JWT_SECRET, startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
@@ -211,7 +211,7 @@ export async function startStack(
     env: {
       NODE_ENV: 'development',
       PORT: String(backendPort),
-      NUPHOS_JWT_SECRET: 'local-e2e-jwt-secret-not-a-production-credential',
+      NUPHOS_JWT_SECRET: E2E_JWT_SECRET,
       MONGODB_URI: mongoUri,
       MONGODB_DB: 'nuphos_e2e',
       ATLAS_REDIS_ENABLED: 'false',
@@ -230,6 +230,9 @@ export async function startStack(
       SONARQUBE_BYOK_ENCRYPTION_KEY: 'bG9jYWwtZTJlLXNvbmFycXViZS1rZXktbm90LXByb2Q=',
       // Where the agent reaches the backend's tools, as a runtime on this computer would.
       NUPHOS_BACKEND_URL: apiUrl,
+      // Voice input as on Nuphos Cloud, for a subscription the e2e team lacks; never reached.
+      NUPHOS_BILLING_URL: `${apiUrl}/e2e-billing`,
+      OPENAI_API_KEY: 'e2e-openai-key-not-a-production-credential',
       ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
       ...fakes,
     },
