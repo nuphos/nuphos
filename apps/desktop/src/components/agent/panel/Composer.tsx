@@ -89,20 +89,24 @@ export function Composer({
   autoFocus?: boolean
   /** Docked sidebar variant: matches the left content card's larger radius. */
   sidebar?: boolean
-  // The panel routes drops to the visible composer's handler.
+  // Panel-level drag-and-drop: the whole chat panel is the drop zone.
+  // The composer publishes an "attach these dropped files" handler here so the
+  // panel can route a drop to whichever composer is currently visible.
   dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
   /** Where this composer's unsent text is kept; see composerDraftKey. */
   draftKey?: string
-  /** Continue a local session in the new-conversation composer. */
+  /** Continue a local Claude Code / Codex session on the selected agent. Only
+   *  the new-conversation composer has one; elsewhere the session list keeps
+   *  attaching the log as a file. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
-  /** Enables @teammate mentions and invites mentioned outsiders after sending. */
+  /** Turns on @teammate mentions; with a session, mentioned outsiders get an
+   *  invite prompt after sending. */
   mentionScope?: Parameters<typeof useComposerMentions>[2]
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
-  aboveStatus?: ReactNode
-}) {
+} & Pick<Parameters<typeof ComposerOverlays>[0], 'aboveStatus'>) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
   // Queued and sent later, not refused, unless it never will be (an outdated runtime): say why.
@@ -160,17 +164,14 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // Docked, the bottom gap matches the content card; the hero leaves room above the greeting.
+        // Its width and side clearance are the ChatColumn's it sits in. Docked, its bottom gap
+        // matches the content card's own (`pb-2` on the main pane) so the two columns end on the
+        // same line. The hero always keeps room for the agent-status banner above the greeting.
         hero ? 'pt-5' : sidebar ? 'pb-2' : 'pb-3',
       )}
     >
       <div className="relative w-full">
-        <ComposerOverlays
-          above={aboveStatus}
-          control={readOnly ? undefined : runtimeControl}
-          hero={hero}
-          onSwitchAgent={switchAgent}
-        />
+        <ComposerOverlays {...{ aboveStatus, readOnly, runtimeControl, hero, switchAgent }} />
         <div
           className={clsx(
             'relative',

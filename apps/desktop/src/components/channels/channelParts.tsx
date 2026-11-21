@@ -179,7 +179,7 @@ export function ReplyingBanner({
   onCancel,
 }: {
   reply: AgentMessageReply
-  onCancel: () => void
+  onCancel: (reply: null) => void
 }) {
   return (
     <div
@@ -198,7 +198,7 @@ export function ReplyingBanner({
         label={t('Cancel reply')}
         shortcut="Esc"
         icon={<X />}
-        onClick={onCancel}
+        onClick={() => onCancel(null)}
       />
     </div>
   )

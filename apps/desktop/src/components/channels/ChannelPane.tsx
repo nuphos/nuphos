@@ -209,7 +209,8 @@ export function ChannelPane({
             ref={scrollRef}
             className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
           >
-            {/* One column keeps row widths and height aligned with the composer. */}
+            {/* The column: one box, so its height says when anything below grows, and
+            the one width every row takes, the composer's own. */}
             <ChatColumn>
               {detail && messages.length === 0 && (
                 <ChannelEmptyState
@@ -247,7 +248,7 @@ export function ChannelPane({
             </ChatColumn>
           </HeaderEdge>
           <ChatColumn>
-            {/* Align the reply bar and composer with the bubbles past each face. */}
+            {/* Inset the composer past the faces on both sides. */}
             <div
               ref={setComposer}
               className="relative px-[2.375rem]"
@@ -256,9 +257,7 @@ export function ChannelPane({
               }}
             >
               <Composer
-                aboveStatus={
-                  replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />
-                }
+                aboveStatus={replying && <ReplyingBanner reply={replying} onCancel={setReplying} />}
                 onSend={send}
                 onStop={() => {}}
                 readOnly={detail?.readOnly === true}

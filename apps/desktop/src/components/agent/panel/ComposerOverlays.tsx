@@ -5,20 +5,24 @@ import type { ReactNode } from 'react'
 
 /** Stack the reply and status overlays above the composer instead of letting them overlap. */
 export function ComposerOverlays({
-  above,
-  control,
+  aboveStatus,
+  readOnly,
+  runtimeControl,
   hero,
-  onSwitchAgent,
+  switchAgent,
 }: {
-  above?: ReactNode
-  control?: RuntimeControl
+  aboveStatus?: ReactNode
+  readOnly: boolean
+  runtimeControl?: RuntimeControl
   hero: boolean
-  onSwitchAgent?: () => void
+  switchAgent?: () => void
 }) {
   return (
     <div className="absolute inset-x-0 bottom-full">
-      {above}
-      {control && <AgentStatusBanner control={control} hero={hero} onSwitchAgent={onSwitchAgent} />}
+      {aboveStatus}
+      {!readOnly && runtimeControl && (
+        <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
+      )}
     </div>
   )
 }
