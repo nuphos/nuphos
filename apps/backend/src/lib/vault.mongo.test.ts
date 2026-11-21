@@ -118,13 +118,17 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
 
     expect(results.some((result) => result.status === 'fulfilled')).toBe(true)
     const enrolled = (
-      await db().collection('vault_devices').find({ userId: user, state: 'enrolled' }).toArray()
+      await db()
+        .collection<{ _id: string }>('vault_devices')
+        .find({ userId: user, state: 'enrolled' })
+        .toArray()
     ).map((doc) => doc._id)
 
     for (const item of await db().collection('vault_items').find({ userId: user }).toArray()) {
-      expect((item.keys as { deviceId: string }[]).map((key) => key.deviceId).sort()).toEqual(
-        [...enrolled].sort(),
-      )
+      const holders = (item.keys as { deviceId: string }[]).map((key) => key.deviceId)
+
+      expect(holders).toHaveLength(enrolled.length)
+      expect(new Set(holders)).toEqual(new Set(enrolled))
     }
   })
 
