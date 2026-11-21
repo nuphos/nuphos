@@ -20,7 +20,7 @@ export function results(json) {
 /** `apps/ios/UITests/DockPanelUITests.swift` holds `DockPanelUITests/testClosingATab()`. */
 const fileSuite = (path) => path.replace(/^.*\/|\.swift$/g, '')
 const testSuite = (test) => test.split('/')[0]
-const testName = (test) => test.split('/')[1]?.replace(/\(.*$/, '') ?? test
+const testName = (test) => test.split('/')[1]?.split('(')[0] ?? test
 
 export function compare(branch, main, changedFiles = [], treeTests = null) {
   const changed = new Set(changedFiles.map(fileSuite))
@@ -90,6 +90,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // that simply predates a test the baseline already had.
   const dir = 'apps/ios/UITests'
   const treeTests = new Set()
+
   for (const file of readdirSync(dir))
     for (const [, name] of readFileSync(`${dir}/${file}`, 'utf8').matchAll(
       /\bfunc (test\w*)\s*\(/g,
