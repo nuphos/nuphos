@@ -39,6 +39,10 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
 export async function openSubmenu(page: Page, row: string) {
   const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
 
+  // The pointer still rests where the menu's button was pressed. A row that arrives late can grow
+  // the menu under it, and the next layout shift reads as the pointer leaving the row: Base UI then
+  // closes the submenu the key opened, as it does for a hover.
+  await page.mouse.move(0, 0)
   await pickInSubmenu(page, trigger)
   // The open row and the id are not set together: the id waits for the list to exist.
   await trigger.and(page.locator('[aria-controls]')).waitFor()
