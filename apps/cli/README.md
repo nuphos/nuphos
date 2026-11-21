@@ -145,7 +145,9 @@ On Linux with systemd, `nuphos agent` does not stay in the foreground: it
 installs the user service `nuphos-agent` and starts it, so the runtime starts
 again after a crash or a reboot. With `--join` it returns once the machine has
 joined. The service runs `nuphos agent` with the `PATH` and `NUPHOS_*`
-variables of the shell that installed it (kept in `~/.config/nuphos/agent.env`);
+variables of the shell that installed it, plus any
+[model-provider variables](#your-own-model-provider) set there (kept in
+`~/.config/nuphos/agent.env`);
 run `nuphos agent` again to refresh them. A revoked computer or a refused token
 exits with status 78, which the service does not restart. `nuphos update`
 restarts the service on the new version. Its log is

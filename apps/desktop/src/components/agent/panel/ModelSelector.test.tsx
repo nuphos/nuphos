@@ -11,6 +11,9 @@ import type { ReactNode } from 'react'
 // and the real model list renders through them. From #3270 (carrying #2419).
 const MenuState = createContext({ open: false, setOpen: (_open: boolean) => {} })
 
+/** The focus target the menu hands Base UI for when it closes. */
+let closingFocus: (() => unknown) | undefined
+
 mock.module('../../ui/menu', () => ({
   Menu: function Menu({
     open,
@@ -42,13 +45,16 @@ mock.module('../../ui/menu', () => ({
       children as ReactNode,
     )
   }),
-  MenuPanel: forwardRef<HTMLDivElement, { children?: ReactNode; footer?: ReactNode }>(
-    function Panel({ children, footer }, ref) {
-      return useContext(MenuState).open
-        ? createElement('div', { ref, role: 'menu' }, children, footer)
-        : null
-    },
-  ),
+  MenuPanel: forwardRef<
+    HTMLDivElement,
+    { children?: ReactNode; footer?: ReactNode; finalFocus?: () => unknown }
+  >(function Panel({ children, footer, finalFocus }, ref) {
+    closingFocus = finalFocus
+
+    return useContext(MenuState).open
+      ? createElement('div', { ref, role: 'menu' }, children, footer)
+      : null
+  }),
   MenuContent: ({ children }: { children: ReactNode }) => createElement('div', null, children),
   MenuGroup: ({ children }: { children: ReactNode }) =>
     createElement('div', { role: 'group' }, children),
@@ -337,4 +343,27 @@ test('clicking the checked model still pins it', async () => {
   await act(() => picker.row('Big Pickle')?.click())
   assert.deepEqual(picker.selected, [{ configId: 'model', value: 'opencode/big-pickle' }])
   await act(() => picker.root.unmount())
+})
+
+// #3862: the closing model menu pulled focus back to the message box after the runtime list had
+// opened, and that list closed again at once.
+test('closing the menu leaves focus where the person already moved it', async () => {
+  const picker = mount()
+  const message = dom.document.createElement('div')
+  const runtime = dom.document.createElement('button')
+
+  message.setAttribute('aria-label', 'Message')
+  message.tabIndex = 0
+  dom.document.body.append(message, runtime)
+  await picker.render(opencode)
+  await act(() => picker.chip().click())
+  picker.row('Big Pickle')?.focus()
+  assert.equal(closingFocus?.(), message, 'closed from inside the menu, typing carries on')
+  picker.chip().focus()
+  assert.equal(closingFocus?.(), message, 'closed by pressing the chip, typing carries on too')
+  runtime.focus()
+  assert.equal(closingFocus?.(), false, 'another control already has focus: it keeps it')
+  await act(() => picker.root.unmount())
+  message.remove()
+  runtime.remove()
 })

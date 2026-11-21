@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name" translatable="false">Nuphos</string>
-    <string name="welcome_title">Welcome to Nuphos</string>
     <string name="welcome_body">Sign in or create an account.</string>
     <string name="sign_in">Sign in</string>
     <string name="signing_in">Signing in…</string>

@@ -129,6 +129,7 @@ import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.plans.PlanDetailScreen
 import ai.nuphos.android.ui.chats.CreateBotDialog
 import ai.nuphos.android.ui.profile.ProfileSheet
+import ai.nuphos.android.ui.profile.TwoFactorResume
 import ai.nuphos.android.ui.profile.WorkspacePickerContent
 import ai.nuphos.android.ui.login.SplashScreen
 import androidx.compose.ui.res.stringResource
@@ -343,7 +344,8 @@ fun HomeScreen(
     val current = HomePage.fromRoute(page)
     val unavailablePage = HomePage.unavailableRoute(page)
     var searching by rememberSaveable { mutableStateOf(false) }
-    var showProfile by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var showProfile by remember { mutableStateOf(TwoFactorResume.pending(context)) }
     var showSetup by remember { mutableStateOf(false) }
     val auth = LocalAuthSession.current
     var showWorkspacePicker by remember(user.id, auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }

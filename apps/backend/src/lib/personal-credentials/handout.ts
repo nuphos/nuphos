@@ -10,6 +10,7 @@ import {
   personalCredentialSubject,
   verifyPreviewMcpToken,
 } from '@/lib/claude-code-preview/mcp-token'
+import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
@@ -167,7 +168,7 @@ export async function ownPersonalCredentialOptions(userId: string, teamId: strin
 
   return docs
     .filter((doc) => !doc.teamId || doc.teamId === teamId)
-    .map((doc) => ({ provider: doc.provider, login: doc.login }))
+    .map((doc) => ({ id: doc._id.toHexString(), provider: doc.provider, login: doc.login }))
 }
 
 /** The sender's Linear token, when they connected the same workspace as this binding. */
@@ -180,13 +181,80 @@ export async function personalLinearToken(
   return doc ? currentToken(doc) : null
 }
 
+/**
+ * The member's Google account for one call: the one named by `connectionId`, or the only one
+ * connected through this team. Several and none named is an error that lists them: nothing is
+ * picked for the caller, and only the member's own accounts are ever considered.
+ */
+export async function googleCredentialFor(
+  userId: string,
+  provider: GoogleProvider,
+  teamId: string,
+  connectionId?: string,
+  authorized?: string[],
+  viaComposio = false,
+): Promise<PersonalCredential | null> {
+  // Composio runs only the accounts connected through it, so a direct account never counts there.
+  const docs = await personalCredentials()
+    .find({
+      userId,
+      provider,
+      teamId,
+      ...(viaComposio && { composioAccountId: { $exists: true } }),
+    })
+    .toArray()
+  // The conversation's own list decides. Without one, only a lone account is usable, so a second
+  // account connected later is never reached by a selection made before it existed.
+  const allowed = authorized
+    ? docs.filter((doc) => authorized.includes(doc._id.toHexString()))
+    : docs.length === 1
+      ? docs
+      : []
+  const notAuthorized = () =>
+    new AppError(
+      403,
+      'personal_credential_account_not_authorized',
+      'This account is not authorized for this conversation: the owner selects which accounts it may use',
+    )
+
+  if (connectionId) {
+    const named = docs.find((doc) => doc._id.toHexString() === connectionId)
+
+    if (!named) {
+      throw new AppError(
+        404,
+        'personal_credential_account_not_found',
+        'No such connected account for this member',
+      )
+    }
+    if (!allowed.includes(named)) throw notAuthorized()
+
+    return named
+  }
+  if (allowed.length > 1) {
+    throw new AppError(
+      409,
+      'personal_credential_account_required',
+      'Several accounts are authorized: ask which one to use, then name it with connectionId',
+      { accounts: allowed.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
+    )
+  }
+  if (allowed.length === 0 && docs.length > 0) throw notAuthorized()
+
+  return allowed[0] ?? null
+}
+
+/** The token of an already resolved Google account. */
+export const personalGoogleTokenOf = currentToken
+
 /** The member's own Gmail or Google Drive token, when they connected it through this team. */
 export async function personalGoogleToken(
   userId: string,
   provider: GoogleProvider,
   teamId: string,
+  connectionId?: string,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider, teamId })
+  const doc = await googleCredentialFor(userId, provider, teamId, connectionId)
 
   return doc ? currentToken(doc) : null
 }

@@ -149,6 +149,9 @@ describe('Bot identity', () => {
 
     expect(bot).toContain('Delegate work by default')
     expect(bot).toContain('`create_thread`')
+    expect(bot).toContain('already owns that matter')
+    expect(bot).toContain('`send_message_to_thread`')
+    expect(bot).toContain('paths or links of every file it needs')
     expect(plain).not.toContain('Delegate work by default')
   })
 

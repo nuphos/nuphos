@@ -85,7 +85,7 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   antigravity:
     'Install Antigravity CLI 1.5.0 or newer on this computer to run it as a local runtime.',
   opencode: 'Install OpenCode on this computer to run it as a local runtime.',
-  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh` (Node.js 24.9 or newer) to run it as a local runtime.',
+  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh@latest` (Node.js 24.9 or newer) to run it as a local runtime.',
   hermes:
     'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
   pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (Node.js 22.19 or newer) to run it as a local runtime.',

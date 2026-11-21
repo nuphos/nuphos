@@ -10,6 +10,7 @@ enum ChannelPostTests {
         putsATimeAboveAPostAfterAPause()
         keepsSendingPostsUntilTheChatReturnsThem()
         placesPausedLinesAndTypingInOrder()
+        readsWhereAHeldAccountIsVerified()
         placesQuestionsWhereTheyWereAsked()
         decodesChatsFromTheList()
         renamingTheBotChangesTheRevision()
@@ -185,6 +186,18 @@ enum ChannelPostTests {
         let sent = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later, sending: true)], events: [], typing: [])
         let returned = ChannelPost.items(posts: [post("old", "x", at: 100), post("s", "me", at: later)], events: [], typing: [])
         precondition(sent.map(\.id) == ["time.old", "post.old", "time.s", "post.s"] && returned.map(\.id) == sent.map(\.id))
+    }
+
+    /// #3967: the portal Anthropic named for a held account, for Verify with Anthropic.
+    private static func readsWhereAHeldAccountIsVerified() {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let held = try! decoder.decode(AgentConversationDetail.TimelineEvent.self, from: Data(
+            #"{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed","agentId":"bot-1","cause":"usage_limit","verifyUrl":"https://portal.anthropic.com/verify"}"#.utf8))
+        precondition(held.verifyUrl == URL(string: "https://portal.anthropic.com/verify"))
+        let other = try! decoder.decode(AgentConversationDetail.TimelineEvent.self, from: Data(
+            #"{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed"}"#.utf8))
+        precondition(other.verifyUrl == nil)
     }
 
     private static func placesPausedLinesAndTypingInOrder() {

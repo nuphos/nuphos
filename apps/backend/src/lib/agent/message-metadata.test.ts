@@ -125,6 +125,23 @@ test('automatic messages keep routing and control instructions in model metadata
   }
 })
 
+test('a Task reports to its parent with report_task alone, so the parent wakes once per result', () => {
+  const parsed = parseMessageMetadata({
+    ...metadata,
+    sender: { type: 'agent', id: 'parent', displayName: 'Engineering Head' },
+    source: 'agent.thread',
+    sourceSessionId: 'parent',
+  })
+  const { instructions } = JSON.parse(
+    renderAttributedMessage('m', 'Fix #1', parsed).split('\n')[1]!,
+  )
+
+  // report_task already wakes the parent; a send_message_to_thread with the same
+  // result would wake it a second time and re-read its whole history.
+  expect(instructions).toMatch(/report_task when the source is your parent/)
+  expect(instructions).not.toMatch(/report the result to the source with send_message_to_thread/)
+})
+
 test('history restores automatic metadata and body from the server, never the client', () => {
   const trusted = {
     ...metadata,

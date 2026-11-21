@@ -8,6 +8,7 @@ import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
 import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
+import { handBack } from './browser-hand-back.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
 import { openVideoWindow } from './browser-video-window.ts'
 import { failed } from './cua-host.ts'
@@ -85,7 +86,7 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
 }
 
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
-function openTab(url: string, conversation: string): WebContents {
+function openTab(url: string, conversation: string, team: string): WebContents {
   const window = new BrowserWindow({
     ...VIEWPORT,
     useContentSize: true,
@@ -108,6 +109,7 @@ function openTab(url: string, conversation: string): WebContents {
   window.on('close', (event) => {
     if (isAppQuitting()) return
     event.preventDefault()
+    if (window.isVisible()) handBack(team, conversation, contents.id)
     window.hide()
   })
   contents.loadURL(url).catch(() => {
@@ -217,7 +219,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'fetch') return proxyFetch(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const contents = openTab(call.url, call.session)
+    const contents = openTab(call.url, call.session, call.team)
 
     await loaded(contents)
 
@@ -256,15 +258,13 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
 
     return withDownloadNews(call.session, text(value === undefined ? 'undefined' : value))
   }
-  const window = tabs.get(contents)?.window
-
   if (call.action === 'show') {
     show(contents)
 
-    return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
+    return text(`Tab ${String(contents.id)} is on screen; closing it wakes you to continue.`)
   }
   if (call.action === 'close') {
-    window?.destroy()
+    tabs.get(contents)?.window.destroy()
 
     return text(`Closed tab ${String(contents.id)}.`)
   }

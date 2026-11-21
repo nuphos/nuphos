@@ -2,10 +2,9 @@ import { t } from '../i18n/index.ts'
 
 import './firstLaunchIntro.css'
 
+/** Shows the app icon over the first window for a moment, then fades it away. */
 export function showFirstLaunchIntro() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-  const frame = document.createElement('iframe')
 
   let preference: string | null = null
 
@@ -17,35 +16,31 @@ export function showFirstLaunchIntro() {
   const light =
     preference === 'light' ||
     (preference !== 'dark' && window.matchMedia('(prefers-color-scheme: light)').matches)
-  const url = new URL('logo-intro/index.html', document.baseURI)
+  const intro = document.createElement('div')
+  const icon = document.createElement('img')
 
-  url.searchParams.set('theme', light ? 'light' : 'dark')
-  frame.src = url.href
-  frame.title = t('Welcome to Nuphos')
-  frame.setAttribute('sandbox', 'allow-scripts allow-same-origin')
-  frame.className = 'first-launch-intro'
-  frame.style.background = light ? '#fcfcfd' : '#18181b'
+  icon.src = '/nuphos-icon.png'
+  icon.alt = ''
+  intro.append(icon)
+  intro.setAttribute('role', 'img')
+  intro.setAttribute('aria-label', t('Welcome to Nuphos'))
+  intro.className = 'first-launch-intro'
+  intro.style.background = light ? '#fcfcfd' : '#18181b'
   let dismissing = false
   const dismiss = () => {
     clearTimeout(timeout)
-    window.removeEventListener('message', onMessage)
     window.removeEventListener('keydown', onKeyDown)
     if (dismissing) return
     dismissing = true
-    frame.classList.add('is-leaving')
-    frame.addEventListener('transitionend', () => frame.remove(), { once: true })
-    setTimeout(() => frame.remove(), 500)
-  }
-  const onMessage = (event: MessageEvent) => {
-    if (event.source === frame.contentWindow && event.data === 'nuphos:introFinished') dismiss()
+    intro.classList.add('is-leaving')
+    intro.addEventListener('transitionend', () => intro.remove(), { once: true })
+    setTimeout(() => intro.remove(), 500)
   }
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') dismiss()
   }
-  // Also release the app if WebGL, module loading, or playback fails.
-  const timeout = setTimeout(dismiss, 7000)
+  const timeout = setTimeout(dismiss, 1500)
 
-  window.addEventListener('message', onMessage)
   window.addEventListener('keydown', onKeyDown)
-  document.body.append(frame)
+  document.body.append(intro)
 }
