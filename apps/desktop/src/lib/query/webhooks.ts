@@ -9,4 +9,6 @@ export const webhooksQuery = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.webhooks(teamId),
     queryFn: () => api.atlasListWebhooks(teamId),
+    // Deliveries change it in the background, so opening the page reads it again.
+    staleTime: 0,
   })
