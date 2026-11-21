@@ -17,8 +17,6 @@ type AgentEntry = {
   env?: Record<string, string>
   /** A fresh session's history preamble: the prompt's length and what it says about omitted turns. */
   history?: { chars: number; omitted: boolean; readConversation: boolean }
-  /** A model discovery attempt, and whether the fixture refused it. */
-  failed?: boolean
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
   rule?: string
   /** Each system prompt section's start and hash, as the session opened or loaded with it. */
