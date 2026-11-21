@@ -64,9 +64,8 @@ run_install "$home" SHELL="$(command -v zsh)" NUPHOS_NO_MODIFY_PATH=1
 [ ! -e "$home/.zprofile" ] || fail "NUPHOS_NO_MODIFY_PATH=1 still wrote ~/.zprofile"
 echo "ok: NUPHOS_NO_MODIFY_PATH=1 leaves the profile alone"
 
-# cron, systemd units and bare containers often have no SHELL at all. An empty
-# one stands in for it: macOS sh fills an unset SHELL from the user's login shell.
+# cron, systemd units and bare containers often have no SHELL at all.
 home=$(mktemp -d "$work/home.XXXXXX")
-run_install "$home" SHELL=
+run_install "$home"
 grep -q 'export PATH=' "$home/.profile" || fail "without SHELL, ~/.profile got no PATH line"
 echo "ok: without SHELL, ~/.profile gets the PATH line"
