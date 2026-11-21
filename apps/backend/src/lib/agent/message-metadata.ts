@@ -27,6 +27,8 @@ export type MessageMetadata = {
    * `id` is the original's in the same chat, for a channel reply.
    */
   replyTo?: { id?: string; authorName: string; text: string }
+  /** Slack's thread root, retained even when the root predates this connection. */
+  slackThreadTs?: string
   /** Nuphos's record of a person's answer to card `requestId`; `answeredIn` if in the Inbox. */
   requestId?: string
   answeredIn?: 'inbox'
@@ -184,6 +186,11 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
       ? { resourceUrl: m.resourceUrl }
       : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(m.source === 'slack' &&
+    typeof m.slackThreadTs === 'string' &&
+    /^\d+\.\d+$/.test(m.slackThreadTs)
+      ? { slackThreadTs: m.slackThreadTs }
+      : {}),
     ...(m.source === 'nuphos' && nonEmpty(m.requestId)
       ? {
           requestId: m.requestId,

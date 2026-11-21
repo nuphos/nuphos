@@ -133,7 +133,9 @@ beforeEach(async () => {
 
 describe("a Bot's post in a Slack channel's external chat", () => {
   test('goes to the Slack channel, under the Bot’s name, and keeps Slack’s id', async () => {
-    expect(await post({ channelId: RECORD, text: 'Deploy is **done**.' })).toMatchObject({
+    expect(
+      await post({ channelId: RECORD, text: 'Deploy is **done**.', replyTo: 0 }),
+    ).toMatchObject({
       structuredContent: { posted: true },
     })
 
@@ -150,7 +152,7 @@ describe("a Bot's post in a Slack channel's external chat", () => {
 
   test('with the customize scope, Slack shows the Bot’s name itself', async () => {
     scope = 'chat:write,chat:write.customize'
-    await post({ channelId: RECORD, text: 'Done.' })
+    await post({ channelId: RECORD, text: 'Done.', replyTo: 0 })
 
     expect(posted[0]).toMatchObject({ text: 'Done.', username: 'Deploy Bot' })
   })
@@ -159,26 +161,53 @@ describe("a Bot's post in a Slack channel's external chat", () => {
     scope = 'chat:write,chat:write.customize'
     refusesName = true
 
-    expect(await post({ channelId: RECORD, text: 'Done.' })).toMatchObject({
+    expect(await post({ channelId: RECORD, text: 'Done.', replyTo: 0 })).toMatchObject({
       structuredContent: { posted: true },
     })
     expect(posted).toEqual([expect.objectContaining({ text: '*Deploy Bot*\nDone.' })])
     expect(posted[0]).not.toHaveProperty('username')
   })
 
-  test('an answer to a message goes into its Slack thread, at the thread’s root', async () => {
+  test('an answer stays at the same level as the Slack message it answers', async () => {
     await post({ channelId: RECORD, text: 'On it.', replyTo: 0 })
     await post({ channelId: RECORD, text: 'Also this.', replyTo: 1 })
     // An answer to the Bot's own reply in that thread stays in the same thread.
     await post({ channelId: RECORD, text: 'And more.', replyTo: 3 })
 
-    expect(posted.map((call) => call.thread_ts)).toEqual(['10.1', '10.1', '10.1'])
+    expect(posted.map((call) => call.thread_ts)).toEqual([undefined, '10.1', '10.1'])
+  })
+
+  test('answering a Bot top-level answer also stays top-level', async () => {
+    await post({ channelId: RECORD, text: 'First.', replyTo: 0 })
+    await post({ channelId: RECORD, text: 'Second.', replyTo: 2 })
+
+    expect(posted.map((call) => call.thread_ts)).toEqual([undefined, undefined])
+  })
+
+  test('answers in an existing Slack thread even if its root was never ingested', async () => {
+    await slackPost(2, '10.3')
+    await agentMessages().updateOne(
+      { sessionId: RECORD, messageId: 'slack:C1:10.3' },
+      { $set: { 'metadata.slackThreadTs': '9.9' } },
+    )
+    await post({ channelId: RECORD, text: 'In the thread.', replyTo: 2 })
+
+    expect(posted[0]?.thread_ts).toBe('9.9')
+  })
+
+  test('a Slack answer without a target is rejected instead of guessing its location', async () => {
+    const result = await post({ channelId: RECORD, text: 'Where?' })
+
+    expect(result).toMatchObject({ isError: true })
+    expect(posted).toEqual([])
   })
 
   test('a post Slack refuses fails the call, and the record keeps nothing', async () => {
     slackFails = true
 
-    expect(await post({ channelId: RECORD, text: 'Hello.' })).toMatchObject({ isError: true })
+    expect(await post({ channelId: RECORD, text: 'Hello.', replyTo: 0 })).toMatchObject({
+      isError: true,
+    })
     expect(await agentMessages().countDocuments({ 'metadata.sender.type': 'agent' })).toBe(0)
   })
 
