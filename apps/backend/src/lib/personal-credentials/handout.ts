@@ -10,10 +10,10 @@ import {
   personalCredentialSubject,
   verifyPreviewMcpToken,
 } from '@/lib/claude-code-preview/mcp-token'
-import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
+import { accountRequired, allowedAccounts, chooseCredential, notAuthorized } from './choose'
 import { githubUserInstallationIds, refreshGithubToken } from './github'
 import { isGoogleProvider, refreshGoogleToken, teamGoogleClient } from './google'
 import { open, seal } from './seal'
@@ -121,38 +121,65 @@ async function currentToken(doc: PersonalCredential): Promise<PersonalToken | nu
 const installationAccess = new Map<string, number>()
 const INSTALLATION_ACCESS_TTL_MS = 10 * 60 * 1000
 
-/** The sender's GitHub token, when they connected one that can see this installation. */
+/**
+ * The sender's GitHub token, when they connected an account that can see this installation. The
+ * installation picks the account: several that can see it, and none named, is a 409.
+ */
 export async function personalGithubToken(
   userId: string,
   installationId: number,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider: 'github' })
-  const current = doc && (await currentToken(doc))
+  const docs = await personalCredentials().find({ userId, provider: 'github' }).toArray()
+  const allowed = allowedAccounts(docs, authorized)
 
-  if (!doc || !current) return null
-  const key = `${doc._id.toHexString()}:${String(installationId)}`
+  if (docs.length > 0 && allowed.length === 0) throw notAuthorized()
+  const reaching: { doc: PersonalCredential; current: PersonalToken }[] = []
 
-  if ((installationAccess.get(key) ?? 0) > Date.now()) return current
-  const visible = await githubUserInstallationIds(current.token).catch(
-    (error: unknown): number[] => {
-      logError('personal_credential.installations_failed', error, { provider: 'github' })
+  for (const doc of allowed) {
+    const current = await currentToken(doc)
 
-      return []
-    },
-  )
+    if (current && (await seesInstallation(doc, current.token, installationId))) {
+      reaching.push({ doc, current })
+    }
+  }
+  if (reaching.length > 1) throw accountRequired(reaching.map(({ doc }) => doc))
 
-  if (!visible.includes(installationId)) return null
-  installationAccess.set(key, Date.now() + INSTALLATION_ACCESS_TTL_MS)
-
-  return current
+  return reaching[0]?.current ?? null
 }
 
-/** The member's own GitHub or Linear token, for a conversation with no team binding to go through. */
+async function seesInstallation(
+  doc: PersonalCredential,
+  token: string,
+  installationId: number,
+): Promise<boolean> {
+  const key = `${doc._id.toHexString()}:${String(installationId)}`
+
+  if ((installationAccess.get(key) ?? 0) > Date.now()) return true
+  const visible = await githubUserInstallationIds(token).catch((error: unknown): number[] => {
+    logError('personal_credential.installations_failed', error, { provider: 'github' })
+
+    return []
+  })
+
+  if (!visible.includes(installationId)) return false
+  installationAccess.set(key, Date.now() + INSTALLATION_ACCESS_TTL_MS)
+
+  return true
+}
+
+/**
+ * The member's own GitHub or Linear token, for a conversation with no team binding to go through.
+ * With several accounts the call names one with `connectionId`.
+ */
 export async function personalOwnToken(
   userId: string,
   provider: 'github' | 'linear',
+  connectionId?: string,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider })
+  const docs = await personalCredentials().find({ userId, provider }).toArray()
+  const doc = chooseCredential(docs, connectionId, authorized)
 
   return doc ? currentToken(doc) : null
 }
@@ -175,8 +202,13 @@ export async function ownPersonalCredentialOptions(userId: string, teamId: strin
 export async function personalLinearToken(
   userId: string,
   workspaceId: string,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider: 'linear', workspaceId })
+  const docs = await personalCredentials().find({ userId, provider: 'linear' }).toArray()
+  const allowed = allowedAccounts(docs, authorized)
+
+  if (docs.length > 0 && allowed.length === 0) throw notAuthorized()
+  const doc = allowed.find((candidate) => candidate.workspaceId === workspaceId)
 
   return doc ? currentToken(doc) : null
 }
@@ -203,45 +235,8 @@ export async function googleCredentialFor(
       ...(viaComposio && { composioAccountId: { $exists: true } }),
     })
     .toArray()
-  // The conversation's own list decides. Without one, only a lone account is usable, so a second
-  // account connected later is never reached by a selection made before it existed.
-  const allowed = authorized
-    ? docs.filter((doc) => authorized.includes(doc._id.toHexString()))
-    : docs.length === 1
-      ? docs
-      : []
-  const notAuthorized = () =>
-    new AppError(
-      403,
-      'personal_credential_account_not_authorized',
-      'This account is not authorized for this conversation: the owner selects which accounts it may use',
-    )
 
-  if (connectionId) {
-    const named = docs.find((doc) => doc._id.toHexString() === connectionId)
-
-    if (!named) {
-      throw new AppError(
-        404,
-        'personal_credential_account_not_found',
-        'No such connected account for this member',
-      )
-    }
-    if (!allowed.includes(named)) throw notAuthorized()
-
-    return named
-  }
-  if (allowed.length > 1) {
-    throw new AppError(
-      409,
-      'personal_credential_account_required',
-      'Several accounts are authorized: ask which one to use, then name it with connectionId',
-      { accounts: allowed.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
-    )
-  }
-  if (allowed.length === 0 && docs.length > 0) throw notAuthorized()
-
-  return allowed[0] ?? null
+  return chooseCredential(docs, connectionId, authorized)
 }
 
 /** The token of an already resolved Google account. */
@@ -260,15 +255,15 @@ export async function personalGoogleToken(
 }
 
 /**
- * The member whose Personal Credential this handout uses, or null for the team
- * identity: the agent asked for it (`identity=team`), or the conversation's
+ * The member whose Personal Credential this handout uses, and the account ids the conversation
+ * allows, or null for the team identity: the agent asked for it (`identity=team`), or the conversation's
  * credential selection has the team act for this provider.
  */
 export async function personalCredentialSubjectFor(
   provider: 'github' | 'linear',
   authorization: string | undefined,
   identity?: string,
-): Promise<string | null> {
+): Promise<{ userId: string; connectionIds?: string[] } | null> {
   const subject = personalCredentialSubject(authorization, identity)
   const sessionId = subject
     ? verifyPreviewMcpToken(authorization!.slice('Bearer '.length))?.sid
@@ -278,5 +273,9 @@ export async function personalCredentialSubjectFor(
   const found = await getConversationBySessionId(sessionId)
   const conversation = found && (await credentialSource(found))
 
-  return conversation?.credentialAccess?.teamIdentity?.includes(provider) ? null : subject
+  const access = conversation?.credentialAccess
+
+  return access?.teamIdentity?.includes(provider)
+    ? null
+    : { userId: subject, connectionIds: access?.personalConnectionIds }
 }
