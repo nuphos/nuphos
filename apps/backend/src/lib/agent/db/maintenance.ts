@@ -2,7 +2,7 @@ import { pruneAvatars } from '@/lib/identity/avatar-upload'
 
 import { isBotChat } from './archive'
 import { pushTimelineEvent } from './participants'
-import { agentConversations, withTeamScope } from './shared'
+import { agentConversations, agentMessages, withTeamScope } from './shared'
 
 import type { BotAvatarBackground } from '../bot-avatars'
 import type { BotChangeSource, ConversationTimelineEvent } from './timeline-events'
@@ -234,4 +234,22 @@ export async function updateCompactionSummary(
     },
     { $set: { compactionSummary: summary, compactionMessageCount: messageCount } },
   )
+}
+
+/** Which of `messageIds` the summary already covers: those stored below `messageCount`. */
+export async function compactedMessageIds(
+  sessionId: string,
+  userId: string,
+  messageIds: string[],
+  messageCount: number,
+): Promise<Set<string>> {
+  if (messageIds.length === 0 || messageCount <= 0) return new Set()
+  const covered = await agentMessages()
+    .find(
+      { sessionId, userId, messageId: { $in: messageIds }, index: { $lt: messageCount } },
+      { projection: { messageId: 1 } },
+    )
+    .toArray()
+
+  return new Set(covered.map((message) => message.messageId))
 }

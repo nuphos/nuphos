@@ -9,6 +9,7 @@ import {
   useBotDetailsOpen,
 } from '../../lib/botDetailsPanel'
 import { useChatSummaryDocked } from '../../lib/chatSummaryPanel'
+import { runtimeIsExecuting } from '../../lib/runtimeExecution'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
@@ -176,6 +177,7 @@ export function BotDetailsPanel({
               sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !owned }).canOpen ===
               true
             }
+            replying={runtimeIsExecuting(botState)}
             onEdited={onEdited}
           />
         }

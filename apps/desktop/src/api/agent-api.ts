@@ -131,6 +131,8 @@ export const agentApi = {
     window.api.agentUploadConversationAvatar(sessionId, image, teamId),
   agentSetBotInstructions: (sessionId: string, instructions: string, teamId?: string) =>
     window.api.agentSetBotInstructions(sessionId, instructions, teamId),
+  agentStartBotFresh: (sessionId: string, teamId?: string) =>
+    window.api.agentStartBotFresh(sessionId, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
   agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>

@@ -61,6 +61,21 @@ export function previewRuntimeObservability(
   }
 }
 
+/** Ends the conversation's inner session on its runtime, best effort, and forgets it here. */
+export async function closePreviewConversationSession(
+  teamId: string,
+  conversationId: string,
+): Promise<void> {
+  const key = `${teamId}:${conversationId}`
+  // eslint-disable-next-line sonarjs/no-empty-collection -- agent-chat-runtime populates this shared registry
+  const session = sessionsByConversation.get(key)
+
+  session?.stopObserving?.()
+  // eslint-disable-next-line sonarjs/no-empty-collection -- agent-chat-runtime populates this shared registry
+  sessionsByConversation.delete(key)
+  await (session?.client.closeSession(session.openabSessionId) ?? Promise.resolve()).catch(() => {})
+}
+
 /**
  * Clears a wedged inner session after a turn resolved with the
  * "(no response)" sentinel while its last tool never reported output: that

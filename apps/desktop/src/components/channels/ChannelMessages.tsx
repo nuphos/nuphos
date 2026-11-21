@@ -1,4 +1,4 @@
-import { CornerUpLeft, Pause } from 'lucide-react'
+import { CornerUpLeft, Pause, RefreshCw } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 
 import { t } from '../../i18n'
@@ -10,7 +10,7 @@ import { ContextMenu } from '../ContextMenu'
 import { endsInboxAnswer, replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
-import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
+import { exactTime, sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
 import { useOpenAtPost } from './postJump'
 
@@ -30,17 +30,34 @@ function senderOf(message: AgentPersistedMessage): string | undefined {
   return metadata ? (metadata.sourceSessionId ?? metadata.sender.id) : undefined
 }
 
-/** A line from the chat itself: its loop guard paused agents. */
+const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
+const NOTICES = new Set(['agents_paused', 'bot_started_fresh'])
+
+/** A line across the chat from the chat itself: its loop guard paused agents, or a Bot started fresh. */
 function Notice({ event }: { event: AgentTimelineEvent }) {
+  const fresh = event.kind === 'bot_started_fresh'
+
   return (
-    <div className="flex items-center gap-3 py-1">
+    <div
+      className="flex items-center gap-3 py-1"
+      title={fresh ? exactTime(stamp(event.at)) : undefined}
+    >
       <span className="h-px flex-1 bg-surface-sunken" />
       <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
-        <Pause className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
-        {t(
-          'Bots paused after {count} replies to each other. They pick up again when someone posts.',
-          { count: event.turns ?? 10 },
+        {fresh ? (
+          <RefreshCw className="h-3 w-3 shrink-0 text-tertiary" strokeWidth={2.5} />
+        ) : (
+          <Pause className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
         )}
+        {fresh
+          ? t('{bot} started fresh · {time}', {
+              bot: event.agentName ?? '',
+              time: timeGapLabel(stamp(event.at)),
+            })
+          : t(
+              'Bots paused after {count} replies to each other. They pick up again when someone posts.',
+              { count: event.turns ?? 10 },
+            )}
       </span>
       <span className="h-px flex-1 bg-surface-sunken" />
     </div>
@@ -50,7 +67,6 @@ function Notice({ event }: { event: AgentTimelineEvent }) {
 /** A line placed in the chat by its time, beside the posts. */
 export type TimelineRow = { at: number; key: string; node: ReactNode }
 
-const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
 const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
@@ -155,12 +171,12 @@ export function ChannelMessages({
       }
     }),
     ...events
-      .filter((event) => event.kind === 'agents_paused' || event.kind === 'agent_reply_failed')
+      .filter((event) => NOTICES.has(event.kind) || event.kind === 'agent_reply_failed')
       .map((event) => ({
         at: stamp(event.at),
         key: `event-${event.kind}-${event.at}`,
         node:
-          event.kind === 'agents_paused' ? (
+          event.kind !== 'agent_reply_failed' ? (
             <Notice event={event} />
           ) : (
             <ChannelReplyFailed

@@ -151,22 +151,23 @@ export async function setConversationPreviewAttachment(
 }
 
 /**
- * Forgets a session its agent lost, so the next prompt opens a new one, as a brand-new
- * conversation does, starting from the settings the lost one ran with. An empty pick leaves the
- * stored one alone. Only that session: one opened since is kept.
+ * Forgets a session its agent lost, or one its owner started fresh, so the next prompt opens a new
+ * one, as a brand-new conversation does, starting from the settings the old one ran with. An empty
+ * pick leaves the stored one alone. Only that session: one opened since is kept.
  */
 export async function forgetConversationPreviewSession(
   sessionId: string,
   teamId: string,
   openabSessionId: string,
   initialSessionConfig?: RuntimeDefaults,
+  by: SettingsChangeBy = { actorId: 'system', via: 'session_lost' },
 ): Promise<void> {
   const pick = initialSessionConfig && Object.keys(initialSessionConfig).length > 0
 
   await updateConversationSettings(
     { sessionId, teamId, 'claudeCodePreview.openabSessionId': openabSessionId },
     { $unset: { claudeCodePreview: '' }, ...(pick ? { $set: { initialSessionConfig } } : {}) },
-    { actorId: 'system', via: 'session_lost' },
+    by,
   )
 }
 

@@ -15,6 +15,7 @@ import {
 } from '@/lib/agent/db'
 import { leaveChats } from '@/lib/agent/db/bot-membership'
 import { systemSender } from '@/lib/agent/message-metadata'
+import { startConversationFresh } from '@/lib/claude-code-preview/conversation-fresh-start'
 import {
   validateRequestedAgentRuntime,
   validateRequestedRuntimeId,
@@ -89,6 +90,26 @@ agent.patch('/conversations/:sessionId/instructions', async (c) => {
     throw new AppError(404, 'not_found', 'Bot not found')
 
   return c.json({ instructions })
+})
+
+// Its owner starts a Bot fresh, as they edit its instructions: the same Bot, whose next turn
+// opens a new session that reads a summary instead of everything said so far.
+agent.post('/conversations/:sessionId/start-fresh', async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const body = z
+    .object({ teamId: z.string().optional() })
+    .strict()
+    .safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success) throw new AppError(400, 'invalid_request', 'Invalid request')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
+  const bot = await getReadableConversation(sessionId, userId, teamId)
+
+  if (!bot?.teamId || bot.userId !== userId || !bot.avatar || bot.kind === 'channel')
+    throw new AppError(404, 'not_found', 'Bot not found')
+
+  return c.json(await startConversationFresh({ ...bot, teamId: bot.teamId }, userId))
 })
 
 // The owner gives a Bot a photo for a face. Like the PATCH above, it never makes a Task a Bot.

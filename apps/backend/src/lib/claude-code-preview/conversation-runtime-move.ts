@@ -6,7 +6,7 @@ import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 
-import { sessionsByConversation } from './agent-chat-registry'
+import { closePreviewConversationSession } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
@@ -196,13 +196,7 @@ export async function moveConversationRuntime(
  * sweep retries a home still in use, and the runtime's idle sweep frees the rest.
  */
 function closeMovedSession(teamId: string, conversationId: string) {
-  const key = `${teamId}:${conversationId}`
-  const session = sessionsByConversation.get(key)
-
-  session?.stopObserving?.()
-  sessionsByConversation.delete(key)
-  void (session?.client.closeSession(session.openabSessionId) ?? Promise.resolve())
-    .catch(() => {})
+  void closePreviewConversationSession(teamId, conversationId)
     .then(() => reclaimSessionHome(conversationId))
     .catch(() => {})
 }

@@ -22,13 +22,12 @@ const SENDER = {
 useAgentDb({
   getCompactionSummary: () =>
     Promise.resolve({ summary: 'Earlier: set up the cluster.', messageCount: 8 }),
+  compactedMessageIds: (_session, _user, ids, messageCount) =>
+    Promise.resolve(new Set(ids.filter((id) => Number(id.slice(1)) < messageCount))),
 })
 
-const {
-  createPreviewAssistantPartAccumulator,
-  previewAssistantMessageParts,
-  previewCompactionSummary,
-} = await import('./preview-transcript')
+const { createPreviewAssistantPartAccumulator, previewAssistantMessageParts, previewCompaction } =
+  await import('./preview-transcript')
 const { previewHistoryPreamble } = await import('./preview-history-preamble')
 
 describe('previewAssistantMessageParts', () => {
@@ -187,7 +186,7 @@ describe('previewHistoryPreamble', () => {
   ] as unknown as UIMessage[]
 
   test('renders earlier turns (not the current one) after the compaction summary', () => {
-    const preamble = previewHistoryPreamble(messages, 'Earlier: set up the cluster.')
+    const preamble = previewHistoryPreamble(messages, { summary: 'Earlier: set up the cluster.' })
 
     expect(preamble).toContain('Summary of earlier turns:\nEarlier: set up the cluster.')
     expect(preamble).toContain('User: How many LKE clusters?')
@@ -286,8 +285,35 @@ describe('previewHistoryPreamble', () => {
     expect(preamble?.length).toBeLessThan(35_000)
   })
 
-  test('previewCompactionSummary reads the stored summary text', async () => {
-    expect(await previewCompactionSummary('s', 'u')).toBe('Earlier: set up the cluster.')
+  test('previewCompaction reads the stored summary and the messages it covers', async () => {
+    expect(await previewCompaction('s', 'u', ['m7', 'm8'])).toEqual({
+      summary: 'Earlier: set up the cluster.',
+      covered: new Set(['m7']),
+    })
+  })
+
+  test('after a fresh start, the preamble reads the summary and only the turns after it', () => {
+    const turns = [
+      'before the Replace point',
+      'its answer',
+      'after it',
+      'answered',
+      'the new question',
+    ].map((text, index) => ({
+      id: `m${String(index)}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      parts: [{ type: 'text', text }],
+    })) as unknown as UIMessage[]
+    const preamble = previewHistoryPreamble(turns, {
+      summary: 'Started fresh.',
+      covered: new Set(['m0', 'm1']),
+    })
+
+    expect(preamble).toContain('Summary of earlier turns:\nStarted fresh.')
+    expect(preamble).toContain('Recent turns:\nUser: after it\n\nAssistant: answered')
+    expect(preamble).not.toContain('before the Replace point')
+    expect(preamble).not.toContain('its answer')
+    expect(preamble).not.toContain('the new question')
   })
 })
 
