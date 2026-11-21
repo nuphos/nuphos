@@ -165,7 +165,8 @@ export function Toolbar({
         // The first row sits on the traffic lights' line; a second row keeps its height.
         <div
           className={clsx(
-            showHeaderRow ? 'h-[42px]' : 'sheet-titlebar-row',
+            // With no header row this is the top one, so it keeps clear of what floats there.
+            showHeaderRow ? 'h-[42px]' : ['sheet-titlebar-row', headerClassName],
             'flex items-center px-3 gap-2',
           )}
         >
