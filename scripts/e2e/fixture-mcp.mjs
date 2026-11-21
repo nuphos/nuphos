@@ -131,6 +131,18 @@ export async function personalToken({ log, sessionId, marker, text }) {
   })
 }
 
+const TASK_PROMPT = 'Report E2E_REPORT_BACK E2E_DELIVERY:webhook-task'
+
+/** #4361: hands off a Task that reports back; a nested E2E_CALL's JSON did not parse in the Task. */
+export async function reportBack({ log, sessionId, marker }) {
+  const [name, args] = marker.endsWith('-task')
+    ? ['report_task', { label: 'Report', report_id: 'e2e', status: 'done', summary: 'Done' }]
+    : ['create_thread', { label: 'Hand off', title: 'E2E webhook task', prompt: TASK_PROMPT }]
+  const message = await call(sessionId, name, args)
+
+  log({ sessionId, marker, event: 'called', name, result: message.result ?? message.error })
+}
+
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
   // #3409 and #4156 hand off more, which their scenarios tell apart by name.
