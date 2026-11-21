@@ -20,9 +20,9 @@ import {
   localSkillEntries,
   matchesReview,
   readSkillFile,
-  skillDescription,
   walkSkill,
 } from './local-skills.ts'
+import { skillDescription } from './skill-description.ts'
 
 const originalHome = process.env.HOME
 let home: string

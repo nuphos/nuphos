@@ -5491,6 +5491,8 @@
   "instabox account": "Akun instabox",
   "instabox: {label}": "instabox: {label}",
   "it changed since you reviewed it; import it again to review the new files": "berubah sejak Anda meninjaunya; impor lagi untuk meninjau file barunya",
+  "it has over 1,000 files or folders nested over 6 deep; nothing was imported": "berisi lebih dari 1.000 file atau folder bersarang lebih dari 6 tingkat; tidak ada yang diimpor",
+  "it is larger than the 28 MB agents can load; nothing was imported": "lebih besar dari 28 MB yang bisa dimuat agen; tidak ada yang diimpor",
   "it is no longer on this computer": "sudah tidak ada di komputer ini",
   "it links outside its folder and waits for your review": "menaut ke luar foldernya dan menunggu tinjauan Anda",
   "just now": "baru saja",

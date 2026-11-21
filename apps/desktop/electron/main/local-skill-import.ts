@@ -5,13 +5,14 @@
 import { atlasErrorInfo } from '../atlas/error.ts'
 import { teamSkillsListObjects, teamSkillsPutObject } from '../atlas.ts'
 
+import { RUNTIME_BYTE_BUDGET, RUNTIME_FILE_BUDGET } from './local-setup-plan.ts'
 import { recordReviewedLinks } from './local-setup-snapshot.ts'
 import {
   listLocalSkills,
-  localSkillEntries,
   matchesReview,
   MAX_SKILL_FILE_BYTES,
   readSkillFile,
+  walkSkill,
 } from './local-skills.ts'
 
 import type { LocalSkillInfo, LocalSkillReviewedFile } from './local-skills.ts'
@@ -25,7 +26,16 @@ export type LocalSkillImportOutcome = {
   name: string
   status: 'imported' | 'skipped' | 'failed'
   /** Why it was skipped or failed. */
-  reason?: 'name_taken' | 'builtin' | 'changed' | 'missing' | 'error'
+  reason?:
+    | 'name_taken'
+    | 'builtin'
+    | 'changed'
+    | 'missing'
+    | 'error'
+    /** A walk cap stopped before the whole skill was seen. */
+    | 'incomplete'
+    /** Larger than agents can load: the runtime would refuse every skill in the store. */
+    | 'too_large'
   /** The store's or the reader's own words, for `error`. */
   message?: string
   /** Object keys written, in upload order. */
@@ -69,17 +79,25 @@ async function importOne(
     keys: [],
     tooLarge: [],
   }
-  const entries = await localSkillEntries(skill.path)
+  const { entries, truncated } = await walkSkill(skill.path)
 
+  // A partial skill would look imported while files the agent needs are missing.
+  if (truncated) return { ...outcome, status: 'skipped', reason: 'incomplete' }
   // A link re-pointed since the review would upload a file the member never saw.
   if (!matchesReview(entries, reviewed)) return { ...outcome, status: 'failed', reason: 'changed' }
+  const uploads = entries.filter((entry) => entry.size <= MAX_SKILL_FILE_BYTES)
+  const tooLarge = entries.filter((entry) => entry.size > MAX_SKILL_FILE_BYTES)
+
+  outcome.tooLarge = tooLarge.map((entry) => entry.relPath)
+  if (
+    uploads.length > RUNTIME_FILE_BUDGET ||
+    uploads.reduce((sum, entry) => sum + entry.size, 0) > RUNTIME_BYTE_BUDGET
+  ) {
+    return { ...outcome, status: 'skipped', reason: 'too_large' }
+  }
   // One file in memory at a time, uploaded before the next is read: the store
   // versions each object anyway, and main gains nothing from holding a whole skill.
-  for (const entry of entries) {
-    if (entry.size > MAX_SKILL_FILE_BYTES) {
-      outcome.tooLarge.push(entry.relPath)
-      continue
-    }
+  for (const entry of uploads) {
     const key = `skills/${skill.name}/${entry.relPath}`
     const bytes = new Uint8Array(await readSkillFile(entry))
 
