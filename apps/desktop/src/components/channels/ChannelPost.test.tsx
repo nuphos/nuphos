@@ -132,5 +132,19 @@ test("a reply's quote spans its bubble's full width without widening it", () => 
     assert.ok(quote.includes('w-[calc(100%+0.5rem)]'), viewer)
     assert.ok(quote.includes('[contain:inline-size]'), viewer)
     assert.ok(!quote.includes('max-w-[18rem]'), viewer)
+    // Its minimum reads the row's width, so a narrow pane shrinks it with the bubble.
+    assert.ok(quote.includes('min-w-[min(15rem,calc(100cqw-6rem))]'), viewer)
+  }
+})
+
+test('every post row is the inline-size container the quote measures', () => {
+  for (const viewer of ['u1', 'someone-else']) {
+    const row =
+      answer(viewer, false)
+        .match(/^<div class="([^"]*)"/)?.[1]
+        .split(' ') ?? []
+
+    assert.ok(row.includes('group/post'), viewer)
+    assert.ok(row.includes('[container-type:inline-size]'), viewer)
   }
 })
