@@ -123,3 +123,14 @@ test("a teammate's bubble is filled like a Bot's, not outlined", () => {
   assert.ok(bubbleClass(render(botPost))?.includes('bg-state-selected'))
   assert.equal(bubbleClass(render(teammate)), bubbleClass(render(botPost)))
 })
+
+test("a reply's quote spans its bubble's full width without widening it", () => {
+  for (const viewer of ['u1', 'someone-else']) {
+    const quote =
+      answer(viewer, false).match(/<button[^>]*title="Which regions\?"[^>]*>/)?.[0] ?? ''
+
+    assert.ok(quote.includes('w-[calc(100%+0.5rem)]'), viewer)
+    assert.ok(quote.includes('[contain:inline-size]'), viewer)
+    assert.ok(!quote.includes('max-w-[18rem]'), viewer)
+  }
+})

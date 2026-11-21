@@ -150,7 +150,7 @@ export const UserMessage = memo(
             </div>
             {/* A reply of files alone keeps its quote here, with no bubble to hold it. */}
             {message.metadata.replyTo && textParts.length === 0 && (
-              <ReplyQuote reply={message.metadata.replyTo} mine={false} />
+              <ReplyQuote reply={message.metadata.replyTo} mine={false} standalone />
             )}
           </div>
         )}
