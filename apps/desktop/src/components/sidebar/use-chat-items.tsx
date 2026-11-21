@@ -106,7 +106,7 @@ export function useChatItems({
         taskState: 'attention' as const,
         finished: false,
       }),
-      actions: <RowMenuButton title={item.label} />,
+      actions: null,
     }
     // A Bot's chat, or a Bot with no chat yet in its own row: both show the Bot's work alike.
     const botId =
