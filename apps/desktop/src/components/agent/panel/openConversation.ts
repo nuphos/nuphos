@@ -134,6 +134,7 @@ export async function runOpenConversation(
         opts?.forceReadOnly === true && detail.readOnly !== true ? true : undefined,
       foreign: detail.isOwner === false ? true : undefined,
       canManage: detail.canManage === true ? true : undefined,
+      canArchive: detail.canArchive,
       archived: detail.archivedAt ? true : undefined,
       watching: detail.watching,
       slackThread: detail.slackThread ?? null,
