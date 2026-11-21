@@ -226,6 +226,30 @@ test('agent messages at the head run together; the person behind them goes next'
   expect(await waiting()).toEqual(['h', 'c'])
 })
 
+test("a resource event, a Task's report and the owner's steering run in one turn", async () => {
+  const event = buildPendingUserMessage({
+    renderedText: 'event',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+  })
+  const steer = buildPendingUserMessage({
+    renderedText: 'steer',
+    source: 'app',
+    actorUserId: OWNER,
+  })
+
+  await queue(event, agent('report'), steer)
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.messages.map((message) => message.parts)).toEqual([
+    [{ type: 'text', text: 'event' }],
+    [{ type: 'text', text: 'report' }],
+    [{ type: 'text', text: 'steer' }],
+  ])
+  expect(await waiting()).toEqual([])
+})
+
 test("a teammate's message runs with the teammate as its sender", async () => {
   await queue(human('from a teammate', 'teammate'))
   await startQueuedTurn(OWNER, SESSION)
