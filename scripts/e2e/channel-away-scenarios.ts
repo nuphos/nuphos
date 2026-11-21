@@ -118,7 +118,6 @@ export const channelAwayScenarios: Scenario[] = [
 
         await post('Still away E2E_DELIVERY:away-long-2')
         await failsAfter(first, 'the second post’s couldn’t-reply line')
-        await failed.last().scrollIntoViewIfNeeded()
         await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-away-two-posts-light.png` })
         if (lines().length !== 1 || (await failed.count()) !== 1)
