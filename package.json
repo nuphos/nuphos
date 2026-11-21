@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "e2e": "bun scripts/e2e/run.ts",
+    "e2e:reminders": "bun scripts/e2e/run-reminders.ts",
     "e2e:bot-onboarding": "node --experimental-strip-types scripts/e2e/run-bot-onboarding.ts",
     "e2e:chat-switch": "bun scripts/e2e/run-chat-switch.ts",
     "e2e:trigger-filters": "bun scripts/e2e/run-trigger-filters.ts",
