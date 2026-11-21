@@ -258,15 +258,13 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
 
     return withDownloadNews(call.session, text(value === undefined ? 'undefined' : value))
   }
-  const window = tabs.get(contents)?.window
-
   if (call.action === 'show') {
     show(contents)
 
     return text(`Tab ${String(contents.id)} is on screen; closing it wakes you to continue.`)
   }
   if (call.action === 'close') {
-    window?.destroy()
+    tabs.get(contents)?.window.destroy()
 
     return text(`Closed tab ${String(contents.id)}.`)
   }
