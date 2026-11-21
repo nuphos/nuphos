@@ -63,18 +63,14 @@ const updateAgentRuntimeSchema = z
 export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
 
-  return c.json({
-    ...team,
-    isOwner: team.ownerID === c.get('userId'),
-    role: c.get('teamRole'),
-    viewerEmailDomainPublic: hasPublicEmailDomain(c.get('userEmail')),
-  })
+  const isOwner = team.ownerID === c.get('userId')
+  const viewerEmailDomainPublic = hasPublicEmailDomain(c.get('userEmail'))
+
+  return c.json({ ...team, isOwner, role: c.get('teamRole'), viewerEmailDomainPublic })
 }
 
 export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
-  teamScoped.get('/', (c) => {
-    return teamJson(c, c.get('team'))
-  })
+  teamScoped.get('/', (c) => teamJson(c, c.get('team')))
 
   teamScoped.patch(
     '/',

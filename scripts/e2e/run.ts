@@ -34,6 +34,7 @@ import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { emailDomainScenarios } from './email-domain-scenarios.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
@@ -156,6 +157,8 @@ const scenarios: Scenario[] = [
   // Turns two-factor authentication on for this account, and off again.
   ...stepUpScenarios,
   ...accessScenarios,
+  // A second app of its own, signed in with a gmail.com address, which it quits again.
+  ...emailDomainScenarios,
   ...runtimeScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
