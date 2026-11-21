@@ -22,6 +22,20 @@ test('Node’s spawn error code never reaches the user', () => {
   expect(formatAgentStreamError(einval)).not.toContain('EINVAL')
 })
 
+// The ACP shim on Windows, spawning npm's opencode.cmd without a shell, as logged on 2026-11-21:
+// the shim dies, and openab passes on the start of its stderr (path shortened).
+const shimEinval = new OpenAbRpcError(
+  "**Agent Output**\nnode:internal/child_process:421\n    throw new ErrnoException(err, 'spawn');\n    ^\n\nError: spawn EINVAL\n    at ChildProcess.spawn (node:internal/child_process:421:11)\n    at spawn (node:child_process:7…",
+)
+
+test('a shim-run CLI that cannot start gets the same sentence, not its stack', () => {
+  expect(formatAgentStreamError(shimEinval)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(shimEinval, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
+})
+
 test("npm's placeholder claude.exe, before its postinstall ran, gets the same sentence", () => {
   const placeholder = new OpenAbRpcError(
     '**Internal Error** (code: -32603)\nInternal error\n> spawn UNKNOWN',
