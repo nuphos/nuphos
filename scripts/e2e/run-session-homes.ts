@@ -169,12 +169,16 @@ try {
   must(existsSync(offline.home), 'the home on the computer that is off to be kept')
   must(!reclaimedAt(stack, offline), 'a computer that is off not to be marked reclaimed')
 
-  // Restored, the Task works in a new home generation, with a Trigger made since.
+  // Restored, each Task works in a new home generation, made here as its next turn makes it;
+  // the one on the computer that is off is restored before its late reclaim arrives.
   await archive(target, false)
+  await archive(offline, false)
   const restored = homeOf(target.sessionId, computer.home, '1')
+  const restoredAway = homeOf(offline.sessionId, away.home, '1')
   const kept = [await trigger(target, true)]
 
-  must(restored !== target.home && existsSync(restored), 'the restored Task to get a new home')
+  must(restored !== target.home, 'the restored Task to get a new home')
+  for (const home of [restored, restoredAway]) mkdirSync(home, { recursive: true })
 
   // The computer that was off comes back; the sweep, a minute after the backend starts,
   // reclaims the home archived while it was off.
@@ -187,6 +191,7 @@ try {
     180_000,
   )
   must(!existsSync(offline.home), 'the home archived while its computer was off to be removed')
+  must(existsSync(restoredAway), 'a late reclaim to leave the home restored meanwhile')
   must(existsSync(restored), "the restored Task's new home to be kept by the sweep")
   must(
     JSON.stringify(await triggersOf(target)) === JSON.stringify(kept),
@@ -195,6 +200,7 @@ try {
   must(existsSync(control.home), "the other Task's home to be kept by the sweep")
   console.log('PASS an archived Task’s home and Triggers go, and only that Task’s')
   console.log('PASS a restored Task keeps its new home and Triggers through the sweep')
+  console.log('PASS archive, restore, then a late reclaim removes only the archived generation')
   await computer.stop()
   await away.stop()
 } catch (error) {
