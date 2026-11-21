@@ -1,6 +1,6 @@
 ---
 name: secureframe
-description: Read a team's Secureframe compliance posture (failing tests that need attention) through the Nuphos API. Use when the user asks what compliance or security issues their infrastructure has, what is failing in Secureframe, or what to remediate for SOC 2 / ISO 27001 / HIPAA / PCI / GDPR.
+description: "Read a team's Secureframe compliance posture: failing tests and what to remediate for SOC 2, ISO 27001, HIPAA, PCI or GDPR."
 ---
 
 # Secureframe compliance

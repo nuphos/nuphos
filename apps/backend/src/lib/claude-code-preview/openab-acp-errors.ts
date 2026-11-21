@@ -64,7 +64,7 @@ const ACP_AUTH_REQUIRED_MESSAGE = 'Authentication required'
 /** Product code every client keys on to render sign-in guidance. */
 export const RUNTIME_AUTH_REQUIRED_CODE = 'runtime_auth_required'
 export const RUNTIME_AUTH_REQUIRED_MESSAGE =
-  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.'
+  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message.'
 
 // Runtimes before v0.1.50 send the adapter's error only in openab-core's display wrapper,
 // `**<Label>** (code: N)\n<message>`. Delete this fallback once they are unsupported.

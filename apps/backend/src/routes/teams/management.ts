@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { deleteTeamBoxes } from '@/lib/agent/devices/box-delete'
 import { revokeDepartedMember } from '@/lib/byos/departing-member'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
 import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
@@ -232,6 +233,8 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
     const result = await deleteTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'deleted') {
+      await deleteTeamBoxes(c.get('teamId'))
+
       return c.body(null, 204)
     }
     if (result === 'team_not_found') {

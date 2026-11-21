@@ -7,22 +7,10 @@ import { z } from 'zod'
 
 import { agentConversations, credentialSourceOf } from '@/lib/agent/db'
 import { deviceAccessDeps, requireDeviceAccess } from '@/lib/agent/devices/box-access'
-import {
-  boxState,
-  createBox,
-  destroyBox,
-  pauseBox,
-  resumeBox,
-} from '@/lib/agent/devices/box-instabox'
-import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
-import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
+import { deleteBox } from '@/lib/agent/devices/box-delete'
+import { boxState, createBox, pauseBox, resumeBox } from '@/lib/agent/devices/box-instabox'
 import { isDevicePresent, waitForPresence } from '@/lib/agent/devices/presence'
-import {
-  deleteAgentDevice,
-  getAgentDevice,
-  listTeamBoxes,
-  revokeAgentDeviceCredential,
-} from '@/lib/agent/devices/store'
+import { getAgentDevice, listTeamBoxes } from '@/lib/agent/devices/store'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
 
@@ -196,15 +184,7 @@ export function boxToolModule(
           if (action === 'stop') await pauseBox(userId, deviceId)
           if (action === 'start') await resumeBox(userId, deviceId)
           if (action !== 'delete') return { deviceId, action, done: true }
-          // As the Box delete route: close its tunnel cleanly before the machine goes.
-          if (await revokeAgentDeviceCredential(userId, deviceId))
-            await tunnelBus().publish(
-              holderChannel(userId, deviceId),
-              JSON.stringify({ t: 'revoke' }),
-            )
-          const killed = await destroyBox(userId, deviceId)
-
-          await deleteAgentDevice(userId, deviceId)
+          const killed = await deleteBox(userId, deviceId)
 
           return { deviceId, action, done: true, ...(killed ? {} : { machineLeft: true }) }
         },

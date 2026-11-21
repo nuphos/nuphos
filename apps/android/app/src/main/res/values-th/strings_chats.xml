@@ -45,6 +45,7 @@
     <string name="chats_reply">ตอบกลับ</string>
     <string name="chats_copy">คัดลอก</string>
     <string name="chats_usage_resets">โควตาการใช้งาน%1$s</string>
+    <string name="chats_verify_with_anthropic">ยืนยันกับ Anthropic</string>
     <string name="chats_switch_runtime">สลับรันไทม์</string>
     <string name="chats_retry">ลองอีกครั้ง</string>
     <string name="chats_send_failed_title">ส่งข้อความไม่สำเร็จ</string>

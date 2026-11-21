@@ -8,7 +8,7 @@ export type ChatLinkMenuDeps = {
   resolveExternalLink?: (href: string) => Promise<string>
   copyLink: (href: string) => Promise<void>
   openExternalLink: (url: string) => void
-  openNuphosLinkFromChat: (href: string) => boolean
+  openNuphosLinkFromChat: (href: string, beside?: boolean) => boolean
   openNuphosLinkInNewTab: (href: string) => boolean
 }
 
@@ -39,6 +39,7 @@ export function buildChatLinkMenuActions({
   }
 
   return {
+    open: openNuphosLinkFromChat,
     openInApp: (href) => {
       if (openNuphosLinkFromChat(href)) return
       const url = absolute(href)

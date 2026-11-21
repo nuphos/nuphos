@@ -52,6 +52,7 @@ export function instanceStatus(
         loggedIn: cli?.installed ? cli.loggedIn : false,
         ...(cli?.installed && cli.apiKey ? { apiKey: true as const } : {}),
         ...(install?.installing ? { installing: true as const } : {}),
+        ...(!cli?.installed && cli?.error ? { probeError: cli.error } : {}),
         ...(!cli?.installed && install?.error ? { installError: install.error } : {}),
       },
     }

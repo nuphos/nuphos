@@ -161,6 +161,18 @@ test('a usage limit on a computer with an update waiting still reads as a usage 
 
   expect(frame.errorCode).toBe('runtime_usage_exhausted')
   expect(frame.errorText).toBe("You've hit your session limit · resets 4:20am (UTC)")
+  // #4024: the fix is usage, not an update, so a Bot's line and the summary do not say update.
+  expect((error as Error).message).not.toContain(DESKTOP_UPDATE_READY_HINT)
+  expect(summary).not.toContain(DESKTOP_UPDATE_READY_HINT)
+})
+
+test('a signed-out runtime on a computer with an update waiting reads only as signed out', async () => {
+  presence = behind
+  fail = () => new OpenAbRpcError('Authentication required', -32000)
+  const error = await runClaudeCodePreviewChatTurn(localTurn('run-auth')).catch((e: unknown) => e)
+
+  expect((error as Error).message).not.toContain(DESKTOP_UPDATE_READY_HINT)
+  expect(summary).not.toContain(DESKTOP_UPDATE_READY_HINT)
 })
 
 test('a staged Desktop update explicitly says the download is ready and to quit and reopen', async () => {

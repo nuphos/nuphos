@@ -89,7 +89,7 @@ export async function assertFreeAllowance(
     refuse(
       teamId,
       'box_count',
-      "Your team's free plan includes one cloud computer. Choose a computer plan for more.",
+      "Your team's free plan includes one computer from Nuphos. Choose a computer plan for more.",
     )
   if ((await used(teamId, nowMs)) < allowance.vcpuHours) return
   const now = new Date(nowMs)
@@ -98,6 +98,6 @@ export async function assertFreeAllowance(
   refuse(
     teamId,
     'hours',
-    `Your team's free cloud computer has used its ${String(allowance.hours)} hours this month. Choose a computer plan to keep using it, or wait until ${reset.toISOString().slice(0, 10)}.`,
+    `Your team's free computer from Nuphos has used its ${String(allowance.hours)} hours this month. Choose a computer plan to keep using it, or wait until ${reset.toISOString().slice(0, 10)}.`,
   )
 }
