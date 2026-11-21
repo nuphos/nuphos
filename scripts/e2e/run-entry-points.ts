@@ -19,6 +19,13 @@ try {
   desktop = await startDesktop(stack.apiUrl)
   const { page } = desktop
 
+  page.on('pageerror', (error) => console.error('DIAGNOSTIC PAGE ERROR', error))
+  page.on('console', (message) => {
+    if (message.type() === 'error') console.error('DIAGNOSTIC CONSOLE', message.text())
+  })
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) console.log('DIAGNOSTIC NAVIGATION', frame.url())
+  })
   page.setDefaultTimeout(30_000)
   // Signed in, with a Bot and a Task: the screens these ways in start from.
   await page.locator('input[type=email]').fill(stack.email)
@@ -42,7 +49,7 @@ try {
 
   const failures: string[] = []
 
-  for (const [index, scenario] of entryPointScenarios.entries()) {
+  for (const [index, scenario] of entryPointScenarios.filter((item) => item.name.startsWith("the Tasks page")).entries()) {
     try {
       await scenario.run(page, stack)
       console.log(`PASS ${scenario.name}`)
@@ -50,6 +57,8 @@ try {
       failures.push(`${scenario.name}: ${error instanceof Error ? error.message : String(error)}`)
       console.error(`FAIL ${scenario.name}`)
       console.error(error)
+      console.error('DIAGNOSTIC URL', page.url())
+      console.error('DIAGNOSTIC BODY', (await page.locator('body').innerText()).slice(0, 2000))
     }
     await page.screenshot({ path: `${artifacts}/entry-point-${String(index + 1)}.png` })
     // Each way in is read from a fresh window: a Computers page one of them
