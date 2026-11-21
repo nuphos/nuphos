@@ -1,5 +1,4 @@
 <resources>
-    <string name="welcome_title">Selamat datang di Nuphos</string>
     <string name="welcome_body">Masuk atau buat akun.</string>
     <string name="sign_in">Masuk</string>
     <string name="signing_in">Sedang masuk…</string>

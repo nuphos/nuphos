@@ -3,6 +3,8 @@ import { trustedAvatarURL } from '../identity/avatar-url'
 import { noticeChannelId, OWNER_DECISION_NOTE } from './db/channel-notes'
 import { fenceUntrusted } from './untrusted-content'
 
+export { systemSender } from './message-system-sender'
+
 /** Server-authored attribution. Never derive authorization from these fields. */
 export type MessageMetadata = {
   version: 1
@@ -27,6 +29,8 @@ export type MessageMetadata = {
    * `id` is the original's in the same chat, for a channel reply.
    */
   replyTo?: { id?: string; authorName: string; text: string }
+  /** Slack's thread root, retained even when the root predates this connection. */
+  slackThreadTs?: string
   /** Nuphos's record of a person's answer to card `requestId`; `answeredIn` if in the Inbox. */
   requestId?: string
   answeredIn?: 'inbox'
@@ -56,21 +60,6 @@ export type ChannelPostPreview = {
 }
 
 export type MessageMention = { id: string; displayName: string }
-
-/** Who a turn no person typed is from: a Trigger, a channel, GitHub, or Nuphos itself. */
-export function systemSender(
-  id: string,
-  displayName: string,
-  resourceUrl?: string,
-): MessageMetadata {
-  return {
-    version: 1,
-    sender: { type: 'system', id, displayName },
-    source: 'agent.resource',
-    ...(resourceUrl ? { resourceUrl } : {}),
-    sentAt: new Date().toISOString(),
-  }
-}
 
 const SOURCES = ['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'] as const
 const UNATTESTED = new Set<string>(['discord', 'slack']) // Bridges with unverified authors.
@@ -184,6 +173,11 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
       ? { resourceUrl: m.resourceUrl }
       : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(m.source === 'slack' &&
+    typeof m.slackThreadTs === 'string' &&
+    /^\d+\.\d+$/.test(m.slackThreadTs)
+      ? { slackThreadTs: m.slackThreadTs }
+      : {}),
     ...(m.source === 'nuphos' && nonEmpty(m.requestId)
       ? {
           requestId: m.requestId,

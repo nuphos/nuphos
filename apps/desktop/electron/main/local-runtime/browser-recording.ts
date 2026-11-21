@@ -1,7 +1,7 @@
 import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { startVideo, stopVideo } from './browser-video.ts'
+import { snapshotOf, startVideo, stopVideo } from './browser-video.ts'
 
 import type { OpenHelper, Video } from './browser-video.ts'
 
@@ -59,6 +59,8 @@ export type RecordedTab = {
     on(event: 'message', listener: Listener): unknown
     off(event: 'message', listener: Listener): unknown
   }
+  /** Desktop's own capture of the tab, which a hidden window answers when CDP does not. */
+  capturePage?: () => Promise<{ isEmpty(): boolean; toJPEG(quality: number): Buffer }>
 }
 /** Where `record_stop` writes its HAR, and the app named in it. */
 export type HarOutput = { dir: string; creator: { name: string; version: string } }
@@ -91,7 +93,12 @@ export async function startRecording(contents: RecordedTab, video?: OpenHelper):
   recordings.set(contents, recording)
   await contents.debugger.sendCommand('Network.enable')
   if (video)
-    recording.video = await startVideo(contents.debugger, video).catch((error: unknown) => {
+    recording.video = await startVideo(
+      contents.debugger,
+      video,
+      undefined,
+      snapshotOf(contents),
+    ).catch((error: unknown) => {
       // Not recording after all, so record_start may be called again.
       recordings.delete(contents)
       contents.debugger.off('message', recording.onMessage)

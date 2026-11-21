@@ -10,6 +10,7 @@ import {
   personalCredentialSubject,
   verifyPreviewMcpToken,
 } from '@/lib/claude-code-preview/mcp-token'
+import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
@@ -180,13 +181,55 @@ export async function personalLinearToken(
   return doc ? currentToken(doc) : null
 }
 
+/**
+ * The member's Google account for one call: the one named by `connectionId`, or the only one
+ * connected through this team. Several and none named is an error that lists them: nothing is
+ * picked for the caller, and only the member's own accounts are ever considered.
+ */
+export async function googleCredentialFor(
+  userId: string,
+  provider: GoogleProvider,
+  teamId: string,
+  connectionId?: string,
+): Promise<PersonalCredential | null> {
+  const docs = await personalCredentials().find({ userId, provider, teamId }).toArray()
+
+  if (connectionId) {
+    const named = docs.find((doc) => doc._id.toHexString() === connectionId)
+
+    if (!named) {
+      throw new AppError(
+        404,
+        'personal_credential_account_not_found',
+        'No such connected account for this member',
+      )
+    }
+
+    return named
+  }
+  if (docs.length > 1) {
+    throw new AppError(
+      409,
+      'personal_credential_account_required',
+      'Several accounts are connected: name one with connectionId',
+      { accounts: docs.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
+    )
+  }
+
+  return docs[0] ?? null
+}
+
+/** The token of an already resolved Google account. */
+export const personalGoogleTokenOf = currentToken
+
 /** The member's own Gmail or Google Drive token, when they connected it through this team. */
 export async function personalGoogleToken(
   userId: string,
   provider: GoogleProvider,
   teamId: string,
+  connectionId?: string,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider, teamId })
+  const doc = await googleCredentialFor(userId, provider, teamId, connectionId)
 
   return doc ? currentToken(doc) : null
 }

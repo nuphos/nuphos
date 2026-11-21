@@ -87,7 +87,11 @@ async function postFromSlack(
     // Slack's own id for the message, so a redelivery is the same post.
     id: slackPostId(slackChannelId, ts),
     text,
-    metadata: replyTo ? { ...metadata, replyTo } : metadata,
+    metadata: {
+      ...metadata,
+      ...(replyTo ? { replyTo } : {}),
+      ...(rootId ? { slackThreadTs: rootId } : {}),
+    },
   })
 }
 

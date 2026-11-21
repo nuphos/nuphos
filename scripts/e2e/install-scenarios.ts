@@ -14,7 +14,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** Settings › Local runtime, through ⌘K, where this computer's own agents are. */
-async function openLocalRuntime(page: Page) {
+export async function openLocalRuntime(page: Page) {
   await page
     .getByRole('button', { name: /^Search/ })
     .first()
@@ -26,7 +26,7 @@ async function openLocalRuntime(page: Page) {
 }
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */

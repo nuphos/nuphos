@@ -8,13 +8,19 @@ sealed interface ComputerPresence {
     data object Offline : ComputerPresence
     /** A paused Box: sending a message resumes it. */
     data class Paused(val label: String) : ComputerPresence
+    /** A Box that is still coming up: it goes online by itself. */
+    data class Starting(val label: String) : ComputerPresence
 
     companion object {
-        /** Only the device list says an offline Box is paused. A runtime with no computer is online. */
+        /** Only the device list says an offline Box is paused or starting. A runtime with no computer is online. */
         fun of(host: RuntimeHost?, devices: List<RuntimeDevice>): ComputerPresence {
             if (host?.online != false) return Online
             val device = devices.firstOrNull { it.id == host.deviceId }
-            return if (device?.box?.state == "paused") Paused(device.label) else Offline
+            return when (device?.box?.state) {
+                "paused" -> Paused(device.label)
+                "creating", "connecting" -> Starting(device.label)
+                else -> Offline
+            }
         }
     }
 }

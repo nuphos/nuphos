@@ -1,7 +1,11 @@
 import { api } from '../../../api.ts'
 import { queryKeys } from '../../../lib/query/keys.ts'
 
-import type { AgentConversation, AgentConversationDetail } from '../../../api.ts'
+import type {
+  AgentConversation,
+  AgentConversationDetail,
+  AgentCredentialSelection,
+} from '../../../api.ts'
 import type { QueryClient } from '@tanstack/react-query'
 
 // Opening a conversation fetches only this many trailing messages — about a
@@ -36,6 +40,22 @@ export function cachedTask(client: QueryClient, teamId: string | undefined, sess
     (row.transcriptUpdatedAt ?? null) === (detail.transcriptUpdatedAt ?? null)
     ? detail
     : undefined
+}
+
+/**
+ * A Task's selection saved outside it, as "Use in task" in the Inbox does: its copy takes it,
+ * since that changes neither the messages nor the revision the copy is checked against.
+ */
+export function keepTaskSelection(
+  client: QueryClient,
+  teamId: string,
+  sessionId: string,
+  credentialAccess: AgentCredentialSelection,
+) {
+  const key = queryKeys.task(teamId, sessionId)
+  const detail = client.getQueryData<AgentConversationDetail>(key)
+
+  if (detail) client.setQueryData(key, { ...detail, credentialAccess })
 }
 
 /** Reads a Task before it is opened, unless its copy is current, so the click shows it from memory. */

@@ -11,6 +11,10 @@ export type Scenario = {
   expected?: RegExp
 }
 
+/** A post in the open chat's transcript. A sidebar row can preview the same words. */
+export const transcriptPost = (page: Page, text: string) =>
+  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
+
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Message' }).click()
@@ -20,15 +24,8 @@ export async function send(page: Page, text: string) {
 
 /** Moves the open conversation to `label`'s Claude Code runtime. */
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
-  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await pickInRow(page, label, new RegExp(`^${label}.*${provider}`))
-}
-
-/** Temporary, until #3862 is fixed: waits until no menu is mounted, a closing one included,
- *  since opening the runtime list while the model menu still closes can freeze the window. */
-export async function noMenuOpen(page: Page) {
-  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
 /** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
