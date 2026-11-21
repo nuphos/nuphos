@@ -156,6 +156,7 @@ process.on('unhandledRejection', (error) => {
 const tls = devTlsOptions()
 
 const server = Bun.serve({
+  hostname: config.server.listenHost,
   port: config.port,
   // Bun defaults to a 10s idle timeout, which drops a legitimately slow request
   // (e.g. a burst of reads while MongoDB is reachable only over a high-latency
@@ -175,12 +176,13 @@ const server = Bun.serve({
 
 logEvent('info', 'backend.server.listening', {
   protocol: tls ? 'https' : 'http',
-  host: 'localhost',
+  host: config.server.listenHost ?? 'localhost',
   port: config.port,
 })
 
 const devHttpServer = config.server.devHttpPort
   ? Bun.serve({
+      hostname: config.server.listenHost,
       port: config.server.devHttpPort,
       idleTimeout: 120,
       websocket,

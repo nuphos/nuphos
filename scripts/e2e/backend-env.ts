@@ -5,6 +5,8 @@ export function backendEnv(port: number, apiUrl: string, mongoUri: string) {
   return {
     NODE_ENV: 'development',
     PORT: String(port),
+    // Loopback only, as MongoDB is: other machines on the network cannot reach the stack.
+    NUPHOS_LISTEN_HOST: '127.0.0.1',
     NUPHOS_JWT_SECRET: E2E_JWT_SECRET,
     MONGODB_URI: mongoUri,
     MONGODB_DB: 'nuphos_e2e',
