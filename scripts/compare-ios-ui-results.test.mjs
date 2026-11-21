@@ -50,6 +50,7 @@ test('a test failing here that passed on main, or that the diff adds, is a new f
   assert.deepEqual(compare(branch, main, ['apps/ios/UITests/A.swift']), {
     newFailures: ['A/testAdded()', 'A/testOld()', 'A/testSkipped()'],
     newOnMain: [],
+    notHereYet: [],
     stillFailing: ['A/testBroken()'],
     fixed: [],
   })
@@ -69,6 +70,7 @@ test('a failing test the baseline lacks is inherited from main unless the diff t
   assert.deepEqual(compare(branch, main, ['apps/ios/UITests/A.swift']), {
     newFailures: ['A/testMine()'],
     newOnMain: ['B/testTheirs()'],
+    notHereYet: [],
     stillFailing: [],
     fixed: [],
   })
@@ -88,6 +90,7 @@ test('a test failing on main and passing here is fixed, and nothing is new', () 
   assert.deepEqual(compare(branch, main), {
     newFailures: [],
     newOnMain: [],
+    notHereYet: [],
     stillFailing: [],
     fixed: ['A/testBroken()'],
   })
@@ -98,8 +101,30 @@ test('a run that stopped partway fails on the tests it never ran', () => {
     run({ 'A/testOne()': 'Passed', 'A/testTwo()': 'Passed', 'A/testThree()': 'Failed' }),
   )
   const branch = results(run({ 'A/testOne()': 'Passed' }))
+  const tree = new Set(['testOne', 'testTwo', 'testThree'])
 
-  assert.deepEqual(compare(branch, main).newFailures, ['A/testTwo() (did not run)'])
+  assert.deepEqual(compare(branch, main, [], tree).newFailures, ['A/testTwo() (did not run)'])
+})
+
+test('a test the branch does not have yet is not charged as "did not run"', () => {
+  const main = results(run({ 'A/testOne()': 'Passed', 'A/testAddedLater()': 'Passed' }))
+  const branch = results(run({ 'A/testOne()': 'Passed' }))
+  const tree = new Set(['testOne'])
+
+  assert.deepEqual(compare(branch, main, [], tree), {
+    newFailures: [],
+    newOnMain: [],
+    notHereYet: ['A/testAddedLater()'],
+    stillFailing: [],
+    fixed: [],
+  })
+})
+
+test('with no tree given, a missing test is still charged, as it was before', () => {
+  const main = results(run({ 'A/testOne()': 'Passed', 'A/testAddedLater()': 'Passed' }))
+  const branch = results(run({ 'A/testOne()': 'Passed' }))
+
+  assert.deepEqual(compare(branch, main).newFailures, ['A/testAddedLater() (did not run)'])
 })
 
 test('a renamed test, with the same count as main, is not missing', () => {
@@ -109,6 +134,7 @@ test('a renamed test, with the same count as main, is not missing', () => {
   assert.deepEqual(compare(branch, main), {
     newFailures: [],
     newOnMain: [],
+    notHereYet: [],
     stillFailing: [],
     fixed: [],
   })

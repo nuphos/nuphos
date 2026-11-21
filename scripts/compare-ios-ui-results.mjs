@@ -1,7 +1,7 @@
 // Compares a pull request's iOS UI test results with main's latest nightly run, both as written by
 // `xcrun xcresulttool get test-results tests`. A new failure is a test that fails here and passed
 // on main, or that the pull request's own diff writes; only those fail the pull request.
-import { appendFileSync, readFileSync } from 'node:fs'
+import { appendFileSync, readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /** Each test case's result, by its identifier (`Suite/testName()`). */
@@ -20,11 +20,13 @@ export function results(json) {
 /** `apps/ios/UITests/DockPanelUITests.swift` holds `DockPanelUITests/testClosingATab()`. */
 const fileSuite = (path) => path.replace(/^.*\/|\.swift$/g, '')
 const testSuite = (test) => test.split('/')[0]
+const testName = (test) => test.split('/')[1]?.replace(/\(.*$/, '') ?? test
 
-export function compare(branch, main, changedFiles = []) {
+export function compare(branch, main, changedFiles = [], treeTests = null) {
   const changed = new Set(changedFiles.map(fileSuite))
   const newFailures = []
   const newOnMain = []
+  const notHereYet = []
   const stillFailing = []
   const fixed = []
 
@@ -42,18 +44,26 @@ export function compare(branch, main, changedFiles = []) {
   // passed on main and never ran here counts as failing. A renamed test keeps the count.
   if (branch.size < main.size) {
     for (const [test, before] of main)
-      if (before === 'Passed' && !branch.has(test)) newFailures.push(`${test} (did not run)`)
+      if (before === 'Passed' && !branch.has(test)) {
+        // A crashed app still leaves its tests in the tree; one the branch predates is not there.
+        if (!treeTests || treeTests.has(testName(test))) newFailures.push(`${test} (did not run)`)
+        else notHereYet.push(test)
+      }
   }
 
   return {
     newFailures: newFailures.sort(),
     newOnMain: newOnMain.sort(),
+    notHereYet: notHereYet.sort(),
     stillFailing: stillFailing.sort(),
     fixed: fixed.sort(),
   }
 }
 
-export function summary({ newFailures, newOnMain = [], stillFailing, fixed }, total) {
+export function summary(
+  { newFailures, newOnMain = [], notHereYet = [], stillFailing, fixed },
+  total,
+) {
   const list = (title, tests) =>
     tests.length
       ? [`**${title} (${tests.length})**`, ...tests.map((test) => `- \`${test}\``), '']
@@ -66,6 +76,7 @@ export function summary({ newFailures, newOnMain = [], stillFailing, fixed }, to
     '',
     ...list('New failures: passed on main', newFailures),
     ...list('New on main since baseline, not blocking', newOnMain),
+    ...list('Not on this branch yet, not blocking', notHereYet),
     ...list('Also failing on main', stillFailing),
     ...list('Fixed: failing on main, passing here', fixed),
   ].join('\n')
@@ -75,7 +86,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [branchFile, mainFile, ...changedFiles] = process.argv.slice(2)
   const branch = results(JSON.parse(readFileSync(branchFile, 'utf8')))
   const main = results(JSON.parse(readFileSync(mainFile, 'utf8')))
-  const outcome = compare(branch, main, changedFiles)
+  // Which tests this checkout actually has, to tell a run that stopped partway from a branch
+  // that simply predates a test the baseline already had.
+  const dir = 'apps/ios/UITests'
+  const treeTests = new Set()
+  for (const file of readdirSync(dir))
+    for (const [, name] of readFileSync(`${dir}/${file}`, 'utf8').matchAll(
+      /\bfunc (test\w*)\s*\(/g,
+    ))
+      treeTests.add(name)
+  const outcome = compare(branch, main, changedFiles, treeTests)
   const text = summary(outcome, branch.size)
 
   console.log(text)
