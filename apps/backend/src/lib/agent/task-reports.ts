@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import { db } from '@/lib/db'
 import { getTeamMembership } from '@/lib/identity'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
@@ -111,6 +112,7 @@ export async function reportTask(
       },
     },
   )
+  queueWebhookEvents(sessionId, 'task.reported')
   if (!saved.deliveredAt && !saved.droppedAt) {
     await taskReports().updateOne({ _id: id }, { $unset: { deliveryError: '' } })
     try {

@@ -100,7 +100,6 @@ async function memoryTools(ctx: PreviewToolContext): Promise<Record<string, unkn
     userId: ctx.userId,
     teamId: ctx.teamId,
     conversationId: ctx.sessionId,
-    origin: 'user',
     observer,
     getActivePlanId: async () => {
       try {

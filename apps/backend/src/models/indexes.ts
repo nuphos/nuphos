@@ -22,6 +22,7 @@ import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
 import { setupTriggerHistoryIndexes } from '@/lib/agent/trigger-history'
+import { setupRuntimeAuthRefusalIndexes } from '@/lib/claude-code-preview/runtime-auth-refusal'
 import { setupRuntimeImageAuditIndexes } from '@/lib/claude-code-preview/runtime-image-audit'
 import { setupRuntimeLoginIndexes } from '@/lib/claude-code-preview/runtime-login-store'
 import { setupRuntimeMetricIndexes } from '@/lib/claude-code-preview/runtime-metrics-store'
@@ -43,6 +44,8 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
+import { setupVaultIndexes } from '@/lib/vault'
+import { setupWebhookIndexes } from '@/lib/webhooks/store'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
@@ -79,6 +82,7 @@ export async function setupIndexes(): Promise<void> {
     ['core', setupCoreIndexes],
     ['identity', setupIdentityIndexes],
     ['email-otp', setupEmailOtpIndexes],
+    ['vault', setupVaultIndexes],
     ['token-revocation', setupTokenRevocationIndexes],
     ['password-login', setupPasswordIndexes],
     ['download-link-email', setupDownloadLinkEmailIndexes],
@@ -130,7 +134,9 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-exec-audit', setupDeviceExecAuditIndexes],
     ['agent-device-access-audit', setupDeviceAccessAuditIndexes],
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
+    ['runtime-auth-refusals', setupRuntimeAuthRefusalIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
+    ['team-webhooks', setupWebhookIndexes],
     // Idempotent backfill, not an index; remove once every deployment ran it.
     ['conversation-watchers', backfillConversationWatchers],
   ]

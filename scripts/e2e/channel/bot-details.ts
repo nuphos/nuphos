@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { LAPTOP, laptopOnline } from '../laptop-fixture.ts'
 import { artifacts } from '../processes.ts'
-import { botDetailsToggle, checkBotDetailsFloating, pickInSubmenu, setBotDetails } from '../ui.ts'
+import { botDetailsToggle, checkBotDetailsFloating, pickInRow, setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -99,8 +99,7 @@ async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
   const banner = page.getByRole('status').filter({ hasText: 'disk is almost full' })
   const pick = async (runtime: string, agent: RegExp) => {
     await page.getByRole('button', { name: /^Runtime:/ }).click()
-    await page.getByRole('menu').getByText(runtime).first().click()
-    await pickInSubmenu(page, page.getByRole('menuitem', { name: agent }).last())
+    await pickInRow(page, runtime, agent)
   }
 
   try {
@@ -176,16 +175,16 @@ const scenario: Scenario = {
     await page.keyboard.press('Escape')
     await page.getByRole('dialog').waitFor({ state: 'detached' })
 
-    // Esc inside the panel closes it and hands focus back to the name. Focus back on Edit Bot
-    // shows its tooltip, and an Esc closes that first.
+    // Closing Edit Bot hands focus back to its pencil without opening the pencil's tooltip
+    // (#3961), so one Esc inside the panel closes it and hands focus back to the name.
     const edit = card.getByRole('button', { name: 'Edit Bot' })
 
-    await edit.focus()
-    await page.waitForTimeout(300)
-    if ((await edit.getAttribute('data-popup-open')) !== null) {
-      await page.keyboard.press('Escape')
-      await card.locator('button[aria-label="Edit Bot"]:not([data-popup-open])').waitFor()
-    }
+    if (!(await edit.evaluate((button) => button === document.activeElement)))
+      throw new Error('Closing Edit Bot did not hand focus back to its button')
+    // Longer than the tooltip's 300 ms delay, so a tooltip that would open has opened.
+    await page.waitForTimeout(600)
+    if ((await edit.getAttribute('data-popup-open')) !== null)
+      throw new Error('Focus handed back to Edit Bot opened its tooltip (#3961)')
     await page.keyboard.press('Escape')
     await details(page).waitFor({ state: 'detached' })
     await expectOpen(page, false, 'After Esc')

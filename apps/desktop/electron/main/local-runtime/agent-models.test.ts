@@ -238,6 +238,31 @@ test('an opened picker reads running agents again, at most once a minute', async
   }
 })
 
+test('an adapter that keeps failing is not started again on demand sooner than a retry', async () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  try {
+    // Every read fails, as an adapter that exits at once does.
+    const agent = running([])
+
+    agent.start()
+    await settle()
+    mock.timers.tick(MODEL_RETRY_MS[0] ?? 0)
+    await settle()
+    assert.equal(agent.probes.length, 2)
+    // Two failures: the next retry is 2 minutes out, and an opened picker waits for it too.
+    await refreshRunningModels()
+    mock.timers.tick(MODEL_ON_DEMAND_MS)
+    await refreshRunningModels()
+    assert.equal(agent.probes.length, 2)
+    mock.timers.tick(MODEL_ON_DEMAND_MS)
+    await settle()
+    assert.equal(agent.probes.length, 3)
+    agent.replaceRun()
+  } finally {
+    mock.timers.reset()
+  }
+})
+
 test("Hermes's first read waits, so its daemon does not start beside the first conversation's", async () => {
   mock.timers.enable({ apis: ['setTimeout'] })
   try {

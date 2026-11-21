@@ -8,7 +8,6 @@ import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
 import { locateChatTarget } from './chatTarget'
 import { credentialSelectionSignature } from './credentialAccess'
 import { serverHasConversation, sessionActionGates } from './sessionActions'
-import { useConversationPlanReference } from './useConversationPlanReference'
 
 import type { ActivePlan } from './applyEvent'
 import type { JournalChatTarget } from '../JournalPanel'
@@ -64,17 +63,11 @@ export function usePanelPlanPane(acc: Acc) {
   // Find the latest Plan-producing tool call in the active tab. Both the
   // generic plan_create tool and typed resource proposal tools persist normal
   // Plan docs; their content + live status come straight from the same API.
-  const latestPlanRef = useMemo(() => {
+  const resolvedPlanRef = useMemo(() => {
     if (!activeTab) return null
 
     return findLatestPlanReference(activeTab.messages)
   }, [activeTab])
-  const resolvedPlanRef = useConversationPlanReference(
-    activeTab?.sessionId,
-    activeTab?.streaming ?? false,
-    teamId,
-    latestPlanRef,
-  )
   const { plan: activePlanDoc } = usePlan(resolvedPlanRef?.planId, teamId, {
     keepPolling: activeTab?.streaming ?? false,
   })

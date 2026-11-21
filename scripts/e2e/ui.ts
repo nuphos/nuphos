@@ -11,6 +11,10 @@ export type Scenario = {
   expected?: RegExp
 }
 
+/** A post in the open chat's transcript. A sidebar row can preview the same words. */
+export const transcriptPost = (page: Page, text: string) =>
+  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
+
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Message' }).click()
@@ -20,33 +24,38 @@ export async function send(page: Page, text: string) {
 
 /** Moves the open conversation to `label`'s Claude Code runtime. */
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
-  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  const runtimes = await openSubmenu(page, label)
-
-  await pickInSubmenu(
-    page,
-    runtimes.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }).last(),
-  )
-}
-
-/** Temporary, until #3862 is fixed: waits until no menu is mounted, a closing one included,
- *  since opening the runtime list while the model menu still closes can freeze the window. */
-export async function noMenuOpen(page: Page) {
-  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
+  await pickInRow(page, label, new RegExp(`^${label}.*${provider}`))
 }
 
 /** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
  *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
  *  away from the menu, and `aria-controls` on the row is what names it. */
 export async function openSubmenu(page: Page, row: string) {
-  const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
+  // A computer the app has not heard from is an ordinary row with no submenu to open, so the
+  // row is taken only once it says it has one: that wait is also how a scenario waits for a
+  // computer it has just brought back.
+  const trigger = page
+    .getByRole('menu')
+    .getByRole('menuitem')
+    .filter({ hasText: row })
+    .and(page.locator('[aria-haspopup="menu"]'))
+    .first()
 
   await pickInSubmenu(page, trigger)
   // The open row and the id are not set together: the id waits for the list to exist.
   await trigger.and(page.locator('[aria-controls]')).waitFor()
 
   return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
+}
+
+/** Takes a runtime out of the open menu: `row` names the submenu to open and `item` the entry
+ *  in it. The entry is looked for in that submenu alone, so a row of the menu behind it, or a
+ *  submenu left open elsewhere, cannot be taken by mistake. */
+export async function pickInRow(page: Page, row: string, item: RegExp) {
+  const rows = await openSubmenu(page, row)
+
+  await pickInSubmenu(page, rows.getByRole('menuitem', { name: item }).last())
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the

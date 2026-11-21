@@ -29,6 +29,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  notSaved,
   saveCustomProvider,
   withProviderKey,
   withProviderStatus,
@@ -184,8 +185,8 @@ export const cancelLocalCodexLogin = () => logins.cancel('codex')
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
-  // One pass on its own, well after launch: a finished session's workspace and the size
-  // of what is left are worth knowing, and neither is worth slowing a start for.
+  // One pass on its own, well after launch: the size of the workspace is worth
+  // knowing, and not worth slowing a start for.
   startDiskMaintenance({
     workspaces: () => {
       const state = controller.state()
@@ -197,10 +198,6 @@ export function initLocalRuntime(): void {
         ),
       ]
     },
-    // This computer's agents share a workspace, so while any of them is up, a workspace
-    // may be the one a live session is in, and it is kept. Only the backend can name a
-    // live session exactly; until then this is the safe side of that answer.
-    inUse: () => Object.values(controller.state().agents).some((agent) => agent.online),
     leftAlone: leftAloneDir,
     log: logLocalTool,
   })
@@ -265,8 +262,8 @@ export async function setLocalCustomProvider(
 ): Promise<LocalRuntimeState> {
   const { userId } = controller.state()
 
-  if (!userId) throw new Error('Sign in to Nuphos first.')
-  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value)
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value).catch(notSaved)
   await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()

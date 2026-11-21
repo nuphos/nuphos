@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">Sematkan Bot</string>
+    <string name="pins_unpin_bot">Lepas sematan Bot</string>
+    <string name="pins_pin">Sematkan</string>
+    <string name="pins_unpin">Lepas sematan</string>
+    <string name="pins_no_messages">Belum ada pesan</string>
+    <string name="pins_needs_input">Perlu masukan Anda</string>
+    <string name="pins_running">Berjalan</string>
+    <string name="pins_unread">Postingan belum dibaca</string>
+</resources>
