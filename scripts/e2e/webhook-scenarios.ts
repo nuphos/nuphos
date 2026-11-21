@@ -85,17 +85,9 @@ async function addWebhook(page: Page, as: Client, teamId: string) {
   await shoot(page, 'webhook-test-delivered')
 }
 
-/** A conversation that hands work to a Task, which reports back. */
+/** A conversation that hands work to a Task, which reports back (`reportBack` in the fixture). */
 async function delegate(ask: (prompt: string) => Promise<string>) {
-  const report = { label: 'Report', report_id: 'e2e-webhook', status: 'done', summary: 'Done' }
-  const thread = {
-    label: 'Hand off',
-    title: 'E2E webhook task',
-    prompt: `Report E2E_CALL report_task ${JSON.stringify(report)} E2E_DELIVERY:webhook-task`,
-  }
-  const parent = await ask(
-    `Delegate E2E_CALL create_thread ${JSON.stringify(thread)} E2E_DELIVERY:webhook-parent`,
-  )
+  const parent = await ask('Delegate E2E_REPORT_BACK E2E_DELIVERY:webhook-parent')
 
   await received(
     'the conversation’s finished reply',

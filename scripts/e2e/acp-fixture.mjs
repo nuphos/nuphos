@@ -18,6 +18,7 @@ import {
   callNamed,
   personalToken,
   recheck,
+  reportBack,
   reporting,
   setToolsServer,
   subtask,
@@ -125,6 +126,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
     await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
+  if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })
   if (text.includes('E2E_ASK')) await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
