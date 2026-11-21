@@ -276,7 +276,7 @@ export const channelScenarios: Scenario[] = [
         await pickRuntime(page, computer, /^Claude Code/)
         const task = await shootRuntimeLine(page, 'task')
 
-        // #3732: the chip names when its tightest window, the 5-hour one, resets.
+        // The quota tooltip names when its tightest window, the 5-hour one, resets.
         await shootChipResets(page)
 
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)

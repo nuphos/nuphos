@@ -31,7 +31,7 @@ for (const key of Object.getOwnPropertyNames(dom))
 for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
-const { BypassControlMenu } = await import('./composerMenus')
+const { BypassControlMenu } = await import('./BypassControlMenu')
 const { createRoot } = await import('react-dom/client')
 
 // #3701 follow-up: the access chip took the wider label's width only while its mode was

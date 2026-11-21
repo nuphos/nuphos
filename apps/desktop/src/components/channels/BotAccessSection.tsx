@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 
 import { t } from '../../i18n'
 import { takeBotAccessAsk, useBotAccessAsks } from '../../lib/botDetailsPanel'
-import { BypassControlMenu } from '../agent/panel/composerMenus'
+import { BypassControlMenu } from '../agent/panel/BypassControlMenu'
 import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { countSelectedCredentials } from '../agent/panel/credentialSelectorButtonCounts'
 import { SummaryRow, SummarySection } from '../agent/summary/ChatSummaryRows'

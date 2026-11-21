@@ -151,7 +151,7 @@ function SendControls({
           <button
             onClick={onSubmit}
             className={clsx(
-              hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+              hero ? 'w-8 h-8 rounded-md' : 'w-7 h-7 rounded-md',
               'bg-action-primary hover:bg-action-primary/90 text-inverse flex items-center justify-center transition-colors',
             )}
             title={canSteer ? t('Send into the running turn') : t('Send response')}
@@ -181,7 +181,7 @@ function SendControls({
         <button
           onClick={onStop}
           className={clsx(
-            hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+            hero ? 'w-8 h-8 rounded-md' : 'w-7 h-7 rounded-md',
             'bg-surface-sunken hover:bg-state-hover text-main flex items-center justify-center transition-colors',
           )}
           title={t('Stop')}
@@ -194,7 +194,7 @@ function SendControls({
 
   if (onConnectAgent && !readOnly) {
     return (
-      <Button size="sm" onClick={onConnectAgent} className={hero ? 'rounded-full' : undefined}>
+      <Button size="sm" onClick={onConnectAgent} className="!rounded-md">
         {t('Connect a runtime')}
       </Button>
     )
@@ -210,7 +210,7 @@ function SendControls({
           sendBlockedReason ? t('Send ({reason})', { reason: sendBlockedReason }) : t('Send')
         }
         className={clsx(
-          hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+          hero ? 'w-8 h-8 rounded-md' : 'w-7 h-7 rounded-md',
           'flex items-center justify-center transition-colors',
           sendDisabled
             ? 'text-tertiary'

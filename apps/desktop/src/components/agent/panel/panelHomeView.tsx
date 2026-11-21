@@ -94,7 +94,12 @@ export function PanelHomePage({ c }: { c: PanelViewCtx }) {
     pickNewConversationSessionConfig,
   )
   const newConversationModelControl = modelRuntimeId && (
-    <ModelSelector control={modelControl} disabled={false} hero={variant === 'page'} />
+    <ModelSelector
+      control={modelControl}
+      disabled={false}
+      hero={variant === 'page'}
+      prioritizeModelName
+    />
   )
 
   const bypassControl = {
