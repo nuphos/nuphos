@@ -5,6 +5,8 @@ import { test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
+import { queryKeys } from '../lib/query/keys'
+
 const dom = new Window()
 const browser: Record<string, unknown> = {
   window: dom,
@@ -47,4 +49,32 @@ test('a file Files cannot load offers to open its Task', async () => {
   assert.ok(open, 'the button reads Open Task')
   await act(async () => open.click())
   assert.deepEqual(opened, ['task-1'])
+})
+
+// A Bot's one-to-one channel is a chat, not the Bot's own session row.
+test('a file linked in a Bot chat offers to open the Bot', async () => {
+  const client = new QueryClient()
+  const container = dom.document.createElement('div')
+
+  client.setQueryData(queryKeys.agentSessions('team'), [
+    { sessionId: 'bot-chat', kind: 'channel', faces: [{ id: 'bot', agent: true }] },
+  ])
+  dom.document.body.append(container)
+  await act(async () => {
+    createRoot(container as unknown as HTMLElement).render(
+      createElement(
+        QueryClientProvider,
+        { client },
+        createElement(RuntimeFilesError, {
+          teamId: 'team',
+          error: 'File not found',
+          filePath: '/workspace/report.md',
+          source: { conversationTitle: 'Bot', label: 'Runtime', sessionId: 'bot-chat' },
+          onRetry: () => undefined,
+          onOpenConversation: () => undefined,
+        }),
+      ),
+    )
+  })
+  assert.ok([...container.querySelectorAll('button')].some((b) => b.textContent === 'Open Bot'))
 })
