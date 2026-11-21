@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
 
-import { untilRun } from './triggerCards'
+import { pausedNote, untilRun } from './triggerCards'
 
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
 
@@ -32,11 +32,7 @@ export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
   const now = useMinuteClock()
   const runs = nextOccurrencesAfter(trigger.cronExpression ?? '', now, 3, trigger.timeZone)
 
-  if (!trigger.enabled) {
-    return (
-      <p className="text-[12.5px] text-tertiary">{t('Paused. Turn it on to resume its runs.')}</p>
-    )
-  }
+  if (!trigger.enabled) return <p className="text-[12.5px] text-tertiary">{pausedNote(trigger)}</p>
   if (runs.length === 0) {
     return <p className="text-[12.5px] text-tertiary">{t('No upcoming runs for this schedule.')}</p>
   }

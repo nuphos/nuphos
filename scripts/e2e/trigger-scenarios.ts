@@ -149,6 +149,15 @@ export const triggerScenarios: Scenario[] = [
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
+
+      // #4293: the Trigger's card in the chat says why as well, not only that it is paused.
+      await send(page, `Show it E2E_TRIGGER_CARD:${tooLong.id} E2E_DELIVERY:trigger-card`)
+      await page.getByText('ACK E2E_DELIVERY:trigger-card').waitFor()
+      const card = page.getByRole('region', { name: 'Trigger Hourly report' })
+
+      await card.getByText(notice).waitFor()
+      await card.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: join(artifacts, 'trigger-card-paused.png') })
     },
   },
   {
