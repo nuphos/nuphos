@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { noMenuOpen, openComputers, openSubmenu, pickInSubmenu } from './ui.ts'
+import { openComputers, openSubmenu, pickInSubmenu } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
@@ -89,7 +89,6 @@ export async function computerWithUsage(
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
-  await noMenuOpen(page)
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   const runtimes = await openSubmenu(page, row)
 
