@@ -77,5 +77,4 @@ export const browserVideoScenarios: Scenario[] = [
       }
     },
   },
-  // Skipped: flaky, a hidden Desktop tab can record no frame; tracked in #4305
-].filter((s) => s.name !== 'an agent records its Desktop browser tab as a video that plays')
+]
