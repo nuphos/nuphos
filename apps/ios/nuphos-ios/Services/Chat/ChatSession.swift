@@ -368,9 +368,12 @@ final class ChatSession {
         guard !loading else { return }
         loading = true
         defer { loading = false }
+        // A reread that lands after this chat sent or changed is stale.
+        let shown = loaded ? signature() : nil
         do {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
+            if let shown, streaming || signature() != shown { return }
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
