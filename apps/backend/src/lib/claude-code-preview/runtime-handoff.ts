@@ -6,6 +6,7 @@ import { getActiveAgentRunForSession } from '@/lib/agent/run-store/ownership'
 import { backfillRunIndexes, sweepAbandonedAgentRuns } from '@/lib/agent/run-store/run-index'
 import { ownerKey } from '@/lib/agent/run-store/shared'
 import { sweepQueuedSessions } from '@/lib/agent/session-released'
+import { AppError } from '@/lib/errors'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { withRedis } from '@/lib/redis'
@@ -192,8 +193,9 @@ export async function adoptRuntimeHandoffs(
   if (isShuttingDown()) return
   for (const handoff of await claimRuntimeHandoffs()) {
     await adopt(handoff).catch(async (error: unknown) => {
-      const attempts = (handoff.attempts ?? 0) + 1
-      const retry = attempts < MAX_ADOPT_ATTEMPTS
+      const offline = error instanceof AppError && error.code === 'runtime_offline'
+      const attempts = (handoff.attempts ?? 0) + (offline ? 0 : 1)
+      const retry = offline || attempts < MAX_ADOPT_ATTEMPTS
 
       logError('agent.runtime_handoff.adopt_failed', error, {
         team_id: handoff.teamId,

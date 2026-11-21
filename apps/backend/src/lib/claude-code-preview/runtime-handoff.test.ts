@@ -575,3 +575,54 @@ test('an adopter that held the session before resumes it instead of reusing the 
 
   expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
 })
+
+test('a transient offline failure does not exhaust a local handoff before its age limit', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+
+  attachedRuntimeUrl = localRuntimeUrl(computer, 'team')
+  stored.set(
+    'team:conv',
+    JSON.stringify({ ...handoff(Date.now() - HANDOFF_SETTLE_MS), runtimeUrl: attachedRuntimeUrl }),
+  )
+  await runtimePresenceStore().claim(computer.userId, computer.deviceId, 'tunnel')
+  await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+    conn: 'tunnel',
+    seenAt: Date.now(),
+  })
+  try {
+    let tries = 0
+
+    for (let i = 0; i < 6; i++)
+      await adoptRuntimeHandoffs(async () => {
+        tries++
+        throw new AppError(409, 'runtime_offline', 'offline')
+      })
+    expect(stored.has('team:conv')).toBe(true)
+    expect(tries).toBeGreaterThan(0)
+    const adopted: string[] = []
+
+    await adoptRuntimeHandoffs(async (claimed) => {
+      adopted.push(claimed.conversationId)
+    })
+    expect(adopted).toEqual(['conv'])
+  } finally {
+    await runtimePresenceStore().clear(computer.userId, computer.deviceId, 'tunnel')
+  }
+})
+
+test('a handoff retained after an offline failure is refused at the age limit', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const now = Date.now()
+
+  stored.set('team:conv', JSON.stringify(handoff(now - HANDOFF_SETTLE_MS)))
+  await adoptRuntimeHandoffs(async () => {
+    throw new AppError(409, 'runtime_offline', 'offline')
+  })
+  expect(stored.has('team:conv')).toBe(true)
+  const claimed = await claimRuntimeHandoffs(now + HANDOFF_MAX_AGE_MS)
+
+  expect(claimed).toEqual([])
+  expect(stored.has('team:conv')).toBe(false)
+  expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
+})
