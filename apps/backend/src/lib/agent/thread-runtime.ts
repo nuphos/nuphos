@@ -91,18 +91,18 @@ export async function threadRuntimes(
       const unavailable = unavailableReason(instance, refused.has(instance.id))
 
       return {
-      runtimeId: instance.id,
-      label: instance.label,
-      provider: instance.provider,
-      kind: instance.kind,
-      status: instance.status,
-      ready: !instance.notReady && !unavailable,
-      ...(unavailable ? { unavailable } : {}),
-      current: instance.id === currentRuntimeId,
-      quota: quotas[i],
-      // Up front, so an agent sees it before moving to an account that ran out too.
-      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
-      ...(models[i]?.length ? { models: models[i] } : {}),
+        runtimeId: instance.id,
+        label: instance.label,
+        provider: instance.provider,
+        kind: instance.kind,
+        status: instance.status,
+        ready: !instance.notReady && !unavailable,
+        ...(unavailable ? { unavailable } : {}),
+        current: instance.id === currentRuntimeId,
+        quota: quotas[i],
+        // Up front, so an agent sees it before moving to an account that ran out too.
+        ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
+        ...(models[i]?.length ? { models: models[i] } : {}),
       }
     }),
   }
