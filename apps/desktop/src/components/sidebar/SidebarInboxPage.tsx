@@ -46,6 +46,8 @@ export function SidebarInboxPage({
   useEffect(() => {
     if (all?.length === 0) setInboxSearch(teamId, '')
   }, [teamId, all?.length])
+  // No search box on screen means no filter, so the search goes when this page does.
+  useEffect(() => () => setInboxSearch(teamId, ''), [teamId])
 
   return (
     <div className="sidebar-page-layout flex h-full min-h-0 flex-col">

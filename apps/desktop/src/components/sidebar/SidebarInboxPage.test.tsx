@@ -114,6 +114,13 @@ test('the Inbox search sits under the sidebar header and narrows the list "Dismi
     assert.equal(dismissAll(), null)
     assert.match(container.textContent ?? '', /No matches/)
 
+    await type('deploy')
+    await act(() => root.render(null))
+    assert.equal(selection.inboxSearch('team'), '', 'the page goes away: the Inbox filters nothing')
+    await render()
+    assert.equal(box()?.value, '', 'and it comes back empty')
+    assert.deepEqual(rows(), ['a', 'b'])
+
     questions = []
     await render()
     assert.equal(box(), null, 'no question: no search')
