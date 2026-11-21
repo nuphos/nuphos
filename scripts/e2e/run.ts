@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
@@ -185,6 +186,7 @@ const scenarios: Scenario[] = [
 // A scenario that needs something created earlier in the run stays in its creator's half.
 const later: Scenario[] = [
   ...computerScenarios,
+  ...computerUpdateScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,

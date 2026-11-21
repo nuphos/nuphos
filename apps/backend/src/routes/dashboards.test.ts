@@ -141,3 +141,44 @@ describe('serializePanel', () => {
     expect(serialized.lastSuccessfulSnapshot?.output).toEqual(successful.output)
   })
 })
+
+describe('serializePanel personal accounts', () => {
+  const A = 'a1'.repeat(12)
+  const B = 'b2'.repeat(12)
+  const now = new Date('2026-01-01T00:00:00.000Z')
+  const panel = {
+    _id: new ObjectId(),
+    dashboardId: new ObjectId(),
+    title: 'Spend',
+    kind: 'scalar',
+    scriptVersion: 1,
+    versions: [],
+    credentialAccess: {
+      personalCredentialIds: ['github'],
+      personalConnectionIds: [A, B],
+      updatedAt: now,
+      updatedBy: 'u1',
+    },
+    createdBy: 'u1',
+    createdAt: now,
+    updatedAt: now,
+  } as unknown as DashboardPanel
+  const read = (viewerId?: string) =>
+    serializePanel(panel, {}, null, null, viewerId).credentialAccess as Record<string, unknown>
+
+  test('the creator reads the connection ids', () => {
+    expect(read('u1').personalConnectionIds).toEqual([A, B])
+  })
+
+  test('anyone else reads only how many, with no id anywhere', () => {
+    for (const viewer of ['u2', undefined]) {
+      const access = read(viewer)
+
+      expect(access.personalAccountCount).toBe(2)
+      expect(access.personalCredentialIds).toEqual(['github'])
+      expect(JSON.stringify(access)).not.toContain(A)
+      expect(JSON.stringify(access)).not.toContain(B)
+      expect('personalConnectionIds' in access).toBe(false)
+    }
+  })
+})

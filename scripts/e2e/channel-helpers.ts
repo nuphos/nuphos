@@ -179,6 +179,7 @@ export async function shootUsageResets(page: Page, computer: string) {
 }
 
 export type ListedConversation = {
+  sessionId?: string
   title?: string
   avatar?: unknown
   kind?: string
