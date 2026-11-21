@@ -155,17 +155,17 @@ process.on('unhandledRejection', (error) => {
 
 const tls = devTlsOptions()
 
+// Both listeners. Bun defaults to a 10s idle timeout, which drops a legitimately
+// slow request (e.g. a burst of reads while MongoDB is reachable only over a
+// high-latency path) mid-flight — the client sees "other side closed". Raise it
+// so slow requests complete instead of failing; healthy requests close normally
+// well before this, so it's inert in prod.
+const listen = { hostname: config.server.listenHost, idleTimeout: 120, websocket }
+
 const server = Bun.serve({
-  hostname: config.server.listenHost,
+  ...listen,
   port: config.port,
-  // Bun defaults to a 10s idle timeout, which drops a legitimately slow request
-  // (e.g. a burst of reads while MongoDB is reachable only over a high-latency
-  // path) mid-flight — the client sees "other side closed". Raise it so slow
-  // requests complete instead of failing; healthy requests close normally well
-  // before this, so it's inert in prod.
-  idleTimeout: 120,
   ...(tls ? { tls } : {}),
-  websocket,
   async fetch(req, bunServer) {
     // No global shutdown gate here: readiness (→503) drains the LB and new agent
     // runs are gated at registration, so resumes/in-flight requests keep working
@@ -182,10 +182,8 @@ logEvent('info', 'backend.server.listening', {
 
 const devHttpServer = config.server.devHttpPort
   ? Bun.serve({
-      hostname: config.server.listenHost,
+      ...listen,
       port: config.server.devHttpPort,
-      idleTimeout: 120,
-      websocket,
       fetch: (req, bunServer) => app.fetch(req, { server: bunServer }),
     })
   : undefined
