@@ -625,7 +625,7 @@ private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.sess
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
     val account = auth.user?.id
-    val ownsBot = account != null && session.agents.any { it.sessionId == bot?.sessionId && it.ownerId == account }
+    val ownsBot = bot?.loaded == true && bot.isOwner
     if (bot != null) {
         DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
             val workspace = store.workspaceRevision

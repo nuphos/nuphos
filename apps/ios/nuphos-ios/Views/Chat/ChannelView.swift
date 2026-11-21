@@ -258,6 +258,7 @@ struct ChannelView: View {
                 recipient: channel.title,
                 focusRequest: replyFocus,
                 alwaysShowControls: channel.botId != nil,
+                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
                 controls: {
                     if let botSession, botSession.loaded {
@@ -270,7 +271,7 @@ struct ChannelView: View {
                             session: botSession,
                             switchRuntime: { switchingBot = botSession },
                             botChat: true,
-                            locked: !owns(channel.botId)
+                            locked: !botSession.isOwner
                         )
                     }
                 }

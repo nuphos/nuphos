@@ -29,6 +29,8 @@ struct ChatComposerBar<Controls: View>: View {
     var focusRequest = 0
     /// A Bot chat keeps its runtime and model visible while the composer is collapsed.
     var alwaysShowControls = false
+    /// Conditional controls can be absent even when their view type is not EmptyView.
+    var controlsAvailable = true
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -72,7 +74,7 @@ struct ChatComposerBar<Controls: View>: View {
         #endif
     }
     private var expanded: Bool { focused || hasPayload }
-    private var hasControls: Bool { Controls.self != EmptyView.self }
+    private var hasControls: Bool { controlsAvailable && Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
     /// Nothing until the sessions are listed, so the list never opens part-filled.
     private var mentionResults: [AgentConversation] {
