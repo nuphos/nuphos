@@ -45,6 +45,7 @@
     <string name="chats_reply">返信</string>
     <string name="chats_copy">コピー</string>
     <string name="chats_usage_resets">使用量は%1$s。</string>
+    <string name="chats_verify_with_anthropic">Anthropic で認証</string>
     <string name="chats_switch_runtime">ランタイムを切り替え</string>
     <string name="chats_retry">再試行</string>
     <string name="chats_send_failed_title">メッセージを送信できませんでした</string>

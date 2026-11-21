@@ -58,6 +58,7 @@ function client(overrides: Partial<TeamPreviewClient> = {}): TeamPreviewClient {
       return Promise.resolve({ alive: true })
     },
     getSessionConfigOptions: async () => ({ configOptions: [] }),
+    setSessionConfigOption: async () => ({ configOptions: [] }),
     prompt: () => Promise.resolve({}),
     cancel: noop,
     close: noop,

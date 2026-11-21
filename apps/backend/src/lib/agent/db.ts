@@ -84,6 +84,7 @@ export {
 } from './db/transcript'
 export { getConversations } from './db/conversations-list'
 export {
+  archiveConversationAs,
   restoreArchivedConversation,
   setConversationArchived,
   setMemberArchived,

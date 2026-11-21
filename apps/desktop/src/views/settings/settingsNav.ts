@@ -18,6 +18,7 @@ import {
   SquareTerminal,
   SunMedium,
   Users,
+  Webhook,
 } from 'lucide-react'
 
 import { t } from '../../i18n/index.ts'
@@ -81,6 +82,7 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
       { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
       { key: 'workspace.memories', label: t('Memories'), icon: Brain },
+      { key: 'workspace.webhooks', label: t('Webhooks'), icon: Webhook },
       { key: 'workspace.archived', label: t('Archived'), icon: Archive },
       { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],

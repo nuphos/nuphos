@@ -25,6 +25,8 @@ struct AssistantMarkdown: View {
     var selectionRequest = 0
     /// A tapped link. Absent, links do nothing.
     var onLink: ((URL) -> Void)?
+    /// Reads a file group the text cites. Absent, a cited file shows as a plain image link.
+    var resolveTransfer: ((String) async throws -> TransferDownloadGroup)?
 
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -42,7 +44,12 @@ struct AssistantMarkdown: View {
                 ForEach(Array(segments.enumerated()), id: \.offset) { index, segment in
                     switch segment {
                     case .markdown(let text): markdown(text, selectionRequest: index == firstText ? selectionRequest : 0)
-                    case .image(let url, let alt): MarkdownImage(url: url, alt: alt, onLink: onLink)
+                    case .image(let url, let alt):
+                        if let resolveTransfer, let groupId = MarkdownImages.replyGroupId(url) {
+                            TransferCard(groupIds: [groupId], fromUser: false, resolve: resolveTransfer)
+                        } else {
+                            MarkdownImage(url: url, alt: alt, onLink: onLink)
+                        }
                     }
                 }
             }

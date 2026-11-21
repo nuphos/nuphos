@@ -60,6 +60,7 @@
     <string name="convtext_runtime_not_found">รันไทม์นี้ไม่มีในเวิร์กสเปซนี้แล้ว สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ</string>
     <string name="convtext_runtime_offline">คอมพิวเตอร์ที่รันรันไทม์นี้ออฟไลน์อยู่ เปิด Nuphos บนเครื่องนั้น หรือสลับไปใช้รันไทม์อื่น</string>
     <string name="convtext_runtime_paused">%1$s หยุดชั่วคราวอยู่ จะทำงานต่อเมื่อคุณส่งข้อความ</string>
+    <string name="convtext_runtime_starting">%1$s กำลังเริ่มทำงาน จะพร้อมใช้งานในไม่กี่วินาที</string>
     <string name="convtext_ask_owner">ขอเจ้าของ</string>
     <string name="convtext_ask_admin">ขอผู้ดูแลระบบ</string>
     <string name="convtext_server_status">Nuphos ส่งสถานะ %1$d กลับมา</string>

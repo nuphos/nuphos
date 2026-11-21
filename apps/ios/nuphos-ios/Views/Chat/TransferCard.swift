@@ -64,6 +64,7 @@ struct TransferCard: View {
             ForEach(others) { file in openButton(file) }
             if unavailable {
                 ForEach(names, id: \.self) { name in chip(name, icon: "doc") }
+                if names.isEmpty { HintRow(text: "File expired — no longer available.", isError: false) }
             }
             if failed {
                 HintRow(text: "Couldn't open the file. Try again.", isError: true)

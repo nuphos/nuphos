@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
+import { parseAtlasError } from '../../api/errors.ts'
 import { api } from '../../api.ts'
 import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
@@ -65,7 +66,8 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
     },
     (error: unknown) => {
       answered.delete(requestId)
-      failures.set(requestId, error instanceof Error ? error.message : String(error))
+      // The server's own words, not the IPC wrapper and sentinel around them.
+      failures.set(requestId, parseAtlasError(error).message)
       emit()
     },
   )

@@ -238,7 +238,7 @@ const installAgentDb = useAgentDb({
 
     return { isNew: true }
   },
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   recordAgentEvent: (event) => {
     events.push(event)
   },

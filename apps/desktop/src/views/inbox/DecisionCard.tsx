@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { MessageResponse } from '../../components/agent/MessageResponse'
 import { AnswerField } from '../../components/agent/panel/AnswerField'
 import {
+  answeredBySelection,
   parseChoiceRequest,
-  parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
 import {
@@ -67,7 +67,8 @@ export function DecisionCard({
   const { sessionId } = conversation
   const source = bot ?? conversation
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
-  const connect = parseConnectRequest(request) !== null
+  // Answered by selecting it in the asking conversation's credentials, with or without a Connect card.
+  const connect = answeredBySelection(request)
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
   const { part, typed } = botChatQuestion(request)
   const page = pageChoice(part.input, typed)
@@ -210,7 +211,7 @@ export function DecisionCard({
 function pageChoice(input: unknown, typed: boolean) {
   const choice = parseChoiceRequest(input)
 
-  if (!choice) return null
+  if (!choice || answeredBySelection(input)) return null
   const questions = formQuestions(choice)
 
   if (!typed && !questions.some((q) => q.options.length > 0)) return null
