@@ -23,6 +23,7 @@ import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { startReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
@@ -119,9 +120,7 @@ await backfillPersonalTokenExpiry()
 installQueuedTurnStarter(startQueuedTurn)
 installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
-if (await initTriggerScheduler()) {
-  logEvent('info', 'backend.trigger_scheduler.ready')
-}
+if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
 if (await initJournalSealer()) {
   logEvent('info', 'backend.journal_sealer.ready')
@@ -135,6 +134,7 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 // Counts turns stranded on an unanswered tool call — the one agent failure no
 // request can observe, because it IS the missing request.
 initStuckTurnProbe()
+startReminderSweeper()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
 initRuntimeMetricsSampler()
