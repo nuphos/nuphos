@@ -71,15 +71,9 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   tabs.set(contents, { conversation, window, opener })
   // Its downloads are saved with no save dialog, which the agent could not answer.
   saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
+  // Never shown just to hide again: a window flashed this way may never paint, so its page can
+  // never be captured (#4305).
+  window.once('ready-to-show', () => window.setOpacity(1))
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
@@ -276,18 +270,14 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }
   if (call.action === 'record_stop') {
-    // Throttled again only once stopped: the stop captures a still page, which a hidden window
-    // may never paint while throttled.
-    try {
-      return text(
-        await stopRecording(contents, {
-          dir: path.join(app.getPath('userData'), 'har'),
-          creator: { name: 'Nuphos Desktop', version: app.getVersion() },
-        }),
-      )
-    } finally {
-      if (!contents.isDestroyed()) contents.setBackgroundThrottling(true)
-    }
+    contents.setBackgroundThrottling(true)
+
+    return text(
+      await stopRecording(contents, {
+        dir: path.join(app.getPath('userData'), 'har'),
+        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+      }),
+    )
   }
   const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 

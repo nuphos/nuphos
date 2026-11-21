@@ -5,7 +5,7 @@ import { before, mock, test } from 'node:test'
 import type { BrowserCall } from './browser-stream.ts'
 import type { runBrowserCall as RunBrowserCall } from './browser-tabs.ts'
 
-const app = Object.assign(new EventEmitter(), { getPath: () => '/tmp', getVersion: () => '0' })
+const app = new EventEmitter()
 const browserSession = {}
 /** window-session.ts's flag: set by before-quit, and by an update restart before it. */
 let appQuitting = false
@@ -13,8 +13,6 @@ let appQuitting = false
 const handBacks: { route: string; body: unknown }[] = []
 const windows: Window[] = []
 let runBrowserCall: typeof RunBrowserCall
-/** Whether each tab's page was throttled while its recording stopped, for a still page's capture. */
-const throttledAtStop = new Map<unknown, boolean>()
 
 let nextId = 1
 
@@ -126,16 +124,6 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
-  mock.module('./browser-recording.ts', {
-    namedExports: {
-      startRecording: () => Promise.resolve(),
-      stopRecording: (contents: Page) => {
-        throttledAtStop.set(contents, contents.throttled)
-
-        return Promise.resolve({})
-      },
-    },
-  })
   mock.module('../../agent/http.ts', {
     namedExports: {
       callJson: (_method: string, route: string, body: unknown) => {
@@ -196,10 +184,10 @@ test("open loads the page in a hidden desktop-sized window on the user's browser
   assert.deepEqual([window.options.width, window.options.height], [1440, 900])
   assert.equal(window.webContents.session, browserSession)
   assert.equal(window.webContents.url, 'https://example.com')
-  // Its first paint shows it once, unseen, then hides it, so the page can be captured yet sleeps.
+  // It is never shown just to be hidden again, which can leave its page never painting (#4305).
   assert.equal(window.opacity, 0)
   window.emit('ready-to-show')
-  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [true, false, 1])
+  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [false, false, 1])
   await tick()
   assert.equal(done, false, 'the page is still loading')
 
@@ -290,7 +278,7 @@ test("a hidden tab's popup is the conversation's tab too: unseen, driven, and sh
   assert.deepEqual(await listed('popup-1'), [page.id, popup.webContents.id])
   // Its first paint stays unseen too, so the agent can capture and drive the sign-in page.
   popup.emit('ready-to-show')
-  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [true, false, 1])
+  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [false, false, 1])
   popup.webContents.script = Promise.resolve('signed in')
   const result = await runBrowserCall({
     action: 'eval',
@@ -351,19 +339,6 @@ test('a screenshot lets the hidden page paint freely only while it is captured',
 
   assert.equal(result.isError, undefined)
   assert.equal(page.throttledAtCapture, false)
-  assert.equal(page.throttled, true)
-})
-
-// #4305: a still page in a hidden window is captured at record_stop, which it may never answer
-// once throttled, as a screenshot would not.
-test('record_stop stops the recording before the hidden page is throttled again', async () => {
-  const { page } = await opened('rec-1')
-  const call = { team: 't1', session: 'rec-1', tab: page.id }
-
-  await runBrowserCall({ ...call, action: 'record_start', video: true })
-  assert.equal(page.throttled, false)
-  await runBrowserCall({ ...call, action: 'record_stop' })
-  assert.equal(throttledAtStop.get(page), false)
   assert.equal(page.throttled, true)
 })
 
