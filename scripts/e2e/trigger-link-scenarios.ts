@@ -51,6 +51,7 @@ export const triggerLinkScenarios: Scenario[] = [
 
       // A Bot's Trigger, shown in the same Task.
       const bot = await api<{ sessionId: string }>(stack, 'POST', '/agent/bots', {
+        teamId: stack.teamId,
         title: 'Metrics Bot',
         avatar: '07-ada',
         agentRuntime: 'claude-code',
