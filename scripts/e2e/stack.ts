@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-import { backendEnv } from './backend-env.ts'
+import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { startSlackStub } from './slack-stub.ts'
@@ -223,6 +223,7 @@ export async function startStack(
   const backends = [startBackend()]
 
   await backendReady()
+  await assertLoopbackOnly(backendPort)
 
   const email = `e2e-${String(Date.now())}@example.com`
   let token = ''

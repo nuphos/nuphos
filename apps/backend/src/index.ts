@@ -176,7 +176,7 @@ const server = Bun.serve({
 
 logEvent('info', 'backend.server.listening', {
   protocol: tls ? 'https' : 'http',
-  host: config.server.listenHost ?? 'localhost',
+  host: config.server.listenHost ?? '0.0.0.0',
   port: config.port,
 })
 
