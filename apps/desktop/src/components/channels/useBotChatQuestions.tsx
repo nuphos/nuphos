@@ -64,7 +64,7 @@ export function useBotChatQuestions(
   })
 
   // A Bot never given computers or credentials is asked to choose, below everything said so far.
-  const banner = ownCredentials?.unset ? <ChooseAccessBanner /> : undefined
+  const banner = botId && ownCredentials?.unset ? <ChooseAccessBanner bot={botId} /> : undefined
 
   if (banner && !empty)
     rows.push({

@@ -10,6 +10,7 @@ import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSumma
 import { toast } from '../../ui/toast'
 import { shellsFromRuntimeState } from '../panel/shells'
 
+import { BotInstructionsSection } from './BotInstructionsSection'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
 import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
@@ -34,7 +35,6 @@ import { useChatSummary } from './useChatSummary'
 import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
 import type { Motion } from './summaryPlacement'
-import type { AgentConversation } from '../../../api/agent-types'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
 import type { KeyboardEvent, ReactNode } from 'react'
 
@@ -59,6 +59,8 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
+  /** Opened for a look where it has no room beside: gone once the mouse leaves it. */
+  popover?: boolean
 }
 
 /** The panel beside the transcript, mounted while open and while it slides shut. */
@@ -140,19 +142,6 @@ function OutputsSection({
   )
 }
 
-/** A Bot's standing instructions in full, which its transcript only shows clipped. */
-function BotInstructionsSection({ conversation }: { conversation?: AgentConversation }) {
-  if (!conversation?.avatar) return null
-
-  return (
-    <SummarySection title={t('Bot instructions')}>
-      <p className="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-[13px] leading-5 text-main">
-        {conversation.instructions || <span className="text-tertiary">{t('None yet')}</span>}
-      </p>
-    </SummarySection>
-  )
-}
-
 /**
  * Esc inside the panel closes it and hands focus back to the toggle that opened it. A dialog it
  * opened sits in a portal: its Esc bubbles here through React, but closes only the dialog.
@@ -181,6 +170,7 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
+  popover,
   motion,
 }: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
   const closing = motion === 'out'
@@ -210,7 +200,7 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing)
+  useDismissOutside(rootRef, dismiss, floating && !closing, popover)
 
   const panel = (
     <aside
@@ -243,7 +233,7 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
-          <BotInstructionsSection conversation={conversation} />
+          <BotInstructionsSection conversation={conversation} teamId={teamId} />
           {access}
           {background.length > 0 && <BackgroundTasksSection shells={background} />}
           <ChatSummaryTriggers

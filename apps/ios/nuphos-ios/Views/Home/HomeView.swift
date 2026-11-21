@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var autoPage = false
     @State private var showTeamPicker = false
     @State private var showProfile = false
+    @State private var resumeTwoFactor = false
     @State private var showNewBot = false
     @State private var showNewTask = false
     @State private var submittedTask: AgentPage.OpenChat?
@@ -138,8 +139,9 @@ struct HomeView: View {
                 .environment(store)
                 .presentationDetents([.large])
             }
-            .sheet(isPresented: $showProfile) {
-                ProfileSheet(user: user)
+            .onAppear { if TwoFactorView.takeResume() { resumeTwoFactor = true; showProfile = true } }
+            .sheet(isPresented: $showProfile, onDismiss: { resumeTwoFactor = false }) {
+                ProfileSheet(user: user, openTwoFactor: resumeTwoFactor)
             }
             .sheet(item: workspaceSheet) { destination in
                 NavigationStack {
@@ -292,6 +294,16 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
+        #if DEBUG
+        // DEBUG: `-page inbox` opens a page that does not load the workspace. Only the
+        // Agent page calls `loadTeams()`, and the Inbox lists nothing until a team is
+        // selected, so the shortcut would show an Inbox that stays empty. It used to be
+        // filled by a launch cache another UI test suite had left behind.
+        .task {
+            guard Self.initialPage == .inbox, let store, store.selectedTeam == nil else { return }
+            await store.loadTeams()
+        }
+        #endif
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }

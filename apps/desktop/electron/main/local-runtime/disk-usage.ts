@@ -1,8 +1,6 @@
 import { lstat, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
-import { reclaimSessionWorkspaces } from './disk-reclaim.ts'
-
 /**
  * A directory is measured within this much time and this many entries; past either the
  * reading stops and says so. A workspace can hold a build tree with millions of files,
@@ -66,16 +64,14 @@ export async function measureDirectory(
 export type DiskMaintenance = {
   /** The workspaces this computer's agents use right now, as the controller sees them. */
   workspaces: () => string[]
-  /** Whether a live session is using a directory. Nothing is reclaimed without this. */
-  inUse: (dir: string) => boolean | Promise<boolean>
   /** A data directory this build does not use. It is reported, never deleted. */
   leftAlone: string | null
   log?: (message: string, data?: Record<string, unknown>) => void
 }
 
 /**
- * One quiet pass: reclaim the session workspaces a finished session left behind, and
- * report what a person would otherwise never see. Nothing here throws: every failure is
+ * One quiet pass: report what a person would otherwise never see. A conversation's
+ * own folder is reclaimed with the conversation (#3939), not here. Nothing here throws: every failure is
  * logged and the pass carries on, because it runs beside a live app.
  */
 export async function runDiskMaintenance(maintenance: DiskMaintenance): Promise<void> {
@@ -83,17 +79,9 @@ export async function runDiskMaintenance(maintenance: DiskMaintenance): Promise<
 
   for (const workspace of maintenance.workspaces()) {
     try {
-      const reclaimed = await reclaimSessionWorkspaces(workspace, {
-        inUse: maintenance.inUse,
-        log,
-      })
       const usage = await measureDirectory(workspace)
 
-      log?.('local runtime: workspace', {
-        workspace,
-        reclaimed: reclaimed.length,
-        ...summary(usage),
-      })
+      log?.('local runtime: workspace', { workspace, ...summary(usage) })
     } catch (error) {
       log?.('local runtime: workspace maintenance failed', { workspace, error: String(error) })
     }

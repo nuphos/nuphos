@@ -140,6 +140,7 @@ impl SessionState {
             if state == "interrupted" {
                 end_unstarted_tools(snapshot);
                 snapshot["operation"] = json!("none");
+                snapshot["planStep"] = Value::Null;
             }
             snapshot["providerState"] = json!(state);
         });
@@ -151,6 +152,9 @@ impl SessionState {
                 end_cancelled_tools(snapshot);
             }
             snapshot["operation"] = json!(operation);
+            if operation != "prompt" {
+                snapshot["planStep"] = Value::Null;
+            }
             if operation == "prompt" {
                 // Keep background tools visible across turns, but reset model activity.
                 snapshot["activity"] = json!("working");
@@ -238,6 +242,9 @@ impl SessionState {
                     if let Some(provider) = provider {
                         // Preserve unfamiliar provider states instead of silently hiding them.
                         snapshot["providerState"] = json!(provider);
+                        if matches!(provider, "notLoaded" | "systemError" | "interrupted") {
+                            snapshot["planStep"] = Value::Null;
+                        }
                         if provider == "idle" && snapshot["operation"] == "cancelling" {
                             end_cancelled_tools(snapshot);
                             snapshot["operation"] = json!("none");
@@ -284,6 +291,12 @@ impl SessionState {
                     if let Some(commands) = update["availableCommands"].as_array() {
                         snapshot["commands"] = agent_commands(commands);
                     }
+                }
+                Some("plan") if snapshot["operation"] == "prompt" => {
+                    snapshot["planStep"] = update["entries"].as_array().and_then(|entries|
+                        entries.iter().find(|entry| entry["status"] == "in_progress" &&
+                            entry["content"].as_str().is_some_and(|text| !text.trim().is_empty()))
+                    ).map(|entry| entry["content"].clone()).unwrap_or(Value::Null);
                 }
                 Some("agent_thought_chunk") => snapshot["activity"] = json!("thinking"),
                 Some("agent_message_chunk") => snapshot["activity"] = json!("responding"),
@@ -348,6 +361,41 @@ fn agent_commands(commands: &[Value]) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn plan_progress_is_status_not_a_tool() {
+        let state = SessionState::default();
+        state.operation("prompt");
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Inspect fictional project"}]}})));
+        assert_eq!(state.snapshot()["planStep"], "Inspect fictional project");
+        assert_eq!(state.snapshot()["tools"], json!({}));
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"First step"},{"status":"in_progress","content":"Second step"}]}})));
+        assert_eq!(state.snapshot()["planStep"], "First step");
+        state.observe(Some(
+            &json!({"update":{"sessionUpdate":"plan","entries":[]}}),
+        ));
+        assert!(state.snapshot()["planStep"].is_null());
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"completed","content":"Inspect fictional project"}]}})));
+        assert!(state.snapshot()["planStep"].is_null());
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Old step"}]}})));
+        state.operation("none");
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Late step"}]}})));
+        state.operation("prompt");
+        assert!(state.snapshot()["planStep"].is_null());
+        state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Interrupted step"}]}})));
+        state.set("interrupted");
+        state.operation("prompt");
+        assert!(state.snapshot()["planStep"].is_null());
+        for provider in ["notLoaded", "systemError", "interrupted"] {
+            state.observe(Some(&json!({"update":{"sessionUpdate":"plan","entries":[{"status":"in_progress","content":"Interrupted step"}]}})));
+            state.observe(Some(&json!({"update":{"sessionUpdate":"session_info_update","_meta":{"ai.nuphos/sessionState":{"state":provider}}}})));
+            state.operation("prompt");
+            assert!(
+                state.snapshot()["planStep"].is_null(),
+                "provider {provider}"
+            );
+        }
+    }
+
     #[test]
     fn the_agents_slash_commands_are_kept_as_last_listed() {
         let state = SessionState::default();

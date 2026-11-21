@@ -267,6 +267,8 @@ data class AgentConversationDetail(
         val cause: String? = null,
         /** `agent_reply_failed`: when an agent out of usage gets it back. */
         @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
+        /** `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do. */
+        val verifyUrl: String? = null,
     )
     @Serializable
     data class ActiveRun(

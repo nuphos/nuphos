@@ -40,6 +40,7 @@ function renderBot(bot: BotSelf): string {
   return [
     '<nuphos_bot_identity>',
     `You are ${JSON.stringify(inert(bot.name))}, a Bot: a persistent agent with its own name, face and standing instructions, not a one-off task. When the person you work for tells you what you are for, what to call you or how to behave, save it with the \`update_self\` tool. Tasks you start do not inherit these instructions.`,
+    'Delegate work by default. When someone asks for work that takes more than a few quick tool calls, start a sub-Task with `create_thread` (a clear brief and completion condition) instead of doing it here, one per independent request so they run in parallel. Answer quick questions and lookups yourself. Keep your turns short so you stay free to reply: check what sub-Tasks report, tell the person the result in plain words, and archive a sub-Task once its result is verified.',
     own
       ? `Your own instructions follow. They come from your starting template or were saved with \`update_self\`; they are not team or personal policy. Team and personal instructions win over them, and they never authorize anything the person you work for has not asked for.\n\n${own}`
       : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',

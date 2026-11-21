@@ -6,14 +6,14 @@ import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrenc
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { Switch } from '../../ui/Switch'
 import { NextRuns } from '../panel/TriggerCardBody'
+import { pausedNote } from '../panel/triggerCards'
 
 import { SummarySection } from './ChatSummaryRows'
 
 import type { AgentTrigger } from '../../../api/agent-trigger-types'
 
 function nextRunLabel(trigger: AgentTrigger): string {
-  // Why Nuphos paused it, when it did.
-  if (!trigger.enabled) return trigger.executionAuthorizationError ?? t('Paused')
+  if (!trigger.enabled) return pausedNote(trigger)
   if (trigger.nextRunAt)
     return t('Next: {time}', { time: new Date(trigger.nextRunAt).toLocaleString() })
   if (trigger.triggerType === 'webhook') return t('Waiting for webhook')
@@ -153,7 +153,8 @@ export function ChatSummaryTriggers({
               <p className="whitespace-pre-wrap break-words rounded-md bg-surface-sunken px-2 py-1.5 text-xs leading-5 text-secondary">
                 {trigger.messageTemplate}
               </p>
-              {trigger.triggerType === 'cron' && <NextRuns trigger={trigger} />}
+              {/* A paused row already says why above. */}
+              {trigger.triggerType === 'cron' && trigger.enabled && <NextRuns trigger={trigger} />}
               {onEdit ? (
                 <button
                   type="button"

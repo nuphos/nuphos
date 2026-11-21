@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
 import { CodeInput, codeInputClasses } from '../components/CodeInput'
-import { NuphosLogo } from '../components/NuphosLogo'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { useErrorShake } from '../hooks/useErrorShake'
 import { useStableCallback } from '../hooks/useStableCallback'
 import { useTextSwap } from '../hooks/useTextSwap'
+import { useTheme } from '../hooks/useTheme'
 import { t } from '../i18n'
 import { CODE_LENGTH, completesCode, singleFlight } from '../lib/codeEntry'
 import { signInEmailError } from '../lib/emailDomain'
@@ -34,6 +34,7 @@ type Props = {
 const inputClasses = codeInputClasses
 
 export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
+  const { resolved } = useTheme()
   const [step, setStep] = useState<'start' | 'code' | 'mfa'>('start')
   const [mfaToken, setMfaToken] = useState<string | null>(null)
   const [email, setEmail] = useState('')
@@ -137,11 +138,14 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
     if (completesCode(code, next)) void verifyCode(next)
   }
 
-  // Named for why the screen is shown: an account to sign in to again comes first.
-  let title = t('Welcome to Nuphos')
+  // Named for why the screen is shown: an account to sign in to again comes first. A first
+  // sign-in has no title; the logo above already says Nuphos.
+  let title: string | null = null
 
   if (notice) title = t('Sign in again')
   else if (onCancel) title = t('Add an account')
+
+  const lockup = <img className="block h-10" src={`/nuphos-lockup-${resolved}.png`} alt="Nuphos" />
 
   const [codeBefore, codeAfter] = t('Enter the 6-digit code sent to {email}').split('{email}')
 
@@ -151,10 +155,9 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
       {/* Scrolls, so a long account list never pushes the form out of reach. */}
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
-          <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
-            <NuphosLogo className="h-12 w-12" variant="white-bg" />
-          </div>
-          <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>
+          {/* Without a title the lockup is the page heading, so screen readers still find one. */}
+          {title ? <div className="mb-5">{lockup}</div> : <h1 className="mb-1.5">{lockup}</h1>}
+          {title && <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>}
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
               (onCancel
