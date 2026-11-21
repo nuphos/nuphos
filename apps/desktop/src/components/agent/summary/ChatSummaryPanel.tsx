@@ -1,9 +1,10 @@
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
+import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSummaryPanel'
@@ -202,6 +203,13 @@ function SummaryBody({
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
   useDismissOutside(rootRef, dismiss, floating && !closing, popover)
+  // A chat opened before stays in the page, hidden, for a quick switch back; this floating panel
+  // sits at the root, outside what hides, so it closes as its chat is hidden.
+  const dismissHidden = useStableCallback(() => {
+    if (floating && !closing && !frameRef.current?.checkVisibility()) dismiss()
+  })
+
+  useEffect(() => dismissHidden, [dismissHidden])
 
   const panel = (
     <aside
