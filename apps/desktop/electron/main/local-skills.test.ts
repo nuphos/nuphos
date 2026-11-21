@@ -224,6 +224,27 @@ describe('localSkillEntries fan-out', () => {
   })
 })
 
+describe('walkSkill depth cap', () => {
+  it('reads a folder at the cap, and calls the walk cut short once one sits below it', async () => {
+    const root = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'depth-')))
+
+    writeSkill(root, { 'SKILL.md': 'x', 'a/b/c/d/e/f/at-cap.md': 'x' })
+    const atCap = await walkSkill(root)
+
+    assert.deepEqual(
+      atCap.entries.map((entry) => entry.relPath),
+      ['SKILL.md', 'a/b/c/d/e/f/at-cap.md'],
+    )
+    assert.equal(atCap.truncated, false)
+    // One level deeper is never read: without the flag, below.md would vanish unreported.
+    writeSkill(root, { 'a/b/c/d/e/f/g/below.md': 'x' })
+    const below = await walkSkill(root)
+
+    assert.equal(below.truncated, true)
+    assert.ok(!below.entries.some((entry) => entry.relPath.endsWith('below.md')))
+  })
+})
+
 describe('matchesReview', () => {
   it('holds only for the same files at the same real paths', () => {
     const skillMd = { relPath: 'SKILL.md', realPath: '/s/SKILL.md' }

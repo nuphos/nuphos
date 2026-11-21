@@ -43,9 +43,11 @@ function outcomeDetail(outcome: LocalSkillImportOutcome): string {
     case 'missing':
       return t('it is no longer on this computer')
     case 'incomplete':
-      return t('it has over 1,000 files or folders nested over 6 deep; nothing was imported')
+      return t(
+        'it has over 1,000 files, over 5,000 entries or folders nested over 6 deep; nothing was imported',
+      )
     case 'too_large':
-      return t('it is larger than the 28 MB agents can load; nothing was imported')
+      return t('it is larger than the 28 MB a conversation can load; nothing was imported')
     case 'error':
     case undefined:
       return outcome.message ?? t('Failed')
