@@ -35,14 +35,10 @@ export const CHANNEL_READ_NOTE =
 const ONLY_AGENT_NOTE =
   ' You are the only agent in this channel, so every message here is addressed to you: answer it.'
 
-export function readNote(channel: { agentSessionIds?: string[]; external?: string }): string {
-  const note =
-    channel.agentSessionIds?.length === 1 ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE : CHANNEL_READ_NOTE
-
-  return channel.external === 'slack'
-    ? note +
-        ' In Slack, always provide replyTo for the message you answer; your reply goes where that message was received.'
-    : note
+export function readNote(channel: { agentSessionIds?: string[] }): string {
+  return channel.agentSessionIds?.length === 1
+    ? CHANNEL_READ_NOTE + ONLY_AGENT_NOTE
+    : CHANNEL_READ_NOTE
 }
 
 /**
