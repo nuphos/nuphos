@@ -99,12 +99,12 @@ test('"Dismiss all" in the sidebar shows for one question or more, and says whic
     assert.deepEqual(sent, [['a', 'b']], 'it dismisses the rows the list shows')
     assert.deepEqual(toasts, [], 'sent at once, with no Undo toast')
 
-    // With a search on the Inbox page, the list holds its matches, and the title says so.
-    await act(() => selection.shareInboxSearch('team', 'retry'))
+    // With a search above the list, the list holds its matches, and the title says so.
+    await act(() => selection.setInboxSearch('team', 'retry'))
     await render([row('b')])
     await press(button())
     assert.equal(dialog()?.getAttribute('title'), 'Dismiss 1 matching question?')
-    await act(() => selection.shareInboxSearch('team', ''))
+    await act(() => selection.setInboxSearch('team', ''))
     assert.equal(dialog()?.getAttribute('title'), 'Dismiss 1 question?')
 
     // Answered meanwhile elsewhere, the list empties: it stops asking and goes.

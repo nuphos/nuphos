@@ -11,8 +11,8 @@ import { DecisionCard } from './inbox/DecisionCard'
 import { openQuestion, shownQuestions } from './inbox/inboxItems'
 import {
   selectInboxQuestion,
-  shareInboxSearch,
   useDismissAllAsking,
+  useInboxSearch,
   useInboxSelection,
 } from './inbox/inboxSelection'
 import { openListed } from './inbox/openListed'
@@ -26,7 +26,6 @@ import type { InboxReply } from './inbox/useInbox'
 
 type Props = {
   teamId: string
-  query: string
   refreshKey: number
   onCount?: (n: number) => void
   onLoading?: (loading: boolean) => void
@@ -35,18 +34,12 @@ type Props = {
 
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
- * above one open question at a time, the one the sidebar's Inbox list opens.
+ * above one open question at a time, the one the sidebar's Inbox list opens:
+ * only the matches of the search above that list.
  * Answering or dismissing it opens the next and wakes the agent that asked at once.
  * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
-export function InboxView({
-  teamId,
-  query,
-  refreshKey,
-  onCount,
-  onLoading,
-  onOpenConversation,
-}: Props) {
+export function InboxView({ teamId, refreshKey, onCount, onLoading, onOpenConversation }: Props) {
   const { isActive } = useWorkspaceTab()
   const asking = useDismissAllAsking(teamId)
   // Keys rest while the sidebar's "Dismiss all" asks first.
@@ -55,7 +48,8 @@ export function InboxView({
   const selected = useInboxSelection(teamId)
   // An invite is only announced, never listed.
   const mentions = useChannelMentions(teamId)?.filter((mention) => !mention.invited) ?? []
-  const rows = all ? shownQuestions(all, query) : undefined
+  const search = useInboxSearch(teamId)
+  const rows = all ? shownQuestions(all, search) : undefined
   const open = rows ? openQuestion(rows, selected) : undefined
   const openId = open?.request.id
   const at = open && rows ? rows.indexOf(open) : -1
@@ -64,13 +58,6 @@ export function InboxView({
   useEffect(() => {
     if (openId) selectInboxQuestion(teamId, openId)
   }, [teamId, openId])
-  // The sidebar's list follows the search while this page is on screen.
-  useEffect(() => {
-    if (!isActive) return
-    shareInboxSearch(teamId, query)
-
-    return () => shareInboxSearch(teamId, '')
-  }, [teamId, query, isActive])
   useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 

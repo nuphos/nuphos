@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 
 // The question the Inbox opens, by team. Always the one on screen, so nothing listed later moves it.
 const selections = new Map<string, string>()
-// The Inbox page's search, by team, while the page is on screen.
+// The Inbox's search, typed in the sidebar above its list, by team.
 const searches = new Map<string, string>()
 // The teams whose "Dismiss all" is asking first.
 const asking = new Set<string>()
@@ -32,11 +32,11 @@ export function useInboxSelection(teamId: string): string | null {
   return useSyncExternalStore(subscribe, () => selections.get(teamId) ?? null)
 }
 
-/** The Inbox page's search, '' without one or while the page is not on screen. */
+/** The Inbox's search, '' without one. */
 export const inboxSearch = (teamId: string): string => searches.get(teamId) ?? ''
 
-/** The Inbox page shares its search, so the sidebar's list shows the rows the page does. */
-export function shareInboxSearch(teamId: string, query: string) {
+/** The sidebar's search box sets it; its list and the Inbox page both show only the matches. */
+export function setInboxSearch(teamId: string, query: string) {
   if (inboxSearch(teamId) === query) return
   if (query) searches.set(teamId, query)
   else searches.delete(teamId)

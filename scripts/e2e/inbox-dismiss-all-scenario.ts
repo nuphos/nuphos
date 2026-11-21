@@ -25,6 +25,10 @@ const listed = (page: Page) =>
     .locator('[data-inbox-question]')
     .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-inbox-question') ?? '').sort())
 
+/** The Inbox search, under the sidebar's Inbox header. */
+const search = (page: Page) =>
+  page.locator('[data-inbox-search]').getByRole('textbox', { name: 'Filter' })
+
 /** Opens the sidebar's "Dismiss all" and checks its dialog says `title`. */
 async function openDismissAll(page: Page, title: string, shot?: string) {
   await page.getByRole('button', { name: 'Dismiss all', exact: true }).click()
@@ -84,6 +88,16 @@ export const inboxDismissAllScenario: Scenario = {
     await page.locator(`[data-inbox-question="${ids[0]}"]`).click()
     await light(page)
     await page.getByRole('button', { name: 'Dismiss all', exact: true }).waitFor()
+    await search(page).waitFor()
+    must((await search(page).inputValue()) === '', 'the sidebar search to start empty')
+    must(
+      !(await page
+        .locator('.workspace-page-toolbar')
+        .getByRole('textbox', { name: 'Filter' })
+        .first()
+        .isVisible()),
+      'the Inbox page to have no search of its own',
+    )
     await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-sidebar-light.png` })
 
     // Without a search it names every question listed, here with other scenarios' still open.
@@ -97,8 +111,8 @@ export const inboxDismissAllScenario: Scenario = {
     await plain.getByRole('button', { name: 'Cancel', exact: true }).click()
     await plain.waitFor({ state: 'hidden' })
 
-    // The search narrows the sidebar's list to its two matches, and "Dismiss all" to them.
-    await page.getByRole('textbox', { name: 'Filter' }).fill('dismiss-all')
+    // The sidebar's search narrows its list to the two matches, and "Dismiss all" to them.
+    await search(page).fill('dismiss-all')
     await until('the sidebar to list only the two matches', async () => {
       const shown = await listed(page)
 
@@ -115,6 +129,7 @@ export const inboxDismissAllScenario: Scenario = {
     await until('both askers to be told', async () => told() === 2)
     await until('both questions to close', async () => (await open()).every((id) => !id))
     await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-done-light.png` })
-    await page.getByRole('textbox', { name: 'Filter' }).fill('')
+    // Gone with the last question, the search has nothing left to clear.
+    if (await search(page).isVisible()) await search(page).fill('')
   },
 }
