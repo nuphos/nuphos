@@ -16,7 +16,10 @@
     "noEmit": true,
 
     "strict": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* The root has no mongodb package; the scripts load the backend's at run time. */
+    "paths": { "mongodb": ["../apps/backend/node_modules/mongodb"] }
   },
   "include": ["**/*.ts"]
 }
