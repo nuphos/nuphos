@@ -2,7 +2,7 @@
 import { rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -77,6 +77,46 @@ export const botSubtaskModelScenarios: Scenario[] = [
       await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
       if (await bots.locator('[title$=" done"]').count())
         throw new Error("The Bot's row still shows a done count")
+    },
+  },
+  {
+    // #4156: a Bot hands two requests to two sub-Tasks and still answers a third message while
+    // both run. The fixture delegates by marker; the Bot's own session must carry the rule.
+    name: 'a Bot answers while two sub-Tasks it started still run',
+    run: async (page, stack) => {
+      const release = join(artifacts, 'release')
+      const did = (event: string, kid: string) =>
+        agentEvents(stack).includes(`${event} E2E_DELIVERY:${kid}`)
+
+      rmSync(release, { force: true })
+      try {
+        await send(page, 'Look into the first thing E2E_SUBTASK E2E_DELIVERY:par-a')
+        await until('the first sub-Task to start', async () => did('start', 'par-a-kid'))
+        await send(page, 'Look into the second thing E2E_SUBTASK E2E_DELIVERY:par-b')
+        await until('the second sub-Task to start', async () => did('start', 'par-b-kid'))
+        await send(page, 'Quick question E2E_DELIVERY:par-quick')
+        await page.getByText('POSTED E2E_DELIVERY:par-quick').waitFor()
+        if (did('finish', 'par-a-kid') || did('finish', 'par-b-kid'))
+          throw new Error('A sub-Task finished before the Bot answered')
+        await page.screenshot({ path: `${artifacts}/bot-parallel-subtasks-light.png` })
+      } finally {
+        writeFileSync(release, '')
+      }
+      await until('both sub-Tasks to finish', async () =>
+        ['par-a-kid', 'par-b-kid'].every((kid) => did('finish', kid)),
+      )
+      rmSync(release, { force: true })
+      const log = agentLog(stack)
+      const sessionOf = (event: string, marker: string) =>
+        log.find((entry) => entry.event === event && entry.marker === `E2E_DELIVERY:${marker}`)
+          ?.sessionId
+      const told = (sessionId?: string) =>
+        log.some((entry) => entry.sessionId === sessionId && entry.delegates)
+
+      if (!told(sessionOf('subtask', 'par-a')))
+        throw new Error("The Bot's session was not told to delegate work")
+      if (told(sessionOf('start', 'par-a-kid')))
+        throw new Error('A sub-Task was told to delegate work, which only a Bot is')
     },
   },
 ]
