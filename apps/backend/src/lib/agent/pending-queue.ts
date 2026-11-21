@@ -67,27 +67,11 @@ const isTranscriptMessage = (message: PendingUserMessage) =>
 const AGENT_SOURCES: readonly string[] = ['agent.thread', 'agent.resource']
 
 /**
- * Who a message is from: a person, any agent session, or the resource that sent
- * it. Agent messages from different sessions run together, so a parent that many
- * Tasks report to answers its backlog in one turn, not one turn per Task. Each
- * resource event, such as a Trigger's fire, stays its own turn.
- */
-function senderOf(message: PendingUserMessage, ownerUserId: string): string {
-  const person = message.actorUserId ?? ownerUserId
-
-  if (message.source === 'agent.thread') return message.source
-
-  return AGENT_SOURCES.includes(message.source)
-    ? `${message.source}:${message.metadata?.sender?.id ?? person}`
-    : person
-}
-
-/**
- * The messages the next turn answers: the oldest transcript message, plus the
- * messages right behind it from the same sender. An app send always runs
- * alone, as its sender's own chat turn. A channel message stays where it is,
- * and so does an older client's steering message from a teammate: only that
- * teammate's own turn may answer it.
+ * The messages the next turn answers: every waiting transcript message up to the
+ * first app send, whoever sent it, so a backlog is answered in one turn. An app
+ * send always runs alone, as its sender's own chat turn. A channel message stays
+ * where it is, and so does an older client's steering message from a teammate:
+ * only that teammate's own turn may answer it.
  */
 export function queueHead(
   queue: readonly PendingUserMessage[],
@@ -98,18 +82,11 @@ export function queueHead(
       isTranscriptMessage(message) &&
       (message.chat !== undefined || (message.actorUserId ?? ownerUserId) === ownerUserId),
   )
-  const first = waiting[0]
+  const chat = waiting.findIndex((message) => message.chat)
 
-  if (!first) return []
-  if (first.chat) return [first]
-  const head = [first]
+  if (chat === 0) return waiting.slice(0, 1)
 
-  for (const next of waiting.slice(1)) {
-    if (next.chat || senderOf(next, ownerUserId) !== senderOf(first, ownerUserId)) break
-    head.push(next)
-  }
-
-  return head
+  return chat === -1 ? waiting : waiting.slice(0, chat)
 }
 
 /** Whether a turn waits to start; a new message must queue behind it, not overtake it. */
@@ -200,7 +177,7 @@ export async function takeTurnQueue(
   const own = queue.filter(
     (message) =>
       !AGENT_SOURCES.includes(message.source) &&
-      senderOf(message, userId) === actorUserId &&
+      (message.actorUserId ?? userId) === actorUserId &&
       !message.chat &&
       (channelTurn || isTranscriptMessage(message)),
   )
