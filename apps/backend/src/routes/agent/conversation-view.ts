@@ -145,6 +145,20 @@ export async function buildConversationOwnerMap(
   return ownerById
 }
 
+/**
+ * Whose personal accounts a selection names is the owner's business: anyone else sees only how
+ * many are allowed, never an id that could be looked up or replayed.
+ */
+function redactPersonalAccounts(conversation: Record<string, unknown>, isOwner: boolean) {
+  const access = conversation.credentialAccess as Record<string, unknown> | undefined
+
+  if (isOwner || !access || !('personalConnectionIds' in access)) return conversation
+  const { personalConnectionIds, ...rest } = access
+  const count = Array.isArray(personalConnectionIds) ? personalConnectionIds.length : 0
+
+  return { ...conversation, credentialAccess: { ...rest, personalAccountCount: count } }
+}
+
 export function serializeConversationForViewer(
   conversation: Record<string, unknown> & { userId: string },
   viewer: NuphosUser,
@@ -179,7 +193,7 @@ export function serializeConversationForViewer(
   const triggerRun = normalizeConversationTriggerRun(metadata)
 
   return {
-    ...serializeConversationDoc(conversation, answering),
+    ...serializeConversationDoc(redactPersonalAccounts(conversation, isOwner), answering),
     claudeCodeRuntimeAttached: true,
     agentRuntime: runtimeProvider(conversation.agentRuntime),
     runtimeId: conversation.runtimeId,

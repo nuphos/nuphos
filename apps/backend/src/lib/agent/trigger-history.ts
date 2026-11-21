@@ -65,7 +65,7 @@ export type TriggerChange = TriggerChangeBy & {
   userId: string
   targetSessionId?: string
   action: 'created' | 'updated' | 'deleted'
-  /** Why Nuphos paused it. */
+  /** Why Nuphos paused it, or a change its config cannot show, such as a new webhook secret. */
   reason?: string
   before?: TriggerConfig
   after?: TriggerConfig
@@ -105,7 +105,7 @@ export async function writeTrigger(
 
   await withTransaction(async (session) => {
     applied = await write(session)
-    if (!applied || unchanged) return
+    if (!applied || (unchanged && !reason)) return
     await triggerHistory().insertOne(
       {
         ...by,

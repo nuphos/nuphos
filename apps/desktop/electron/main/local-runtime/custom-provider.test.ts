@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -18,6 +19,7 @@ import {
 
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { KeyStore } from './custom-provider.ts'
+import type { AddressInfo } from 'node:net'
 
 function memoryStore(): KeyStore & { items: Map<string, string> } {
   const items = new Map<string, string>()
@@ -57,6 +59,62 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   for (const baseUrl of ['http://gw.example.com', 'https://u:p@gw.example.com', 'gw.example.com'])
     assert.throws(() => parseCustomProvider({ baseUrl }))
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
+})
+
+const realFetch = globalThis.fetch
+
+// Only this computer's test server is really asked. The other providers here (gw.example.com)
+// answer as one that serves the Responses API: it refuses an empty body before any model runs.
+globalThis.fetch = (input, init) =>
+  String(input).startsWith('http://127.0.0.1:')
+    ? realFetch(input, init)
+    : Promise.resolve(new Response('{}', { status: 400 }))
+
+test('Codex refuses a provider that does not serve the Responses API, asked with its key', async (t) => {
+  const dir = tempDir(t)
+  const store = memoryStore()
+  const seen: { url?: string; auth?: string; body: string }[] = []
+  // A chat-completions-only provider: it serves nothing at `/responses`.
+  const server = createServer((req, res) => {
+    let body = ''
+
+    req.on('data', (chunk) => {
+      body += chunk
+    })
+    req.on('end', () => {
+      seen.push({ url: req.url, auth: req.headers.authorization, body })
+      res.writeHead(req.url === '/v1/chat/completions' ? 400 : 404).end('{"detail":"Not Found"}')
+    })
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => server.close())
+  const { port } = server.address() as AddressInfo
+
+  for (const baseUrl of [`/v1`, `/v1/chat/completions`].map((p) => `http://127.0.0.1:${port}${p}`))
+    await assert.rejects(
+      saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
+      /Codex needs the OpenAI Responses API, which this URL doesn’t serve/u,
+    )
+  assert.deepEqual(seen, [
+    { url: '/v1/responses', auth: 'Bearer sk-gw-secret', body: '{}' },
+    { url: '/v1/chat/completions/responses', auth: 'Bearer sk-gw-secret', body: '{}' },
+  ])
+  assert.equal(store.items.size, 0)
+  assert.equal(readCustomProviders(dir).codex, undefined)
+
+  // An edit without a key is asked with the stored one; Claude Code is not asked at all.
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await assert.rejects(
+    saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
+    /Responses API/u,
+  )
+  assert.equal(seen.at(-1)?.auth, 'Bearer sk-gw')
+  await saveCustomProvider(store, dir, 'u1', 'claude-code', {
+    baseUrl: `http://127.0.0.1:${port}/v1`,
+    apiKey: 'sk-claude',
+  })
+  assert.equal(seen.length, 3)
 })
 
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {

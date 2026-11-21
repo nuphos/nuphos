@@ -23,10 +23,11 @@ function Actor({ by }: { by: NonNullable<AgentTimelineEvent['by']> }) {
 
   return (
     <>
-      {/* A long Task title gives way before anything else on the line, down to a few letters. */}
-      <span className="inline-flex min-w-16 shrink-[100] items-center gap-1 overflow-hidden text-secondary">
-        <AgentProviderIcon provider={by.provider} className="h-3 w-3 shrink-0" />
-        <span className="max-w-[240px] min-w-0 truncate font-medium">{by.title}</span>
+      <AgentProviderIcon provider={by.provider} className="h-3 w-3 shrink-0 text-secondary" />
+      {/* A long Task title gives way before anything else on the line, down to a few letters;
+          a minimum on the title alone never pads a short one (#4131). */}
+      <span className="max-w-[240px] min-w-[3ch] shrink-[100] truncate font-medium text-secondary">
+        {by.title}
       </span>
       <span className="shrink-0">{t('(a Task)')}</span>
     </>

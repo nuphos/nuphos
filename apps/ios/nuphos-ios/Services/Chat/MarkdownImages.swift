@@ -10,6 +10,20 @@ enum MarkdownImages {
         case image(URL, alt: String)
     }
 
+    /// The transfer group an agent cites as `![caption](https://nuphos.ai/_reply-images/<groupId>)`:
+    /// a file it sent, shown with the viewer's own access, as Desktop's `ReplyImage` does.
+    static func replyGroupId(_ url: URL) -> String? {
+        guard url.scheme == "https", url.host == "nuphos.ai", url.pathComponents.count == 3,
+              url.pathComponents[1] == "_reply-images" else { return nil }
+        let id = url.pathComponents[2]
+        return id.count == 24 && id.allSatisfy(\.isHexDigit) ? id : nil
+    }
+
+    /// Whether `text` cites `groupId`, so its files already show there and not again as a card.
+    static func cites(_ text: String, groupId: String) -> Bool {
+        text.contains("https://nuphos.ai/_reply-images/\(groupId)")
+    }
+
     private static let image = try! NSRegularExpression(pattern: #"!\[([^\]\n]*)\]\((https://[^\s()]+)\)"#)
 
     static func segments(of text: String) -> [Segment] {

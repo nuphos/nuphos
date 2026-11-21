@@ -1,0 +1,106 @@
+{
+  "GET /auth/me": {
+    "status": 200,
+    "body": {
+      "id": "demo-alex",
+      "name": "Alex Chen",
+      "email": "alex@example.com",
+      "username": "alex",
+      "avatarURL": ""
+    }
+  },
+  "GET /auth/ai-consent": {
+    "status": 200,
+    "body": {
+      "version": "2026-09-28",
+      "accepted": true
+    }
+  },
+  "GET /auth/social/login": {
+    "status": 200,
+    "headers": {
+      "X-Nuphos-Social-Providers": "google,apple"
+    },
+    "body": {}
+  },
+  "POST /auth/email/request-code": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "POST /auth/email/verify-code": {
+    "status": 200,
+    "body": {
+      "token": "preview-only",
+      "user": {
+        "id": "demo-alex",
+        "name": "Alex Chen",
+        "email": "alex@example.com",
+        "username": "alex",
+        "avatarURL": ""
+      }
+    }
+  },
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "111111111111111111111111",
+          "name": "Example Studio",
+          "role": "ADMINISTRATOR",
+          "isOwner": true
+        },
+        {
+          "id": "222222222222222222222222",
+          "name": "Personal",
+          "role": "ADMINISTRATOR",
+          "isOwner": true
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": [],
+      "hasMore": false,
+      "nextCursor": null
+    }
+  },
+  "GET /auth/mfa": {
+    "status": 200,
+    "body": {
+      "enabled": false,
+      "enabledAt": null,
+      "recoveryCodesRemaining": 0
+    }
+  },
+  "POST /auth/mfa/totp/setup": {
+    "status": 403,
+    "body": {
+      "error": {
+        "code": "reauth_required",
+        "message": "Sign in again to continue.",
+        "details": {
+          "method": "sign_in"
+        }
+      }
+    }
+  }
+}
