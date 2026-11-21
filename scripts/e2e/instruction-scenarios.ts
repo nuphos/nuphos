@@ -10,6 +10,8 @@ import type { Scenario } from './ui.ts'
 export const instructionScenarios: Scenario[] = [
   {
     name: 'a webhook-woken turn writes an Instruction, and the same write after the turn is refused',
+    // The write after the turn is meant to be refused.
+    expected: /"status":403,"error_code":"instructions_active_turn_required"/u,
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Home of the instruction E2E_DELIVERY:instruction-home')
