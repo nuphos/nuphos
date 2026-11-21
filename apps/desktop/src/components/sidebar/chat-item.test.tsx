@@ -164,6 +164,10 @@ test("a Bot's row shows typing dots exactly while its chat does, else its latest
     !markup(at('solo-bot').foldedStatus).includes('animate-spin'),
     'solo-bot shows no spinner when folded',
   )
+  assert.ok(
+    !markup(at('kid').foldedStatus).includes('animate-spin'),
+    "a Bot's own sub-agent shows no spinner on it when folded",
+  )
   const copies = items.filter((item) => item.parentKey === 'agent-session:resting-chat')
 
   assert.equal(copies.length, 1)

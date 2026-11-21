@@ -3,6 +3,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { loadingFree } from './channel-helpers.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
@@ -68,13 +69,6 @@ export const botSharedTaskCountScenarios: Scenario[] = [
       const owned = await bot(stack.token, 'mine')
 
       if (!owned) throw new Error('The owner does not list E2E Bot')
-      // Shared with the teammate: they can open the Bot, never its Tasks.
-      await call(
-        stack.token,
-        'POST',
-        `/agent/conversations/${owned.sessionId}/participants?teamId=${stack.teamId}`,
-        { userIds: [teammateId] },
-      )
       const signIn = join(artifacts, 'sign-in-teammate')
 
       mkdirSync(signIn, { recursive: true })
@@ -92,39 +86,44 @@ export const botSharedTaskCountScenarios: Scenario[] = [
           .first()
 
       try {
-        await theirs.page.getByRole('tab', { name: 'Bots' }).click()
-        await botRow(theirs.page).waitFor()
         await page.getByRole('tab', { name: 'Bots' }).click()
         await botRow(page).click()
         rmSync(release, { force: true })
         try {
           await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:unlisted-shared-count')
-          for (const [who, token, scope] of [
-            ['owner', stack.token, 'mine'],
-            ['teammate', teammate, 'shared'],
-          ] as const)
-            await until(`the ${who} to read one running Task on E2E Bot`, async () => {
-              const row = await bot(token, scope)
+          await until('the owner to read one running Task on E2E Bot', async () => {
+            const row = await bot(stack.token, 'mine')
 
-              return row?.tasks?.running === 1 ? row : undefined
-            })
+            return row?.tasks?.running === 1 ? row : undefined
+          })
+          // Shared once the Task runs, so the Task is not shared with them: only its count is.
+          await call(
+            stack.token,
+            'POST',
+            `/agent/conversations/${owned.sessionId}/participants?teamId=${stack.teamId}`,
+            { userIds: [teammateId] },
+          )
+          await until('the teammate to read one running Task on E2E Bot', async () => {
+            const row = await bot(teammate, 'shared')
+
+            return row?.tasks?.running === 1 ? row : undefined
+          })
+          const theirList = ((
+            await call(
+              teammate,
+              'GET',
+              `/agent/conversations?teamId=${stack.teamId}&scope=shared&limit=100`,
+            )
+          ).conversations ?? []) as (Row & { parentSessionId?: string })[]
+
+          if (theirList.some((row) => row.parentSessionId === owned.sessionId))
+            throw new Error('The teammate lists the Bot’s Task, so the count is not what moves it')
+          await theirs.page.getByRole('tab', { name: 'Bots' }).click()
+          await botRow(theirs.page).waitFor()
           await busy(page, 'owner', true)
           await busy(theirs.page, 'teammate', true)
-          // What the teammate's own lists hold under the Bot, for the row's folded status.
-          for (const scope of ['mine', 'shared'])
-            for (const kind of ['', '&kind=channel']) {
-              const listed = ((
-                await call(
-                  teammate,
-                  'GET',
-                  `/agent/conversations?teamId=${stack.teamId}&scope=${scope}&limit=100${kind}`,
-                )
-              ).conversations ?? []) as (Row & { parentSessionId?: string; kind?: string })[]
-
-              console.log(
-                `teammate ${scope}${kind}: ${JSON.stringify(listed.map((row) => [row.title, row.kind, row.parentSessionId === owned.sessionId ? 'under-bot' : row.parentSessionId ? 'nested' : '']))}`,
-              )
-            }
+          // Only the face says it works: no spinner beside it.
+          await loadingFree(botRow(theirs.page), 'While the shared Bot works')
         } finally {
           writeFileSync(release, '')
         }
