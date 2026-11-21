@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { instaboxMachines } from './instabox-stub.ts'
 import { LAPTOP, laptopOnline } from './laptop-fixture.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -24,8 +24,7 @@ export const diskScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-disk')
         await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInRow(page, LAPTOP, /Claude Code/)
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
@@ -101,8 +100,7 @@ export const diskScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-box-disk')
         await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(BOX).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await pickInRow(page, BOX, /Claude Code/)
         await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
