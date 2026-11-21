@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 
 import { agentEvents, agentLog } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
-import { setBotDetails } from '../ui.ts'
+import { noMenuOpen, setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -18,6 +18,9 @@ const OLD = ['fresh-1', 'fresh-2', 'fresh-3', 'fresh-4']
 const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
 const header = (page: Page) =>
   page.locator('.workspace-agent-titlebar').filter({ hasText: NAME }).first()
+/** The sidebar rows that name `name`. */
+const rows = (page: Page, name: string) =>
+  page.locator('[data-sidebar-row]').filter({ hasText: name })
 
 /** The Bot as Mongo holds it: what must not change, and the session its next turn runs in. */
 function stored(stack: Stack, sessionId: string) {
@@ -88,19 +91,24 @@ async function copyLink(page: Page) {
       clipboard.copied = text
     }
   })
-  await page.locator('[data-sidebar-row]').filter({ hasText: NAME }).first().click({
-    button: 'right',
-  })
-  await page.getByRole('menuitem', { name: 'Copy link', exact: true }).click()
   let link: string | undefined
 
-  await until('the link to be copied', async () => {
-    link = await page.evaluate(() => (navigator.clipboard as { copied?: string }).copied)
+  try {
+    await rows(page, NAME).first().click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Copy link', exact: true }).click()
+    await until('the link to be copied', async () => {
+      link = await page.evaluate(() => (navigator.clipboard as { copied?: string }).copied)
 
-    return link
-  })
-  // Removes the stand-in, so the clipboard is the browser's own again.
-  await page.evaluate(() => Reflect.deleteProperty(navigator.clipboard, 'writeText'))
+      return link
+    })
+  } finally {
+    // Removes the stand-in, so the clipboard is the browser's own again for the scenarios after.
+    await page.evaluate(() => {
+      Reflect.deleteProperty(navigator.clipboard, 'writeText')
+      Reflect.deleteProperty(navigator.clipboard, 'copied')
+    })
+  }
+  await noMenuOpen(page)
 
   return link!
 }
@@ -118,10 +126,15 @@ async function linkAndFace(page: Page) {
   return { link, face: shown }
 }
 
+/** The E2E Bot's chat, where the scenarios around this one start and end. */
+async function openE2EBot(page: Page) {
+  await rows(page, 'E2E Bot').first().click()
+  await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+}
+
 /** Opens `link` from another chat, and checks it shows this Bot by its name and `shown` face. */
 async function opensSameBot(page: Page, stack: Stack, link: string, shown: string) {
-  await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-  await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+  await openE2EBot(page)
   await page.evaluate(
     async ([modulePath, href]) => {
       const { openInApp } = (await import(modulePath)) as { openInApp: (href: string) => void }
@@ -136,6 +149,21 @@ async function opensSameBot(page: Page, stack: Stack, link: string, shown: strin
   const now = await face(page)
 
   if (now !== shown) throw new Error(`${link} opened a chat whose face is ${String(now)}`)
+}
+
+/** Leaves the app as the next scenario expects it: in the E2E Bot's chat, no menu open, and this
+ *  Bot archived and gone from the Bots list, so that list no longer changes under that scenario. */
+async function leave(page: Page, stack: Stack, sessionId: string) {
+  const archived = await fetch(`${stack.apiUrl}/agent/conversations/${sessionId}/archive`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ teamId: stack.teamId, archived: true }),
+  })
+
+  if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
+  await openE2EBot(page)
+  await until(`${NAME} to leave the Bots list`, async () => (await rows(page, NAME).count()) === 0)
+  await noMenuOpen(page)
 }
 
 /** The fixture turn that answered `marker`. */
@@ -162,7 +190,7 @@ const scenario: Scenario = {
     const bot = (await created.json()) as { sessionId: string }
 
     await page.getByRole('tab', { name: /^Bots/ }).click()
-    await page.locator('[data-sidebar-row]').filter({ hasText: NAME }).first().click()
+    await rows(page, NAME).first().click()
     for (const marker of OLD) await post(page, marker)
     const before = stored(stack, bot.sessionId)
     const oldSession = turn(stack, OLD.at(-1)!).sessionId
@@ -232,14 +260,7 @@ const scenario: Scenario = {
 
     // A link to its chat from before still opens this Bot.
     await opensSameBot(page, stack, shared.link, shared.face)
-
-    await fetch(`${stack.apiUrl}/agent/conversations/${bot.sessionId}/archive`, {
-      method: 'PATCH',
-      headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ teamId: stack.teamId, archived: true }),
-    })
-    await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-    await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
+    await leave(page, stack, bot.sessionId)
   },
 }
 
