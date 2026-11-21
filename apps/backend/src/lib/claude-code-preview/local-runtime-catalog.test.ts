@@ -277,6 +277,29 @@ describe('local runtime catalog', () => {
     })
   })
 
+  test('an unusable CLI exposes its existing guidance in the runtime catalog', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          dsh: { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    const known = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [{ provider: 'dsh', signedIn: true }] as RegisteredAgent[],
+    }
+    const catalogDeps = { ...deps, access: { ...deps.access, listDevices: async () => [known] } }
+
+    expect((await listOwnLocalRuntimes('t1', 'owner', catalogDeps))[0]?.local).toMatchObject({
+      probeError: message,
+    })
+  })
+
   test('a signed-out CLI refuses turns with its own reason', async () => {
     presence = online(false)
 

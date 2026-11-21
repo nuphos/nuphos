@@ -52,6 +52,8 @@ export type LocalRuntimeSummary = {
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Why the CLI is unusable, as reported by its existing probe. */
+  probeError?: string
   /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
   everSignedIn?: true
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
@@ -122,7 +124,6 @@ export async function listOwnLocalRuntimes(
       // added agent appears once signed in; until then only its sign-in reaches it).
       const known = new Map<string, RegisteredAgent>()
       const registered = new Set((device.agents ?? []).map(registryKey))
-      // One removed while the computer was offline stays gone until the computer deletes it.
       const seen = [...(device.agents ?? []), ...reportedAgents(presence?.status)].filter(
         (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
       )
@@ -161,9 +162,9 @@ export async function listOwnLocalRuntimes(
               ...(shared ? { shared: { level: 'full' as const } } : {}),
               ...(instanceId ? { instanceId } : {}),
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
-              // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
+              ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
