@@ -72,7 +72,7 @@ export async function setBotDetails(page: Page, open: boolean) {
   const toggle = botDetailsToggle(page)
 
   if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click()
-  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]`).waitFor()
+  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]:visible`).waitFor()
 }
 
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */

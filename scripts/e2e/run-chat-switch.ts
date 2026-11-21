@@ -4,6 +4,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { join } from 'node:path'
 
 import { backendLog } from './backend-log.ts'
+import { kept, leave, notKept } from './chat-keep.ts'
 import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
@@ -25,6 +26,7 @@ const POSTS = 40
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
 const MAX_TYPED_FRAMES = 3
+const ACK_A = 'ACK E2E_DELIVERY:switch-a'
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -69,7 +71,7 @@ async function task(page: Page, stack: Stack, title: string, prompt: string, sho
   type Row = { sessionId: string; kind?: string; firstMessage?: string; title?: string }
   await newTask(page)
   await send(page, prompt)
-  await page.getByText(shows).first().waitFor({ timeout: 60_000 })
+  await page.getByText(shows).filter({ visible: true }).first().waitFor({ timeout: 60_000 })
   const { conversations } = (await api(
     stack,
     `/agent/conversations?teamId=${stack.teamId}&limit=200`,
@@ -142,13 +144,7 @@ async function scenario(page: Page, stack: Stack) {
   const chatA = await chat(stack, 'Switch chat A')
   const chatB = await chat(stack, 'Switch chat B')
   const longChat = await chat(stack, 'Switch chat long', LONG_POSTS)
-  const taskA = await task(
-    page,
-    stack,
-    'Switch task A',
-    'First E2E_DELIVERY:switch-a',
-    'ACK E2E_DELIVERY:switch-a',
-  )
+  const taskA = await task(page, stack, 'Switch task A', 'First E2E_DELIVERY:switch-a', ACK_A)
   const taskB = await task(
     page,
     stack,
@@ -167,7 +163,8 @@ async function scenario(page: Page, stack: Stack) {
   )
 
   await restart(page)
-  await open(page, 'task, first open', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'task, first open', taskA, { history: ACK_A })
+  await leave(page, taskA.title, ACK_A)
   await open(page, 'task, first open, reply in progress', long, {
     history: 'Long E2E_LONG',
     newest: 'LONG_END',
@@ -175,10 +172,13 @@ async function scenario(page: Page, stack: Stack) {
     typedTo: 'LONG_END',
   })
   await open(page, 'bot chat, first open', chatA, lastPost(chatA))
+  await leave(page, chatA.title, lastPost(chatA).history)
   await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
-  await open(page, 'task, opened before', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'task, opened before', taskA, { history: ACK_A })
+  await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
   await open(page, 'bot chat, opened before', chatA, lastPost(chatA))
+  await kept(page, 'bot chat, opened before', chatA.title, lastPost(chatA).history)
   // Said in chat B while chat A is on screen.
   await api(stack, `/agent/conversations/${chatB.sessionId}/channel-messages`, {
     text: 'Said while away',
@@ -234,6 +234,8 @@ function check(baseline: Record<string, number> | null) {
     if (watch.framesToContent === 1 && requests === 0) continue
     failed.push(`${name}: not on the first frame without a read`)
   }
+  // The same view as it was left, not one rebuilt on the way back.
+  for (const line of notKept) failed.push(`${line} (not kept as left)`)
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
   // Heard of at once from the backend's push, not on a poll (#3523).
