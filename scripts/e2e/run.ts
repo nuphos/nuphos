@@ -176,9 +176,13 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It leaves the window split, then closes a pane. Here and not in the second half: it needs
+  // the Bot that the access scenarios create.
+  ...splitPaneScenarios,
 ]
 
 // CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's half.
 const later: Scenario[] = [
   ...computerScenarios,
   ...mcpFileScenarios,
@@ -203,8 +207,6 @@ const later: Scenario[] = [
   ...dashboardScenarios,
   // Right after the one above: it opens the dashboards that scenario leaves behind.
   ...dashboardUiScenarios,
-  // It leaves the window split, then closes a pane.
-  ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
