@@ -6,7 +6,7 @@ import { resolve } from 'node:path'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { LAPTOP, laptopOnline } from '../laptop-fixture.ts'
 import { artifacts } from '../processes.ts'
-import { botDetailsToggle, pickInRow, setBotDetails } from '../ui.ts'
+import { botDetailsToggle, pickInSubmenu, setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -113,7 +113,8 @@ async function shootBanner(page: Page, stack: Stack, cdp: CDPSession) {
   const banner = page.getByRole('status').filter({ hasText: 'disk is almost full' })
   const pick = async (runtime: string, agent: RegExp) => {
     await page.getByRole('button', { name: /^Runtime:/ }).click()
-    await pickInRow(page, runtime, agent)
+    await page.getByRole('menu').getByText(runtime).first().click()
+    await pickInSubmenu(page, page.getByRole('menuitem', { name: agent }).last())
   }
 
   try {
