@@ -2,7 +2,7 @@
 import { join } from 'node:path'
 
 import { artifacts } from './processes.ts'
-import { newTask, openBotTask } from './ui.ts'
+import { newTask, openBotTask, send } from './ui.ts'
 
 import type { Locator, Page } from 'playwright-core'
 import type { Scenario } from './ui.ts'
@@ -32,6 +32,9 @@ export const computersEntryScenarios: Scenario[] = [
     name: 'managing computers from a task, a Bot task or after making one opens Settings › Computers',
     run: async (page) => {
       await newTask(page)
+      // A new task's menu offers Add new runtime; a started one offers Manage.
+      await send(page, 'Hello E2E_DELIVERY:computers-entry')
+      await page.getByText('ACK E2E_DELIVERY:computers-entry').waitFor()
       const composer = page.getByRole('textbox', { name: 'Message' })
 
       await manageFromRuntimeMenu(page, page.locator('body'))
