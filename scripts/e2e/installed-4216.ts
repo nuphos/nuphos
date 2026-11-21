@@ -30,7 +30,7 @@ let launched: Awaited<ReturnType<typeof launch>> | undefined
 async function launch(api: string, port: number) {
   const process = spawn(
     'installed-0.130.10',
-    ['/usr/bin/sandbox-exec', '-p', sandbox, join(app!, 'Contents', 'MacOS', 'Nuphos')],
+    ['/usr/bin/sandbox-exec', '-p', sandbox, join(app!, 'Contents', 'MacOS', 'Nuphos'), '--no-sandbox'],
     {
       env: {
         HOME: home!,
