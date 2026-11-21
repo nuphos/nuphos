@@ -25,6 +25,7 @@ import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
 import { voiceApi } from './preload-parts/api-voice'
 import { vpsApi } from './preload-parts/api-vps'
+import { webhooksApi } from './preload-parts/api-webhooks'
 import { windowSessionApi } from './preload-parts/api-window-session'
 
 const api = {
@@ -53,6 +54,7 @@ const api = {
   ...sidebarGesturesApi,
   ...connectApi,
   ...instructionsApi,
+  ...webhooksApi,
   ...browserExtensionsApi,
 }
 

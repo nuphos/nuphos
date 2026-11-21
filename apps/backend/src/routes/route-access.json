@@ -983,5 +983,10 @@
   "GET /trello-app/setup": "public",
   "POST /agent-sessions/:sessionId/teams/:teamId/trello-integrations/:integrationId/execute": "user",
   "POST /teams/:teamId/trello-integrations/start-oauth": "admin",
-  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member"
+  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member",
+  "DELETE /teams/:teamId/webhooks/:id": "admin",
+  "GET /teams/:teamId/webhooks": "admin",
+  "PATCH /teams/:teamId/webhooks/:id": "admin",
+  "POST /teams/:teamId/webhooks": "admin",
+  "POST /teams/:teamId/webhooks/:id/test": "admin"
 }

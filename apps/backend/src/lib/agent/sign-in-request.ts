@@ -9,6 +9,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { getConversationBySessionId } from './db'
 import { computerSigners } from './sign-in-signers'
@@ -177,7 +178,10 @@ export const nudgeDeps: NudgeDeps = {
 
     return result.modifiedCount > 0
   },
-  notify: notifyNudge,
+  notify: (userIds, nudge) => {
+    notifyNudge(userIds, nudge)
+    queueWebhookEvents(nudge.sessionId, 'session.input_required')
+  },
   now: Date.now,
   computer: computerSigners,
 }

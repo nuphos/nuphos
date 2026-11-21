@@ -26,6 +26,7 @@ import { posthogApi } from './api/posthog-api.ts'
 import { providerAccessApi } from './api/provider-access-api.ts'
 import { shellApi } from './api/shell-api.ts'
 import { teamApi } from './api/team-api.ts'
+import { webhooksApi } from './api/webhooks-api.ts'
 import { reportFrontendError } from './lib/frontendErrorReporter.ts'
 import { instrumentApi } from './lib/instrumentApi.ts'
 import { withStepUp } from './lib/stepUp.ts'
@@ -52,6 +53,7 @@ import type { WindowProviderAccessApi } from './api/window-provider-access.ts'
 import type { WindowSessionAccessApi } from './api/window-session-access.ts'
 import type { WindowShellApi } from './api/window-shell.ts'
 import type { WindowTeamApi } from './api/window-team.ts'
+import type { WindowWebhooksApi } from './api/window-webhooks.ts'
 
 export * from './api/agent-audit-types.ts'
 export * from './api/agent-trigger-types.ts'
@@ -88,6 +90,7 @@ declare global {
       WindowAgentApi &
       WindowShellApi &
       WindowInstructionsApi &
+      WindowWebhooksApi &
       WindowDeviceApi &
       WindowBrowserExtensionsApi
   }
@@ -113,6 +116,7 @@ const rawApi = {
   ...channelsApi,
   ...shellApi,
   ...instructionsApi,
+  ...webhooksApi,
   ...deviceApi,
   ...browserExtensionsApi,
 }
