@@ -33,6 +33,15 @@ export const sidebarScenarios: Scenario[] = [
 
         must(sideways === 0, `the ${tab} page not to be scrolled sideways, got ${String(sideways)}`)
       }
+      // #3637: a page with no breadcrumb puts its actions on the top row, under the toggle.
+      // Opened as the app opens it once a new cloud computer is made.
+      await page.evaluate(() => window.dispatchEvent(new Event('nuphos:open-computers')))
+      await page.getByRole('button', { name: 'Add computer' }).waitFor()
+      await checkDockToggleClear(
+        page,
+        'Computers page header',
+        '.workspace-page-toolbar .sheet-titlebar-row',
+      )
     },
   },
 ]

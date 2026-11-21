@@ -119,3 +119,61 @@ test('an explicit config directory wins over the home default', async () => {
     rmSync(elsewhere, { recursive: true, force: true })
   }
 })
+
+/** A Grok that answers ACP the way the real one does, from the HOME it runs in. */
+function fakeGrok(answer: string): { dir: string; bin: string } {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'usage-grok-'))
+  const bin = path.join(dir, 'grok')
+
+  writeFileSync(
+    bin,
+    `#!${process.execPath}
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'initialize') say({ id: m.id, result: { protocolVersion: 1 } })
+  if (m.method === '_x.ai/billing') say({ id: m.id, ...${answer} })
+})
+`,
+    { mode: 0o755 },
+  )
+
+  return { dir, bin }
+}
+
+test("asks Grok for its billing over ACP, in the agent's own home", async () => {
+  const { dir, bin } = fakeGrok(
+    "{ result: { config: { currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY' } }, home: process.env.HOME, autoupdate: process.env.GROK_DISABLE_AUTOUPDATER } }",
+  )
+
+  try {
+    assert.deepEqual(await readAgentUsage('grok', { HOME: dir, NUPHOS_AGENT_EXECUTABLE: bin }), {
+      config: { currentPeriod: { type: 'USAGE_PERIOD_TYPE_WEEKLY' } },
+      home: dir,
+      autoupdate: '1',
+    })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a Grok that is signed out or missing reports nothing', async () => {
+  const { dir, bin } = fakeGrok("{ error: { code: -32000, message: 'Authentication required' } }")
+
+  try {
+    assert.equal(
+      await readAgentUsage('grok', { HOME: dir, NUPHOS_AGENT_EXECUTABLE: bin }),
+      undefined,
+    )
+    assert.equal(
+      await readAgentUsage('grok', {
+        HOME: dir,
+        NUPHOS_AGENT_EXECUTABLE: path.join(dir, 'missing'),
+      }),
+      undefined,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

@@ -196,6 +196,54 @@ final class BotPinsUITests: XCTestCase {
         }
     }
 
+    /// On a phone, a Bot's runtime and model are in view without scrolling the composer's
+    /// controls row, and Bot details names the model (#4204).
+    func testBotRuntimeAndModelAreInViewOnAPhone() throws {
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "tests/fixtures/bot-desktop-responses.json")
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-bot-plain"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["botId"] = "bot-plain"
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-bot-plain"] = detail
+        let listing = responses["GET /agent/conversations"] as! [String: Any]
+        var task = ((listing["body"] as! [String: Any])["conversations"] as! [[String: Any]])[1]
+        task["messages"] = body["messages"]; task["messagesFirstIndex"] = 0; task["readOnly"] = false
+        responses["GET /agent/conversations/bot-plain"] = ["status": 200, "body": task]
+        responses["GET /agent/conversations/bot-plain/model-config"] = ["status": 200, "body": [
+            "status": "ready",
+            "options": [["id": "model", "name": "Model", "kind": "model", "currentValue": "sonnet",
+                         "options": [["value": "sonnet", "name": "Sonnet"], ["value": "opus", "name": "Opus"]]]],
+        ]]
+        let live = URL.temporaryDirectory.appending(path: "bot-runtime-model-\(UUID()).json")
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+        defer { try? FileManager.default.removeItem(at: live) }
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let row = app.staticTexts["Release notes"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
+        let model = app.staticTexts.matching(NSPredicate(format: "label CONTAINS ' · Sonnet'")).firstMatch
+        XCTAssertTrue(model.waitForExistence(timeout: 10), "Bot details does not name the Bot's model")
+        shot("bot-details-model")
+        let entry = app.buttons["bot-task-entry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10)); entry.tap()
+        XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10))
+        let input = app.textViews.firstMatch.exists ? app.textViews.firstMatch : app.textFields.firstMatch
+        input.tap()
+        let runtime = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Switch runtime'")).firstMatch
+        let modelChip = app.buttons["Model settings"]
+        XCTAssertTrue(runtime.waitForExistence(timeout: 10))
+        XCTAssertTrue(modelChip.waitForExistence(timeout: 10))
+        let screen = app.windows.firstMatch.frame
+        XCTAssertTrue(screen.contains(runtime.frame), "The runtime chip starts off-screen: \(runtime.frame)")
+        XCTAssertTrue(screen.contains(modelChip.frame), "The model chip starts off-screen: \(modelChip.frame)")
+        shot("bot-task-runtime-model-in-view")
+    }
+
     private func shot(_ name: String) {
         let screen = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screen)

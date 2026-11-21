@@ -74,7 +74,7 @@ export function PersonalCredentialsSection({
   onOpenSection?: (section: string) => void
 }) {
   const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
-  // Gmail / Google Drive go through the current team's own OAuth client, else Nuphos's Composio.
+  // Gmail / Google Drive / Google Calendar go through the team's own OAuth client, else Composio.
   // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
   const [googleClient, setGoogleClient] = useState<TeamGoogleClient | null>(null)
   const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))

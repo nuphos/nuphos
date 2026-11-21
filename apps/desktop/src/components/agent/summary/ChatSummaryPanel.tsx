@@ -59,6 +59,8 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
+  /** Opened for a look where it has no room beside: gone once the mouse leaves it. */
+  popover?: boolean
 }
 
 /** The panel beside the transcript, mounted while open and while it slides shut. */
@@ -168,6 +170,7 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
+  popover,
   motion,
 }: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
   const closing = motion === 'out'
@@ -197,7 +200,7 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing)
+  useDismissOutside(rootRef, dismiss, floating && !closing, popover)
 
   const panel = (
     <aside

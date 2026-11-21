@@ -4,7 +4,7 @@ import { agentEvents, agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { nameViewer, openBotChat, shoot } from '../channel-quotes.ts'
 import { until } from '../processes.ts'
-import { send } from '../ui.ts'
+import { send, transcriptPost } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -23,7 +23,7 @@ const scenario: Scenario = {
     await nameViewer(stack, 'Alex Rivera')
     await openBotChat(page)
     await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-reply')
-    await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()
+    await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-reply').waitFor()
     const wakes = channelWakes(stack)
     const answered = count(stack, `finish ${ANSWER}`)
     // The question it just asked, the Bot's only open one: the scenarios before answered theirs.

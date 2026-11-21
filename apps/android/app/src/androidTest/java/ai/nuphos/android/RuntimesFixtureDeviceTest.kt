@@ -39,6 +39,8 @@ class RuntimesFixtureDeviceTest {
     private var management = 0
     private var failure = false
     private var empty = false
+    /** `box.state` of the synthetic Box while it is not online; null keeps it online. */
+    private var startingState: String? = null
     private lateinit var store: RuntimesStore
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
@@ -48,7 +50,7 @@ class RuntimesFixtureDeviceTest {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
                 { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
-                { listOf(RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
+                { listOf(if (startingState != null) RuntimeDevice("host", "Synthetic Box", false, RuntimeDevice.Box(startingState), "offline", null, null, null) else RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
@@ -86,6 +88,25 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
+    }
+    /** #4192: a Box coming up says Starting… then Connecting…, like Desktop and iOS, and nothing once online. */
+    @Test fun aStartingBoxSaysStartingThenConnectingNotOffline() {
+        startingState = "creating"
+        render()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        compose.onNodeWithText("Starting…").assertIsDisplayed()
+        shot("runtimes-box-starting-4192.png")
+        startingState = "connecting"
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Starting…").assertDoesNotExist()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-connecting-4192.png")
+        startingState = null
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-online-4192.png")
     }
     @Test fun firstLoadNeverShowsEmptyAndFailedRequestOffersRealRetry() {
         held = kotlinx.coroutines.CompletableDeferred()

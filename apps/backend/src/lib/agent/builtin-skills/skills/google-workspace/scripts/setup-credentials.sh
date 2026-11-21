@@ -22,6 +22,8 @@ fi
 
 team_enc="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$team_id")"
 path="/teams/${team_enc}/personal-credentials/${provider}/token"
+# With several connected accounts, GOOGLE_CONNECTION_ID names the one for this call.
+[ -z "${GOOGLE_CONNECTION_ID:-}" ] || path="${path}?connectionId=${GOOGLE_CONNECTION_ID}"
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT

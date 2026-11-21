@@ -74,6 +74,9 @@ describe('buildPreviewSystemPrompt', () => {
     expect(prompt).toContain('`~/.aws/credentials`')
     // A throwaway checkout goes with the conversation's home when it is archived (#3939).
     expect(prompt).toContain('Make a throwaway clone or worktree for this conversation under `~`')
+    expect(prompt).toContain(
+      'Never `git clone` or `git worktree add` into the working directory or next to a repository in it (`../<name>`)',
+    )
     expect(prompt).toContain('## Memory scope')
     expect(prompt).toContain('always pass `scope` explicitly')
     expect(prompt).not.toContain('## Workspace')
