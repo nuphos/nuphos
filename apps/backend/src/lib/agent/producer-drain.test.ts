@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { drainAgentProducers, trackAgentProducer } from './producer-drain'
+import { createDrainDiagnostics, drainAgentProducers, trackAgentProducer } from './producer-drain'
 
 test('shutdown waits for persistence even after the stream has closed', async () => {
   let finish!: () => void
@@ -72,4 +72,54 @@ test('worker quiescence precedes the last producer drain', async () => {
   await write
   await shutdown
   expect(drained).toBe(true)
+})
+
+test('deadline snapshot distinguishes outstanding HTTP, producers and workers', async () => {
+  let finishHttp!: () => void
+  let finishWorker!: () => void
+  let finishProducer!: () => void
+  const producer = trackAgentProducer(
+    () =>
+      new Promise<void>((done) => {
+        finishProducer = done
+      }),
+  )
+  const worker = new Promise<void>((done) => {
+    finishWorker = done
+  })
+  const http = new Promise<void>((done) => {
+    finishHttp = done
+  })
+  const diagnostic = createDrainDiagnostics({ pendingRequests: 2, pendingWebSockets: 3 }, worker)
+
+  void diagnostic.trackHttp(http)
+  await Promise.resolve()
+  expect(diagnostic.snapshot()).toMatchObject({
+    http_stop_settled: false,
+    workers_settled: false,
+    agent_producers_in_flight: 1,
+    http_pending_requests: 2,
+    http_pending_websockets: 3,
+  })
+  finishHttp()
+  await http
+  expect(diagnostic.snapshot()).toMatchObject({
+    http_stop_settled: true,
+    workers_settled: false,
+    agent_producers_in_flight: 1,
+  })
+  finishWorker()
+  await worker
+  expect(diagnostic.snapshot()).toMatchObject({
+    http_stop_settled: true,
+    workers_settled: true,
+    agent_producers_in_flight: 1,
+  })
+  finishProducer()
+  await producer
+  expect(diagnostic.snapshot()).toMatchObject({
+    http_stop_settled: true,
+    workers_settled: true,
+    agent_producers_in_flight: 0,
+  })
 })

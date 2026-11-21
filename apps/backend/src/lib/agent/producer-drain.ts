@@ -1,3 +1,4 @@
+import { connectedComputerCount } from '@/lib/agent/devices/local-runtime/held-tunnels'
 import { logEvent } from '@/lib/observability'
 
 // Producer completion includes transcript persistence and cleanup after SSE has ended.
@@ -39,6 +40,49 @@ export async function drainAgentProducers(
     ])
   } finally {
     clearTimeout(timer)
+  }
+}
+
+/** Snapshot only aggregate state when the existing shutdown deadline fires. */
+export function createDrainDiagnostics(
+  server: { pendingRequests: number; pendingWebSockets: number },
+  workersStopped: Promise<unknown>,
+) {
+  let httpSettled = false
+  let workersSettled = false
+
+  void workersStopped.then(
+    () => {
+      workersSettled = true
+    },
+    () => {
+      workersSettled = true
+    },
+  )
+
+  return {
+    trackHttp(promise: Promise<unknown>) {
+      void promise.then(
+        () => {
+          httpSettled = true
+        },
+        () => {
+          httpSettled = true
+        },
+      )
+
+      return promise
+    },
+    snapshot() {
+      return {
+        http_stop_settled: httpSettled,
+        workers_settled: workersSettled,
+        agent_producers_in_flight: producers.size,
+        http_pending_requests: server.pendingRequests,
+        http_pending_websockets: server.pendingWebSockets,
+        held_device_tunnels: connectedComputerCount(),
+      }
+    },
   }
 }
 
