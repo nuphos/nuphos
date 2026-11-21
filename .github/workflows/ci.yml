@@ -252,8 +252,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     # The image ships rustup and a stable toolchain.
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/cli
@@ -327,8 +326,7 @@ jobs:
     name: openab (clippy + test)
     needs: changes
     if: needs.changes.outputs.openab == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: apps/runtime/openab
@@ -351,8 +349,7 @@ jobs:
     name: Backend (typecheck + test + docker build)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     # The runtime-state store's compare-and-set is a Lua script; its suite runs
     # only against a real Redis (TEST_REDIS_URL below).
     services:
@@ -466,13 +463,10 @@ jobs:
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') }}
-    # Loop mounts for real-disk evidence are not supported on the verified Instabox runner.
-    # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
-    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
-    # Hosted disk evidence does not wait for an Instabox slot.
-    concurrency:
-      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || endsWith(github.run_id, '0') && 'a' || endsWith(github.run_id, '1') && 'b' || endsWith(github.run_id, '2') && 'c' || endsWith(github.run_id, '3') && 'd' || endsWith(github.run_id, '4') && 'e' || endsWith(github.run_id, '5') && 'f' || endsWith(github.run_id, '6') && 'g' || endsWith(github.run_id, '7') && 'h' || endsWith(github.run_id, '8') && 'i' || 'j' }}
-      queue: max
+    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
+    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
+    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
     # group, and compiling openab adds about 6 minutes.
@@ -552,7 +546,6 @@ jobs:
             ${{ runner.temp }}/real-disk-shots/real-disk-second-window.png
             ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
             ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
-            ${{ runner.temp }}/real-disk-shots/real-disk-failure.png
           if-no-files-found: warn
       - name: Run the end-to-end scenarios
         if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
@@ -714,8 +707,7 @@ jobs:
     needs: changes
     # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
     if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true')) }}
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
