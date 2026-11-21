@@ -115,8 +115,9 @@ export function ChannelMessage({
 
   if (mine)
     return (
-      <div className="group/post flex w-full items-start justify-end gap-2.5">
-        {onReply && !text && <ReplyButton onReply={onReply} />}
+      <div className="group/post flex w-full items-start justify-end gap-2.5 [container-type:inline-size]">
+        {/* With text the button rides the bubble; this keeps its room in the row. */}
+        {onReply && (text ? <div className="w-7 shrink-0" /> : <ReplyButton onReply={onReply} />)}
         <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
           {!text && quote}
           {files}
@@ -151,7 +152,7 @@ export function ChannelMessage({
     )
 
   return (
-    <div className="group/post flex w-full items-start gap-2.5">
+    <div className="group/post flex w-full items-start gap-2.5 [container-type:inline-size]">
       <div className="w-7 shrink-0">
         {first &&
           (agentId ? (
@@ -208,7 +209,7 @@ export function ChannelMessage({
         {shown({ ...posted, uploads: [] })}
         {answered}
       </div>
-      {onReply && !text && <ReplyButton onReply={onReply} />}
+      {onReply && (text ? <div className="w-7 shrink-0" /> : <ReplyButton onReply={onReply} />)}
     </div>
   )
 }
