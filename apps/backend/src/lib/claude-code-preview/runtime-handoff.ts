@@ -32,6 +32,7 @@ export type { RuntimeHandoff } from './runtime-handoff-store'
 
 const ADOPT_INTERVAL_MS = 2_000
 const MAX_ADOPT_ATTEMPTS = 5
+const OFFLINE_RETRY_DELAY_MS = 10_000
 /** Shutdown has seconds to spare; a runtime that cannot answer by then is not waited for. */
 const RUNTIME_STATE_PROBE_MS = 1_000
 const RUNTIME_OWNED_PHASES = new Set([
@@ -205,7 +206,15 @@ export async function adoptRuntimeHandoffs(
       })
       if (retry)
         await withRedis((redis) =>
-          redis.hsetnx(HANDOFFS_KEY, field(handoff), JSON.stringify({ ...handoff, attempts })),
+          redis.hsetnx(
+            HANDOFFS_KEY,
+            field(handoff),
+            JSON.stringify({
+              ...handoff,
+              attempts,
+              ...(offline ? { retryAfter: Date.now() + OFFLINE_RETRY_DELAY_MS } : {}),
+            }),
+          ),
         )
     })
   }

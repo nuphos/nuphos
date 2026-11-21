@@ -579,11 +579,13 @@ test('an adopter that held the session before resumes it instead of reusing the 
 test('a transient offline failure does not exhaust a local handoff before its age limit', async () => {
   const { AppError } = await import('@/lib/errors')
   const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+  let now = Date.now()
+  const clock = spyOn(Date, 'now').mockImplementation(() => now)
 
   attachedRuntimeUrl = localRuntimeUrl(computer, 'team')
   stored.set(
     'team:conv',
-    JSON.stringify({ ...handoff(Date.now() - HANDOFF_SETTLE_MS), runtimeUrl: attachedRuntimeUrl }),
+    JSON.stringify({ ...handoff(now - HANDOFF_SETTLE_MS), runtimeUrl: attachedRuntimeUrl }),
   )
   await runtimePresenceStore().claim(computer.userId, computer.deviceId, 'tunnel')
   await runtimePresenceStore().put(computer.userId, computer.deviceId, {
@@ -593,11 +595,25 @@ test('a transient offline failure does not exhaust a local handoff before its ag
   try {
     let tries = 0
 
-    for (let i = 0; i < 6; i++)
+    for (let i = 0; i < 6; i++) {
+      await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+        conn: 'tunnel',
+        seenAt: now,
+      })
       await adoptRuntimeHandoffs(async () => {
         tries++
         throw new AppError(409, 'runtime_offline', 'offline')
       })
+      await adoptRuntimeHandoffs(async () => {
+        tries++
+      })
+      expect(tries).toBe(i + 1)
+      now += 10_000
+    }
+    await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+      conn: 'tunnel',
+      seenAt: now,
+    })
     expect(stored.has('team:conv')).toBe(true)
     expect(tries).toBeGreaterThan(0)
     const adopted: string[] = []
@@ -607,6 +623,7 @@ test('a transient offline failure does not exhaust a local handoff before its ag
     })
     expect(adopted).toEqual(['conv'])
   } finally {
+    clock.mockRestore()
     await runtimePresenceStore().clear(computer.userId, computer.deviceId, 'tunnel')
   }
 })
