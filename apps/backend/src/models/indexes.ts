@@ -44,6 +44,7 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
+import { setupVaultIndexes } from '@/lib/vault'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
@@ -80,6 +81,7 @@ export async function setupIndexes(): Promise<void> {
     ['core', setupCoreIndexes],
     ['identity', setupIdentityIndexes],
     ['email-otp', setupEmailOtpIndexes],
+    ['vault', setupVaultIndexes],
     ['token-revocation', setupTokenRevocationIndexes],
     ['password-login', setupPasswordIndexes],
     ['download-link-email', setupDownloadLinkEmailIndexes],

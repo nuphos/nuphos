@@ -985,11 +985,19 @@
   "PUT /teams/:teamId/volcengine-accounts/:accountId/access": "member",
   "DELETE /teams/:teamId/trello-integrations/:integrationId": "admin",
   "DELETE /teams/:teamId/trello-integrations/start-oauth/:state": "admin",
+  "DELETE /vault/devices/:id": "user",
+  "DELETE /vault/items/:name": "user",
   "GET /teams/:teamId/trello-integrations": "member",
   "GET /teams/:teamId/trello-integrations/:integrationId": "member",
   "GET /teams/:teamId/trello-integrations/:integrationId/access": "member",
   "GET /trello-app/setup": "public",
+  "GET /vault/devices": "user",
+  "GET /vault/items": "user",
+  "GET /vault/items/:name": "user",
   "POST /agent-sessions/:sessionId/teams/:teamId/trello-integrations/:integrationId/execute": "user",
   "POST /teams/:teamId/trello-integrations/start-oauth": "admin",
-  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member"
+  "POST /vault/devices": "user",
+  "POST /vault/devices/:id/approve": "user",
+  "PUT /teams/:teamId/trello-integrations/:integrationId/access": "member",
+  "PUT /vault/items/:name": "user"
 }

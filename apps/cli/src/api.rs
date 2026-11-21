@@ -229,6 +229,47 @@ impl Api {
 
     /// A Task's Triggers, or with no Task the caller's own (the backend
     /// returns a bare array of up to 100).
+    pub async fn vault_devices(&self) -> Result<Vec<Value>, ApiError> {
+        let v = self.call(Method::GET, "/vault/devices", &[], None).await?;
+        Ok(v["devices"].as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn vault_add_device(&self, name: &str, public_key: &str) -> Result<Value, ApiError> {
+        let body = json!({ "name": name, "publicKey": public_key });
+        Ok(self.call(Method::POST, "/vault/devices", &[], Some(&body)).await?["device"].take())
+    }
+
+    /// `keys` wraps every item's key for the device: `[{ name, wrapped }]`.
+    pub async fn vault_approve_device(&self, id: &str, keys: &[Value]) -> Result<Value, ApiError> {
+        let body = json!({ "keys": keys });
+        let path = format!("/vault/devices/{}/approve", id);
+        Ok(self.call(Method::POST, &path, &[], Some(&body)).await?["device"].take())
+    }
+
+    pub async fn vault_remove_device(&self, id: &str) -> Result<(), ApiError> {
+        self.call(Method::DELETE, &format!("/vault/devices/{}", id), &[], None).await.map(|_| ())
+    }
+
+    pub async fn vault_items(&self) -> Result<Vec<Value>, ApiError> {
+        let v = self.call(Method::GET, "/vault/items", &[], None).await?;
+        Ok(v["items"].as_array().cloned().unwrap_or_default())
+    }
+
+    pub async fn vault_item(&self, name: &str) -> Result<Value, ApiError> {
+        Ok(self.call(Method::GET, &format!("/vault/items/{}", name), &[], None).await?["item"].take())
+    }
+
+    /// `keys` wraps the item key for every enrolled device: `[{ deviceId, wrapped }]`.
+    pub async fn vault_put_item(&self, name: &str, ciphertext: &str, keys: &[Value]) -> Result<Value, ApiError> {
+        let body = json!({ "ciphertext": ciphertext, "keys": keys });
+        let path = format!("/vault/items/{}", name);
+        Ok(self.call(Method::PUT, &path, &[], Some(&body)).await?["item"].take())
+    }
+
+    pub async fn vault_delete_item(&self, name: &str) -> Result<(), ApiError> {
+        self.call(Method::DELETE, &format!("/vault/items/{}", name), &[], None).await.map(|_| ())
+    }
+
     pub async fn triggers(&self, team: &str, session: Option<&str>) -> Result<Vec<Value>, ApiError> {
         let mut query = vec![("teamId", team)];
         if let Some(session) = session {
