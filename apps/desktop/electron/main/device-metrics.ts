@@ -29,6 +29,26 @@ export function fullestDisk(filesystems: Pick<StatsFs, 'blocks' | 'bfree' | 'bsi
   return fullest
 }
 
+/**
+ * When the kernel's OOM kill count (`oom_kill` in /proc/vmstat, every kill since boot) last
+ * rose between two readings. The kernel writes it, so a command's output cannot fake it; a
+ * host that was only slow to answer leaves it alone. The first reading is the baseline.
+ */
+export function noteOomKills(
+  seen: { count?: number; at?: string },
+  vmstat: string,
+  now: string,
+): { count?: number; at?: string } {
+  const count = Number(/^oom_kill (\d+)$/mu.exec(vmstat)?.[1] ?? Number.NaN)
+
+  if (!Number.isFinite(count)) return seen
+  if (seen.count !== undefined && count > seen.count) return { count, at: now }
+
+  return { count, at: seen.at }
+}
+
+let oomKills: { count?: number; at?: string } = {}
+
 let sample: { at: number; value: Promise<DeviceMetrics | null>; pending: boolean } | undefined
 
 /** Shared by the tunnel's 5-second report and this computer's own devices list; one sample per 5 seconds. */
@@ -50,6 +70,9 @@ export function readDeviceMetrics(): Promise<DeviceMetrics | null> {
       const match = /^MemAvailable:\s+(\d+)/mu.exec(mem)
 
       if (match) available = Number(match[1]) * 1024
+      const vmstat = await readFile('/proc/vmstat', 'utf8').catch(() => '')
+
+      oomKills = noteOomKills(oomKills, vmstat, new Date().toISOString())
     }
     if (process.platform === 'darwin') {
       const { stdout } = await promisify(execFile)('/usr/bin/vm_stat', [], {
@@ -71,6 +94,7 @@ export function readDeviceMetrics(): Promise<DeviceMetrics | null> {
       cpuPercent: Math.max(0, Math.min(100, (1 - (after.idle - before.idle) / delta) * 100)),
       memory: { used: Math.max(0, Math.min(total, total - available)), total },
       disk: fullestDisk(filesystems.filter((fs) => fs !== null)),
+      ...(oomKills.at ? { oomKilledAt: oomKills.at } : {}),
     }
   })().catch(() => null)
 

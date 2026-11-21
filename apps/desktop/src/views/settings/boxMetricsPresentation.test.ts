@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { deskReadings, diskWarning } from './boxMetricsPresentation.ts'
+import { deskReadings, diskWarning, memoryWarning } from './boxMetricsPresentation.ts'
 
 const GIB = 1024 ** 3
 const sample = {
@@ -74,4 +74,25 @@ test('only a live reading warns: an old number says nothing about the disk now',
     diskWarning({ metricsStatus: 'live', metrics: { ...sample, disk: { used: 95, total: 0 } } }),
     null,
   )
+})
+
+test('a recent OOM kill on the host says memory ran out and what to do', () => {
+  const now = Date.parse('2026-11-21T09:00:00.000Z')
+  const killed = { ...sample, oomKilledAt: '2026-11-21T08:09:00.000Z' }
+  const warning = memoryWarning({ metricsStatus: 'live', metrics: killed }, now)
+
+  assert.equal(warning?.text, 'Ran out of memory in the last day: the system stopped a process')
+  assert.match(warning?.hint ?? '', /Run fewer conversations, builds or browsers at once/u)
+  assert.ok(memoryWarning({ metricsStatus: 'stale', metrics: killed }, now))
+})
+
+test('no OOM kill, an old one, or no current reading says nothing about memory', () => {
+  const now = Date.parse('2026-11-21T09:00:00.000Z')
+  const old = { ...sample, oomKilledAt: '2026-11-20T08:00:00.000Z' }
+  const killed = { ...sample, oomKilledAt: '2026-11-21T08:09:00.000Z' }
+
+  assert.equal(memoryWarning({ metricsStatus: 'live', metrics: sample }, now), null)
+  assert.equal(memoryWarning({ metricsStatus: 'live', metrics: old }, now), null)
+  assert.equal(memoryWarning({ metricsStatus: 'offline', metrics: killed }, now), null)
+  assert.equal(memoryWarning(undefined, now), null)
 })

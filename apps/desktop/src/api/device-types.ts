@@ -190,6 +190,8 @@ export type DeviceMetrics = {
   cpuPercent: number
   memory: { used: number; total: number }
   disk: { used: number; total: number }
+  /** When this host last saw the kernel's OOM kill count rise (Linux): memory ran out. */
+  oomKilledAt?: string
 }
 
 export type DeviceMetricsStatus = 'offline' | 'unsupported' | 'waiting' | 'stale' | 'live'

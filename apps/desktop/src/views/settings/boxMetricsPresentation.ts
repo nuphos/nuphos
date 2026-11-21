@@ -112,3 +112,28 @@ export function diskWarning(
     text: t('Disk almost full: {free} GB free', { free: gib(Math.max(0, disk.total - disk.used)) }),
   }
 }
+
+/** How long after an OOM kill the computer goes on saying memory ran out. */
+const OOM_NOTICE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * What to say after the kernel killed a process because the computer ran out of memory, from
+ * the host's own reading. A disconnect with no kill recorded says nothing about memory.
+ */
+export function memoryWarning(
+  device: { metricsStatus?: DeviceMetricsStatus; metrics?: unknown } | undefined,
+  now = Date.now(),
+): { text: string; hint: string } | null {
+  const current = device?.metricsStatus === 'live' || device?.metricsStatus === 'stale'
+  const at = current && validMetrics(device.metrics) ? device.metrics.oomKilledAt : undefined
+  const age = at === undefined ? Number.NaN : now - Date.parse(at)
+
+  if (!(age >= 0 && age < OOM_NOTICE_MS)) return null
+
+  return {
+    text: t('Ran out of memory in the last day: the system stopped a process'),
+    hint: t(
+      'A Bot or Task that was running then may have failed. Run fewer conversations, builds or browsers at once, then resend what failed.',
+    ),
+  }
+}
