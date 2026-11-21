@@ -512,23 +512,31 @@ describe('reclaimSessionHomes', () => {
     expect(row.archiveHomePendingEpochs).toEqual([])
   })
 
-  test('an older runtime reclaims its single home with the legacy job while archived', async () => {
+  test('an older runtime never gets a delete from the archive queue, even if restored meanwhile', async () => {
     const row = conversation({
       archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
     })
+    const connect = controlRegistry.acquire
 
     offered = ['session-homes', 'panel']
+    // The Task is restored after cleanup read the archived row, while it reaches the runtime.
+    controlRegistry.acquire = ((...args: Parameters<typeof connect>) => {
+      row.archivedAt = undefined
+
+      return connect(...args)
+    }) as never
 
     expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
-    expect(jobs.map(({ job, stdin }) => [job, JSON.parse(stdin)])).toEqual([
-      ['session-homes', { sessionId: 'conversation' }],
-    ])
+    expect(jobs).toHaveLength(0)
     expect(row.archiveHomePendingEpochs).toEqual([])
+    // Left to the hourly sweep, which re-reads the row and finds it restored.
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+    expect(await reclaimSessionHomes(now)).toBe(0)
+    expect(jobs).toHaveLength(0)
   })
 
-  test('an older runtime keeps the single home a restored Task uses again', async () => {
+  test('an older runtime leaves an archived single home to the hourly sweep', async () => {
     const row = conversation({
-      archivedAt: undefined,
       archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
     })
 
@@ -536,7 +544,11 @@ describe('reclaimSessionHomes', () => {
 
     expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
     expect(jobs).toHaveLength(0)
-    expect(row.archiveHomePendingEpochs).toEqual([])
+    expect(await reclaimSessionHomes(now)).toBe(1)
+    expect(jobs.map(({ job, stdin }) => [job, JSON.parse(stdin)])).toEqual([
+      ['session-homes', { sessionId: 'conversation' }],
+    ])
+    expect(row.sessionHomeReclaimedAt).toEqual(now)
   })
 
   test('drops a generation with no team or runtime to reclaim it on', async () => {

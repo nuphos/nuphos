@@ -115,33 +115,39 @@ export async function reclaimPendingArchiveHome(
   const conversation = await agentConversations().findOne({ sessionId })
 
   if (!conversation?.archiveHomePendingEpochs?.length) return true
-  const { teamId, archivedAt } = conversation
 
   for (const home of conversation.archiveHomePendingEpochs) {
-    if (!(await reclaimArchivedGeneration(teamId, home, sessionId, archivedAt))) return false
+    const done = await reclaimArchivedGeneration(conversation.teamId, home, sessionId)
+
+    if (!done) return false
+    // Deleting a single home by session alone could race a restore; the hourly sweep checks again.
+    const $set = done === 'single' ? {} : { sessionHomeReclaimedAt: now }
+
     await agentConversations().updateOne(
       { sessionId },
-      { $pull: { archiveHomePendingEpochs: home }, $set: { sessionHomeReclaimedAt: now } },
+      { $pull: { archiveHomePendingEpochs: home }, $set },
     )
   }
 
   return true
 }
 
-/** One archived generation: true once its home is gone or can never be reached again. */
+/** One archived generation: true once gone or unreachable for good, 'single' without generations. */
 async function reclaimArchivedGeneration(
   teamId: string | undefined,
   home: NonNullable<AgentConversation['archiveHomePendingEpochs']>[number],
   sessionId: string,
-  archivedAt: Date | undefined,
-): Promise<boolean> {
+): Promise<boolean | 'single'> {
   if (!teamId || !home.runtimeId) return true
   const endpoint = await controlEndpoint(teamId, home.runtimeId, home.provider)
 
   // Offline waits; a removed runtime takes its homes with it.
   if (!endpoint) return runtimeRemoved(teamId, home.runtimeId)
 
-  return runReclaimJob(teamId, endpoint, sessionId, { epoch: home.epoch, archived: !!archivedAt })
+  await controlRegistry.acquire(teamId, endpoint)
+  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('session-homes-v2')) return 'single'
+
+  return runReclaimJob(teamId, endpoint, sessionId, home.epoch)
 }
 
 const runtimeRemoved = (teamId: string, runtimeId: string) =>
@@ -208,14 +214,10 @@ async function runReclaimJob(
   teamId: string,
   endpoint: NonNullable<Awaited<ReturnType<typeof controlEndpoint>>>,
   sessionId: string,
-  generation?: { epoch: number; archived: boolean },
+  epoch?: number,
 ): Promise<boolean> {
   const client = await controlRegistry.acquire(teamId, endpoint)
   const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
-  const epoch = jobs.includes('session-homes-v2') ? generation?.epoch : undefined
-
-  // A runtime without generations keeps a single home, which a restored Task uses again.
-  if (generation && epoch === undefined && !generation.archived) return true
   const params = epoch === undefined ? { sessionId } : { sessionId, epoch }
   // A computer's own fixed jobs take the params alone; the runtime image and older
   // computers run the program they are sent, as `panel` or their `session-homes-v2`.
