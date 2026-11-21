@@ -110,6 +110,21 @@ export const botSharedTaskCountScenarios: Scenario[] = [
             })
           await busy(page, 'owner', true)
           await busy(theirs.page, 'teammate', true)
+          // What the teammate's own lists hold under the Bot, for the row's folded status.
+          for (const scope of ['mine', 'shared'])
+            for (const kind of ['', '&kind=channel']) {
+              const listed = ((
+                await call(
+                  teammate,
+                  'GET',
+                  `/agent/conversations?teamId=${stack.teamId}&scope=${scope}&limit=100${kind}`,
+                )
+              ).conversations ?? []) as (Row & { parentSessionId?: string; kind?: string })[]
+
+              console.log(
+                `teammate ${scope}${kind}: ${JSON.stringify(listed.map((row) => [row.title, row.kind, row.parentSessionId === owned.sessionId ? 'under-bot' : row.parentSessionId ? 'nested' : '']))}`,
+              )
+            }
         } finally {
           writeFileSync(release, '')
         }
