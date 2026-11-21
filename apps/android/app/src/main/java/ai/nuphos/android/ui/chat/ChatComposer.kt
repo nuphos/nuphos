@@ -735,6 +735,7 @@ fun ChatComposer(
                             AgentChip(agent, enabled = agentEnabled,
                                 onClick = { if (lockedHint != null) showLockedHint = true else onChooseAgent?.invoke() ?: run { showAgentUsage = true } },
                                 labelOverride = agentLabel,
+                                constrained = botControls,
                                 modifier = if (botControls) Modifier.widthIn(max = 175.dp).alpha(if (lockedHint != null) 0.38f else 1f)
                                     .testTag("bot-composer.runtime") else Modifier)
                         }
