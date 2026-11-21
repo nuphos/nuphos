@@ -34,7 +34,7 @@ const options = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
-  personalCredentials: [{ provider: 'github', login: 'me' }],
+  personalCredentials: [{ id: 'c1', provider: 'github', login: 'me' }],
   devices: [{ deviceId: 'mac', label: 'Mac', platform: 'darwin', available: false }],
   ...emptyConnectorCredentialOptions(),
   githubInstallations: [

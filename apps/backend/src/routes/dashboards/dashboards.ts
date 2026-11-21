@@ -177,6 +177,7 @@ export function registerDashboardRoutes(
           dashboard,
           snapshots.get(p._id.toHexString()) ?? null,
           successfulSnapshots.get(p._id.toHexString()) ?? null,
+          viewer.userId,
         ),
       ),
     })

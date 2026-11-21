@@ -10,5 +10,6 @@ export const boxMetricsSchema = z.object({
   cpuPercent: z.number().finite().min(0).max(100),
   memory: capacity,
   disk: capacity,
+  oomKilledAt: z.string().datetime().optional(),
 })
 export type BoxMetrics = z.infer<typeof boxMetricsSchema>

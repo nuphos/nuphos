@@ -49,9 +49,6 @@ export const AssistantMessage = memo(
     downloadGroups,
     prevCreatedAt,
     isLatestReply = false,
-    onStop,
-    onApprovePlan,
-    onRejectPlan,
     activePlanCanAct,
     canActOnPlans = false,
     canReplyToQuestions = false,
@@ -77,14 +74,11 @@ export const AssistantMessage = memo(
     isLatestReply?: boolean
     /** Viewer is a team administrator — gates approving permission-grant proposals. */
     isTeamAdmin?: boolean
-    /** Tab is idle (not streaming, not read-only) — any `proposed` plan card in
-     *  the transcript can be approved/rejected, not only the latest. */
+    /** Tab is idle (not streaming, not read-only) — cards in the transcript
+     *  can be acted on, not only the latest. */
     canActOnPlans?: boolean
     /** Viewer may answer questions; replies can queue while the runtime is busy or offline. */
     canReplyToQuestions?: boolean
-    onStop?: () => void
-    onApprovePlan?: (planId: string) => void
-    onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     activePlanCanAct?: ActivePlanCanAct | null
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
     onMessageFeedback?: (
@@ -198,11 +192,7 @@ export const AssistantMessage = memo(
               now={now}
               teamId={teamId}
               streaming={streaming}
-              canActOnPlans={canActOnPlans}
               activePlanCanAct={activePlanCanAct}
-              onStop={onStop}
-              onApprovePlan={onApprovePlan}
-              onRejectPlan={onRejectPlan}
             />
           )
         }

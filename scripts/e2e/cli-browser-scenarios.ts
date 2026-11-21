@@ -1,8 +1,8 @@
 // #3887: a computer running only `nuphos agent` has a headless local_browser. The real host
 // opens a page on this machine's Chromium, screenshots it, and records its traffic as a HAR that
-// comes back through the tunnel.
+// comes back through the tunnel. #3895: and what the page showed, as a WebM that plays.
 import { randomUUID } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { join } from 'node:path'
 
@@ -52,20 +52,65 @@ async function callAllOn(stack: Stack, deviceId: string, calls: Call[]) {
   return answers
 }
 
+/** The newest WebM record_stop wrote under a computer's agent home. */
+function newestVideo(home: string): string | undefined {
+  const dir = join(home, '.nuphos-agent', 'har')
+
+  return existsSync(dir)
+    ? readdirSync(dir)
+        .filter((name) => name.endsWith('.webm'))
+        .sort()
+        .map((name) => join(dir, name))
+        .at(-1)
+    : undefined
+}
+
 const textOf = (content: Content[]) => content.map((c) => c.text ?? '').join('\n')
 
 function must(ok: boolean, message: string) {
   if (!ok) throw new Error(message)
 }
 
-/** A page on this machine, whose second request is the one the recording must catch. */
-async function servePage() {
+/** A page that keeps moving, so a video of it has frames to show. */
+const MOVING =
+  '<div id="box" style="width:240px;height:240px;background:#2a6"></div>' +
+  '<script>let x = 0; (function move() { x = (x + 9) % 1100; box.style.transform = `translateX(${x}px)`; requestAnimationFrame(move) })()</script>'
+
+/** Plays /video.webm to its end, then seeks to its middle: its size and length, once it decoded. */
+export const PLAY_VIDEO = `(async () => {
+  const video = document.querySelector('video')
+  if (video.readyState < 2)
+    await new Promise((loaded, failed) => {
+      video.onloadeddata = loaded
+      video.onerror = () => failed(new Error('The video did not decode: ' + video.error?.message))
+    })
+  video.currentTime = 1e9
+  await new Promise((seeked) => (video.onseeked = seeked))
+  const seconds = video.duration
+  video.currentTime = seconds / 2
+  await new Promise((seeked) => (video.onseeked = seeked))
+  return { width: video.videoWidth, height: video.videoHeight, seconds }
+})()`
+
+/** A page on this machine, whose second request is the one the recording must catch; /play
+ * plays the video file `video` names. */
+export async function servePage(video: () => string | undefined = () => undefined) {
   const server = createServer((request, response) => {
+    const file = video()
+
+    if (request.url === '/video.webm' && file && existsSync(file)) {
+      response.setHeader('content-type', 'video/webm')
+      response.end(readFileSync(file))
+
+      return
+    }
     response.setHeader('content-type', 'text/html')
     response.end(
       request.url === '/next'
         ? '<title>E2E next</title><h1>next</h1>'
-        : '<title>E2E headless page</title><h1 style="font-size:96px">Hello from nuphos agent</h1>',
+        : request.url === '/play'
+          ? '<title>E2E play</title><video muted src="/video.webm"></video>'
+          : `<title>E2E headless page</title><h1 style="font-size:96px">Hello from nuphos agent</h1>${MOVING}`,
     )
   })
 
@@ -79,24 +124,29 @@ async function servePage() {
 
 export const cliBrowserScenarios: Scenario[] = [
   {
-    name: 'a computer running `nuphos agent` opens, screenshots and records a page headless',
+    name: 'a computer running `nuphos agent` opens, screenshots and records a page headless, as HAR and video',
     run: async (_page, stack) => {
-      const site = await servePage()
       const computer = await startSecondComputer(stack, 'E2E headless browser')
+      // The video record_stop wrote, found when /play asks for it in the middle of the turn.
+      const site = await servePage(() => newestVideo(computer.home))
+      const wait = 'new Promise((done) => setTimeout(done, 2000))'
 
       try {
-        const [opened = [], shot = [], , , stopped = [], har = []] = await callAllOn(
-          stack,
-          computer.deviceId,
-          [
-            ['local_browser', { action: 'open', url: `${site.url}/` }],
-            ['local_browser', { action: 'screenshot', tab: 1 }],
-            ['local_browser', { action: 'record_start', tab: 1 }],
-            ['local_browser', { action: 'navigate', tab: 1, url: `${site.url}/next` }],
-            ['local_browser', { action: 'record_stop', tab: 1 }],
-            ['local_exec', { command: 'cat "$NUPHOS_AGENT_HOME"/har/*.har' }],
-          ],
-        )
+        const answers = await callAllOn(stack, computer.deviceId, [
+          ['local_browser', { action: 'open', url: `${site.url}/` }],
+          ['local_browser', { action: 'screenshot', tab: 1 }],
+          ['local_browser', { action: 'record_start', tab: 1, video: true }],
+          ['local_browser', { action: 'eval', tab: 1, script: wait }],
+          ['local_browser', { action: 'navigate', tab: 1, url: `${site.url}/next` }],
+          ['local_browser', { action: 'record_stop', tab: 1 }],
+          ['local_exec', { command: 'cat "$NUPHOS_AGENT_HOME"/har/*.har' }],
+          // The host's own Chromium plays what it recorded, served from where record_stop wrote it.
+          ['local_browser', { action: 'open', url: `${site.url}/play` }],
+          ['local_browser', { action: 'eval', tab: 2, script: PLAY_VIDEO }],
+          ['local_browser', { action: 'screenshot', tab: 2 }],
+        ])
+        const [opened = [], shot = [], , , , stopped = [], har = [], , played = [], frame = []] =
+          answers
 
         must(
           textOf(opened).includes('E2E headless page'),
@@ -116,6 +166,24 @@ export const cliBrowserScenarios: Scenario[] = [
         must(
           file.includes('"version":"1.2"') && file.includes(`${site.url}/next`),
           `the HAR to come back with the recorded request, got ${file.slice(0, 500)}`,
+        )
+        const video = (JSON.parse(textOf(stopped)) as { video?: { file: string; frames: number } })
+          .video
+
+        must(
+          Boolean(video && video.frames > 0),
+          `record_stop to return a video, got ${textOf(stopped)}`,
+        )
+        copyFileSync(video!.file, join(artifacts, 'cli-browser-video.webm'))
+        const playback = JSON.parse(textOf(played)) as { width?: number; seconds?: number }
+
+        must(
+          playback.width === 1440 && (playback.seconds ?? 0) > 1,
+          `the video to play at 1440 wide for over a second, got ${textOf(played)}`,
+        )
+        writeFileSync(
+          join(artifacts, 'cli-browser-video-frame.jpg'),
+          Buffer.from(frame.find((c) => c.type === 'image')?.data ?? '', 'base64'),
         )
       } finally {
         await computer.stop()

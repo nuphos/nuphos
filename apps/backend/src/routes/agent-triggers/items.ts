@@ -2,6 +2,7 @@ import {
   createTrigger,
   deleteTrigger,
   getTrigger,
+  rotateTriggerSecret,
   testFireTrigger,
   updateTrigger,
 } from '@/lib/agent/trigger-service'
@@ -94,7 +95,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     )
   })
 
-  // Update trigger (name, enabled, messageTemplate, cronExpression)
+  // Update trigger (name, enabled, messageTemplate, cronExpression, expiresAt)
   agentTriggersRoutes.patch('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
     const body = await jsonObjectBody(c)
@@ -108,6 +109,11 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         'A Trigger stays in the Task it was created in; create a new one in the other Task',
       )
     }
+    const { expiresAt } = body
+
+    if (expiresAt !== undefined && expiresAt !== null && typeof expiresAt !== 'string') {
+      throw new AppError(400, 'invalid_request', 'expiresAt must be an ISO timestamp or null')
+    }
     const updated = await updateTrigger(triggerId, actor, {
       ...(typeof body.name === 'string' ? { name: body.name } : {}),
       ...(typeof body.messageTemplate === 'string'
@@ -119,6 +125,9 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),
+      // null removes the expiry.
+      ...(expiresAt === null ? { expiresAt } : {}),
+      ...(typeof expiresAt === 'string' ? { expiresAt: new Date(expiresAt) } : {}),
     })
 
     return c.json(updated)
@@ -130,6 +139,19 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     await deleteTrigger(triggerId, withClient(c, await triggerActor(c, c.req.query('teamId'))))
 
     return c.json({ ok: true, deleted: true })
+  })
+
+  // A new webhook secret, shown once here; the old one is refused from the next delivery on.
+  agentTriggersRoutes.post('/:triggerId/rotate-secret', async (c) => {
+    const { triggerId } = c.req.param()
+    const actor = withClient(c, await triggerActor(c, c.req.query('teamId')))
+    const webhookSecret = await rotateTriggerSecret(triggerId, actor)
+
+    return c.json({
+      webhookUrl: webhookUrlFor(triggerId),
+      webhookSecret,
+      secretHeader: 'X-Webhook-Secret',
+    })
   })
 
   // Queue one fire into the Trigger's bound Task, with an optional payload

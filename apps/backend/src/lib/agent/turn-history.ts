@@ -8,22 +8,20 @@ import type { PendingUserMessage } from './pending-messages'
 export const TURN_HISTORY_TAIL = 200
 
 /**
- * The pending messages a stored reply already answered: stored at or before the
- * newest assistant message. Read by id, never by walking the transcript.
+ * The pending messages a turn already ran: stored in the transcript. One a turn
+ * took and handed back (`attempts`) was stored by that turn without running, so
+ * it runs, whatever was stored after it. Read by id, never by walking the transcript.
  */
-async function answeredIds(sessionId: string, userId: string, ids: string[]): Promise<Set<string>> {
-  if (ids.length === 0) return new Set()
-  const latest = await agentMessages().findOne(
-    { userId, sessionId, role: 'assistant' },
-    { sort: { index: -1 }, projection: { index: 1 } },
-  )
+async function answeredIds(
+  sessionId: string,
+  userId: string,
+  pending: PendingUserMessage[],
+): Promise<Set<string>> {
+  const ids = pending.filter((message) => !message.attempts).map((message) => message.id)
 
-  if (!latest) return new Set()
+  if (ids.length === 0) return new Set()
   const stored = await agentMessages()
-    .find(
-      { userId, sessionId, messageId: { $in: ids }, index: { $lte: latest.index } },
-      { projection: { messageId: 1 } },
-    )
+    .find({ userId, sessionId, messageId: { $in: ids } }, { projection: { messageId: 1 } })
     .toArray()
 
   return new Set(stored.map((message) => message.messageId))
@@ -49,11 +47,7 @@ export async function readTurnHistory(
   })
 
   if (!history) return null
-  const answered = await answeredIds(
-    sessionId,
-    history.conversation.userId,
-    pending.map((message) => message.id),
-  )
+  const answered = await answeredIds(sessionId, history.conversation.userId, pending)
 
   logEvent('info', 'agent.turn.history_loaded', {
     session_id: sessionId,

@@ -36,6 +36,8 @@ export type BrowserCall = {
   body?: string
   url?: string
   script?: string
+  /** For `record_start`: also record what the tab shows as a WebM (browser-video.ts). */
+  video?: boolean
 }
 
 /**

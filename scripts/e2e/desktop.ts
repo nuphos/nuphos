@@ -18,6 +18,7 @@ const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 export type Desktop = {
   page: Page
   profile: string
+  vitePort: number
   traceNextScenario: () => Promise<void>
   close: (failed?: boolean) => Promise<void>
   /** Quits the app, for one started beside the suite's own. */
@@ -27,9 +28,15 @@ export type Desktop = {
 /** `name` keeps another app's logs and sign-in apart from the suite's; `env` adds a system proxy, say. */
 export async function startDesktop(
   apiUrl: string,
-  { name = 'desktop', env = {} }: { name?: string; env?: Record<string, string> } = {},
+  {
+    name = 'desktop',
+    env = {},
+    suffix,
+    vitePort: fixedVitePort,
+  }: { name?: string; env?: Record<string, string>; suffix?: string; vitePort?: number } = {},
 ): Promise<Desktop> {
-  const [vitePort, cdpPort] = await freePorts(2)
+  const [availableVitePort, cdpPort] = await freePorts(2)
+  const vitePort = fixedVitePort ?? availableVitePort
   const signIn = join(artifacts, name === 'desktop' ? 'sign-in' : `sign-in-${name}`)
 
   mkdirSync(signIn, { recursive: true })
@@ -45,7 +52,7 @@ export async function startDesktop(
       // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
       NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
       // A name of its own gives the app a profile of its own, away from any installed app's.
-      ATLAS_DEV_SUFFIX: `e2e-${String(cdpPort)}`,
+      ATLAS_DEV_SUFFIX: suffix ?? `e2e-${String(cdpPort)}`,
       ATLAS_DEV_CDP_PORT: String(cdpPort),
       // Saving one file from a chat skips the save dialog and lands here.
       NUPHOS_E2E_SAVE_DIR: join(artifacts, 'saved'),
@@ -81,6 +88,7 @@ export async function startDesktop(
   return {
     page: page!,
     profile,
+    vitePort,
     traceNextScenario: async () => {
       if (started) await tracing.stopChunk()
       else await tracing.start({ screenshots: true, snapshots: true })

@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 const SENTENCE =
   "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message."
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 
 export const providerUnreachableScenarios: Scenario[] = [
   {
