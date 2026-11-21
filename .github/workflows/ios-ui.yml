@@ -62,6 +62,12 @@ jobs:
     name: iOS UI tests (simulator)
     needs: scope
     if: needs.scope.outputs.run == 'true'
+    # One run at a time across all pull requests and manual runs, so they hold at most
+    # one of the org's macOS runners and leave the rest to merge groups and releases.
+    # The others wait their turn in order. The nightly run keeps a group of its own.
+    concurrency:
+      group: ios-ui-${{ github.event_name == 'schedule' && 'nightly' || 'shared' }}
+      queue: max
     # Same Xcode as the iOS build in ci.yml.
     runs-on: xcode-27
     timeout-minutes: 150

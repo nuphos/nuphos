@@ -11,6 +11,10 @@ export type Scenario = {
   expected?: RegExp
 }
 
+/** A post in the open chat's transcript. A sidebar row can preview the same words. */
+export const transcriptPost = (page: Page, text: string) =>
+  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
+
 /** Types into the conversation composer and sends. */
 export async function send(page: Page, text: string) {
   await page.getByRole('textbox', { name: 'Message' }).click()
