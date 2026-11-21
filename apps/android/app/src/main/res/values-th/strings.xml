@@ -1,5 +1,4 @@
 <resources>
-    <string name="chat_bot_settings_owner_only">เฉพาะเจ้าของเท่านั้นที่เปลี่ยนการตั้งค่าโมเดลได้</string>
     <string name="welcome_title">ยินดีต้อนรับสู่ Nuphos</string>
     <string name="welcome_body">ลงชื่อเข้าใช้หรือสร้างบัญชี</string>
     <string name="sign_in">ลงชื่อเข้าใช้</string>
