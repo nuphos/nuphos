@@ -1,3 +1,4 @@
+import { authRefusedRuntimes } from '@/lib/claude-code-preview/runtime-auth-refusal'
 import {
   listRuntimeInstances,
   listRuntimeQuotas,
@@ -21,14 +22,20 @@ import type { RuntimeInstance } from '@/lib/claude-code-preview/runtime-instance
 /**
  * Why a thread cannot run on an agent the owner can see: a teammate's computer
  * shows its owner the work, which only the conversation owner can agree to, in the
- * Desktop; and a signed-out agent's turns are refused (resolveLocalRuntimeEndpoint).
+ * Desktop; a signed-out agent's turns are refused (resolveLocalRuntimeEndpoint); and
+ * one whose provider refused its sign-in on its last turn would fail the same way.
  */
-export function unavailableReason(instance: Pick<RuntimeInstance, 'provider' | 'local'>) {
+export function unavailableReason(
+  instance: Pick<RuntimeInstance, 'provider' | 'local'>,
+  authRefused = false,
+) {
   if (instance.local?.shared)
     return "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+  if (instance.local?.signedIn === false)
+    return `Signed out: sign in to ${runtimeLabel(instance.provider)} on that computer first.`
 
-  return instance.local?.signedIn === false
-    ? `Signed out: sign in to ${runtimeLabel(instance.provider)} on that computer first.`
+  return authRefused
+    ? `Sign-in refused: ${runtimeLabel(instance.provider)} refused this agent's sign-in on its last turn. Sign it in again first.`
     : undefined
 }
 
@@ -69,30 +76,35 @@ export async function threadRuntimes(
     actor.teamId,
     await listRuntimeInstances(actor.teamId, actor.userId),
   )
-  const [quotas, models] = await Promise.all([
+  const [quotas, models, refused] = await Promise.all([
     listRuntimeQuotas(actor.teamId, instances),
     Promise.all(
       instances.map(async (instance) =>
         instance.notReady ? null : offeredModels(actor, instance.id),
       ),
     ),
+    authRefusedRuntimes(actor.teamId),
   ])
 
   return {
-    runtimes: instances.map((instance, i) => ({
+    runtimes: instances.map((instance, i) => {
+      const unavailable = unavailableReason(instance, refused.has(instance.id))
+
+      return {
       runtimeId: instance.id,
       label: instance.label,
       provider: instance.provider,
       kind: instance.kind,
       status: instance.status,
-      ready: !instance.notReady && !unavailableReason(instance),
-      ...(unavailableReason(instance) ? { unavailable: unavailableReason(instance) } : {}),
+      ready: !instance.notReady && !unavailable,
+      ...(unavailable ? { unavailable } : {}),
       current: instance.id === currentRuntimeId,
       quota: quotas[i],
       // Up front, so an agent sees it before moving to an account that ran out too.
       ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
       ...(models[i]?.length ? { models: models[i] } : {}),
-    })),
+      }
+    }),
   }
 }
 
@@ -107,7 +119,10 @@ export async function assertThreadRuntime(
   )
 
   if (!runtime) throw new Error('No such agent. Call list_agent_runtimes for the ones you can use.')
-  const unavailable = unavailableReason(runtime)
+  const unavailable = unavailableReason(
+    runtime,
+    (await authRefusedRuntimes(actor.teamId)).has(runtimeId),
+  )
 
   if (unavailable) throw new Error(unavailable)
 
