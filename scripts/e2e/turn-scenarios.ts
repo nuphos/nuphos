@@ -37,8 +37,7 @@ export const turnScenarios: Scenario[] = [
   {
     // #4371: a parent ran one turn per Task that reported while it worked, so Stop kept waking it.
     // Tasks report here with send_message_to_thread: report_task needs Redis, which this stack has
-    // not, and its delivery queues the same agent.thread message on the parent. The parent's turn
-    // ends on its own, as a Stopped message is carried into the next turn and would run again.
+    // not, and its delivery queues the same agent.thread message on the parent.
     name: 'Tasks that report while their parent works are answered in one turn',
     run: async (page, stack) => {
       const names = ['a', 'b', 'c']
