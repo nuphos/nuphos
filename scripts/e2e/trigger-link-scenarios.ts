@@ -1,4 +1,4 @@
-// #4301: the Trigger card's link says whether it opens a Task or a Bot.
+// #4301: a link to another chat says whether it opens a Task or a Bot.
 import { join } from 'node:path'
 
 import { artifacts } from './processes.ts'
@@ -73,6 +73,28 @@ export const triggerLinkScenarios: Scenario[] = [
       await botCard.scrollIntoViewIfNeeded()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'trigger-card-open-task-and-bot.png') })
+
+      // A file Files cannot load offers the chat that linked it: here a Task.
+      await send(page, 'Report E2E_FILE_LINK E2E_DELIVERY:link-file-task')
+      await page.getByText('ACK E2E_DELIVERY:link-file-task').waitFor()
+      await page.getByRole('link', { name: 'missing-report.md' }).last().click()
+      const failed = page.getByText('Could not load runtime files')
+
+      await failed.waitFor()
+      await page.getByRole('button', { name: 'Open Task', exact: true }).waitFor()
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: join(artifacts, 'files-error-open-task.png') })
+
+      // And from the Bot's own chat.
+      await page.getByRole('tab', { name: /^Bots/ }).click()
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'Metrics Bot' }).first().click()
+      await page.locator('[aria-placeholder="Message Metrics Bot"]').waitFor()
+      await send(page, 'Report E2E_FILE_LINK E2E_DELIVERY:link-file-bot')
+      await page.getByText('ACK E2E_DELIVERY:link-file-bot').waitFor()
+      await page.getByRole('link', { name: 'missing-report.md' }).last().click()
+      await page.getByRole('button', { name: 'Open Bot', exact: true }).waitFor()
+      await page.waitForTimeout(500)
+      await page.screenshot({ path: join(artifacts, 'files-error-open-bot.png') })
     },
   },
 ]
