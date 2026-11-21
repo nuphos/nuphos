@@ -14,6 +14,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { SSE_HEARTBEAT_INTERVAL_MS } from '@/routes/agent/constants'
+import { agentRemindersRoutes } from '@/routes/agent-reminders'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -256,6 +257,7 @@ teamScoped.route('/dashboards', nuphosDashboardsRoutes)
 // Alias for desktop builds that predate the Dashboards rename.
 teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes)
 teamScoped.route('/agent-triggers', agentTriggersRoutes)
+teamScoped.route('/agent-reminders', agentRemindersRoutes)
 teamScoped.route('/knowledge', knowledgeRoutes)
 teamScoped.route('/github-installations', githubInstallationsRoutes)
 teamScoped.route('/gitlab-bindings', gitlabBindingsRoutes)
