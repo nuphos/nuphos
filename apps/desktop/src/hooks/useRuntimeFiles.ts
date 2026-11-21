@@ -12,7 +12,6 @@ type Source = {
   sessionId: string
   runtimeId: string
   label: string
-  conversationTitle?: string
   /** The open file was read from this computer rather than the agent's workspace. */
   local?: boolean
 }
@@ -134,7 +133,6 @@ export function useRuntimeFiles(
             sessionId: conversationId,
             runtimeId: conversation.runtimeId,
             label: conversation.runtimeLabel || 'Runtime',
-            conversationTitle: conversation.title,
           }
         }
         const target = source.current
