@@ -22,6 +22,7 @@ async function api<T>(stack: Stack, method: string, path: string, body?: unknown
 export const triggerLinkScenarios: Scenario[] = [
   {
     name: "a Trigger card's link reads Open Task, or Open Bot for a Bot's Trigger",
+    expected: /"(?:provider_error_code|error_code)":"runtime_file_unavailable"/,
     run: async (page, stack) => {
       await newTask(page)
       await send(page, 'Weekly metrics E2E_DELIVERY:link-home')
