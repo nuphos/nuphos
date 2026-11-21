@@ -169,8 +169,7 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
 
 /**
  * The post the next one answers, floating just above the composer over the
- * chat's last lines, inset past the faces twice as before (the composer's
- * wrapper pads by one face, which `absolute` does not count). Its tint sits on
+ * chat's last lines, inset past the faces on both sides. Its tint sits on
  * the sheet's own color, so the chat passing under it does not show through.
  * It names the post's author, then two lines of it. While it shows, the chat
  * keeps its height as bottom room (`data-composer-overlay`), so the newest post stays whole above it.
@@ -185,7 +184,7 @@ export function ReplyingBanner({
   return (
     <div
       data-composer-overlay=""
-      className="absolute inset-x-[4.75rem] bottom-full flex items-start gap-2 rounded-xl border-l-2 border-line-control py-1.5 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
+      className="mx-[2.375rem] flex items-start gap-2 rounded-xl border-l-2 border-line-control py-1.5 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 font-medium text-secondary">

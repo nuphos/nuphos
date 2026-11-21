@@ -6,11 +6,12 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
+import { ComposerOverlays } from './ComposerOverlays'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
-import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
@@ -60,6 +61,7 @@ export function Composer({
   promptSuggestion,
   recall,
   agentMenu,
+  aboveStatus,
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
@@ -87,23 +89,19 @@ export function Composer({
   autoFocus?: boolean
   /** Docked sidebar variant: matches the left content card's larger radius. */
   sidebar?: boolean
-  // Panel-level drag-and-drop: the whole chat panel is the drop zone.
-  // The composer publishes an "attach these dropped files" handler here so the
-  // panel can route a drop to whichever composer is currently visible.
+  // The panel routes drops to the visible composer's handler.
   dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
   /** Where this composer's unsent text is kept; see composerDraftKey. */
   draftKey?: string
-  /** Continue a local Claude Code / Codex session on the selected agent. Only
-   *  the new-conversation composer has one; elsewhere the session list keeps
-   *  attaching the log as a file. */
+  /** Continue a local session in the new-conversation composer. */
   onImportSession?: (session: LocalAgentSessionInfo) => void
-  /** Turns on @teammate mentions; with a session, mentioned outsiders get an
-   *  invite prompt after sending. */
+  /** Enables @teammate mentions and invites mentioned outsiders after sending. */
   mentionScope?: Parameters<typeof useComposerMentions>[2]
   placeholder?: string
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
+  aboveStatus?: ReactNode
 }) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -162,16 +160,17 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // Its width and side clearance are the ChatColumn's it sits in. Docked, its bottom gap
-        // matches the content card's own (`pb-2` on the main pane) so the two columns end on the
-        // same line. The hero always keeps room for the agent-status banner above the greeting.
+        // Docked, the bottom gap matches the content card; the hero leaves room above the greeting.
         hero ? 'pt-5' : sidebar ? 'pb-2' : 'pb-3',
       )}
     >
       <div className="relative w-full">
-        {!readOnly && runtimeControl && (
-          <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
-        )}
+        <ComposerOverlays
+          above={aboveStatus}
+          control={readOnly ? undefined : runtimeControl}
+          hero={hero}
+          onSwitchAgent={switchAgent}
+        />
         <div
           className={clsx(
             'relative',
