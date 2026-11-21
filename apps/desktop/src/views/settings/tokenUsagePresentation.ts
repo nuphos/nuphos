@@ -259,6 +259,9 @@ export function formatChange(line: TokenUsageLine): string {
   return '0%'
 }
 
+/** 133015.41 → "$133,015.41" in every language: US dollars, beside token counts that always use a period. */
 export function formatUsd(value: number): string {
-  return value < 0.01 && value > 0 ? '<$0.01' : `$${value.toFixed(2)}`
+  if (value < 0.01 && value > 0) return '<$0.01'
+
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }

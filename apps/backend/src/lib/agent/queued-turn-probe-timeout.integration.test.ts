@@ -15,7 +15,7 @@ import { buildPendingUserMessage, enqueuePendingUserMessage } from './pending-me
 import { listPendingUserMessages } from './pending-queue'
 import { startQueuedTurn } from './queued-turn'
 import { installQueuedTurnStarter } from './session-released'
-import { installTurnRunner } from './turn-runner'
+import { useTurnRunner } from './turn-runner-testing'
 
 import type { AgentConversation } from './db'
 import type { AcpSocket } from '@/lib/claude-code-preview/openab-acp-session'
@@ -102,7 +102,7 @@ useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ endpoint }) as never,
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async () => conversation,
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
   getConversationPreviewAttachment: async () => attachment,
@@ -129,7 +129,7 @@ let runs = 0
 const notices: string[] = []
 
 installQueuedTurnStarter(startQueuedTurn)
-installTurnRunner({
+useTurnRunner({
   hasActiveAgentRunForSession: async () => false,
   claimAgentRunForSession: async () => () => {},
   // The notice to a sender whose message did not run.

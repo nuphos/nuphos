@@ -26,7 +26,7 @@ async function openLocalRuntime(page: Page) {
 }
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */
@@ -157,6 +157,8 @@ export const installScenarios: Scenario[] = [
       await code.fill('e2e-code#e2e-state')
       await page.getByRole('button', { name: 'Submit code' }).click()
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
+      // #3916: an Ultra login reads as Ultra, though Claude Code stores "max".
+      await page.getByText('· ultra').waitFor({ timeout: 10_000 })
       await shot(page, 'local-3-signed-in')
       await page.getByRole('button', { name: 'Done', exact: true }).click()
       await page.getByText('Back to app', { exact: true }).click()

@@ -14,7 +14,8 @@ import {
   deletePersonalCredential,
   listPersonalCredentials,
   PERSONAL_CREDENTIAL_PROVIDERS,
-  personalGoogleToken,
+  googleCredentialFor,
+  personalGoogleTokenOf,
   personalOwnToken,
   stagePersonalCredentialOAuth,
   startPersonalCredentialOAuth,
@@ -28,9 +29,7 @@ import { NAMES } from '@/lib/personal-credentials/exchange'
 import { isGoogleProvider, teamGoogleClient } from '@/lib/personal-credentials/google'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
-import { personalCredentials } from '@/models'
 
-import type { GoogleProvider } from '@/lib/personal-credentials/google'
 import type { AuthVariables } from '@/middleware/auth'
 import type { PersonalCredentialProvider } from '@/models'
 
@@ -92,6 +91,7 @@ personalCredentialRoutes.delete('/:provider', requireAuth, async (c) => {
     c.get('userId'),
     providerParam(c.req.param('provider')),
     c.req.query('teamId'),
+    c.req.query('connectionId'),
   )
 
   return c.body(null, 204)
@@ -215,27 +215,26 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
       'This team has not added a Google OAuth client. An administrator can add one in Team settings.',
     )
   }
-  if (await composioCredential(claims.own, provider, teamId)) {
+  const credential = await googleCredentialFor(
+    claims.own,
+    provider,
+    teamId,
+    c.req.query('connectionId'),
+  )
+
+  if (credential?.composioAccountId) {
     throw new AppError(
       409,
       'personal_credential_via_composio',
       'This member connected through Composio: run Google tools with POST /teams/:teamId/composio/execute',
     )
   }
-  const personal = await personalGoogleToken(claims.own, provider, teamId)
+  const personal = credential && (await personalGoogleTokenOf(credential))
 
   if (!personal) throw notConnected(NAMES[provider])
 
   return c.json(handedOut(personal))
 })
-
-const composioCredential = (userId: string, provider: GoogleProvider, teamId: string) =>
-  personalCredentials().findOne({
-    userId,
-    provider,
-    teamId,
-    composioAccountId: { $exists: true },
-  })
 
 // Mounted under /teams/:teamId for conversation tokens: runs one Gmail or
 // Google Drive tool through the session owner's own Composio connection in
@@ -243,11 +242,16 @@ const composioCredential = (userId: string, provider: GoogleProvider, teamId: st
 export const composioRoutes = new Hono()
 
 const executeSchema = z
-  .object({ tool: z.string().max(100), arguments: z.record(z.string(), z.unknown()).default({}) })
+  .object({
+    tool: z.string().max(100),
+    arguments: z.record(z.string(), z.unknown()).default({}),
+    // Which of the member's connected accounts to run as; optional only while there is one.
+    connectionId: z.string().max(40).optional(),
+  })
   .strict()
 
 composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
-  const { tool, arguments: args } = c.req.valid('json')
+  const { tool, arguments: args, connectionId } = c.req.valid('json')
   const provider = composioToolProvider(tool)
 
   if (!provider) {
@@ -258,7 +262,7 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     )
   }
   const claims = await ownerClaims(c.req.header('Authorization') ?? '', provider)
-  const credential = await composioCredential(claims.own, provider, claims.tid)
+  const credential = await googleCredentialFor(claims.own, provider, claims.tid, connectionId)
 
   if (!credential?.composioAccountId) {
     throw notConnected(NAMES[provider])

@@ -13,6 +13,7 @@ import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
 import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
+import { noteTurnSignIn } from './runtime-auth-refusal'
 import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import {
@@ -67,8 +68,12 @@ export {
  * Runs one prompt on the conversation's OpenAB session, streaming text deltas.
  * Reuses the shared Team connection, reattaches with `session/load` after a transport loss, and
  * keeps one active turn per conversation. `unsent`: stopped before the agent received the prompt.
+ * How it ends also notes whether the agent's provider refused its sign-in (runtime-auth-refusal).
  */
-export async function runClaudeCodePreviewPrompt(args: {
+export const runClaudeCodePreviewPrompt = (args: Parameters<typeof promptTurn>[0]) =>
+  noteTurnSignIn(args.teamId, args.endpoint.runtimeId, promptTurn(args))
+
+async function promptTurn(args: {
   teamId: string
   conversationId: string
   userId: string

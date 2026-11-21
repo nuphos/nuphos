@@ -42,6 +42,7 @@ chat_sources=(
   nuphos-ios/Models/Channel.swift \
   nuphos-ios/Views/Home/ChatTime.swift \
   nuphos-ios/Services/Chat/TransferDownloads.swift \
+  nuphos-ios/Services/Chat/MarkdownImages.swift \
   nuphos-ios/Models/AgentConversation.swift \
   nuphos-ios/Services/ConversationNesting.swift \
   nuphos-ios/Services/Chat/BotQuestions.swift \
