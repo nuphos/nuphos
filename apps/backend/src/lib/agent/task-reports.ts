@@ -7,7 +7,8 @@ import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
 import { enqueueTaskReport } from './thread-queue'
 
-export const TASK_STATUSES = ['working', 'waiting', 'ready', 'blocked', 'failed', 'done'] as const
+// No 'working': each report wakes the parent for a turn, and "still working" gives it nothing to do.
+export const TASK_STATUSES = ['waiting', 'ready', 'blocked', 'failed', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskReport = {
   _id: string

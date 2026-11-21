@@ -184,13 +184,17 @@ test('the head of the queue is the oldest transcript message; an app send runs a
 
   expect(queueHead([slack, a, b, h, c], OWNER)).toEqual([a, b])
   expect(queueHead([h, a], OWNER)).toEqual([h])
-  // Agent messages batch only with the same sending session.
+  // Agent messages from different sending sessions run in one turn.
   const other = {
     ...agent('other'),
     metadata: { sender: { type: 'agent', id: 'other-session' } } as never,
   }
 
-  expect(queueHead([a, other, b], OWNER)).toEqual([a])
+  expect(queueHead([a, other, b], OWNER)).toEqual([a, other, b])
+  // A resource event is not folded into agent messages.
+  const event = { ...agent('event'), source: 'agent.resource' }
+
+  expect(queueHead([a, event, b], OWNER)).toEqual([a])
   // An older client's steering message from a teammate is never a head.
   expect(queueHead([{ ...agent('t'), source: 'app', actorUserId: 'teammate' }], OWNER)).toEqual([])
 })

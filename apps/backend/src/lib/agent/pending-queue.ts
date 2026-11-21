@@ -66,13 +66,15 @@ const isTranscriptMessage = (message: PendingUserMessage) =>
 // An agent or a resource event speaks for no person: it never joins a person's turn.
 const AGENT_SOURCES: readonly string[] = ['agent.thread', 'agent.resource']
 
-/** Who a message is from: a person, or the session or resource that sent it. */
+/**
+ * Who a message is from: a person, or agents and resource events by kind. Agent
+ * messages from different sessions run together, so a parent that many Tasks
+ * report to answers its backlog in one turn, not one turn per Task.
+ */
 function senderOf(message: PendingUserMessage, ownerUserId: string): string {
-  const person = message.actorUserId ?? ownerUserId
-
   return AGENT_SOURCES.includes(message.source)
-    ? `${message.source}:${message.metadata?.sender?.id ?? person}`
-    : person
+    ? message.source
+    : (message.actorUserId ?? ownerUserId)
 }
 
 /**
