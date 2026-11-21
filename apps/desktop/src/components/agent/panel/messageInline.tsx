@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { t } from '../../../i18n'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
 
+import { LightboxCorner } from './LightboxCorner'
 import { PdfFrame } from './MediaPreview'
 import { fileNameFromPath } from './textUtils'
 import { MEDIA_BOX } from './transferDownloads'
@@ -267,12 +268,7 @@ export function ImageLightbox({
               </div>
             </>
           )}
-          <Dialog.Close
-            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-surface-sheet text-secondary shadow-lg hover:text-main"
-            aria-label={t('Close preview')}
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2.2} />
-          </Dialog.Close>
+          <LightboxCorner index={i} onDownload={onDownload} />
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>
