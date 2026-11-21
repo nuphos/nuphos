@@ -8,7 +8,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 
 // The most a preview may read into memory, whatever the renderer asks for.
 const READ_BYTES_MAX = 25 * 1024 * 1024
-// The e2e suite has no one to click a save dialog, so a single file goes here (scripts/e2e/desktop.ts).
+// Only scripts/e2e/desktop.ts sets this, because no one is there to click a save dialog. Never set it outside e2e.
 const E2E_SAVE_DIR = process.env.NUPHOS_E2E_SAVE_DIR
 
 // Transfer files read back or saved to disk.
@@ -46,12 +46,10 @@ export const fileTransferReadChannels = {
     },
   ) => {
     const parentWindow = BrowserWindow.fromWebContents(e.sender) ?? undefined
+    const owner = parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never)
     const result = E2E_SAVE_DIR
       ? { canceled: false, filePath: join(E2E_SAVE_DIR, basename(args.fileName)) }
-      : await dialog.showSaveDialog(
-          parentWindow && !parentWindow.isDestroyed() ? parentWindow : (undefined as never),
-          { defaultPath: args.fileName },
-        )
+      : await dialog.showSaveDialog(owner, { defaultPath: args.fileName })
 
     if (result.canceled || !result.filePath) return { saved: false }
     await fileTransfer.downloadOne({ ...args, destPath: result.filePath })
