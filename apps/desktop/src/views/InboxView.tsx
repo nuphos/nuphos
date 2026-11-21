@@ -1,5 +1,5 @@
 import { Inbox } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 
 import { EmptyState } from '../components/EmptyState'
 import { toast } from '../components/ui/toast'
@@ -8,10 +8,13 @@ import { t } from '../i18n'
 
 import { ChannelMentions } from './inbox/ChannelMentions'
 import { DecisionCard } from './inbox/DecisionCard'
-import { dismissQuestions } from './inbox/dismissAll'
-import { DismissAllButton } from './inbox/DismissAllButton'
 import { openQuestion, shownQuestions } from './inbox/inboxItems'
-import { selectInboxQuestion, useInboxSelection } from './inbox/inboxSelection'
+import {
+  selectInboxQuestion,
+  shareInboxSearch,
+  useDismissAllAsking,
+  useInboxSelection,
+} from './inbox/inboxSelection'
 import { openListed } from './inbox/openListed'
 import { useChannelMentions } from './inbox/useChannelMentions'
 import { snoozeQuestion } from './inbox/dismissQuestion'
@@ -30,21 +33,11 @@ type Props = {
   onOpenConversation: (sessionId: string) => void
 }
 
-/** Dismisses `questions` at once, as a single Dismiss is. Those refused come back in the list, and a toast counts them. */
-function dismissAll(teamId: string, questions: readonly InboxQuestion[]) {
-  dismissQuestions(teamId, questions, ({ failed, reason }) => {
-    if (failed.length === 1) toast.error(t('Could not dismiss question'), reason)
-    else if (failed.length > 1)
-      toast.error(t('Could not dismiss {n} questions', { n: failed.length }))
-  })
-}
-
 /**
  * Teammates asking to use the viewer's own computer and channel @mentions,
  * above one open question at a time, the one the sidebar's Inbox list opens.
  * Answering or dismissing it opens the next and wakes the agent that asked at once.
- * Snooze sets it aside until a time, and "Dismiss all" dismisses every question shown.
- * ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
+ * Snooze sets it aside until a time. ↑ ↓ move between them. Who asked opens from the question's source line, where the sidebar lists it.
  */
 export function InboxView({
   teamId,
@@ -55,9 +48,9 @@ export function InboxView({
   onOpenConversation,
 }: Props) {
   const { isActive } = useWorkspaceTab()
-  const [confirming, setConfirming] = useState(false)
-  // Keys rest while "Dismiss all" asks first.
-  const keys = isActive && !confirming
+  const asking = useDismissAllAsking(teamId)
+  // Keys rest while the sidebar's "Dismiss all" asks first.
+  const keys = isActive && !asking
   const all = useInboxQuestions(teamId, refreshKey)
   const selected = useInboxSelection(teamId)
   // An invite is only announced, never listed.
@@ -71,6 +64,13 @@ export function InboxView({
   useEffect(() => {
     if (openId) selectInboxQuestion(teamId, openId)
   }, [teamId, openId])
+  // The sidebar's list follows the search while this page is on screen.
+  useEffect(() => {
+    if (!isActive) return
+    shareInboxSearch(teamId, query)
+
+    return () => shareInboxSearch(teamId, '')
+  }, [teamId, query, isActive])
   useEffect(() => onLoading?.(all === null), [all, onLoading])
   useEffect(() => onCount?.(all?.length ?? 0), [all?.length, onCount])
 
@@ -121,13 +121,6 @@ export function InboxView({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <DismissAllButton
-        questions={rows}
-        active={isActive}
-        confirming={confirming}
-        onConfirming={setConfirming}
-        onConfirm={(questions) => dismissAll(teamId, questions)}
-      />
       <ChannelMentions
         mentions={mentions}
         onOpen={(sessionId) =>

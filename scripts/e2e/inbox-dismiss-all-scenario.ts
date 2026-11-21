@@ -1,4 +1,4 @@
-// "Dismiss all" in the Inbox, through the real routes: Cancel keeps every question, else each asker is told.
+// "Dismiss all" in the sidebar's Inbox header, through the real routes: Cancel keeps every question, else each asker is told.
 import { agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
@@ -19,31 +19,45 @@ const light = (page: Page) =>
     document.documentElement.classList.add('light')
   })
 
-/** Opens "Dismiss all", checks it counts the two questions the Inbox shows, and confirms or cancels. */
-async function dismissAll(page: Page, button: 'Dismiss all' | 'Cancel', shot?: string) {
+/** The questions the sidebar's Inbox list shows, by id. */
+const listed = (page: Page) =>
+  page
+    .locator('[data-inbox-question]')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('data-inbox-question') ?? '').sort())
+
+/** Opens the sidebar's "Dismiss all" and checks its dialog says `title`. */
+async function openDismissAll(page: Page, title: string, shot?: string) {
   await page.getByRole('button', { name: 'Dismiss all', exact: true }).click()
   const dialog = page.getByRole('alertdialog')
 
-  await dialog.getByText('Dismiss 2 questions?').waitFor()
+  await dialog.getByText(title, { exact: true }).waitFor()
   await dialog.getByText("Each Bot or Task that asked is told you won't answer.").waitFor()
   if (shot) await page.screenshot({ path: `${artifacts}/${shot}` })
+
+  return dialog
+}
+
+/** With the search on, "Dismiss all" names the two matches the sidebar lists, then `button` answers it. */
+async function dismissMatches(page: Page, button: 'Dismiss all' | 'Cancel', shot?: string) {
+  const dialog = await openDismissAll(page, 'Dismiss 2 matching questions?', shot)
+
   await dialog.getByRole('button', { name: button, exact: true }).click()
   await dialog.waitFor({ state: 'hidden' })
 }
 
 export const inboxDismissAllScenario: Scenario = {
-  name: 'dismiss all the questions shown in the Inbox: Cancel keeps them open, else each asker is told',
+  name: 'dismiss all the questions the sidebar lists: Cancel keeps them open, else each asker is told',
   run: async (page, stack) => {
     const owner = client(stack.apiUrl, stack.token)
     const open = async () => {
-      const listed = await owner(
+      const response = await owner(
         'GET',
         `/agent/conversations?teamId=${stack.teamId}&pendingDecision=true`,
       )
 
       return MARKERS.map(
         (marker) =>
-          (listed.body as Listed).conversations.find((row) => row.firstMessage?.includes(marker))
+          (response.body as Listed).conversations.find((row) => row.firstMessage?.includes(marker))
             ?.inputRequests?.[0]?.id,
       )
     }
@@ -64,22 +78,40 @@ export const inboxDismissAllScenario: Scenario = {
       await page.getByText(`ACK ${marker}`).waitFor()
     }
     await until('both questions to be listed', async () => (await open()).every(Boolean))
-    const [first] = await open()
+    const ids = (await open()) as string[]
 
     await page.getByRole('tab', { name: 'Inbox' }).click()
-    await page.locator(`[data-inbox-question="${first}"]`).click()
-    // Other scenarios' questions may still be open; the search keeps "Dismiss all" to these two.
-    await page.getByRole('textbox', { name: 'Filter' }).fill('dismiss-all')
+    await page.locator(`[data-inbox-question="${ids[0]}"]`).click()
     await light(page)
     await page.getByRole('button', { name: 'Dismiss all', exact: true }).waitFor()
-    await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-light.png` })
+    await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-sidebar-light.png` })
+
+    // Without a search it names every question listed, here with other scenarios' still open.
+    const all = (await listed(page)).length
+    const plain = await openDismissAll(
+      page,
+      `Dismiss ${String(all)} questions?`,
+      'inbox-dismiss-all-confirm-all-light.png',
+    )
+
+    await plain.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await plain.waitFor({ state: 'hidden' })
+
+    // The search narrows the sidebar's list to its two matches, and "Dismiss all" to them.
+    await page.getByRole('textbox', { name: 'Filter' }).fill('dismiss-all')
+    await until('the sidebar to list only the two matches', async () => {
+      const shown = await listed(page)
+
+      return JSON.stringify(shown) === JSON.stringify([...ids].sort())
+    })
+    await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-search-light.png` })
 
     // Cancelled, nothing is sent: both stay open and neither asker is told.
-    await dismissAll(page, 'Cancel', 'inbox-dismiss-all-confirm-light.png')
+    await dismissMatches(page, 'Cancel', 'inbox-dismiss-all-confirm-light.png')
     must((await open()).every(Boolean), 'both questions to stay open after Cancel')
     must(told() === 0, `no asker to be told after Cancel, ${String(told())} were`)
 
-    await dismissAll(page, 'Dismiss all')
+    await dismissMatches(page, 'Dismiss all')
     await until('both askers to be told', async () => told() === 2)
     await until('both questions to close', async () => (await open()).every((id) => !id))
     await page.screenshot({ path: `${artifacts}/inbox-dismiss-all-done-light.png` })

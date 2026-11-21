@@ -1,63 +1,84 @@
-import { X } from 'lucide-react'
-import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { CheckCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { Button } from '../../components/ui/button'
-import { useToolbarSlot } from '../../hooks/useToolbarControls'
+import { iconButton } from '../../components/sidebar/project-actions'
+import { toast } from '../../components/ui/toast'
+import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
+
+import { dismissQuestions } from './dismissAll'
+import { setDismissAllAsking, useInboxSearch } from './inboxSelection'
 
 import type { InboxQuestion } from './inboxItems'
 
+/** Dismisses `questions` at once. Those refused come back in the list, and a toast counts them. */
+function dismissAll(teamId: string, questions: readonly InboxQuestion[]) {
+  dismissQuestions(teamId, questions, ({ failed, reason }) => {
+    if (failed.length === 1) toast.error(t('Could not dismiss question'), reason)
+    else if (failed.length > 1)
+      toast.error(t('Could not dismiss {n} questions', { n: failed.length }))
+  })
+}
+
+type Props = {
+  teamId: string
+  /** The questions the sidebar's list shows. */
+  questions: readonly InboxQuestion[]
+}
+
 /**
- * "Dismiss all" in the Inbox page's header, beside its search and count, for
- * the questions it shows when there is more than one. It asks first; while it
- * asks, the Inbox's own keys rest, so a digit cannot answer the question behind.
+ * "Dismiss all" at the right of the sidebar's Inbox header, for the questions its list shows:
+ * with a search on the Inbox page, only the matches. Hidden while the list is empty.
  */
-export function DismissAllButton({
-  questions = [],
-  active,
-  confirming,
-  onConfirming,
-  onConfirm,
-}: {
-  /** The questions the Inbox shows; undefined while it loads. */
-  questions?: readonly InboxQuestion[]
-  active: boolean
-  confirming: boolean
-  onConfirming: (open: boolean) => void
-  onConfirm: (questions: readonly InboxQuestion[]) => void
-}) {
+export function DismissAllButton(props: Props) {
+  // Emptied meanwhile, as when they were answered in a chat, it goes, and stops asking.
+  return props.questions.length > 0 ? <DismissAll {...props} /> : null
+}
+
+/** It asks first, and the Inbox's keys rest meanwhile. */
+function DismissAll({ teamId, questions }: Props) {
+  const [confirming, setConfirming] = useState(false)
+  const searching = useInboxSearch(teamId).trim() !== ''
   const count = questions.length
-  const slot = useToolbarSlot('right', active && count > 1)
 
-  // Nothing left to dismiss all of, as when they were answered meanwhile in a chat: it stops asking.
   useEffect(() => {
-    if (confirming && count < 2) onConfirming(false)
-  }, [confirming, count, onConfirming])
+    setDismissAllAsking(teamId, confirming)
 
-  if (!slot) return null
+    return () => setDismissAllAsking(teamId, false)
+  }, [teamId, confirming])
 
-  return createPortal(
+  return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="h-7 flex-shrink-0 gap-1.5 px-2.5 text-[12px]"
-        onClick={() => onConfirming(true)}
+      <Tooltip
+        content={t('Dismiss all')}
+        trigger={
+          <button
+            type="button"
+            aria-label={t('Dismiss all')}
+            onClick={() => setConfirming(true)}
+            className={`ml-auto ${iconButton}`}
+          />
+        }
       >
-        <X className="size-3.5" aria-hidden />
-        {t('Dismiss all')}
-      </Button>
+        <CheckCheck className="h-3.5 w-3.5" strokeWidth={2} />
+      </Tooltip>
       <ConfirmDialog
         open={confirming}
-        title={t('Dismiss {n} questions?', { n: count })}
+        title={
+          searching
+            ? count === 1
+              ? t('Dismiss 1 matching question?')
+              : t('Dismiss {n} matching questions?', { n: count })
+            : count === 1
+              ? t('Dismiss 1 question?')
+              : t('Dismiss {n} questions?', { n: count })
+        }
         description={t("Each Bot or Task that asked is told you won't answer.")}
         confirmLabel={t('Dismiss all')}
-        onConfirm={() => onConfirm(questions)}
-        onClose={() => onConfirming(false)}
+        onConfirm={() => dismissAll(teamId, questions)}
+        onClose={() => setConfirming(false)}
       />
-    </>,
-    slot,
+    </>
   )
 }

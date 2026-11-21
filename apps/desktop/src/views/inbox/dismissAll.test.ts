@@ -30,6 +30,7 @@ Object.defineProperty(globalThis, 'window', {
 
 const inbox = await import('./useInbox.ts')
 const { dismissQuestions } = await import('./dismissAll.ts')
+const { inboxSearch, shareInboxSearch } = await import('./inboxSelection.ts')
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 const later = new Date(Date.now() + 3_600_000).toISOString()
@@ -60,6 +61,14 @@ test('"Dismiss all" clears the questions shown: not snoozed ones, nor ones outsi
   assert.deepEqual(ids(shown()), ['a1', 'b1'], 'a snoozed or shared question is not shown')
   assert.deepEqual(ids(shown('retry')), ['b1'])
   assert.deepEqual(ids(shown('release')), ['a1'], "a conversation's title finds its questions")
+})
+
+test("the sidebar lists the Inbox page search's matches, and all of them once it is gone", () => {
+  shareInboxSearch('team', 'retry')
+  assert.deepEqual(ids(shown(inboxSearch('team'))), ['b1'], '"Dismiss all" there takes only b1')
+  assert.equal(inboxSearch('other'), '', "another team's list is not narrowed")
+  shareInboxSearch('team', '')
+  assert.deepEqual(ids(shown(inboxSearch('team'))), ['a1', 'b1'])
 })
 
 test('they all leave at once, and each is dismissed on its own at once', async () => {
