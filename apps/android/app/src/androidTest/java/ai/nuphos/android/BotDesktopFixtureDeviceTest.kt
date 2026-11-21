@@ -314,7 +314,9 @@ class BotDesktopFixtureDeviceTest {
         nonOwner = true
         render("chat-plain")
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
+        captureComposer("bot-composer-android-locked-before")
         compose.onNodeWithTag("bot-composer.runtime").performClick()
+        captureComposer("bot-composer-android-locked-after")
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Only the owner can change model settings.").fetchSemanticsNodes().isNotEmpty() &&
                 compose.onNodeWithText("Only the owner can change model settings.").isDisplayed()

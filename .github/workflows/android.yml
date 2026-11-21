@@ -73,7 +73,7 @@ jobs:
           target: google_apis
           disable-animations: true
           working-directory: apps/android
-          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest
+          script: ./gradlew --no-daemon :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=ai.nuphos.android.BotDesktopFixtureDeviceTest
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         # Green runs keep the per-test report too, so a pull request can show that a test ran and passed.
         if: ${{ !cancelled() }}
