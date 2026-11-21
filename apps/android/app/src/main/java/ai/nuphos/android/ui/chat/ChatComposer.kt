@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -730,11 +731,11 @@ fun ChatComposer(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (onChooseAgent != null || agentLabel != null) {
-                            if (lockedHint != null) Box(Modifier.testTag("bot-composer.runtime").clickable { showLockedHint = true }) {
+                            if (lockedHint != null) Box(Modifier.widthIn(max = 175.dp).testTag("bot-composer.runtime").clickable { showLockedHint = true }) {
                                 AgentChip(agent, enabled = false, onClick = {}, labelOverride = agentLabel)
                             } else AgentChip(agent, enabled = agentEnabled,
                                 onClick = onChooseAgent ?: { showAgentUsage = true }, labelOverride = agentLabel,
-                                modifier = if (botControls) Modifier.testTag("bot-composer.runtime") else Modifier)
+                                modifier = if (botControls) Modifier.widthIn(max = 175.dp).testTag("bot-composer.runtime") else Modifier)
                         }
                         if (modelSettings != null) {
                             if (lockedHint != null) Box(Modifier.testTag("bot-composer.model").clickable { showLockedHint = true }) {

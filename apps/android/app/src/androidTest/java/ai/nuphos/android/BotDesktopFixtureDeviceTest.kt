@@ -301,10 +301,11 @@ class BotDesktopFixtureDeviceTest {
         composerFixture = true
         render("chat-plain")
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-composer.runtime").assertExists()
         captureComposer("bot-composer-android-owner")
         compose.onNodeWithTag("bot-composer.model").performClick()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Model").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Opus").fetchSemanticsNodes().isNotEmpty() }
         captureComposer("bot-composer-android-model")
     }
 
@@ -314,6 +315,10 @@ class BotDesktopFixtureDeviceTest {
         render("chat-plain")
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-composer.runtime").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Only the owner can change model settings.").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onNodeWithText("Only the owner can change model settings.").isDisplayed()
+        }
         compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
         captureComposer("bot-composer-android-locked")
     }
