@@ -187,6 +187,7 @@ export async function startStack(
     return spawn(`openab-${agent}`, [findOpenab(), 'run', '-c', config], {
       env: {
         HOME: home,
+        E2E_4302_TRACE: '1',
         GATEWAY_ALLOWED_USERS: 'acp_client',
         OPENAB_ACP_ENABLED: 'true',
         OPENAB_ACP_AUTH_KEY: AUTH_KEY,

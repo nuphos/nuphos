@@ -235,6 +235,11 @@ async function answer(request) {
     case 'session/prompt':
       return prompt(request.params)
     case 'session/load':
+      log({ sessionId: request.params.sessionId, event: 'load-start', at: Date.now() })
+      while (existsSync(process.env.E2E_HOLD_OPENING)) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      log({ sessionId: request.params.sessionId, event: 'load-released', at: Date.now() })
       // A restarted host loads the session with its tools again, as it opened it.
       setToolsServer(
         request.params.sessionId,

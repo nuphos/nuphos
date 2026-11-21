@@ -3,7 +3,7 @@
 import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
@@ -115,6 +115,40 @@ const scenarios: Scenario[] = [
       await until('the answer in the Bot chat to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
       )
+    },
+  },
+  {
+    name: 'observe one Bot reply after a held session load and one on the live session',
+    run: async (page, stack) => {
+      const botSession = agentLog(stack).find((entry) => entry.event === 'channel')?.sessionId
+      if (!botSession) throw new Error('E2E_4302: Bot fixture session not found')
+      const loads = () =>
+        agentLog(stack).filter((entry) => entry.event === 'load-start' && entry.sessionId === botSession).length
+      const loadingBefore = loads()
+      const release = stack.holdSessionOpening()
+      const restored = 'E2E_DELIVERY:observe-restore'
+      const live = 'E2E_DELIVERY:observe-live'
+      const posted = (marker: string) =>
+        agentLog(stack).filter((entry) => entry.event === 'channel-posted' && entry.marker === marker && entry.sessionId === botSession).length
+
+      try {
+        await stack.restartAgentHost()
+        await send(page, `Reply after restore ${restored}`)
+        await until('the fixture to start loading', async () =>
+          loads() > loadingBefore,
+        )
+        console.log(`E2E_4302: ${new Date().toISOString()} load-start observed; releasing held session/load`)
+      } finally {
+        release()
+      }
+      await page.getByText(`POSTED ${restored}`, { exact: true }).waitFor({ timeout: 120_000 })
+      await until('the restored reply to be recorded', async () => posted(restored) >= 1)
+      await send(page, `Reply on live session ${live}`)
+      await page.getByText(`POSTED ${live}`, { exact: true }).waitFor({ timeout: 120_000 })
+      await until('the live reply to be recorded', async () => posted(live) >= 1)
+      console.log(`E2E_4302: channel-posted restore=${String(posted(restored))} live=${String(posted(live))}`)
+      if (posted(restored) !== 1 || posted(live) !== 1)
+        throw new Error('E2E_4302: a Bot message did not complete exactly once')
     },
   },
   ...botUnreadScenarios,

@@ -1061,6 +1061,14 @@ impl SessionPool {
             )
         };
 
+        if std::env::var_os("E2E_4302_TRACE").is_some() {
+            info!(
+                thread_id = %thread_id,
+                existing = existing.is_some(),
+                saved = saved_session_id.is_some(),
+                "e2e4302 gate acquired"
+            );
+        }
         let had_existing = existing.is_some();
         let mut saved_session_id = saved_session_id;
         if let Some(handle) = existing {

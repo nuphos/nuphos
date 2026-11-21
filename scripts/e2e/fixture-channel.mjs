@@ -75,8 +75,11 @@ export async function answerChannel({ call, log, sessionId, channelId, text, ask
     ...(asked ? { replyTo: Number(asked[1]) } : {}),
   }
 
-  if (!permit || (await permit('channel_post', answer)) === 'allow')
-    await call(sessionId, 'channel_post', answer)
+  if (!permit || (await permit('channel_post', answer)) === 'allow') {
+    const posted = await call(sessionId, 'channel_post', answer)
+
+    if (!posted.error && !posted.result?.isError) log({ sessionId, event: 'channel-posted', marker, at: Date.now() })
+  }
   if (permit)
     await permit('channel_post', { label: 'Elsewhere', channelId: 'e2e-other-channel', text: 'x' })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
