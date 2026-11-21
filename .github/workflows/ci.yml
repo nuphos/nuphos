@@ -116,10 +116,11 @@ jobs:
               - 'apps/runtime/image/antigravity-status.mjs'
               - '.bun-version'
               - '.github/workflows/ci.yml'
-            # electron main imports runtime-file-program.ts from the backend.
+            # electron main imports these program texts from the backend.
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               # The local runtime bundles most of the runtime image (apps/runtime/README.md).
               - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
@@ -131,6 +132,7 @@ jobs:
               - 'apps/desktop/*'
               - 'apps/desktop/native/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'

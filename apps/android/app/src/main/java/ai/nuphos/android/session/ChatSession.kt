@@ -1269,6 +1269,8 @@ class ChatSession(
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
             )
             var needsFreshRetry = false
+            // A signed-out or out-of-usage runtime fails every retry the same way.
+            var runtimeCannotRun = false
             var terminal = false
             var queuedByServer = false
             var streamError: Throwable? = null
@@ -1292,6 +1294,7 @@ class ChatSession(
                             // Another turn took the runtime mid-start; the server put the message back at the head of the queue.
                             if (code == "message_queued") { queuedByServer = true; throw Terminal() }
                             lastErrorText = frame["errorText"]?.stringValue ?: Words(R.string.convtext_agent_error)
+                            runtimeCannotRun = code == "runtime_auth_required" || code == "runtime_usage_exhausted"
                             needsFreshRetry = true
                             return@collect
                         }
@@ -1403,7 +1406,7 @@ class ChatSession(
             }
             if (!coroutineContext.isActive) return TurnResult.Aborted
             if (needsFreshRetry) {
-                if (isNative || options.explicitResume || toolExecutionMayHaveStarted) {
+                if (isNative || options.explicitResume || toolExecutionMayHaveStarted || runtimeCannotRun) {
                     return TurnResult.Failed(lastErrorText ?: Words(R.string.convtext_agent_error))
                 }
                 freshRetries += 1

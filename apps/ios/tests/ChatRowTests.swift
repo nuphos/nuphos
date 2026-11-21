@@ -295,7 +295,7 @@ enum ChatRowTests {
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {
-        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message."
+        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message."
         let failed = ChatMessage(id: "m", role: .assistant, parts: [interrupted(.error, signIn)])
         // The turn's own stream error repeats the interruption, so it is hidden…
         precondition(ChatRow.shownFailure(in: [failed]) == signIn)

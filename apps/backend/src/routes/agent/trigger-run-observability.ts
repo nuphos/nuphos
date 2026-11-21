@@ -1,9 +1,10 @@
 import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import { userSetupFailure } from '@/lib/claude-code-preview/plain-failure'
 import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
+import { errorTelemetryProperties } from '@/lib/observability'
 import { captureException } from '@/lib/posthog'
 
-import { traceAgentChatError } from './trace'
+import { traceAgentChatError, traceAgentChatEvent } from './trace'
 
 import type { AgentRunTrace } from './types'
 
@@ -28,12 +29,25 @@ function agentState(error: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * Logs a trigger turn that did not run, and says whether it failed. A busy runtime's refusal of
+ * a turn the queue sends again (`resent`) is expected: a warning, and not a failure.
+ */
 export function recordTriggerRunFailure(
   error: unknown,
   trace: AgentRunTrace,
   source: string,
   runtime: { buildSha?: string; adapterVersion?: string } = {},
-): void {
+  resent = false,
+): boolean {
+  if (resent && isRuntimeRefusal(error)) {
+    traceAgentChatEvent('warn', 'agent.turn.requeued_busy', trace, {
+      source,
+      ...errorTelemetryProperties(error),
+    })
+
+    return false
+  }
   const state = agentState(error)
   const errorContext = {
     source,
@@ -44,7 +58,7 @@ export function recordTriggerRunFailure(
   }
 
   traceAgentChatError('agent.trigger.request.error', error, trace, errorContext)
-  if (state) return
+  if (state) return true
   captureException(error, {
     source: 'agent.trigger.request',
     distinctId: trace.userId,
@@ -57,4 +71,6 @@ export function recordTriggerRunFailure(
       ...errorContext,
     },
   })
+
+  return true
 }

@@ -39,13 +39,15 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
 
 /**
  * A failed turn on a computer below the support floor, or with a newer Nuphos waiting, says so:
- * the error is the one thing every client shows, old ones included. A refusal stays as it is.
+ * the error is the one thing every client shows, old ones included. A refusal stays as it is,
+ * and so does a sign-in or usage failure, whose fix is not an update.
  */
 export async function noteOutdated(
   error: unknown,
   local: { userId: string; deviceId: string } | undefined,
 ): Promise<void> {
   if (!local || !(error instanceof Error) || isRuntimeRefusal(error)) return
+  if (['auth', 'usage_limit'].includes(turnFailureCause(error))) return
   const hint = await runtimePresenceStore()
     .get(local.userId, local.deviceId)
     .then(async (presence) => {
@@ -55,8 +57,7 @@ export async function noteOutdated(
     })
     .catch(() => undefined)
 
-  if (hint)
-    error.message += `${/[.!?]$/u.test(error.message) || turnFailureCause(error) === 'usage_limit' ? '' : '.'}\n\n${hint}`
+  if (hint) error.message += `${/[.!?]$/u.test(error.message) ? '' : '.'}\n\n${hint}`
 }
 
 /** The message waits in the session queue: the expected outcome, not a failure. */
