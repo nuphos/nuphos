@@ -56,6 +56,11 @@ the only copy of `webhookSecret`, the external `webhookUrl`, and
 `secretHeader`. Never print or persist the secret in a skill, log, or final
 answer.
 
+PATCH accepts `name`, `messageTemplate`, `enabled`, `cronExpression`,
+`timeZone`, `minIntervalSeconds` and `expiresAt`. A new `expiresAt` must be a
+future ISO timestamp; `null` removes the expiry. A Trigger the hourly sweep
+already turned off stays off until you also send `{ "enabled": true }`.
+
 `targetSessionId` is required on every create. It names the Task the trigger
 belongs to, for good:
 
