@@ -176,6 +176,10 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+]
+
+// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
+const later: Scenario[] = [
   ...computerScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
@@ -209,7 +213,15 @@ const scenarios: Scenario[] = [
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
+  formScenario,
 ]
+const shard = process.env.E2E_SHARD
+const selected =
+  shard === '1'
+    ? scenarios
+    : shard === '2'
+      ? [...signInScenarios, ...later]
+      : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
@@ -220,7 +232,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+  for (const [index, scenario] of selected.entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 
