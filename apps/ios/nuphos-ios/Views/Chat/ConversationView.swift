@@ -454,7 +454,7 @@ struct ConversationView: View {
             ) {
                 if session.canManage { ComposerControls(
                     selection: Binding(
-                        get: { session.credentialAccess ?? CredentialSelection() },
+                        get: { (session.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
                         set: { session.setCredentials($0) }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
