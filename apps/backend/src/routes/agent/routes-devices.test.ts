@@ -513,8 +513,9 @@ describe('agent device routes', () => {
 
         return boxDevice(userId, deviceId)
       },
-      destroy: async (_userId, deviceId) => {
-        calls.push(`destroy ${deviceId}`)
+      delete: async (userId, deviceId) => {
+        calls.push(`delete ${deviceId}`)
+        delete devices[key(userId, deviceId)]
 
         return true
       },
@@ -723,52 +724,26 @@ describe('agent device routes', () => {
     const removed = await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })
 
     expect(removed.status).toBe(200)
-    expect(calls).toEqual(['pause b1', 'resume b1', 'destroy b1'])
-    expect(disconnected).toEqual([key('user-1', 'b1')])
-    expect(devices[key('user-1', 'b1')]).toBeUndefined()
-  })
-
-  test('DELETE revokes the Box credential only once its machine is gone', async () => {
-    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
-    credentials.add(key('user-1', 'b1'))
-    const seen: string[] = []
-    const box: BoxDeps = {
-      ...fakeBox([]),
-      destroy: async () => {
-        seen.push(`destroy with credential ${String(credentials.has(key('user-1', 'b1')))}`)
-
-        return true
-      },
-    }
-
-    expect(
-      (await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' }))
-        .status,
-    ).toBe(200)
-    expect(seen).toEqual(['destroy with credential true'])
-    expect(disconnected).toEqual([key('user-1', 'b1')])
-    expect(credentials.has(key('user-1', 'b1'))).toBe(false)
+    expect(calls).toEqual(['pause b1', 'resume b1', 'delete b1'])
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
   test('DELETE deletes a Box whose machine instabox would not kill, and says it may still run', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
-    const box: BoxDeps = { ...fakeBox([]), destroy: async () => false }
+    const box: BoxDeps = { ...fakeBox([]), delete: async () => false }
     const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
       method: 'DELETE',
     })
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ ok: true, machineLeft: true })
-    expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
   test('DELETE keeps a Box whose machine is still pausing, so a later delete finds it', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
-    credentials.add(key('user-1', 'b1'))
     const box: BoxDeps = {
       ...fakeBox([]),
-      destroy: () =>
+      delete: () =>
         Promise.reject(
           new AppError(409, 'box_busy', 'The computer is still pausing. Try again in a minute.'),
         ),
@@ -778,10 +753,7 @@ describe('agent device routes', () => {
     })
 
     expect(response.status).toBe(409)
-    expect(devices[key('user-1', 'b1')]).toBeDefined()
-    // Still usable: its host keeps its credential and its tunnel.
-    expect(credentials.has(key('user-1', 'b1'))).toBe(true)
-    expect(disconnected).toEqual([])
+    expect(await response.json()).toMatchObject({ error: { code: 'box_busy' } })
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []

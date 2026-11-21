@@ -44,8 +44,11 @@ export type BoxProvider = {
   create: typeof createBox
   pause: (userId: string, deviceId: string) => Promise<AgentDevice>
   resume: (userId: string, deviceId: string) => Promise<AgentDevice>
-  /** False when the machine may still run at the provider; the computer is deleted either way. */
-  destroy: (userId: string, deviceId: string) => Promise<boolean>
+  /**
+   * Kills the machine, then removes the computer; a machine still pausing throws and the
+   * computer stays. False when the machine may still run at the provider.
+   */
+  delete: (userId: string, deviceId: string) => Promise<boolean>
   /** Starts the host again on a running machine whose host dropped; rate-limited. */
   heal: (userId: string, deviceId: string) => void
   /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */

@@ -243,10 +243,7 @@ export function createAgentDeviceBoxRoutes(deps: AgentDeviceRouteDependencies) {
     )
 
     // A Box whose machine is still pausing throws here and stays usable, credential and all.
-    const killed = await requireBoxes().destroy(userId, deviceId)
-
-    if (await deps.revokeCredential(userId, deviceId)) await deps.disconnect(userId, deviceId)
-    await deps.deleteDevice(userId, deviceId)
+    const killed = await requireBoxes().delete(userId, deviceId)
 
     // Deleted either way; the owner hears when its machine may still run at the provider.
     return c.json({ ok: true, ...(killed ? {} : { machineLeft: true }) })
