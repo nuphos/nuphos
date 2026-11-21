@@ -13,10 +13,15 @@ export async function loadEarlier(page: Page, title: string) {
   const drawn = await posts.count()
 
   if (drawn !== DRAWN) throw new Error(`${title} opened with ${String(drawn)} posts drawn`)
-  await page
+  const button = page
     .getByRole('button', { name: 'Load earlier messages' })
     .filter({ visible: true })
-    .click()
+
+  // Scrolled up first, as a reader is: a click in the frame it scrolls in comes before the chat
+  // hears of the scroll, so it would still follow the bottom.
+  await button.scrollIntoViewIfNeeded()
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => setTimeout(done))))
+  await button.click()
   await posts.first().waitFor()
   const all = await posts.count()
   const top = page.getByText(`${title} post ${String(LONG_POSTS - DRAWN + 1)}`, {
