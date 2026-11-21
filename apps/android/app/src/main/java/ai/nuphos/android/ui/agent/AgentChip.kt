@@ -24,7 +24,7 @@ import ai.nuphos.android.session.RuntimeSelections
  * The current Agent, shown next to Send. Tapping opens its picker or usage details.
  */
 @Composable
-fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick: () -> Unit, labelOverride: String? = null, modifier: Modifier = Modifier) {
+fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick: () -> Unit, labelOverride: String? = null, modifier: Modifier = Modifier, constrained: Boolean = false) {
     val selected = selection?.selected
     val label = labelOverride ?: when {
         selection?.reselectionRequired == true -> stringResource(R.string.agent_choose_available_runtime)
@@ -42,7 +42,7 @@ fun AgentChip(selection: RuntimeSelections.Selection?, enabled: Boolean, onClick
         else Icon(Icons.Outlined.Memory, contentDescription = null, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false).widthIn(max = 160.dp))
+            modifier = if (constrained) Modifier.weight(1f, fill = false).widthIn(max = 160.dp) else Modifier.widthIn(max = 160.dp))
         Spacer(Modifier.width(2.dp))
         Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null, modifier = Modifier.size(16.dp))
     }
