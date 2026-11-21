@@ -87,7 +87,7 @@ export const PROVIDERS = {
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
     // A refused turn never ends on its own: see opencode-session.mjs.
-    refusal: openCodeRefusal,
+    refusal: true,
   },
   hermes: {
     command: ['hermes', 'acp'],
@@ -264,20 +264,27 @@ export function runShim({
   let agent
   let agentEnvironment
   let agentEndpoint
+  let pendingInitialize
+  let restarting
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
 
-  const start = async (env) => {
-    agent?.kill('SIGTERM')
+  const start = async (env, withoutStatus = false) => {
+    const previous = agent
+
+    agent = undefined
+    previous?.kill('SIGTERM')
     let endpoint
-    if (provider === 'opencode') {
+    if (provider === 'opencode' && !withoutStatus) {
       try {
         endpoint = await openCodeEndpoint()
       } catch {
         // A missing status endpoint must not prevent an otherwise normal turn.
       }
     }
+    const originalEnv = env
+
     if (endpoint) env = { ...env, OPENCODE_SERVER_PASSWORD: endpoint.password }
     // A computer running the agent locally names its own CLI, which may be off PATH.
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
@@ -293,8 +300,19 @@ export function runShim({
     agentEnvironment = env
     agentEndpoint = endpoint
     // The agent is the session: when it ends, so does this process.
+    let initialized = false
     child.on('exit', (code) => {
-      if (agent === child) onExit(code ?? 1)
+      if (agent !== child) return
+      if (endpoint && !initialized) {
+        const retry = pendingInitialize
+
+        restarting = start(originalEnv, true).then(() => {
+          if (retry && pendingInitialize === retry) send(retry)
+        })
+        void restarting.catch(() => onExit(code ?? 1))
+        return
+      }
+      onExit(code ?? 1)
     })
     createInterface({ input: child.stdout }).on('line', (line) => {
       if (agent !== child) return
@@ -303,6 +321,10 @@ export function runShim({
         message = JSON.parse(line)
       } catch {
         return output.write(`${line}\n`)
+      }
+      if (pendingInitialize && message.id === pendingInitialize.id && !message.method) {
+        initialized = true
+        pendingInitialize = undefined
       }
       fromAgent(message)
     })
@@ -422,7 +444,10 @@ export function runShim({
     }
     forward(message)
   }
-  const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
+  const send = (message) => {
+    if (message.method === 'initialize') pendingInitialize = message
+    agent.stdin.write(`${JSON.stringify(message)}\n`)
+  }
   const watchRefusal = (id, sessionId) => {
     heard.set(sessionId, Date.now())
     let checking = false
@@ -474,6 +499,7 @@ export function runShim({
       // before it opens the session. The client already holds the initialize answer.
       boundHome = env.NUPHOS_SESSION_HOME ?? ''
       await start(env)
+      if (restarting) await restarting
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
@@ -511,6 +537,7 @@ export function runShim({
   }
 
   const handle = async (message) => {
+    if (restarting) await restarting
     if (message.method === 'initialize') {
       // OpenAB offers to run terminals itself, in the gateway's environment rather
       // than this session's. The agent runs its own commands, as Claude and Codex do.

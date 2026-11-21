@@ -51,7 +51,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRef
     runtimeEnv: { HOME: home, PATH: process.env.PATH },
     spawnAgent: (command, env) => {
       const child = spawn(process.execPath, ['-e', agentScript], {
-        env,
+        env: { ...env, FAKE_STATUS_PORT: command.includes('--port') ? command.at(-1) : '' },
         stdio: ['pipe', 'pipe', 'inherit'],
       })
       children.push({ command, child })
@@ -732,7 +732,6 @@ rl.on('line', (line) => {
     if (++n === 12) { clearInterval(timer); say({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } }) }
   }, 50)
 })
-
 `
   await withShim(
     'opencode',
@@ -768,6 +767,7 @@ rl.on('line', (line) => {
   setTimeout(() => say({jsonrpc:'2.0',method:'session/update',params:{sessionId:'ses_1',update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text:'resumed'}}}}), 300)
   setTimeout(() => say({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}}), 450)
 })
+
 `
   let calls = 0
   await withShim(
@@ -790,5 +790,64 @@ rl.on('line', (line) => {
       await new Promise((resolve) => setTimeout(resolve, 200))
       return LIMIT
     },
+  )
+})
+
+test('OpenCode retries without endpoint flags if it exits before initialize', async () => {
+  const failsWithFlags = `if (process.env.FAKE_STATUS_PORT) process.exit(9);\n${FAKE_AGENT}`
+
+  await withShim(
+    'opencode',
+    async ({ call, children, exits }) => {
+      const result = await Promise.race([
+        call('initialize', { protocolVersion: 1 }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 3000)),
+      ])
+
+      assert.equal(result.result?.seen.method, 'initialize')
+      assert.deepEqual(children[0].command.slice(0, 2), ['opencode', 'acp'])
+      assert.deepEqual(children[1].command, ['opencode', 'acp'])
+      assert.deepEqual(exits, [])
+      const opened = await call('session/new', session(''))
+
+      assert.equal(opened.result.sessionId, 's1')
+    },
+    failsWithFlags,
+  )
+})
+
+test('OpenCode shim reads its spawned process status over authenticated HTTP', async () => {
+  const serverAgent = `
+const http = require('node:http')
+const rl = require('node:readline').createInterface({input:process.stdin})
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+http.createServer((req,res) => {
+  const expected = 'Basic ' + Buffer.from('opencode:' + process.env.OPENCODE_SERVER_PASSWORD).toString('base64')
+  if (req.headers.authorization !== expected || !req.url.includes('directory=')) { res.writeHead(401); return res.end() }
+  res.setHeader('content-type','application/json')
+  res.end(JSON.stringify({ses_1:{type:'retry',message:'Free usage exceeded',action:{reason:'free_tier_limit'}}}))
+}).listen(Number(process.env.FAKE_STATUS_PORT), '127.0.0.1')
+let prompt
+rl.on('line', line => {
+  const m=JSON.parse(line)
+  if (m.method==='session/cancel' && prompt) return say({jsonrpc:'2.0',id:prompt,result:{stopReason:'cancelled'}})
+  if (m.id === undefined) return
+  if (m.method==='session/prompt') { prompt=m.id; return }
+  say({jsonrpc:'2.0',id:m.id,result:m.method==='session/new'?{sessionId:'ses_1',configOptions:[]}:{}})
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const reply = await Promise.race([
+        call('session/prompt', { sessionId: 'ses_1', prompt: [{ type: 'text', text: 'hi' }] }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 5000)),
+      ])
+
+      assert.match(reply.error?.message ?? '', /Free usage exceeded/)
+    },
+    serverAgent,
   )
 })
