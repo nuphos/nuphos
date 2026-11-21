@@ -4203,6 +4203,7 @@
   "Select namespace": "เลือก Namespace",
   "Select region": "เลือกภูมิภาค",
   "Select row": "เลือกแถว",
+  "Select what it asks for in the credential picker to answer.": "เลือกสิ่งที่ขอไว้ในตัวเลือกข้อมูลรับรองเพื่อตอบ",
   "Selected": "เลือกแล้ว",
   "Selected credential does not have permission": "ข้อมูลรับรองที่เลือกไม่มีสิทธิ์",
   "Selected for the next reply.": "เลือกไว้สำหรับการตอบกลับครั้งถัดไป",

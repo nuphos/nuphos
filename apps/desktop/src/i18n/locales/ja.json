@@ -4203,6 +4203,7 @@
   "Select namespace": "Namespace を選択",
   "Select region": "リージョンを選択",
   "Select row": "行を選択",
+  "Select what it asks for in the credential picker to answer.": "回答するには、求められているものを認証情報の選択メニューで選んでください。",
   "Selected": "選択済み",
   "Selected credential does not have permission": "選択した認証情報には権限がありません",
   "Selected for the next reply.": "次の返信で使用します。",
