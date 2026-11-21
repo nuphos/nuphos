@@ -45,6 +45,19 @@ export async function setBotInstructions(
   )
 }
 
+/** The owner starts a Bot fresh: its next turn opens a new session with a summary of this one. */
+export async function startBotFresh(
+  sessionId: string,
+  teamId?: string,
+): Promise<{ at: string; messageCount: number }> {
+  // A refusal (it is replying) is the backend's to word, so its code has to survive IPC.
+  return callJsonForRenderer(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/start-fresh${teamQuery(teamId)}`,
+    {},
+  )
+}
+
 /** Uploads an already-cropped photo as a Bot's face (the backend re-encodes it). */
 export async function uploadConversationAvatar(
   sessionId: string,

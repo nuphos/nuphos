@@ -5421,7 +5421,8 @@
                               "placement",
                               "session_start",
                               "runtime_reported",
-                              "session_lost"
+                              "session_lost",
+                              "fresh_start"
                             ],
                             "description": "Where it came from. `session_start`: the settings the agent confirmed when it opened a session, its own defaults included. `runtime_reported`: the agent changed a setting itself between turns. `placement`: the first agent a conversation ran on."
                           },

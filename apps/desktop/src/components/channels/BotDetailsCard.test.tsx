@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { mock, test } from 'bun:test'
+import { beforeEach, mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
@@ -11,18 +11,60 @@ mock.module('../agent/AgentAvatar', () => ({
 mock.module('../agent/panel/ConversationTitleEditor', () => ({
   RenameConversationDialog: () => createElement('div', { role: 'dialog' }, 'Edit Bot dialog'),
 }))
+// The standard confirm, as a plain dialog: its title, body and confirm button.
+mock.module('../ConfirmDialog', () => ({
+  ConfirmDialog: (props: {
+    open: boolean
+    title: string
+    description: string
+    confirmLabel: string
+    destructive?: boolean
+    onConfirm: () => Promise<void>
+    onClose: () => void
+  }) =>
+    props.open
+      ? createElement(
+          'div',
+          { role: 'alertdialog', 'data-destructive': String(Boolean(props.destructive)) },
+          createElement('h2', null, props.title),
+          createElement('p', null, props.description),
+          createElement(
+            'button',
+            { onClick: () => void props.onConfirm().then(props.onClose) },
+            props.confirmLabel,
+          ),
+        )
+      : null,
+}))
 
 const dom = new Window()
 const browser: Record<string, unknown> = {
   window: dom,
   navigator: dom.navigator,
   IS_REACT_ACT_ENVIRONMENT: true,
+  // The card announces a fresh start on the window, in the window's own event type.
+  CustomEvent: dom.CustomEvent,
 }
 
 for (const key of Object.getOwnPropertyNames(dom))
   if (!(key in globalThis)) browser[key] = Reflect.get(dom, key)
 for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+
+const startedFresh: unknown[][] = []
+
+Object.assign(dom, {
+  api: {
+    agentStartBotFresh: (...args: unknown[]) => {
+      startedFresh.push(args)
+
+      return Promise.resolve({ at: '2026-11-21T10:00:00.000Z' })
+    },
+  },
+})
+beforeEach(() => {
+  startedFresh.length = 0
+})
 
 const { createRoot } = await import('react-dom/client')
 const { BotDetailsCard } = await import('./BotDetailsCard')
@@ -91,5 +133,60 @@ test('while the chat loads, the card holds its place without a name', async () =
 
   assert.ok(card.container.querySelector('[aria-busy="true"]'))
   assert.equal(card.button('Edit Bot'), undefined)
+  await card.unmount()
+})
+
+test('its owner gets Replace beside Task and Desktop, which confirms, then starts the Bot fresh', async () => {
+  let edited = 0
+  const card = await render({
+    onOpenTask: () => null,
+    canOpenDesktop: true,
+    onEdited: () => {
+      edited++
+    },
+  })
+  const row = card.button('Task')?.parentElement
+
+  assert.deepEqual(
+    [...(row?.querySelectorAll('button') ?? [])].map((button) => button.textContent),
+    ['Task', 'Desktop', 'Replace'],
+  )
+  await act(async () => card.button('Replace')?.click())
+  const dialog = dom.document.querySelector('[role="alertdialog"]')
+
+  assert.equal(dialog?.querySelector('h2')?.textContent, 'Start Scout fresh?')
+  assert.match(
+    dialog?.querySelector('p')?.textContent ?? '',
+    /keeps its name, instructions, connections, sharing and helper Bots/,
+  )
+  assert.equal(dialog?.getAttribute('data-destructive'), 'false')
+  assert.deepEqual(startedFresh, [])
+  const confirm = [...(dialog?.querySelectorAll('button') ?? [])].find(
+    (button) => button.textContent === 'Replace',
+  )
+
+  await act(async () => confirm?.click())
+  assert.deepEqual(startedFresh, [['bot', 'team']])
+  assert.equal(edited, 1)
+  assert.equal(dom.document.querySelector('[role="alertdialog"]'), null)
+  await card.unmount()
+})
+
+test("someone else's Bot has no Replace", async () => {
+  const card = await render({ owned: false, onOpenTask: () => null, canOpenDesktop: true })
+
+  assert.ok(card.button('Task'))
+  assert.equal(card.button('Replace'), undefined)
+  await card.unmount()
+})
+
+test('while the Bot replies, Replace waits and opens nothing', async () => {
+  const card = await render({ replying: true })
+  const replace = card.button('Replace')
+
+  assert.equal(replace?.getAttribute('aria-disabled'), 'true')
+  await act(async () => replace?.click())
+  assert.equal(dom.document.querySelector('[role="alertdialog"]'), null)
+  assert.deepEqual(startedFresh, [])
   await card.unmount()
 })

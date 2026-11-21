@@ -50,6 +50,7 @@ const settingsChangeSchema = z.object({
       'session_start',
       'runtime_reported',
       'session_lost',
+      'fresh_start',
     ])
     .describe(
       'Where it came from. `session_start`: the settings the agent confirmed when it opened a ' +

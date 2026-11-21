@@ -53,6 +53,12 @@ function EventLine({
         onOpenNuphosLink={onOpenNuphosLink}
       />
     )
+  if (event.kind === 'bot_started_fresh')
+    return (
+      <Rule title={title}>
+        {fill(t('{actor} started this Bot fresh'), { actor: <Person person={actor} /> })}
+      </Rule>
+    )
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>

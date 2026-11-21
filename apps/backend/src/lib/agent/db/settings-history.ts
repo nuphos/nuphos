@@ -33,6 +33,8 @@ export type SettingsChangeVia =
   | 'runtime_reported'
   /** The agent lost the session; the next one starts from its settings. */
   | 'session_lost'
+  /** Its owner started the Bot fresh; its next session starts from its settings. */
+  | 'fresh_start'
 
 /** Who changed the settings, and how. `actorId` is a user id, or 'system'. */
 export type SettingsChangeBy = {

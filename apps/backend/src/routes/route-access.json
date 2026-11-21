@@ -692,6 +692,7 @@
   "POST /agent/conversations/:sessionId/runtime": "user",
   "POST /agent/conversations/:sessionId/secrets": "user",
   "POST /agent/conversations/:sessionId/slack-pickup": "user",
+  "POST /agent/conversations/:sessionId/start-fresh": "user",
   "POST /agent/conversations/:sessionId/steer": "user",
   "POST /agent/devices/:deviceId/agents": "user",
   "POST /agent/devices/:deviceId/box/desktop": "user",

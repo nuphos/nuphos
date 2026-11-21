@@ -42,27 +42,10 @@ function partText(part: unknown): string | null {
   return null
 }
 
-/**
- * What an existing conversation looked like before this turn, for the first
- * prompt of a freshly created inner session — a pod replaced, a session
- * evicted, or the conversation deliberately moved to another agent: the
- * compaction summary when one exists, then as much of the conversation as
- * HISTORY_BUDGET_CHARS holds, newest first.
- */
-export function previewHistoryPreamble(
-  messages: UIMessage[],
-  compactionSummary?: string | null,
-  uncertain = false,
-  inputCount = 1,
-): string | null {
-  const prior = messages
-    .slice(0, messages.length - inputCount)
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-
-  if (prior.length === 0 && !compactionSummary) return null
+/** The newest of `prior` that fit `budget` characters, oldest first, and whether any did not. */
+function recentTurns(prior: UIMessage[], budget: number): { lines: string[]; omitted: boolean } {
   const lines: string[] = []
-  let budget = HISTORY_BUDGET_CHARS
-  let omitted = false
+  let left = budget
 
   // Newest first, then reversed: the tail is what the agent needs most, so it is
   // the part that survives a conversation too long to carry whole.
@@ -80,25 +63,67 @@ export function previewHistoryPreamble(
 
     // Only the newest message is ever cut, and from its start: its end is the
     // latest correction or answer, the part an agent most needs.
-    if (line.length > budget && lines.length === 0)
-      line = render(`…${text.slice(line.length - budget + 1)}`)
-    if (line.length > budget) {
-      omitted = true
-      break
-    }
-    budget -= line.length
+    if (line.length > left && lines.length === 0)
+      line = render(`…${text.slice(line.length - left + 1)}`)
+    if (line.length > left) return { lines, omitted: true }
+    left -= line.length
     lines.unshift(line)
   }
+
+  return { lines, omitted: false }
+}
+
+/** A compaction: its summary, and the messages it stands for, which the preamble leaves out. */
+export type PreviewCompaction = { summary: string; covered?: ReadonlySet<string> }
+
+/**
+ * What an existing conversation looked like before this turn, for the first
+ * prompt of a freshly created inner session — a pod replaced, a session
+ * evicted, a Bot started fresh, or the conversation deliberately moved to
+ * another agent: the compaction summary when one exists, then as much of the
+ * conversation after it as HISTORY_BUDGET_CHARS holds, newest first.
+ */
+export function previewHistoryPreamble(
+  messages: UIMessage[],
+  compaction?: PreviewCompaction | null,
+  uncertain = false,
+  inputCount = 1,
+): string | null {
+  const prior = messages
+    .slice(0, messages.length - inputCount)
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .filter((m) => !compaction?.covered?.has(m.id))
+
+  if (prior.length === 0 && !compaction) return null
+  const { lines, omitted } = recentTurns(prior, HISTORY_BUDGET_CHARS)
 
   return [
     'This conversation continues from earlier turns your session no longer holds. Treat the following as your own prior context — do not summarize it back to the user.',
     backgroundWorkNotice(uncertain),
-    ...(compactionSummary ? [`Summary of earlier turns:\n${compactionSummary}`] : []),
+    ...(compaction ? [`Summary of earlier turns:\n${compaction.summary}`] : []),
     ...(omitted
       ? [
           'Earlier turns are omitted: they did not fit. Read them with read_conversation on this conversation when you need them.',
         ]
       : []),
     ...(lines.length > 0 ? [`Recent turns:\n${lines.join('\n\n')}`] : []),
+  ].join('\n\n')
+}
+
+/** What a fresh start carries of the turns before it: few enough to read cheaply. */
+const FRESH_START_BUDGET_CHARS = 4_000
+
+/**
+ * The summary a Bot started fresh keeps of its messages before `#messageCount`: no model
+ * writes one, so it says where they are and quotes the last of them, as they were.
+ */
+export function freshStartSummary(messages: UIMessage[], messageCount: number, at: Date): string {
+  const { lines } = recentTurns(messages, FRESH_START_BUDGET_CHARS)
+
+  return [
+    `Your owner started you fresh at ${at.toISOString()}, so this session holds none of your ` +
+      `messages before #${String(messageCount)}. Read them with read_conversation on this ` +
+      'conversation when you need them.',
+    ...(lines.length > 0 ? [`The last of them:\n${lines.join('\n\n')}`] : []),
   ].join('\n\n')
 }

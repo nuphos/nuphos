@@ -64,6 +64,12 @@ export type ConversationTimelineEvent = { at: Date; actorId: string } & (
       avatar?: string
     } & BotChangeSource)
   | {
+      /** Its owner started the Bot fresh: its next turn opens a new session. In its chats too. */
+      kind: 'bot_started_fresh'
+      agentId: string
+      agentName: string
+    }
+  | {
       kind: 'runtime_fallback_stopped'
       /** Each agent in the fallback list that was passed over, and why. */
       skipped: { label: string; reason: string }[]
