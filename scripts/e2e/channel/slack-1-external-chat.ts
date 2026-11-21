@@ -2,12 +2,12 @@
 // hidden record no listing shows, and only the owner, known by their email in this workspace,
 // speaks for them: a Slack Connect outsider with that email and an unlinked member are data.
 import { execFileSync } from 'node:child_process'
-import { createHmac } from 'node:crypto'
 import { resolve } from 'node:path'
 
 import { artifacts, until } from '../processes.ts'
 import { joinTeam } from '../dashboard-scenarios.ts'
 import { addSlackUser, sealSlackToken, sendSlackEvent, slackPosts } from '../slack-stub.ts'
+import { verifyConversationMapping } from './slack-conversation-auth.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -111,7 +111,8 @@ async function answer(stack: Stack, chatId: string, text: string) {
 export default {
   name: "a Slack channel's messages reach its Bot as an external chat, only the owner speaks for them, and the Bot answers in Slack",
   // The teammate's Bot, refused while the viewer's holds the channel.
-  expected: /"error_code":"slack_channel_has_bot"/,
+  expected:
+    /"error_code":"slack_channel_has_bot"|"method":"GET","path":"\/teams\/[^"/]+\/slack\/mappings","status":403,"error_code":"(?:forbidden|conversation_api_forbidden)"/,
   run: async (page, stack) => {
     addSlackUser('UOWNER', { team_id: WORKSPACE, email: stack.email, name: 'Owner in Slack' })
     addSlackUser('UEXT', { team_id: 'TOTHER', email: stack.email, name: 'Outsider' })
@@ -144,58 +145,7 @@ export default {
       botSessionId: bot.sessionId,
     })
 
-    // An agent's scoped token can manage the same channel only in its own team.
-    const me = (await (
-      await fetch(`${stack.apiUrl}/auth/me`, {
-        headers: { authorization: `Bearer ${stack.token}` },
-      })
-    ).json()) as { id: string }
-    const sign = (claims: object) => {
-      const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
-      const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
-      const signature = createHmac('sha256', 'local-e2e-jwt-secret-not-a-production-credential')
-        .update(`${header}.${payload}`)
-        .digest('base64url')
-      return `${header}.${payload}.${signature}`
-    }
-    const claims = {
-      aud: 'nuphos-preview-mcp',
-      sub: me.id,
-      own: me.id,
-      sid: bot.sessionId,
-      tid: stack.teamId,
-      ori: stack.apiUrl,
-      exp: Math.floor(Date.now() / 1000) + 600,
-    }
-    const conversationToken = sign(claims)
-    const callAsAgent = (path: string, method = 'GET', body?: object, token = conversationToken) =>
-      fetch(`${stack.apiUrl}${path}`, {
-        method,
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      })
-    const teamPath = `/teams/${stack.teamId}/slack/mappings`
-    if ((await callAsAgent(teamPath)).status !== 200)
-      throw new Error('Conversation cannot list Slack mappings')
-    if (
-      (await callAsAgent(teamPath, 'PUT', { slackWorkspaceId: WORKSPACE, slackChannelId: CHANNEL }))
-        .status !== 200
-    )
-      throw new Error('Conversation cannot connect a Slack channel')
-    if (
-      (
-        await callAsAgent(`${teamPath}/${WORKSPACE}/${CHANNEL}/bots`, 'POST', {
-          botSessionId: bot.sessionId,
-        })
-      ).status !== 200
-    )
-      throw new Error('Conversation cannot assign its owner’s Bot')
-    if ((await callAsAgent('/teams/64b000000000000000000001/slack/mappings')).status !== 403)
-      throw new Error('Conversation reached another team')
-    if (
-      (await callAsAgent(teamPath, 'GET', undefined, sign({ ...claims, lim: {} }))).status !== 403
-    )
-      throw new Error('Credential-limited token reached Slack mappings')
+    await verifyConversationMapping(stack, bot.sessionId, WORKSPACE, CHANNEL)
 
     try {
       const asked = await slackMessage(stack, 'UOWNER', 'Status? E2E_WHO E2E_DELIVERY:slack-owner')

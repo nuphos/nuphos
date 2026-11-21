@@ -268,7 +268,9 @@ teamScoped.route('/jira-sites', jiraSitesRoutes)
 teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
+
 const teamSlackMappings = new Hono<{ Variables: AuthVariables }>()
+
 registerSlackMappingRoutes(teamSlackMappings, true)
 teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)

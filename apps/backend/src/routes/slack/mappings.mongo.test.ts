@@ -52,6 +52,7 @@ registerSlackMappingRoutes(app)
 app.onError(errorHandler)
 const teamApp = new Hono<{ Variables: AuthVariables }>()
 const scopedMappings = new Hono<{ Variables: AuthVariables }>()
+
 teamApp.use('*', async (c, next) => {
   c.set('userId', viewer)
   await next()
@@ -122,6 +123,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
           headers: { 'Content-Type': 'application/json' },
           ...(body ? { body: JSON.stringify(body) } : {}),
         })
+
       viewer = MEMBER
       expect(
         (await request('PUT', '', { slackWorkspaceId: 'T1', slackChannelId: channel })).status,
