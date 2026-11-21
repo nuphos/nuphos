@@ -136,6 +136,10 @@ try {
   const vitePort = desktop.vitePort
 
   await desktop.stop()
+  // The window's HTTP cache holds the stopped Vite server's modules, kept immutable under
+  // NUPHOS_E2E; they import dependency versions the new server answers with 504, so the app
+  // never mounted. Only the cache goes: sign-in, localStorage and the window session stay.
+  rmSync(join(desktop.profile, 'Cache'), { recursive: true, force: true })
   desktop = await startDesktop(stack.apiUrl, { ...options, vitePort })
   page = desktop.page
   page.setDefaultTimeout(30_000)
@@ -162,9 +166,9 @@ try {
 } catch (error) {
   failed = true
   console.error(error)
-  if (!desktop && existsSync(logPath('real-disk')))
+  if (existsSync(logPath('real-disk')))
     console.error(
-      `Desktop startup log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`,
+      `Desktop log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`,
     )
   if (desktop) await screenshot(desktop.page, 'failure').catch(() => {})
 } finally {
