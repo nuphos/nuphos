@@ -67,3 +67,19 @@ test("a post offers the button beside it, someone else's and your own", () => {
 test('a viewer who cannot reply gets no button', () => {
   assert.doesNotMatch(render(), /aria-label="Reply"/)
 })
+
+test('the reply button is centred on the bubble, not on the name or files above it', () => {
+  for (const [viewer, bubble, edge] of [
+    ['viewer', 'bg-state-selected', 'left-full'],
+    ['alex', 'user-message-bubble', 'right-full'],
+  ] as const) {
+    const markup = render(() => {}, viewer)
+    const button = markup.match(/<button[^>]*aria-label="Reply"[^>]*>/)?.[0] ?? ''
+
+    assert.match(button, /absolute top-1\/2 -translate-y-1\/2/, viewer)
+    assert.ok(button.includes(edge), viewer)
+    // It rides the bubble's wrapper, after the bubble itself.
+    assert.ok(markup.indexOf(bubble) < markup.indexOf('aria-label="Reply"'), viewer)
+    assert.match(markup, /<div class="relative max-w-full"><div class="[^"]*/, viewer)
+  }
+})

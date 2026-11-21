@@ -150,11 +150,11 @@ export const UserMessage = memo(
             </div>
             {/* A reply of files alone keeps its quote here, with no bubble to hold it. */}
             {message.metadata.replyTo && textParts.length === 0 && (
-              <ReplyQuote reply={message.metadata.replyTo} mine={false} />
+              <ReplyQuote reply={message.metadata.replyTo} mine={false} standalone />
             )}
           </div>
         )}
-        <div className="flex w-full items-start justify-end gap-2.5">
+        <div className="flex w-full items-start justify-end gap-2.5 [container-type:inline-size]">
           <div className="flex min-w-0 max-w-[85%] flex-col items-end gap-2">
             {images.length > 0 && (
               <div className="max-w-full flex flex-wrap justify-end gap-1.5 pr-1">

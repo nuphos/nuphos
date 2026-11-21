@@ -95,7 +95,7 @@ export function ChannelMessage({
   const files = shown({ ...posted, downloads: [] })
   // In the bubble it replies with; above a reply of files alone.
   const quote = metadata.replyTo && (
-    <ReplyQuote reply={metadata.replyTo} mine={mine && Boolean(text)} />
+    <ReplyQuote reply={metadata.replyTo} mine={mine && Boolean(text)} standalone={!text} />
   )
   const answered = answeredInInbox && (
     <span className="flex items-center gap-1 px-1 text-[11px] leading-4 text-tertiary">
@@ -115,20 +115,25 @@ export function ChannelMessage({
 
   if (mine)
     return (
-      <div className="group/post flex w-full items-start justify-end gap-2.5">
-        {onReply && <ReplyButton onReply={onReply} />}
+      <div className="group/post flex w-full items-start justify-end gap-2.5 [container-type:inline-size]">
+        {/* With text the button rides the bubble; this keeps its room in the row. */}
+        {onReply && (text ? <div className="w-7 shrink-0" /> : <ReplyButton onReply={onReply} />)}
         <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
           {!text && quote}
           {files}
           {text && (
-            <div
-              className={clsx(
-                'user-message-bubble chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-                fresh && 't-bubble-in-mine',
-              )}
-            >
-              {quote}
-              {body}
+            // The reply button rides the bubble, so it stays at the middle of its height.
+            <div className="relative max-w-full">
+              <div
+                className={clsx(
+                  'user-message-bubble chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                  fresh && 't-bubble-in-mine',
+                )}
+              >
+                {quote}
+                {body}
+              </div>
+              {onReply && <ReplyButton onReply={onReply} side="left" />}
             </div>
           )}
           {answered}
@@ -147,7 +152,7 @@ export function ChannelMessage({
     )
 
   return (
-    <div className="group/post flex w-full items-start gap-2.5">
+    <div className="group/post flex w-full items-start gap-2.5 [container-type:inline-size]">
       <div className="w-7 shrink-0">
         {first &&
           (agentId ? (
@@ -188,20 +193,23 @@ export function ChannelMessage({
         {!text && quote}
         {files}
         {text && (
-          <div
-            className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
-              fresh && 't-bubble-in',
-            )}
-          >
-            {quote}
-            {body}
+          <div className="relative max-w-full">
+            <div
+              className={clsx(
+                'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
+                fresh && 't-bubble-in',
+              )}
+            >
+              {quote}
+              {body}
+            </div>
+            {onReply && <ReplyButton onReply={onReply} side="right" />}
           </div>
         )}
         {shown({ ...posted, uploads: [] })}
         {answered}
       </div>
-      {onReply && <ReplyButton onReply={onReply} />}
+      {onReply && (text ? <div className="w-7 shrink-0" /> : <ReplyButton onReply={onReply} />)}
     </div>
   )
 }
