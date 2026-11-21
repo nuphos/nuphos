@@ -257,6 +257,7 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                alwaysShowControls: channel.botId != nil,
                 onSend: { channel.send($0) },
                 controls: {
                     if let botSession, botSession.loaded {
