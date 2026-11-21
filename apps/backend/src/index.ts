@@ -23,6 +23,7 @@ import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { startReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
@@ -52,6 +53,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { shutdownPostHog } from '@/lib/posthog'
 import { closeRedis } from '@/lib/redis'
 import { startHealthTelemetry } from '@/lib/telemetry/report'
+import { startWebhookDelivery } from '@/lib/webhooks/deliver'
 import {
   setupIndexes,
   tolerateIndexConflict,
@@ -81,13 +83,10 @@ logEvent('info', 'backend.mongodb.connected')
 // MEMORY_PROVIDER default naming an unregistered/external provider fails the
 // deploy here, never a turn (SPI spec §a; A1 external-as-default rejection).
 assertRegistryInvariants()
-// Build indexes before listening. setupIndexes() runs its groups in parallel
-// (Promise.all), so the old serial ~24s cost is gone — but this deliberately
-// stays on the startup path: several groups carry UNIQUE indexes (identity,
-// email-otp, invitations, slack/lark, …), and serving requests before
-// those constraints exist would let duplicate/invalid records slip in on a fresh
-// deploy. Index-spec conflicts (Mongo 85/86) are tolerated per group — see
-// tolerateIndexConflict. Everything else still fails the boot.
+// Build indexes before listening (groups run in parallel). Several carry UNIQUE indexes
+// (identity, email-otp, invitations, slack/lark, …), and serving before they exist would let
+// duplicate records in on a fresh deploy. Index-spec conflicts (Mongo 85/86) are tolerated per
+// group (see tolerateIndexConflict); anything else fails the boot.
 await setupIndexes()
 await tolerateIndexConflict(setupMcpOAuthIndexes, 'mcp-oauth')
 logEvent('info', 'backend.mongodb.indexes_ready')
@@ -121,9 +120,7 @@ await backfillPersonalTokenExpiry()
 installQueuedTurnStarter(startQueuedTurn)
 installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
-if (await initTriggerScheduler()) {
-  logEvent('info', 'backend.trigger_scheduler.ready')
-}
+if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
 if (await initJournalSealer()) {
   logEvent('info', 'backend.journal_sealer.ready')
@@ -137,12 +134,14 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 // Counts turns stranded on an unanswered tool call — the one agent failure no
 // request can observe, because it IS the missing request.
 initStuckTurnProbe()
+startReminderSweeper()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
 initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 const stopBotImportCleanup = startBotImportCleanup()
 const stopFreeBoxSweep = startFreeBoxSweep()
+const stopWebhookDelivery = startWebhookDelivery()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
@@ -226,6 +225,7 @@ async function shutdown(sig: string) {
   shutdownStuckTurnProbe()
   stopBotImportCleanup()
   stopFreeBoxSweep()
+  stopWebhookDelivery()
   const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
 
   // Let k8s see /health/ready return 503 and deregister this pod first.

@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
-import { openCodeRefusal } from './opencode-session.mjs'
+import { openCodeEndpoint, openCodeRefusal } from './opencode-session.mjs'
 import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
@@ -87,12 +87,7 @@ export const PROVIDERS = {
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
     // A refused turn never ends on its own: see opencode-session.mjs.
-    refusal: (env, sessionId, since) =>
-      openCodeRefusal(
-        env.XDG_DATA_HOME || join(env.HOME || homedir(), '.local', 'share'),
-        sessionId,
-        since,
-      ),
+    refusal: true,
   },
   hermes: {
     command: ['hermes', 'acp'],
@@ -238,6 +233,7 @@ export function runShim({
   // the agent has sent nothing for the session for `refusalQuietMs`.
   refusalPollMs = 1500,
   refusalQuietMs = 15_000,
+  readOpenCodeRefusal = openCodeRefusal,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -262,25 +258,61 @@ export function runShim({
   const refused = new Map()
   // When the agent last sent anything for each session.
   const heard = new Map()
+  const activityVersion = new Map()
+  const sessionDirectories = new Map()
   let initialize
   let agent
   let agentEnvironment
+  let agentEndpoint
+  let pendingInitialize
+  let restarting
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
 
-  const start = (env) => {
-    agent?.kill('SIGTERM')
+  const start = async (env, withoutStatus = false) => {
+    const previous = agent
+
+    agent = undefined
+    previous?.kill('SIGTERM')
+    let endpoint
+    if (provider === 'opencode' && !withoutStatus) {
+      try {
+        endpoint = await openCodeEndpoint()
+      } catch {
+        // A missing status endpoint must not prevent an otherwise normal turn.
+      }
+    }
+    const originalEnv = env
+
+    if (endpoint) env = { ...env, OPENCODE_SERVER_PASSWORD: endpoint.password }
     // A computer running the agent locally names its own CLI, which may be off PATH.
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
     // An adapter runs the CLI itself, named to it in its home's environment.
     const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
-    const child = spawnAgent([executable, ...args], env)
+    const child = spawnAgent(
+      endpoint
+        ? [executable, ...args, '--hostname', '127.0.0.1', '--port', String(endpoint.port)]
+        : [executable, ...args],
+      env,
+    )
     agent = child
     agentEnvironment = env
+    agentEndpoint = endpoint
     // The agent is the session: when it ends, so does this process.
+    let initialized = false
     child.on('exit', (code) => {
-      if (agent === child) onExit(code ?? 1)
+      if (agent !== child) return
+      if (endpoint && !initialized) {
+        const retry = pendingInitialize
+
+        restarting = start(originalEnv, true).then(() => {
+          if (retry && pendingInitialize === retry) send(retry)
+        })
+        void restarting.catch(() => onExit(code ?? 1))
+        return
+      }
+      onExit(code ?? 1)
     })
     createInterface({ input: child.stdout }).on('line', (line) => {
       if (agent !== child) return
@@ -289,6 +321,10 @@ export function runShim({
         message = JSON.parse(line)
       } catch {
         return output.write(`${line}\n`)
+      }
+      if (pendingInitialize && message.id === pendingInitialize.id && !message.method) {
+        initialized = true
+        pendingInitialize = undefined
       }
       fromAgent(message)
     })
@@ -316,7 +352,10 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
-    if (sessionId) heard.set(sessionId, Date.now())
+    if (sessionId) {
+      heard.set(sessionId, Date.now())
+      activityVersion.set(sessionId, (activityVersion.get(sessionId) ?? 0) + 1)
+    }
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
     if (message.method === undefined && prompts.has(message.id)) {
@@ -405,22 +444,37 @@ export function runShim({
     }
     forward(message)
   }
-  const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
+  const send = (message) => {
+    if (message.method === 'initialize') pendingInitialize = message
+    agent.stdin.write(`${JSON.stringify(message)}\n`)
+  }
   const watchRefusal = (id, sessionId) => {
-    // The clock the agent's log shares; a second's slack for the prompt reaching it first.
-    const since = Date.now() - 1000
     heard.set(sessionId, Date.now())
-    const timer = setInterval(() => {
+    let checking = false
+    const timer = setInterval(async () => {
       if (prompts.get(id) !== sessionId) return clearInterval(timer)
       // A turn the agent is still answering is not refused.
-      if (Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      if (checking || Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      checking = true
+      const lastHeard = heard.get(sessionId)
+      const lastActivity = activityVersion.get(sessionId)
+      const checkedAgent = agent
       let why
       try {
-        why = spec.refusal(agentEnvironment, sessionId, since)
+        why = await readOpenCodeRefusal(agentEndpoint, sessionId, sessionDirectories.get(sessionId))
       } catch {
         // Whatever cannot be read leaves the turn as it is.
+      } finally {
+        checking = false
       }
-      if (!why) return
+      if (
+        !why ||
+        prompts.get(id) !== sessionId ||
+        agent !== checkedAgent ||
+        heard.get(sessionId) !== lastHeard ||
+        activityVersion.get(sessionId) !== lastActivity
+      )
+        return
       clearInterval(timer)
       refused.set(id, why)
       send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
@@ -444,7 +498,8 @@ export function runShim({
       // a teammate now acts in the conversation; restart it under this one's
       // before it opens the session. The client already holds the initialize answer.
       boundHome = env.NUPHOS_SESSION_HOME ?? ''
-      start(env)
+      await start(env)
+      if (restarting) await restarting
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
@@ -463,6 +518,7 @@ export function runShim({
       if (reply.error) return reply
       // A loaded or resumed session gets the current instructions too.
       const sessionId = reply.result?.sessionId ?? params.sessionId
+      if (sessionId && typeof params.cwd === 'string') sessionDirectories.set(sessionId, params.cwd)
       if (text && !spec.instruct) pendingInstructions.set(sessionId, text)
       const agentApi = {
         setSessionConfigOption: (options) => request('session/set_config_option', options),
@@ -481,6 +537,7 @@ export function runShim({
   }
 
   const handle = async (message) => {
+    if (restarting) await restarting
     if (message.method === 'initialize') {
       // OpenAB offers to run terminals itself, in the gateway's environment rather
       // than this session's. The agent runs its own commands, as Claude and Codex do.
@@ -544,9 +601,8 @@ export function runShim({
     )
   }
 
-  start(agentEnv(provider, undefined, runtimeEnv))
   // Frames are handled in order: a prompt must not overtake the session it belongs to.
-  let queue = Promise.resolve()
+  let queue = start(agentEnv(provider, undefined, runtimeEnv))
   createInterface({ input }).on('line', (line) => {
     let message
     try {

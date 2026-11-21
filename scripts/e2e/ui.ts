@@ -25,25 +25,29 @@ export async function send(page: Page, text: string) {
 /** Moves the open conversation to `label`'s Claude Code runtime. */
 export async function pickAgent(page: Page, label: string, provider = 'Claude Code') {
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  const runtimes = await openSubmenu(page, label)
-
-  await pickInSubmenu(
-    page,
-    runtimes.getByRole('menuitem', { name: new RegExp(`^${label}.*${provider}`) }).last(),
-  )
+  await pickInRow(page, label, new RegExp(`^${label}.*${provider}`))
 }
 
-/** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
- *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
- *  away from the menu, and `aria-controls` on the row is what names it. */
-export async function openSubmenu(page: Page, row: string) {
-  const trigger = page.getByRole('menu').getByRole('menuitem').filter({ hasText: row }).first()
+/** Hovers a computer's row, then takes the runtime by key without pressing its action chips. */
+export async function pickInRow(page: Page, row: string, item: RegExp) {
+  // Offline rows have no submenu until their computer comes back.
+  const trigger = page
+    .getByRole('menu')
+    .getByRole('menuitem')
+    .filter({ hasText: row })
+    .and(page.locator('[aria-haspopup="menu"]'))
+    .first()
 
-  await pickInSubmenu(page, trigger)
-  // The open row and the id are not set together: the id waits for the list to exist.
-  await trigger.and(page.locator('[aria-controls]')).waitFor()
+  await trigger.hover()
+  const runtime = page
+    .locator('[role="menu"][data-nested][data-open]')
+    .getByRole('menuitem', { name: item })
+    .last()
+    .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
-  return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
+  await runtime.waitFor({ timeout: 60_000 })
+  await runtime.focus()
+  await page.keyboard.press('Enter')
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the

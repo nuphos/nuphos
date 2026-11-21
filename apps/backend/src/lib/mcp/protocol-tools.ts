@@ -3,6 +3,7 @@ import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
 import { FILE_TOOLS } from './protocol-tools-files'
 import { RESOURCE_TOOLS } from './protocol-tools-resources'
+import { WEBHOOK_TOOLS } from './protocol-tools-webhooks'
 
 export const TOOL_DEFINITIONS = [
   ...FILE_TOOLS,
@@ -212,6 +213,7 @@ export const TOOL_DEFINITIONS = [
     },
   },
   ...CREDENTIAL_TOOLS,
+  ...WEBHOOK_TOOLS,
   {
     name: 'nuphos_capabilities',
     description:

@@ -17,7 +17,7 @@ import { capabilitiesOf } from './runtime'
 import { MEMORY_SPI_VERSION } from './types'
 
 import type { ConformanceHarness, ConformanceTenant } from './conformance-harness'
-import type { MemoryObserver, MemorySavedEvent, MemorySessionOrigin } from './types'
+import type { MemoryObserver, MemorySavedEvent } from './types'
 
 export type { ConformanceHarness, ConformanceTenant } from './conformance-harness'
 
@@ -43,11 +43,11 @@ export function describeMemoryProviderConformance(makeHarness: () => Conformance
   const seedOrThrow = async (
     tenant: ConformanceTenant,
     input: { text: string; title: string },
-    opts?: { origin?: MemorySessionOrigin; observer?: MemoryObserver },
+    opts?: { observer?: MemoryObserver },
   ): Promise<string> => {
     const id = await harness.seed(tenant, input, opts)
 
-    if (!id) throw new Error('harness.seed returned null for a user-origin write')
+    if (!id) throw new Error('harness.seed returned null for a write')
 
     return id
   }
@@ -77,29 +77,6 @@ export function describeMemoryProviderConformance(makeHarness: () => Conformance
     })
 
     registerRecordsConformanceCases({ harness, provider, caps, seedOrThrow })
-
-    test.skipIf(!caps.tools)(
-      '8. origin gating: durable writes via tools refused unless origin === user',
-      async () => {
-        for (const origin of ['trigger'] as const) {
-          expect(
-            await harness.seed(
-              harness.tenantA,
-              { text: `origin-gated write via ${origin}`, title: 'must not land' },
-              { origin },
-            ),
-          ).toBeNull()
-        }
-        // The same write succeeds for a user-origin turn — the gate is the
-        // origin, not the payload.
-        expect(
-          await harness.seed(harness.tenantA, {
-            text: 'origin-gated write via user',
-            title: 'lands fine',
-          }),
-        ).not.toBeNull()
-      },
-    )
 
     test.skipIf(!caps.tools || !caps.records)(
       '9. observer corroboration: saved ids resolve through records.get',

@@ -4,7 +4,14 @@ import type { CredentialSelectorControl } from './credentialSections'
 
 // The credential ids a selection holds, devices and identity aside, keyed by kind.
 function credentialIds(value: CredentialSelectorControl['value']): string[] {
-  const { deviceIds: _devices, teamIdentity: _team, personalCredentialIds: _own, ...access } = value
+  const {
+    deviceIds: _devices,
+    teamIdentity: _team,
+    personalCredentialIds: _own,
+    personalConnectionIds: _accounts,
+    personalAccountCount: _count,
+    ...access
+  } = value
 
   return Object.entries(access).flatMap(([key, ids]) =>
     Array.isArray(ids) ? ids.map((id: string) => `${key}:${id}`) : [],

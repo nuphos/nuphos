@@ -255,7 +255,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
             }
             session.replying?.let { ReplyChip(it) { session.replying = null } }
-            ChannelComposer(session)
+            ChannelComposer(session, bot, onSwitchAgent = { switching = true })
         }
         }
     }
@@ -627,11 +627,27 @@ internal fun TypingDots(modifier: Modifier = Modifier) {
 
 /** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
 @Composable
-private fun ChannelComposer(session: ChannelSession) {
+private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession?, onSwitchAgent: () -> Unit) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
     val account = auth.user?.id
+    val ownsBot = bot?.loaded == true && bot.isOwner
+    if (bot != null) {
+        DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
+            val workspace = store.workspaceRevision
+            val generation = auth.generation
+            val consent = AiAccess.revision
+            bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
+                auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
+                    store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
+            }
+            onDispose { bot.activateModelSettings(false) }
+        }
+        LaunchedEffect(bot.modelSettings, bot.isStreaming, bot.runtimeObservation?.phase) {
+            bot.modelSettings?.refresh()
+        }
+    }
     // Drafts persist per chat, like a conversation's.
     val draft = remember(account, session.teamId, session.channelId, auth.generation, AiAccess.revision) {
         account?.let { auth.composerDrafts.bind(it, session.teamId, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(session.channelId),
@@ -643,6 +659,13 @@ private fun ChannelComposer(session: ChannelSession) {
     }
     ai.nuphos.android.ui.chat.ChatComposer(
         isStreaming = false,
+        showControls = bot?.loaded == true,
+        botControls = bot?.loaded == true,
+        followsBot = true,
+        agentLabel = bot?.takeIf { it.loaded }?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeDeviceLabel) },
+        onChooseAgent = if (bot?.loaded == true) onSwitchAgent else null,
+        modelSettings = bot?.modelSettings,
+        lockedHint = if (bot != null && !ownsBot) stringResource(R.string.chat_bot_settings_owner_only) else null,
         onSend = { submission ->
             val user = auth.user
             // Captured now: a post whose upload outlives this account, workspace or consent is never sent.
