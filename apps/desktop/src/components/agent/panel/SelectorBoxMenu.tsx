@@ -4,6 +4,7 @@ import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 import { t } from '../../../i18n'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
 import { AGENT_PROVIDER } from '../../../types/runtime'
+import { diskWarning } from '../../../views/settings/boxMetricsPresentation'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
@@ -13,6 +14,7 @@ import { agentAskText, agentProblem } from './agentRowFix'
 import { adminName } from './agentSignInModel'
 import { AgentUpdateBadge } from './AgentUpdateBadge'
 import { AgentProviderIcon } from './icons'
+import { SelectorBoxMeters } from './SelectorBoxMeters'
 import {
   boxAgentName,
   diskMeterHint,
@@ -22,69 +24,11 @@ import {
   signInChoices,
 } from './selectorBoxes'
 
-import type { SelectorBox, SelectorMetrics } from './selectorBoxes'
+import type { SelectorBox } from './selectorBoxes'
 import type { PickerFixes } from './usePickerFixes'
 import type { AgentDevice } from '../../../api/device-types'
 import type { AgentUpdate } from '../../../hooks/useAgentUpdates'
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
-
-/** Data fill, as the agents' usage meters, turning warning from 80% and error from 95%. */
-function meterTone(value: number) {
-  if (value >= 95) return { bar: 'bg-error', text: 'text-error' }
-  if (value >= 80) return { bar: 'bg-warning', text: 'text-warning' }
-
-  return { bar: 'bg-data-1', text: 'text-secondary' }
-}
-
-function percent(value: number) {
-  return `${String(Math.round(value))}%`
-}
-
-/** CPU, memory and disk as three labelled bars. */
-export function SelectorBoxMeters({
-  metrics,
-  diskHint,
-}: {
-  metrics: SelectorMetrics
-  /** Said on the disk meter once the disk is almost full (see `diskMeterHint`). */
-  diskHint?: string | null
-}) {
-  const meters = [
-    ['CPU', metrics.cpu],
-    ['MEM', metrics.memory],
-    ['DISK', metrics.disk],
-  ] as const
-
-  return (
-    <span className="mt-2 grid grid-cols-3 gap-3">
-      {meters.map(([label, value]) => (
-        <span
-          key={label}
-          title={label === 'DISK' ? (diskHint ?? undefined) : undefined}
-          role="meter"
-          aria-label={t('{label} usage', { label })}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={value}
-          aria-valuetext={t('{percent} used', { percent: percent(value) })}
-        >
-          <span className="flex justify-between gap-1 text-[10px] text-tertiary">
-            <span>{label}</span>
-            <span className={clsx('text-[11px] tabular-nums', meterTone(value).text)}>
-              {percent(value)}
-            </span>
-          </span>
-          <span className="mt-1 block h-[3px] overflow-hidden rounded-full bg-surface-sunken">
-            <span
-              className={clsx('block h-full rounded-full', meterTone(value).bar)}
-              style={{ width: percent(value) }}
-            />
-          </span>
-        </span>
-      ))}
-    </span>
-  )
-}
 
 /** A quiet extra line: whose a teammate's shared computer is. */
 function QuietLine({ text }: { text: string | null }) {
@@ -97,9 +41,23 @@ function QuietLine({ text }: { text: string | null }) {
   )
 }
 
+const COMPACT_RUNTIME_ROW = 'h-8 !py-0 leading-4'
+
+function RuntimeRowAction({ reason, action }: { reason: string; action: string }) {
+  return (
+    <span className="runtime-row-action shrink-0 text-xs">
+      <span className="runtime-row-action-status text-tertiary">· {reason}</span>
+      <span aria-hidden className="runtime-row-action-hint text-warning">
+        · {action}
+      </span>
+    </span>
+  )
+}
+
 /** One agent: picks it, or starts its fix when it cannot take a turn. */
 function AgentRow({
   instance,
+  compact,
   selectedId,
   access,
   quotas,
@@ -109,6 +67,7 @@ function AgentRow({
   onSelect,
 }: {
   instance: RuntimeInstance
+  compact?: boolean
   selectedId?: string
   access?: AgentDevice['access']
   quotas?: ReadonlyMap<string, RuntimeQuota>
@@ -120,6 +79,11 @@ function AgentRow({
   const update = updates.get(instance.id)
   const problem = agentProblem(instance, quotas?.get(instance.id), fixes.viewer)
   const pickable = Boolean(onSelect) && (!problem || problem.pickable)
+  const inlineSignIn =
+    compact &&
+    problem &&
+    !problem.pickable &&
+    (problem.fix?.kind === 'signIn' || problem.fix?.kind === 'cli')
   const name = boxAgentName(instance)
   const admin = instance.kind === 'managed' && adminName(fixes.viewer.members)
   const askToUpdate = admin && t('Ask {name} to update', { name: admin })
@@ -127,6 +91,9 @@ function AgentRow({
 
   return (
     <MenuItem
+      className={
+        compact ? clsx(COMPACT_RUNTIME_ROW, inlineSignIn && 'runtime-row-with-action') : undefined
+      }
       selected={instance.id === selectedId}
       disabled={Boolean(selectDisabled) || Boolean(instance.deletion)}
       icon={<AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5" />}
@@ -137,31 +104,40 @@ function AgentRow({
         else if (problem?.fix) fixes.run(problem.fix)
       }}
     >
-      <span className="flex min-w-0 flex-col py-1">
+      <span className={clsx('flex min-w-0 flex-col', !compact && 'py-1')}>
         <span className="flex min-w-0 items-center gap-1.5">
           <span className={clsx('truncate', problem && !problem.pickable && 'text-secondary')}>
             {name}
           </span>
+          {compact && name !== provider && <span className="sr-only">{provider}</span>}
+          {inlineSignIn && (
+            <RuntimeRowAction reason={problem.reason} action={t('Click to sign in')} />
+          )}
+          {!inlineSignIn && compact && problem?.reason && (
+            <span className="shrink-0 text-xs text-tertiary">· {problem.reason}</span>
+          )}
           {problem
-            ? problem.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />
+            ? !inlineSignIn && problem.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />
             : update && <AgentUpdateBadge update={update} actionable />}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
-          {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
-          <span className="min-w-0 truncate">
-            {[
-              name !== provider && provider,
-              problem?.reason,
-              problem?.fix?.kind === 'ask' && agentAskText(problem.fix),
-              !problem && update?.state === 'available' && !update.start && askToUpdate,
-              instance.deletion && t('Being removed'),
-              instance.starting && t('Starting…'),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
+        {!compact && (
+          <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-tertiary">
+            {/* One line: a long name truncates with the rest instead of wrapping mid-name. */}
+            <span className="min-w-0 truncate">
+              {[
+                name !== provider && provider,
+                problem?.reason,
+                problem?.fix?.kind === 'ask' && agentAskText(problem.fix),
+                !problem && update?.state === 'available' && !update.start && askToUpdate,
+                instance.deletion && t('Being removed'),
+                instance.starting && t('Starting…'),
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+            <RuntimeUsageBar quota={quotas?.get(instance.id)} />
           </span>
-          <RuntimeUsageBar quota={quotas?.get(instance.id)} />
-        </span>
+        )}
       </span>
     </MenuItem>
   )
@@ -172,6 +148,7 @@ export function SelectorBoxMenu({
   group,
   selectedId,
   metricsUnavailable,
+  compact,
   quotas,
   updates,
   fixes,
@@ -181,6 +158,7 @@ export function SelectorBoxMenu({
   group: SelectorBox
   selectedId?: string
   metricsUnavailable: boolean
+  compact?: boolean
   quotas?: ReadonlyMap<string, RuntimeQuota>
   updates: ReadonlyMap<string, AgentUpdate>
   fixes: PickerFixes
@@ -189,12 +167,14 @@ export function SelectorBoxMenu({
   onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
 }) {
   const current = group.agents.some((agent) => agent.id === selectedId)
-  const metrics = metricsUnavailable ? null : selectorMetrics(group.device)
+  const metrics = metricsUnavailable || compact ? null : selectorMetrics(group.device)
+  const warning = compact && !metricsUnavailable && diskWarning(group.device)
   const BoxIcon = group.device?.box || !group.agents[0]?.local ? Box : Laptop
   const sharedBy = sharedBoxOwner(group, fixes.viewer.members)
-  const diskHint = diskMeterHint(group, fixes.viewer.members)
+  const diskHint = metrics || warning ? diskMeterHint(group, fixes.viewer.members) : null
   const { listed, signIn } = signInChoices(group.agents, quotas, selectedId)
   const rowProps = {
+    compact,
     selectedId,
     access: group.device?.access,
     quotas,
@@ -207,12 +187,19 @@ export function SelectorBoxMenu({
   if (group.unavailable) {
     const problem = group.agents[0] && agentProblem(group.agents[0], undefined, fixes.viewer)
 
+    const retry = problem?.fix?.kind === 'retry' ? problem.fix : undefined
+    const inlineRetry = compact && retry
+    const checking = inlineRetry && fixes.busy(inlineRetry)
+
     return (
       <MenuItem
+        className={
+          compact ? clsx(COMPACT_RUNTIME_ROW, inlineRetry && 'runtime-row-with-action') : undefined
+        }
         icon={<BoxIcon className="h-4 w-4" />}
         closeOnClick={false}
         onClick={() => problem?.fix && fixes.run(problem.fix)}
-        hint={problem?.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />}
+        hint={!inlineRetry && problem?.fix && <AgentFixChip fix={problem.fix} fixes={fixes} />}
       >
         {/* The owner goes on its own line, so the computer keeps its name. */}
         <span className="block min-w-0">
@@ -220,10 +207,16 @@ export function SelectorBoxMenu({
             <span className="truncate font-medium text-secondary">{group.label}</span>
             {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             <span className="shrink-0 text-[11px] text-tertiary">
-              · {problem?.reason ?? t('Offline')}
+              {checking ? (
+                <span role="status">· {t('Checking…')}</span>
+              ) : inlineRetry ? (
+                <RuntimeRowAction reason={t('Offline')} action={t('Click to retry')} />
+              ) : (
+                <>· {problem?.reason ?? t('Offline')}</>
+              )}
             </span>
           </span>
-          <QuietLine text={sharedBy} />
+          {!compact && <QuietLine text={sharedBy} />}
         </span>
       </MenuItem>
     )
@@ -231,20 +224,39 @@ export function SelectorBoxMenu({
 
   return (
     <MenuSubmenu>
-      <MenuSubmenuTrigger className="py-3" chevron={<ChevronRight className="h-3 w-3" />}>
-        <span className="flex items-start gap-2.5">
-          <BoxIcon className="mt-0.5 h-4 w-4 shrink-0 text-tertiary" />
+      <MenuSubmenuTrigger
+        className={compact ? clsx(COMPACT_RUNTIME_ROW, 'group/computer') : 'py-3'}
+        delay={compact ? 80 : undefined}
+        icon={compact ? <BoxIcon className="h-4 w-4" /> : undefined}
+        chevron={<ChevronRight className="h-3 w-3" />}
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          {!compact && <BoxIcon className="mt-0.5 h-4 w-4 shrink-0 text-tertiary" />}
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate font-medium">{group.label}</span>
               {current && <Check aria-label={t('Current computer')} className="h-3 w-3 shrink-0" />}
             </span>
-            <QuietLine text={sharedBy} />
+            {warning ? (
+              <span
+                title={diskHint || undefined}
+                className="hidden truncate text-xs leading-4 text-warning group-hover/computer:block group-focus-visible/computer:block group-data-[popup-open]/computer:block"
+              >
+                {t('Disk almost full · {percent}%', { percent: warning.percent })}
+              </span>
+            ) : (
+              !compact && <QuietLine text={sharedBy} />
+            )}
             {metrics && <SelectorBoxMeters metrics={metrics} diskHint={diskHint} />}
           </span>
+          {warning && <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />}
         </span>
       </MenuSubmenuTrigger>
-      <MenuContent className="w-72">
+      <MenuContent
+        side={compact ? 'right' : undefined}
+        sideOffset={compact ? 4 : undefined}
+        className={compact ? 'w-80' : 'w-72'}
+      >
         <p className="truncate px-2.5 pb-1 pt-2 text-xs font-medium">{group.label}</p>
         {metrics && <p className="px-2.5 pb-2 text-[10px] text-tertiary">{metrics.capacity}</p>}
         {showSharedComputerDisclosure(group) && (
@@ -252,10 +264,10 @@ export function SelectorBoxMenu({
             {SHARED_COMPUTER_PRIVACY} <SharedComputerLearnMore />
           </p>
         )}
-        {listed.map((instance) => (
+        {(compact ? group.agents : listed).map((instance) => (
           <AgentRow key={instance.id} instance={instance} {...rowProps} />
         ))}
-        {signIn.length > 0 && (
+        {!compact && signIn.length > 0 && (
           <MenuSubmenu>
             <MenuSubmenuTrigger chevron={<ChevronRight className="h-3 w-3" />}>
               <span className="flex items-center gap-2 text-secondary">

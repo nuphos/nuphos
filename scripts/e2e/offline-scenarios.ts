@@ -32,6 +32,17 @@ export const offlineScenarios: Scenario[] = [
       await banner.waitFor()
       await page.screenshot({ path: join(artifacts, 'offline-banner.png') })
       await banner.getByRole('button', { name: 'Switch runtime' }).click()
+      const offlineRow = page.getByRole('menuitem', { name: new RegExp(`${LAPTOP}.*Offline`) })
+
+      await offlineRow.hover()
+      const retry = offlineRow.locator('.runtime-row-action-hint')
+
+      await until('the offline row to reveal Retry', () =>
+        retry.evaluate((hint) => getComputedStyle(hint).opacity === '1'),
+      )
+      await page.screenshot({ path: join(artifacts, 'runtime-offline-retry.png') })
+      await offlineRow.click()
+      await page.getByRole('menu').getByText('Checking…', { exact: false }).waitFor()
       await page.getByRole('menu').getByText('E2E fixture agent').click()
       await pickInSubmenu(
         page,
