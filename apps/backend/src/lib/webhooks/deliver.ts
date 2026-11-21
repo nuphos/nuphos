@@ -18,7 +18,7 @@ const BATCH = 10
 const CLAIM_MS = 60_000
 const TIMEOUT_MS = 10_000
 
-/** An endpoint that keeps failing one event for this long is switched off. */
+/** How long one event is retried before it is given up. */
 export const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000
 const FIRST_RETRY_MS = 10_000
 const MAX_RETRY_MS = 60 * 60 * 1000
@@ -180,19 +180,11 @@ async function recordFailure(
     { _id: delivery._id },
     { $set: { state: 'failed', attempts, lastError } },
   )
-  // 410 Gone asks us to stop; a day of failures means nobody is listening.
-  if (result.status === 410 || result.retry)
+  // 410 Gone asks us to stop sending; any other failure only gives up this event.
+  if (result.status === 410)
     await teamWebhooks().updateOne(
       { _id: hook._id },
-      {
-        $set: {
-          enabled: false,
-          disabledReason:
-            result.status === 410
-              ? 'The endpoint answered 410 Gone.'
-              : 'Deliveries kept failing for 24 hours.',
-        },
-      },
+      { $set: { enabled: false, disabledReason: 'The endpoint answered 410 Gone.' } },
     )
 }
 

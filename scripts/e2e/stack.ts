@@ -1,5 +1,5 @@
 // The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
-// ACP agent in place of a model. Nothing here talks to the internet.
+// ACP agent in place of a model and fakes for what it calls out to. Nothing reaches the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -9,6 +9,7 @@ import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './pro
 import { startInstaboxStub } from './instabox-stub.ts'
 import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
+import { startWebhookReceiver } from './webhook-receiver.ts'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 const FIXTURE = join(import.meta.dirname, 'acp-fixture.mjs')
@@ -77,7 +78,6 @@ function startMongo(freePort: number): string {
   } else {
     // Kernel 6.19+: let glibc own rseq, as deploy/compose does (SERVER-121912).
     const run = ['docker', 'run', '--rm', '-e', 'GLIBC_TUNABLES=glibc.pthread.rseq=1']
-
     // The same port inside and out, so the replica set's one member is the address we dial.
     const publish = ['-p', `127.0.0.1:${port}:${port}`]
 
@@ -136,11 +136,11 @@ export async function startStack(
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
-  // Cloud computers and Slack too: only what a scenario puts in them exists.
   const fakes = {
     ...(await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
+    ...(await startWebhookReceiver()),
   }
 
   await until('MongoDB to become primary', async () => initiateReplicaSet(mongoUri))

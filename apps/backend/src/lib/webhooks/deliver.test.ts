@@ -266,7 +266,7 @@ describe('deliverDueWebhooks', () => {
     expect(later.state).toBe('skipped')
   })
 
-  test('a day of failures switches the endpoint off', async () => {
+  test('a day of failures gives up that event and keeps the endpoint on', async () => {
     table('team_webhooks').push(hook())
     reply = 500
     const row = queue('evt_1')
@@ -274,7 +274,7 @@ describe('deliverDueWebhooks', () => {
 
     await deliverDueWebhooks(late)
     expect(row.state).toBe('failed')
-    expect(endpoint().enabled).toBe(false)
+    expect(endpoint().enabled).toBe(true)
   })
 
   test('refuses private addresses unless allowed', async () => {
