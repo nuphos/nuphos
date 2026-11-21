@@ -59,12 +59,19 @@ function personalSetupHint(provider: PersonalCredentialProvider): string {
 
 /** How the agent lists and sets up one of the member's own Personal Credentials. */
 export function personalCredentialDetails(c: {
+  id: string
   provider: PersonalCredentialProvider
   login: string
 }) {
+  const google = c.provider !== 'github' && c.provider !== 'linear'
+
   return {
     label: `${c.login} (your own ${NAMES[c.provider]})`,
     credentialPath: `personal-credentials/${c.provider}/token`,
-    hint: personalSetupHint(c.provider),
+    hint:
+      personalSetupHint(c.provider) +
+      (google
+        ? ` This account's connectionId is ${c.id}: pass it when several accounts are connected, and ask which one when the request does not say.`
+        : ''),
   }
 }
