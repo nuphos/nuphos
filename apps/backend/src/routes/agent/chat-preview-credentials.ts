@@ -3,6 +3,7 @@ import { logError } from '@/lib/observability'
 
 import {
   allCredentialAccessFromOptions,
+  defaultCredentialAccessFromOptions,
   hasCredentialOptions,
   isEmptyCredentialAccess,
 } from './credential-access'
@@ -19,6 +20,7 @@ type PreviewCredentialDependencies = {
 type PreviewChannelCredentialArgs = {
   channelOriginated: boolean
   selectAllCredentials?: boolean
+  appDefaults?: boolean
   sessionId: string
   teamId: string
   actorUserId: string
@@ -66,7 +68,9 @@ export async function ensurePreviewChannelCredentials(
     args.sessionId,
     args.conversationOwnerUserId,
     args.teamId,
-    allCredentialAccessFromOptions(options, args.actorUserId, args.selectAllCredentials),
+    args.appDefaults
+      ? defaultCredentialAccessFromOptions(options, args.actorUserId)
+      : allCredentialAccessFromOptions(options, args.actorUserId, args.selectAllCredentials),
   )
 }
 

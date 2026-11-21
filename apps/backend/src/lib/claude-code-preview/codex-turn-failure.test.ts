@@ -125,7 +125,9 @@ test('a Claude sign-in failure is one line: the streamed notice gives way to the
   expect(
     partsWithoutFailureNotice([{ type: 'text', text: notice }] as UIMessage['parts'], error),
   ).toEqual([])
-  expect(classifyPreviewInterruption(error, false).message).toContain('Sign the agent in again')
+  expect(classifyPreviewInterruption(error, false).message).toContain(
+    'Sign it in again, ask its owner to',
+  )
 })
 
 test('a Codex usage-limit notice is split off the streamed answer too', () => {

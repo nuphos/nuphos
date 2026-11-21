@@ -9,6 +9,7 @@ import { useBotCredentials } from './useBotCredentials'
 import type { TimelineRow } from './ChannelMessages'
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
+import type { ReactNode } from 'react'
 
 /**
  * The open questions of a Bot and of every agent under it, as lines in the Bot's
@@ -25,9 +26,12 @@ export function useBotChatQuestions(
   botId: string | undefined,
   botOwned: boolean,
   onOpenSession: (sessionId: string) => void,
+  /** The chat has no posts yet: the choose-access banner goes under its intro, not in the timeline. */
+  empty: boolean,
 ): {
   rows: TimelineRow[]
   credentials?: CredentialSelectorControl & { unset: boolean }
+  banner?: ReactNode
 } {
   const botCredentials = useBotCredentials(teamId, botId)
   const ownCredentials = botOwned ? botCredentials : undefined
@@ -60,8 +64,15 @@ export function useBotChatQuestions(
   })
 
   // A Bot never given computers or credentials is asked to choose, below everything said so far.
-  if (ownCredentials?.unset)
-    rows.push({ at: Number.MAX_SAFE_INTEGER, key: 'choose-access', node: <ChooseAccessBanner /> })
+  const banner = botId && ownCredentials?.unset ? <ChooseAccessBanner bot={botId} /> : undefined
 
-  return { rows, credentials: botCredentials }
+  if (banner && !empty)
+    rows.push({
+      at: Number.MAX_SAFE_INTEGER,
+      key: 'choose-access',
+      // Inset past the faces on both sides, so the banner lines up with the bubbles.
+      node: <div className="px-[2.375rem]">{banner}</div>,
+    })
+
+  return { rows, credentials: botCredentials, banner: empty ? banner : undefined }
 }

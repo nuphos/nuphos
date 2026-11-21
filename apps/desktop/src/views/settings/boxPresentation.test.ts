@@ -18,6 +18,7 @@ import {
   agentNameTaken,
   defaultAgentName,
   machineLine,
+  boxSetupFailed,
   vanishedBoxes,
 } from './boxPresentation.ts'
 import { removal } from './removalPresentation.ts'
@@ -290,4 +291,11 @@ test('only a manager sees who may use a Box', () => {
 
 test('boxSizeChoices says "1 agent", not "1 agents"', () => {
   assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 task at once')
+})
+
+test('a Box that could not be made tells its owner to create it again (#4146)', () => {
+  assert.deepEqual(boxSetupFailed('Dev Box'), {
+    title: 'Computer setup failed',
+    description: 'Dev Box could not start and was removed. Try creating it again.',
+  })
 })

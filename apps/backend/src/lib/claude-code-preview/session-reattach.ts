@@ -4,6 +4,7 @@ import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel, parseJson } from '@/lib/agent/devices/local-runtime/protocol'
+import { trackAgentProducer } from '@/lib/agent/producer-drain'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { notifyLiveActivities } from '@/lib/push/live-activities'
@@ -63,11 +64,11 @@ export async function untilOnline(url: string): Promise<void> {
  * back on. A drop the session recovers from never ends it: the same native turn
  * carries on over the reattached transport (#704).
  */
-export function endAutonomousTranscriptAfterLoss(session: TeamSession): void {
+export async function endAutonomousTranscriptAfterLoss(session: TeamSession): Promise<void> {
   const update = { kind: 'interrupted', reason: 'runtime_connection_lost' } as const
 
   if (!closeAutonomousTranscript(session, update)) return
-  invokeUpdateHandler(session, update).catch((error: unknown) => {
+  await invokeUpdateHandler(session, update).catch((error: unknown) => {
     logError('agent.chat.preview_autonomous_handler.error', error, {
       team_id: session.teamId,
       session_id: session.conversationId,
@@ -101,14 +102,15 @@ export function observeSession(session: TeamSession): void {
     session.reattached = reattachAfterTransportLoss(session, transport)
     // A turn in flight continues once the session is back. Giving up ends it,
     // and so does a reattach that found the agent gone: no frame will come.
-    session.reattached.then(
-      (back) => {
-        if (!back || session.innerSessionLost) endAutonomousTranscriptAfterLoss(session)
+    const ended = session.reattached.then(
+      async (back) => {
+        if (!back || session.innerSessionLost) await endAutonomousTranscriptAfterLoss(session)
       },
-      () => {
-        endAutonomousTranscriptAfterLoss(session)
-      },
+      () => endAutonomousTranscriptAfterLoss(session),
     )
+
+    // A draining replica gives up at once; shutdown waits until the ended turn is saved.
+    if (isShuttingDown()) void trackAgentProducer(() => ended)
   }
   const stopClosed = transport.onClosed(onLost)
   const stopRetired = transport.onRetired(onLost)

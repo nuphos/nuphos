@@ -24,6 +24,7 @@ const { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } =
 const { isBotDetailsOpen, setBotDetailsOpen } = await import('../../lib/botDetailsPanel')
 const { BotAccessSection } = await import('./BotAccessSection')
 const { ChooseAccessBanner } = await import('./channelParts')
+const { ChannelEmptyState } = await import('./ChannelEmptyState')
 
 const credentials: CredentialSelectorControl = {
   options: EMPTY_CREDENTIAL_OPTIONS,
@@ -55,14 +56,14 @@ async function mount(node: ReturnType<typeof createElement>) {
 const access = () => createElement(BotAccessSection, { credentials, owned: true })
 
 test('the choose-access banner opens Bot details at the Access section', async () => {
-  setBotDetailsOpen(false)
+  setBotDetailsOpen('bot', false)
   // Drawn without being asked for, the section stays where it is.
   const quiet = await mount(access())
 
   assert.deepEqual(scrolled, [])
   await quiet.unmount()
 
-  const banner = await mount(createElement(ChooseAccessBanner))
+  const banner = await mount(createElement(ChooseAccessBanner, { bot: 'bot' }))
   const choose = [...banner.container.querySelectorAll('button')].find(
     (button) => button.textContent === 'Choose',
   )
@@ -88,5 +89,32 @@ test('a Bot not yet loaded has no Access section', async () => {
   const view = await mount(createElement(BotAccessSection, { credentials: undefined, owned: true }))
 
   assert.equal(view.container.querySelector('section'), null)
+  await view.unmount()
+})
+
+// #4038: a Bot with nothing saved still reaches the team-wide kinds, so only "no computer" holds.
+test("the banner says only that the Bot has no computer, under an empty chat's intro", async () => {
+  const view = await mount(
+    createElement(ChannelEmptyState, {
+      faces: [],
+      title: 'Ada',
+      bot: true,
+      preparingFirstReply: false,
+      firstReplyFailed: false,
+      banner: createElement(ChooseAccessBanner),
+    }),
+  )
+  const column = view.container.firstElementChild
+  const intro = [...(column?.children ?? [])].findIndex((node) =>
+    node.textContent.startsWith('This is your conversation with Ada.'),
+  )
+  const banner = column?.lastElementChild
+
+  assert.ok(intro >= 0)
+  assert.equal(
+    banner?.textContent,
+    "This Bot can't use any computers yet. Choose what it may use.Choose",
+  )
+  assert.equal([...(column?.children ?? [])].indexOf(banner as Element), intro + 1)
   await view.unmount()
 })

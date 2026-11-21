@@ -3,7 +3,12 @@ import type { Tab } from './model.ts'
 type StoredTab = Partial<Pick<Tab, 'connected' | 'messages' | 'unsaved' | 'openedAt' | 'stored'>>
 
 type GateTab = StoredTab &
-  Partial<Pick<Tab, 'sessionId' | 'readOnly' | 'foreign' | 'canManage' | 'archived' | 'watching'>>
+  Partial<
+    Pick<
+      Tab,
+      'sessionId' | 'readOnly' | 'foreign' | 'canManage' | 'canArchive' | 'archived' | 'watching'
+    >
+  >
 
 /** Which titlebar session actions the active chat allows. Participants, pin,
  *  links, rename and archive all need a session the server has stored, so a
@@ -15,11 +20,16 @@ export function sessionActionGates(tab: GateTab | null | undefined) {
   return {
     saved,
     canRename: writable && !tab?.foreign,
-    // The server lets the owner or a manager archive.
-    canArchive: writable && !tab?.archived && (!tab?.foreign || tab.canManage === true),
+    canArchive: writable && !tab?.archived && mayArchive(tab),
     // Anyone who can read a chat may watch it.
     watching: saved ? tab?.watching : undefined,
   }
+}
+
+/** The server's canArchive: the owner, or a participant in a Task for themselves
+ *  alone. A chat not opened from the server yet is the viewer's own. */
+function mayArchive(tab: GateTab | null | undefined) {
+  return tab?.canArchive ?? (!tab?.foreign || tab.canManage === true)
 }
 
 /** A new chat's conversation is stored with its first turn, before the backend

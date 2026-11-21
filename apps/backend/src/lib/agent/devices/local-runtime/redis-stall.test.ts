@@ -23,7 +23,7 @@ class FakeRedis {
       return old
     }
     if (script.includes('SET')) {
-      if (held !== args[0]) return 0
+      if (held !== args[0] && (held !== undefined || script.includes('if not raw or'))) return 0
       this.value = args[1]
 
       return 1
@@ -93,6 +93,40 @@ describe('local runtime tunnel during a Redis stall', () => {
     }
   })
 
+  test('keeps the tunnel open when the presence key has expired', async () => {
+    stalled = false
+    let closed: { code: number; reason: string } | undefined
+    const presence = createRedisPresenceStore()
+    const tunnel = await attachRuntimeTunnel(
+      'u1',
+      'd1',
+      {
+        send: () => {},
+        close: (code, reason) => {
+          closed = { code, reason }
+        },
+      },
+      {
+        bus: { publish: () => Promise.resolve(1), subscribe: () => Promise.resolve(() => {}) },
+        presence,
+        isMember: async () => true,
+        heartbeatMs: 5,
+      },
+    )
+
+    try {
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
+      redis.value = undefined
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
+      expect(closed).toBeUndefined()
+      expect(redis.value).toBeDefined()
+    } finally {
+      tunnel.closed()
+    }
+  })
+
   test('still ends the tunnel once Redis says another connection holds the computer', async () => {
     stalled = false
     let closed: { code: number; reason: string } | undefined
@@ -121,7 +155,7 @@ describe('local runtime tunnel during a Redis stall', () => {
       await presence.claim('u1', 'd1', 'someone-else')
       tunnel.receive(JSON.stringify({ t: 'pong' }))
       await tick(10)
-      expect(closed?.reason).toBe('Device presence expired')
+      expect(closed).toEqual({ code: 4001, reason: 'Device presence expired' })
     } finally {
       tunnel.closed()
     }

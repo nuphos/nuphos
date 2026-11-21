@@ -27,21 +27,33 @@ export const focusRingClass =
   'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus'
 const rowFocusClass = `focus-visible:bg-state-hover ${focusRingClass}`
 
-/** A titled block of rows; `header` sits under the title, above the rows. */
+/** A titled block of rows; `header` sits under the title, above the rows; `action` ends the title's line. */
 export function SummarySection({
   title,
   header,
+  action,
   ref,
   children,
 }: {
   title: string
   header?: ReactNode
+  action?: ReactNode
   ref?: Ref<HTMLElement>
   children: ReactNode
 }) {
+  const heading = <h3 className="text-[13px] font-medium text-main">{title}</h3>
+
   return (
     <section ref={ref} className={sectionClass} aria-label={title}>
-      <h3 className="text-[13px] font-medium text-main">{title}</h3>
+      {action ? (
+        // The action keeps the title's line height: it overhangs into the padding.
+        <div className="-my-1.5 -mr-2 flex items-center justify-between gap-2">
+          {heading}
+          {action}
+        </div>
+      ) : (
+        heading
+      )}
       {header}
       <div className="flex flex-col gap-0.5 pt-2">{children}</div>
     </section>
@@ -77,6 +89,18 @@ const rowClass = 'flex h-7 min-w-0 items-center gap-3 text-left text-[13px] text
 const rowButtonClass = clsx(rowClass, hoverRowClass, rowFocusClass)
 
 /** A row that opens the menu it sits in, under it; lit while the menu is open. */
+/** A Task before its first reply: nothing to list yet. */
+export function SummaryEmpty() {
+  return (
+    <div className="px-1 pt-1 text-[13px] leading-5">
+      <p className="text-main">{t('Nothing here yet')}</p>
+      <p className="text-tertiary">
+        {t('Pull requests, sub-tasks and files from this task appear here after its first reply.')}
+      </p>
+    </div>
+  )
+}
+
 export function SummaryMenuRow({
   title,
   className,

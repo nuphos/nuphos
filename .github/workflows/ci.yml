@@ -8,6 +8,11 @@ on:
     branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
   workflow_dispatch:
+    inputs:
+      real_disk:
+        description: Run the isolated real-disk Desktop evidence scenario
+        type: boolean
+        default: false
   # The full macOS package every night, since PRs and the queue build it only
   # when a packaging input changes.
   schedule:
@@ -111,10 +116,11 @@ jobs:
               - 'apps/runtime/image/antigravity-status.mjs'
               - '.bun-version'
               - '.github/workflows/ci.yml'
-            # electron main imports runtime-file-program.ts from the backend.
+            # electron main imports these program texts from the backend.
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               # The local runtime bundles most of the runtime image (apps/runtime/README.md).
               - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
@@ -126,6 +132,7 @@ jobs:
               - 'apps/desktop/*'
               - 'apps/desktop/native/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
@@ -459,7 +466,7 @@ jobs:
     # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
-    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
     # About 35 minutes with openab from the cache. A change to prepare.mjs or the
     # openab source misses that cache until it lands on main, here and in the merge
     # group, and compiling openab adds about 6 minutes.
@@ -505,13 +512,50 @@ jobs:
         run: |
           docker pull mongo:8.0.32
           docker pull rustfs/rustfs:1.0.0
+      - name: Run isolated real-disk Desktop evidence
+        if: github.event_name == 'workflow_dispatch' && inputs.real_disk
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/real-disk-shots
+          OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
+        run: |
+          set -euo pipefail
+          workdir=$(mktemp -d "$RUNNER_TEMP/nuphos-e2e-disk.XXXXXX")
+          disk="$workdir/disk.img"
+          mountpoint="$workdir/mount"
+          mkdir -p "$mountpoint" "$E2E_ARTIFACTS"
+          # Install Electron before HOME points at the nearly full test filesystem.
+          (cd apps/desktop && xvfb-run --auto-servernum pnpm exec electron --version)
+          truncate -s 2G "$disk"
+          mkfs.ext4 -q -F -m 0 "$disk"
+          sudo mount -o loop "$disk" "$mountpoint"
+          trap 'sudo umount "$mountpoint"; rm -f "$disk"; rmdir "$mountpoint" "$workdir"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$mountpoint"
+          # ext4 metadata consumes space too; size the filler from the actual filesystem.
+          fill_bytes=$(python3 -c 'import os,sys; s=os.statvfs(sys.argv[1]); print(int((s.f_blocks * 0.94 - (s.f_blocks - s.f_bfree)) * s.f_frsize))' "$mountpoint")
+          test "$fill_bytes" -gt 0
+          fallocate -l "$fill_bytes" "$mountpoint/fill"
+          E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
+      - name: Upload real-disk screenshots
+        if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: real-disk-screenshots
+          path: |
+            ${{ runner.temp }}/real-disk-shots/real-disk-before.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-dismissed.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-second-window.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
+          if-no-files-found: warn
       - name: Run the end-to-end scenarios
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e
       - name: Run Bot onboarding lifecycle scenarios
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-onboarding
         run: |
@@ -519,6 +563,7 @@ jobs:
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
       # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
       - name: Time chat switches
+        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
         run: |

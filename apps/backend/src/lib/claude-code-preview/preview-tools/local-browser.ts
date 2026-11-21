@@ -32,6 +32,7 @@ type Args = {
   url?: string
   script?: string
   fields?: FillField[]
+  video?: boolean
   device?: string
 }
 
@@ -79,6 +80,7 @@ const browserTool = (channels: typeof turnChannels, fill?: string): DeviceTool =
       ...(args.tab !== undefined ? { tab: args.tab } : {}),
       ...(args.url ? { url: args.url } : {}),
       ...(args.script ? { script: args.script } : {}),
+      ...(args.action === 'record_start' && args.video ? { video: true } : {}),
     }
   },
   audit: (raw) => {
@@ -94,7 +96,11 @@ const browserTool = (channels: typeof turnChannels, fill?: string): DeviceTool =
         ...(args.fields ?? []).map((field) => `${field.selector} <- ${field.path}`),
       ].join(' ')
 
-    return ['[browser]', args.action, ...tab, args.url ?? args.script ?? ''].join(' ').trim()
+    const video = args.action === 'record_start' && args.video ? ['video'] : []
+
+    return ['[browser]', args.action, ...tab, ...video, args.url ?? args.script ?? '']
+      .join(' ')
+      .trim()
   },
   errorReason: 'browser_error',
   noDevice:
@@ -117,6 +123,7 @@ const definition = {
     'A download in a tab is saved to Downloads/Nuphos on the device with no save dialog, numbered instead of replacing a file there, up to 2 GB; the next tabs or eval result says "Downloaded: <path>" or how it failed. ' +
     "fill enters the user's own details, saved by a secure input card, into a page's inputs: pass `fields`, each with the CSS `selector` of an input and the `path` the card's answer gave for it. The values are read from those files and set on the page without passing through you or this conversation, and the result says only which selectors were filled. It enters them only on a page of the site the card named and refuses any other tab: navigate the tab to that site first. Use it for every such value instead of eval, never read the files, and do not read the filled inputs back from the page. " +
     "record_start captures the tab's network traffic (requests, responses, headers including cookies, bodies) until record_stop, which writes it as a HAR file on the device and returns its path with one line per request; read details from that file on the device. " +
+    'With `video: true`, record_start also records what the tab shows, and record_stop writes it as a WebM video beside the HAR and returns its path, length and size; it stops by itself after 2 minutes or 100 MB of frames and then says it was cut short. To hand a recording or screenshot over as evidence, publish the file with file-transfer (bring it over with local_upload first when the tab ran on another computer). ' +
     'Use this for the in-app browser; use local_cua for other apps.',
   inputSchema: {
     type: 'object',
@@ -129,6 +136,10 @@ const definition = {
       },
       url: { type: 'string', description: 'http(s) URL for open and navigate.' },
       script: { type: 'string', description: 'JavaScript expression or IIFE for eval.' },
+      video: {
+        type: 'boolean',
+        description: 'For record_start: also record what the tab shows as a WebM video.',
+      },
       fields: {
         type: 'array',
         description: 'For fill: the inputs to set, each from a file a secure input card saved.',

@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 // Small Mongo fixture for the lifecycle state machine, including positional
 // updates (by `placements.id` or a top-level $elemMatch) and duplicate-key
 // behavior used by the placement lease.
@@ -29,6 +31,9 @@ function matches(doc: Doc, query: Doc): boolean {
         )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
+      // Like Mongo, an array or document is compared by value.
+      if ('$ne' in expected && expected.$ne && typeof expected.$ne === 'object')
+        return !isDeepStrictEqual(actual, expected.$ne)
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
       if ('$in' in expected)
