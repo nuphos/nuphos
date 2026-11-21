@@ -73,12 +73,15 @@ export const teammateBotScenarios: Scenario[] = [
       const ownPost = page.locator('.group\\/post', {
         has: page.getByText('My own message E2E_BUBBLE:own', { exact: true }),
       })
+
       await teammatePost.waitFor()
       await ownPost.waitFor()
       const botFill = await post.locator('.bg-state-selected').count()
       const teammateFill = await teammatePost.locator('.bg-state-selected').count()
       const ownFill = await ownPost.locator('.bg-state-selected').count()
+
       await page.screenshot({ path: `${artifacts}/group-chat-bubbles-4189.png` })
+
       if (botFill !== 1 || teammateFill !== 1 || ownFill !== 0)
         throw new Error(`Bubble fills: bot=${botFill}, teammate=${teammateFill}, own=${ownFill}`)
       // The face, not only the runtime mark.
