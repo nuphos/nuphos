@@ -54,8 +54,8 @@ final class BotComposerControlsUITests: XCTestCase {
         shot("bot-composer-ios-owner")
         model.tap()
         XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Opus"].waitForExistence(timeout: 10), "The Bot's model choices did not load")
         shot("bot-composer-ios-model")
+        XCTAssertTrue(app.buttons["Opus"].waitForExistence(timeout: 10), "The Bot's model choices did not load")
     }
 
     func testNonOwnerSeesLockedControlsAndHint() throws {
