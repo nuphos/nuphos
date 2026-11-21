@@ -212,7 +212,9 @@ jobs:
           only=true
           while read -r f; do
             case "$f" in
-              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
+              apps/cli/* | apps/ios/whats-new.txt) ;;
+              # The runtime's SDK pins; its own code under apps/runtime is not a bump (#4481).
+              apps/runtime/README.md | apps/runtime/image/Dockerfile | apps/runtime/image/*-acp/package*.json) ;;
               apps/*/package.json)
                 old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
