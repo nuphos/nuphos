@@ -211,13 +211,13 @@ export function ReplyingBanner({
  * the kinds that are team-wide when unset. Choose opens Bot details' Access
  * section. Gone once anything is saved.
  */
-export function ChooseAccessBanner() {
+export function ChooseAccessBanner({ bot }: { bot: string }) {
   return (
     <div className="flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <div className="min-w-0 flex-1 text-secondary">
         {t("This Bot can't use any computers yet. Choose what it may use.")}
       </div>
-      <Button size="sm" variant="secondary" onClick={showBotAccess}>
+      <Button size="sm" variant="secondary" onClick={() => showBotAccess(bot)}>
         {t('Choose')}
       </Button>
     </div>
