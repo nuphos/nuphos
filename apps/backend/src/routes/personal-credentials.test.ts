@@ -390,6 +390,13 @@ describe('Google Personal Credentials', () => {
     expect(res.status).toBe(204)
     expect(saved).toEqual([b])
     expect(revoked).toHaveLength(1)
+    const bad = await app.request(`/personal-credentials/gmail?teamId=${TEAM}&connectionId=nope`, {
+      method: 'DELETE',
+      headers: { 'x-test-user': 'alice' },
+    })
+
+    expect(bad.status).toBe(404)
+    expect(saved).toEqual([b])
   })
 
   test('a member removed before approving is refused, and nothing is stored', async () => {
@@ -484,7 +491,7 @@ const turn = (actor: string, humanTurn: boolean, teamId = TEAM) =>
 // conv-1's selection, as the conversation document stores it.
 let conversation: { userId: string; credentialAccess?: Doc } | null = null
 
-useAgentDb({ getConversationBySessionId: (async () => conversation) })
+useAgentDb({ getConversationBySessionId: async () => conversation })
 
 describe('Google token handout', () => {
   const handout = new Hono()

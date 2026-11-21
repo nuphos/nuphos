@@ -44,6 +44,9 @@ export async function deletePersonalCredential(
   teamId?: string,
   connectionId?: string,
 ): Promise<void> {
+  if (connectionId && !ObjectId.isValid(connectionId)) {
+    throw new AppError(404, 'personal_credential_account_not_found', 'No such connected account')
+  }
   const filter = {
     userId,
     provider,
