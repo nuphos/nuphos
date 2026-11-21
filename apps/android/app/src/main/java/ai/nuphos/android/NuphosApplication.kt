@@ -3,6 +3,9 @@ package ai.nuphos.android
 import android.app.Application
 import ai.nuphos.android.data.TokenStore
 import ai.nuphos.android.session.AuthSession
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 class NuphosApplication : Application() {
     lateinit var incomingShares: ai.nuphos.android.session.IncomingShares
@@ -22,8 +25,18 @@ class NuphosApplication : Application() {
     lateinit var pushNotifications: ai.nuphos.android.notifications.PushNotifications
         private set
 
+    private val appearancePreferences by lazy { getSharedPreferences("nuphos.appearance", MODE_PRIVATE) }
+    var botAvatarsEnabled by mutableStateOf(true)
+        private set
+
+    fun updateBotAvatars(enabled: Boolean) {
+        botAvatarsEnabled = enabled
+        appearancePreferences.edit().putBoolean("botAvatars", enabled).apply()
+    }
+
     override fun onCreate() {
         super.onCreate()
+        botAvatarsEnabled = appearancePreferences.getBoolean("botAvatars", true)
         ai.nuphos.android.model.Words.context = this
         getSharedPreferences("nuphos.backend", MODE_PRIVATE).getString("origin", null)?.let {
             runCatching { ai.nuphos.android.data.BackendOrigin.select(it) }
