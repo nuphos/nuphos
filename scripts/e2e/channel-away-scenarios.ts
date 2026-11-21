@@ -51,7 +51,7 @@ export const channelAwayScenarios: Scenario[] = [
 
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-      await page.locator('[data-post-id]').first().waitFor()
+      await page.locator('[data-post-id]:visible').first().waitFor()
       await page.evaluate(() => {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
