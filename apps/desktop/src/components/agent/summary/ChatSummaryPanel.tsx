@@ -25,6 +25,7 @@ import {
   PANE,
   TOGGLE,
   panelClass,
+  shown,
   slotClass,
   useDismissOutside,
   useSummaryMotion,
@@ -151,7 +152,7 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: ()
   if (!event.currentTarget.contains(event.target as Node)) return
   event.preventDefault()
   close()
-  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
+  shown(root?.closest(PANE), TOGGLE)?.focus()
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */

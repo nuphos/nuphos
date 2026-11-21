@@ -25,8 +25,8 @@ function visible(element: HTMLElement | null | undefined): element is HTMLElemen
   return Boolean(element && element.offsetHeight > 0)
 }
 
-// The first match on screen: views kept alive for a quick switch back stay in the page, hidden.
-function shown(root: ParentNode | null | undefined, selector: string) {
+/** The first match on screen: views kept alive for a quick switch back stay in the page, hidden. */
+export function shown(root: ParentNode | null | undefined, selector: string) {
   return [...(root?.querySelectorAll<HTMLElement>(selector) ?? [])].find(visible)
 }
 
