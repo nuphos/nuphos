@@ -192,8 +192,17 @@ export async function googleCredentialFor(
   teamId: string,
   connectionId?: string,
   authorized?: string[],
+  viaComposio = false,
 ): Promise<PersonalCredential | null> {
-  const docs = await personalCredentials().find({ userId, provider, teamId }).toArray()
+  // Composio runs only the accounts connected through it, so a direct account never counts there.
+  const docs = await personalCredentials()
+    .find({
+      userId,
+      provider,
+      teamId,
+      ...(viaComposio && { composioAccountId: { $exists: true } }),
+    })
+    .toArray()
   // The conversation's own list decides. Without one, only a lone account is usable, so a second
   // account connected later is never reached by a selection made before it existed.
   const allowed = authorized

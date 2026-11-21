@@ -269,6 +269,7 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     claims.tid,
     connectionId,
     claims.connectionIds,
+    true,
   )
 
   if (!credential?.composioAccountId) {
