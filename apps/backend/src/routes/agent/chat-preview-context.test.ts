@@ -23,8 +23,6 @@ useAgentDb({
     if (clearFails) throw new Error('still unavailable')
     cleared.push(sessionId)
   },
-  // An ordinary question, not a plan's.
-  findInputRequest: async () => undefined,
   resolveInputRequest: async (sessionId, userId, toolCallId) => {
     resolved.push([sessionId, userId, toolCallId])
 

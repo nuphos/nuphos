@@ -185,18 +185,3 @@ export async function listActivePlansForConversation(
 
   return plans().find(query).sort({ createdAt: 1 }).limit(10).toArray()
 }
-
-/** Plans created by a native-runtime script during one turn, in card order. */
-export async function listPlansCreatedForConversation(
-  sessionId: string,
-  since: Date,
-  scope: PlanScope,
-): Promise<PlanDTO[]> {
-  const base = { sourceConversationId: sessionId, createdAt: { $gte: since } }
-  const query = scope.teamId
-    ? { ...base, teamId: scope.teamId }
-    : { ...base, createdBy: scope.userId }
-  const rows = await plans().find(query).sort({ createdAt: 1 }).limit(10).toArray()
-
-  return rows.map(serializePlan)
-}

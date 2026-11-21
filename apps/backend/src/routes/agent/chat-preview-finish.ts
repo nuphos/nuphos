@@ -6,8 +6,6 @@
 import { appendTranscriptMessages } from '@/lib/agent/db'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
-import { askPlanDecisions } from '@/lib/agent/plan-decision'
-import { listPlansCreatedForConversation } from '@/lib/agent/plans'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
 import { completedTurnOutput } from '@/lib/claude-code-preview/empty-turn'
 import {
@@ -27,18 +25,6 @@ import type { AgentRun } from './types'
 import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcript'
 import type { TurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import type { UIMessage } from 'ai'
-
-function insertBeforeFinalText(
-  parts: UIMessage['parts'],
-  inserted: UIMessage['parts'],
-): UIMessage['parts'] {
-  if (inserted.length === 0) return parts
-  const finalTextIndex = parts.findLastIndex((part) => part.type === 'text')
-
-  if (finalTextIndex < 0) return [...parts, ...inserted]
-
-  return [...parts.slice(0, finalTextIndex), ...inserted, ...parts.slice(finalTextIndex)]
-}
 
 /**
  * The id a run's reply is stored under: its stream's, which every client that
@@ -60,7 +46,6 @@ export async function finishPreviewTurn(args: {
   locale: string
   provider: string
   requestId: string
-  startedAt: number
   /** The final segment's text (after the last steering boundary). */
   text: string
   reasoning: string
@@ -76,46 +61,13 @@ export async function finishPreviewTurn(args: {
   onRuntimeComplete?: () => void
 }): Promise<void> {
   const { run, sessionId, teamId, userId } = args
-  const existingPlanIds = new Set(
-    args.toolSteps.flatMap((step) => {
-      if (step.toolName !== 'plan_create' || !step.output || typeof step.output !== 'object')
-        return []
-      const planId = (step.output as Record<string, unknown>).planId
-
-      return typeof planId === 'string' ? [planId] : []
-    }),
-  )
-  const nativePlans = await listPlansCreatedForConversation(sessionId, new Date(args.startedAt), {
-    teamId,
-    userId,
-  }).catch(() => [])
-  const nativePlanSteps: PreviewToolStep[] = nativePlans
-    .filter((plan) => !existingPlanIds.has(plan.id))
-    .map((plan) => ({
-      toolCallId: `nuphos-plan-${plan.id}-${String(args.startedAt)}`,
-      toolName: 'plan_create',
-      input: { title: plan.title, overview: plan.overview },
-      output: { planId: plan.id, status: plan.status },
-    }))
-
-  await askPlanDecisions(sessionId, userId, nativePlans, nativePlanSteps)
-  const nativePlanParts = previewAssistantMessageParts({
-    reasoning: '',
-    text: '',
-    toolSteps: nativePlanSteps,
-  })
   const fallbackParts = previewAssistantMessageParts({
     reasoning: args.reasoning,
     text: args.text,
     toolSteps: args.toolSteps.slice(args.finalStepStart),
   })
-  const orderedParts = args.orderedParts ?? fallbackParts
-  // Native Plan records are discovered after the runtime finishes and have no
-  // stream event to place them precisely. Preserve their previous position
-  // immediately before the final answer instead of moving the answer's
-  // interleaved commentary and tools around them.
   const { parts, steered } = completedTurnOutput(
-    insertBeforeFinalText(orderedParts, nativePlanParts),
+    args.orderedParts ?? fallbackParts,
     args.steered,
   )
 
