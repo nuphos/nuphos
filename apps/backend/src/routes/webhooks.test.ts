@@ -253,3 +253,32 @@ describe('POST /webhooks/:triggerId', () => {
     expect(fires).toHaveLength(1)
   })
 })
+
+describe('payload filters', () => {
+  const filters = [{ path: 'action', in: ['opened', 'synchronize'] }]
+
+  test('a delivery that fails the rules is answered and starts no turn', async () => {
+    stored = webhook({ payloadFilters: filters })
+
+    const skipped = await post({ action: 'labeled' })
+
+    expect(skipped.status).toBe(200)
+    expect(await skipped.json()).toEqual({ ok: true, skipped: true, reason: 'filtered' })
+    expect(fires).toHaveLength(0)
+  })
+
+  test('a delivery that passes them fires once', async () => {
+    stored = webhook({ payloadFilters: filters })
+
+    expect((await post({ action: 'synchronize' })).status).toBe(200)
+    expect(fires).toHaveLength(1)
+  })
+
+  test('a filtered delivery does not use up the cooldown', async () => {
+    stored = webhook({ payloadFilters: filters, minIntervalSeconds: 300 })
+
+    await post({ action: 'edited' })
+    expect((await post({ action: 'opened' })).status).toBe(200)
+    expect(fires).toHaveLength(1)
+  })
+})
