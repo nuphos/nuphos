@@ -1,7 +1,6 @@
-// One-time reminders against a real backend and a real MongoDB, with the faults the issue names:
-// a backend that is down at the due time, a crash between saving a reminder and acknowledging it,
-// and a conversation that can no longer receive it. No Desktop, no agent runtime: a reminder is
-// delivered without a Bot turn, which is the point.
+// One-time reminders against a real backend and MongoDB, with faults: a backend down at the due
+// time, a crash between save and ack, and a conversation that cannot receive it. No Desktop or
+// agent runtime: a reminder is delivered without a Bot turn.
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -67,7 +66,9 @@ const count = (needle: string) => lines().filter((line) => line.includes(needle)
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
 const inSeconds = (n: number) => new Date(Date.now() + n * 1000).toISOString()
 const check = (label: string, ok: boolean, detail = '') => {
-  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}${detail ? ` (${detail})` : ''}`)
+  const suffix = detail ? ` (${detail})` : ''
+
+  console.log(`${ok ? 'PASS' : 'FAIL'} ${label}${suffix}`)
   if (!ok) failed = true
 }
 
