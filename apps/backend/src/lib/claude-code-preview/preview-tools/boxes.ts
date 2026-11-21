@@ -196,14 +196,14 @@ export function boxToolModule(
           if (action === 'stop') await pauseBox(userId, deviceId)
           if (action === 'start') await resumeBox(userId, deviceId)
           if (action !== 'delete') return { deviceId, action, done: true }
-          // As the Box delete route: a machine still pausing throws, and the Box stays usable.
-          const killed = await destroyBox(userId, deviceId)
-
+          // As the Box delete route: close its tunnel cleanly before the machine goes.
           if (await revokeAgentDeviceCredential(userId, deviceId))
             await tunnelBus().publish(
               holderChannel(userId, deviceId),
               JSON.stringify({ t: 'revoke' }),
             )
+          const killed = await destroyBox(userId, deviceId)
+
           await deleteAgentDevice(userId, deviceId)
 
           return { deviceId, action, done: true, ...(killed ? {} : { machineLeft: true }) }
