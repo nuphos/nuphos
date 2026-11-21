@@ -48,6 +48,14 @@ const VIEWPORT = { width: 1440, height: 900 }
  * is shown it (`show`). The page is the window's own: a hidden window paints it
  * for a capture, where a view inside one has nothing to capture.
  */
+const readied = new WeakSet<BrowserWindow>()
+;(globalThis as { __tabState?: () => string }).__tabState = () =>
+  [...tabs]
+    .map(
+      ([c, t]) =>
+        `#${String(c.id)} vis=${String(t.window.isVisible())} ready=${String(readied.has(t.window))} op=${String(t.window.getOpacity())} thr=${String(c.getBackgroundThrottling())} min=${String(t.window.isMinimized())} load=${String(c.isLoading())}`,
+    )
+    .join(',')
 const tabs = new Map<
   WebContents,
   { conversation: string; window: BrowserWindow; opener?: WebContents }
@@ -74,6 +82,7 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
   // like a background tab, so an idle tab costs no battery.
   window.once('ready-to-show', () => {
+    readied.add(window)
     if (!window.isVisible()) {
       window.showInactive()
       window.hide()

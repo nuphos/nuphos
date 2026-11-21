@@ -46,13 +46,26 @@ const screenshot =
       .then((shot) => (shot as { data?: string }).data)
 
 /** Desktop captures its tab with capturePage, which a hidden window answers when CDP does not. */
+export const diag: string[] = []
+const t0 = Date.now()
+const mark = (s: string) => diag.push(`${String(Date.now() - t0)}:${s}`)
 export const snapshotOf = (tab: RecordedTab): Snapshot =>
   tab.capturePage
-    ? () =>
+    ? () => {
+        const at = Date.now()
+        mark(`cap-begin ${String((globalThis as { __tabState?: () => string }).__tabState?.() ?? '')}`)
         // Called on the tab itself: WebContents methods need their `this`.
-        tab.capturePage!().then((image) =>
-          image.isEmpty() ? undefined : image.toJPEG(70).toString('base64'),
+        return tab.capturePage!().then(
+          (image) => {
+            mark(`cap-${image.isEmpty() ? 'empty' : 'ok'} ${String(Date.now() - at)}ms`)
+            return image.isEmpty() ? undefined : image.toJPEG(70).toString('base64')
+          },
+          (e: unknown) => {
+            mark(`cap-threw ${String(e)}`)
+            throw e
+          },
         )
+      }
     : screenshot(tab.debugger)
 
 /** By default a video ends after 2 minutes or 100 MB of frames, whichever comes first. */
@@ -162,6 +175,8 @@ export async function startVideo(
   limits = LIMITS,
   snapshot = screenshot(debug),
 ): Promise<Video> {
+  diag.length = 0
+  mark('start')
   const helper = await open()
   const video: Video = {
     debugger: debug,
@@ -195,6 +210,7 @@ export async function startVideo(
       () => undefined,
     )
 
+    mark(`start-snapshot ${data ? 'data' : 'none'}`)
     if (data) draw(video, data, 0)
     debug.on('message', video.onMessage)
     await debug.sendCommand('Page.startScreencast', {
@@ -249,6 +265,7 @@ function draw(video: Video, jpeg: string, ms: number): void {
 /** Ends the video and writes it to `file`; returns what `record_stop` reports of it. */
 export async function stopVideo(video: Video, file: string) {
   clearTimeout(video.expiry)
+  mark(`stop frames=${String(video.frames)}`)
   stopFrames(video)
   try {
     const ms = Date.now() - video.started
@@ -274,7 +291,7 @@ export async function stopVideo(video: Video, file: string) {
 
     if (!chunks.length)
       throw new Error(
-        `No frame of the tab was recorded (${String(video.frames)} sent, ${await progressOf(video)}).`,
+        `No frame of the tab was recorded (${String(video.frames)} sent, ${await progressOf(video)}) DIAG ${diag.join(' | ')}.`,
       )
     const bytes = webm(
       chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
