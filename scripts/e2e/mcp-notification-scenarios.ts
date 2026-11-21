@@ -125,6 +125,7 @@ export const mcpNotificationScenarios: Scenario[] = [
 
           if (!response.ok || !response.body) return false
           resumed = response.body.getReader()
+
           return true
         })
         await resumed?.cancel()
