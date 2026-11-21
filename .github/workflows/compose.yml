@@ -20,7 +20,7 @@ permissions:
 jobs:
   smoke:
     name: Local stack smoke test
-    runs-on: instabox-medium
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
     timeout-minutes: 25
     defaults:
       run:
@@ -49,7 +49,7 @@ jobs:
 
   helm-chart:
     name: Helm chart validation
-    runs-on: instabox-medium
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,7 +64,7 @@ jobs:
 
   platform-templates:
     name: Railway template validation
-    runs-on: instabox-medium
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

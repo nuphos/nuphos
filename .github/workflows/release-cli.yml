@@ -32,7 +32,8 @@ jobs:
 
   validate:
     needs: provenance
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     outputs:
       version: ${{ steps.version.outputs.version }}
     permissions:
@@ -84,7 +85,8 @@ jobs:
             runner: ubuntu-24.04
           - target: aarch64-unknown-linux-musl
             runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner == 'ubuntu-24.04' && 'instabox-medium' || matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: write
     defaults:
@@ -152,7 +154,8 @@ jobs:
             targets: linux-x64
           - runner: ubuntu-22.04-arm
             targets: linux-arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner == 'ubuntu-24.04' && 'instabox-medium' || matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: write
       attestations: read
@@ -234,7 +237,8 @@ jobs:
 
   publish:
     needs: [provenance, validate, build, agent]
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:

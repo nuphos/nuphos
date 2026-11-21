@@ -79,7 +79,8 @@ defaults:
 jobs:
   plan:
     if: github.ref == 'refs/heads/main' && vars.RUNTIME_PUBLISH_ENABLED == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: instabox-medium
+    timeout-minutes: 60
     permissions:
       contents: read
       actions: read # merge-queue runs, for the provenance check
@@ -169,12 +170,14 @@ jobs:
     needs: plan
     # Each architecture builds on a native runner: OpenAB is Rust, and compiling
     # it under emulation would take most of an hour.
-    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'instabox-medium' }}
+    timeout-minutes: 60
     # Only this job and publish may push; the job that vets the commit cannot.
     permissions:
       contents: read
       packages: write
     strategy:
+      max-parallel: 2
       fail-fast: false
       matrix:
         provider: ${{ fromJSON(needs.plan.outputs.providers) }}
@@ -302,7 +305,8 @@ jobs:
 
   publish:
     needs: [plan, build]
-    runs-on: ubuntu-24.04
+    runs-on: instabox-medium
+    timeout-minutes: 60
     # This job checks nothing out, so the workflow default (apps/runtime) does not exist here.
     defaults:
       run:
@@ -406,7 +410,8 @@ jobs:
     name: Publish GitHub Release
     needs: [plan, publish]
     if: inputs.release_tag != ''
-    runs-on: ubuntu-24.04
+    runs-on: instabox-medium
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:

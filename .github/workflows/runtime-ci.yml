@@ -25,7 +25,8 @@ defaults:
 jobs:
   adapter:
     name: Runtime adapters
-    runs-on: instabox-medium
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,8 +65,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [instabox-medium, windows-2025]
-    runs-on: ${{ matrix.os }}
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ startsWith(matrix.os, 'ubuntu-') && !(github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository) && 'instabox-medium' || matrix.os }}
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -100,8 +102,10 @@ jobs:
 
   image:
     name: Runtime image (${{ matrix.provider }})
-    runs-on: instabox-medium
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04' || 'instabox-medium' }}
+    timeout-minutes: 45
     strategy:
+      max-parallel: 2
       fail-fast: false
       matrix:
         provider: [claude-code, codex, grok, antigravity, opencode, hermes, dsh]

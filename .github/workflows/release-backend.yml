@@ -28,7 +28,8 @@ jobs:
 
   publish:
     needs: provenance
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     environment: backend-release
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -96,7 +97,8 @@ jobs:
 
   announce:
     needs: publish
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:

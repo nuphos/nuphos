@@ -30,7 +30,7 @@ jobs:
     name: Check and build unsigned AAB
     needs: provenance
     if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     timeout-minutes: 30
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
@@ -113,7 +113,7 @@ jobs:
     name: Sign approved upload bundle
     needs: [provenance, build]
     if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     timeout-minutes: 15
     environment: android-release
     permissions:
@@ -270,7 +270,7 @@ jobs:
     name: Publish the GitHub release
     needs: [provenance, build, sign]
     if: github.event_name == 'workflow_dispatch' && github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
     timeout-minutes: 5
     permissions:
       contents: write

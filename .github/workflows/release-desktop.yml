@@ -28,7 +28,8 @@ jobs:
 
   validate:
     needs: provenance
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -81,7 +82,8 @@ jobs:
             platform: linux
             arch: arm64
             targets: linux-arm64
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner == 'ubuntu-24.04' && 'instabox-medium' || matrix.runner }}
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -196,7 +198,8 @@ jobs:
   # electron-updater reads one latest-mac.yml and picks the arch from it.
   mac-update-manifest:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     environment: desktop-release
     permissions:
       id-token: write
@@ -230,7 +233,8 @@ jobs:
 
   announce:
     needs: [validate, build, mac-update-manifest]
-    runs-on: ubuntu-latest
+    runs-on: instabox-medium
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
