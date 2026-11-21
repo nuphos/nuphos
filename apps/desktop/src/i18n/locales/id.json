@@ -3881,7 +3881,7 @@
   "Requested changes": "Meminta perubahan",
   "Requester + multiple teammates": "Peminta + beberapa rekan tim",
   "Requester + one teammate": "Peminta + satu rekan tim",
-  "Requester + {count} other member(s)": "Peminta + {count} anggota lain",
+  "Requester + {count} teammates": "Peminta + {count} rekan tim",
   "Requester approved · team {done}/{required}": "Peminta menyetujui · tim {done}/{required}",
   "Requester only": "Hanya peminta",
   "Requester pending · team {done}/{required}": "Menunggu peminta · tim {done}/{required}",

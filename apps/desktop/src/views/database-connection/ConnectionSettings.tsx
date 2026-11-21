@@ -62,7 +62,9 @@ function ChangeApprovalPolicySection({
       <span className="text-[12px] text-secondary">
         {minimum === 0
           ? t('Requester only')
-          : t('Requester + {count} other member(s)', { count: String(minimum) })}
+          : minimum === 1
+            ? t('Requester + one teammate')
+            : t('Requester + {count} teammates', { count: String(minimum) })}
       </span>
       {isTeamAdmin && (
         <Button size="sm" variant="secondary" onClick={edit}>

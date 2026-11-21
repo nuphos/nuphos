@@ -70,15 +70,17 @@ test('the approval policy is the connection’s own, saved through the connectio
     [...dom.document.querySelectorAll('button')].find((node) => node.textContent === label)
 
   await act(async () => render())
-  assert.match(container.textContent, /Requester \+ 2 other member\(s\)/)
+  assert.match(container.textContent, /Requester \+ 2 teammates/)
 
   await act(async () => button('Edit')?.click())
+  // No radio takes focus on open, so the unselected ones all look the same.
+  assert.notEqual(dom.document.activeElement?.getAttribute('type'), 'radio')
   const oneTeammate = [...dom.document.querySelectorAll('input[type="radio"]')][1]
 
   await act(async () => (oneTeammate as unknown as HTMLInputElement).click())
   await act(async () => button('Save policy')?.click())
 
   assert.deepEqual(saved, [{ changeApprovalPolicy: { minimumApprovals: 1 } }])
-  assert.match(container.textContent, /Requester \+ 1 other member\(s\)/)
+  assert.match(container.textContent, /Requester \+ one teammate/)
   root.unmount()
 })

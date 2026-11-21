@@ -3881,7 +3881,7 @@
   "Requested changes": "ขอให้แก้ไข",
   "Requester + multiple teammates": "ผู้ขอ + เพื่อนร่วมทีมหลายคน",
   "Requester + one teammate": "ผู้ขอ + เพื่อนร่วมทีมหนึ่งคน",
-  "Requester + {count} other member(s)": "ผู้ขอ + สมาชิกอื่น {count} คน",
+  "Requester + {count} teammates": "ผู้ขอ + เพื่อนร่วมทีม {count} คน",
   "Requester approved · team {done}/{required}": "ผู้ขออนุมัติแล้ว · ทีม {done}/{required}",
   "Requester only": "เฉพาะผู้ขอ",
   "Requester pending · team {done}/{required}": "ผู้ขอยังไม่อนุมัติ · ทีม {done}/{required}",

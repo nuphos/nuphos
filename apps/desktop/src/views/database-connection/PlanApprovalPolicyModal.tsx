@@ -36,6 +36,7 @@ export function PlanApprovalPolicyModal({
         'Choose who must approve database changes requested on this connection, whether by a Bot, a task or a person.',
       )}
       width={520}
+      focusFirstControl={false}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button variant="ghost" disabled={saving} onClick={onClose}>

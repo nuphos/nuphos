@@ -3881,7 +3881,7 @@
   "Requested changes": "変更を要求しました",
   "Requester + multiple teammates": "リクエスト者 + 複数のチームメイト",
   "Requester + one teammate": "リクエスト者 + チームメイト 1 人",
-  "Requester + {count} other member(s)": "リクエスト者 + 他のメンバー {count} 人",
+  "Requester + {count} teammates": "リクエスト者 + チームメイト {count} 人",
   "Requester approved · team {done}/{required}": "依頼者 承認済み · チーム {done}/{required}",
   "Requester only": "リクエスト者のみ",
   "Requester pending · team {done}/{required}": "依頼者 未承認 · チーム {done}/{required}",

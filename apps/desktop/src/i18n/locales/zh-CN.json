@@ -3881,7 +3881,7 @@
   "Requested changes": "请求了更改",
   "Requester + multiple teammates": "请求者 + 多位队友",
   "Requester + one teammate": "请求者 + 一位队友",
-  "Requester + {count} other member(s)": "请求者 + {count} 位其他成员",
+  "Requester + {count} teammates": "请求者 + {count} 位队友",
   "Requester approved · team {done}/{required}": "请求者已批准 · 团队 {done}/{required}",
   "Requester only": "仅请求者",
   "Requester pending · team {done}/{required}": "请求者待批准 · 团队 {done}/{required}",

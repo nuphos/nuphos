@@ -3881,7 +3881,7 @@
   "Requested changes": "Cambios solicitados",
   "Requester + multiple teammates": "Solicitante + varios compañeros",
   "Requester + one teammate": "Solicitante + un compañero",
-  "Requester + {count} other member(s)": "Solicitante + {count} miembro(s) más",
+  "Requester + {count} teammates": "Solicitante + {count} compañeros",
   "Requester approved · team {done}/{required}": "Solicitante: aprobado · equipo {done}/{required}",
   "Requester only": "Solo el solicitante",
   "Requester pending · team {done}/{required}": "Solicitante: pendiente · equipo {done}/{required}",

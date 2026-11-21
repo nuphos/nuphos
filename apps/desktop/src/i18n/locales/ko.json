@@ -3881,7 +3881,7 @@
   "Requested changes": "변경 요청함",
   "Requester + multiple teammates": "요청자 + 여러 팀원",
   "Requester + one teammate": "요청자 + 팀원 1명",
-  "Requester + {count} other member(s)": "요청자 + 다른 멤버 {count}명",
+  "Requester + {count} teammates": "요청자 + 팀원 {count}명",
   "Requester approved · team {done}/{required}": "요청자 승인 완료 · 팀 {done}/{required}",
   "Requester only": "요청자만",
   "Requester pending · team {done}/{required}": "요청자 대기 중 · 팀 {done}/{required}",
