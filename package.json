@@ -2,7 +2,7 @@
   "name": "nuphos",
   "private": true,
   "version": "0.0.0",
-  "description": "Nuphos monorepo — `bun run dev` boots backend + desktop with a live dashboard.",
+  "description": "Nuphos monorepo \u2014 `bun run dev` boots backend + desktop with a live dashboard.",
   "scripts": {
     "dev": "bun scripts/dev.ts",
     "e2e": "bun scripts/e2e/run.ts",
@@ -30,6 +30,7 @@
   "devDependencies": {
     "@eslint/js": "^10",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/bun": "^1.4.4",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10",
     "eslint-plugin-import-x": "4.17.1",
@@ -39,6 +40,7 @@
     "madge": "8.0.0",
     "playwright-core": "1.65.0",
     "prettier": "3.9.6",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0"
   },
   "trustedDependencies": []

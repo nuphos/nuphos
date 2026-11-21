@@ -16,7 +16,7 @@ const api = `http://127.0.0.1:${backendPort}`
 const DB = 'probe_deadline_e2e'
 let token = ''
 
-async function request(method: string, path: string, body?: unknown) {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(api + path, {
     method,
     headers: {
@@ -29,7 +29,7 @@ async function request(method: string, path: string, body?: unknown) {
 
   if (!response.ok) throw new Error(`${method} ${path}: ${String(response.status)} ${text}`)
 
-  return text ? (JSON.parse(text) as Record<string, string & Record<string, string>>) : {}
+  return (text ? JSON.parse(text) : {}) as T
 }
 
 function inDatabase(program: string, ...args: string[]) {
@@ -205,11 +205,17 @@ try {
 
     return Boolean(code)
   })
-  const signedIn = await request('POST', '/auth/email/verify-code', { email, code })
+  const signedIn = await request<{ token: string }>('POST', '/auth/email/verify-code', {
+    email,
+    code,
+  })
 
-  token = signedIn.token as string
-  const userId = (await request('GET', '/auth/me')).id as string
-  const teamId = (await request('POST', '/teams', { name: 'Probe deadline' })).team.id as string
+  token = signedIn.token
+  const userId = (await request<{ id: string }>('GET', '/auth/me')).id
+  const { team } = await request<{ team: { id: string } }>('POST', '/teams', {
+    name: 'Probe deadline',
+  })
+  const teamId = team.id
   const deviceId = `probe-${randomUUID().slice(0, 8)}`
 
   await request('PUT', '/agent/devices', {
@@ -224,14 +230,14 @@ try {
   const sessionId = `probe-deadline-${randomUUID()}`
 
   inDatabase(INSERT, sessionId, teamId, userId, runtimeId, runtimeUrl, `sess_${randomUUID()}`)
-  const trigger = (await request('POST', '/agent/triggers', {
+  const trigger = await request<{ id: string }>('POST', '/agent/triggers', {
     teamId,
     targetSessionId: sessionId,
     name: 'Hourly report',
     triggerType: 'cron',
     cronExpression: '0 * * * *',
     messageTemplate: 'Report E2E_PROBE_DEADLINE',
-  })) as { id: string }
+  })
 
   // The customer's moment: the tunnel drops and comes straight back, and the fire lands on a
   // computer whose first control round trip is slow.
