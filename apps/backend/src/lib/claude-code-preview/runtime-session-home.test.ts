@@ -551,32 +551,39 @@ describe('reclaimSessionHomes', () => {
     expect(row.sessionHomeReclaimedAt).toEqual(now)
   })
 
-  test('a generation reclaimed on a newer runtime leaves a later archive on an older one to the sweep', async () => {
-    const old = 'local_owner_old'
-    const row = conversation({
-      archiveHomePendingEpochs: [
-        { epoch: 0, runtimeId: old, provider: 'claude-code' },
-        { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
-      ],
+  for (const order of [
+    [0, 1],
+    [1, 0],
+  ])
+    test(`a generation reclaimed on a newer runtime leaves a later archive on an older one to the sweep, queued ${order}`, async () => {
+      const old = 'local_owner_old'
+      const queued = { 0: old, 1: LOCAL } as Record<number, string>
+      const row = conversation({
+        sessionHomeEpoch: 1,
+        archiveHomePendingEpochs: order.map((epoch) => ({
+          epoch,
+          runtimeId: queued[epoch],
+          provider: 'claude-code',
+        })),
+      })
+
+      controlRegistry.runtimeJobs = ((_teamId: string, endpoint: { runtimeId: string }) =>
+        endpoint.runtimeId === old
+          ? ['session-homes', 'session-homes-v2']
+          : ['session-homes']) as never
+
+      expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
+      expect(jobs.map(({ runtimeId, stdin }) => [runtimeId, JSON.parse(stdin).epoch])).toEqual([
+        [old, 0],
+      ])
+      expect(row.sessionHomeReclaimedAt).toBeUndefined()
+      expect(await reclaimSessionHomes(now)).toBe(1)
+      expect(jobs.map(({ runtimeId, stdin }) => [runtimeId, JSON.parse(stdin)])).toEqual([
+        [old, { sessionId: 'conversation', epoch: 0 }],
+        [LOCAL, { sessionId: 'conversation' }],
+      ])
+      expect(row.sessionHomeReclaimedAt).toEqual(now)
     })
-
-    controlRegistry.runtimeJobs = ((_teamId: string, endpoint: { runtimeId: string }) =>
-      endpoint.runtimeId === old
-        ? ['session-homes', 'session-homes-v2']
-        : ['session-homes']) as never
-
-    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(true)
-    expect(jobs.map(({ runtimeId, stdin }) => [runtimeId, JSON.parse(stdin).epoch])).toEqual([
-      [old, 0],
-    ])
-    expect(row.sessionHomeReclaimedAt).toBeUndefined()
-    expect(await reclaimSessionHomes(now)).toBe(1)
-    expect(jobs.map(({ runtimeId, stdin }) => [runtimeId, JSON.parse(stdin)])).toEqual([
-      [old, { sessionId: 'conversation', epoch: 0 }],
-      [LOCAL, { sessionId: 'conversation' }],
-    ])
-    expect(row.sessionHomeReclaimedAt).toEqual(now)
-  })
 
   test('drops a generation with no team or runtime to reclaim it on', async () => {
     const noRuntime = conversation({

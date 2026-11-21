@@ -107,7 +107,7 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
   return runReclaimJob(teamId, endpoint, sessionId)
 }
 
-/** Reclaim every archived generation; the Task is stamped reclaimed once none is left. */
+/** Reclaim every archived generation; the latest one's home marks the Task reclaimed. */
 export async function reclaimPendingArchiveHome(
   sessionId: string,
   now = new Date(),
@@ -124,7 +124,7 @@ export async function reclaimPendingArchiveHome(
     await conversations.updateOne({ sessionId }, { $pull: { archiveHomePendingEpochs: home } })
     if (done === true)
       await conversations.updateOne(
-        { sessionId, archiveHomePendingEpochs: { $not: { $elemMatch: {} } } },
+        { sessionId, sessionHomeEpoch: { $not: { $gt: home.epoch } } },
         { $set: { sessionHomeReclaimedAt: now } },
       )
   }
