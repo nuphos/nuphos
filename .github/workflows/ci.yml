@@ -227,10 +227,12 @@ jobs:
     needs: changes
     # Each PR in the merge queue already passed this; a Mac is too scarce to build it twice.
     if: github.event_name != 'merge_group' && needs.changes.outputs.ios == 'true'
-    # Same Xcode as release-ios.yml.
-    runs-on: xcode-27
+    # Same-repo pull requests use the maintainers' Mac (label nuphos-m1), which has
+    # only Xcode 27.2; everything else keeps the hosted Xcode release-ios.yml uses.
+    # A fork's pull request never reaches that Mac: its job-started hook refuses it too.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted", "nuphos-m1"]') || 'xcode-27' }}
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && '/Applications/Xcode.app/Contents/Developer' || '/Applications/Xcode_27.1.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -286,8 +288,9 @@ jobs:
     needs: changes
     # Not in the merge queue: each PR already passed it, and macOS runners are scarce.
     if: github.event_name != 'merge_group' && needs.changes.outputs.cli == 'true'
-    # The keychain code (src/secret.rs) compiles only on macOS.
-    runs-on: macos-15
+    # The keychain code (src/secret.rs) compiles only on macOS. Same-repo pull
+    # requests use the maintainers' Mac, as the iOS job does.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted", "nuphos-m1"]') || 'macos-15' }}
     defaults:
       run:
         working-directory: apps/cli
@@ -295,6 +298,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Checkout cleans the workspace, so a target dir inside it builds cold on
+      # every run; one per runner outside it stays warm, and only trusted code uses it.
+      - name: Use the runner's rustup and a warm target dir
+        if: runner.environment == 'self-hosted'
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          echo "CARGO_TARGET_DIR=$HOME/cargo-target/$RUNNER_NAME" >> "$GITHUB_ENV"
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
@@ -307,7 +317,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: nuphos-cli-macos-arm64
-          path: apps/cli/target/debug/nuphos
+          path: ${{ env.CARGO_TARGET_DIR || 'apps/cli/target' }}/debug/nuphos
           retention-days: 7
           if-no-files-found: error
 
