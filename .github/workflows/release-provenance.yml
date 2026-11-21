@@ -29,8 +29,7 @@ permissions:
 jobs:
   verify:
     if: github.repository == 'nuphos/nuphos' && github.ref == 'refs/heads/main'
-    runs-on: instabox-medium
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
     outputs:
       sha: ${{ steps.verify.outputs.sha }}
     steps:

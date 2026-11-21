@@ -28,8 +28,7 @@ defaults:
 jobs:
   tag:
     if: github.ref == 'refs/heads/main' && vars.RUNTIME_PUBLISH_ENABLED == 'true'
-    runs-on: instabox-medium
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     outputs:

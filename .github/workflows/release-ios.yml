@@ -36,8 +36,7 @@ jobs:
 
   validate:
     needs: provenance
-    runs-on: instabox-medium
-    timeout-minutes: 60
+    runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:

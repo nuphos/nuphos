@@ -36,8 +36,7 @@ jobs:
   format:
     name: Format (prettier --check)
     if: github.event_name == 'pull_request' || github.event_name == 'push'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,8 +55,7 @@ jobs:
   dco:
     name: DCO
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -82,8 +80,7 @@ jobs:
   changes:
     name: Detect changed apps
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04-arm
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
@@ -318,8 +315,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-24.04-arm, macos-15]
-    runs-on: ${{ startsWith(matrix.os, 'ubuntu-') && !(github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository) && 'instabox-medium' || matrix.os }}
-    timeout-minutes: 30
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -601,8 +597,7 @@ jobs:
     name: Desktop (typecheck, tests, build)
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -748,8 +743,7 @@ jobs:
     name: Desktop lint
     needs: changes
     if: ${{ !cancelled() && (github.event_name == 'push' || (github.event_name == 'pull_request' && needs.changes.outputs.desktop == 'true')) }}
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -778,8 +772,7 @@ jobs:
     name: Dev scripts
     needs: changes
     if: needs.changes.outputs.dev_scripts == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -820,8 +813,7 @@ jobs:
     name: Lint config integrity
     needs: changes
     if: needs.changes.outputs.lint_config == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -856,8 +848,7 @@ jobs:
     name: Import cycles
     needs: changes
     if: needs.changes.outputs.import_cycles == 'true'
-    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'instabox-medium' }}
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
