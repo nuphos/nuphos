@@ -22,7 +22,7 @@ test('a saved own chat offers rename and archive', () => {
   assert.equal(sessionActionGates({ sessionId: 's-1', unsaved: false, openedAt: 1 }).saved, true)
 })
 
-test('a teammate chat is saved but only a manager may archive it', () => {
+test('a teammate chat is saved; archive follows the server, else only a manager', () => {
   assert.deepEqual(sessionActionGates({ sessionId: 's-2', foreign: true, openedAt: 1 }), {
     saved: true,
     canRename: false,
@@ -33,6 +33,17 @@ test('a teammate chat is saved but only a manager may archive it', () => {
     sessionActionGates({ sessionId: 's-2', foreign: true, canManage: true, openedAt: 1 })
       .canArchive,
     true,
+  )
+  // A participant who is not the owner archives a Task for themselves alone (#4067).
+  assert.equal(
+    sessionActionGates({ sessionId: 's-2', foreign: true, canArchive: true, openedAt: 1 })
+      .canArchive,
+    true,
+  )
+  assert.equal(
+    sessionActionGates({ sessionId: 's-2', foreign: true, canArchive: false, openedAt: 1 })
+      .canArchive,
+    false,
   )
 })
 

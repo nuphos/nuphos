@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
-import { restoreArchivedConversation, setConversationArchived } from './archive'
+import {
+  archiveConversationAs,
+  restoreArchivedConversation,
+  setConversationArchived,
+} from './archive'
 
 import type * as dbActual from '@/lib/db'
 
@@ -311,5 +315,37 @@ describe('archiving a redundant Bot chat', () => {
     conversations.docs.find((doc) => doc.sessionId === 'shared')!.archivedAt = new Date(0)
     await setConversationArchived('empty', true)
     expect(['empty', 'bot', 'work'].map(archived)).toEqual([true, true, true])
+  })
+})
+
+describe('archiveConversationAs', () => {
+  const doc = (sessionId: string) => conversations.docs.find((d) => d.sessionId === sessionId)!
+  const as = (sessionId: string) => doc(sessionId) as never
+
+  test('the owner archives the conversation with the Tasks below it, then restores it', async () => {
+    expect(await archiveConversationAs(as('root'), 'u', true)).toEqual({ sessionIds: ['root'] })
+    expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
+
+    await archiveConversationAs(as('root'), 'u', false)
+    expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
+  })
+
+  test('someone else in a Task archives it only for themselves', async () => {
+    doc('teammate').participantIds = ['u']
+
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toEqual({
+      sessionIds: ['teammate'],
+    })
+    expect(archived('teammate')).toBe(false)
+    // The fake applies `$set` keys literally, so the dotted path is one key here.
+    expect(doc('teammate')['memberArchivedAt.u']).toBeInstanceOf(Date)
+  })
+
+  test('nobody else archives a Task they are not in, or a group chat', async () => {
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    Object.assign(doc('teammate'), { participantIds: ['u'], kind: 'channel' })
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    expect(archived('teammate')).toBe(false)
+    expect(doc('teammate')['memberArchivedAt.u']).toBeUndefined()
   })
 })

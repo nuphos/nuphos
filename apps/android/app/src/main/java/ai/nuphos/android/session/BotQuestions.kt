@@ -23,10 +23,12 @@ data class BotQuestion(
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
     /**
-     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a connection.
      * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     * A credential takes words only beside its options, never as its value (#4029).
      */
-    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
+    val typed: Boolean get() = request.planId == null && !connectable &&
+        (request.category != "credential" || (request.secretName == null && !request.options.isNullOrEmpty()))
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to

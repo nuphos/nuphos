@@ -60,6 +60,10 @@ const CONNECTOR_DEEP_READ_PATHS = [
 // normal team router so validation, role checks, serialization, and auditing
 // stay identical for Desktop and conversation callers.
 const CANONICAL_ROUTES: { method: string; path: RegExp }[] = [
+  { method: 'GET', path: /^\/slack\/mappings$/u },
+  { method: 'PUT', path: /^\/slack\/mappings$/u },
+  { method: 'POST', path: /^\/slack\/mappings\/[^/]+\/[^/]+\/bots$/u },
+  { method: 'DELETE', path: /^\/slack\/mappings\/[^/]+\/[^/]+(?:\/bots\/[^/]+)?$/u },
   { method: 'GET', path: /^\/members(?:\/[^/]+)?$/u },
   { method: 'GET', path: /^\/personal-credentials\/[^/]+\/token$/u },
   { method: 'POST', path: /^\/composio\/execute$/u },

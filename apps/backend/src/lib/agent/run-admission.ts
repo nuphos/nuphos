@@ -88,10 +88,7 @@ export async function claimAgentRunForSession(
   // Redis is what keeps two backend replicas from moving or deleting the same
   // conversation at once. Development runs a single replica — and the local dev
   // stack has no Redis at all — so the in-process reservation below is already
-  // the whole coordination there. This used to also require the provisioner's
-  // kubectl flag, which decides how runtimes are reconciled and says nothing
-  // about replica count: with the default local stack that left every move and
-  // deletion refused with a 503 no developer could act on.
+  // the whole coordination there.
   if (runtimeOperation && !redisEnabled() && config.nodeEnv !== 'development') {
     throw new AppError(
       503,
