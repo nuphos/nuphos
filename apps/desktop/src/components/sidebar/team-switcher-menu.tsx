@@ -59,7 +59,7 @@ export function TeamSwitcherMenu({
           )}
         </MenuTrigger>
         <MenuContent side="bottom" align="start" className="w-[260px]">
-          {onOpenComputers && (
+          {false && onOpenComputers && (
             <MenuItem
               icon={<Monitor className="h-3.5 w-3.5" />}
               hint={<Kbd combo="mod+shift+e" />}
