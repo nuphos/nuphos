@@ -14,7 +14,7 @@ export type Activity =
   | { kind: 'asking'; question: string }
   | { kind: 'working'; run: Run }
   | { kind: 'background'; run: Run | undefined }
-  | { kind: 'error'; label?: string }
+  | { kind: 'error' }
 
 export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const runs = [...(bot ? [bot] : []), ...kids]
@@ -38,7 +38,8 @@ export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
     return { kind: 'onboarding' }
   const indicator = chatRowIndicator(bot?.runtimeState, false)
 
-  if (indicator === 'error') return { kind: 'error', label: bot?.runtimeState?.label }
+  // The chat explains a failure in plain words; the run's label is raw transport text.
+  if (indicator === 'error') return { kind: 'error' }
   if (
     indicator === 'background' ||
     kids.some((kid) => subAgentState(kid.conversation, kid.runtimeState) === 'running')
