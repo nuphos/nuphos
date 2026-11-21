@@ -9,7 +9,7 @@ import { agentLog } from './agent-log.ts'
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { DESKTOP_DIR, startSecondComputer } from './second-computer.ts'
-import { newTask, pickAgent, send } from './ui.ts'
+import { newTask, pickAgent, pickInRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -105,7 +105,8 @@ export const modelRecoveryScenarios: Scenario[] = [
         await send(page, 'Before the move E2E_DELIVERY:model-recovery')
         await page.getByText('ACK E2E_DELIVERY:model-recovery').waitFor({ timeout: 60_000 })
         // The move a person makes: the computer's row in the runtime menu, then its Codex.
-        await pickAgent(page, LABEL, 'Codex')
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await pickInRow(page, LABEL, /^Codex\b/)
         await page.getByText('moved this task from E2E fixture agent to').waitFor({
           timeout: 60_000,
         })
