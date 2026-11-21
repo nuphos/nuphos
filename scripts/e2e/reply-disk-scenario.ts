@@ -42,7 +42,8 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
   await botRow.click()
   await page.getByText('A fictional note to reply to', { exact: true }).waitFor()
   const online = await laptopOnline(stack, { diskPercent: 91 })
-  const originalSize = page.viewportSize()
+  const originalSize = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+  const cdp = await page.context().newCDPSession(page)
   let switched = false
   let deletionStatus: number
   let deletionOk: boolean
@@ -73,7 +74,12 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
       ['normal', 1280],
       ['narrow', 720],
     ] as const) {
-      await page.setViewportSize({ width, height: 760 })
+      await cdp.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 760,
+        deviceScaleFactor: 0,
+        mobile: false,
+      })
       await showReply()
       await editor.fill('A fictional reply')
       await page.waitForTimeout(500)
@@ -103,7 +109,8 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
   } finally {
     await page.keyboard.press('Escape')
     await editor.fill('')
-    if (originalSize) await page.setViewportSize(originalSize)
+    await cdp.send('Emulation.clearDeviceMetricsOverride')
+    await cdp.detach()
     if (switched) {
       await page.getByRole('button', { name: /^Runtime:/ }).click()
       await page.getByRole('menu').getByText('E2E fixture agent').first().click()
@@ -132,4 +139,8 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
     await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
   }
   if (!deletionOk) throw new Error(`Removing the fixture laptop failed: ${deletionStatus}`)
+  const restored = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }))
+
+  if (restored.width !== originalSize.width || restored.height !== originalSize.height)
+    throw new Error(`The original window size was not restored: ${JSON.stringify(restored)}`)
 }
