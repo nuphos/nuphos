@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
-import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSummaryPanel'
@@ -203,13 +202,18 @@ function SummaryBody({
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
   useDismissOutside(rootRef, dismiss, floating && !closing, popover)
-  // A chat opened before stays in the page, hidden, for a quick switch back; this floating panel
-  // sits at the root, outside what hides, so it closes as its chat is hidden.
-  const dismissHidden = useStableCallback(() => {
-    if (floating && !closing && !frameRef.current?.checkVisibility()) dismiss()
-  })
+  // A chat opened before stays in the page, hidden, for a quick switch back. This floating panel
+  // sits at the root, outside what hides, so it hides with its chat and shows again with it.
+  useEffect(() => {
+    const frame = frameRef.current
+    const root = rootRef.current
 
-  useEffect(() => dismissHidden, [dismissHidden])
+    root?.style.removeProperty('display')
+
+    return () => {
+      if (root && !frame?.checkVisibility()) root.style.display = 'none'
+    }
+  }, [floating])
 
   const panel = (
     <aside
