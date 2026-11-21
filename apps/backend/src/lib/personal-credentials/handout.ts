@@ -168,7 +168,7 @@ export async function ownPersonalCredentialOptions(userId: string, teamId: strin
 
   return docs
     .filter((doc) => !doc.teamId || doc.teamId === teamId)
-    .map((doc) => ({ provider: doc.provider, login: doc.login }))
+    .map((doc) => ({ id: doc._id.toHexString(), provider: doc.provider, login: doc.login }))
 }
 
 /** The sender's Linear token, when they connected the same workspace as this binding. */
@@ -191,8 +191,31 @@ export async function googleCredentialFor(
   provider: GoogleProvider,
   teamId: string,
   connectionId?: string,
+  authorized?: string[],
+  viaComposio = false,
 ): Promise<PersonalCredential | null> {
-  const docs = await personalCredentials().find({ userId, provider, teamId }).toArray()
+  // Composio runs only the accounts connected through it, so a direct account never counts there.
+  const docs = await personalCredentials()
+    .find({
+      userId,
+      provider,
+      teamId,
+      ...(viaComposio && { composioAccountId: { $exists: true } }),
+    })
+    .toArray()
+  // The conversation's own list decides. Without one, only a lone account is usable, so a second
+  // account connected later is never reached by a selection made before it existed.
+  const allowed = authorized
+    ? docs.filter((doc) => authorized.includes(doc._id.toHexString()))
+    : docs.length === 1
+      ? docs
+      : []
+  const notAuthorized = () =>
+    new AppError(
+      403,
+      'personal_credential_account_not_authorized',
+      'This account is not authorized for this conversation: the owner selects which accounts it may use',
+    )
 
   if (connectionId) {
     const named = docs.find((doc) => doc._id.toHexString() === connectionId)
@@ -204,19 +227,21 @@ export async function googleCredentialFor(
         'No such connected account for this member',
       )
     }
+    if (!allowed.includes(named)) throw notAuthorized()
 
     return named
   }
-  if (docs.length > 1) {
+  if (allowed.length > 1) {
     throw new AppError(
       409,
       'personal_credential_account_required',
-      'Several accounts are connected: name one with connectionId',
-      { accounts: docs.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
+      'Several accounts are authorized: ask which one to use, then name it with connectionId',
+      { accounts: allowed.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
     )
   }
+  if (allowed.length === 0 && docs.length > 0) throw notAuthorized()
 
-  return docs[0] ?? null
+  return allowed[0] ?? null
 }
 
 /** The token of an already resolved Google account. */

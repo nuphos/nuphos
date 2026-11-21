@@ -71,6 +71,7 @@ import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
+import { webhookScenarios } from './webhook-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 import { webhookSecretScenarios } from './webhook-secret-scenarios.ts'
@@ -182,6 +183,7 @@ const scenarios: Scenario[] = [
   ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpNotificationScenarios,
+  ...webhookScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,

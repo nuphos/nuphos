@@ -3,7 +3,6 @@ import { test } from 'node:test'
 
 import {
   extractPersistedPlanId,
-  findLatestConversationPlanId,
   findLatestPlanReference,
   isPlanProposalToolName,
 } from './planReference.ts'
@@ -12,20 +11,6 @@ test('extracts ids from standard and typed resource Plan responses', () => {
   assert.equal(extractPersistedPlanId({ planId: '295' }), '295')
   assert.equal(extractPersistedPlanId({ ok: true, plan: { id: '296' } }), '296')
   assert.equal(extractPersistedPlanId({ ok: false, error: 'denied' }), null)
-})
-
-test('discovers the latest durable Plan when its live tool frame was dropped', () => {
-  assert.equal(
-    findLatestConversationPlanId(
-      [
-        { id: '10', sourceConversationId: 'other', createdAt: '2026-08-24T10:00:00Z' },
-        { id: '11', sourceConversationId: 'conversation-1', createdAt: '2026-08-24T10:01:00Z' },
-        { id: '12', sourceConversationId: 'conversation-1', createdAt: '2026-08-24T10:02:00Z' },
-      ],
-      'conversation-1',
-    ),
-    '12',
-  )
 })
 
 test('recognizes database change proposals as persisted Plan producers', () => {

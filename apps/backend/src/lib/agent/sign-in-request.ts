@@ -1,6 +1,5 @@
-// Someone who cannot sign an agent in asks the people who can. The ask lives on
-// the conversation, so their Inbox lists it, and the message it holds runs as
-// soon as anyone signs the agent in.
+// Someone who cannot sign an agent in asks the people who can. The ask lives on the conversation,
+// so their Inbox lists it, and the message it holds runs as soon as anyone signs the agent in.
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
@@ -9,6 +8,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { getConversationBySessionId } from './db'
 import { computerSigners } from './sign-in-signers'
@@ -185,7 +185,10 @@ export const nudgeDeps: NudgeDeps = {
 
     return result.modifiedCount > 0
   },
-  notify: notifyNudge,
+  notify: (userIds, nudge) => {
+    notifyNudge(userIds, nudge)
+    queueWebhookEvents(nudge.sessionId, 'session.input_required')
+  },
   now: Date.now,
   computer: computerSigners,
 }
@@ -198,10 +201,7 @@ const PUSH = {
   }),
 }
 
-/**
- * Asks the people who can sign this conversation's agent in. A repeat inside
- * NOTIFY_REPEAT_MS notifies nobody.
- */
+/** Asks the people who can sign this conversation's agent in. */
 export async function nudge(
   kind: NudgeKind,
   input: { teamId: string; runtimeId: string; sessionId: string; requesterId: string },

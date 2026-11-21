@@ -55,6 +55,7 @@ describe('handleMcpMessage', () => {
       'nuphos_stop',
       'nuphos_update_credentials',
       'nuphos_update_session',
+      'nuphos_webhooks',
     ])
   })
 

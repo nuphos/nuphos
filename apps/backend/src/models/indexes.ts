@@ -44,6 +44,7 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
+import { setupWebhookIndexes } from '@/lib/webhooks/store'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
 import {
@@ -133,6 +134,7 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['runtime-auth-refusals', setupRuntimeAuthRefusalIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
+    ['team-webhooks', setupWebhookIndexes],
     // Idempotent backfill, not an index; remove once every deployment ran it.
     ['conversation-watchers', backfillConversationWatchers],
   ]

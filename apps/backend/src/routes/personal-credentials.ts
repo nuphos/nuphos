@@ -152,8 +152,8 @@ async function ownerClaims(authorization: string, provider: PersonalCredentialPr
     )
   }
   const conversation = await getConversationBySessionId(claims.sid)
-  const ids =
-    conversation && (await credentialSource(conversation)).credentialAccess?.personalCredentialIds
+  const access = conversation && (await credentialSource(conversation)).credentialAccess
+  const ids = access?.personalCredentialIds
 
   // As for connectors, a conversation with no list keeps its reach.
   if (conversation?.userId !== claims.own || (ids && !ids.includes(provider))) {
@@ -164,7 +164,7 @@ async function ownerClaims(authorization: string, provider: PersonalCredentialPr
     )
   }
 
-  return claims
+  return { ...claims, connectionIds: access?.personalConnectionIds }
 }
 
 const notConnected = (name: string) =>
@@ -220,6 +220,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
     provider,
     teamId,
     c.req.query('connectionId'),
+    claims.connectionIds,
   )
 
   if (credential?.composioAccountId) {
@@ -262,7 +263,14 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     )
   }
   const claims = await ownerClaims(c.req.header('Authorization') ?? '', provider)
-  const credential = await googleCredentialFor(claims.own, provider, claims.tid, connectionId)
+  const credential = await googleCredentialFor(
+    claims.own,
+    provider,
+    claims.tid,
+    connectionId,
+    claims.connectionIds,
+    true,
+  )
 
   if (!credential?.composioAccountId) {
     throw notConnected(NAMES[provider])
