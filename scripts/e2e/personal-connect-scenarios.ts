@@ -115,7 +115,7 @@ export const personalConnectScenarios: Scenario[] = [
         await page.getByRole('tab', { name: 'Tasks' }).click()
         await rowOf(page, TASK).click()
         await card(page).getByText('Connected', { exact: true }).waitFor()
-        await page.getByText(`ACK ${finished()!.marker}`).last().waitFor()
+        await page.getByText(`ACK ${finished()!.marker}`).filter({ visible: true }).last().waitFor()
         await shoot(page, 'personal-gmail-task-answered')
       } finally {
         inDatabase(

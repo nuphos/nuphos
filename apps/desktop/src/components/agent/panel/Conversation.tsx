@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { PanelRightOpen } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Activity, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
@@ -8,6 +8,7 @@ import { useChatSwitchShown } from '../../../lib/chatSwitchTiming'
 
 import { ChatColumn } from './ChatColumn'
 import { useComposerOverlay } from './composerOverlay'
+import { hidingRetracted } from './composerRecall'
 import { FeedbackCommentDialog } from './conversationBanners'
 import { isOwnMessage } from './conversationFollow'
 import { ConversationMessageList } from './conversationMessageList'
@@ -26,6 +27,7 @@ import { useJumpToLatest } from './useJumpToLatest'
 import { useTranscriptPageKeys } from './useTranscriptPageKeys'
 
 import type { ConversationProps } from './conversationProps'
+import type { Tab } from './model'
 
 export function Conversation({
   tab,
@@ -203,4 +205,43 @@ export function Conversation({
       )}
     </div>
   )
+}
+
+type RetainedProps = Omit<ConversationProps, 'tab' | 'onLoadEarlier'> & {
+  /** Every chat the panel keeps open. */
+  tabs: Tab[]
+  shown: Tab | null
+  onLoadEarlier: (tabId: string) => void
+}
+
+/**
+ * Each chat the panel keeps open stays mounted, hidden while another is shown,
+ * so switching back to it shows it again instead of building it anew.
+ */
+export function RetainedConversations({
+  tabs,
+  shown,
+  visible,
+  composer,
+  onLoadEarlier,
+  ...props
+}: RetainedProps) {
+  return tabs.map((tab) => (
+    <Activity key={tab.id} mode={tab === shown ? 'visible' : 'hidden'}>
+      <RetainedConversation
+        {...props}
+        tab={tab}
+        visible={visible && tab === shown}
+        composer={tab === shown ? composer : null}
+        onLoadEarlier={() => onLoadEarlier(tab.id)}
+      />
+    </Activity>
+  ))
+}
+
+/** A kept chat as it shows: without the message being taken back. */
+function RetainedConversation({ tab, ...props }: ConversationProps) {
+  const shown = useMemo(() => hidingRetracted(tab), [tab])
+
+  return <Conversation tab={shown} {...props} />
 }
