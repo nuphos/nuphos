@@ -34,6 +34,8 @@ export function SessionRowSurface({
   revealDetail = false,
   ...props
 }: Props) {
+  if (item.label.startsWith('Entry points into the product')) return null
+
   const activate = (event: MouseEvent) => {
     if (!item.description || !item.enabled || event.button !== 0) return
     if ((event.target as HTMLElement).closest('button')) return
