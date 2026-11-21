@@ -1,0 +1,1879 @@
+{
+  "create Main Router": 201,
+  "create Helper 01": 201,
+  "create Helper 02": 201,
+  "create Helper 03": 201,
+  "create Helper 04": 201,
+  "create Helper 05": 201,
+  "create Helper 06": 201,
+  "create Helper 07": 201,
+  "create Helper 08": 201,
+  "create Helper 09": 201,
+  "create Helper 10": 201,
+  "create Helper 11": 201,
+  "create Helper 12": 201,
+  "create Helper 13": 201,
+  "create Helper 14": 201,
+  "create Helper 15": 201,
+  "parent Helper 01": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 02": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 03": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 04": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 05": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 06": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 07": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 08": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 09": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 10": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 11": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 12": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 13": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 14": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "parent Helper 15": "200 {\"ok\":true,\"parentSessionId\":\"21aa03c6-bd8b-4c1e-a575-8e5d02c43dde\"}",
+  "apiBots": {
+    "conversations": [
+      {
+        "sessionId": "26eb28e5-e8ae-4a57-9e73-e402a8a48ada",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "08-socrates",
+        "createdAt": "2026-11-21T04:59:59.222Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.222Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.222Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 15",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "d976aa33-410d-4b9d-adbd-7b9b43c0b881",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "22-lady-with-an-ermine",
+        "createdAt": "2026-11-21T04:59:59.213Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.213Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.213Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 14",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "dff01695-7e42-4ddb-91f2-ada5f0505ff9",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "05-rembrandt",
+        "createdAt": "2026-11-21T04:59:59.206Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.206Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.206Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 13",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "6e47e68b-1971-43f0-ba66-c21a0e7761f9",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "13-shakespeare",
+        "createdAt": "2026-11-21T04:59:59.198Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.198Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.198Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 12",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "f61131a2-4a0d-4f56-b330-b44c739220b9",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "26-the-swing",
+        "createdAt": "2026-11-21T04:59:59.190Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.190Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.190Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 11",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "012fd063-b493-42eb-bd23-f4278a1bf5e0",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "25-infanta",
+        "createdAt": "2026-11-21T04:59:59.182Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.182Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.182Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 10",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "4f72c2e3-d2df-4883-ac40-821dfc7649ad",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "10-van-gogh",
+        "createdAt": "2026-11-21T04:59:59.173Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.173Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.173Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 09",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "1bd0b2cd-c030-462c-9672-af8114de75b6",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "21-the-milkmaid",
+        "createdAt": "2026-11-21T04:59:59.163Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.163Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.163Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 08",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "bd5e522c-88b2-4007-893a-8a047940f8cd",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "28-the-sleeping-gypsy",
+        "createdAt": "2026-11-21T04:59:59.153Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.153Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.153Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 07",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "51903fa2-a68d-420d-90ae-21b80dc216f2",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "28-the-sleeping-gypsy",
+        "createdAt": "2026-11-21T04:59:59.133Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.133Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.133Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 06",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "547c6d91-3d05-4199-a229-1b44937fb7ef",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "24-the-blue-boy",
+        "createdAt": "2026-11-21T04:59:59.123Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.123Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.123Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 05",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "2b953ab5-3bf2-418d-ac6f-c8a2fa05843c",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "03-mona-lisa",
+        "createdAt": "2026-11-21T04:59:59.111Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.111Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.111Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 04",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "2da26fa3-e72a-46df-9a6d-d91542845989",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "22-lady-with-an-ermine",
+        "createdAt": "2026-11-21T04:59:59.100Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.100Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.100Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 03",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "6a15138b-b4d6-4b66-9f33-06abc4646c07",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "16-athena",
+        "createdAt": "2026-11-21T04:59:59.091Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.091Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.091Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 02",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "userId": "6b01253936a51b252869ad9b",
+        "sessionId": "cde20f29-9e88-47b5-b18d-3043ee089e79",
+        "avatar": "02-leonardo",
+        "createdAt": "2026-11-21T04:59:59.082Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.082Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.082Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Helper 01",
+        "titleManuallySet": true,
+        "parentSessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      },
+      {
+        "sessionId": "21aa03c6-bd8b-4c1e-a575-8e5d02c43dde",
+        "userId": "6b01253936a51b252869ad9b",
+        "avatar": "17-the-scream",
+        "createdAt": "2026-11-21T04:59:59.065Z",
+        "credentialAccess": {
+          "awsRoleIds": [],
+          "gcpServiceAccountIds": [],
+          "linodeAccountIds": [],
+          "hetznerAccountIds": [],
+          "tencentAccountIds": [],
+          "aliyunAccountIds": [],
+          "volcengineAccountIds": [],
+          "azureAccountIds": [],
+          "huaweiAccountIds": [],
+          "onpremClusterIds": [],
+          "betterStackIntegrationIds": [],
+          "uptimeKumaInstanceIds": [],
+          "linearWorkspaceIds": [],
+          "jiraSiteIds": [],
+          "asanaAccountIds": [],
+          "sentryAccountIds": [],
+          "posthogIntegrationIds": [],
+          "plaudAccountIds": [],
+          "tailscaleClientIds": [],
+          "zeaburIds": [],
+          "vantaIntegrationIds": [],
+          "secureframeIntegrationIds": [],
+          "trelloIntegrationIds": [],
+          "resendIntegrationIds": [],
+          "deviceIds": [
+            "7cd5eecd-815c-4776-8c56-055e065747a6"
+          ],
+          "githubInstallationIds": [],
+          "gitlabBindingIds": [],
+          "grafanaInstanceIds": [],
+          "sonarqubeIntegrationIds": [],
+          "notionIntegrationIds": [],
+          "upstashAccountIds": [],
+          "cloudflareAccountIds": [],
+          "instaboxAccountIds": [],
+          "personalCredentialIds": [],
+          "updatedAt": "2026-11-21T04:59:59.064Z",
+          "updatedBy": "6b01253936a51b252869ad9b"
+        },
+        "firstMessage": "",
+        "generalAccess": "none",
+        "lastActiveAt": "2026-11-21T04:59:59.065Z",
+        "memoryProvider": "native",
+        "messageCount": 0,
+        "metadata": {
+          "locale": null,
+          "provider": null
+        },
+        "teamId": "6b01253936a51b252869ad9d",
+        "title": "Main Router",
+        "titleManuallySet": true,
+        "claudeCodeRuntimeAttached": true,
+        "agentRuntime": "claude-code",
+        "activitySource": {
+          "origin": "unknown",
+          "linkedSlackThread": false
+        },
+        "owner": {
+          "id": "6b01253936a51b252869ad9b",
+          "name": "e2e-1795237177189@example.com",
+          "email": "e2e-1795237177189@example.com",
+          "avatarURL": ""
+        },
+        "isOwner": true,
+        "watching": true,
+        "access": "owner",
+        "readOnly": false,
+        "canCancelRun": true,
+        "canRespondToRun": true,
+        "canManage": true,
+        "canArchive": true,
+        "activitySeq": 0,
+        "readSeq": 0,
+        "unread": false,
+        "linkedResources": [],
+        "activeRun": null,
+        "runtimeState": {
+          "state": "dormant",
+          "schemaVersion": 2,
+          "phase": "dormant",
+          "actions": {
+            "send": true,
+            "cancel": false,
+            "steer": false,
+            "reply": false
+          }
+        },
+        "presence": {
+          "state": "online"
+        },
+        "tasks": {
+          "running": 0,
+          "waiting": 0
+        }
+      }
+    ],
+    "parents": [],
+    "nextCursor": null,
+    "hasMore": false
+  },
+  "beforePin": {
+    "viewport": null,
+    "rows": {
+      "Main Router": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 01": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 02": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 03": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 04": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 05": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 06": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 07": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 08": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 09": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 10": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 11": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 12": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 13": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 14": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 15": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      }
+    }
+  },
+  "afterPin": {
+    "viewport": null,
+    "rows": {
+      "Main Router": {
+        "total": 1,
+        "pinned": 1,
+        "inList": 0,
+        "onScreen": 0
+      },
+      "Helper 01": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 02": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 03": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 04": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 05": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 06": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 07": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 08": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 09": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 10": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 11": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 12": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 13": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 14": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      },
+      "Helper 15": {
+        "total": 1,
+        "pinned": 0,
+        "inList": 1,
+        "onScreen": 0
+      }
+    }
+  },
+  "search": {
+    "Helper 07": 1,
+    "otherHelpers": 0,
+    "Main Router": 0,
+    "dialogText": "Search Bots, tasks and people\nPeople\nBots\nHelper 07\nOpen"
+  }
+}
