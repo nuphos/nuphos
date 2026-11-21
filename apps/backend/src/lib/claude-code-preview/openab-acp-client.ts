@@ -72,9 +72,8 @@ export class OpenAbAcpClient extends OpenAbAcpLifecycle {
     return this.call('initialize', ACP_INITIALIZE_PARAMS, {}, this.callTimeoutMs, true)
   }
   /**
-   * Creates the session and reports the settings the runtime started it with.
-   * `session/new` names them, so the chip can show the model during the very
-   * first turn instead of waiting for the turn to settle.
+   * Creates the session. Its settings come up once the agent's own session
+   * opens, as a `config_option_update` (see `createdSession`).
    */
   async createSession(
     cwd: string,

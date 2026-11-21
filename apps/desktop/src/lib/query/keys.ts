@@ -8,12 +8,18 @@ export const queryKeys = {
     [...queryKeys.teamMembers(teamId), 'with-removed'] as const,
   /** The Chats the sidebar lists: the viewer's agents and the channels they joined. */
   agentSessions: (teamId: string) => [...queryKeys.team(teamId), 'agent-sessions'] as const,
+  /** The people in one chat. */
+  participants: (teamId: string, sessionId: string) =>
+    [...queryKeys.team(teamId), 'participants', sessionId] as const,
   inbox: (teamId: string) => [...queryKeys.team(teamId), 'inbox'] as const,
   shareApprovals: (teamId: string) => [...queryKeys.team(teamId), 'share-approvals'] as const,
   channelMentions: (teamId: string) => [...queryKeys.team(teamId), 'channel-mentions'] as const,
   credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  /** A Task's transcript as last read, so it opens without a read first. */
+  task: (teamId: string, sessionId: string) =>
+    [...queryKeys.team(teamId), 'task', sessionId] as const,
   /** The computers in a team the viewer manages: they sign those computers' agents in. */
   managedComputers: (teamId: string) => [...queryKeys.team(teamId), 'managed-computers'] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,

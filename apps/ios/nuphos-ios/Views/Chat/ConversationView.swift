@@ -454,7 +454,7 @@ struct ConversationView: View {
             ) {
                 if session.canManage { ComposerControls(
                     selection: Binding(
-                        get: { session.credentialAccess ?? CredentialSelection() },
+                        get: { (session.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
                         set: { session.setCredentials($0) }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
@@ -534,7 +534,8 @@ struct ConversationView: View {
         case .user(_, _, let text, let images, let sender, let transfers):
             UserBubble(text: text, images: images, sender: sender, transfers: transfers, session: session)
         case .assistantText(_, _, let text, let streaming):
-            AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
+            AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:),
+                              resolveTransfer: { try await session.transferGroup($0) })
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .reasoning(_, let part):
             ReasoningTile(part: part)

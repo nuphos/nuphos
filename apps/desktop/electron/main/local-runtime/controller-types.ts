@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeFailure } from './agent-cli.ts'
 import { connectionOf } from './tunnel-streams.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
@@ -132,12 +132,10 @@ export type Agent = {
   recheck?: Promise<void>
 }
 
-/** Everything a user's local agents keep lives under their own directory. */
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
   return path.join(dataDir, 'users', userId, ...parts)
 }
 
-/** The CLI facts worth keeping for the next launch, under the owner's id. */
 export function saveCli(
   deps: Pick<LocalRuntimeControllerDeps, 'writeCliCache'>,
   userId: string | null,
@@ -150,14 +148,12 @@ export const RESTART_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 /** Matches the hold Nuphos keeps on a provider's answer: sampling faster would
  *  spend this person's rate limit on numbers that have not moved. */
 export const USAGE_SAMPLE_MS = 600_000
-/** A sign-in is worth reading again for; mashing Check is not. */
 export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
 export function freshAgent(): Agent {
   return { runtime: null, cli: null, restartAttempt: 0, generation: 0 }
 }
 
-/** What the backend should see: only the agents running right now. */
 export function tunnelStatusOf(
   running: Record<LocalAgentProvider, Agent>,
   backendUrl: string,
@@ -167,7 +163,12 @@ export function tunnelStatusOf(
   for (const provider of LOCAL_AGENT_PROVIDERS) {
     const agent = running[provider]
 
-    if (!agent.runtime || !agent.cli?.installed) continue
+    if (!agent.runtime || !agent.cli?.installed) {
+      const failure = probeFailure(agent.cli)
+
+      if (failure) agents[provider] = failure
+      continue
+    }
     agents[provider] = {
       cli: {
         installed: true,
@@ -184,7 +185,6 @@ export function tunnelStatusOf(
     }
   }
 
-  // A Box's host is the `nuphos` CLI (`nuphos agent` sets it); the backend offers its update.
   const cliVersion = process.env.NUPHOS_CLI_VERSION
 
   return { agents, backendUrl, ...(cliVersion ? { cliVersion } : {}) }

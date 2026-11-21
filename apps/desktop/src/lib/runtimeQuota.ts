@@ -41,13 +41,6 @@ export function quotaSignedOut(quota: RuntimeQuota | undefined): boolean {
   return quota?.available === false && quota.reason === 'Sign in required'
 }
 
-/** Says which agents spend the same account, so moving to one of them gets past nothing. */
-export function quotaSharedWith(quota: RuntimeQuota | undefined): string | null {
-  const labels = quota?.sharesQuotaWith?.map(({ label }) => label)
-
-  return labels?.length ? t('Shares quota with {name}', { name: labels.join(', ') }) : null
-}
-
 /** What is still unspent, floored so a nearly empty window never reads as more than it has. */
 export function quotaLeftPercent(window: RuntimeQuotaWindow): number {
   return Math.max(0, Math.min(100, Math.floor(100 - window.usedPercent)))

@@ -14,16 +14,22 @@ export async function laptopOnline(
   stack: Stack,
   {
     diskPercent,
+    oomKilledAt,
     client,
     app,
     box,
     restoreFails,
+    busy,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
+    /** When the host saw the kernel's OOM kill count rise (#4345); sent with each reading. */
+    oomKilledAt?: string
     client?: string
     app?: { version: string; update: { version: string; ready: boolean } }
     box?: string
+    /** The runtime reports an active turn when queried by a pre-#4011 backend. */
+    busy?: boolean
     /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
     restoreFails?: boolean
     owner?: { token: string; deviceId: string; label: string }
@@ -42,6 +48,7 @@ export async function laptopOnline(
   tunnel.addEventListener('message', (event: MessageEvent) => {
     tunnel.send(JSON.stringify({ t: 'pong' }))
     if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
+    if (busy) answerAsBusyRuntime(tunnel, String(event.data))
   })
   await new Promise((opened, failed) => {
     tunnel.addEventListener('open', opened)
@@ -71,6 +78,7 @@ export async function laptopOnline(
           cpuPercent: 12,
           memory: { used: 6 * GIB, total: 16 * GIB },
           disk: { used: diskPercent * GIB, total: 100 * GIB },
+          ...(oomKilledAt ? { oomKilledAt } : {}),
         },
       }),
     )
@@ -163,4 +171,27 @@ function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
       },
     })
   else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
+}
+
+/** A mid-turn runtime: lets the cache-clear scenario exercise the old busy refusal. */
+function answerAsBusyRuntime(tunnel: WebSocket, raw: string) {
+  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
+
+  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
+  if (frame.t !== 'data' || !frame.d) return
+  const request = JSON.parse(frame.d) as { id?: number; method?: string }
+
+  if (request.id === undefined) return
+  const result =
+    request.method === 'initialize'
+      ? { protocolVersion: 1, agentCapabilities: {}, authMethods: [] }
+      : { sessions: [{ state: 'active' }] }
+
+  tunnel.send(
+    JSON.stringify({
+      t: 'data',
+      s: frame.s,
+      d: JSON.stringify({ jsonrpc: '2.0', id: request.id, result }),
+    }),
+  )
 }

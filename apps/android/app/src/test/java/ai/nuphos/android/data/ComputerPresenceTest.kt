@@ -14,8 +14,13 @@ class ComputerPresenceTest {
     @Test fun aPausedBoxOnAnotherDeviceDoesNotCount() {
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(id = "other"))))
     }
+    @Test fun anOfflineBoxThatIsStillStartingIsStarting() {
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.of(offline, listOf(device(state = "creating"))))
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.of(offline, listOf(device(state = "connecting"))))
+    }
     @Test fun anyOtherOfflineComputerIsOffline() {
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = "running"))))
+        assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = "error"))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = null))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(box = false))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, emptyList()))

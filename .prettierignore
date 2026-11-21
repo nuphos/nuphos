@@ -51,5 +51,3 @@ apps/ios/**
 apps/android/**
 
 # Preserve upstream logo animation assets verbatim.
-apps/desktop/public/logo-intro/logo-intro.js
-apps/desktop/public/logo-intro/nuphos.json

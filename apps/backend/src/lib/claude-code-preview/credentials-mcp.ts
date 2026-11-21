@@ -162,23 +162,22 @@ export async function previewSessionAccess(
       },
     ],
     runtimeEnv: {
+      CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', // Nuphos memory replaces Claude Code's own
       ...connectorEnv(selected.map((entry) => entry.provider)),
       ...previewSessionEnv({
         base,
         token,
         conversationId,
         teamId,
-        // Personal skills are delivered only on the conversation owner's own turns. A
-        // guest's turn gets none, so nobody's skills are written into a conversation
-        // home that belongs to someone else.
+        // Personal skills come only on the owner's own turns: a guest's turn gets none, so
+        // nobody's skills are written into a conversation home that belongs to someone else.
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
       }),
-      // A Bot compacts at 100k tokens (the minimum; read_conversation reaches older
-      // turns) and skips the per-turn next-prompt suggestion inference nobody sees.
-      ...(options?.bot
-        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '100000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
-        : {}),
+      // Every session compacts at 200k, not the model's full window (the ~57k fixed prompt
+      // needs the headroom, #3970, #4195); a Bot skips the next-prompt suggestion nobody sees.
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
+      ...(options?.bot ? { CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' } : {}),
     },
   }
 }

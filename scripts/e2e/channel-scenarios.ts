@@ -3,6 +3,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
+import { must } from './binding-access-scenarios.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
 import {
   computerWithUsage,
@@ -15,10 +16,9 @@ import {
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -33,10 +33,6 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
-
-/** A post in the open chat's transcript. A sidebar row can preview the same words. */
-const transcriptPost = (page: Page, text: string) =>
-  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
@@ -244,6 +240,18 @@ export const channelScenarios: Scenario[] = [
       // The sidebar slides over to Bots; shoot it once it has.
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
+      // #4065: a link in the Bot's question card opens in the dock, as in a Task's
+      // chat, never in the system browser.
+      await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
+      const address = page.getByRole('textbox', { name: 'Search or enter URL' })
+
+      await address.waitFor({ timeout: 10_000 })
+      must(
+        (await address.inputValue()).endsWith('/health/ready'),
+        `the dock's browser to open the card's link, got ${await address.inputValue()}`,
+      )
+      await page.screenshot({ path: `${artifacts}/bot-question-link-dock-light.png` })
+      await page.getByRole('button', { name: 'Close workspace panel' }).click()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
       await until('the answer in the Bot chat to reach the Bot', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:answered'),

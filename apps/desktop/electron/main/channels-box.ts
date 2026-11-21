@@ -1,7 +1,6 @@
 import {
   boxBillingPage,
   boxBillingSummary,
-  boxDesktop,
   boxJoinToken,
   openSessionDesktop,
   createBox,
@@ -169,8 +168,6 @@ export const boxChannels = {
     clearBoxCaches(string(deviceId), string(teamId)),
   'box:autoInstall': (_e: unknown, deviceId: unknown, teamId: unknown, enabled: unknown) =>
     setDeviceAutoInstall(string(deviceId), string(teamId), enabled === true),
-  'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
-    boxDesktop(string(deviceId), string(teamId)),
   'box:join-token': () => boxJoinToken(),
   'box:setAccess': (_e: unknown, deviceId: unknown, teamId: unknown, access: unknown) =>
     setBoxAccess(string(deviceId), string(teamId), boxAccess(access)),

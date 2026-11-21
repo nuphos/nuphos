@@ -553,7 +553,8 @@ fun ConversationScreen(
                         onStop = if (session.canCancel) session::stop else null,
                 stopsRuntimeTurn = session.isNative,
                         showControls = session.canManage,
-                        selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
+                        selection = (session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection())
+                            .reaching(store.credentialCatalog),
                         onSelectionChange = session::updateCredentials,
                         mode = session.permissionMode,
                         onModeChange = session::updatePermissionMode,

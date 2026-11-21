@@ -1,7 +1,8 @@
 import { t } from '../../../i18n/index.ts'
 import { quotaSignedOut } from '../../../lib/runtimeQuota.ts'
 
-import { localRuntimeOwner, signInRoute } from './agentSignInModel.ts'
+import { signInRoute } from './agentSignInModel.ts'
+import { pausedBoxLabel } from './runtimeControlSignOut.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime'
 import type { TeamMember } from '../../../types/team'
@@ -12,8 +13,6 @@ export type AgentFix =
   | { kind: 'signIn'; instance: RuntimeInstance }
   /** This computer's agent: its own CLI sign-in. */
   | { kind: 'cli'; provider: 'claude-code' | 'codex' }
-  /** The viewer's own paused Box, woken the way a sign-in wakes it (#1109). */
-  | { kind: 'resume'; deviceId: string; runtimeId: string }
   /** An offline computer: look again. */
   | { kind: 'retry' }
   /**
@@ -26,7 +25,8 @@ export type AgentFix =
 
 export type AgentProblem = {
   reason: string
-  fix: AgentFix
+  /** Absent when the state says itself and there is nothing worth pressing, as for a paused Box. */
+  fix?: AgentFix
   /** False when a turn would fail anyway, so the row starts the fix instead of picking it. */
   pickable: boolean
 }
@@ -50,18 +50,11 @@ export function agentProblem(
   const { local } = instance
 
   if (local?.online === false) {
-    const paused = local.box?.state === 'paused'
-    const reason = paused ? t('Paused') : t('Offline')
+    // A Box that is away is parked, not lost: the composer already says the send brings it
+    // back (pausedBoxLabel), so the row says the same word and offers nothing to press.
+    if (pausedBoxLabel(local) !== null) return { reason: t('Paused'), pickable: false }
 
-    if (!paused) return { reason, fix: { kind: 'retry' }, pickable: false }
-    if (local.ownerUserId === viewer.viewerId)
-      return {
-        reason,
-        fix: { kind: 'resume', deviceId: local.deviceId, runtimeId: instance.id },
-        pickable: false,
-      }
-
-    return { reason, fix: { kind: 'ask', name: ownerName(instance, viewer) }, pickable: false }
+    return { reason: t('Offline'), fix: { kind: 'retry' }, pickable: false }
   }
   // The usage probe's sign-in hint is a guess (a token in the environment reads the same),
   // so it offers the fix but never stops the agent being picked.
@@ -92,16 +85,9 @@ export function agentProblem(
   return { reason: t('Signed out'), fix, pickable: !signedOut }
 }
 
-function ownerName(instance: RuntimeInstance, viewer: AgentRowViewer): string | null {
-  const owner = instance.local?.ownerUserId ?? localRuntimeOwner(instance.id)
-
-  return viewer.members?.find((member) => member.id === owner)?.name ?? null
-}
-
 /** The fix's button text; null for "ask", which is said, not clicked. */
 export function agentFixLabel(fix: AgentFix): string | null {
   if (fix.kind === 'signIn' || fix.kind === 'cli') return t('Sign in')
-  if (fix.kind === 'resume') return t('Resume')
   if (fix.kind === 'retry') return t('Retry')
   if (fix.kind === 'settings') return t('Open settings')
 
@@ -111,35 +97,4 @@ export function agentFixLabel(fix: AgentFix): string | null {
 /** "Ask <name>" for a fix only someone else can make. */
 export function agentAskText(fix: Extract<AgentFix, { kind: 'ask' }>): string {
   return fix.name ? t('Ask {name}', { name: fix.name }) : t('Ask an administrator')
-}
-
-/**
- * Wakes a paused Box through the same request a sign-in uses (#1109: `/status?wake=1`, which
- * enforces the team's vCPU limit). The computer reads as waking only while the request is in
- * flight, so a Box that does not come back, or is paused again, can be woken again.
- */
-export async function resumeComputer({
-  fix,
-  wake,
-  begin,
-  onResumed,
-  onFailed,
-}: {
-  fix: Extract<AgentFix, { kind: 'resume' }>
-  wake: (runtimeId: string) => Promise<unknown>
-  /** Marks the computer waking; returns the call that ends it. */
-  begin: (deviceId: string) => () => void
-  onResumed: () => void
-  onFailed: (error: unknown) => void
-}): Promise<void> {
-  const end = begin(fix.deviceId)
-
-  try {
-    await wake(fix.runtimeId)
-    onResumed()
-  } catch (error) {
-    onFailed(error)
-  } finally {
-    end()
-  }
 }

@@ -10,7 +10,6 @@ export type UsageDimension =
   | 'outcome'
   | 'conversation'
   | 'bot'
-  | 'task'
 
 /** A usage read; any dimension set here keeps only the records with that value. */
 export type TeamUsageQuery = {

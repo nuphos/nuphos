@@ -121,8 +121,8 @@ export async function runTurn(
     const history = await readTurnHistory(data, pending, source)
 
     if (!history) throw new Error('Target conversation no longer exists.')
-    // BullMQ can redeliver a stalled job. An answered message must not run twice;
-    // one after the last reply was accepted by a refused turn and runs again.
+    // BullMQ can redeliver a stalled job: a message a turn already ran must not run
+    // twice. One a refused turn stored and handed back runs again.
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,
@@ -191,7 +191,7 @@ export async function runTurn(
     await recordFiresRan(fresh)
     // Not awaited: it waits for the computer to come back, which may be never,
     // and this turn's claim must not wait with it.
-    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh)
+    if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
   } catch (error) {
@@ -210,9 +210,21 @@ export async function runTurn(
 async function reportIfRestarted(
   data: DeliveredTo,
   messages: readonly PendingUserMessage[],
+  unmarkRead: (() => Promise<void>) | undefined,
 ): Promise<void> {
   try {
-    if (await runtimeRestarted(data)) await reportUndelivered(data, messages, LOST_TURN)
+    if (!(await runtimeRestarted(data))) return
+    // A channel's wake it cut off was never answered: its posts go back to unread and the
+    // wake to the queue, as after a refused turn. One a later wake read past finds nothing.
+    await unmarkRead?.()
+    const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
+
+    await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
+    await reportUndelivered(
+      data,
+      messages.filter((message) => !channelIdOf(message)),
+      LOST_TURN,
+    )
   } catch (error) {
     logError('agent.thread.lost_turn_check_failed', error, { session_id: data.targetSessionId })
   }

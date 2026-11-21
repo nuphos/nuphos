@@ -13,7 +13,6 @@ import {
 } from '@/lib/agent/devices/box-access'
 import {
   boxBackendUrl,
-  boxDesktopUrl,
   boxPausedBy,
   boxState,
   boxesAvailable,
@@ -146,7 +145,6 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     pause: pauseBox,
     resume: resumeBox,
     destroy: destroyBox,
-    desktop: boxDesktopUrl,
     heal: healBox,
     available: boxesAvailable,
     state: boxState,

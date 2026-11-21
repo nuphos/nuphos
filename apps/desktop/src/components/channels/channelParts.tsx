@@ -2,13 +2,13 @@ import clsx from 'clsx'
 import { CornerUpLeft, X } from 'lucide-react'
 
 import { t } from '../../i18n'
+import { showBotAccess } from '../../lib/botDetailsPanel'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { CredentialSelectorButton } from '../agent/panel/CredentialSelectorButton'
 import { Avatar } from '../Avatar'
+import { Button } from '../ui/button'
 import { IconButton } from '../ui/icon-button'
 
 import type { AgentMessageReply, ChannelFace } from '../../api'
-import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
 
 /**
  * Where a group chat's member faces sit, as the design system draws them in a
@@ -48,7 +48,11 @@ export function ChatIcon({
     return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
   if (members.length === 1)
     return (
-      <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
+      <span
+        aria-hidden="true"
+        data-looping={looping || undefined}
+        className={clsx('inline-flex shrink-0', className)}
+      >
         <Face face={members[0]} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
@@ -57,6 +61,7 @@ export function ChatIcon({
   return (
     <span
       aria-hidden="true"
+      data-looping={looping || undefined}
       className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >
@@ -164,8 +169,7 @@ export function ChannelIntro({ faces, title }: { faces?: ChannelFace[]; title: s
 
 /**
  * The post the next one answers, floating just above the composer over the
- * chat's last lines, inset past the faces twice as before (the composer's
- * wrapper pads by one face, which `absolute` does not count). Its tint sits on
+ * chat's last lines, inset past the faces on both sides. Its tint sits on
  * the sheet's own color, so the chat passing under it does not show through.
  * It names the post's author, then two lines of it. While it shows, the chat
  * keeps its height as bottom room (`data-composer-overlay`), so the newest post stays whole above it.
@@ -175,12 +179,12 @@ export function ReplyingBanner({
   onCancel,
 }: {
   reply: AgentMessageReply
-  onCancel: () => void
+  onCancel: (reply: null) => void
 }) {
   return (
     <div
       data-composer-overlay=""
-      className="absolute inset-x-[4.75rem] bottom-full flex items-start gap-2 rounded-xl border-l-2 border-line-control py-1.5 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
+      className="mx-[2.375rem] flex items-start gap-2 rounded-xl border-l-2 border-line-control py-1.5 pl-3 pr-1 text-xs leading-4 [background:linear-gradient(var(--color-state-hover),var(--color-state-hover)),rgb(var(--color-surface-sheet))]"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 font-medium text-secondary">
@@ -194,24 +198,27 @@ export function ReplyingBanner({
         label={t('Cancel reply')}
         shortcut="Esc"
         icon={<X />}
-        onClick={onCancel}
+        onClick={() => onCancel(null)}
       />
     </div>
   )
 }
 
 /**
- * The last line in the chat of a Bot that has never been given computers or
- * credentials: it runs with none until its owner picks them, here or in the
- * composer's picker. Gone once anything is saved.
+ * The last line in the chat of a Bot that has never been given a selection. It
+ * says only that the Bot has no computer: with nothing saved, it still reaches
+ * the kinds that are team-wide when unset. Choose opens Bot details' Access
+ * section. Gone once anything is saved.
  */
-export function ChooseAccessBanner({ credentials }: { credentials: CredentialSelectorControl }) {
+export function ChooseAccessBanner({ bot }: { bot: string }) {
   return (
-    <div className="mx-[2.375rem] flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
+    <div className="flex items-center gap-2 rounded-xl bg-state-hover py-1 pl-3 pr-1 text-xs leading-4">
       <div className="min-w-0 flex-1 text-secondary">
-        {t("This Bot can't use any computers or credentials yet. Choose what it may use.")}
+        {t("This Bot can't use any computers yet. Choose what it may use.")}
       </div>
-      <CredentialSelectorButton {...credentials} hero={false} personalIdentity />
+      <Button size="sm" variant="secondary" onClick={() => showBotAccess(bot)}>
+        {t('Choose')}
+      </Button>
     </div>
   )
 }

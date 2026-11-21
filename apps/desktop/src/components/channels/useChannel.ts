@@ -5,14 +5,16 @@ import { api } from '../../api.ts'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
 import { useChatSwitchShown } from '../../lib/chatSwitchTiming.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
+import { prefetchTask } from '../agent/panel/taskTranscript.ts'
 
+import { pushed, useAgentChanges, usePushed } from './agentChanges.ts'
 import { channelRevision } from './channelRevision.ts'
 import { listedConversation } from './channelShared.ts'
 
 import type { AgentConversation, AgentConversationDetail, ChannelAgent } from '../../api'
 import type { QueryClient, QueryState } from '@tanstack/react-query'
 
-// Like an open conversation: new posts from people and agents show within a few seconds.
+// Only for a backend that predates the push of changes (agentChanges.ts, #3914).
 const POLL_MS = 4_000
 const RETRY_MAX_MS = 60_000
 const TAIL = 200
@@ -57,20 +59,29 @@ export function prefetchChannel(client: QueryClient, teamId: string, channelId: 
     .catch(() => {})
 }
 
-/** The three most recent Bot chats, loaded once the sidebar lists them, so they open from memory. */
+/**
+ * The three most recent Bot chats and Tasks, loaded once the sidebar lists them and the team's push is up,
+ * so they open from memory and stay current: one loaded before the push could miss a change.
+ * Following starts here, as the app opens, not with the first chat.
+ */
 export function usePrefetchRecentChannels(teamId: string, listed: AgentConversation[] | undefined) {
   const client = useQueryClient()
   const loaded = listed !== undefined
 
-  useEffect(() => {
-    if (!loaded) return
-    const recent = (client.getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId)) ?? [])
-      .filter((row) => row.kind === 'channel')
-      .sort((a, b) => Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt))
-      .slice(0, 3)
+  useAgentChanges(teamId)
+  const up = usePushed(teamId)
 
-    for (const row of recent) prefetchChannel(client, teamId, row.sessionId)
-  }, [client, teamId, loaded])
+  useEffect(() => {
+    if (!loaded || !up) return
+    const rows = [
+      ...(client.getQueryData<AgentConversation[]>(queryKeys.agentSessions(teamId)) ?? []),
+    ].sort((a, b) => Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt))
+    const recent = (channel: boolean) =>
+      rows.filter((row) => (row.kind === 'channel') === channel).slice(0, 3)
+
+    for (const row of recent(true)) prefetchChannel(client, teamId, row.sessionId)
+    for (const row of recent(false)) prefetchTask(client, teamId, row.sessionId)
+  }, [client, teamId, loaded, up])
 }
 
 /** After a post or an agent change, from any pane showing the channel: fetch it all now. */
@@ -95,11 +106,13 @@ export function channelRetryMs(state: QueryState<Channel>): number {
 }
 
 /**
- * A channel's messages and agents, polled while it is on screen and the window is
- * visible. A failing channel backs off, longer the longer it has failed.
+ * A channel's messages and agents, read again when the backend says it changed (or polled
+ * from a backend that predates that). A failing channel backs off, longer the longer it has failed.
  */
 export function useChannel(teamId: string, channelId: string) {
   const client = useQueryClient()
+
+  useAgentChanges(teamId)
   // A background workspace tab stays mounted but hidden; outside any tab, the pane is on screen.
   const tab = useContext(WorkspaceTabContext)
   const { data } = useQuery({
@@ -109,7 +122,9 @@ export function useChannel(teamId: string, channelId: string) {
     retry: false,
     // Kept for as long as the app runs: a chat opened an hour ago opens from memory too.
     gcTime: Infinity,
-    refetchInterval: (query) => channelRetryMs(query.state),
+    // No poll where the backend pushes changes; a failing read still retries.
+    refetchInterval: (query) =>
+      query.state.status !== 'error' && pushed(teamId) ? false : channelRetryMs(query.state),
   })
 
   const refresh = useCallback(

@@ -64,7 +64,7 @@ const ACP_AUTH_REQUIRED_MESSAGE = 'Authentication required'
 /** Product code every client keys on to render sign-in guidance. */
 export const RUNTIME_AUTH_REQUIRED_CODE = 'runtime_auth_required'
 export const RUNTIME_AUTH_REQUIRED_MESSAGE =
-  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.'
+  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message.'
 
 // Runtimes before v0.1.50 send the adapter's error only in openab-core's display wrapper,
 // `**<Label>** (code: N)\n<message>`. Delete this fallback once they are unsupported.
@@ -92,12 +92,12 @@ const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 /** Claude: -32603 `Internal error: <notice>`. Codex: bare `Internal error`, notice on a `> ` line. */
 const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
 const DETAIL_NOTICE = /(?:^|\n)Internal error\n> ([^\n]*)/u
-/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit, and Codex's (curly apostrophe). */
+/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES`, Codex's (curly apostrophe), and Anthropic's verification hold. */
 const CLAUDE_USAGE_LIMIT =
-  /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage)/u
-/** A credential the CLI can no longer use: Claude's `Failed to authenticate: …`, Codex's ChatGPT refusals. */
+  /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage|(?:API Error: )?Your account can['’]t receive replies from Claude)/u
+/** A credential the CLI can no longer use: Claude's `Failed to authenticate: …`, Codex's refusals and 401s. */
 const CLAUDE_AUTH_FAILED =
-  /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b|workspace routing discovery unauthorized\b|Your access token could not be refreshed\b)/u
+  /^(?:Failed to authenticate\b|Invalid API key\b|unexpected status 401 Unauthorized\b|.*Please run \/login\b|workspace routing discovery unauthorized\b|Your access token could not be refreshed\b)/u
 const isProductStateNotice = (n: string) => CLAUDE_USAGE_LIMIT.test(n) || CLAUDE_AUTH_FAILED.test(n)
 
 /** The agent's own reason: after `Internal error: `, or a usage/sign-in notice on a `> ` line. */

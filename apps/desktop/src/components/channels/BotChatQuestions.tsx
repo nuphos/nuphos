@@ -22,7 +22,6 @@ export function BotChatQuestion({
   onOpenSession,
   dismissible,
   onAnswer,
-  onLinkClick,
   fullBody,
 }: {
   request: Pick<
@@ -38,8 +37,6 @@ export function BotChatQuestion({
   dismissible?: boolean
   /** Answers the question: the server wakes the agent that asked. */
   onAnswer: (answer: DecisionAnswer, requestId: string) => void
-  /** Opens a link in the question's body, as the conversation does. */
-  onLinkClick?: (href: string, beside: boolean) => boolean
   /** Shows the question's body in full, as the Inbox does. */
   fullBody?: boolean
 }) {
@@ -85,7 +82,6 @@ export function BotChatQuestion({
             (await api.agentSaveSecret(request.sessionId, name, value, teamId)).path,
           openQuestions: questions,
           fullBody,
-          onLinkClick,
         }}
       >
         <DecisionToolPart

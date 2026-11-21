@@ -11,6 +11,7 @@ import {
   OpenAbRpcError,
   isSessionOutputSinkUnavailable,
   retrySessionPromptWhenBusy,
+  runtimeUsageExhaustedMessage,
   SESSION_OUTPUT_SINK_UNAVAILABLE,
 } from './openab-acp-errors'
 
@@ -86,6 +87,32 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(relayed)).toBe('usage_limit')
     expect(turnFailureCause(wrappedOnly)).toBe('usage_limit')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
+  })
+
+  test('a provider’s 401 for the API key behind Codex is a sign-in to repair', () => {
+    // As production logged it (#3926), with a stand-in key.
+    const rejected = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> unexpected status 401 Unauthorized: Incorrect API key provided: sk-e2e****0000. You can find your API key at https://platform.openai.com/account/api-keys., url: https://api.openai.com/v1/responses, auth error: 401, auth error code: invalid_api_key',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    )
+
+    expect(turnFailureCause(rejected)).toBe('auth')
+    expect(isRuntimeAuthRequired(rejected)).toBe(true)
+  })
+
+  test('an account Anthropic holds for verification is refused like one out of usage', () => {
+    // The refusal production logged (#3926), with a stand-in org id.
+    const notice =
+      "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"verification_required"}`,
+      -32603,
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    expect(isRuntimeAuthRequired(refused)).toBe(false)
   })
 })
 

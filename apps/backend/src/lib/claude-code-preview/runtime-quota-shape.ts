@@ -25,7 +25,8 @@ export type RuntimeQuota = {
   sharesQuotaWith?: { runtimeId: string; label: string }[]
 }
 
-export const ACCOUNT_KEY = /^[0-9a-f]{16}$/u
+/** 16-hex keys came from computers that named the person, not the quota, so they are dropped. */
+export const ACCOUNT_KEY = /^[0-9a-f]{20}$/u
 
 /** Names, on each quota, the other listed agents signed in to the same account.
  *  An agent on a computer reports its account with its presence, not its reading. */

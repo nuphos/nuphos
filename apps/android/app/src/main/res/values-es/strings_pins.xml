@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">Fijar Bot</string>
+    <string name="pins_unpin_bot">Desfijar Bot</string>
+    <string name="pins_pin">Fijar</string>
+    <string name="pins_unpin">Desfijar</string>
+    <string name="pins_no_messages">Aún no hay mensajes</string>
+    <string name="pins_needs_input">Necesita tu respuesta</string>
+    <string name="pins_running">En curso</string>
+    <string name="pins_unread">Publicaciones sin leer</string>
+</resources>
