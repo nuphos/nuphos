@@ -31,9 +31,9 @@ export const options: AgentCredentialOptions = {
   secureframeIntegrations: [],
   resendIntegrations: [{ integrationId: 'mail', label: 'Mail', permission: 'full_access' }],
   personalCredentials: [
-    { provider: 'github', login: 'octocat' },
-    { provider: 'gmail', login: 'me@example.com' },
-    { provider: 'google-calendar', login: 'me@example.com' },
+    { id: 'c-gh', provider: 'github', login: 'octocat' },
+    { id: 'c-gm', provider: 'gmail', login: 'me@example.com' },
+    { id: 'c-gc', provider: 'google-calendar', login: 'me@example.com' },
   ],
   devices: [
     { deviceId: 'mac', label: 'Mac', platform: 'darwin', available: true },
