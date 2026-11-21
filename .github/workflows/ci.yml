@@ -212,7 +212,9 @@ jobs:
           only=true
           while read -r f; do
             case "$f" in
-              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
+              apps/cli/* | apps/ios/whats-new.txt) ;;
+              # The runtime's SDK pins; its own code under apps/runtime is not a bump (#4481).
+              apps/runtime/README.md | apps/runtime/image/Dockerfile | apps/runtime/image/*-acp/package*.json) ;;
               apps/*/package.json)
                 old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
@@ -464,7 +466,13 @@ jobs:
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
   # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
   e2e:
-    name: Desktop against a real backend
+    # The main scenarios and the suites that start a stack of their own run side by side;
+    # the main leg keeps the check name and the `e2e` artifact.
+    name: Desktop against a real backend${{ matrix.part == 'standalone' && ' (standalone suites)' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [main, standalone]
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     # Not in the merge queue: each PR already passed it, and one flaky run there ejects
@@ -474,9 +482,9 @@ jobs:
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    # About 35 minutes with openab from the cache. A change to prepare.mjs or the
-    # openab source misses that cache until it lands on main, and compiling openab
-    # adds about 6 minutes.
+    # The main leg takes about 46 minutes with openab from the cache, the standalone one
+    # about 6. A change to prepare.mjs or the openab source misses that cache until it
+    # lands on main, and compiling openab adds about 6 minutes.
     timeout-minutes: 50
     permissions:
       contents: read
@@ -520,7 +528,7 @@ jobs:
           docker pull mongo:8.0.32
           docker pull rustfs/rustfs:1.0.0
       - name: Run isolated real-disk Desktop evidence
-        if: github.event_name == 'workflow_dispatch' && inputs.real_disk
+        if: matrix.part == 'main' && github.event_name == 'workflow_dispatch' && inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/real-disk-shots
           OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
@@ -543,7 +551,7 @@ jobs:
           fallocate -l "$fill_bytes" "$mountpoint/fill"
           E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
       - name: Upload real-disk screenshots
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        if: always() && matrix.part == 'main' && github.event_name == 'workflow_dispatch' && inputs.real_disk
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: real-disk-screenshots
@@ -554,23 +562,23 @@ jobs:
             ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
             ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
           if-no-files-found: warn
-      # Check each entry before the shared scenarios can mask a missing path.
+      # Its own run, so a failure in the shared scenarios cannot mask a missing path.
       - name: Check every way into the product
-        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-entry-points
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:entry-points
       - name: Run the end-to-end scenarios
-        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        if: matrix.part == 'main' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e
       - name: Run Bot onboarding lifecycle scenarios
-        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-onboarding
         run: |
@@ -578,7 +586,7 @@ jobs:
           xvfb-run --auto-servernum bun run e2e:bot-onboarding
       # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
       - name: Time chat switches
-        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
         run: |
@@ -586,7 +594,7 @@ jobs:
           xvfb-run --auto-servernum bun run e2e:chat-switch
       # A stack of its own: it restarts its backend for the session-home sweep (#4265).
       - name: Remove an archived Task's home from its computer
-        if: github.event_name != 'workflow_dispatch' || !inputs.real_disk
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e-session-homes
         run: |
@@ -596,7 +604,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: e2e
+          name: e2e${{ matrix.part == 'standalone' && '-standalone' || '' }}
           path: |
             ${{ runner.temp }}/e2e
             !${{ runner.temp }}/e2e/mongo
