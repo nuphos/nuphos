@@ -247,6 +247,7 @@ export class LocalRuntimeController {
     this.changed()
     if (!agent.cli.installed) {
       agent.error = agent.cli.error ?? INSTALL_HINT[provider]
+      this.tunnel?.sendStatus()
       this.changed()
 
       return

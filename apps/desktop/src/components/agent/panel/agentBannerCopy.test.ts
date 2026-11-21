@@ -74,7 +74,7 @@ test("this computer's own signed-out agent signs in through its CLI, for members
 test('an unusable runtime shows its existing probe guidance instead of signed-out copy', () => {
   const guidance =
     "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
-  const instance = agent('u-alex', { probeError: guidance })
+  const instance = { ...agent('u-alex', { probeError: guidance }), provider: 'dsh' as const }
   const calls: AgentFix[] = []
   const copy = bannerCopy('signIn', { value: instance, options: [instance] }, undefined, {
     run: (fix) => calls.push(fix),

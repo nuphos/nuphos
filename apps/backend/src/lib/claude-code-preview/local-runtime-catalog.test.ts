@@ -284,13 +284,13 @@ describe('local runtime catalog', () => {
       ...online(),
       status: {
         agents: {
-          'claude-code': { cli: { installed: false, loggedIn: false, probeError: message } },
+          dsh: { cli: { installed: false, loggedIn: false, probeError: message } },
         },
       },
     }
     const known = {
       ...device('owner', 'mac-1', 'Olivia’s MacBook'),
-      agents: [{ provider: 'claude-code', signedIn: true }] as RegisteredAgent[],
+      agents: [{ provider: 'dsh', signedIn: true }] as RegisteredAgent[],
     }
     const catalogDeps = { ...deps, access: { ...deps.access, listDevices: async () => [known] } }
     expect((await listOwnLocalRuntimes('t1', 'owner', catalogDeps))[0]?.local).toMatchObject({
