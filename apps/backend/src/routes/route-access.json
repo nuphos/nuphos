@@ -627,6 +627,7 @@
   "PATCH /agent/conversations/:sessionId/access": "user",
   "PATCH /agent/conversations/:sessionId/archive": "user",
   "PATCH /agent/conversations/:sessionId/avatar": "user",
+  "PATCH /agent/conversations/:sessionId/instructions": "user",
   "PATCH /agent/conversations/:sessionId/credentials": "user",
   "PATCH /agent/conversations/:sessionId/model-config": "user",
   "PATCH /agent/conversations/:sessionId/title": "user",

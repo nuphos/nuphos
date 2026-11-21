@@ -23,12 +23,12 @@ import type { AcpSocket } from '@/lib/claude-code-preview/openab-acp-session'
 type Frame = { id?: number; method?: string; params?: Record<string, unknown> }
 
 /**
- * A runtime over a real WebSocket whose state RPC answers the calls `slow` picks
- * only after the backend's 3 s call deadline. A queued turn makes two: the
- * queue's status read, then the admission check before the prompt.
+ * A runtime over a real WebSocket whose state RPC answers call `n` after
+ * `answerAfter(n)` ms, or never. A queued turn makes two: the queue's status
+ * read, then the admission check before the prompt.
  */
 const stateCalls: number[] = []
-let slow: (call: number) => boolean = (call) => call === 2
+let answerAfter: (call: number) => number | 'never' = (call) => (call === 2 ? 3_500 : 0)
 const prompted: string[] = []
 const gateway = Bun.serve({
   port: 0,
@@ -45,7 +45,10 @@ const gateway = Bun.serve({
         return reply({ result: { protocolVersion: 1, agentCapabilities: {} } })
       if (frame.method === '_openab/session/state') {
         stateCalls.push(Date.now())
-        if (slow(stateCalls.length)) await Bun.sleep(3_500)
+        const wait = answerAfter(stateCalls.length)
+
+        if (wait === 'never') return
+        if (wait > 0) await Bun.sleep(wait)
 
         return reply({
           result: {
@@ -109,6 +112,8 @@ useAgentDb({
   markConversationWorkLost: async () => {},
 })
 
+/** The real `connect`, kept for the case below that pins a short deadline. */
+const openConnection = OpenAbAcpClient.connect.bind(OpenAbAcpClient)
 const client = await OpenAbAcpClient.connect({
   ...endpoint,
   socketFactory: () => new WebSocket(endpoint.url, ['acp.v1']) as unknown as AcpSocket,
@@ -155,7 +160,7 @@ installTurnRunner({
   },
 })
 
-test('a queued message whose state check times out once is sent again and delivered once', async () => {
+test('a queued message whose state check answers slowly is admitted on the first attempt', async () => {
   const message = buildPendingUserMessage({
     renderedText: 'CI passed',
     source: 'agent.thread',
@@ -165,27 +170,25 @@ test('a queued message whose state check times out once is sent again and delive
   await enqueuePendingUserMessage(OWNER, SESSION, message)
   await startQueuedTurn(OWNER, SESSION)
 
-  // The check timed out: the message is back at the head, waiting out the grace an
-  // agent host away gets, and nothing was prompted.
-  const [waiting] = await listPendingUserMessages(OWNER, SESSION)
-
-  expect(waiting?.id).toBe(message.id)
-  expect(waiting?.offlineSince).toBeString()
-  expect(prompted).toEqual([])
-
-  // The queue's own retry, 2 s later, delivers it.
-  const deadline = Date.now() + 8_000
-
-  while (prompted.length === 0 && Date.now() < deadline) await Bun.sleep(100)
+  // A tunnel that has just reconnected can take seconds over its first control
+  // round trip. Admission waits as long as the prompt that follows it would, so
+  // the turn is delivered rather than refused, retried and finally dropped.
   expect(prompted).toHaveLength(1)
   expect(prompted[0]).toContain('CI passed')
-  expect(runs).toBe(2)
+  expect(runs).toBe(1)
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
 }, 20_000)
 
-test('a state check still timing out after the grace: the message is dropped and its sender told why', async () => {
-  // Every admission check is slow; the queue's own status reads answer.
-  slow = (call) => call % 2 === 0
+test('a state check that never answers: the message is dropped after the grace and its sender told why', async () => {
+  // Admission's real deadline is the client default the prompt connection uses.
+  // Pin a short one so this asserts what happens once it expires, not how long
+  // it is.
+  const connect = spyOn(OpenAbAcpClient, 'connect').mockImplementation((options) =>
+    openConnection({ ...options, callTimeoutMs: 1_000 }),
+  )
+
+  // No admission check ever answers; the queue's own status reads do.
+  answerAfter = (call) => (call % 2 === 0 ? 'never' : 0)
   stateCalls.length = 0
   prompted.length = 0
   const message = buildPendingUserMessage({
@@ -205,4 +208,5 @@ test('a state check still timing out after the grace: the message is dropped and
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
   expect(notices).toHaveLength(1)
   expect(notices[0]).toContain('did not report its state in time')
+  connect.mockRestore()
 }, 20_000)
