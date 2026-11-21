@@ -19,9 +19,20 @@ final class DockPanelUITests: XCTestCase {
         return app
     }
 
+    /// Opens the dock and returns once it has finished loading.
+    ///
+    /// Each step waits for what it is about to touch: the toolbar follows the transcript by a
+    /// moment, and the dock draws its tab strip and search field together once the fixture is
+    /// in. Waiting for the search field is what makes a tab tappable with its page ready, so a
+    /// caller does not have to guess how long the launch took.
     private func openWorkTools(_ app: XCUIApplication) {
-        app.buttons["Task options"].tap()
-        app.buttons["Work tools"].tap()
+        let options = app.buttons["Task options"]
+        XCTAssertTrue(options.waitForExistence(timeout: 10), "The chat has no Task options")
+        options.tap()
+        let workTools = app.buttons["Work tools"]
+        XCTAssertTrue(workTools.waitForExistence(timeout: 10), "Task options does not offer Work tools")
+        workTools.tap()
+        XCTAssertTrue(app.textFields["dock-search"].waitForExistence(timeout: 10), "The dock did not load")
     }
 
     /// Scrolls the tab strip, or the New Tab list, until `element` can be tapped.
@@ -36,7 +47,6 @@ final class DockPanelUITests: XCTestCase {
 
     func testWorkToolsOpensTheMacDockAndItsNewTabPage() {
         let app = launch()
-        sleep(1)
         openWorkTools(app)
 
         XCTAssertTrue(app.buttons["dock-tab-tab-signup"].waitForExistence(timeout: 5), "Work tools did not open the dock")
@@ -45,12 +55,10 @@ final class DockPanelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["dock-row-recent-/teams/64b5f1c2e4b0a1d2c3e4f5a6/runtimes"].exists)
         XCTAssertTrue(app.staticTexts["Sign in · Example Finance"].exists)
         XCTAssertTrue(app.staticTexts["Workspace"].exists || app.buttons["dock-row-workspace-team.files"].exists)
-        sleep(2)
     }
 
     func testABrowserTabOpensNativelyOnThePhoneWithTheMacOneMenuAway() {
         let app = launch()
-        sleep(1)
         openWorkTools(app)
         let tab = app.buttons["dock-tab-tab-signup"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
@@ -70,6 +78,8 @@ final class DockPanelUITests: XCTestCase {
         app.buttons["browser-menu"].tap()
         XCTAssertTrue(app.buttons["Live view on Mac"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["Show on Mac"].exists)
+        // Kept on purpose: the menu is dismissed by tapping the app itself, and a tap that
+        // lands before the menu settles hits one of its items instead.
         sleep(1)
         app.tap()
         app.buttons["browser-done"].tap()
@@ -77,7 +87,6 @@ final class DockPanelUITests: XCTestCase {
 
     func testAPageOnTheMacsNetworkLoadsThroughTheMac() {
         let app = launch()
-        sleep(1)
         openWorkTools(app)
         let tab = app.buttons["dock-tab-tab-local"]
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
@@ -86,7 +95,6 @@ final class DockPanelUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Preview app running on your Mac"].waitForExistence(timeout: 10), "The Mac's page did not load")
         XCTAssertEqual(app.textFields["browser-address"].value as? String, "http://localhost:3000/")
         XCTAssertTrue(app.otherElements["browser-live-reload"].exists || app.staticTexts["Loaded from your Mac. Live reload doesn't update here; reload to see changes."].exists)
-        sleep(2)
     }
 
     func testClosingATabOnThePhoneClosesItInTheStrip() {
@@ -97,7 +105,6 @@ final class DockPanelUITests: XCTestCase {
         app.buttons["dock-close-tab-tab-terminal"].tap()
         XCTAssertTrue(app.buttons["dock-tab-tab-terminal"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.buttons["dock-tab-tab-docs"].exists)
-        sleep(2)
     }
 
     func testAPageTheIPhoneDoesNotHaveOpensOnTheMac() {
@@ -108,7 +115,8 @@ final class DockPanelUITests: XCTestCase {
         reveal(files, in: app, sideways: false)
         files.tap()
         XCTAssertTrue(app.staticTexts["Files isn't on iPhone yet. It's open on your Mac."].waitForExistence(timeout: 5))
-        sleep(1)
-        app.buttons["dock-close"].tap()
+        let close = app.buttons["dock-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 5), "The dock has no close button")
+        close.tap()
     }
 }
