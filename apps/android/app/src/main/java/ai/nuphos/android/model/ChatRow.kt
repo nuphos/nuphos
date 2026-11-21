@@ -17,7 +17,11 @@ sealed class ChatRow {
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
     data class ToolRun(override val id: String, val rows: List<ChatRow>, val live: Boolean) : ChatRow()
-    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow()
+    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow() {
+        /** The desktop's label: `Worked for 2m 37s`, or `Worked` with no duration. */
+        val title: String
+            get() = duration?.takeIf { it >= 1 }?.let { Words(R.string.chat_work_duration, formatWorkDuration(it.toInt())) } ?: Words(R.string.chat_work)
+    }
     data class Downloads(override val id: String, val group: ai.nuphos.android.data.TransferDownloadGroup) : ChatRow()
     data class Memory(override val id: String, val created: Int, val updated: Int) : ChatRow()
     data class MemoryRecall(override val id: String, val entries: List<MemoryEntry>, val fetched: Int) : ChatRow()
@@ -299,6 +303,13 @@ sealed class ChatRow {
                 } else result += rows[index++]
             }
             return result
+        }
+
+        /** `12s`, `3m 5s`, `1h 20m`: the desktop's `formatWorkDuration`. */
+        fun formatWorkDuration(seconds: Int): String = when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3600 -> if (seconds % 60 > 0) "${seconds / 60}m ${seconds % 60}s" else "${seconds / 60}m"
+            else -> if (seconds % 3600 / 60 > 0) "${seconds / 3600}h ${seconds % 3600 / 60}m" else "${seconds / 3600}h"
         }
 
         private fun workDuration(message: ChatMessage): Double? {
