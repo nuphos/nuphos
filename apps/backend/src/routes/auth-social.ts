@@ -74,6 +74,19 @@ socialAuth.get('/:provider/start', async (c) => {
   const settings = await providerSettings(provider)
   const handle = c.req.query('handle')
 
+  // Scratch CI only: substitute a fictional Google identity; retain the native PKCE handoff.
+  if (process.env.NUPHOS_E2E_GOOGLE === 'true' && provider === 'google' && handle) {
+    const delivery = await findPendingNativeSession(handle)
+    if (!delivery) throw new AppError(400, 'invalid_handle', 'Invalid test handle')
+    const identity = await signInSocial('google', { sub: 'fictional-google-owner' })
+    const completed = await completeNativeSession(handle, identity.user.id)
+    if (!completed) throw new AppError(400, 'invalid_handle', 'Invalid test handle')
+    const target = new URL(delivery.redirectUri)
+    target.searchParams.set('code', completed.deliveryCode)
+    if (delivery.clientState) target.searchParams.set('state', delivery.clientState)
+    return c.redirect(target.toString())
+  }
+
   if (handle && !(await findPendingNativeSession(handle)))
     throw new AppError(400, 'invalid_handle', 'Start sign-in again from the app')
   const state = generateOpaqueToken()

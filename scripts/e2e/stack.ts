@@ -210,6 +210,9 @@ export async function startStack(
     cwd: BACKEND_DIR,
     env: {
       NODE_ENV: 'development',
+      NUPHOS_E2E_GOOGLE: 'true',
+      GOOGLE_OAUTH_CLIENT_ID: 'fictional-client',
+      GOOGLE_OAUTH_CLIENT_SECRET: 'fictional-secret',
       PORT: String(backendPort),
       NUPHOS_JWT_SECRET: 'local-e2e-jwt-secret-not-a-production-credential',
       MONGODB_URI: mongoUri,
@@ -263,6 +266,14 @@ export async function startStack(
   await until('the sign-in code to be logged', async () => signInCode(email))
   token = (await post('/auth/email/verify-code', { email, code: signInCode(email) })).token
   const teamId = (await post('/teams', { name: 'E2E' })).team.id
+  // Attach the fixture Google subject to this already provisioned fictional owner.
+  const fixtureGoogle = `
+    import { MongoClient } from 'mongodb'
+    const client = await new MongoClient(process.argv[1]).connect()
+    await client.db('nuphos_e2e').collection('users').updateOne(
+      { email: process.argv[2] }, { $set: { googleID: 'fictional-google-owner' } })
+    await client.close()`
+  execFileSync('bun', ['-e', fixtureGoogle, mongoUri, email], { cwd: BACKEND_DIR })
 
   for (const [port, label, provider, agent] of [
     [runtimePort, 'E2E fixture agent', 'claude-code', ''],

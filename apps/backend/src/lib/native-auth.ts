@@ -143,6 +143,7 @@ export async function registerNativeSession(input: {
   }
 
   const handle = generateOpaqueToken()
+  if (process.env.NUPHOS_E2E_GOOGLE === 'true') console.log('E2E_NATIVE_HANDLE=' + handle)
   const now = new Date()
 
   await nativeAuthSessions().insertOne({

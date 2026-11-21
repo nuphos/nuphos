@@ -6,7 +6,6 @@ import { chromium } from 'playwright-core'
 
 import { laptopOnline, LAPTOP } from './laptop-fixture.ts'
 import { artifacts, freePorts, logPath, spawn, stop, stopAll, until } from './processes.ts'
-import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, pickAgent, pickInSubmenu, send } from './ui.ts'
 
@@ -88,7 +87,18 @@ try {
   page = launched.page
   await page.evaluate(() => localStorage.setItem('nuphos.locale', 'en'))
   await page.reload()
-  await signInScenarios[1]!.run(page, stack)
+  await page.getByRole('button', { name: 'Continue with Google' }).click()
+  let handle = ''
+  await until('fixture Google native session', async () => {
+    handle = /E2E_NATIVE_HANDLE=([^\s]+)/.exec(readFileSync(logPath('backend'), 'utf8'))?.[1] ?? ''
+    return Boolean(handle)
+  })
+  // Drive the fictional provider leg locally; the app still redeems the actual one-time PKCE handoff.
+  const provider = await fetch(`${stack.apiUrl}/auth/social/google/start?handle=${encodeURIComponent(handle)}`, { redirect: 'manual' })
+  const callback = provider.headers.get('location')
+  if (!callback || !callback.startsWith('http://127.0.0.1:')) throw new Error('Fixture Google callback missing')
+  await fetch(callback)
+  await page.getByText('Start with your first Bot').waitFor()
   online = await laptopOnline(stack, { diskPercent: 91 })
   await newTask(page)
   await pickAgent(page, 'E2E fixture agent')
@@ -147,7 +157,7 @@ try {
   await shot(page, '06-worse')
   writeFileSync(
     join(artifacts, 'result.txt'),
-    'PASS: installed macOS Desktop 0.130.10; isolated backend; fictional 91% reading; dismiss persisted across chats, window and restart; returned at 95%.\n',
+    'PASS: installed macOS Desktop 0.130.10; fictional Google OAuth identity and isolated backend; fictional 91% reading; dismiss persisted across chats, window and restart; returned at 95%.\n',
   )
   console.log(
     'PASS installed macOS Desktop 0.130.10: dismiss across chats, window and restart; warning returned at 95%.',
