@@ -2,13 +2,21 @@
 // A stack of its own, since the sweep runs once a backend has started and restarting it here
 // touches no other scenario. Everything is fictional: its own backend, database and computers.
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs'
+import { join } from 'node:path'
 
 import { nuphosSessionHomeEnv } from '../../apps/runtime/image/session-home.mjs'
 
 import { inDatabase } from './agent-sign-in-scenarios.ts'
 import { client, must } from './binding-access-scenarios.ts'
-import { artifacts, stopAll, until } from './processes.ts'
+import { artifacts, logPath, stopAll, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { startStack } from './stack.ts'
 import { fixtureBundle } from './tunnel-scenarios.ts'
@@ -41,6 +49,21 @@ function task(stack: Stack, ownerId: string, deviceId: string, computerHome: str
   return { sessionId, home }
 }
 
+/** Claude Code installed and signed in on the computer, as fixture-claude.mjs's sign-in leaves it. */
+const signedIn = (ownerId: string) => (home: string, agentHome: string) => {
+  const bin = join(home, '.local', 'bin')
+  const config = join(agentHome, 'users', ownerId, 'claude-home')
+
+  mkdirSync(bin, { recursive: true })
+  copyFileSync(join(import.meta.dirname, 'fixture-claude.mjs'), join(bin, 'claude'))
+  chmodSync(join(bin, 'claude'), 0o755)
+  mkdirSync(config, { recursive: true })
+  writeFileSync(
+    join(config, '.credentials.json'),
+    JSON.stringify({ claudeAiOauth: { accessToken: 'e2e', subscriptionType: 'max' } }),
+  )
+}
+
 function reclaimedAt(stack: Stack, { sessionId }: Home): string {
   return inDatabase(
     stack.mongoUri,
@@ -70,10 +93,18 @@ try {
   // The real `nuphos agent` host, whose session-homes job #4267 points at this HOME.
   const computer = await startSecondComputer(stack, 'E2E homes mini', {
     runtimeDir: fixtureBundle(stack, 'homes'),
+    prepare: signedIn(ownerId),
   })
   const away = await startSecondComputer(stack, 'E2E homes away', {
     runtimeDir: fixtureBundle(stack, 'homes-away'),
+    prepare: signedIn(ownerId),
   })
+
+  // Signed out, a computer gives the backend no control channel and nothing is reclaimed.
+  for (const label of ['E2E homes mini', 'E2E homes away'])
+    await until(`${label} to have Claude Code online`, async () =>
+      readFileSync(logPath(`computer-${label}`), 'utf8').includes('Claude Code: online'),
+    )
   const target = task(stack, ownerId, computer.deviceId, computer.home)
   const control = task(stack, ownerId, computer.deviceId, computer.home)
   const offline = task(stack, ownerId, away.deviceId, away.home)
