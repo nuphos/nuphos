@@ -41,27 +41,30 @@ const posts = Array.from(
     }) as unknown as AgentPersistedMessage,
 )
 
-function open(channelId: string) {
+function open(channelId: string, messages = posts) {
   const host = document.createElement('div')
 
   document.body.appendChild(host)
   const root = createRoot(host)
+  const render = (id: string, shown: AgentPersistedMessage[]) =>
+    act(() =>
+      root.render(
+        <ChannelMessages
+          messages={shown}
+          events={[]}
+          agents={[]}
+          viewerId="u1"
+          teamId="t"
+          onOpenSession={() => {}}
+          channelId={id}
+        />,
+      ),
+    )
 
-  act(() =>
-    root.render(
-      <ChannelMessages
-        messages={posts}
-        events={[]}
-        agents={[]}
-        viewerId="u1"
-        teamId="t"
-        onOpenSession={() => {}}
-        channelId={channelId}
-      />,
-    ),
-  )
+  render(channelId, messages)
 
   return {
+    render,
     drawn: () => host.querySelectorAll('[data-post-id]').length,
     earlier: () => host.querySelector<HTMLButtonElement>('[data-earlier-messages] button'),
     close: () => {
@@ -86,5 +89,23 @@ test('a link to an earlier post opens the chat with it drawn', () => {
   const chat = open('c2')
 
   assert.equal(chat.drawn(), 80)
+  chat.close()
+})
+
+test('posts that arrive after the chat opens are drawn from the latest', () => {
+  const chat = open('c3', [])
+
+  chat.render('c3', posts)
+  assert.equal(chat.drawn(), 30)
+  chat.close()
+})
+
+test('another chat in the same place opens with its latest drawn', () => {
+  const chat = open('c4')
+
+  act(() => chat.earlier()?.click())
+  assert.equal(chat.drawn(), 80)
+  chat.render('c5', posts)
+  assert.equal(chat.drawn(), 30)
   chat.close()
 })

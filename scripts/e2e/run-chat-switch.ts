@@ -21,6 +21,9 @@ const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
 // A post said in a Bot chat while away shows this soon after it opens.
 const AWAY_MS = 300
 const POSTS = 40
+// As many as a Bot chat reads: it opens with the latest 30 drawn, as a Task does (#4382).
+const LONG_POSTS = 200
+const DRAWN = 30
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
 const MAX_TYPED_FRAMES = 3
@@ -48,12 +51,12 @@ async function api(stack: Stack, path: string, body?: unknown, method = body ? '
 }
 
 /** A group chat with history: the same view as a Bot's chat. */
-async function chat(stack: Stack, title: string): Promise<Chat> {
+async function chat(stack: Stack, title: string, posts = POSTS): Promise<Chat> {
   const made = (await api(stack, '/agent/channels', { title, group: true })) as {
     sessionId: string
   }
 
-  for (let n = 1; n <= POSTS; n++)
+  for (let n = 1; n <= posts; n++)
     await api(stack, `/agent/conversations/${made.sessionId}/channel-messages`, {
       text: `${title} post ${String(n)}`,
     })
@@ -135,11 +138,46 @@ async function restart(page: Page) {
   await page.getByRole('tab', { name: 'Tasks' }).waitFor()
 }
 
-const lastPost = (chat: Chat) => ({ history: `${chat.title} post ${String(POSTS)}` })
+const lastPost = (chat: Chat, posts = POSTS) => ({ history: `${chat.title} post ${String(posts)}` })
+
+/** A long Bot chat draws its latest posts, and the rest on request with the first one kept in view. */
+async function earlier(page: Page, chat: Chat) {
+  const posts = page
+    .locator('[data-post-id]')
+    .filter({ visible: true })
+    .filter({ hasText: `${chat.title} post ` })
+  const drawn = await posts.count()
+
+  if (drawn !== DRAWN) throw new Error(`${chat.title} opened with ${String(drawn)} posts drawn`)
+  await page
+    .getByRole('button', { name: 'Load earlier messages' })
+    .filter({ visible: true })
+    .click()
+  await posts.first().waitFor()
+  const all = await posts.count()
+  const top = page.getByText(`${chat.title} post ${String(LONG_POSTS - DRAWN + 1)}`, {
+    exact: true,
+  })
+
+  if (all !== LONG_POSTS)
+    throw new Error(`${chat.title} drew ${String(all)} posts after loading earlier`)
+  if (!(await top.isVisible()) || !(await top.evaluate(inView)))
+    throw new Error(`${chat.title} lost its first drawn post from view after loading earlier`)
+  console.log(
+    `${chat.title}: ${String(drawn)} drawn on opening, ${String(all)} after loading earlier`,
+  )
+}
+
+function inView(element: Element) {
+  const box = element.getBoundingClientRect()
+
+  return box.bottom > 0 && box.top < window.innerHeight
+}
 
 async function scenario(page: Page, stack: Stack) {
   const chatA = await chat(stack, 'Switch chat A')
   const chatB = await chat(stack, 'Switch chat B')
+  const longChat = await chat(stack, 'Switch chat long', LONG_POSTS)
   const taskA = await task(
     page,
     stack,
@@ -190,14 +228,16 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'task, opened before, reply in progress', long, { history: 'LONG_END' })
   await open(page, 'bot chat, opened before, again', chatA, lastPost(chatA))
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
+  await open(page, 'bot chat, first open, 200 posts', longChat, lastPost(longChat, LONG_POSTS))
+  await earlier(page, longChat)
 }
 
 /** What fails the run. */
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
-    '| Switch | Frames to content | Reads before content | Fade frames | Wash frames | Typed frames | Newest after |',
-    '| --- | --: | --: | --: | --: | --: | --: |',
+    '| Switch | Frames to content | ms to content | Reads before content | Fade frames | Wash frames | Typed frames | Newest after |',
+    '| --- | --: | --: | --: | --: | --: | --: | --: |',
   ]
 
   for (const { name, watch, requests } of cases) {
@@ -220,7 +260,7 @@ function check(baseline: Record<string, number> | null) {
     if (allowed !== undefined && requests > allowed)
       fail(`${String(requests)} reads before its first frame, baseline ${String(allowed)}`)
     lines.push(
-      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
+      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${watch.shownAt === null ? 'never' : String(Math.round(watch.shownAt - watch.clickedAt))} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
   // A chat opened before shows on the first frame, with no request first: a Task, and a Bot

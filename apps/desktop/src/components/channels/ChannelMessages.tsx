@@ -61,18 +61,18 @@ const postedAt = (message: AgentPersistedMessage) =>
  * held the click that opened the chat (#4382). The rest are drawn on request, or for a link to one.
  */
 function useRecentPosts(messages: AgentPersistedMessage[], channelId: string) {
-  const [top, setTop] = useState(() => messages.at(-CONVERSATION_TAIL_LIMIT)?.id)
-  const from = Math.max(
-    0,
-    messages.findIndex((message) => message.id === top),
-  )
+  // The chat whose posts are all drawn: another chat opens with its latest again.
+  const [whole, setWhole] = useState<string>()
+  const from = whole === channelId ? 0 : Math.max(0, messages.length - CONVERSATION_TAIL_LIMIT)
   const jump = usePostJump(channelId)
 
   if (from > 0 && jump && messages.slice(0, from).some((message) => message.id === jump))
-    setTop(undefined)
+    setWhole(channelId)
 
   const showEarlier = () => {
-    flushSync(() => setTop(undefined))
+    const top = messages[from]?.id
+
+    flushSync(() => setWhole(channelId))
     // The post that was first stays where the reader was, with the earlier ones above it.
     if (top) document.querySelector(`[data-post-id="${CSS.escape(top)}"]`)?.scrollIntoView()
   }
