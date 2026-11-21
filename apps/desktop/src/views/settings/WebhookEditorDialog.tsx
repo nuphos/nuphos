@@ -65,6 +65,69 @@ function inputOf(draft: Draft): WebhookInput {
   }
 }
 
+function HeaderFields({
+  headers,
+  onChange,
+}: {
+  headers: HeaderRow[]
+  onChange: (headers: HeaderRow[]) => void
+}) {
+  const setHeader = (index: number, patch: Partial<HeaderRow>) =>
+    onChange(headers.map((h, i) => (i === index ? { ...h, ...patch } : h)))
+
+  return (
+    <fieldset>
+      <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">{t('Headers')}</legend>
+      <p className="mb-2 text-[12px] text-tertiary">
+        {t(
+          'Sent with every request, e.g. Authorization: Bearer <key>. Values are stored encrypted and never shown again.',
+        )}
+      </p>
+      <div className="space-y-2">
+        {headers.map((header, index) => (
+          <div key={index} className="flex items-center gap-2">
+            <div className="w-2/5 shrink-0">
+              <input
+                value={header.name}
+                onChange={(e) => setHeader(index, { name: e.target.value, saved: false })}
+                placeholder="Authorization"
+                aria-label={t('Header name')}
+                className={inputClasses}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <input
+                type="password"
+                value={header.value}
+                onChange={(e) => setHeader(index, { value: e.target.value })}
+                placeholder={header.saved ? t('Saved. Leave blank to keep it.') : 'Bearer …'}
+                aria-label={t('Header value')}
+                className={inputClasses}
+              />
+            </div>
+            <IconButton
+              label={t('Remove header')}
+              icon={<XIcon />}
+              onClick={() => onChange(headers.filter((_, i) => i !== index))}
+            />
+          </div>
+        ))}
+      </div>
+      {headers.length < 10 && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-2"
+          onClick={() => onChange([...headers, { name: '', value: '', saved: false }])}
+        >
+          + {t('Add header')}
+        </Button>
+      )}
+    </fieldset>
+  )
+}
+
 export function WebhookEditorDialog({
   target,
   events,
@@ -85,12 +148,6 @@ export function WebhookEditorDialog({
     setDraft(draftOf(target))
     setSaving(false)
   }
-
-  const setHeader = (index: number, patch: Partial<HeaderRow>) =>
-    setDraft({
-      ...draft,
-      headers: draft.headers.map((h, i) => (i === index ? { ...h, ...patch } : h)),
-    })
 
   const toggleEvent = (event: WebhookEvent, on: boolean) =>
     setDraft({
@@ -185,60 +242,10 @@ export function WebhookEditorDialog({
             ))}
           </div>
         </fieldset>
-        <fieldset>
-          <legend className="mb-1.5 text-[12.5px] font-medium text-secondary">
-            {t('Headers')}
-          </legend>
-          <p className="mb-2 text-[12px] text-tertiary">
-            {t(
-              'Sent with every request, e.g. Authorization: Bearer <key>. Values are stored encrypted and never shown again.',
-            )}
-          </p>
-          <div className="space-y-2">
-            {draft.headers.map((header, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  value={header.name}
-                  onChange={(e) => setHeader(index, { name: e.target.value, saved: false })}
-                  placeholder="Authorization"
-                  aria-label={t('Header name')}
-                  className={`${inputClasses} w-2/5`}
-                />
-                <input
-                  type="password"
-                  value={header.value}
-                  onChange={(e) => setHeader(index, { value: e.target.value })}
-                  placeholder={header.saved ? t('Saved. Leave blank to keep it.') : 'Bearer …'}
-                  aria-label={t('Header value')}
-                  className={`${inputClasses} flex-1`}
-                />
-                <IconButton
-                  label={t('Remove header')}
-                  icon={<XIcon />}
-                  onClick={() =>
-                    setDraft({ ...draft, headers: draft.headers.filter((_, i) => i !== index) })
-                  }
-                />
-              </div>
-            ))}
-          </div>
-          {draft.headers.length < 10 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() =>
-                setDraft({
-                  ...draft,
-                  headers: [...draft.headers, { name: '', value: '', saved: false }],
-                })
-              }
-            >
-              + {t('Add header')}
-            </Button>
-          )}
-        </fieldset>
+        <HeaderFields
+          headers={draft.headers}
+          onChange={(headers) => setDraft({ ...draft, headers })}
+        />
       </div>
     </Modal>
   )

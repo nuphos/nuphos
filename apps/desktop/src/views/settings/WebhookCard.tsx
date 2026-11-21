@@ -1,4 +1,3 @@
-import clsx from 'clsx'
 import { Pencil as PencilIcon, Send as SendIcon, Trash2 as Trash2Icon } from 'lucide-react'
 
 import { Button } from '../../components/ui/button'
@@ -41,12 +40,7 @@ export function WebhookCard({
   onDelete: () => void
 }) {
   return (
-    <div
-      className={clsx(
-        'rounded-xl border border-line-control p-4 transition-opacity',
-        !hook.enabled && 'opacity-60',
-      )}
-    >
+    <div className="rounded-xl border border-line-control p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13.5px] font-medium text-main">{hook.name}</p>
