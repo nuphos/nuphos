@@ -1,3 +1,4 @@
+import { nestedBotsCheck } from './nested-bots-check.ts'
 // `bun run e2e`: the Desktop app against a real backend, database and OpenAB, with a
 // deterministic agent in place of a model. Each scenario is a flow a person takes.
 import { rmSync } from 'node:fs'
@@ -72,123 +73,7 @@ import type { Scenario } from './ui.ts'
 
 const scenarios: Scenario[] = [
   ...signInScenarios,
-  ...sidebarScenarios,
-  {
-    // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
-    // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
-    name: 'set up a cloud connector with the agent from the Bots page, and the setup turn runs',
-    run: async (page, stack) => {
-      await page.getByRole('button', { name: 'Connectors', exact: true }).click()
-      await page.getByRole('button', { name: 'Add AWS' }).click()
-      await page.getByRole('button', { name: /Set up in a task/ }).click()
-      await page.getByText('ACK E2E_DELIVERY:missing').waitFor()
-      await until('the setup prompt to reach the agent', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
-      )
-      // Back where a new team starts, for the scenarios that follow.
-      await page.getByRole('tab', { name: 'Bots' }).click()
-    },
-  },
-  {
-    // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
-    name: 'create a Bot, talk to it in its chat, and answer its question there',
-    run: async (page, stack) => {
-      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
-      await page.getByRole('button', { name: 'Create', exact: true }).click()
-      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
-      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
-      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
-      await until('the unprompted Bot introduction to finish', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
-      )
-      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
-      await send(
-        page,
-        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
-      )
-      await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
-      await checkDecisionOutline(page)
-      await checkOutgoingChip(page)
-      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await until('the answer in the Bot chat to reach the Bot', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-      )
-    },
-  },
-  ...botUnreadScenarios,
-  ...channelScenarios,
-  ...botWorkingDotsScenarios,
-  ...channelAwayScenarios,
-  ...channelRestartScenarios,
-  ...mcpDefaultsScenarios,
-  ...mcpCredentialDefaultsScenarios,
-  ...teammateBotScenarios,
-  ...leaveTaskScenarios,
-  ...archiveSharedTaskScenarios,
-  ...leaveChatScenarios,
-  ...avatarBackgroundScenarios,
-  {
-    name: 'start a Task, send a message and read the reply',
-    run: async (page) => {
-      await newTask(page)
-      await send(page, 'Say hello E2E_DELIVERY:first')
-      await page.getByText('ACK E2E_DELIVERY:first').waitFor()
-    },
-  },
-  ...linkChipScenarios,
-  ...voiceScenarios,
-  ...personalCredentialScenarios,
-  ...mentionScenarios,
-  ...sessionResourceScenarios,
-  // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
-  ...longTranscriptScenarios,
-  ...replyFileScenarios,
-  ...agentWordScenarios,
-  ...turnScenarios,
-  ...questionScenarios,
-  ...triggerScenarios,
-  ...botTriggerRowScenarios,
-  ...triggerHistoryScenarios,
-  ...usageScenarios,
-  ...connectorScenarios,
-  // Turns two-factor authentication on for this account, and off again.
-  ...stepUpScenarios,
-  ...accessScenarios,
-  ...runtimeScenarios,
-  ...botTurnScenarios,
-  ...providerUnreachableScenarios,
-  ...computerScenarios,
-  ...mcpFileScenarios,
-  ...desktopScreenScenarios,
-  ...commandScenarios,
-  ...threadScenarios,
-  ...settingsHistoryScenarios,
-  ...offlineScenarios,
-  ...outdatedTurnScenarios,
-  ...mcpScenarios,
-  ...skillScenarios,
-  ...approvalFeedbackScenarios,
-  threadModeScenario,
-  ...botFoldScenarios,
-  ...sidebarPageScenarios,
-  ...fallbackScenarios,
-  ...memberStreamScenarios,
-  // It removes a member from the team.
-  ...dashboardScenarios,
-  // Right after the one above: it opens the dashboards that scenario leaves behind.
-  ...dashboardUiScenarios,
-  // It leaves the window split, then closes a pane.
-  ...splitPaneScenarios,
-  // A second computer of its own, which it stops again.
-  ...tunnelScenarios,
-  // Another app of its own per proxy, reaching the backend only through it, which it quits again.
-  ...proxyScenarios,
-  ...terminalScenarios,
-  ...cliBrowserScenarios,
-  // Last: this computer has Claude Code from then on.
-  ...installScenarios,
+  ...nestedBotsCheck,
 ]
 
 let desktop: Desktop | undefined
