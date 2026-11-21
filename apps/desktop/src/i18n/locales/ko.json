@@ -4206,6 +4206,7 @@
   "Select namespace": "네임스페이스 선택",
   "Select region": "리전 선택",
   "Select row": "행 선택",
+  "Select what it asks for in the credential picker to answer.": "답하려면 자격 증명 선택기에서 요청한 항목을 선택하세요.",
   "Selected": "선택됨",
   "Selected credential does not have permission": "선택한 자격 증명에 권한이 없습니다",
   "Selected for the next reply.": "다음 답변부터 적용됩니다.",

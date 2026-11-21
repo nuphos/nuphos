@@ -43,7 +43,7 @@ mock.module('../../ui/toast.ts', { namedExports: { toast: { apiError: () => {} }
 mock.module('./clientTools.ts', { namedExports: { finalizeIncompleteTools: identity } })
 mock.module('./conversationUnavailable.ts', { namedExports: { openingAfterFailure: () => null } })
 mock.module('./conversationCredentialAccess.ts', {
-  namedExports: { storedConversationCredentialAccess: () => ({}) },
+  namedExports: { storedConversationCredentialAccess: (stored: unknown) => stored ?? {} },
 })
 mock.module('./credentialAccess.ts', {
   namedExports: { credentialOptionsLoaded: () => true, credentialSelectionSignature: () => '' },
@@ -59,7 +59,7 @@ mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en' } })
 mock.module('./toUiMessages.ts', { namedExports: { toUiMessages: identity } })
 
 const { queryKeys } = await import('../../../lib/query/keys.ts')
-const { cachedTask } = await import('./taskTranscript.ts')
+const { cachedTask, keepTaskSelection } = await import('./taskTranscript.ts')
 const { runOpenConversation } = await import('./openConversation.ts')
 
 const TEAM = 'team'
@@ -113,7 +113,7 @@ function panel() {
     uploadingTabsRef: { current: new Set() },
   } as unknown as OpenConversationCtx
 
-  return { ctx, spinners, text: () => JSON.stringify(tabs[0]?.messages) }
+  return { ctx, spinners, text: () => JSON.stringify(tabs[0]?.messages), tab: () => tabs[0] }
 }
 
 beforeEach(() => {
@@ -170,4 +170,19 @@ test('a copy with a reply in progress, or one the list does not show, is not use
   queryClient.setQueryData(queryKeys.agentSessions(TEAM), [])
   assert.equal(cachedTask(queryClient as never, TEAM, 's1'), undefined)
   assert.equal(cachedTask(queryClient as never, undefined, 's1'), undefined)
+})
+
+// #4022: read ahead, then "Use in task" in the Inbox; the Task opened from the copy unselected.
+test('a Task read before its selection was saved elsewhere opens with that selection', async () => {
+  queryClient.setQueryData(queryKeys.task(TEAM, 's1'), detail('cached', 'r1'))
+  listed('r1')
+  const gmail = { personalCredentialIds: ['gmail'] } as never
+
+  keepTaskSelection(queryClient as never, TEAM, 's1', gmail)
+  const { ctx, tab } = panel()
+
+  await runOpenConversation(ctx, 's1')
+
+  assert.deepEqual(reads, [])
+  assert.deepEqual(tab()?.credentialAccess, gmail)
 })
