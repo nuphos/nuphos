@@ -50,7 +50,8 @@ const scenario: Scenario = {
     await page.getByText('Great, ping me when it lands.').first().waitFor()
 
     const themed = await page.evaluate(() => document.documentElement.className)
-    const size = page.viewportSize()
+    // Window widths by emulation, cleared after: the scenarios after this one see the window as it was.
+    const cdp = await page.context().newCDPSession(page)
 
     await page.evaluate(() => {
       document.documentElement.classList.remove('dark')
@@ -63,7 +64,12 @@ const scenario: Scenario = {
         ['narrow', 720],
         ['normal', 1280],
       ] as const) {
-        await page.setViewportSize({ width, height: size?.height ?? 800 })
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+          width,
+          height: 800,
+          deviceScaleFactor: 0,
+          mobile: false,
+        })
         await page.waitForTimeout(500)
         await page.screenshot({ path: `${artifacts}/link-quote-${name}-light.png` })
         for (const id of ['e2e-link-mine', 'e2e-link-theirs']) {
@@ -100,7 +106,8 @@ const scenario: Scenario = {
         quoted.evaluate((node) => node.classList.contains('cell-flash')),
       )
     } finally {
-      if (size) await page.setViewportSize(size)
+      await cdp.send('Emulation.clearDeviceMetricsOverride')
+      await cdp.detach()
       await page.evaluate((themed) => {
         document.documentElement.className = themed
       }, themed)
