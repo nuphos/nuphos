@@ -97,15 +97,12 @@ export function useWorkspaceShellState() {
   // Bumped on every deep entry so Settings remounts on the requested section,
   // even when it is already open on another one.
   const [settingsRequest, setSettingsRequest] = useState(0)
-  const openSettingsSection = useCallback(
-    (section: string, filter?: string) => {
-      setSettingsInitialSection(section)
-      setSettingsInitialFilter(filter)
-      setSettingsRequest((n) => n + 1)
-      setSettingsOpen(true)
-    },
-    [],
-  )
+  const openSettingsSection = useCallback((section: string, filter?: string) => {
+    setSettingsInitialSection(section)
+    setSettingsInitialFilter(filter)
+    setSettingsRequest((n) => n + 1)
+    setSettingsOpen(true)
+  }, [])
   // Connectors opens over whatever the pane shows, on one connector's detail
   // when given, and leaves the page behind it where it was.
   const openConnectors = useCallback(
