@@ -220,7 +220,7 @@ export function RuntimeSelector({
               />
             ))}
           </div>
-          {(onAddAgent ?? onSettings) && (
+          {false && (onAddAgent ?? onSettings) && (
             <>
               {groups.length > 0 && <MenuSeparator />}
               {onAddAgent ? (
