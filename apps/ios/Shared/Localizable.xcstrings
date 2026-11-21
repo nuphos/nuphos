@@ -32849,6 +32849,52 @@
         }
       }
     },
+    "Usage %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El uso %@."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kuota penggunaan %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量は%@。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용량: %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โควตาการใช้งาน%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用量%@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用量%@。"
+          }
+        }
+      }
+    },
     "Use Nuphos Cloud" : {
       "localizations" : {
         "es" : {
@@ -36198,48 +36244,54 @@
         }
       }
     },
-    "resets %@" : {
+    "resets in %lldd %lldh" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "resets in %1$lldd %2$lldh"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "se restablece el %@"
+            "value" : "se restablece en %1$lld d %2$lld h"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "direset %@"
+            "value" : "direset dalam %1$lld hari %2$lld j"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@にリセット"
+            "value" : "%1$lld 日 %2$lld 時間後にリセット"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 초기화"
+            "value" : "%1$lld일 %2$lld시간 후 재설정"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "รีเซ็ต %@"
+            "value" : "รีเซ็ตในอีก %1$lld วัน %2$lld ชม."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 重置"
+            "value" : "%1$lld 天 %2$lld 小时后重置"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 重設"
+            "value" : "%1$lld 天 %2$lld 小時後重設"
           }
         }
       }
