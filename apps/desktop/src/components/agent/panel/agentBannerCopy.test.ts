@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import { diskFullCopy, noticeCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
-import { bannerCopy } from './agentBannerVariants.ts'
 import { agentProblem } from './agentRowFix.ts'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix.ts'
@@ -76,7 +75,7 @@ test('an unusable runtime shows its existing probe guidance instead of signed-ou
     "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
   const instance = { ...agent('u-alex', { probeError: guidance }), provider: 'dsh' as const }
   const calls: AgentFix[] = []
-  const copy = bannerCopy('signIn', { value: instance, options: [instance] }, undefined, {
+  const copy = reachabilityCopy('signIn', { value: instance, options: [instance] }, undefined, {
     run: (fix) => calls.push(fix),
     canAsk: () => false,
   })
