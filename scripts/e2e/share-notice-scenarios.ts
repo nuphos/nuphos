@@ -142,7 +142,7 @@ export const shareNoticeScenarios: Scenario[] = [
           'the record to be shared',
         )
         await openComputers(page)
-        await page.getByText(SAME_MAC, { exact: true }).first().waitFor()
+        await page.getByText(SAME_MAC, { exact: true }).filter({ visible: true }).first().waitFor()
         // This computer's own card shows what its host reports, once it has reported.
         await until('this computer to report its readings', async () =>
           (await listed(page, stack.teamId)).some(

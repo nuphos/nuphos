@@ -45,7 +45,7 @@ export default {
 
       await api(stack, 'POST', `/agent/conversations/${chat ?? ''}/agents`, { sessionId: busy })
       await page.getByRole('tab', { name: 'Bots' }).click()
-      await page.getByText('E2E presence chat').first().click()
+      await page.getByText('E2E presence chat').filter({ visible: true }).first().click()
       await page.evaluate(() => {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')

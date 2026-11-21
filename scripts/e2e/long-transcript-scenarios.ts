@@ -58,11 +58,13 @@ async function sessionFor(stack: Stack, marker: string) {
 }
 
 // textContent: innerText leaves out off-screen messages never painted (content-visibility: auto).
+// The chat on screen: one opened before stays in the page, hidden.
 const transcript = (page: Page) =>
   page.evaluate(
     () =>
-      document.querySelector('.user-message-bubble')?.closest('.flex.flex-col.gap-4')
-        ?.textContent ?? '',
+      [...document.querySelectorAll('.user-message-bubble')]
+        .find((bubble) => bubble.checkVisibility())
+        ?.closest('.flex.flex-col.gap-4')?.textContent ?? '',
   )
 
 export const longTranscriptScenarios: Scenario[] = [

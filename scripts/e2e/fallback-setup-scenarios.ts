@@ -84,7 +84,11 @@ export const fallbackSetupScenarios: Scenario[] = [
       await newTask(page)
       await choose(page, page.getByRole('button', { name: /^Runtime:/ }), FIXTURE)
       await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
-      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await page
+        .getByText('You’ve hit your usage limit')
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       // #3313: Switch runtime opens one runtime list, the one beside this failure.
       await page.getByRole('button', { name: 'Switch runtime' }).first().click()
       await page.getByRole('menu').first().waitFor()

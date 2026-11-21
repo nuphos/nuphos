@@ -19,7 +19,7 @@ export const turnScenarios: Scenario[] = [
       await send(page, 'Then this E2E_DELIVERY:queued')
       await page.getByText('Queued messages').waitFor()
       await page.locator('button[title="Stop"]:visible').click()
-      await page.getByText('Turn stopped').waitFor()
+      await page.getByText('Turn stopped').filter({ visible: true }).waitFor()
       await page.getByText('ACK E2E_DELIVERY:queued').waitFor()
       const events = agentEvents(stack)
 
@@ -48,7 +48,7 @@ export const turnScenarios: Scenario[] = [
       } finally {
         open()
       }
-      await page.getByText('Turn stopped').waitFor()
+      await page.getByText('Turn stopped').filter({ visible: true }).waitFor()
       await send(page, 'Sent after the stop E2E_DELIVERY:after-stop')
       await page.getByText('ACK E2E_DELIVERY:after-stop').waitFor()
       const events = agentEvents(stack)
@@ -75,7 +75,7 @@ export const turnScenarios: Scenario[] = [
         throw new Error('A "Replying to" chip is above the composer')
       }
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
+      await page.getByText('ACK E2E_DELIVERY:answered').filter({ visible: true }).waitFor()
     },
   },
   {
@@ -113,7 +113,7 @@ export const turnScenarios: Scenario[] = [
         .last()
         .waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await page.getByText('ACK E2E_DELIVERY:answered').waitFor()
+      await page.getByText('ACK E2E_DELIVERY:answered').filter({ visible: true }).waitFor()
       await send(page, 'Ask again E2E_ASK_CREDENTIAL E2E_DELIVERY:credential-again')
       await page.getByText('ACK E2E_DELIVERY:credential-again').waitFor()
       await page.getByRole('tab', { name: 'Inbox' }).click()

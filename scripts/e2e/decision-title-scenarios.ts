@@ -53,7 +53,7 @@ export const decisionTitleScenarios: Scenario[] = [
         (await lines(card)) === 1,
         `the card's question to be one line, got ${String(await lines(card))}`,
       )
-      await page.getByText('Idle since the migration.').last().waitFor()
+      await page.getByText('Idle since the migration.').filter({ visible: true }).last().waitFor()
       await page.screenshot({ path: `${artifacts}/decision-one-line-card.png` })
 
       await page.getByRole('tab', { name: 'Inbox' }).click()

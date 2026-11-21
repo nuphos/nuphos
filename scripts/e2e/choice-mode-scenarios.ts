@@ -24,7 +24,7 @@ const card = (page: Page, question: string) =>
 /** Opens a question of the Inbox list and waits for it to be drawn. */
 async function openInInbox(page: Page, question: string) {
   await page.locator('[data-inbox-question]', { hasText: question }).click()
-  await page.getByText(question).last().waitFor()
+  await page.getByText(question).filter({ visible: true }).last().waitFor()
   await page.waitForTimeout(500)
 }
 

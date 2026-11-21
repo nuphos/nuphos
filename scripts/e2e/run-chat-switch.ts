@@ -70,7 +70,7 @@ async function task(page: Page, stack: Stack, title: string, prompt: string, sho
   type Row = { sessionId: string; kind?: string; firstMessage?: string; title?: string }
   await newTask(page)
   await send(page, prompt)
-  await page.getByText(shows).first().waitFor({ timeout: 60_000 })
+  await page.getByText(shows).filter({ visible: true }).first().waitFor({ timeout: 60_000 })
   const { conversations } = (await api(
     stack,
     `/agent/conversations?teamId=${stack.teamId}&limit=200`,

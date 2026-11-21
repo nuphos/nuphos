@@ -61,7 +61,11 @@ export const channelAwayScenarios: Scenario[] = [
       // The scenario before moved the chat's runtime and back. A turn opens the Bot's session on
       // its host again, so the host going away cuts a live session (no session: #3284).
       await post('Before it goes E2E_DELIVERY:awake')
-      await page.getByText('POSTED E2E_DELIVERY:awake', { exact: true }).first().waitFor()
+      await page
+        .getByText('POSTED E2E_DELIVERY:awake', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
 
       await stack.restartAgentHost(async () => {
         await post('While it is away E2E_DELIVERY:away')
@@ -101,7 +105,11 @@ export const channelAwayScenarios: Scenario[] = [
       const failed = page.getByText(/couldn’t reply/)
 
       await post('Before it goes long E2E_DELIVERY:awake-long')
-      await page.getByText('POSTED E2E_DELIVERY:awake-long', { exact: true }).first().waitFor()
+      await page
+        .getByText('POSTED E2E_DELIVERY:awake-long', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       // A line written after `since`, once its wake has waited out the grace.
       const failsAfter = (since: string, what: string) =>
         until(what, async () => lines().some((at) => at > since), 150_000)

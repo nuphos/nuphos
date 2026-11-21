@@ -87,7 +87,11 @@ else {
           .filter({ hasText: 'Local Codex repair' })
           .first()
           .click()
-        await page.getByText(`couldn’t reply: ${REINSTALL}`).first().waitFor()
+        await page
+          .getByText(`couldn’t reply: ${REINSTALL}`)
+          .filter({ visible: true })
+          .first()
+          .waitFor()
         await page.getByRole('button', { name: 'Install Codex', exact: true }).first().waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')

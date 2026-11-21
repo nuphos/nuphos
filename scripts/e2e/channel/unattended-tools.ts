@@ -63,7 +63,7 @@ const scenario: Scenario = {
         throw new Error(`The answer to its own chat was not allowed: ${JSON.stringify(ownPost)}`)
       if (elsewhere?.event !== 'permission-cancelled' || (elsewhere.ms ?? Infinity) > 10_000)
         throw new Error(`A post elsewhere did not fail at once: ${JSON.stringify(elsewhere)}`)
-      await page.getByText(`POSTED ${MARKER}`).first().waitFor()
+      await page.getByText(`POSTED ${MARKER}`).filter({ visible: true }).first().waitFor()
       if ((await page.getByRole('button', { name: /^Allow/ }).count()) > 0)
         throw new Error('An approval was shown for a turn nobody was asked about')
     } finally {

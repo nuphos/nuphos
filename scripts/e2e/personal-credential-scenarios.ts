@@ -207,7 +207,11 @@ export const personalCredentialScenarios: Scenario[] = [
 
         await page.reload()
         await page.getByRole('tab', { name: 'Tasks' }).click()
-        await page.getByText(prompt(marker), { exact: true }).first().click()
+        await page
+          .getByText(prompt(marker), { exact: true })
+          .filter({ visible: true })
+          .first()
+          .click()
         await page.getByText(`ACK ${marker}`, { exact: true }).waitFor()
         await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
         const row = page.getByRole('menuitemcheckbox', {

@@ -116,7 +116,10 @@ export const settingsHistoryScenarios: Scenario[] = [
         // The model card closes first; its menu still animates out.
         await page.waitForTimeout(1_000)
         await pickAgent(page, 'E2E second agent')
-        await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E second agent')
+          .filter({ visible: true })
+          .waitFor()
         await send(page, 'After the move E2E_DELIVERY:retune-moved')
         await page.getByText('ACK E2E_DELIVERY:retune-moved', { exact: true }).waitFor()
         await line(
