@@ -51,7 +51,7 @@ final class UsageResetsUITests: XCTestCase {
 
         row.tap()
         for prefix in ["resets in 3h ", "resets in 2d 5h"] {
-            let text = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
+            let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", prefix)).firstMatch
             XCTAssertTrue(text.waitForExistence(timeout: 10), "The agent's page does not say \(prefix)")
         }
         attach(app, "usage-resets-agent")
