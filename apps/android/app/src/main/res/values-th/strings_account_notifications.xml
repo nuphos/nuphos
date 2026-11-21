@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">การแจ้งเตือนคอมพิวเตอร์</string>
+    <string name="computer_notifications_intro_title">เลือกสิ่งที่สำคัญ</string>
+    <string name="computer_notifications_intro">ติดตามเฉพาะคอมพิวเตอร์ที่คุณใช้งาน ส่วนเครื่องอื่นจะไม่ส่งการแจ้งเตือน</string>
+    <string name="computer_notifications_empty">ไม่มีคอมพิวเตอร์ในพื้นที่ทำงานนี้</string>
+    <string name="computer_notifications_help">ปิดไว้ตามค่าเริ่มต้น คอมพิวเตอร์ที่เลือกจะแจ้งเตือนเมื่อออฟไลน์ครบ 2 นาทีและเมื่อเชื่อมต่ออีกครั้ง มีผลเฉพาะบัญชีของคุณเท่านั้น</string>
+    <string name="computer_notifications_online">ออนไลน์</string>
+    <string name="computer_notifications_offline">ออฟไลน์</string>
+    <string name="account_notifications">การแจ้งเตือน</string>
+</resources>
