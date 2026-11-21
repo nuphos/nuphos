@@ -203,7 +203,21 @@ async fn execute(path: &PathBuf, timeout_secs: u64) -> anyhow::Result<()> {
         }
     }
 
-    let mut child = cmd.spawn()?;
+    // A thread that forks while the write handle to a freshly written script is still
+    // open carries that handle until its own exec, and exec of the script fails with
+    // ETXTBSY until then. That is a few milliseconds, so wait it out.
+    let mut busy_retries = 0;
+    let mut child = loop {
+        match cmd.spawn() {
+            Err(e)
+                if e.kind() == std::io::ErrorKind::ExecutableFileBusy && busy_retries < 20 =>
+            {
+                busy_retries += 1;
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+            result => break result?,
+        }
+    };
 
     if timeout_secs == 0 {
         let status = child.wait().await?;
@@ -343,7 +357,7 @@ mod tests {
     async fn run_inline_script_success() {
         let hook = hook_with_inline("#!/bin/sh\nexit 0");
         let result = run_hook("test", &hook).await;
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[tokio::test]
@@ -378,8 +392,8 @@ mod tests {
             on_failure: OnFailure::Abort,
         };
         let result = run_hook("test", &hook).await;
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("timed out"));
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("timed out"), "{err}");
     }
 
     #[tokio::test]
@@ -395,7 +409,7 @@ mod tests {
         let hook = hook_with_script(path.to_str().unwrap());
         let result = run_hook("test", &hook).await;
         let _ = std::fs::remove_file(&path);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "{result:?}");
     }
 
     #[tokio::test]
