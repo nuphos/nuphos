@@ -295,6 +295,8 @@ export const dashboardUiScenarios: Scenario[] = [
       if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
         throw new Error('A member was offered a computer to rent')
       await shot(page, '12-no-agent-member')
+      // Leave the Task that 404s in this team, or its reads fail the next scenario.
+      await newTask(page)
     },
   },
 ]
