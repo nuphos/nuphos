@@ -31,13 +31,9 @@ export async function noMenuOpen(page: Page) {
   await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
-/** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
- *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
- *  away from the menu, and `aria-controls` on the row is what names it. */
-export async function openSubmenu(page: Page, row: string) {
-  // A computer the app has not heard from is an ordinary row with no submenu to open, so the
-  // row is taken only once it says it has one: that wait is also how a scenario waits for a
-  // computer it has just brought back.
+/** Opens a computer's submenu by hovering its row, then clicks the visible runtime. */
+export async function pickInRow(page: Page, row: string, item: RegExp) {
+  // Offline rows have no submenu until their computer comes back.
   const trigger = page
     .getByRole('menu')
     .getByRole('menuitem')
@@ -45,20 +41,12 @@ export async function openSubmenu(page: Page, row: string) {
     .and(page.locator('[aria-haspopup="menu"]'))
     .first()
 
-  await pickInSubmenu(page, trigger)
-  // The open row and the id are not set together: the id waits for the list to exist.
-  await trigger.and(page.locator('[aria-controls]')).waitFor()
-
-  return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
-}
-
-/** Takes a runtime out of the open menu: `row` names the submenu to open and `item` the entry
- *  in it. The entry is looked for in that submenu alone, so a row of the menu behind it, or a
- *  submenu left open elsewhere, cannot be taken by mistake. */
-export async function pickInRow(page: Page, row: string, item: RegExp) {
-  const rows = await openSubmenu(page, row)
-
-  await pickInSubmenu(page, rows.getByRole('menuitem', { name: item }).last())
+  await trigger.hover()
+  await page
+    .locator('[role="menu"][data-nested][data-open]')
+    .getByRole('menuitem', { name: item })
+    .last()
+    .click({ timeout: 60_000 })
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
