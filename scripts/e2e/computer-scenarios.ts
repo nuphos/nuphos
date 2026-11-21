@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { agentLog } from './agent-log.ts'
 import { agentSignInScenarios } from './agent-sign-in-scenarios.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { boxBusyScenarios } from './box-busy-scenarios.ts'
 import { boxScenarios } from './box-scenarios.ts'
 import { computerRemoveScenarios } from './computer-remove-scenarios.ts'
 import { browserDownloadScenarios } from './browser-download-scenarios.ts'
@@ -253,6 +254,7 @@ export const computerScenarios: Scenario[] = [
   ...transferRefundScenarios,
   ...transferLimitScenarios,
   ...boxScenarios,
+  ...boxBusyScenarios,
   ...computersPageScenarios,
   ...computerRemoveScenarios,
   ...agentSignInScenarios,
