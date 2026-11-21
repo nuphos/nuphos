@@ -1,5 +1,5 @@
 // #3895: an agent records what its tab in Nuphos Desktop shows, and the video plays.
-import { copyFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
@@ -64,12 +64,6 @@ export const browserVideoScenarios: Scenario[] = [
           throw new Error(
             `the video to play at 1440 wide for over a second, got ${played[0]?.text ?? ''}`,
           )
-        const frame = await browse({ action: 'screenshot', tab: player.tab })
-
-        writeFileSync(
-          join(artifacts, 'desktop-browser-video-frame.jpg'),
-          Buffer.from(frame.find((c) => c.type === 'image')?.data ?? '', 'base64'),
-        )
         await browse({ action: 'close', tab })
         await browse({ action: 'close', tab: player.tab })
       } finally {
@@ -77,5 +71,4 @@ export const browserVideoScenarios: Scenario[] = [
       }
     },
   },
-  // Skipped: flaky, a hidden Desktop tab can record no frame; tracked in #4305
-].filter((s) => s.name !== 'an agent records its Desktop browser tab as a video that plays')
+]

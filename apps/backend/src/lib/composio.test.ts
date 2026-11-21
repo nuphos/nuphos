@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import { composioAuthConfigId } from './composio'
+import { composioAuthConfigId, composioRequest } from './composio'
+import type { AppError } from './errors'
 
 const realFetch = globalThis.fetch
 let calls: { method: string; path: string; body: unknown }[]
@@ -76,5 +77,38 @@ describe('composioAuthConfigId', () => {
 
     respond({ body: { items: [{ id: 'ac_drive', created_at: '2026-10-01T00:00:00Z' }] } })
     expect(await composioAuthConfigId('googledrive')).toBe('ac_drive')
+  })
+})
+
+describe('composioRequest errors', () => {
+  const fail = (status: number, body: unknown = {}) => {
+    respond({ status, body })
+
+    return composioRequest('POST', '/tools/execute/X', {}).catch((e: unknown) => e as AppError)
+  }
+
+  test("passes a 4xx through with the same status and Composio's message", async () => {
+    const err = await fail(404, { error: { message: 'Tool GMAIL_NOPE not found' } })
+
+    expect(err).toMatchObject({
+      status: 404,
+      message: 'Composio request failed (HTTP 404): Tool GMAIL_NOPE not found',
+    })
+  })
+
+  test('keeps 429 as a rate limit', async () => {
+    const err = await fail(429, { error: { message: 'secret' } })
+
+    expect(err).toMatchObject({ status: 429, code: 'composio_rate_limited' })
+    expect((err as Error).message).not.toContain('secret')
+  })
+
+  test('answers 5xx, and a refused Composio key, as 502 without upstream text', async () => {
+    for (const status of [500, 503, 401, 403]) {
+      const err = await fail(status, { error: { message: 'secret' } })
+
+      expect(err).toMatchObject({ status: 502, code: 'composio_request_failed' })
+      expect((err as Error).message).not.toContain('secret')
+    }
   })
 })
