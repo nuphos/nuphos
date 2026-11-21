@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { ChildProcess } from 'node:child_process'
+import type { Server } from 'node:net'
 
 export const artifacts = process.env.E2E_ARTIFACTS ?? mkdtempSync(join(tmpdir(), 'nuphos-e2e-'))
 const children: ChildProcess[] = []
@@ -15,13 +16,24 @@ export function logPath(name: string): string {
   return join(artifacts, `${name}.log`)
 }
 
-/** Distinct free ports. They are held open together, or the system can hand out the same one twice. */
+/**
+ * Distinct free ports, from below the system's ephemeral range (32768 and up on Linux, 49152 and
+ * up on macOS). A port from that range can become the source port of any outbound connection
+ * before its process binds it. They are held open together, so no port is handed out twice.
+ */
 export async function freePorts(count: number): Promise<number[]> {
-  const servers = Array.from({ length: count }, () => createServer())
+  const servers: Server[] = []
 
-  await Promise.all(
-    servers.map((server) => new Promise<void>((done) => server.listen(0, '127.0.0.1', done))),
-  )
+  while (servers.length < count) {
+    const server = createServer()
+    const port = 20_000 + Math.floor(Math.random() * 12_000)
+    const listening = await new Promise<boolean>((done) => {
+      server.once('error', () => done(false))
+      server.listen(port, '127.0.0.1', () => done(true))
+    })
+
+    if (listening) servers.push(server)
+  }
   const ports = servers.map((server) => (server.address() as { port: number }).port)
 
   await Promise.all(servers.map((server) => new Promise((done) => server.close(done))))
