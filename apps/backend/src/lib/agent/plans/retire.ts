@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { appendAutonomousConversationTurn, resolvePlanInputRequests } from '@/lib/agent/db'
 import { logEvent } from '@/lib/observability'
-import { databaseConnections } from '@/models'
+import { databaseConnections } from '@/models/database'
 
 import { planApprovalPolicies, plans } from './collections'
 
