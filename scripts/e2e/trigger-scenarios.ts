@@ -67,7 +67,7 @@ async function createTrigger(stack: Stack, sessionId: string, name: string, mess
   })
 }
 
-type Hook = Trigger & { webhookSecret: string }
+export type Hook = Trigger & { webhookSecret: string }
 
 export async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
   return client(stack)<Hook>('POST', '/agent/triggers', {
