@@ -25,22 +25,21 @@ function actorOf(c: Context<{ Variables: InstructionsVariables }>): InstructionA
   return { teamId: c.get('teamId'), userId: c.get('userId'), role: c.get('teamRole') }
 }
 
-// Runtime writes are allowed only while a user-originated turn is live, the
-// same boundary as the built-in tools; with no such turn this fails closed.
-const refuseNonUserConversationWrites: MiddlewareHandler<{
+// Runtime writes are allowed only while a turn is live; with no turn this
+// fails closed.
+const refuseIdleConversationWrites: MiddlewareHandler<{
   Variables: InstructionsVariables
 }> = async (c, next) => {
   const agent = c.get('conversationAgent')
 
   if (agent) {
     const conversation = await getConversationBySessionId(agent.sessionId)
-    const context = conversation?.claudeCodePreviewContext
 
-    if (!context?.activeTurnKey || context.activeTurnOrigin !== 'user') {
+    if (!conversation?.claudeCodePreviewContext?.activeTurnKey) {
       throw new AppError(
         403,
-        'instructions_user_conversation_required',
-        'Instructions can only be changed from a conversation with the user',
+        'instructions_active_turn_required',
+        'Instructions can only be changed while a turn is running',
       )
     }
   }
@@ -51,20 +50,20 @@ instructionsRoutes.get('/', async (c) => c.json(await listInstructions(actorOf(c
 
 instructionsRoutes.post(
   '/',
-  refuseNonUserConversationWrites,
+  refuseIdleConversationWrites,
   zv('json', createInstructionSchema),
   async (c) => c.json(await createInstruction(actorOf(c), c.req.valid('json')), 201),
 )
 
 instructionsRoutes.patch(
   '/:instructionId',
-  refuseNonUserConversationWrites,
+  refuseIdleConversationWrites,
   zv('json', updateInstructionSchema),
   async (c) =>
     c.json(await updateInstruction(actorOf(c), c.req.param('instructionId'), c.req.valid('json'))),
 )
 
-instructionsRoutes.delete('/:instructionId', refuseNonUserConversationWrites, async (c) => {
+instructionsRoutes.delete('/:instructionId', refuseIdleConversationWrites, async (c) => {
   await deleteInstruction(actorOf(c), c.req.param('instructionId'))
 
   return c.body(null, 204)

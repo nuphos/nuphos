@@ -3,18 +3,12 @@ import { z } from 'zod'
 import { getTeamMembership } from '@/lib/identity'
 
 import type { MemoryListItem } from './records-api'
-import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
-// Decision: EDITOR+ may write team memory; VIEWER is read-only (get);
-// trigger-origin turns may never write team memory.
+// Decision: EDITOR+ may write team memory; VIEWER is read-only (get).
 export async function requireEditorAccess(
   userId: string,
   teamId: string,
-  origin: AgentSessionOrigin,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (origin !== 'user') {
-    return { ok: false, error: `forbidden: ${origin}-origin turns cannot write team memory` }
-  }
   const membership = await getTeamMembership(userId, teamId)
 
   if (!membership) {
