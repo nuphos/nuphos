@@ -168,6 +168,8 @@ export const diskScenarios: Scenario[] = [
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
         })
+        // The Box's card sits after the others in a row that scrolls sideways: bring it on screen.
+        await notice.scrollIntoViewIfNeeded()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'memory-box-card-light.png') })
         goOffline()
@@ -182,6 +184,8 @@ export const diskScenarios: Scenario[] = [
         await page.waitForTimeout(10_000)
         if ((await page.getByText(MEMORY).count()) > 0)
           throw new Error('A reading without an OOM kill still shows the memory notice')
+        await page.getByText(BOX, { exact: true }).first().scrollIntoViewIfNeeded()
+        await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'memory-box-card-none-light.png') })
         await page.getByRole('button', { name: 'Back to app', exact: true }).click()
       } finally {
