@@ -62,6 +62,20 @@ export const botSubtaskModelScenarios: Scenario[] = [
           throw new Error("The finished sub-Task's chip no longer names its model")
         await light()
         await page.screenshot({ path: `${artifacts}/bot-subtask-model-light.png` })
+        // #4131: a short Task title sits as close to "(a Task)" as the line's other parts.
+        // Measured from the title's own text, since a padded part around it is the bug.
+        const gap = await page
+          .getByText('(a Task)', { exact: true })
+          .first()
+          .evaluate((el) => {
+            const title = [...el.parentElement!.querySelectorAll('span.truncate')].find(
+              (span) => span.textContent === 'E2E Bot',
+            )!
+
+            return el.getBoundingClientRect().left - title.getBoundingClientRect().right
+          })
+
+        if (gap > 5) throw new Error(`"(a Task)" stands ${String(gap)}px from the Task's title`)
       } finally {
         // Kept until the chip names the model: the app reads it again once the sub-Task ends.
         rmSync(behind, { force: true })
