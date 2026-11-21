@@ -33,7 +33,6 @@ export async function listTriggers(
   const rows = await agentTriggers()
     .find(triggerListFilter(scope, targetSessionId))
     .sort({ createdAt: -1 })
-    .limit(100)
     .toArray()
 
   return rows.map((trigger) => {

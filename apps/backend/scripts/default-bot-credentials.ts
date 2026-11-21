@@ -119,8 +119,12 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) {
-  main().catch((err: unknown) => {
-    console.error(err instanceof Error ? err.message : err)
-    process.exit(1)
-  })
+  // Exit when done: the credential-access import leaves handles open that would keep it running.
+  main().then(
+    () => process.exit(0),
+    (err: unknown) => {
+      console.error(err instanceof Error ? err.message : err)
+      process.exit(1)
+    },
+  )
 }

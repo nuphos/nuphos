@@ -115,9 +115,14 @@ export const channelAwayScenarios: Scenario[] = [
         // over. Past every reattach attempt (about 108 s) by then, so only the Bot's next
         // connection can wake it.
         const first = lines().at(-1)!
+        // The row is keyed by the failure's time, so the second one mounts a new node in its
+        // place. `failsAfter` returns on the database alone, before that, so wait for this
+        // node to go rather than scroll the one it leaves behind.
+        const stale = (await failed.last().elementHandle())!
 
         await post('Still away E2E_DELIVERY:away-long-2')
         await failsAfter(first, 'the second post’s couldn’t-reply line')
+        await page.waitForFunction((node) => !node.isConnected, stale)
         await failed.last().scrollIntoViewIfNeeded()
         await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-away-two-posts-light.png` })

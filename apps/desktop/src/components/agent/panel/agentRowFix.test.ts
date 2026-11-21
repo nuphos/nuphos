@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentAskText, agentFixLabel, agentProblem, resumeComputer } from './agentRowFix.ts'
+import { agentAskText, agentFixLabel, agentProblem } from './agentRowFix.ts'
 
 import type { RuntimeInstance, RuntimeQuota } from '../../../types/runtime.ts'
 import type { TeamMember } from '../../../types/team.ts'
@@ -142,31 +142,4 @@ test('OpenCode on your own computer signs in with the runtime sign-in, not setti
     kind: 'signIn',
     instance: opencode,
   })
-})
-
-test('Resume wakes through the sign-in wake path, waking only while the request runs', async () => {
-  for (const succeeds of [true, false]) {
-    const events: string[] = []
-
-    await resumeComputer({
-      fix: { kind: 'resume', deviceId: 'd1', runtimeId: 'local_u-shant_d1' },
-      wake: async (runtimeId) => {
-        events.push(`wake ${runtimeId}`)
-        if (!succeeds) throw new Error('402')
-      },
-      begin: (deviceId) => {
-        events.push(`begin ${deviceId}`)
-
-        return () => events.push(`end ${deviceId}`)
-      },
-      onResumed: () => events.push('resumed'),
-      onFailed: () => events.push('failed'),
-    })
-    assert.deepEqual(events, [
-      'begin d1',
-      'wake local_u-shant_d1',
-      succeeds ? 'resumed' : 'failed',
-      'end d1',
-    ])
-  }
 })

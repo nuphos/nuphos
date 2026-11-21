@@ -12,6 +12,7 @@ enum LocalAgentTests {
         namesCloudOnlyProviders()
         modelSettingsRemainAvailable()
         measuresWhatIsLeft()
+        saysWhenUsageResets()
         print("Local agents passed")
     }
 
@@ -93,6 +94,20 @@ enum LocalAgentTests {
     private static func measuresWhatIsLeft() {
         let left = [-5, 0, 37.4, 99.6, 120].map { RuntimeQuota.Window(label: "5-hour", usedPercent: $0, resetsAt: nil).leftPercent }
         precondition(left == [100, 100, 62, 0, 0])
+    }
+
+    private static func saysWhenUsageResets() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        func reset(_ minutes: Double) -> String? { RuntimeQuota.resetsIn(now.addingTimeInterval(minutes * 60), now: now) }
+        precondition(reset(2 * 1440 + 5 * 60 + 59) == "resets in 2d 5h")
+        precondition(reset(1440) == "resets in 1d 0h")
+        precondition(reset(3 * 60 + 20) == "resets in 3h 20m")
+        precondition(reset(60) == "resets in 1h 0m")
+        precondition(reset(12) == "resets in 12m")
+        // Under a minute still reads as a minute away, never as "0m".
+        precondition(reset(0.25) == "resets in 1m")
+        precondition(reset(0) == nil && reset(-30) == nil)
+        precondition(RuntimeQuota.resetsIn(nil, now: now) == nil)
     }
 
     private static func agent(_ json: String) -> RuntimeInstance {

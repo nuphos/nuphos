@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">Bot 고정</string>
+    <string name="pins_unpin_bot">Bot 고정 해제</string>
+    <string name="pins_pin">고정</string>
+    <string name="pins_unpin">고정 해제</string>
+    <string name="pins_no_messages">아직 메시지가 없습니다</string>
+    <string name="pins_needs_input">입력이 필요합니다</string>
+    <string name="pins_running">실행 중</string>
+    <string name="pins_unread">읽지 않은 게시물</string>
+</resources>

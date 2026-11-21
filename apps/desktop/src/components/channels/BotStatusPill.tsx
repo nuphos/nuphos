@@ -15,6 +15,7 @@ import type { RefObject } from 'react'
 function stepText(step: Step): string {
   if (step.kind === 'command') return t('Running: {command}', { command: step.command })
   if (step.kind === 'tool') return t('Using {tool}', { tool: step.title })
+  if (step.kind === 'plan') return step.title
 
   return t('Thinking…')
 }

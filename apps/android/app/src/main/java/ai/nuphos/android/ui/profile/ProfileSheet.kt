@@ -57,16 +57,16 @@ import ai.nuphos.android.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, onDismiss: () -> Unit) {
-    val voiceContext = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
-    val voiceServices = remember(voiceContext, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(voiceContext) }
+    val voiceServices = remember(context, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(context) }
     val auth = LocalAuthSession.current
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
     var deletion by remember(user.id) { mutableStateOf(false) }
     var devices by remember(user.id) { mutableStateOf(false) }
-    var twoFactor by remember(user.id) { mutableStateOf(false) }
+    var twoFactor by remember(user.id) { mutableStateOf(TwoFactorResume.take(context)) }
     var withdraw by remember(user.id) { mutableStateOf(false) }
     val uri = LocalUriHandler.current
     val clipboard = LocalClipboardManager.current

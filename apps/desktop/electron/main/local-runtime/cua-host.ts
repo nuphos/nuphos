@@ -81,6 +81,8 @@ export class CuaHost {
     this.process.stdout?.setEncoding('utf8').on('data', (chunk: string) => this.read(chunk))
     this.process.on('exit', () => this.exited())
     this.process.on('error', () => this.exited())
+    // A write to a host that already exited fails with EPIPE; it ends the host, never the app.
+    this.process.stdin?.on('error', () => this.exited())
   }
 
   run(
@@ -211,7 +213,10 @@ export class CuaHost {
   }
 
   private write(message: Record<string, unknown>): void {
-    this.process.stdin?.write(`${JSON.stringify(message)}\n`)
+    const stdin = this.process.stdin
+
+    if (stdin && !stdin.destroyed && stdin.writable) stdin.write(`${JSON.stringify(message)}\n`)
+    else this.exited()
   }
 
   private read(chunk: string): void {

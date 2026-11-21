@@ -7,7 +7,6 @@ import { test } from 'node:test'
 import {
   autoInstallFiles,
   checkCliUpdate,
-  idleClock,
   newerRelease,
   readCliAutoInstall,
   runCliUpdate,
@@ -27,7 +26,6 @@ function deps(overrides: Partial<CliAutoUpdateDeps> = {}) {
     home: mkdtempSync(path.join(tmpdir(), 'cli-auto-update-')),
     latest: async () => '0.23.0',
     busy: () => false,
-    idleSeconds: () => 11 * 60,
     update: async () => {
       calls.update++
 
@@ -39,7 +37,7 @@ function deps(overrides: Partial<CliAutoUpdateDeps> = {}) {
   return { value, calls }
 }
 
-test('a computer with a newer CLI out and nothing run for 10 minutes updates itself, once', async () => {
+test('a computer with a newer CLI out and no task running updates itself, once', async () => {
   const { value, calls } = deps()
 
   assert.equal(await checkCliUpdate(value), '0.23.0')
@@ -53,13 +51,16 @@ test('a computer with a newer CLI out and nothing run for 10 minutes updates its
   assert.equal(calls.update, 2)
 })
 
-test('it waits while a task runs or ran in the last 10 minutes', async () => {
-  for (const overrides of [{ busy: () => true }, { idleSeconds: () => 9 * 60 }]) {
-    const { value, calls } = deps(overrides)
+test('it waits while a task runs, and updates at the first check between turns (#4210)', async () => {
+  let running = true
+  const { value, calls } = deps({ busy: () => running })
 
-    assert.equal(await checkCliUpdate(value), null)
-    assert.equal(calls.update, 0)
-  }
+  assert.equal(await checkCliUpdate(value), null)
+  assert.equal(calls.update, 0)
+  // The turn ended a moment ago: no idle minutes are waited for.
+  running = false
+  assert.equal(await checkCliUpdate(value), '0.23.0')
+  assert.equal(calls.update, 1)
 })
 
 test('it does nothing when switched off, current, or the release cannot be read', async () => {
@@ -106,20 +107,6 @@ test('the switch is on until the card turns it off, and other requests pass thro
   assert.equal(readCliAutoInstall(home).enabled, true)
 })
 
-test('idle time counts from the last task, and is zero while one runs', () => {
-  let now = 0
-  const clock = idleClock(() => now)
-
-  now = 120_000
-  assert.equal(clock.idleSeconds(), 120)
-  clock.activity.open('s1', 'terminal')
-  now = 300_000
-  assert.equal(clock.idleSeconds(), 0)
-  clock.activity.close('s1')
-  now = 360_000
-  assert.equal(clock.idleSeconds(), 60)
-})
-
 test('releases compare by number', () => {
   assert.equal(newerRelease('0.22.0', '0.13.0'), true)
   assert.equal(newerRelease('0.13.0', '0.22.0'), false)
@@ -160,12 +147,4 @@ test('nuphos update that cannot start says so instead of crashing the host', asy
   assert.equal(await runCliUpdate(path.join(tmpdir(), 'no-such-nuphos')), false)
   // Node itself starts on every platform (macOS has no /bin/true).
   assert.equal(await runCliUpdate(process.execPath), true)
-})
-
-test('the idle wait follows NUPHOS_AUTO_UPDATE_IDLE_SECONDS, as on the Desktop', async () => {
-  const short = deps({ idleSeconds: () => 40, idleThreshold: 30 })
-  const long = deps({ idleSeconds: () => 40 })
-
-  assert.equal(await checkCliUpdate(short.value), '0.23.0')
-  assert.equal(await checkCliUpdate(long.value), null)
 })

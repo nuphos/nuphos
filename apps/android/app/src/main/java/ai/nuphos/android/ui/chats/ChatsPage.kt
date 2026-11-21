@@ -76,6 +76,20 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     val rows = store.botsList
+    var pinRetry by remember(team, store.workspaceRevision) { mutableStateOf<Pair<AgentConversation, Boolean>?>(null) }
+    fun pin(row: AgentConversation, pinned: Boolean) {
+        pinRetry = row to pinned
+        scope.launch { store.setPinned(row, pinned) }
+    }
+    if (store.pinActionFailed) AlertDialog(
+        onDismissRequest = store::clearPinActionError,
+        text = { Text(stringResource(R.string.shell_action_failed)) },
+        dismissButton = { TextButton(onClick = store::clearPinActionError) { Text(stringResource(R.string.chats_ok)) } },
+        confirmButton = { TextButton(onClick = {
+            store.clearPinActionError()
+            pinRetry?.let { (row, pinned) -> pin(row, pinned) }
+        }) { Text(stringResource(R.string.try_again)) } },
+    )
     var showNewBot by rememberSaveable { mutableStateOf(false) }
     var botArchiveTarget by remember(team, store.workspaceRevision) { mutableStateOf<String?>(null) }
     botArchiveTarget?.let { ai.nuphos.android.ui.agent.ArchiveBotDialog(store, it) { botArchiveTarget = null } }
@@ -112,6 +126,13 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         CircularProgressIndicator()
     // Bots always lists, so its "+" can make the first one.
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
+        if (store.search.isEmpty() && store.pins.isNotEmpty()) item(key = "pinned-bots-shelf") {
+            PinShelf(store.pins, status = { pinStatus(it, store.bots + store.conversations) }, enabled = !store.savingPins,
+                onOpen = { row ->
+                    if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
+                    else openBot(row.sessionId)
+                }, onUnpin = { pin(it, false) })
+        }
         if (showCreateButton) item(key = "bots-header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.chats_bots), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
@@ -124,6 +145,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         items(rows, key = { it.sessionId }) { row ->
             val botId = if (row.isChannel) row.botId else row.sessionId
             ChatRow(row, typing = row.botTyping(store::typingIn), selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId,
+                pinned = store.isPinned(row), pinEnabled = !store.savingPins, onPin = { pin(row, !store.isPinned(row)) },
                 onArchiveBot = botId?.takeIf { store.canArchiveBot(it) }?.let { { botArchiveTarget = it } }) {
                 if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
                 else openBot(row.sessionId)
@@ -136,7 +158,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean, opening: Boolean, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
+private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean, opening: Boolean,
+    pinned: Boolean, pinEnabled: Boolean, onPin: () -> Unit, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
     val unread = chat.isChannel && chat.hasUnreadPosts()
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
@@ -144,14 +167,16 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
     val typingLabel = stringResource(R.string.chats_is_typing, title)
     val unreadLabel = stringResource(R.string.chats_unread_posts)
     val openingLabel = stringResource(R.string.chats_opening)
-    // A long press offers Archive Bot, as Desktop's sidebar does for a Bot and its chat.
-    Box { DropdownMenu(expanded = menu && onArchiveBot != null, onDismissRequest = { menu = false }) {
+    Box { BotPreviewMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        BotConversationPreview(chat)
+        PinAction(chat, pinned, pinEnabled) { menu = false; onPin() }
+        if (onArchiveBot != null)
         DropdownMenuItem(text = { Text(stringResource(R.string.chats_archive_bot)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
             onClick = { menu = false; onArchiveBot?.invoke() })
     }
     ListItem(
         modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
-            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { stringResource(R.string.chats_more_actions) })
+            onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chats_more_actions))
             .testTag("chat-row:${chat.sessionId}").semantics {
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },

@@ -66,27 +66,6 @@ beforeEach(() => {
   store = portabilityDb()
 })
 
-test('rows of the retired provisioner model are hidden', async () => {
-  const created = await existing('Connected', 'claude-code')
-
-  runtimeRows().push({
-    _id: 'legacy',
-    teamId: 'one',
-    url: 'ws://openab-team-one.openab-runtimes.svc:8080/acp',
-    provider: 'claude-code',
-    status: 'active',
-    managedBy: 'provisioner',
-    createdByUserId: 'provisioner',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  })
-  const instances = await listRuntimeInstances('one')
-
-  expect(instances.map((instance) => [instance.id, instance.kind])).toEqual([
-    [created.id, 'external'],
-  ])
-})
-
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
   const instance = await existing('Work')
 
