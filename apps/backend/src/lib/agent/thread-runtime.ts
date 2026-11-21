@@ -119,10 +119,9 @@ export async function assertThreadRuntime(
   )
 
   if (!runtime) throw new Error('No such agent. Call list_agent_runtimes for the ones you can use.')
-  const unavailable = unavailableReason(
-    runtime,
-    (await authRefusedRuntimes(actor.teamId)).has(runtimeId),
-  )
+  // A refused sign-in only warns: the agent may be signed in again outside Nuphos,
+  // and a turn there is what finds out and clears it.
+  const unavailable = unavailableReason(runtime)
 
   if (unavailable) throw new Error(unavailable)
 
