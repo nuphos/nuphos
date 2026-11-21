@@ -56,6 +56,14 @@ the only copy of `webhookSecret`, the external `webhookUrl`, and
 `secretHeader`. Never print or persist the secret in a skill, log, or final
 answer.
 
+`minIntervalSeconds` limits how often a webhook Trigger wakes its Task. A
+delivery inside the window is not rejected: the endpoint answers `202`
+(`{ "ok": true, "held": true, "firesInSeconds": N }`), keeps up to 20 held
+deliveries, and when the window ends fires once. A single held delivery reaches
+the template as `payload`; several arrive as
+`payload = { coalesced: N, deliveries: [...] }`, oldest first. Without a queue
+to fire from, the endpoint answers `429` with `Retry-After`.
+
 PATCH accepts `name`, `messageTemplate`, `enabled`, `cronExpression`,
 `timeZone`, `minIntervalSeconds` and `expiresAt`. A new `expiresAt` must be a
 future ISO timestamp; `null` removes the expiry. A Trigger the hourly sweep

@@ -158,8 +158,6 @@ export type PanelCtx = {
   locateInChat: (target: JournalChatTarget) => boolean
   activePlanCanAct: {
     toolCallId: string
-    canApprove: boolean
-    canChat: boolean
     keepPolling: boolean
   } | null
   dockCurrentSession: () => void
@@ -221,12 +219,6 @@ export type PanelCtx = {
     mode?: 'queue',
   ) => boolean
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
-  handleRejectPlan: (
-    planId: string,
-    reason: string,
-    mode: 'revise' | 'delete',
-    label: string,
-  ) => Promise<void>
   decideAuthorization: (toolCallId: string, decision: AuthorizationDecisionAction) => void
   resumePermissionTurn: (toolCallId: string, output: Record<string, unknown>) => void
   authorizationContextValue: {

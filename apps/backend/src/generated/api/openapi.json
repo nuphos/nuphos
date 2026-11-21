@@ -16739,6 +16739,14 @@
                   "dedupeKey": {
                     "type": "string"
                   },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "task"
+                    ],
+                    "description": "`text` (default) is written for you to read. `task` is handed to the conversation as a turn; its Bot must confirm it through the ack route."
+                  },
                   "teamId": {
                     "type": "string"
                   }
@@ -16786,11 +16794,23 @@
                       "type": "string",
                       "enum": [
                         "pending",
+                        "dispatched",
                         "delivered",
                         "failed",
+                        "unconfirmed",
                         "cancelled"
                       ],
-                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                      "description": "`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. `failed`: it could not be delivered or the Bot said it could not do the work. `unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "task"
+                      ]
+                    },
+                    "dispatchedAt": {
+                      "type": "string"
                     },
                     "attempts": {
                       "type": "number"
@@ -16821,6 +16841,7 @@
                     "dueAt",
                     "timeZone",
                     "status",
+                    "kind",
                     "attempts",
                     "createdAt"
                   ],
@@ -16923,11 +16944,23 @@
                             "type": "string",
                             "enum": [
                               "pending",
+                              "dispatched",
                               "delivered",
                               "failed",
+                              "unconfirmed",
                               "cancelled"
                             ],
-                            "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                            "description": "`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. `failed`: it could not be delivered or the Bot said it could not do the work. `unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried."
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "text",
+                              "task"
+                            ]
+                          },
+                          "dispatchedAt": {
+                            "type": "string"
                           },
                           "attempts": {
                             "type": "number"
@@ -16958,6 +16991,7 @@
                           "dueAt",
                           "timeZone",
                           "status",
+                          "kind",
                           "attempts",
                           "createdAt"
                         ],
@@ -17042,11 +17076,23 @@
                       "type": "string",
                       "enum": [
                         "pending",
+                        "dispatched",
                         "delivered",
                         "failed",
+                        "unconfirmed",
                         "cancelled"
                       ],
-                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                      "description": "`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. `failed`: it could not be delivered or the Bot said it could not do the work. `unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "task"
+                      ]
+                    },
+                    "dispatchedAt": {
+                      "type": "string"
                     },
                     "attempts": {
                       "type": "number"
@@ -17077,6 +17123,7 @@
                     "dueAt",
                     "timeZone",
                     "status",
+                    "kind",
                     "attempts",
                     "createdAt"
                   ],
@@ -17152,11 +17199,23 @@
                       "type": "string",
                       "enum": [
                         "pending",
+                        "dispatched",
                         "delivered",
                         "failed",
+                        "unconfirmed",
                         "cancelled"
                       ],
-                      "description": "`delivered` only once the reminder is saved in the conversation. `failed`: it could not be delivered and the owner was notified once."
+                      "description": "`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. `failed`: it could not be delivered or the Bot said it could not do the work. `unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "task"
+                      ]
+                    },
+                    "dispatchedAt": {
+                      "type": "string"
                     },
                     "attempts": {
                       "type": "number"
@@ -17187,6 +17246,158 @@
                     "dueAt",
                     "timeZone",
                     "status",
+                    "kind",
+                    "attempts",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/agent/reminders/{reminderId}/ack": {
+      "post": {
+        "operationId": "agent.reminders.ack",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Confirm scheduled work from the conversation it was given to",
+        "description": "Only the agent conversation a `task` was dispatched to may call this, with `outcome` `done` after the work has actually succeeded, or `failed` with a reason. Any other caller, including the owner outside that conversation, gets 403. Repeating the same outcome changes nothing. A dispatched task is never run again: without a confirmation it becomes `unconfirmed` and its owner is told it may have run.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reminderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "done",
+                      "failed"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "outcome"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Stable ID of this occurrence. Its transcript message ID derives from it."
+                    },
+                    "sessionId": {
+                      "type": "string",
+                      "description": "The conversation the reminder is saved into."
+                    },
+                    "teamId": {
+                      "type": "string"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "dueAt": {
+                      "type": "string",
+                      "description": "When it is due (ISO 8601, UTC)."
+                    },
+                    "timeZone": {
+                      "type": "string",
+                      "description": "The zone the owner chose, used to show the due time."
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "dispatched",
+                        "delivered",
+                        "failed",
+                        "unconfirmed",
+                        "cancelled"
+                      ],
+                      "description": "`delivered` only once a plain reminder is saved in the conversation, or a task is confirmed done by its conversation. `dispatched`: a task was handed over and awaits that confirmation. `failed`: it could not be delivered or the Bot said it could not do the work. `unconfirmed`: a dispatched task was never confirmed; it may have run and is not retried."
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "text",
+                        "task"
+                      ]
+                    },
+                    "dispatchedAt": {
+                      "type": "string"
+                    },
+                    "attempts": {
+                      "type": "number"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "ackedAt": {
+                      "type": "string",
+                      "description": "When it was saved in the conversation."
+                    },
+                    "failedAt": {
+                      "type": "string"
+                    },
+                    "failureReason": {
+                      "type": "string"
+                    },
+                    "lastError": {
+                      "type": "string",
+                      "description": "The latest failed attempt of a pending reminder."
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sessionId",
+                    "teamId",
+                    "text",
+                    "dueAt",
+                    "timeZone",
+                    "status",
+                    "kind",
                     "attempts",
                     "createdAt"
                   ],

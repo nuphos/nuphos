@@ -22,6 +22,18 @@ test('exposes the past-conversation tools in a team', () => {
   ])
 })
 
+test('report_task has no working status: routine progress would wake the parent for nothing', () => {
+  const tools = createSessionTools('u', 'c', 'team') as Record<
+    string,
+    { inputSchema: { safeParse: (input: unknown) => { success: boolean } } }
+  >
+  const report = (status: string) =>
+    tools.report_task!.inputSchema.safeParse({ label: 'x', report_id: 'r', status, summary: 's' })
+
+  expect(report('ready').success).toBe(true)
+  expect(report('working').success).toBe(false)
+})
+
 test('offers nothing outside a team scope', () => {
   expect(createSessionTools('u', 'c', null)).toEqual({})
 })

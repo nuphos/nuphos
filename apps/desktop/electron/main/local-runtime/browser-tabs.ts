@@ -71,15 +71,9 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   tabs.set(contents, { conversation, window, opener })
   // Its downloads are saved with no save dialog, which the agent could not answer.
   saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
+  // Never shown just to hide again: a window flashed this way may never paint, so its page can
+  // never be captured (#4305).
+  window.once('ready-to-show', () => window.setOpacity(1))
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
