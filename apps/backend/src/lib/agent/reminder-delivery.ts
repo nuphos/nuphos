@@ -2,6 +2,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
 import { noticeFailedReminders } from './reminder-notice'
+import { dispatchTask, markUnconfirmedTasks } from './reminder-task'
 import { PermanentFailure, pushOwner, reminderMessageId, writeOnce } from './reminder-transcript'
 import { reminders } from './reminders'
 
@@ -56,6 +57,11 @@ async function failReminder(reminder: Reminder, reason: string, now: Date): Prom
 
 async function attemptReminder(reminder: Reminder, now: Date, notify: Notify): Promise<void> {
   try {
+    if (reminder.kind === 'task') {
+      await dispatchTask(reminder, now)
+
+      return
+    }
     await saveReminder(reminder)
     await ackReminder(reminder._id, now, notify)
   } catch (error) {
@@ -109,6 +115,7 @@ export async function deliverDueReminders(
     if (claimed.attempts > MAX_ATTEMPTS) await failReminder(claimed, 'delivery kept failing', now)
     else await attemptReminder(claimed, now, notify)
   }
+  await markUnconfirmedTasks(now)
   await noticeFailedReminders(now, notify)
 
   return handled

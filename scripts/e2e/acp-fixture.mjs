@@ -15,6 +15,7 @@ import { hop, inherit } from './fixture-hop.mjs'
 import {
   call,
   callNamed,
+  confirmWork,
   personalToken,
   recheck,
   reporting,
@@ -184,6 +185,7 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
   // the artifacts), so a turn can span what it does meanwhile.
