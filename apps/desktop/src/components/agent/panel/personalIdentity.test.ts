@@ -20,7 +20,13 @@ import type { AgentCredentialSelection } from '../../../api'
 // Only teamIdentity matters here; the access lists are untouched.
 const emptyCredentialAccess = () => ({ githubInstallationIds: ['i1'] }) as AgentCredentialSelection
 
-const github = { provider: 'github' as const, login: 'fong', workspaceName: null, connectedAt: 'x' }
+const github = {
+  id: 'g1',
+  provider: 'github' as const,
+  login: 'fong',
+  workspaceName: null,
+  connectedAt: 'x',
+}
 const linear = {
   provider: 'linear' as const,
   login: 'fong',

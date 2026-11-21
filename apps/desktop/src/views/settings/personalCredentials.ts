@@ -4,6 +4,8 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { isGoogle } from '../../types'
 
+import { credentialsFor } from './personalAccounts'
+
 import type {
   PersonalCredential,
   PersonalCredentialDeepLinkPayload,
@@ -51,15 +53,13 @@ export async function connectPersonalCredential(
   }
 }
 
-/** The credential that applies in this team: Google grants are per team. */
+/** The first account that applies in this team. */
 export function credentialFor(
   credentials: PersonalCredential[] | null,
   provider: PersonalCredentialProvider,
   teamId: string | undefined,
 ): PersonalCredential | undefined {
-  return credentials?.find(
-    (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === teamId),
-  )
+  return credentialsFor(credentials, provider, teamId)[0]
 }
 
 /** The personal entries the Connectors page lists, with the words people search them by. */

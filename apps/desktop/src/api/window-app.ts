@@ -60,6 +60,7 @@ export type WindowAppApi = {
   atlasDeletePersonalCredential(
     provider: PersonalCredentialProvider,
     teamId?: string,
+    connectionId?: string,
   ): Promise<void>
   atlasListSignInSessions(): Promise<SignInSession[]>
   atlasSignOutSession(id: string): Promise<void>

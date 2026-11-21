@@ -11,11 +11,12 @@ import { t } from '../../i18n'
 import { isGoogle } from '../../types'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
+import { PersonalAccountLines } from './PersonalAccountLines'
+import { MULTI_ACCOUNT_PROVIDERS, credentialsFor } from './personalAccounts'
 import { needsTeamGoogleClient } from './personalConnectorOpens'
 import {
   PERSONAL_CREDENTIALS_CHANGED,
   connectPersonalCredential,
-  credentialFor,
   nameOf,
 } from './personalCredentials'
 import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
@@ -62,8 +63,6 @@ const PROVIDERS: { provider: PersonalCredentialProvider; name: string; descripti
     ),
   },
 ]
-// The login is styled, so split one sentence around it.
-const CONNECTED_AS = t('Connected as {login}').split('{login}')
 
 export function PersonalCredentialsSection({
   team,
@@ -80,7 +79,7 @@ export function PersonalCredentialsSection({
   const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))
   const [loadFailed, setLoadFailed] = useState(false)
   const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
-  const [disconnecting, setDisconnecting] = useState<PersonalCredentialProvider | null>(null)
+  const [disconnecting, setDisconnecting] = useState<PersonalCredential | null>(null)
 
   const refresh = useCallback(() => {
     void api
@@ -122,10 +121,14 @@ export function PersonalCredentialsSection({
     }
   }
 
-  async function disconnect(provider: PersonalCredentialProvider) {
+  async function disconnect({ provider, id }: PersonalCredential) {
     setBusy(provider)
     try {
-      await api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? team?.id : undefined)
+      await api.atlasDeletePersonalCredential(
+        provider,
+        isGoogle(provider) ? team?.id : undefined,
+        id,
+      )
       toast.success(t('{name} disconnected', { name: nameOf(provider) }))
     } catch (err) {
       toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err)
@@ -161,7 +164,8 @@ export function PersonalCredentialsSection({
         >
           <div className="space-y-3">
             {PROVIDERS.map(({ provider, name, description }) => {
-              const credential = credentialFor(credentials, provider, team?.id)
+              const accounts = credentialsFor(credentials, provider, team?.id)
+              const credential = accounts[0]
               const needsTeamClient = needsTeamGoogleClient(provider, googleClient)
               const viaComposio =
                 isGoogle(provider) && googleClient?.clientId === null && googleClient.composio
@@ -212,30 +216,25 @@ export function PersonalCredentialsSection({
                         )}
                       </p>
                     )}
-                    <div className="t-collapse" data-open={Boolean(credential)}>
-                      <div className="t-collapse-inner">
-                        {credential && (
-                          <p className="mt-1.5 text-[12.5px] text-secondary">
-                            {CONNECTED_AS[0]}
-                            <span className="font-medium text-main">{credential.login}</span>
-                            {CONNECTED_AS[1]}
-                            {credential.workspaceName && ` · ${credential.workspaceName}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                    <PersonalAccountLines
+                      accounts={accounts}
+                      busy={busy === provider}
+                      canAddMore={MULTI_ACCOUNT_PROVIDERS.includes(provider)}
+                      onDisconnect={setDisconnecting}
+                      onConnectAnother={() => void connect(provider)}
+                    />
                   </div>
-                  {credential ? (
+                  {accounts.length === 1 && credential ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="secondary"
                       disabled={busy === provider}
-                      onClick={() => setDisconnecting(provider)}
+                      onClick={() => setDisconnecting(credential)}
                     >
                       {t('Disconnect')}
                     </Button>
-                  ) : (
+                  ) : accounts.length === 0 ? (
                     <Button
                       type="button"
                       size="sm"
@@ -244,7 +243,7 @@ export function PersonalCredentialsSection({
                     >
                       {t('Connect')}
                     </Button>
-                  )}
+                  ) : null}
                 </div>
               )
             })}
@@ -256,11 +255,14 @@ export function PersonalCredentialsSection({
       </p>
       <ConfirmDialog
         open={disconnecting !== null}
-        title={t('Disconnect {name}', { name: disconnecting ? nameOf(disconnecting) : '' })}
+        title={t('Disconnect {name}', {
+          name: disconnecting ? nameOf(disconnecting.provider) : '',
+        })}
         description={
-          disconnecting === 'github' || disconnecting === 'linear'
+          disconnecting?.provider === 'github' || disconnecting?.provider === 'linear'
             ? t(
-                'Your messages will use the team’s credentials again. The grant is also revoked at the provider.',
+                '{login} is disconnected and its grant is revoked at the provider. Your other accounts stay connected. Bots and tasks that used {login} may need to pick another account.',
+                { login: disconnecting.login },
               )
             : t(
                 'Your Bots and tasks will no longer have access. Google revokes the grant once neither Gmail nor Google Drive is connected.',
