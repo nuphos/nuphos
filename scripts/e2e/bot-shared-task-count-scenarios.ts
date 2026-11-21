@@ -122,7 +122,12 @@ export const botSharedTaskCountScenarios: Scenario[] = [
       } finally {
         await theirs.stop()
       }
-      // The teammate leaves, so the scenarios after this one see the team as before.
+      // The teammate leaves the Bot and the team, so the scenarios after this one see both as before.
+      await call(
+        stack.token,
+        'DELETE',
+        `/agent/conversations/${owned.sessionId}/participants/${teammateId}?teamId=${stack.teamId}`,
+      )
       await call(stack.token, 'DELETE', `/teams/${stack.teamId}/members/${teammateId}`)
       rmSync(release, { force: true })
     },
