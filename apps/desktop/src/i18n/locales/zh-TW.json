@@ -4882,7 +4882,6 @@
   "This task is read-only": "此任務為唯讀",
   "This token has no policies attached, so every API call will be denied.": "此權杖未附加任何原則，因此所有 API 呼叫都會遭拒。",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "此權杖屬於帳號層級，因此 Cloudflare 不會傳回它自己的原則清單（只有具備「User Details: Read」的使用者層級權杖才能自我檢視）。此權杖仍可用於已授權的帳號／區域 API — 請到 Cloudflare 儀表板的 My Profile → API Tokens 查看確切權限。",
-  "This trigger hasn't run yet.": "此觸發條件尚未執行過。",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "此觸發條件已無法使用。可能已遭刪除，或你已不再擁有存取權。",
   "This upload path supports files up to {size}.": "此上傳方式支援最大 {size} 的檔案。",
   "This view has an empty pipeline.": "此檢視的管線為空。",

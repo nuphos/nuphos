@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computersEntryScenarios } from './computers-entry-scenarios.ts'
 import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -178,6 +179,8 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It needs the Bot the access scenarios create.
+  ...computersEntryScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
   // Right after the one above: it opens the dashboards that scenario leaves behind.

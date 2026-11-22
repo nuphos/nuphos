@@ -4882,7 +4882,6 @@
   "This task is read-only": "Esta tarea es de solo lectura",
   "This token has no policies attached, so every API call will be denied.": "Este token no tiene políticas asociadas, así que se denegarán todas las llamadas a la API.",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "Este token tiene ámbito de cuenta, así que Cloudflare no devuelve su propia lista de políticas (solo los tokens con ámbito de usuario y \"User Details: Read\" pueden autoinspeccionarse). El token funciona con las API de cuenta/zona concedidas: consúltalo en el panel de Cloudflare, en My Profile → API Tokens, para ver los permisos exactos.",
-  "This trigger hasn't run yet.": "Este disparador aún no se ha ejecutado.",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "Este disparador ya no está disponible. Se eliminó o ya no tienes acceso.",
   "This upload path supports files up to {size}.": "Esta vía de subida admite archivos de hasta {size}.",
   "This view has an empty pipeline.": "Esta vista tiene una pipeline vacía.",

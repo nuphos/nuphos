@@ -4882,7 +4882,6 @@
   "This task is read-only": "このタスクは読み取り専用です",
   "This token has no policies attached, so every API call will be denied.": "このトークンにはポリシーが付与されていないため、すべての API 呼び出しが拒否されます。",
   "This token is account-scoped, so Cloudflare won't return its own policy list (only user-scoped tokens with \"User Details: Read\" can self-introspect). The token works for the granted account/zone APIs — view it in the Cloudflare dashboard at My Profile → API Tokens to see the exact permissions.": "このトークンはアカウントスコープのため、Cloudflare は自身のポリシー一覧を返しません（\"User Details: Read\" を持つユーザースコープのトークンのみが自己参照できます）。トークンは許可されたアカウント／ゾーンの API で機能します — 正確な権限は Cloudflare ダッシュボードの My Profile → API Tokens で確認してください。",
-  "This trigger hasn't run yet.": "このトリガーはまだ実行されていません。",
   "This trigger is no longer available. It was deleted, or you no longer have access.": "このトリガーは利用できなくなりました。削除されたか、アクセス権がなくなっています。",
   "This upload path supports files up to {size}.": "このアップロード方法では最大 {size} までのファイルに対応しています。",
   "This view has an empty pipeline.": "このビューのパイプラインは空です。",

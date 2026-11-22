@@ -91,8 +91,6 @@ export const agentApi = {
       /** 'shared' lists team sessions the viewer joined but does not own. */
       scope?: 'mine' | 'team' | 'shared'
       ownerId?: string
-      /** A Trigger's runs. Omitted lists Chats, which excludes them. */
-      triggerIds?: string[]
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
