@@ -109,7 +109,7 @@ final class AgentStore {
     }
 
     /// Chats opened since sign-in: one opened again shows what it last read at once,
-    /// and its poll's probe reads it again only if it changed (#3525).
+    /// while its poll reads it again (#3525).
     private var openedChannels: [String: ChannelSession] = [:]
 
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
