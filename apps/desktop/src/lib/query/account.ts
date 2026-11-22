@@ -1,4 +1,9 @@
-import { infiniteQueryOptions, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
 
 import { api } from '../../api.ts'
 
@@ -7,17 +12,23 @@ import { queryKeys } from './keys.ts'
 
 /** The member's Personal Credentials. Read again on focus, the fallback when a deep link that
  *  claims a grant never arrives. */
-export const usePersonalCredentialsQuery = (enabled = true) =>
-  useQuery({
-    queryKey: queryKeys.personalCredentials(),
-    queryFn: () => api.atlasListPersonalCredentials(),
-    staleTime: 0,
-    enabled,
-  })
+export const personalCredentialsQuery = queryOptions({
+  queryKey: queryKeys.personalCredentials(),
+  queryFn: () => api.atlasListPersonalCredentials(),
+  staleTime: 0,
+})
 
-/** After a grant was claimed or dropped, every view showing the credentials reads them again. */
-export const personalCredentialsChanged = () =>
-  queryClient.invalidateQueries({ queryKey: queryKeys.personalCredentials() })
+export const usePersonalCredentialsQuery = (enabled = true) =>
+  useQuery({ ...personalCredentialsQuery, enabled })
+
+/** After a grant was claimed or dropped, every view showing the credentials reads them again. A
+ *  read still in flight started before the change, so it is dropped rather than joined. */
+export async function personalCredentialsChanged() {
+  const { queryKey } = personalCredentialsQuery
+
+  await queryClient.cancelQueries({ queryKey })
+  await queryClient.invalidateQueries({ queryKey })
+}
 
 /** The team's own Google OAuth client, which Gmail and Google Drive connect through. */
 export const useTeamGoogleClientQuery = (teamId: string | undefined) =>
