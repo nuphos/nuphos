@@ -95,17 +95,22 @@ const scenario: Scenario = {
     await shoot(page, 'editing')
     await field.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
     await field.waitFor({ state: 'detached' })
-    await section(page).getByText('30. Check the release notes.').waitFor()
+    const items = section(page).getByRole('listitem')
+
+    await items.nth(29).getByText('Check the release notes.', { exact: true }).waitFor()
+    if ((await items.count()) !== 30) throw new Error('The instructions list is incomplete')
+    await items.last().scrollIntoViewIfNeeded()
     await until(
       'the instructions to be stored',
       async () => stored(stack, bot.sessionId) === JSON.stringify(LONG),
     )
     await page.reload()
-    await section(page).getByText('1. Check the release notes.').waitFor()
+    await items.first().getByText('Check the release notes.', { exact: true }).waitFor()
     await shoot(page, 'owner')
 
     // Refused: the field stays with its text and the reason under it.
     await pencil(page).click()
+    if ((await field.inputValue()) !== LONG) throw new Error('Editing lost the Markdown source')
     await field.fill('x'.repeat(8001))
     await section(page).getByRole('button', { name: 'Save' }).click()
     await section(page).getByText('Instructions must be at most 8000 characters').waitFor()
