@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { managesRuntime } from '../../../views/settings/agentPresentation'
@@ -15,21 +13,10 @@ import { toast } from '../../ui/toast'
 
 import { FallbackSetupDialog } from './FallbackSetupDialog'
 import { latestFailure, reinstallProvider, turnSwitchAgent } from './turnFailureActions'
+import { useOpenIn } from './useOpenIn'
 
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
-
-/** Open in the chat it was opened in, closed by a switch: the panel stays mounted across one. */
-function useOpenIn(sessionId: string | undefined): [boolean, (open: boolean) => void] {
-  const [openIn, setOpenIn] = useState<string | undefined>()
-
-  if (openIn !== undefined && openIn !== sessionId) setOpenIn(undefined)
-
-  return [
-    openIn !== undefined && openIn === sessionId,
-    (open) => setOpenIn(open ? sessionId : undefined),
-  ]
-}
 
 /**
  * The actions on a Task's failed turn. Switch runtime opens this panel's runtime list, whose
