@@ -27,7 +27,7 @@
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">New Bot</string>
     <string name="chats_first_bot_title">Start with your first Bot</string>
-    <string name="chats_first_bot_body">A familiar face for ongoing work. Pick a name and let your team join the conversation.</string>
+    <string name="chats_first_bot_body">A familiar face for ongoing work. Pick a name and bring your team in.</string>
     <string name="chats_archive_bot">Archive Bot</string>
     <string name="chats_more_actions">More actions</string>
     <string name="chats_is_typing">%1$s is typing</string>

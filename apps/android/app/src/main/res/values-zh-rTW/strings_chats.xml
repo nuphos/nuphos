@@ -27,7 +27,7 @@
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">新 Bot</string>
     <string name="chats_first_bot_title">從第一個 Bot 開始</string>
-    <string name="chats_first_bot_body">讓持續進行的工作有個熟悉的夥伴。取個名字，邀請團隊一起加入對話。</string>
+    <string name="chats_first_bot_body">一個熟悉的面孔，陪你處理長期的工作。取個名字，邀請團隊一起加入。</string>
     <string name="chats_archive_bot">封存 Bot</string>
     <string name="chats_more_actions">更多動作</string>
     <string name="chats_is_typing">%1$s 正在輸入</string>
