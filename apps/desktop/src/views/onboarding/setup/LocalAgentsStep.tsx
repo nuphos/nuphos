@@ -10,7 +10,6 @@ import { isMac } from '../../../lib/platform'
 import { RENTED_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
 import { InstallButton } from '../../settings/LocalAgentCard'
-import { useAgentDevices } from '../../settings/useAgentDevices'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 
 import {
@@ -20,7 +19,9 @@ import {
   readyLocalAgents,
 } from './agentSetup'
 import { openCloudComputer } from './agentSetupStore'
+import { BoxOpenCodeCard } from './BoxOpenCodeCard'
 import { SetupScreen, StatusPill } from './SetupChrome'
+import { useBoxOpenCode } from './useBoxOpenCode'
 
 import type { CliLoginProvider } from '../../../api'
 
@@ -167,7 +168,8 @@ export function LocalAgentsStep({
   onCloud?: () => void
 }) {
   const state = useLocalRuntimeState()
-  const ready = readyLocalAgents(state).length > 0
+  const boxRuntime = useBoxOpenCode(teamId).runtime
+  const ready = readyLocalAgents(state).length > 0 || Boolean(boxRuntime)
   const checking = LOCAL_SETUP_PROVIDERS.some(
     (provider) => setupAgentStatus(state, provider) === 'checking',
   )
@@ -217,10 +219,7 @@ export function LocalAgentSetupCards({
   onCloud,
 }: { teamId?: string; onCloud?: () => void } = {}) {
   const state = useLocalRuntimeState()
-  const devices = useAgentDevices(() => 0, teamId ?? '', {
-    teamId,
-    enabled: Boolean(teamId),
-  }).list
+  const devices = useBoxOpenCode(teamId).list
 
   return (
     <div className="space-y-3">
@@ -234,6 +233,7 @@ export function LocalAgentSetupCards({
           )}
         </p>
       )}
+      {teamId && <BoxOpenCodeCard teamId={teamId} />}
       {LOCAL_SETUP_PROVIDERS.map((provider) => (
         <LocalAgentSetupCard key={provider} provider={provider} />
       ))}
