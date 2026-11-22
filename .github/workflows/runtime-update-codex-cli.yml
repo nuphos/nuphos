@@ -1,8 +1,6 @@
 name: Update Codex CLI
 
 on:
-  schedule:
-    - cron: '23 7 * * *'
   workflow_dispatch:
 
 # One update pull request at a time; never interrupt a run.

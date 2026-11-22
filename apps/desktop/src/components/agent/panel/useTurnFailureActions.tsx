@@ -1,5 +1,3 @@
-import { useState } from 'react'
-
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { managesRuntime } from '../../../views/settings/agentPresentation'
@@ -15,6 +13,7 @@ import { toast } from '../../ui/toast'
 
 import { FallbackSetupDialog } from './FallbackSetupDialog'
 import { latestFailure, reinstallProvider, turnSwitchAgent } from './turnFailureActions'
+import { useOpenIn } from './useOpenIn'
 
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
@@ -26,7 +25,7 @@ import type { RuntimeControl } from './RuntimeSelector'
  * runtime details shows) and moves the Task there.
  */
 export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl | undefined) {
-  const agentMenu = useState(false)
+  const agentMenu = useOpenIn(c.activeTab?.sessionId)
   const teamId = c.teamId ?? ''
   const failure = latestFailure(c.activeTab)
   const failed = Boolean(teamId && failure?.cause)
@@ -37,7 +36,7 @@ export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl |
   }).list?.devices.find((entry) => entry.deviceId === runtime?.local?.deviceId)
   const { fallbacks, save } = useRuntimeFallback(teamId, runtime?.id, failed)
   const reinstall = reinstallProvider(failure?.cause, runtime, useThisComputer())
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useOpenIn(c.activeTab?.sessionId)
   const move = control?.onSelect
   const offered = offersFallbackSetup({
     cause: failure?.cause,

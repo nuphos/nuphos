@@ -229,10 +229,12 @@ jobs:
     needs: changes
     # Each PR in the merge queue already passed this; a Mac is too scarce to build it twice.
     if: github.event_name != 'merge_group' && needs.changes.outputs.ios == 'true'
-    # Same Xcode as release-ios.yml.
-    runs-on: xcode-27
+    # Same-repo pull requests use the maintainers' Mac (label nuphos-m1), which has
+    # only Xcode 27.2; everything else keeps the hosted Xcode release-ios.yml uses.
+    # A fork's pull request never reaches that Mac: its job-started hook refuses it too.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'xcode-27' }}
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && '/Applications/Xcode.app/Contents/Developer' || '/Applications/Xcode_27.1.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

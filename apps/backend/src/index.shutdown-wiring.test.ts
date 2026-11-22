@@ -181,6 +181,12 @@ test('loops stop before the drain and storage closes right before exit', () => {
   ]) {
     expect(at(stop), stop).toBeLessThan(drain)
   }
+  // A force-paused turn keeps running, and its output comes to this replica until
+  // its connection closes: hand it on right after the pause, not after the HTTP drain.
+  const handOff = at('await publishRuntimeHandoffs()')
+
+  expect(handOff).toBeGreaterThan(at('drainInFlightAgentRuns('))
+  expect(handOff).toBeLessThan(at('closeTunnelsForRestart()'))
   // Device tunnels never end on their own, so the HTTP drain waits for them to close.
   expect(at('closeTunnelsForRestart()')).toBeGreaterThan(at('drainInFlightAgentRuns('))
   expect(at('closeTunnelsForRestart()')).toBeLessThan(drain)

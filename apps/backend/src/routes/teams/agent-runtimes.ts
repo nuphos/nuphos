@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { isLocalRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
-import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
+import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-report'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import {
   listRuntimeInstances,

@@ -28,6 +28,7 @@ import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { teamSwitchTasksScenarios } from './team-switch-tasks-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
@@ -38,6 +39,7 @@ import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
+import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -47,6 +49,7 @@ import { mentionScenarios } from './mention-scenarios.ts'
 import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalAccountScenarios } from './personal-accounts-scenarios.ts'
 import { personalConnectScenarios } from './personal-connect-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -72,6 +75,7 @@ import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -157,6 +161,7 @@ const scenarios: Scenario[] = [
   ...voiceScenarios,
   ...personalCredentialScenarios,
   ...personalConnectScenarios,
+  ...personalAccountScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
@@ -177,6 +182,8 @@ const scenarios: Scenario[] = [
   ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
+  ...usageQueueScenarios,
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
@@ -186,7 +193,9 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
   // Right after the one above: it opens the dashboards that scenario leaves behind.
   ...dashboardUiScenarios,
-  // Right after the one above, whose last Task 404s in another team: its new Task leaves it.
+  // Right after the one above, which leaves the app in another team: it switches back.
+  ...teamSwitchTasksScenarios,
+  // Right after the one above, back on a Task that 404s: its new Task leaves it.
   // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
   // Makes its own Task and Bot, so it can sit here while the main window is still in use.
@@ -217,6 +226,8 @@ const later: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
+  // A computer of its own, which it stops and forgets again.
+  ...modelRecoveryScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.

@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
@@ -581,5 +578,28 @@ describe('a computer without a model list says why', () => {
 
   test('a computer that has not reported at all has not reported its list', async () => {
     expect(await reason(null)).toBe('unreported')
+  })
+
+  // #4261: a list the computer tried and failed to read was offered as one still on its
+  // way, so the picker told people to try again in a moment for a list nobody was bringing.
+  test('an agent whose computer could not read its models says so, not "in a moment"', async () => {
+    const report = online(true)
+    const status = report.status!
+    const agent = status.agents['claude-code']!
+
+    expect(
+      await reason({
+        ...report,
+        status: {
+          ...status,
+          agents: {
+            'claude-code': {
+              ...agent,
+              models: { models: [], defaultModel: '', controls: {}, failed: true },
+            },
+          },
+        },
+      }),
+    ).toBe('undiscovered')
   })
 })

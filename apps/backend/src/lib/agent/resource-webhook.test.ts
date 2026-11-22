@@ -168,8 +168,6 @@ test('pending, unattributed and own commit statuses do not route', () => {
     repositoryId: 34,
     repository: 'acme/app',
     sha: 'a'.repeat(40),
-    state: 'success',
-    context: '',
   })
   expect(githubStatusCommit('status', { ...status, state: 'pending' })).toBeNull()
   expect(githubStatusCommit('status', { ...status, sha: 'not-a-sha' })).toBeNull()
@@ -179,8 +177,10 @@ test('pending, unattributed and own commit statuses do not route', () => {
   config.byos.github.appSlug = 'nuphos'
   try {
     expect(
-      githubStatusCommit('status', { ...status, sender: { type: 'Bot', login: 'nuphos[bot]' } }),
-    ).toBeNull()
+      githubResourceEvents('status', { ...status, sender: { type: 'Bot', login: 'nuphos[bot]' } }, [
+        'github/12/34/56',
+      ]),
+    ).toEqual([])
   } finally {
     config.byos.github.appSlug = previous
   }
@@ -319,8 +319,8 @@ test('pushes, finished CI and reviews refresh a linked PR tag, our own included'
     // Our own statuses refresh health even though they never wake a session.
     const status = { ...base, sha: 'a'.repeat(40), state: 'failure', sender: own }
 
-    expect(githubStatusCommit('status', status)).toBeNull()
-    expect(githubStatusCommit('status', status, true)?.state).toBe('failure')
+    expect(githubStatusCommit('status', status)?.sha).toBe('a'.repeat(40))
+    expect(githubResourceEvents('status', status, ['github/12/34/56'])).toEqual([])
   } finally {
     config.byos.github.appSlug = previous
   }

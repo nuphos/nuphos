@@ -50,7 +50,8 @@ routing events. Enable the corresponding events on the installed GitHub App:
 - Pull request review: submitted, dismissed, from people with write access or from
   review Apps (bots such as a review council or Copilot)
 - Issue comment: created, on PRs only, from humans with write access
-- Check suite: completed, with associated PR numbers. Per-job check runs and workflow
+- Check suite: completed, with associated PR numbers. A fork PR's suite names no PRs,
+  so like a status its open PRs are found from the head commit. Per-job check runs and workflow
   completion events are ignored so one CI suite does not produce N+2 wakeups. Each
   App that reports checks has its own suite, so a push can wake a session once per
   App; the agent reads the PR's current state on every wake.
