@@ -156,7 +156,6 @@ class AccountParityFixtureDeviceTest {
                     request.method == "GET" && path == "/teams" -> if (draftNavigation) """{"teams":[{"id":"aaaaaaaaaaaaaaaaaaaaaaaa","name":"Draft fixture"},{"id":"bbbbbbbbbbbbbbbbbbbbbbbb","name":"Other draft fixture"}]}""" else if (draftTeam) """{"teams":[{"id":"aaaaaaaaaaaaaaaaaaaaaaaa","name":"Draft fixture"}]}""" else """{"teams":[]}"""
                     draftTeam && request.method == "GET" && path == "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/connectors" -> """{"aws":[],"gcp":[],"cloudflare":[],"linode":[],"hetzner":[],"tencent":[],"aliyun":[],"volcengine":[],"azure":[],"huawei":[],"vanta":[],"secureframe":[],"sonarqube":[],"notion":[],"onprem":[],"upstash":[],"resend":[],"posthog":[],"betterstack":[],"uptimeKuma":[],"tailscale":[],"zeabur":[],"github":[],"gitlab":[],"grafana":[],"linear":[],"jira":[],"asana":[],"sentry":[]}"""
                     draftTeam && request.method == "GET" && path == "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/members" -> """{"members":[]}"""
-                    draftTeam && request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") == "aaaaaaaaaaaaaaaaaaaaaaaa" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     request.method == "GET" && path == "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites" -> """{"entries":[],"revision":0}"""
                     draftNavigation && request.method == "GET" && path == "/agent/conversations" && request.url.queryParameter("teamId") == "aaaaaaaaaaaaaaaaaaaaaaaa" -> """{"conversations":[{"sessionId":"draft-one","teamId":"aaaaaaaaaaaaaaaaaaaaaaaa","title":"Draft chat one","isOwner":true},{"sessionId":"draft-two","teamId":"aaaaaaaaaaaaaaaaaaaaaaaa","title":"Draft chat two","isOwner":true}]}"""
                     draftNavigation && request.method == "GET" && path in setOf("/agent/conversations/draft-one", "/agent/conversations/draft-two") && request.url.queryParameter("teamId") == "aaaaaaaaaaaaaaaaaaaaaaaa" -> """{"messages":[],"isOwner":true,"readOnly":false,"title":"${if (path.endsWith("draft-one")) "Draft chat one" else "Draft chat two"}"}"""
@@ -164,7 +163,6 @@ class AccountParityFixtureDeviceTest {
                     draftNavigation && request.method == "GET" && path == "/teams/bbbbbbbbbbbbbbbbbbbbbbbb/favorites" -> """{"entries":[],"revision":0}"""
                     draftNavigation && request.method == "GET" && path == "/teams/bbbbbbbbbbbbbbbbbbbbbbbb/connectors" -> """{}"""
                     draftNavigation && request.method == "GET" && path == "/teams/bbbbbbbbbbbbbbbbbbbbbbbb/members" -> """{"members":[]}"""
-                    draftNavigation && request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") == "bbbbbbbbbbbbbbbbbbbbbbbb" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes/quota")) -> """{"quotas":[]}"""
                     // The workspace has a runtime, so the pages list as before rather than asking to set one up.
                     request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes")) ->
@@ -337,7 +335,7 @@ class AccountParityFixtureDeviceTest {
         assertEquals("Recreation changed the bound draft", text, auth.composerDrafts.bind(requireNotNull(auth.user).id, "aaaaaaaaaaaaaaaaaaaaaaaa", destination)!!.text)
         compose.onNodeWithContentDescription(app.getString(R.string.composer_ask_nuphos)).assertTextEquals(text)
         compose.onNodeWithTag("new-task-cancel").performClick()
-        compose.onNodeWithContentDescription(app.getString(R.string.shell_profile)).performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         tap(app.getString(R.string.profile_withdraw_action))
         compose.onNodeWithText(app.getString(R.string.profile_withdraw_confirm)).performClick()
         awaitText(app.getString(R.string.profile_consent_title))
@@ -519,12 +517,12 @@ class AccountParityFixtureDeviceTest {
         awaitText("Agree and continue")
         tap("Agree and continue")
         compose.waitUntil(8_000) { count("GET", "/teams") > 0 }
-        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("Profile").fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
-        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription(app.getString(R.string.home_toolbar_account)).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty() }
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         tap("Withdraw AI sharing consent")
         compose.onNodeWithText("Withdraw").performClick()
         awaitText("Before you use AI agents")
-        compose.onNodeWithContentDescription("Profile").assertDoesNotExist()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).assertDoesNotExist()
         screenshot("withdrawn")
         assertFalse("Withdrawal left local AI access enabled", app.authSession.aiAllowed)
         assertEquals("Consent did not require explicit agree and withdraw", 2, count("PUT", "/auth/ai-consent"))
@@ -678,7 +676,7 @@ class AccountParityFixtureDeviceTest {
         assertFalse("Rejected consent write granted AI access", app.authSession.aiAllowed)
         assertEquals("Rejected consent write initialized teams", 0, count("GET", "/teams"))
         assertEquals("Rejected consent write was retried automatically", 1, count("PUT", "/auth/ai-consent"))
-        compose.onNodeWithContentDescription("Profile").assertDoesNotExist()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).assertDoesNotExist()
     }
 
     @Test fun oldSameAccountConsentReadCannotUndoNewerRevocation() {

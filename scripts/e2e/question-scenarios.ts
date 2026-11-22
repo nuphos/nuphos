@@ -8,6 +8,7 @@ import { choiceModeScenarios } from './choice-mode-scenarios.ts'
 import { decisionTitleScenarios } from './decision-title-scenarios.ts'
 import { inboxScenarios } from './inbox-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { secretScenarios } from './secret-scenarios.ts'
 import { staleQuestionScenarios } from './stale-question-scenarios.ts'
 import { newTask, send } from './ui.ts'
 
@@ -115,8 +116,10 @@ export const questionScenarios: Scenario[] = [
       await light(page)
       await page.locator('[data-inbox-question]').first().click()
       // Answered, the question leaves and the one that takes its place opens.
+      const answered = await openInInbox(page)
+
       await page.getByRole('button', { name: 'E2E_DELIVERY:other' }).click()
-      await page.getByRole('heading', { name: /^Answered/ }).waitFor()
+      await until('the next question to open', async () => (await openInInbox(page)) !== answered)
       const reading = await openInInbox(page)
       const before = await listedInInbox(page)
 
@@ -293,4 +296,5 @@ export const questionScenarios: Scenario[] = [
   ...staleQuestionScenarios,
   ...inboxScenarios,
   ...choiceModeScenarios,
+  ...secretScenarios,
 ]

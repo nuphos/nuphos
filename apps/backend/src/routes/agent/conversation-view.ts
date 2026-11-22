@@ -3,6 +3,7 @@ import { normalizeConversationActivitySource } from '@/lib/agent/conversation-ac
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import { canReply, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
+import { isShareable } from '@/lib/agent/db/shareable'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
@@ -192,10 +193,14 @@ export function serializeConversationForViewer(
     owner,
     isOwner,
     watching: grants.watcherIds?.includes(viewer.id) ?? false,
+    // Someone else's Task is archived for them when they archived it for themselves.
+    archivedAt: grants.archivedAt ?? grants.memberArchivedAt?.[viewer.id],
     // What this viewer may do; the list and detail routes only return what
     // they may at least read, so null here means a personal conversation.
     access,
     generalAccess: generalAccessOf(grants),
+    // Whether Share is offered: never on a Bot, its chat, or what an agent opened.
+    shareable: isShareable(grants),
     readOnly: !canReply(access),
     // iOS v0.8.0 and earlier read these two and treat a missing value as
     // false, which hides steering, approvals and Stop during a turn. Anyone
@@ -205,6 +210,10 @@ export function serializeConversationForViewer(
     // Moving the runtime, credentials, Full Access and archiving are the owner's.
     // Kept for clients that read it.
     canManage: isOwner,
+    // Someone else in a Task archives it for themselves alone; a group chat they leave.
+    canArchive:
+      isOwner ||
+      (conversation.kind !== 'channel' && (grants.participantIds?.includes(viewer.id) ?? false)),
     // A channel's members each have their own marker; any other conversation is the owner's.
     ...(isOwner || conversation.kind === 'channel'
       ? conversationReadState(conversation, viewer.id)

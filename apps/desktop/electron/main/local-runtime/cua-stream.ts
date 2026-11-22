@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 
-import { CuaHost, cuaServerConfig, failed } from './cua-host.ts'
+import { CUA_PLUGIN_CACHE } from './agent-home.ts'
+import { CuaHost, codexHome, failed } from './cua-host.ts'
 import { LocalExecStream } from './exec-stream.ts'
 
 import type { CuaCall, CuaElicitation, CuaToolResult, ServerConfig } from './cua-host.ts'
@@ -9,6 +12,42 @@ import type { SocketEvent, SocketLike } from './tunnel-client.ts'
 type Listener = (event: SocketEvent) => void
 
 const hosts = new Map<string, CuaHost>()
+
+/** Computer Use only answers a `cua_repl` whose parent is a trusted OpenAI process (#3838). */
+const UNDER_CODEX = [
+  'sandbox',
+  '-c',
+  'sandbox_mode="danger-full-access"',
+  '-c',
+  'shell_environment_policy.inherit="all"',
+  '--',
+]
+
+/** The newest `cua_repl` server the Codex App installed, or null without the App. */
+export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig | null {
+  const root = path.join(codexHome(env), CUA_PLUGIN_CACHE)
+
+  try {
+    const [version] = readdirSync(root).sort((a, b) =>
+      b.localeCompare(a, undefined, { numeric: true }),
+    )
+    const manifest = JSON.parse(readFileSync(path.join(root, version, '.mcp.json'), 'utf8')) as {
+      mcpServers?: { cua_repl?: Partial<ServerConfig> & { enabled?: boolean } }
+    }
+    const server = manifest.mcpServers?.cua_repl
+
+    if (!server?.command || server.enabled === false || !existsSync(server.command)) return null
+    const vars = server.env ?? {}
+    const args = server.args ?? []
+    const codex = vars.CODEX_CLI_PATH
+
+    return codex && existsSync(codex)
+      ? { command: codex, args: [...UNDER_CODEX, server.command, ...args], env: vars }
+      : { command: server.command, args, env: vars }
+  } catch {
+    return null
+  }
+}
 
 /** Below the tunnel's 8 MiB frame payload, leaving room for its JSON escaping. */
 export const CUA_RESULT_MAX_CHARS = 6 * 1024 * 1024

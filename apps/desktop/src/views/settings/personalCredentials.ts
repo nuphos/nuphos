@@ -1,11 +1,10 @@
+import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { isGoogle } from '../../types'
 
-import type {
-  PersonalCredential,
-  PersonalCredentialDeepLinkPayload,
-  PersonalCredentialProvider,
-} from '../../types'
+import type { PersonalCredentialDeepLinkPayload, PersonalCredentialProvider } from '../../types'
 
 /** Fired after the main process claims an OAuth grant, so an open section refetches. */
 export const PERSONAL_CREDENTIALS_CHANGED = 'personal-credentials:changed'
@@ -22,20 +21,28 @@ export function nameOf(provider: PersonalCredentialProvider): string {
   return NAMES[provider]
 }
 
-export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
-
-export const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive' || provider === 'google-calendar'
-
-/** The credential that applies in this team: Google grants are per team. */
-export function credentialFor(
-  credentials: PersonalCredential[] | null,
+/** Starts signing in to the member's own account in the browser; a failure says why. */
+export async function connectPersonalCredential(
   provider: PersonalCredentialProvider,
   teamId: string | undefined,
-): PersonalCredential | undefined {
-  return credentials?.find(
-    (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === teamId),
-  )
+): Promise<void> {
+  try {
+    const { authorizeUrl } = await api.atlasStartPersonalCredential(
+      provider,
+      isGoogle(provider) ? teamId : undefined,
+    )
+
+    await api.appOpenExternal(authorizeUrl)
+  } catch (err) {
+    if (parseAtlasError(err).code === 'personal_credential_not_configured') {
+      toast.error(
+        t('Could not connect {name}', { name: nameOf(provider) }),
+        t('Not configured on this server yet'),
+      )
+    } else {
+      toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
+    }
+  }
 }
 
 /** The personal entries the Connectors page lists, with the words people search them by. */

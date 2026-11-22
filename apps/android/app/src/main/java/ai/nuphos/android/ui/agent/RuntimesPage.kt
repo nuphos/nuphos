@@ -165,7 +165,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                                         when {
                                             runtime.deleting -> Text(stringResource(R.string.agent_deleting), style = MaterialTheme.typography.bodySmall)
                                             runtime.status != "active" -> Text(stringResource(R.string.agent_disabled), style = MaterialTheme.typography.bodySmall)
-                                            runtime.local?.online == false || group.device?.online == false -> Text(stringResource(R.string.agent_offline), style = MaterialTheme.typography.bodySmall)
+                                            runtime.local?.online == false || group.device?.online == false -> Text(stringResource(offlineWords(group.device)), style = MaterialTheme.typography.bodySmall)
                                         }
                                         RuntimeInventoryQuota(store.quotas[runtime.id], runtime.signedIn == false)
                                     }
@@ -186,6 +186,13 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
             }
         }
     }
+}
+
+/** What a computer that is not online says: a Box still coming up says so, like Desktop and iOS. */
+internal fun offlineWords(device: ai.nuphos.android.data.RuntimeDevice?): Int = when (device?.box?.state) {
+    "creating" -> R.string.convtext_phase_starting
+    "connecting" -> R.string.convtext_phase_connecting
+    else -> R.string.agent_offline
 }
 
 @Composable
@@ -236,26 +243,19 @@ private fun InventoryMeter(title: String, percent: Double, modifier: Modifier) {
 @Composable
 private fun RuntimeInventoryQuota(quota: ai.nuphos.android.data.RuntimeQuota?, needsSignIn: Boolean) {
     val tightest = quota?.takeIf { it.available }?.windows?.maxByOrNull { it.usedPercent }
-    val resources = androidx.compose.ui.platform.LocalContext.current.resources
     if (tightest != null) {
-        val left = kotlin.math.round(100 - tightest.usedPercent).toInt().coerceIn(0, 100)
+        val left = tightest.leftPercent
         val tint = if (left == 0) MaterialTheme.colorScheme.error else if (left <= 20) androidx.compose.ui.graphics.Color(0xFFAF601A) else MaterialTheme.colorScheme.onSurface
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(3.dp), itemVerticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Box(Modifier.width(44.dp)) { ContinuousUsageBar(left / 100f, color = tint, trackColor = MaterialTheme.colorScheme.outlineVariant) }
-            Text((if (left == 0) stringResource(R.string.agent_limit_reached) else stringResource(R.string.agent_percent_left, left.toString())) + inventoryReset(resources, tightest.resetsAt),
+            Text(listOfNotNull(if (left == 0) stringResource(R.string.agent_limit_reached) else stringResource(R.string.agent_percent_left, left.toString()),
+                resetsInText(ResetsIn.of(tightest.resetsAt))).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall, color = if (left <= 20) tint else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else if (needsSignIn || quota?.needsSignIn == true) Text(stringResource(R.string.agent_sign_in_required), style = MaterialTheme.typography.bodySmall,
         color = androidx.compose.ui.graphics.Color(0xFFAF601A))
 }
 internal fun inventoryProviderName(provider: String) = ai.nuphos.android.model.RuntimeIdentity.name(provider)
-private fun inventoryReset(resources: android.content.res.Resources, raw: String?): String = runCatching {
-    val date = java.time.Instant.parse(raw)
-    val minutes = java.time.Duration.between(java.time.Instant.now(), date).toMinutes()
-    if (!date.isAfter(java.time.Instant.now())) "" else if (minutes < 60) " · " + resources.getString(R.string.agent_resets_in_minutes, minutes.coerceAtLeast(1))
-    else if (minutes < 1440) " · " + resources.getString(R.string.agent_resets_in_hours, minutes / 60, minutes % 60)
-    else " · " + resources.getString(R.string.agent_resets_at, java.time.format.DateTimeFormatter.ofPattern("EEE HH:mm").withZone(java.time.ZoneId.systemDefault()).format(date))
-}.getOrDefault("")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

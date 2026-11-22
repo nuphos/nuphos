@@ -832,6 +832,108 @@ async fn acp_agent_receives_cancelled_for_a_released_permission_request() {
     );
 }
 
+/// Asks the client a question mid-turn, as Antigravity's ask_question tool does, and
+/// waits for the answer; refused, it asks in chat instead.
+const ELICITATION_AGENT: &str = r##"#!/bin/sh
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      printf '{"jsonrpc":"2.0","id":900,"method":"elicitation/create","params":{"sessionId":"sess_fake","mode":"form","message":"Which region?"}}\n'
+      IFS= read -r answer
+      case "$answer" in
+        *'"code":-32601'*) got="Which region?" ;;
+        *) got=other ;;
+      esac
+      printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"%s"}}}}\n' "$got"
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id"
+      ;;
+  esac
+done
+"##;
+
+// A request from the agent that nothing here answers is refused at once, so the agent
+// goes on instead of waiting out the inactivity timeout.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_agent_request_without_an_answerer_is_refused() {
+    let _guard = env_lock();
+    let fx = setup_with_timeout("acp", "acp:elicitation", ELICITATION_AGENT, 30).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        run_turn(&fx, &adapter, "acp:elicitation"),
+    )
+    .await
+    .expect("the turn ends once the agent is answered");
+    assert!(
+        matches!(recorder.calls().last(), Some(Call::Terminal { content, .. })
+        if content == "Which region?"),
+        "{:?}",
+        recorder.calls()
+    );
+}
+
+/// Runs one tool per turn and says whether `initialize` advertised the spec's
+/// `terminal` capability.
+const CAPABILITY_AGENT: &str = r##"#!/bin/sh
+terminal=absent
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9][0-9]*\).*/\1/p')
+  case "$line" in
+    *'"initialize"'*)
+      case "$line" in *'"terminal":'*) terminal=advertised ;; esac
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"agentInfo":{"name":"fake","version":"0"},"agentCapabilities":{}}}\n' "$id"
+      ;;
+    *'"session/new"'*)
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"sess_fake"}}\n' "$id"
+      ;;
+    *'"session/prompt"'*)
+      printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"tool_call","toolCallId":"t1","title":"run hostname","kind":"execute","status":"in_progress"}}}\n'
+      printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"tool_call_update","toolCallId":"t1","status":"completed"}}}\n'
+      printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"sess_fake","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"terminal %s"}}}}\n' "$terminal"
+      printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn"}}\n' "$id"
+      ;;
+  esac
+done
+"##;
+
+// The client runs no terminals for the agent, so it must not offer them; the agent runs
+// its tools itself and the turn completes as usual.
+#[tokio::test(flavor = "multi_thread")]
+async fn acp_turn_runs_tools_without_advertising_terminals() {
+    let _guard = env_lock();
+    let fx = setup_with_timeout("acp", "acp:capability", CAPABILITY_AGENT, 30).await;
+    let recorder = Arc::new(RecordingAdapter::new(false));
+    let adapter: Arc<dyn ChatAdapter> = recorder.clone();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        run_turn(&fx, &adapter, "acp:capability"),
+    )
+    .await
+    .expect("the turn completes");
+    let calls = recorder.calls();
+    assert!(
+        calls.contains(&Call::Update("tool_call".into())),
+        "{calls:?}"
+    );
+    assert!(
+        calls.contains(&Call::Update("tool_call_update".into())),
+        "{calls:?}"
+    );
+    assert!(
+        matches!(calls.last(), Some(Call::Terminal { content, .. })
+        if content == "terminal absent"),
+        "{calls:?}"
+    );
+}
+
 /// Loses its session once: the first process answers the prompt with ACP "resource not
 /// found", as claude-agent-acp does for a session it no longer holds. Every later process
 /// restores the session with `session/load` and answers whether it was loaded.

@@ -44,7 +44,8 @@
     <string name="chats_select_text">テキストを選択</string>
     <string name="chats_reply">返信</string>
     <string name="chats_copy">コピー</string>
-    <string name="chats_usage_returns">使用量は %1$s に回復します。</string>
+    <string name="chats_usage_resets">使用量は%1$s。</string>
+    <string name="chats_verify_with_anthropic">Anthropic で認証</string>
     <string name="chats_switch_runtime">ランタイムを切り替え</string>
     <string name="chats_retry">再試行</string>
     <string name="chats_send_failed_title">メッセージを送信できませんでした</string>
@@ -59,4 +60,11 @@
     <string name="chats_question_dismiss_reason">理由（任意）</string>
     <string name="chats_empty_bot_body">ここは %1$s との会話です。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。</string>
     <string name="chats_empty_bot_start">まずは %1$s にやりたいことを伝えてみましょう。</string>
+    <string name="chats_bot_computer_offline">%1$s のコンピューターはオフラインです。</string>
+    <string name="chats_presence_online">オンライン</string>
+    <string name="chats_presence_busy">作業中</string>
+    <string name="chats_presence_offline">オフライン</string>
+    <string name="chats_presence_sign_in">サインインが必要</string>
+    <string name="chats_presence_usage">使用量の上限</string>
+    <string name="chats_presence_unavailable">利用不可</string>
 </resources>

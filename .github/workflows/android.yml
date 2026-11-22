@@ -20,7 +20,8 @@ concurrency:
 jobs:
   android:
     name: Android (tests, lint, APK build)
-    runs-on: ubuntu-latest
+    # A fork's Gradle build and scripts stay off the shared instabox runner.
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -61,6 +62,10 @@ jobs:
         run: |
           (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "platform-tools"
+      # Compiled before the emulator boots, so Gradle never competes with it for the runner's CPU.
+      - name: Build the app and its device tests
+        working-directory: apps/android
+        run: ./gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
       # The fixture tests only. The live smoke test skips itself without its opt-in arguments.
       - uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:

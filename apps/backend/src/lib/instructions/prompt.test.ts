@@ -143,6 +143,18 @@ describe('Bot identity', () => {
     expect(await loadInstructionsBlock(TEAM_ID.toHexString(), 'user-a', 'task-session')).toBeNull()
   })
 
+  test('a Bot delegates work to sub-Tasks by default; a plain conversation is not told to', () => {
+    const bot = renderInstructionsBlock([], [], { name: 'Release Helper' }) ?? ''
+    const plain = renderInstructionsBlock([{ title: 'Team rule', content: 'A' }], []) ?? ''
+
+    expect(bot).toContain('Delegate work by default')
+    expect(bot).toContain('`create_thread`')
+    expect(bot).toContain('already owns that matter')
+    expect(bot).toContain('`send_message_to_thread`')
+    expect(bot).toContain('paths or links of every file it needs')
+    expect(plain).not.toContain('Delegate work by default')
+  })
+
   test('a Bot without instructions is told to ask for them', () => {
     expect(renderInstructionsBlock([], [], { name: 'New Bot' })).toContain(
       'You have no instructions yet',

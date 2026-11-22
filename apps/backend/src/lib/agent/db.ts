@@ -57,7 +57,6 @@ export {
 } from './db/maintenance'
 export {
   addInputRequest,
-  findInputRequest,
   resolveInputRequest,
   resolvePlanInputRequests,
 } from './db/pending-decision'
@@ -81,7 +80,12 @@ export {
   syncConversationTranscript,
 } from './db/transcript'
 export { getConversations } from './db/conversations-list'
-export { restoreArchivedConversation, setConversationArchived } from './db/archive'
+export {
+  archiveConversationAs,
+  restoreArchivedConversation,
+  setConversationArchived,
+  setMemberArchived,
+} from './db/archive'
 export { backfillConversationWatchers, setConversationWatched } from './db/watch'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'

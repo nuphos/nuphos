@@ -28,7 +28,7 @@ try {
   await page.locator('input[placeholder="000000"]').fill(stack.signInCode(email) ?? '')
   await page.getByPlaceholder('Name your workspace…').fill('New user')
   await page.getByRole('button', { name: 'Create workspace' }).click()
-  const cloud = page.getByRole('button', { name: /^Nuphos cloud computer/ })
+  const cloud = page.getByRole('button', { name: /^Rent a computer from Nuphos/ })
 
   // Each place a new user is asked for a runtime offers the cloud computer: onboarding,
   await cloud.waitFor()
@@ -63,7 +63,11 @@ try {
   await page.screenshot({ path: `${artifacts}/new-user-cloud-computer.png` })
   // Back returns to Connect a runtime, where it was chosen.
   await page.getByRole('button', { name: 'Back', exact: true }).click()
-  await page.getByText('Connect a runtime', { exact: true }).first().waitFor()
+  await page
+    .getByText('Connect a runtime', { exact: true })
+    .filter({ visible: true })
+    .first()
+    .waitFor()
   await cloud.waitFor()
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${artifacts}/new-user-back.png` })

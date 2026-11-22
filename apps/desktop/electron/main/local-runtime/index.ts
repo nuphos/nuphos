@@ -12,6 +12,7 @@ import { keychainFor } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
+import { readAutoInstall, writeAutoInstall } from '../auto-update-electron.ts'
 import { dialDeviceTunnel, syncDeviceRegistration } from '../device-controller.ts'
 import { readDeviceIdentity } from '../device-identity.ts'
 import { readDeviceMetrics } from '../device-metrics.ts'
@@ -28,6 +29,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  notSaved,
   saveCustomProvider,
   withProviderKey,
   withProviderStatus,
@@ -37,7 +39,7 @@ import { localToolStreams } from './cua-stream.ts'
 import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
-import { appUpdateStatus, withAppUpdate } from './app-update-request.ts'
+import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
 import { bundledModelProbe } from './model-probe.ts'
@@ -101,13 +103,13 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   probeModels: bundledModelProbe(findBundle, providerKeys),
   createTunnel: (runtime, runtimeStatus, onChange, agentInstances) => {
     // Its owner updates this Nuphos from another computer (app-update-request.ts).
-    const status = () => ({
-      ...runtimeStatus(),
-      app: appUpdateStatus(app.getVersion(), getUpdaterState()),
-    })
-    const instances = withAppUpdate(agentInstances, {
+    const { status, instances } = appUpdateTunnel(runtimeStatus, agentInstances, {
+      version: () => app.getVersion(),
+      state: getUpdaterState,
       ready: readyUpdate,
       install: installUpdate,
+      autoInstall: { read: readAutoInstall, write: writeAutoInstall },
+      changed: () => tunnel?.sendStatus(),
     })
 
     tunnel = new RuntimeTunnelClient({
@@ -183,8 +185,8 @@ export const cancelLocalCodexLogin = () => logins.cancel('codex')
 /** The runtime follows the signed-in account: any change of session stops it first. */
 export function initLocalRuntime(): void {
   sleep.initSleepPrevention(broadcastState)
-  // One pass on its own, well after launch: a finished session's workspace and the size
-  // of what is left are worth knowing, and neither is worth slowing a start for.
+  // One pass on its own, well after launch: the size of the workspace is worth
+  // knowing, and not worth slowing a start for.
   startDiskMaintenance({
     workspaces: () => {
       const state = controller.state()
@@ -196,10 +198,6 @@ export function initLocalRuntime(): void {
         ),
       ]
     },
-    // This computer's agents share a workspace, so while any of them is up, a workspace
-    // may be the one a live session is in, and it is kept. Only the backend can name a
-    // live session exactly; until then this is the safe side of that answer.
-    inUse: () => Object.values(controller.state().agents).some((agent) => agent.online),
     leftAlone: leftAloneDir,
     log: logLocalTool,
   })
@@ -264,8 +262,8 @@ export async function setLocalCustomProvider(
 ): Promise<LocalRuntimeState> {
   const { userId } = controller.state()
 
-  if (!userId) throw new Error('Sign in to Nuphos first.')
-  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value)
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value).catch(notSaved)
   await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()

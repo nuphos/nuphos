@@ -28,6 +28,9 @@ final class ChatSession {
     /// agent, change credentials, and archive.
     private(set) var manages = false
     var canManage: Bool { loaded && manages && !readOnly }
+    private(set) var archives = false
+    /// The owner archives it for everyone; someone else in a Task, for themselves.
+    var canArchive: Bool { loaded && archives }
     /// Renaming, model settings and feedback stay with the owner.
     var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
@@ -69,6 +72,8 @@ final class ChatSession {
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
     private(set) var isBot = false
+    /// Offered Share: a Task a person opened, as the server decides it.
+    private(set) var shareable = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -208,7 +213,7 @@ final class ChatSession {
         var selection = picked
         // An existing conversation's selection is stored even when it has none: only what changed is sent.
         if !isNew, selection.stored == nil { selection.stored = [] }
-        credentialAccess = selection.isBlank ? nil : selection
+        credentialAccess = isNew && selection.isBlank ? nil : selection
         guard !isNew, isOwner else { return }
         let previous = credentialSave
         credentialSave = Task {
@@ -345,6 +350,7 @@ final class ChatSession {
         s.loaded = true
         s.isOwner = true
         s.manages = true
+        s.archives = true
         return s
     }
 
@@ -368,19 +374,19 @@ final class ChatSession {
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
             isBot = detail.avatar != nil && !detail.isChannel
+            shareable = detail.shareable ?? !isBot
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
             manages = detail.canManage ?? isOwner
+            archives = detail.canArchive ?? manages
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
             followsBot = detail.followsBot
-            if let stored = detail.credentialAccess {
-                let selection = CredentialSelection(json: stored)
-                credentialAccess = selection.isBlank ? nil : selection
-            }
+            // Nothing stored is stored too: the server reads every kind left unset as team-wide (#4034).
+            credentialAccess = CredentialSelection(json: detail.credentialAccess ?? .object([:]))
             Task { [weak self] in
                 guard let self, canManage, let bypass = try? await AgentChatAPI.bypass(token: token, sessionId: sessionId) else { return }
                 permissionMode = bypass ? .bypass : .auto
@@ -636,7 +642,8 @@ final class ChatSession {
     // MARK: - Model settings
 
     func refreshSessionConfig() async {
-        guard isOwner, !readOnly, !isNew, isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        // Reading model settings is allowed for conversation participants; writes remain owner-only.
+        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
         let request = UUID()
         sessionConfigRequest = request
         sessionConfigReading = true
@@ -746,7 +753,7 @@ final class ChatSession {
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can archive it.") }
+        guard canArchive else { throw NuphosAPI.Failure.http(403, message: "Only someone in the task can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -1247,10 +1254,10 @@ final class ChatSession {
                         let code = frame["errorCode"]?.stringValue
                         if code == "stream_unresumable", sawTurnComplete { continue }
                         lastErrorText = frame["errorText"]?.stringValue ?? "The agent hit an error."
-                        // A signed-out agent runtime is not transient: every fresh
-                        // retry re-hits the same missing credential, so fail with the
-                        // sign-in guidance the backend already wrote.
-                        if code == "runtime_auth_required" {
+                        // A signed-out or out-of-usage agent runtime is not transient:
+                        // every fresh retry re-hits the same refusal, so fail with the
+                        // guidance the backend already wrote.
+                        if code == "runtime_auth_required" || code == "runtime_usage_exhausted" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
                         // Another turn took the runtime after admission; the server
@@ -1679,7 +1686,6 @@ final class ChatSession {
         case "preparing-tools": "Preparing tools…"
         case "building-prompt": "Building prompt…"
         case "recalling-memory": "Recalling memory…"
-        case "loading-compaction": "Loading history…"
         case "preparing-model": "Preparing model…"
         case "connecting-model": "Connecting…"
         case "thinking": "Thinking…"

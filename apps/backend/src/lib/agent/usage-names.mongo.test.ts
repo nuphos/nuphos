@@ -113,9 +113,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('usage names', () => {
 
   test('a Bot and its archived Task are named to an administrator, not to another member', async () => {
     expect(await names(asAdmin, 'bot', [ADMIN_BOT])).toEqual({ [ADMIN_BOT]: 'Release Bot' })
-    expect(await names(asAdmin, 'task', [ADMIN_TASK])).toEqual({ [ADMIN_TASK]: 'Archived Task' })
+    expect(await names(asAdmin, 'conversation', [ADMIN_TASK])).toEqual({
+      [ADMIN_TASK]: 'Archived Task',
+    })
     expect(await names(asMember, 'bot', [ADMIN_BOT])).toEqual({ [ADMIN_BOT]: null })
-    expect(await names(asMember, 'task', [ADMIN_TASK])).toEqual({ [ADMIN_TASK]: null })
+    expect(await names(asMember, 'conversation', [ADMIN_TASK])).toEqual({ [ADMIN_TASK]: null })
     expect(await names(asMember, 'conversation', [MEMBER_CHAT])).toEqual({
       [MEMBER_CHAT]: 'My chat',
     })

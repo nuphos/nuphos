@@ -49,8 +49,8 @@ export const botFoldScenarios: Scenario[] = [
       const asked = count('permission-asked E2E_DELIVERY:thread')
       // Its own Bot, so no scenario before it decides what the tree holds.
       const row = page.locator('[data-sidebar-row]').filter({ hasText: 'Fold Bot' }).first()
-      const show = row.locator('[aria-label="Show sub-agents"]')
-      const hide = row.locator('[aria-label="Hide sub-agents"]')
+      const show = row.locator('[aria-label="Show sub-tasks"]')
+      const hide = row.locator('[aria-label="Hide sub-tasks"]')
       const mustBeOpen = async (when: string) => {
         await until(
           `the Bot tree to show ${when}`,
@@ -103,7 +103,7 @@ export const botFoldScenarios: Scenario[] = [
       const before = answered()
 
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E thread' }).first().click()
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the stopped sub-agent to let go of its command', async () => answered() > before)
       // Back in the Bot chat, where the scenarios after this one found the window before.
       await row.click()

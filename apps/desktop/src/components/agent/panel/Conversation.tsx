@@ -1,12 +1,14 @@
 import clsx from 'clsx'
 import { PanelRightOpen } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { useChatSwitchShown } from '../../../lib/chatSwitchTiming'
 
 import { ChatColumn } from './ChatColumn'
+import { useComposerOverlay } from './composerOverlay'
+import { hidingRetracted } from './composerRecall'
 import { FeedbackCommentDialog } from './conversationBanners'
 import { isOwnMessage } from './conversationFollow'
 import { ConversationMessageList } from './conversationMessageList'
@@ -25,17 +27,16 @@ import { useJumpToLatest } from './useJumpToLatest'
 import { useTranscriptPageKeys } from './useTranscriptPageKeys'
 
 import type { ConversationProps } from './conversationProps'
+import type { Tab } from './model'
 
 export function Conversation({
   tab,
   teamId,
   currentUrl,
   sidebar = false,
+  composer = null,
   visible = true,
   onDockToSidebar,
-  onStop,
-  onApprovePlan,
-  onRejectPlan,
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
@@ -59,6 +60,15 @@ export function Conversation({
   const currentUserId = useCurrentUser()?.id
   const lastMsgIsOwn = isOwnMessage(lastMsg, currentUserId, tab.foreign)
   const jump = useJumpToLatest(tab.messages, lastMsg?.id)
+  const room = useComposerOverlay(composer)
+
+  // A bar opening over the end keeps a transcript that follows the latest message at its end.
+  useLayoutEffect(() => {
+    const el = ref.current
+
+    if (el && shouldFollowRef.current && !userLockedScrollRef.current)
+      el.scrollTop = el.scrollHeight
+  }, [room])
   const localCommandToolToken = useMemo(() => localCommandToolTokenFor(lastMsg), [lastMsg])
   const hasRunningTool = useMemo(() => hasRunningToolFor(lastMsg), [lastMsg])
   const lastStreamToken = useMemo(() => lastStreamTokenFor(lastMsg), [lastMsg])
@@ -148,9 +158,11 @@ export function Conversation({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         className={clsx(
-          'h-full overflow-auto scrollbar-thin pb-4 selectable',
+          'h-full overflow-auto scrollbar-thin selectable',
           hasHeaderOverlay ? 'pt-16' : 'pt-4',
         )}
+        // Room at the end for the bars floating above the composer, so the last message stays whole.
+        style={{ paddingBottom: `calc(1rem + ${String(room)}px)` }}
       >
         <ChatColumn sidebar={sidebar}>
           <ConversationMessageList
@@ -164,9 +176,6 @@ export function Conversation({
             hasEarlier={hasEarlier}
             captureEarlierAnchor={captureEarlierAnchor}
             onLoadEarlier={onLoadEarlier}
-            onStop={onStop}
-            onApprovePlan={onApprovePlan}
-            onRejectPlan={onRejectPlan}
             activePlanCanAct={activePlanCanAct}
             onOpenNuphosLink={onOpenNuphosLink}
             onOpenAgentSettings={onOpenAgentSettings}
@@ -190,4 +199,43 @@ export function Conversation({
       )}
     </div>
   )
+}
+
+type RetainedProps = Omit<ConversationProps, 'tab' | 'onLoadEarlier'> & {
+  /** Every chat the panel keeps open. */
+  tabs: Tab[]
+  shown: Tab | null
+  onLoadEarlier: (tabId: string) => void
+}
+
+/**
+ * Each chat the panel keeps open stays mounted, hidden while another is shown,
+ * so switching back to it shows it again instead of building it anew.
+ */
+export function RetainedConversations({
+  tabs,
+  shown,
+  visible,
+  composer,
+  onLoadEarlier,
+  ...props
+}: RetainedProps) {
+  return tabs.map((tab) => (
+    <Activity key={tab.id} mode={tab === shown ? 'visible' : 'hidden'}>
+      <RetainedConversation
+        {...props}
+        tab={tab}
+        visible={visible && tab === shown}
+        composer={tab === shown ? composer : null}
+        onLoadEarlier={() => onLoadEarlier(tab.id)}
+      />
+    </Activity>
+  ))
+}
+
+/** A kept chat as it shows: without the message being taken back. */
+function RetainedConversation({ tab, ...props }: ConversationProps) {
+  const shown = useMemo(() => hidingRetracted(tab), [tab])
+
+  return <Conversation tab={shown} {...props} />
 }

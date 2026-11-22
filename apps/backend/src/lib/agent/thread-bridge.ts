@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
@@ -15,8 +16,8 @@ import {
   setConversationParent,
 } from './db'
 import { isChannel } from './db/channels'
-import { prepareThread } from './thread-delegation'
 import { relatedQuestionsNote } from './db/pending-decision'
+import { prepareThread } from './thread-delegation'
 
 import type { AgentConversation } from './db'
 import type { ThreadModelPick } from './thread-runtime'
@@ -107,20 +108,33 @@ export async function listThreadRuntimes(actor: ThreadActor) {
   return threadRuntimes(actor, source.runtimeId)
 }
 
+type TaskChange = { fullAccess?: boolean; runtimeId?: string } & ThreadModelPick
+type TaskChanged = {
+  threadId: string
+  mode?: 'full_access' | 'auto'
+  runtime?: Awaited<
+    ReturnType<
+      typeof import('@/lib/claude-code-preview/conversation-runtime-move').moveConversationRuntime
+    >
+  >
+  model?: ThreadModelPick
+  appliesFrom?: 'next_turn'
+}
+
 /**
- * Controls for another conversation the actor owns: its permission mode, never
- * more than this conversation has, and the agent it runs on. A Task under a Bot
- * takes its credentials and its permission mode from its topmost parent
- * (credentialSource), so neither can be changed on the Task.
+ * Controls for a conversation the actor owns: its permission mode, never more
+ * than this conversation has, and the agent it runs on. A Task under a Bot takes
+ * its credentials and its permission mode from its topmost parent
+ * (credentialSource), so neither can be changed on the Task. On itself, only the
+ * model settings change, from its next turn.
  */
 export async function updateThread(
   actor: ThreadActor,
   threadId: string,
-  change: {
-    fullAccess?: boolean
-    runtimeId?: string
-  } & ThreadModelPick,
-) {
+  change: TaskChange,
+): Promise<TaskChanged> {
+  if (threadId === actor.sessionId)
+    return { threadId, model: await updateOwnModel(actor, change), appliesFrom: 'next_turn' }
   const { target } = await authorizeThreadDelivery({ ...actor, targetSessionId: threadId })
 
   if (change.fullAccess && !(await getSessionBypass(actor.sessionId, actor.userId))) {
@@ -141,11 +155,16 @@ export async function updateThread(
   await assertThreadRuntime(actor, change.runtimeId)
   const { moveConversationRuntime } =
     await import('@/lib/claude-code-preview/conversation-runtime-move')
+  const by = {
+    actorId: actor.userId,
+    agentSessionId: actor.sessionId,
+    via: 'update_thread',
+  } as const
   const runtime = change.runtimeId
-    ? await moveConversationRuntime(target, change.runtimeId, actor.userId)
+    ? await moveConversationRuntime(target, change.runtimeId, actor.userId, { by })
     : undefined
   // Apply any explicit choice after the move has preserved compatible settings.
-  const model = await setThreadModel(threadId, actor.userId, change)
+  const model = await setThreadModel(threadId, actor.userId, change, by)
 
   return {
     threadId,
@@ -155,6 +174,26 @@ export async function updateThread(
     ...(runtime ? { runtime } : {}),
     ...(model ? { model } : {}),
   }
+}
+
+async function updateOwnModel(actor: ThreadActor, change: TaskChange) {
+  if (change.fullAccess !== undefined || change.runtimeId)
+    throw new Error(
+      'A conversation cannot change its own permission mode or agent: only its model, effort or fast mode.',
+    )
+  const self = await authorizeThreadActor(actor)
+  const pick = Object.fromEntries(
+    Object.entries({ model: change.model, effort: change.effort, fast: change.fast }).filter(
+      ([, value]) => value,
+    ),
+  )
+  const { queueOwnSessionConfig } = await import('@/lib/claude-code-preview/own-session-config')
+
+  return await queueOwnSessionConfig(self, pick, {
+    actorId: actor.userId,
+    agentSessionId: actor.sessionId,
+    via: 'update_thread',
+  })
 }
 
 /**
@@ -174,7 +213,7 @@ async function assertTargetCanRun(target: AgentConversation): Promise<void> {
     throw new Error(
       box
         ? 'The target thread runs on a Box that is resuming now. Resend in about a minute.'
-        : `The target thread cannot run: ${reason} Move it to a running agent with update_thread runtimeId, then resend.`,
+        : `The target thread cannot run: ${reason} Move it to a running agent with update_task runtimeId, then resend.`,
       { cause: error },
     )
   }
@@ -247,6 +286,7 @@ export async function setAgentThreadArchived(
     throw new Error('Target must be a conversation you own in this team.')
   }
   await setConversationArchived(threadId, archived)
+  if (archived) await cleanUpArchived([threadId])
 
   return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }

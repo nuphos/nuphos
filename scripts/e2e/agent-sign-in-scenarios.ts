@@ -18,7 +18,7 @@ const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 type AppComputer = { deviceId?: string; connection?: string }
 
 /** Runs `script` against the database; it reads its arguments from process.argv. */
-function inDatabase(mongoUri: string, script: string, ...args: string[]): string {
+export function inDatabase(mongoUri: string, script: string, ...args: string[]): string {
   const run = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
@@ -32,7 +32,7 @@ function inDatabase(mongoUri: string, script: string, ...args: string[]): string
 }
 
 /** Signs another person in; accepting an invitation, they join as an Editor. */
-async function join(stack: Flow, owner: Client, name: string) {
+export async function join(stack: Flow, owner: Client, name: string) {
   const email = `e2e-${name}-${String(Date.now())}@example.com`
   const anonymous = client(stack.apiUrl, '')
 

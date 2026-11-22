@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d 次调用 · 运行中</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">处理了 %1$d 秒 · %2$d 个步骤</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">处理了 %1$d 个步骤</item>
-    </plurals>
+    <string name="chat_work_duration">处理了 %1$s</string>
+    <string name="chat_work">已处理</string>
     <string name="chat_share_access_invited">仅限受邀者</string>
     <string name="chat_share_access_view">团队可查看</string>
     <string name="chat_share_access_reply">团队可查看和回复</string>
@@ -201,4 +197,16 @@
     <string name="chat_summary_running">运行中</string>
     <string name="chat_summary_open">Agent 摘要</string>
     <string name="chat_summary_output_truncated">已隐藏较早的输出。</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">子任务</string>
+    <string name="chat_summary_files">文件</string>
+    <string name="chat_summary_triggers">触发器</string>
+    <string name="chat_summary_no_triggers">请代理为此任务安排定期工作。</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot 详情</string>
+    <string name="chat_bot_state_waiting">%1$d 个需要你的回复</string>
+    <string name="chat_bot_state_running">%1$d 个运行中</string>
+    <string name="chat_summary_idle_since">空闲 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">请在这里要求安排定期执行的工作。</string>
+    <string name="chat_summary_paused">已暂停</string>
 </resources>

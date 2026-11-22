@@ -1,6 +1,6 @@
 ---
 name: file-transfer
-description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip), or save them straight onto a selected computer with local_download.
+description: "Move files between the user and the sandbox: pull the user's uploads, push files for them to download (single or zip), or save straight to a selected computer."
 ---
 
 # File transfer

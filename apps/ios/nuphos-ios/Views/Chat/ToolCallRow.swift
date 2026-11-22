@@ -328,7 +328,9 @@ struct WorkGroup: View {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Text(title)
+                    // The rule takes only the width the label leaves, as on the desktop: left to
+                    // share it evenly, the stack would wrap the label to give the rule half the row.
+                    Text(title).layoutPriority(1)
                     LucideIcon("chevron-right")
                         .font(Theme.Text.micro.weight(.bold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
@@ -352,10 +354,10 @@ struct WorkGroup: View {
         }
     }
 
+    /// The desktop's label: `Worked for 2m 37s`, or `Worked` with no duration.
     private var title: String {
-        let steps = rows.reduce(0) { $0 + ChatRow.workSteps($1) }
-        if let duration, duration >= 1 { return String(localized: "Worked for \(Self.formatWorkDuration(duration)) · \(steps) steps") }
-        return String(localized: "Worked through \(steps) steps")
+        guard let duration, duration >= 1 else { return String(localized: "Worked") }
+        return String(localized: "Worked for \(Self.formatWorkDuration(duration))")
     }
 
     /// `12s`, `3m 5s`, `1h 20m` — the desktop's `formatWorkDuration`.

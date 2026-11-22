@@ -27,8 +27,6 @@ export type ConnectCardContextValue = {
   openQuestions?: readonly ReplyQuestion[]
   // Shows a question's body in full, where the card is the page it is read on.
   fullBody?: boolean
-  // Opens a link in a question's body as the conversation's own text does.
-  onLinkClick?: (href: string, beside: boolean) => boolean
 }
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)

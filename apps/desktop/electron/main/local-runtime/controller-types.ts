@@ -1,7 +1,6 @@
 import path from 'node:path'
 
 import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
-import { connectionOf } from './tunnel-streams.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstance } from './agent-instances.ts'
@@ -132,12 +131,10 @@ export type Agent = {
   recheck?: Promise<void>
 }
 
-/** Everything a user's local agents keep lives under their own directory. */
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
   return path.join(dataDir, 'users', userId, ...parts)
 }
 
-/** The CLI facts worth keeping for the next launch, under the owner's id. */
 export function saveCli(
   deps: Pick<LocalRuntimeControllerDeps, 'writeCliCache'>,
   userId: string | null,
@@ -150,72 +147,10 @@ export const RESTART_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 /** Matches the hold Nuphos keeps on a provider's answer: sampling faster would
  *  spend this person's rate limit on numbers that have not moved. */
 export const USAGE_SAMPLE_MS = 600_000
-/** A sign-in is worth reading again for; mashing Check is not. */
 export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
 export function freshAgent(): Agent {
   return { runtime: null, cli: null, restartAttempt: 0, generation: 0 }
-}
-
-/** What the backend should see: only the agents running right now. */
-export function tunnelStatusOf(
-  running: Record<LocalAgentProvider, Agent>,
-  backendUrl: string,
-): LocalRuntimeTunnelStatus {
-  const agents: LocalRuntimeTunnelStatus['agents'] = {}
-
-  for (const provider of LOCAL_AGENT_PROVIDERS) {
-    const agent = running[provider]
-
-    if (!agent.runtime || !agent.cli?.installed) continue
-    agents[provider] = {
-      cli: {
-        installed: true,
-        loggedIn: agent.cli.loggedIn,
-        ...(agent.cli.apiKey ? { apiKey: true } : {}),
-      },
-      // An account's usage says nothing about a custom provider: unknown, not a stale figure.
-      ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
-        ? { usage: agent.usage, usageAt: agent.usageAt }
-        : {}),
-      ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
-      ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
-      ...(agent.models ? { models: agent.models } : {}),
-    }
-  }
-
-  // A Box's host is the `nuphos` CLI (`nuphos agent` sets it); the backend offers its update.
-  const cliVersion = process.env.NUPHOS_CLI_VERSION
-
-  return { agents, backendUrl, ...(cliVersion ? { cliVersion } : {}) }
-}
-
-export function agentStatesOf(
-  agents: Record<LocalAgentProvider, Agent>,
-  context: {
-    available: (provider: LocalAgentProvider) => boolean
-    online: boolean
-    superseded: boolean
-  },
-): Record<LocalAgentProvider, LocalAgentState> {
-  const entries = LOCAL_AGENT_PROVIDERS.map((provider): [LocalAgentProvider, LocalAgentState] => {
-    const agent = agents[provider]
-    const error = context.superseded
-      ? 'Another Nuphos app on this computer took over the local runtime.'
-      : agent.error
-
-    return [
-      provider,
-      {
-        available: context.available(provider),
-        online: context.online && agent.runtime !== null,
-        ...(error ? { error } : {}),
-        cli: agent.cli,
-      },
-    ]
-  })
-
-  return Object.fromEntries(entries) as Record<LocalAgentProvider, LocalAgentState>
 }
 
 export function knownCli(
@@ -260,30 +195,6 @@ export function scheduleAgentRestart(
   agent.restartTimer = setTimeout(() => {
     if (run.current()) void start()
   }, delay)
-}
-
-export function runtimeStateOf(
-  deps: Pick<LocalRuntimeControllerDeps, 'bundle' | 'dataDir'>,
-  agents: Record<LocalAgentProvider, Agent>,
-  online: boolean,
-  superseded: boolean,
-  userId: string | null,
-  instances?: LocalRuntimeState['instances'],
-  revoked = false,
-): LocalRuntimeState {
-  const bundle = deps.bundle()
-
-  return {
-    ...(instances ? { instances } : {}),
-    agents: agentStatesOf(agents, {
-      online,
-      superseded,
-      available: (provider) => bundle?.adapters[provider] !== undefined,
-    }),
-    workspace: userId ? userDir(deps.dataDir(), userId, 'workspace') : null,
-    userId,
-    ...(userId ? { connection: connectionOf(online, superseded, revoked) } : {}),
-  }
 }
 
 export async function stopAgentProcess(agent: Agent, changed: () => void): Promise<void> {

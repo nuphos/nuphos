@@ -84,6 +84,10 @@ export async function noteMentions(
   const replies = await Promise.all(mentioned.map((id) => canReplyIn(conversation, id)))
   const inbox = mentioned.filter((_, index) => replies[index])
   const at = new Date()
+  // Whoever speaks or is mentioned has a Task they archived for themselves back.
+  const unarchived = [...mentioned, ...(author ? [author] : [])].map(
+    (id) => [`memberArchivedAt.${id}`, ''] as const,
+  )
 
   await agentConversations().updateOne(
     { sessionId: conversation.sessionId },
@@ -95,7 +99,10 @@ export async function noteMentions(
             ),
           }
         : {}),
-      ...(author ? { $unset: { [`mentions.${author}`]: '' } } : {}),
+      $unset: Object.fromEntries([
+        ...unarchived,
+        ...(author ? [[`mentions.${author}`, ''] as const] : []),
+      ]),
     },
   )
   if (mentioned.length === 0) return

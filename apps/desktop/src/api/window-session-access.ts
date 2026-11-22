@@ -1,5 +1,13 @@
-import type { ConversationAccessState, GeneralAccess } from './agent-types.ts'
+import type { AgentConversationParticipant, GeneralAccess } from './agent-types.ts'
 import type { SessionResourcesResponse } from './session-resource-types'
+
+export type ConversationAccessState = {
+  generalAccess: GeneralAccess
+  shareable?: boolean // False for a Bot, its chat or what an agent opened. Older servers omit it.
+  participants: AgentConversationParticipant[]
+  /** After a removal: the chat's computer the removed person can still use. */
+  computerStillShared?: { deviceId: string; label: string }
+}
 
 /** Who may open a session and what they may do there. */
 export type WindowSessionAccessApi = {
@@ -40,10 +48,16 @@ export type WindowSessionAccessApi = {
     sessionId: string,
     avatar: string | null,
     teamId?: string,
-  ): Promise<{ avatar: string | null }>
+    background?: string,
+  ): Promise<{ avatar: string | null; background?: string }>
   agentUploadConversationAvatar(
     sessionId: string,
     image: Uint8Array,
     teamId?: string,
   ): Promise<{ avatar: string }>
+  agentSetBotInstructions(
+    sessionId: string,
+    instructions: string,
+    teamId?: string,
+  ): Promise<{ instructions: string }>
 }

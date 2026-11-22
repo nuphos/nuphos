@@ -75,18 +75,23 @@ const setParent = z
       .describe('Conversation to nest the thread under; null stops nesting it.'),
   })
   .strict()
+const change = {
+  label: common.label,
+  fullAccess: z
+    .boolean()
+    .optional()
+    .describe('true for Full Access, false for Auto Mode. Refused for a Task under a parent.'),
+  runtimeId,
+  ...modelPick,
+}
 const update = z
   .object({
-    label: common.label,
-    threadId: z.string().uuid(),
-    fullAccess: z
-      .boolean()
-      .optional()
-      .describe('true for Full Access, false for Auto Mode. Refused for a thread under a parent.'),
-    runtimeId,
-    ...modelPick,
+    taskId: z.string().uuid().describe('A Task or Bot you own here, or your own session id.'),
+    ...change,
   })
   .strict()
+// The name update_task had until it was renamed; kept for one release.
+const updateThreadAlias = z.object({ threadId: z.string().uuid(), ...change }).strict()
 const archive = z
   .object({
     label: common.label,
@@ -118,7 +123,7 @@ export function threadToolModule(
           'Start a Nuphos sub-agent: a separate Nuphos conversation. Use it only when asked for a sub-agent or to delegate/background work. ' +
           'It does not inherit your transcript. It always runs in the permission mode of the ' +
           'conversation at the top of yours. It runs on your agent, or on the ' +
-          "one runtimeId names from list_agent_runtimes (never someone's computer). " +
+          'one runtimeId names from list_agent_runtimes. ' +
           'It uses the credentials and computers of the conversation at the top of yours, ' +
           'always the same as yours, and changes when that selection changes. ' +
           "model, effort and fast set its model picker before its first turn; its agent's defaults otherwise. " +
@@ -168,29 +173,38 @@ export function threadToolModule(
       {
         name: 'list_agent_runtimes',
         description:
-          "List the team's agents (runtimes) and your Boxes' agents that your threads can run on, with each one's readiness, " +
+          "List the agents (runtimes) your threads can run on: the team's, and those on your Boxes and computers, with each one's readiness, " +
           'usage quota and the models it offers. Use it to pick a runtimeId or model for create_thread ' +
           "or update_thread, for example when a thread has hit its agent's usage limit. " +
           'Agents listed in sharesQuotaWith are signed in to the same account and run out ' +
-          'together: moving to one of them does not get past a limit.',
+          'together: moving to one of them does not get past a limit. One a thread cannot use says why in unavailable.',
         inputSchema: toolInputJsonSchema(list),
       },
       {
-        name: 'update_thread',
+        name: 'update_task',
         description:
-          'Change another Nuphos thread or Bot you own in this team. fullAccess switches a ' +
+          'Change a Nuphos Task or Bot you own in this team, or yourself. fullAccess switches a ' +
           'conversation with no parent between Full Access (true) and Auto Mode (false); Full ' +
           'Access is allowed only while this conversation itself has Full Access, Auto Mode ' +
           "always. A thread under a parent always runs in its top conversation's mode, so " +
           'fullAccess is refused for it. runtimeId moves it, with ' +
           'its conversation history, to another agent from list_agent_runtimes ' +
-          "(never to someone's computer); its next turn " +
-          "runs there. model, effort and fast set the thread's model picker for its " +
+          'that is ready; its next turn ' +
+          "runs there. model, effort and fast set the Task's model picker for its " +
           'next turn, after any runtimeId move; a value its agent does not offer is refused with ' +
-          "the choices. A new thread already starts on this conversation's " +
+          'the choices. With your own session id as taskId, only model, effort and fast apply, ' +
+          'from your next turn: this reply keeps its settings. Use it to move yourself to a ' +
+          'lighter model for mechanical work or a stronger one for a hard step. ' +
+          "A new Task already starts on this conversation's " +
           "agent unless create_thread named another. Its credentials and computers are always the top conversation's, " +
           'so there is nothing to grant.',
         inputSchema: toolInputJsonSchema(update),
+      },
+      {
+        name: 'update_thread',
+        description:
+          'Former name of update_task, kept for one release; it takes threadId instead of taskId. Use update_task.',
+        inputSchema: toolInputJsonSchema(updateThreadAlias),
       },
       {
         name: 'set_thread_parent',
@@ -204,66 +218,80 @@ export function threadToolModule(
         inputSchema: toolInputJsonSchema(setParent),
       },
     ],
-    handlers: (ctx) => ({
-      create_thread: async (args) => {
-        const parsed = create.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-
-        return presentedByRuntime(publish, ctx, 'create_thread', parsed.data, () =>
-          createAgentThread(ctx, parsed.data.prompt, parsed.data.title, parsed.data),
-        )
-      },
-      send_message_to_thread: async (args) => {
-        const parsed = send.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-
-        return presentedByRuntime(publish, ctx, 'send_message_to_thread', parsed.data, () =>
-          sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
-        )
-      },
-      archive_thread: async (args) => {
-        const parsed = archive.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-
-        return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
-      },
-      stop_thread: async (args) => {
-        const parsed = stop.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-
-        return answer(stopAgentThread(ctx, parsed.data.threadId))
-      },
-      list_agent_runtimes: async (args) => {
-        const parsed = list.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-
-        return answer(listThreadRuntimes(ctx))
-      },
-      update_thread: async (args) => {
-        const parsed = update.safeParse(args)
-
-        if (!parsed.success) return toolError(parsed.error.message)
-        const { threadId, ...change } = parsed.data
-
-        const { fullAccess, runtimeId: runtime, model, effort, fast } = change
+    handlers: (ctx) => {
+      const changeTask = (taskId: string, changed: Omit<z.infer<typeof update>, 'taskId'>) => {
+        const { fullAccess, runtimeId: runtime, model, effort, fast } = changed
 
         if (fullAccess === undefined && !runtime && !model && !effort && !fast)
           return toolError('Set fullAccess, runtimeId, model, effort or fast.')
 
-        return answer(updateThread(ctx, threadId, change))
-      },
-      set_thread_parent: async (args) => {
-        const parsed = setParent.safeParse(args)
+        return answer(updateThread(ctx, taskId, changed))
+      }
 
-        if (!parsed.success) return toolError(parsed.error.message)
+      return {
+        create_thread: async (args) => {
+          const parsed = create.safeParse(args)
 
-        return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
-      },
-    }),
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return presentedByRuntime(publish, ctx, 'create_thread', parsed.data, () =>
+            createAgentThread(ctx, parsed.data.prompt, parsed.data.title, parsed.data),
+          )
+        },
+        send_message_to_thread: async (args) => {
+          const parsed = send.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return presentedByRuntime(publish, ctx, 'send_message_to_thread', parsed.data, () =>
+            sendAgentThreadMessage(ctx, parsed.data.threadId, parsed.data.prompt),
+          )
+        },
+        archive_thread: async (args) => {
+          const parsed = archive.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return answer(setAgentThreadArchived(ctx, parsed.data.threadId, parsed.data.archived))
+        },
+        stop_thread: async (args) => {
+          const parsed = stop.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return answer(stopAgentThread(ctx, parsed.data.threadId))
+        },
+        list_agent_runtimes: async (args) => {
+          const parsed = list.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return answer(listThreadRuntimes(ctx))
+        },
+        update_task: async (args) => {
+          const parsed = update.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+          const { taskId, ...changed } = parsed.data
+
+          return changeTask(taskId, changed)
+        },
+        update_thread: async (args) => {
+          const parsed = updateThreadAlias.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+          const { threadId, ...changed } = parsed.data
+
+          return changeTask(threadId, changed)
+        },
+        set_thread_parent: async (args) => {
+          const parsed = setParent.safeParse(args)
+
+          if (!parsed.success) return toolError(parsed.error.message)
+
+          return answer(setAgentThreadParent(ctx, parsed.data.threadId, parsed.data.parentThreadId))
+        },
+      }
+    },
   }
 }

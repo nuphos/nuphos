@@ -52,6 +52,8 @@ export const agentWordScenarios: Scenario[] = [
   {
     // Batch 3 of #3250: Settings describe Bots, tasks and runtimes.
     name: 'Settings pages never say agent',
+    // The e2e backend has no skills store, so the Skills page's list answers 503.
+    expected: /Skills store is not configured|skills_store_unconfigured/,
     run: async (page) => {
       const main = page.locator('main').last()
       const said: string[] = []
@@ -59,7 +61,10 @@ export const agentWordScenarios: Scenario[] = [
       for (const [settings, section, shot] of [
         ['Team settings', 'Instructions', 'agent-words-team-instructions'],
         ['User settings', 'Local runtime', 'agent-words-local-runtime'],
-        ['User settings', 'Personal Credentials', 'agent-words-personal-credentials'],
+        // Batch 5: the team's skills, memories and audit log.
+        ['Team settings', 'Skills', 'agent-words-team-skills'],
+        ['Team settings', 'Memories', 'agent-words-team-memories'],
+        ['Team settings', 'Audit log', 'agent-words-team-audit'],
       ]) {
         await page
           .getByRole('button', { name: /^Search/ })
@@ -69,7 +74,12 @@ export const agentWordScenarios: Scenario[] = [
         await page.getByRole('option', { name: settings }).first().click()
         await page.getByRole('searchbox', { name: 'Search settings' }).fill(section!)
         await page.keyboard.press('Enter')
-        await main.getByRole('heading').first().waitFor()
+        // Skills shows its name in a toolbar, not a heading.
+        await main
+          .getByRole('heading')
+          .or(main.getByText(section!, { exact: true }))
+          .first()
+          .waitFor()
         // The section loads its data after it opens; shoot it once it has settled.
         await page.waitForTimeout(1_500)
         await page.screenshot({ path: `${artifacts}/${shot!}.png` })

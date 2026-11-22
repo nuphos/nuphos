@@ -65,7 +65,7 @@ FROM common AS claude-code
 # Pin the SDK used by the adapter so the model picker lists current models and
 # retains the idle wakeup fixes introduced in SDK 0.3.238.
 # The committed lockfile is the integrity boundary for this build step.
-ARG CLAUDE_AGENT_SDK_VERSION=0.3.322
+ARG CLAUDE_AGENT_SDK_VERSION=0.3.330
 COPY claude-agent-acp/package.json claude-agent-acp/package-lock.json \
      claude-agent-acp/patch-adapter.mjs claude-agent-acp/session-state.mjs \
      claude-agent-acp/turn-completion.mjs claude-agent-acp/default-effort.mjs \
@@ -122,8 +122,10 @@ ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs antigravity" \
     OPENAB_RUNTIME_AUTH_COMMAND="node /opt/nuphos-runtime/antigravity-status-cli.mjs"
 
 FROM common AS opencode
+# OpenCode answers on its free models with no provider connected, so it is always signed in.
 ENV OPENAB_AGENT_COMMAND="node /opt/acp-shim.mjs opencode" \
     OPENAB_AGENT_AUTH_COMMAND="opencode providers login" \
+    OPENAB_RUNTIME_AUTH_COMMAND="echo true" \
     OPENAB_ADAPTER_VERSION="opencode@1.18.35" \
     NUPHOS_RUNTIME_PREINSTALL=opencode
 
@@ -251,7 +253,7 @@ ENV OPENAB_RUNTIME_LOGIN_COMMAND="${RUNTIME_LOGIN_COMMAND}" \
 # The one-shot commands `_openab/runtime/job` may run, as `name=argv`. The caller only
 # names a job; it never supplies argv. `tools` feeds the runtime console's tool list.
 # The timeout ceiling matches the backend's dashboard panel execution budget.
-ENV OPENAB_RUNTIME_JOBS="panel=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;tools=node /opt/nuphos-runtime/tools/nuphos-tools.mjs list --json" \
+ENV OPENAB_RUNTIME_JOBS="panel=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;session-homes-v2=node --max-old-space-size=512 /opt/nuphos-runtime/panel-job.mjs;tools=node /opt/nuphos-runtime/tools/nuphos-tools.mjs list --json" \
     OPENAB_RUNTIME_JOB_MAX_TIMEOUT_MS=300000
 
 # The volumes whose usage `_openab/runtime/state` reports to the operator.

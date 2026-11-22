@@ -144,6 +144,24 @@ struct RuntimeQuota: Decodable, Sendable {
         var leftPercent: Int { min(100, max(0, Int((100 - usedPercent).rounded(.down)))) }
     }
 
+    /// "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nil when the reset is
+    /// unknown or past. Every usage bar and usage-limit notice says it this way, as on Desktop.
+    static func resetsIn(_ date: Date?, now: Date = .now) -> String? {
+        guard let date, date > now else { return nil }
+        let total = Int((date.timeIntervalSince(now) / 60).rounded(.up))
+        let days = total / 1440, hours = total % 1440 / 60, minutes = total % 60
+        if days > 0 { return String(localized: "resets in \(days)d \(hours)h") }
+        if hours > 0 { return String(localized: "resets in \(hours)h \(minutes)m") }
+        return String(localized: "resets in \(minutes)m")
+    }
+
+    /// The widest a reset reads, under a day and past one, for a column that fits any of them.
+    static var widestResets: [String] {
+        let now = Date(timeIntervalSince1970: 0)
+        let minutes: [Double] = [1439, 43_140] // 23h 59m, 29d 23h
+        return minutes.compactMap { (minutes: Double) -> String? in resetsIn(now.addingTimeInterval(minutes * 60), now: now) }
+    }
+
     let runtimeId: String
     let available: Bool
     /// Why there are no figures, in the agent's own words.

@@ -7,6 +7,7 @@ import {
   currentSessionKey,
   selectCurrentBucket,
   selectMainPageTab,
+  selectScope,
   sessionKeyOf,
 } from './workspaceState.ts'
 
@@ -54,7 +55,12 @@ export type WorkspaceActions = {
   activateTab: (tabId: string) => void
   /** Mounts a conversation's tab without showing it, as a phone watching it needs its page. */
   mountTab: (sessionId: string, tabId: string) => void
-  openTeamTab: (teamId: string) => void
+  /**
+   * Goes to a team as the team switcher does, on a new chat, unless the app is in it already.
+   * A tab of that team in the open chat's dock would take the app back there whenever that chat
+   * is opened again (#4505).
+   */
+  enterTeam: (teamId: string) => void
   selectAdjacentTab: (direction: -1 | 1) => void
   selectTabAt: (position: number | 'last') => void
   mapTabs: (updater: TabUpdater) => void
@@ -144,7 +150,9 @@ export function createWorkspaceStore(
     activateTab: (tabId) => inCurrentSession({ type: 'activateTab', tabId }),
     mountTab: (sessionId, tabId) =>
       dispatch({ type: 'mountTab', sessionKey: sessionKeyOf(sessionId), tabId }),
-    openTeamTab: (teamId) => inCurrentSession({ type: 'openTeamTab', teamId }),
+    enterTeam: (teamId) => {
+      if (teamId !== selectScope(state)?.teamId) actions.switchTeam(teamId)
+    },
     selectAdjacentTab: (direction) => inCurrentSession({ type: 'selectAdjacentTab', direction }),
     selectTabAt: (position) => inCurrentSession({ type: 'selectTabAt', position }),
     mapTabs: (updater) => inCurrentSession({ type: 'mapTabs', updater }),

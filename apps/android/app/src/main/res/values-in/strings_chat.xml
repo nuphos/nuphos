@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d panggilan · Berjalan</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">Bekerja selama %1$d dtk · %2$d langkah</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">Mengerjakan %1$d langkah</item>
-    </plurals>
+    <string name="chat_work_duration">Bekerja selama %1$s</string>
+    <string name="chat_work">Selesai bekerja</string>
     <string name="chat_share_access_invited">Hanya orang yang diundang</string>
     <string name="chat_share_access_view">Tim dapat melihat</string>
     <string name="chat_share_access_reply">Tim dapat melihat dan membalas</string>
@@ -201,4 +197,16 @@
     <string name="chat_summary_running">Berjalan</string>
     <string name="chat_summary_open">Ringkasan agen</string>
     <string name="chat_summary_output_truncated">Keluaran sebelumnya disembunyikan.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Subtugas</string>
+    <string name="chat_summary_files">File</string>
+    <string name="chat_summary_triggers">Pemicu</string>
+    <string name="chat_summary_no_triggers">Minta agen menjadwalkan pekerjaan berulang dalam tugas ini.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Detail bot</string>
+    <string name="chat_bot_state_waiting">%1$d perlu masukan Anda</string>
+    <string name="chat_bot_state_running">%1$d berjalan</string>
+    <string name="chat_summary_idle_since">Menganggur · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
+    <string name="chat_summary_paused">Dijeda</string>
 </resources>

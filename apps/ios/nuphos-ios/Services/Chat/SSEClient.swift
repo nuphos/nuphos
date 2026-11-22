@@ -35,11 +35,13 @@ enum SSEClient {
 
     /// Opens `request` and streams its events. The stream ends when the
     /// server closes the connection; cancel the consuming task to abort.
+    /// `onOpen` hears when the server has accepted the stream, before any event.
     static func events(
         for request: URLRequest,
         idleTimeout: Duration = .seconds(45),
         frameTimeout: Duration = .seconds(40 * 60),
-        configuration: URLSessionConfiguration = .default
+        configuration: URLSessionConfiguration = .default,
+        onOpen: (@Sendable () -> Void)? = nil
     ) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             let activity = ActivityClock()
@@ -69,6 +71,7 @@ enum SSEClient {
                     guard contentType.contains("text/event-stream") else {
                         throw Failure.notEventStream(contentType)
                     }
+                    onOpen?()
 
                     var pending = SSEEvent(data: "")
                     var hasData = false

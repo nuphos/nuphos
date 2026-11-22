@@ -19,7 +19,10 @@ type Fake = {
   release?: () => void
 }
 
-function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: boolean } = {}) {
+function setup(
+  t: { after: (fn: () => void) => void },
+  options: { slowStart?: boolean; credentialStays?: boolean } = {},
+) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'nuphos-instance-lifecycle-'))
 
   t.after(() => rmSync(root, { recursive: true, force: true }))
@@ -76,6 +79,7 @@ function setup(t: { after: (fn: () => void) => void }, options: { slowStart?: bo
     {
       now: () => now,
       removeCredential: async (env) => {
+        if (options.credentialStays) throw new Error('The Keychain entry could not be deleted')
         removedCredentials.push(env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? '')
       },
     },
@@ -176,6 +180,21 @@ test('remove stops the agent and deletes its directory, Keychain entry and recor
   )
 })
 
+test('remove says so when the Keychain entry could not be deleted, and still deletes the directory', async (t) => {
+  const { instances, dirOf } = setup(t, { credentialStays: true })
+
+  await instances.load('alice')
+  const agent = claude()
+
+  await instances.request({ method: 'create', ...agent }, 'alice')
+  mkdirSync(path.join(dirOf(agent.instanceId), 'users', 'alice'), { recursive: true })
+  await assert.rejects(
+    instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice'),
+    /Keychain/u,
+  )
+  assert.equal(existsSync(dirOf(agent.instanceId)), false)
+})
+
 test('a pending sign-in left past its expiry is removed', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { instances, inventory, advance } = setup(t)
@@ -215,6 +234,15 @@ test('host start removes unfinished and signed-out legacy agents and keeps signe
       [ready.instanceId, 'ready'],
     ],
   )
+})
+
+test('host start still removes an unfinished agent whose Keychain entry could not be deleted', async (t) => {
+  const { root, instances, inventory } = setup(t, { credentialStays: true })
+  const pending = { ...claude(), state: 'pending' as const, createdAt: new Date().toISOString() }
+
+  writeInstances(path.join(root, 'users', 'alice'), [pending])
+  await instances.load('alice')
+  assert.deepEqual(inventory(), [])
 })
 
 test('a sign-in restarts only agents of its provider, so other turns keep running', async (t) => {

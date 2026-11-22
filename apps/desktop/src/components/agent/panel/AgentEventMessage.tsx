@@ -12,7 +12,7 @@ import { MessageResponse } from '../MessageResponse'
 
 import { AnsweredNotice } from './AnsweredNotice'
 import { DECISION_NOTICE, parseDecisionNotice } from './decisionNotice'
-import { Rule } from './TimelineEventLine'
+import { Rule } from './timelineParts'
 
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 import type { ReactNode } from 'react'
@@ -186,12 +186,14 @@ export function AgentEventMessage({
             <button
               type="button"
               onClick={() => onOpenNuphosLink(sessionUrl)}
-              className="min-w-0 truncate font-medium text-secondary hover:underline"
+              className="max-w-[40%] shrink-0 truncate font-medium text-secondary hover:underline"
             >
               {displayName}
             </button>
           ) : (
-            <span className="min-w-0 truncate font-medium text-secondary">{displayName}</span>
+            <span className="max-w-[40%] shrink-0 truncate font-medium text-secondary">
+              {displayName}
+            </span>
           )}
           <button
             type="button"

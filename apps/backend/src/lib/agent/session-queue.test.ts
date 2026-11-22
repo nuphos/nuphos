@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 import Redis from 'ioredis'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -8,10 +8,15 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
+import * as lifecycle from '@/lib/lifecycle'
+import { createAgentRun } from '@/routes/agent/run-registry'
+import { acceptAgentRun } from '@/routes/agent/turn-start-frame'
 
 import { startConversationTurn } from './conversation-turn'
+import { systemSender } from './message-metadata'
 import { startQueuedTurn } from './queued-turn'
 import {
   buildPendingUserMessage,
@@ -34,6 +39,8 @@ import {
   sessionReleased,
   sweepQueuedSessions,
 } from './session-released'
+import * as failedRuns from './trigger-failed-runs'
+import { TRIGGER_SENDER_PREFIX } from './trigger-missed-runs'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -79,7 +86,7 @@ useIdentity({
   getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null),
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async () => ({
     ...conversation,
     claudeCodePreview: {} as never,
@@ -178,13 +185,17 @@ test('the head of the queue is the oldest transcript message; an app send runs a
 
   expect(queueHead([slack, a, b, h, c], OWNER)).toEqual([a, b])
   expect(queueHead([h, a], OWNER)).toEqual([h])
-  // Agent messages batch only with the same sending session.
+  // Agent messages from different sending sessions run in one turn.
   const other = {
     ...agent('other'),
     metadata: { sender: { type: 'agent', id: 'other-session' } } as never,
   }
 
-  expect(queueHead([a, other, b], OWNER)).toEqual([a])
+  expect(queueHead([a, other, b], OWNER)).toEqual([a, other, b])
+  // A resource event runs in the same turn as agent messages.
+  const event = { ...agent('event'), source: 'agent.resource' }
+
+  expect(queueHead([a, event, b], OWNER)).toEqual([a, event, b])
   // An older client's steering message from a teammate is never a head.
   expect(queueHead([{ ...agent('t'), source: 'app', actorUserId: 'teammate' }], OWNER)).toEqual([])
 })
@@ -214,6 +225,30 @@ test('agent messages at the head run together; the person behind them goes next'
   ])
   expect(released).toBe(1)
   expect(await waiting()).toEqual(['h', 'c'])
+})
+
+test("a resource event, a Task's report and the owner's steering run in one turn", async () => {
+  const event = buildPendingUserMessage({
+    renderedText: 'event',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+  })
+  const steer = buildPendingUserMessage({
+    renderedText: 'steer',
+    source: 'app',
+    actorUserId: OWNER,
+  })
+
+  await queue(event, agent('report'), steer)
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(runs).toHaveLength(1)
+  expect(runs[0]?.messages.map((message) => message.parts)).toEqual([
+    [{ type: 'text', text: 'event' }],
+    [{ type: 'text', text: 'report' }],
+    [{ type: 'text', text: 'steer' }],
+  ])
+  expect(await waiting()).toEqual([])
 })
 
 test("a teammate's message runs with the teammate as its sender", async () => {
@@ -513,6 +548,27 @@ test('a runtime that has not reattached after the grace: the sender is told', as
   expect(launched).toHaveLength(0)
   expect(await waiting()).toEqual(['next'])
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('did not reconnect')
+})
+
+// #4006: a Trigger has no sender to tell, so a fire its computer never took is a missed run.
+test("a Trigger's fire that outwaits its computer's grace is recorded as a missed run", async () => {
+  const recorded = spyOn(failedRuns, 'recordFailedFires').mockResolvedValue()
+  const fire = buildPendingUserMessage({
+    renderedText: 'scheduled',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+    metadata: systemSender(`${TRIGGER_SENDER_PREFIX}6a0000000000000000000001`, 'Nightly', '/t'),
+  })
+
+  runtimeDetached = true
+  await queue({ ...fire, offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
+
+  expect(await waiting()).toEqual([])
+  expect(recorded).toHaveBeenCalledWith(expect.objectContaining({ code: 'runtime_offline' }), [
+    expect.objectContaining({ renderedText: 'scheduled' }),
+  ])
+  recorded.mockRestore()
 })
 
 test('two releases racing for one session start its head once', async () => {
@@ -889,6 +945,48 @@ test('a queued turn the runtime refuses after its check goes back to the front, 
   }
 })
 
+test('a queued turn that reaches a replica as it starts draining goes back to the queue and runs on another', async () => {
+  const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(true)
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, REFUSED)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      // The turn's run goes live as any trigger run's does (trigger-run-execute.ts).
+      acceptAgentRun(createAgentRun(OWNER, REFUSED, `stream-${String(runs.length)}`), args.messages)
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const fire = agent('scheduled fire')
+
+    await enqueuePendingUserMessage(OWNER, REFUSED, fire)
+    await startQueuedTurn(OWNER, REFUSED)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // Rejected by the draining replica: not lost, back at the head, and not run there.
+    expect(runs).toHaveLength(1)
+    expect((await listPendingUserMessages(OWNER, REFUSED)).map((message) => message.id)).toEqual([
+      fire.id,
+    ])
+
+    // A replica that is not draining picks the queue up and runs it once.
+    draining.mockReturnValue(false)
+    await new Promise((resolve) => setTimeout(resolve, 2_200))
+    expect(runs.map((run) => run.messages.at(-1)?.id)).toEqual([fire.id, fire.id])
+    expect(await listPendingUserMessages(OWNER, REFUSED)).toEqual([])
+  } finally {
+    draining.mockRestore()
+    await clearPendingUserMessages(OWNER, REFUSED)
+  }
+})
+
 test('a queued turn refused again and again waits minutes, on every replica, before rereading its history', async () => {
   installQueuedTurnStarter(startQueuedTurn)
   installTurnRunner({
@@ -951,6 +1049,58 @@ test('a release starts a queue waiting out refusals at once, since the runtime i
     sessionReleased(OWNER, session)
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(runs).toHaveLength(2)
+    expect(await listPendingUserMessages(OWNER, session)).toEqual([])
+  } finally {
+    await clearPendingUserMessages(OWNER, session)
+  }
+}, 10_000)
+
+test('a queued turn whose agent is out of usage keeps the queue, and it runs once the agent can', async () => {
+  const session = 'usage-limit-session'
+  let limited = true
+
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, session)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (limited)
+        throw new OpenAbRpcError(
+          "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8:10am (UTC)",
+          -32603,
+        )
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const sent = [agent('first'), agent('second'), agent('third')]
+
+    for (const message of sent) await enqueuePendingUserMessage(OWNER, session, message)
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // One try, and nothing is dropped or reported as not run.
+    expect(runs).toHaveLength(1)
+    expect(runs[0]?.waitsOutUsage).toBe(true)
+    expect(kept).toEqual([])
+    expect((await listPendingUserMessages(OWNER, session)).map((message) => message.id)).toEqual(
+      sent.map((message) => message.id),
+    )
+
+    // Moved to an agent with usage left: the queue runs, once.
+    limited = false
+    await new Promise((resolve) => setTimeout(resolve, 2_200))
+    expect(
+      runs
+        .at(-1)
+        ?.messages.slice(-3)
+        .map((message) => message.id),
+    ).toEqual(sent.map((message) => message.id))
     expect(await listPendingUserMessages(OWNER, session)).toEqual([])
   } finally {
     await clearPendingUserMessages(OWNER, session)

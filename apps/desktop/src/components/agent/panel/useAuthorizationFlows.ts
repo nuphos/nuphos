@@ -1,10 +1,7 @@
 import { useCallback, useMemo } from 'react'
 
-import { api } from '../../../api'
 import { getActiveDiagramId } from '../../../architecture/activeDiagram'
-import { t } from '../../../i18n/index.ts'
-import { track, trackError } from '../../../lib/analytics'
-import { toast } from '../../ui/toast'
+import { trackError } from '../../../lib/analytics'
 
 import { runDecideAuthorization } from './authorizationDecide'
 import { newAgentStreamId } from './stall'
@@ -21,7 +18,6 @@ type Acc = Pick<
   | 'activeTab'
   | 'credentialAccessRef'
   | 'kubeContextRef'
-  | 'sendInActive'
   | 'sendableCredentialAccess'
   | 'setTabs'
   | 'tabsRef'
@@ -36,7 +32,6 @@ export function useAuthorizationFlows(acc: Acc) {
     activeTab,
     credentialAccessRef,
     kubeContextRef,
-    sendInActive,
     sendableCredentialAccess,
     setTabs,
     tabsRef,
@@ -44,38 +39,6 @@ export function useAuthorizationFlows(acc: Acc) {
     urlRef,
   } = acc
 
-  // Shared reject / request-changes handler for the inline card and the side
-  // pane. `revise` keeps the plan `proposed` so the agent's revision tools
-  // (which only edit a proposed plan) still work — only a hard `delete` marks
-  // it rejected. `label` is how the plan is named in the synthetic message.
-  const handleRejectPlan = useCallback(
-    async (planId: string, reason: string, mode: 'revise' | 'delete', label: string) => {
-      if (activeTab?.readOnly) return
-      const trimmed = reason.trim()
-
-      if (mode === 'delete') {
-        track('agent_plan_rejected', { mode, plan_id: planId })
-        // Hard reject: the backend tells the agent to discard the plan.
-        await api.agentUpdatePlan(planId, { status: 'rejected' }, teamId).catch((err: unknown) => {
-          console.warn('[plan] failed to mark rejected', err)
-          toast.apiError(t('Could not reject plan'), err)
-        })
-      } else {
-        // `has_reason` rather than the reason itself: plan feedback is free text
-        // about a customer's infrastructure and must not leave the app.
-        track('agent_plan_changes_requested', { plan_id: planId, has_reason: trimmed.length > 0 })
-        // Request changes — leave the plan `proposed` so the agent can revise
-        // it in place; just send the feedback.
-        sendInActive(
-          trimmed
-            ? `Requested changes to ${label}. ${trimmed}`
-            : `Requested changes to ${label} — please revise the approach.`,
-          [],
-        )
-      }
-    },
-    [activeTab, teamId, sendInActive],
-  )
   const decideAuthorization = useCallback(
     (toolCallId: string, decision: AuthorizationDecisionAction) =>
       runDecideAuthorization(
@@ -202,7 +165,6 @@ export function useAuthorizationFlows(acc: Acc) {
   )
 
   return {
-    handleRejectPlan,
     decideAuthorization,
     resumePermissionTurn,
     authorizationContextValue,

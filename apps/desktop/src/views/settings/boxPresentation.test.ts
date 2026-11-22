@@ -18,6 +18,7 @@ import {
   agentNameTaken,
   defaultAgentName,
   machineLine,
+  boxSetupFailed,
   vanishedBoxes,
 } from './boxPresentation.ts'
 import { removal } from './removalPresentation.ts'
@@ -157,7 +158,6 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
   assert.deepEqual(boxSizeChoices([medium, large]), [
     {
       vcpus: 4,
-      tier: 1,
       name: 'Medium',
       spec: '4 vCPU · 8 GiB',
       use: 'Everyday work',
@@ -165,7 +165,6 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
     },
     {
       vcpus: 8,
-      tier: 2,
       name: 'Large',
       spec: '8 vCPU · 16 GiB',
       use: 'Heavy builds',
@@ -173,18 +172,21 @@ test('sizes are named by vCPU, not position, and say how many agents they hold',
     },
   ])
   assert.deepEqual(
-    boxSizeChoices([small, medium, large]).map((c) => [c.name, c.tier, c.sessions]),
+    boxSizeChoices([small, medium, large]).map((c) => [c.name, c.sessions]),
     [
-      ['Small', 0, 'Up to 1 task at once'],
-      ['Medium', 1, 'Up to 3 tasks at once'],
-      ['Large', 2, 'Up to 8 tasks at once'],
+      ['Small', 'Up to 1 task at once'],
+      ['Medium', 'Up to 3 tasks at once'],
+      ['Large', 'Up to 8 tasks at once'],
     ],
   )
-  // The edges: 2 is still Small, 6 still Medium, 7 already Large.
+  // The edges: 2 is still Small, 6 still Medium, 7 already Large, 8 still Large, 16 Extra large.
   assert.deepEqual(
-    boxSizeChoices([2, 3, 6, 7].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map((c) => c.name),
-    ['Small', 'Medium', 'Medium', 'Large'],
+    boxSizeChoices([2, 3, 6, 7, 8, 16].map((vcpus) => ({ vcpus, memMiB: 8192 }))).map(
+      (c) => c.name,
+    ),
+    ['Small', 'Medium', 'Medium', 'Large', 'Large', 'Extra large'],
   )
+  assert.equal(boxSizeChoices([{ vcpus: 16, memMiB: 32768 }])[0].sessions, 'Up to 17 tasks at once')
   assert.equal(boxSessions(4096), 1)
 })
 
@@ -289,4 +291,11 @@ test('only a manager sees who may use a Box', () => {
 
 test('boxSizeChoices says "1 agent", not "1 agents"', () => {
   assert.equal(boxSizeChoices([{ vcpus: 2, memMiB: 4096 }])[0]?.sessions, 'Up to 1 task at once')
+})
+
+test('a Box that could not be made tells its owner to create it again (#4146)', () => {
+  assert.deepEqual(boxSetupFailed('Dev Box'), {
+    title: 'Computer setup failed',
+    description: 'Dev Box could not start and was removed. Try creating it again.',
+  })
 })

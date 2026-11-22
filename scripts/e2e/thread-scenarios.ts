@@ -1,6 +1,7 @@
 // Scenarios about the threads a Task starts: the cards it shows for them and the model they start on.
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
-import { until } from './processes.ts'
+import { listedConversations } from './channel-helpers.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -60,7 +61,6 @@ export const threadScenarios: Scenario[] = [
       await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
       await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
@@ -78,6 +78,53 @@ export const threadScenarios: Scenario[] = [
           `The thread's session was not created on its parent's model: ${JSON.stringify(session)}`,
         )
       }
+    },
+  },
+  {
+    // #3503: update_task on itself changes only the next turn; the reply making the pick keeps its model.
+    name: 'a Task picks its own model with update_task, and its next turn runs on it',
+    run: async (page, stack) => {
+      const turn = (marker: string) =>
+        agentLog(stack).find((entry) => entry.event === 'start' && entry.marker === marker)
+
+      // In the Task the scenario before left open: a new Task would take one more of the
+      // agent host's four sessions, and the thread a later scenario starts gets none.
+      await send(page, 'Pick your own model E2E_DELIVERY:self-start')
+      await page.getByText('ACK E2E_DELIVERY:self-start').waitFor()
+      const task = (await listedConversations(stack)).find((row) =>
+        row.title?.includes('Before the pick'),
+      )
+      // Pick whichever model the Task is not on.
+      const before = turn('E2E_DELIVERY:self-start')?.model
+      const pick = before === 'fixture-small' ? 'fixture' : 'fixture-small'
+      const args = JSON.stringify({ label: 'Change model', taskId: task?.sessionId, model: pick })
+
+      await send(page, `Switch E2E_CALL update_task ${args} E2E_DELIVERY:self-pick`)
+      await until('the picking turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:self-pick'),
+      )
+      const log = agentLog(stack)
+      const picking = turn('E2E_DELIVERY:self-pick')
+      const called = log.find((entry) => entry.event === 'called' && entry.name === 'update_task')
+      const during = log
+        .slice(log.indexOf(picking!))
+        .filter((entry) => entry.event === 'setting' && entry.sessionId === picking?.sessionId)
+
+      if (!JSON.stringify(called?.result).includes('next_turn'))
+        throw new Error(`update_task did not take the pick: ${JSON.stringify(called)}`)
+      if (picking?.model !== before)
+        throw new Error(
+          `The picking reply did not run on ${String(before)}: ${JSON.stringify(picking)}`,
+        )
+      if (during.length > 0)
+        throw new Error(`The reply making the pick changed model: ${JSON.stringify(during)}`)
+      await send(page, 'And now? E2E_DELIVERY:self-next')
+      await page.getByText('ACK E2E_DELIVERY:self-next').waitFor()
+      const next = turn('E2E_DELIVERY:self-next')
+
+      if (next?.model !== pick)
+        throw new Error(`The next turn did not run on ${pick}: ${JSON.stringify(next)}`)
+      await page.screenshot({ path: `${artifacts}/task-own-model.png` })
     },
   },
 ]
@@ -100,7 +147,7 @@ export const threadModeScenario: Scenario = {
       has('permission-allow E2E_DELIVERY:thread'),
     )
     await page.getByRole('button', { name: 'Authorization mode' }).click()
-    await page.getByText('Auto Mode', { exact: true }).click()
+    await page.getByRole('menuitem', { name: /^Auto Mode/ }).click()
     await send(page, 'Message the thread E2E_POKE E2E_DELIVERY:poke')
     await page.getByText('ACK E2E_DELIVERY:poke').waitFor()
     await until('the thread to ask for its command', async () =>

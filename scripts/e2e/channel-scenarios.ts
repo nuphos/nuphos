@@ -4,11 +4,18 @@ import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
-import { computerWithUsage, loadingFree, pickRuntime, shootRuntimeLine } from './channel-helpers.ts'
+import {
+  computerWithUsage,
+  loadingFree,
+  pickRuntime,
+  shootChipResets,
+  shootRuntimeLine,
+  shootUsageResets,
+} from './channel-helpers.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -60,7 +67,7 @@ export const channelScenarios: Scenario[] = [
       for (let n = 0; n < 51; n++) await post(`Burst ${String(n)}`)
       await post('The newest E2E_DELIVERY:newest')
       // The Bot posts only once it has read on, so any repeat is logged by now.
-      await page.getByText('POSTED E2E_DELIVERY:newest', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:newest').waitFor()
       const repeats = agentLog(stack).filter((entry) => entry.event === 'channel-repeat')
 
       if (repeats.length > 0) {
@@ -71,10 +78,35 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
+    // #3702: a Bot answers one post with replyTo, and its answer quotes that post.
+    name: "a Bot's answer to one post quotes it",
+    run: async (page, stack) => {
+      const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
+
+      if (!channelId) throw new Error('The Bot has not answered in its chat yet')
+      const response = await fetch(
+        `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
+        {
+          method: 'POST',
+          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            teamId: stack.teamId,
+            text: 'Which regions are down? E2E_REPLY_TO E2E_DELIVERY:reply',
+          }),
+        },
+      )
+
+      if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:reply').waitFor()
+      // The quote above the answer is a button titled with the post it answers.
+      await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
+    },
+  },
+  {
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
-      const posts = page.locator('[data-post-id]')
+      const posts = page.locator('[data-post-id]:visible')
 
       await posts.first().waitFor()
       await page.evaluate(() => {
@@ -112,7 +144,7 @@ export const channelScenarios: Scenario[] = [
 
       try {
         await send(page, 'Post twice E2E_TWO_POSTS E2E_DELIVERY:two')
-        await page.getByText('POSTED E2E_DELIVERY:two', { exact: true }).waitFor()
+        await transcriptPost(page, 'POSTED E2E_DELIVERY:two').waitFor()
         // Still in its turn: the row has the dots exactly while the chat types.
         await row.locator('.t-typing-dot').first().waitFor()
         await page.getByRole('status', { name: 'E2E Bot is thinking' }).waitFor()
@@ -165,7 +197,11 @@ export const channelScenarios: Scenario[] = [
         await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
         await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
         await page.getByText('Message E2E Scout', { exact: true }).waitFor()
-        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page
+          .locator('[data-post-id]:visible')
+          .filter({ hasText: 'E2E Scout' })
+          .first()
+          .waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
@@ -189,31 +225,6 @@ export const channelScenarios: Scenario[] = [
   },
   ...botAccessScenarios,
   {
-    // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
-    // with the sidebar left on the Inbox.
-    name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
-    run: async (page, stack) => {
-      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
-      await page.getByText('POSTED E2E_DELIVERY:inbox-bot', { exact: true }).waitFor()
-      await page.getByRole('tab', { name: /^Inbox/ }).click()
-      const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
-
-      await source.waitFor()
-      await page.screenshot({ path: `${artifacts}/inbox-bot-source-light.png` })
-      await source.click()
-      // The Bot's chat, not its own session: only the chat's composer is headed by its name.
-      await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
-      await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
-      // The sidebar slides over to Bots; shoot it once it has.
-      await page.waitForTimeout(1_000)
-      await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
-      await until('the answer in the Bot chat to reach the Bot', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-      )
-    },
-  },
-  {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
@@ -231,8 +242,12 @@ export const channelScenarios: Scenario[] = [
         await pickRuntime(page, computer, /^Claude Code/)
         const task = await shootRuntimeLine(page, 'task')
 
+        // #3732: the chip names when its tightest window, the 5-hour one, resets.
+        await shootChipResets(page)
+
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+        await shootUsageResets(page, computer)
       } finally {
         forget()
       }

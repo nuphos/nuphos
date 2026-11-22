@@ -1,5 +1,6 @@
 // #3470: a question says when the agent last rewrote it, and leaves when the thread it is about is archived.
 import { client, must } from './binding-access-scenarios.ts'
+import { busyAnswerScenarios } from './busy-answer-scenarios.ts'
 import { calledTool } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -97,4 +98,5 @@ export const staleQuestionScenarios: Scenario[] = [
       )
     },
   },
+  ...busyAnswerScenarios,
 ]

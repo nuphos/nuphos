@@ -41,3 +41,129 @@ test("a Bot's post is headed by its name alone, never an Agent tag", () => {
   assert.match(markup, />Scribe</)
   assert.doesNotMatch(markup, />Agent</)
 })
+
+const answer = (viewerId: string, answeredInInbox: boolean) =>
+  renderToStaticMarkup(
+    <ChannelMessage
+      message={
+        {
+          id: 'm2',
+          role: 'user',
+          parts: [{ type: 'text', text: 'us-east' }],
+          createdAt: '2026-11-18T09:00:00Z',
+          metadata: {
+            version: 1,
+            sender: { type: 'user', id: 'u1', displayName: 'Mei' },
+            source: 'nuphos',
+            sentAt: '2026-11-18T09:00:00Z',
+            replyTo: { authorName: 'Scribe', text: 'Which regions?' },
+            answeredIn: 'inbox',
+            requestId: 'q1',
+          },
+        } as unknown as AgentPersistedMessage
+      }
+      at={0}
+      first
+      fresh={false}
+      ownAgent={false}
+      viewerId={viewerId}
+      teamId="t"
+      links={{ channelId: 'c', renderLink: (_, children) => children }}
+      onOpenSession={() => {}}
+      answeredInInbox={answeredInInbox}
+    />,
+  )
+
+test('a reply quotes its post inside its own bubble, above the words', () => {
+  for (const [viewer, bubble, tint] of [
+    ['u1', 'user-message-bubble', 'bg-white/15'],
+    ['someone-else', 'bg-state-selected', 'bg-black/5'],
+  ] as const) {
+    const markup = answer(viewer, false)
+    const inBubble = markup.slice(markup.indexOf(bubble))
+
+    assert.ok(inBubble.indexOf('Which regions?') >= 0, viewer)
+    assert.ok(inBubble.indexOf('Which regions?') < inBubble.indexOf('us-east'), viewer)
+    assert.ok(inBubble.includes(tint), viewer)
+    assert.ok(inBubble.includes('line-clamp-2'), viewer)
+  }
+})
+
+test('only the last post of an Inbox answer says where it was answered', () => {
+  assert.ok(answer('u1', true).includes('Answered in Inbox'))
+  assert.ok(!answer('u1', false).includes('Answered in Inbox'))
+})
+
+test("a teammate's bubble is filled like a Bot's, not outlined", () => {
+  const render = (message: AgentPersistedMessage) =>
+    renderToStaticMarkup(
+      <ChannelMessage
+        message={message}
+        at={0}
+        first
+        fresh={false}
+        ownAgent={false}
+        viewerId="viewer"
+        teamId="t"
+        links={{ channelId: 'c', renderLink: (_, children) => children }}
+        onOpenSession={() => {}}
+      />,
+    )
+  const bubbleClass = (markup: string) => markup.match(/class="([^"]*rounded-tl-md[^"]*)"/)?.[1]
+  const teammate = {
+    ...botPost,
+    metadata: {
+      ...botPost.metadata,
+      sender: { type: 'user', id: 'u2', displayName: 'Mei' },
+      source: 'nuphos',
+      sourceSessionId: undefined,
+    },
+  } as unknown as AgentPersistedMessage
+
+  assert.ok(bubbleClass(render(botPost))?.includes('bg-state-selected'))
+  assert.equal(bubbleClass(render(teammate)), bubbleClass(render(botPost)))
+})
+
+const mentioning = (text: string, mentions?: { id: string; displayName: string }[]) =>
+  renderToStaticMarkup(
+    <ChannelMessage
+      message={
+        {
+          id: 'm3',
+          role: 'user',
+          parts: [{ type: 'text', text }],
+          createdAt: '2026-11-18T09:00:00Z',
+          metadata: {
+            version: 1,
+            sender: { type: 'user', id: 'u1', displayName: 'Mei' },
+            source: 'nuphos',
+            sentAt: '2026-11-18T09:00:00Z',
+            mentions,
+          },
+        } as unknown as AgentPersistedMessage
+      }
+      at={0}
+      first
+      fresh={false}
+      ownAgent={false}
+      viewerId="viewer"
+      teamId="t"
+      links={{
+        channelId: 'c',
+        renderLink: (href, children) => <a href={href}>{children}</a>,
+        agentMentions: [{ id: 'agent:bot-1', displayName: '測試助手' }],
+      }}
+      onOpenSession={() => {}}
+    />,
+  )
+
+test("a post addressing the chat's agent links its @Name as that agent", () => {
+  assert.match(mentioning('@測試助手 say hello'), /href="#mention:agent%3Abot-1"/)
+})
+
+test('a person keeps a name the chat’s agent shares', () => {
+  const markup = mentioning('@測試助手 hi', [{ id: 'u2', displayName: '測試助手' }])
+
+  assert.match(markup, /href="#mention:u2"/)
+  assert.doesNotMatch(markup, /agent%3A/)
+})

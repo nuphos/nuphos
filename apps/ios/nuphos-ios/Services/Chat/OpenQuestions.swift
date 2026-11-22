@@ -31,26 +31,6 @@ final class OpenQuestions {
 
     /// The question open beside the list, or pushed over it on iPhone.
     var selected: String?
-    /// The Inbox's last reply, not sent yet so it can be undone.
-    private var held: (token: UUID, question: BotQuestion, reply: Reply)?
-    /// What that reply was, for its toast while it can be undone: the options chosen or the words,
-    /// else (a form) the question; or that it was dismissed.
-    var toast: String? {
-        guard let held else { return nil }
-        switch held.reply {
-        case .answer(let answer):
-            let answered = answer.choices?.joined(separator: ", ") ?? answer.text ?? held.question.request.question
-            return String(localized: "Answered “\(answered)”")
-        case .dismiss: return String(localized: "Dismissed")
-        }
-    }
-
-    /// An Inbox reply: an answer, or a dismissal with the reason for the agent, if any.
-    enum Reply {
-        case answer(DecisionAnswer)
-        case dismiss(reason: String?)
-    }
-
     /// The Inbox's list by the conversation that asked.
     var groups: [[BotQuestion]] { BotQuestions.grouped(waiting) }
 
@@ -135,11 +115,17 @@ final class OpenQuestions {
 
     /// Answers a question: the server wakes the agent that asked with the answer, and no
     /// message is sent. Hidden at once; if the answer is refused, the question comes back with why.
-    func answer(_ question: BotQuestion, with answer: DecisionAnswer) async {
+    /// `inInbox` tells the server it was given in the Inbox, which the chat's record of it says (#3548).
+    func answer(_ question: BotQuestion, with answer: DecisionAnswer, inInbox: Bool = false) async {
+        var body = answer.json
+        if inInbox, case .object(var fields) = body {
+            fields["answeredIn"] = .string("inbox")
+            body = .object(fields)
+        }
         await close(question) {
             _ = try await AgentChatAPI.send(
                 "POST", "agent/conversations/\(question.sessionId)/decisions/\(question.request.id)/answer",
-                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: answer.json)
+                query: [URLQueryItem(name: "teamId", value: self.teamId)], token: self.token, body: body)
         }
     }
 
@@ -169,7 +155,9 @@ final class OpenQuestions {
         await refresh()
     }
 
+    /// Hides the question and, in the Inbox, opens the next one, then sends the reply.
     private func close(_ question: BotQuestion, _ request: () async throws -> Void) async {
+        if selected == question.id { selected = next(after: question.id) }
         answered.insert(question.id)
         failures[question.id] = nil
         do {
@@ -179,39 +167,6 @@ final class OpenQuestions {
             failures[question.id] = error.localizedDescription
             // Back to it, with why, unless another question is open by now.
             if selected == nil { selected = question.id }
-        }
-    }
-
-    /// The Inbox's reply: the question leaves and the next one opens at once, but the reply is
-    /// sent only after five seconds, so Undo can take it back. The one held before goes now.
-    func hold(_ question: BotQuestion, with reply: Reply) async {
-        await sendHeld()
-        if selected == question.id { selected = next(after: question.id) }
-        answered.insert(question.id)
-        failures[question.id] = nil
-        let token = UUID()
-        held = (token, question, reply)
-        Task {
-            try? await Task.sleep(for: .seconds(5))
-            if held?.token == token { await sendHeld() }
-        }
-    }
-
-    /// Takes the held reply back: nothing is sent, and its question is open again.
-    func undo() {
-        guard let held else { return }
-        self.held = nil
-        answered.remove(held.question.id)
-        selected = held.question.id
-    }
-
-    /// Sends the held reply now: when the five seconds are up, or the Inbox is left.
-    func sendHeld() async {
-        guard let held else { return }
-        self.held = nil
-        switch held.reply {
-        case .answer(let answer): await self.answer(held.question, with: answer)
-        case .dismiss(let reason): await dismiss(held.question, reason: reason)
         }
     }
 }

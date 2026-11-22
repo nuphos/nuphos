@@ -3,8 +3,12 @@ import { db } from '@/lib/db'
 import type { EncryptedSecret } from '@/lib/byos/secrets/shared'
 import type { Collection, ObjectId } from 'mongodb'
 
-export type PersonalCredentialProvider =
-  'github' | 'linear' | 'gmail' | 'google-drive' | 'google-calendar'
+import type { PersonalCredentialProvider } from './personal-credential-providers'
+
+export {
+  PERSONAL_CREDENTIAL_PROVIDERS,
+  type PersonalCredentialProvider,
+} from './personal-credential-providers'
 
 /**
  * A member's own GitHub (user-to-server), Linear (actor=user) or Google OAuth

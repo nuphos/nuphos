@@ -2,27 +2,27 @@ import MarkdownView
 import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
-/// question and its markdown body, then its answers. On iPhone the options are
-/// full-width buttons pinned to the bottom with "Other…", "Snooze" and "Dismiss" outlined
-/// below; wide, a row of capsules with an outlined "Snooze" and "Dismiss" at its end. A form, an
-/// integration question and a plan keep their own controls, with Snooze and Dismiss under them. A
-/// secret is asked for with the task's own `SecretCard`, which says the question itself. Snooze sets
-/// it aside until one of its times; Dismiss asks for an optional reason for the agent.
+/// question and its markdown body, then its answers: `QuestionOptions`, the options,
+/// "Other…", "Snooze" and "Dismiss" one row of the same pill, pinned to the bottom on iPhone for
+/// one question; a secret or an integration question keeps its own controls, Snooze and Dismiss
+/// under them. Snooze sets it aside until one of its times; Dismiss asks for an optional reason. An integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
+/// which says the question itself.
 struct InboxQuestionView: View {
     let inbox: OpenQuestions
     let question: BotQuestion
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
-
-    /// "Other…" was tapped: the text box and its send button show.
-    @State private var typing = false
-    @State private var words = ""
     /// "Dismiss" was tapped: the reason box and its Dismiss show.
     @State private var dismissing = false
     @State private var reason = ""
     @FocusState private var focused: Bool
 
+
     private var wide: Bool { sizeClass == .regular }
+
+    /// On iPhone one question's options, single- or multi-select, sit at the bottom under the
+    /// question; several questions scroll with it, as they may not fit there.
+    private var pinned: Bool { question.choices?.count == 1 }
 
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
@@ -45,7 +45,7 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || question.options == nil { answers.padding(.top, 24) }
+                if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
@@ -67,28 +67,13 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, question.options != nil {
+            if !wide, pinned {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
                     .background(Theme.canvas)
-                    // Floats 12 above the options.
-                    .overlay(alignment: .top) { InboxToast(inbox: inbox).alignmentGuide(.top) { $0[.bottom] + 12 } }
             }
         }
-        .overlay(alignment: .bottom) {
-            // 32 from the screen's bottom edge, not the home indicator's.
-            // Centred on the question's text, inside its margins.
-            if wide {
-                InboxToast(inbox: inbox)
-                    .padding(.leading, margins.leading)
-                    .padding(.trailing, margins.trailing)
-                    .padding(.bottom, 32)
-                    .ignoresSafeArea(.container, edges: .bottom)
-            }
-        }
-        .animation(.snappy, value: inbox.toast)
-        .animation(.snappy, value: typing)
         .animation(.snappy, value: dismissing)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -125,41 +110,10 @@ struct InboxQuestionView: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let form = question.form {
-            DecisionForm(questions: form) { answer($0) }
-            HStack(spacing: 10) { Spacer(); setAside }.padding(.top, 12)
-            if dismissing { reasonField }
-        } else if let options = question.options {
-            VStack(alignment: .leading, spacing: 10) {
-                if wide {
-                    HStack(spacing: 10) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                                    InboxOption(title: option, primary: index == 0, height: 40, size: 15) {
-                                        answer(DecisionAnswer(choices: [option]))
-                                    }
-                                }
-                                if question.typed, !options.isEmpty { otherButton }
-                            }
-                        }
-                        .scrollClipDisabled()
-                        setAside
-                    }
-                } else {
-                    ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                        InboxOption(title: option, primary: index == 0, height: 50, size: 16, fill: true) {
-                            answer(DecisionAnswer(choices: [option]))
-                        }
-                    }
-                    // Thirds, or halves when there is no Other….
-                    HStack(spacing: 10) {
-                        if question.typed, !options.isEmpty { otherButton }
-                        setAside
-                    }
-                }
-                if dismissing { reasonField } else if typing || (options.isEmpty && question.typed) { field }
-            }
+        if let choices = question.choices {
+            QuestionOptions(questions: choices, typed: question.typed, onSubmit: { answer($0) },
+                            closesWords: dismissing, onWords: { if $0 { dismissing = false } }) { setAside }
+            if dismissing { reasonField.padding(.top, 10) }
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 if let part = question.secretPart {
@@ -168,46 +122,28 @@ struct InboxQuestionView: View {
                 } else if question.connectable {
                     QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
                 }
-                HStack(spacing: 10) {
-                    if wide { Spacer() }
-                    setAside
-                }
-                .padding(.top, 12)
+                FlowLayout(spacing: 8) { setAside }.padding(.top, 12)
                 if dismissing { reasonField.padding(.top, 10) }
             }
         }
     }
 
-    /// "Other…": the text box and its send button, or put away again.
-    private func other() {
-        typing.toggle()
-        dismissing = false
-        focused = typing
-    }
-
-    private var field: some View {
-        AnswerField(words: $words, focused: $focused, send: sendWords)
-            .padding(.horizontal, wide ? 0 : -4)
-    }
-
-    private var otherButton: some View {
-        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
-    }
-
-    /// Snooze, a menu of its times, and Dismiss, which asks for the reason first.
-    @ViewBuilder private var setAside: some View {
-        Menu {
-            ForEach(Snooze.times(from: .now), id: \.self) { time in
-                Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+    /// Snooze, a menu of its times, and Dismiss, which asks for the reason first: the same pill as the options.
+    private var setAside: some View {
+        // Side by side, wrapping as one, so the two stay a pair.
+        HStack(spacing: 8) {
+            Menu {
+                ForEach(Snooze.times(from: .now), id: \.self) { time in
+                    Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+                }
+            } label: {
+                QuestionPillLabel(title: String(localized: "Snooze"))
             }
-        } label: {
-            InboxOutline(title: String(localized: "Snooze"), fill: !wide)
-        }
-        .buttonStyle(.plain)
-        InboxOutlineButton(title: String(localized: "Dismiss"), fill: !wide, toggled: dismissing) {
-            dismissing.toggle()
-            typing = false
-            focused = dismissing
+            .buttonStyle(.plain)
+            QuestionPill(title: String(localized: "Dismiss"), on: dismissing) {
+                dismissing.toggle()
+                focused = dismissing
+            }
         }
     }
 
@@ -215,7 +151,7 @@ struct InboxQuestionView: View {
         AnswerField(words: $reason, focused: $focused, prompt: "Reason (optional)",
                     sendLabel: "Dismiss question", optional: true) {
             focused = false
-            Task { await inbox.hold(question, with: .dismiss(reason: Snooze.reason(reason))) }
+            Task { await inbox.dismiss(question, reason: Snooze.reason(reason)) }
         }
         .padding(.horizontal, wide ? 0 : -4)
         // As Desktop's field, it takes no more than the server keeps.
@@ -224,15 +160,9 @@ struct InboxQuestionView: View {
         }
     }
 
-    private func sendWords() {
-        let text = words.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        answer(DecisionAnswer(text: text))
-    }
-
     private func answer(_ answer: DecisionAnswer) {
         focused = false
-        Task { await inbox.hold(question, with: .answer(answer)) }
+        Task { await inbox.answer(question, with: answer, inInbox: true) }
     }
 
     /// Nuphos pages open in the app, as a conversation's links do; anything else leaves.
@@ -241,7 +171,7 @@ struct InboxQuestionView: View {
     }
 }
 
-/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest light.
+/// An action as a capsule, as a connect question's: dark when `primary`, light otherwise.
 struct InboxOption: View {
     let title: String
     let primary: Bool
@@ -262,42 +192,6 @@ struct InboxOption: View {
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-    }
-}
-
-/// Other…, Snooze and Dismiss: an outlined capsule, filled light instead while toggled. A share of
-/// the row on iPhone at 44pt; wide, as wide as its title at 40pt.
-struct InboxOutlineButton: View {
-    let title: String
-    let fill: Bool
-    var toggled = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) { InboxOutline(title: title, fill: fill, toggled: toggled) }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(toggled ? .isSelected : [])
-    }
-}
-
-/// The outlined capsule itself, for a button or a menu's label.
-struct InboxOutline: View {
-    let title: String
-    let fill: Bool
-    var toggled = false
-    @Environment(\.isEnabled) private var enabled
-
-    var body: some View {
-        Text(title)
-            .font(.system(size: 15, weight: .semibold))
-            .lineLimit(1)
-            .foregroundStyle(Theme.heading)
-            .padding(.horizontal, 14)
-            .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
-            .background(toggled ? Theme.control : .clear, in: Capsule())
-            .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
-            .contentShape(Capsule())
-            .opacity(enabled ? 1 : 0.4)
     }
 }
 

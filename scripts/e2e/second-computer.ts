@@ -22,6 +22,15 @@ export async function startSecondComputer(
     apiUrl = stack.apiUrl,
     runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
     stagedUpdate = '',
+    env: extra = {},
+    prepare,
+  }: {
+    apiUrl?: string
+    runtimeDir?: string
+    stagedUpdate?: string
+    env?: Record<string, string>
+    /** Runs on the computer's home and its agent home before the host starts. */
+    prepare?: (home: string, agentHome: string) => void
   } = {},
 ) {
   const deviceId = randomUUID()
@@ -40,6 +49,7 @@ export async function startSecondComputer(
     join(agentHome, 'device-identity.json'),
     JSON.stringify({ deviceId, label, createdAt: new Date().toISOString() }),
   )
+  prepare?.(home, agentHome)
   execFileSync(
     'bun',
     [
@@ -60,6 +70,7 @@ export async function startSecondComputer(
     NUPHOS_API_URL: apiUrl,
     NUPHOS_CLI_CONFIG: cliConfig,
     NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+    ...extra,
   }
   let stopped = false
   let restarts = 0
@@ -74,11 +85,12 @@ export async function startSecondComputer(
       child = spawn(`computer-${label}`, ['node', host], { env })
     })
 
-  await until(`${label} to connect`, async () =>
-    backendLog().some(
+  const opened = () =>
+    backendLog().filter(
       (line) => line.includes('tunnel_opened') && line.includes(`"device_id":"${deviceId}"`),
-    ),
-  )
+    ).length
+
+  await until(`${label} to connect`, async () => opened() > 0)
 
   return {
     deviceId,
@@ -89,6 +101,14 @@ export async function startSecondComputer(
       stopped = true
 
       return stop(child)
+    },
+    /** The same computer coming back after stop(). */
+    start: async () => {
+      const before = opened()
+
+      stopped = false
+      child = spawn(`computer-${label}`, ['node', host], { env })
+      await until(`${label} to reconnect`, async () => opened() > before)
     },
   }
 }

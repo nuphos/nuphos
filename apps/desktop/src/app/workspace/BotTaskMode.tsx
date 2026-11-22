@@ -1,3 +1,4 @@
+import { clsx } from 'clsx'
 import { ArrowLeft } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -92,7 +93,13 @@ function BotTaskBody({
       className={`t-bot-task-mode workspace-content-surface absolute inset-0 z-20 flex min-h-0 min-w-0 flex-col overflow-hidden ${ws.dockOpen ? 'workspace-content-surface--leading' : ''}`}
     >
       <header
-        className={`sheet-titlebar-row titlebar-drag flex flex-shrink-0 items-center gap-3 px-3 ${corner ? CORNER_TITLEBAR_CLASS : ''}`}
+        className={clsx(
+          'sheet-titlebar-row titlebar-drag flex flex-shrink-0 items-center gap-3 pl-3',
+          corner && CORNER_TITLEBAR_CLASS,
+          // The viewport-anchored dock toggle (see `.workspace-dock-toggle`) sits
+          // over this header while the dock is closed, as over the Task chat's.
+          ws.dockOpen ? 'pr-3' : 'pr-[var(--dock-toggle-pad)]',
+        )}
       >
         <CornerSidebarToggle />
         <button
@@ -131,7 +138,7 @@ function BotTaskBody({
             onLocateConsumed={() => ws.setAuditChatLocate(null)}
             onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
             onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
-            onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
+            onOpenAgentSettings={() => ws.openSettingsSection('workspace.computers')}
             onTitleChange={(nextTitle, reportedId, agentRuntime) => {
               if (reportedId !== sessionId) return
               setTitle(nextTitle)

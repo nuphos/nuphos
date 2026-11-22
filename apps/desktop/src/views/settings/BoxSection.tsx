@@ -10,7 +10,13 @@ import { t } from '../../i18n'
 import { isThisComputer } from '../../lib/agentName'
 
 import { DeskShelf } from './BoxDeskShelf'
-import { BOX_METRICS_POLL_MS, boxAgents, boxPollMs, vanishedBoxes } from './boxPresentation'
+import {
+  BOX_METRICS_POLL_MS,
+  boxAgents,
+  boxPollMs,
+  boxSetupFailed,
+  vanishedBoxes,
+} from './boxPresentation'
 import { boxRestartEnded } from './boxRestartPresentation'
 import { boxRestarts } from './boxRestartStore'
 import { BoxRow } from './BoxRow'
@@ -39,15 +45,12 @@ export function BoxSection({
   instances,
   onSelect,
   canCreate,
-  onOpenSettingsSection,
 }: {
   teamId: string
   /** Only the team's administrators add computers, from the page's Add computer; the backend enforces it. */
   canCreate: boolean
   instances: RuntimeInstance[]
   onSelect: (runtimeId: string) => void
-  /** Opens a Settings section: here, Local runtime, where this computer's agent signs in. */
-  onOpenSettingsSection?: (section: string) => void
 }) {
   const thisComputer = useThisComputer()
   const previous = useRef<AgentDevice[]>([])
@@ -76,11 +79,11 @@ export function BoxSection({
       JSON.stringify(list.devices.map(deviceConfiguration))
     )
       window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-    for (const device of vanishedBoxes(previous.current, list.devices))
-      toast.error(
-        t('Computer setup failed'),
-        t('{name} could not start and was removed.', { name: device.label }),
-      )
+    for (const device of vanishedBoxes(previous.current, list.devices)) {
+      const { title, description } = boxSetupFailed(device.label)
+
+      toast.error(title, description)
+    }
     for (const { device, kind, outcome } of boxRestarts.settle(list.devices, teamId)) {
       const notice = device && boxRestartEnded(kind, outcome, device.label, !device.box)
 
@@ -94,8 +97,6 @@ export function BoxSection({
   const owned = list?.devices ?? []
   // Members cannot create a Box: say who can, where the button would be.
   const admin = useAdminName(teamId, !canCreate && Boolean(list?.boxAvailable))
-  const setUpLocalAgent =
-    onOpenSettingsSection && (() => onOpenSettingsSection('device.localRuntime'))
 
   return (
     <section aria-label={t('Computers')} className="min-w-0">
@@ -106,8 +107,8 @@ export function BoxSection({
           !canCreate && (
             <span className="text-[11.5px] text-tertiary">
               {admin
-                ? t('Ask {name} to add a cloud computer.', { name: admin })
-                : t('Administrators add cloud computers.')}
+                ? t('Ask {name} to rent a computer from Nuphos.', { name: admin })
+                : t('Administrators rent computers from Nuphos.')}
             </span>
           )
         }
@@ -151,7 +152,6 @@ export function BoxSection({
                   device={device}
                   agents={boxAgents(device.deviceId, instances)}
                   onSelect={onSelect}
-                  onSetUpLocalAgent={setUpLocalAgent}
                   onChanged={reload}
                 />
               ))}
