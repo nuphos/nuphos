@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
@@ -274,6 +271,29 @@ describe('local runtime catalog', () => {
     ).rejects.toMatchObject({
       code: 'runtime_not_installed',
       message,
+    })
+  })
+
+  test('an unusable CLI exposes its existing guidance in the runtime catalog', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          dsh: { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    const known = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [{ provider: 'dsh', signedIn: true }] as RegisteredAgent[],
+    }
+    const catalogDeps = { ...deps, access: { ...deps.access, listDevices: async () => [known] } }
+
+    expect((await listOwnLocalRuntimes('t1', 'owner', catalogDeps))[0]?.local).toMatchObject({
+      probeError: message,
     })
   })
 

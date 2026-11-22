@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d 回の呼び出し · 実行中</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">%1$d秒処理しました · %2$d ステップ</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">%1$d ステップを処理しました</item>
-    </plurals>
+    <string name="chat_work_duration">%1$s処理しました</string>
+    <string name="chat_work">処理完了</string>
     <string name="chat_share_access_invited">招待されたユーザーのみ</string>
     <string name="chat_share_access_view">チームが閲覧可</string>
     <string name="chat_share_access_reply">チームが閲覧・返信可</string>

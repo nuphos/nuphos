@@ -4,29 +4,32 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { join } from 'node:path'
 
 import { backendLog } from './backend-log.ts'
-import { kept, leave, notKept } from './chat-keep.ts'
+import { backHome, focused, kept, leave, leaveHome, notKept } from './chat-keep.ts'
 import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
+import { farFailed, farScenario } from './chat-switch-far.ts'
+import { overlayFailed, overlayLines, overlayScenarios } from './chat-switch-overlays.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
+import { startLatencyProxy } from './latency-proxy.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { recordScreencast } from './screencast.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { startStack } from './stack.ts'
 import { newTask, send } from './ui.ts'
 
+import type { Proxy } from './chat-switch-far.ts'
 import type { SwitchWatch } from './chat-switch-timing.ts'
 import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
 const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
-// A post said in a Bot chat while away shows this soon after it opens.
-const AWAY_MS = 300
 const POSTS = 40
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
 const MAX_TYPED_FRAMES = 3
 const ACK_A = 'ACK E2E_DELIVERY:switch-a'
+const ACK_B = 'ACK E2E_DELIVERY:switch-b'
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -135,23 +138,18 @@ async function restart(page: Page) {
   // On a new Task, so the reloaded window restores no chat.
   await newTask(page)
   await page.reload()
-  await page.getByRole('tab', { name: 'Tasks' }).waitFor()
+  // Back on it, if the window restored a chat: the first open switches from it on screen (#4584).
+  await leaveHome(page)
 }
 
 const lastPost = (chat: Chat, posts = POSTS) => ({ history: `${chat.title} post ${String(posts)}` })
 
-async function scenario(page: Page, stack: Stack) {
+async function scenario(page: Page, stack: Stack, proxy: Proxy) {
   const chatA = await chat(stack, 'Switch chat A')
   const chatB = await chat(stack, 'Switch chat B')
   const longChat = await chat(stack, 'Switch chat long', LONG_POSTS)
   const taskA = await task(page, stack, 'Switch task A', 'First E2E_DELIVERY:switch-a', ACK_A)
-  const taskB = await task(
-    page,
-    stack,
-    'Switch task B',
-    'Second E2E_DELIVERY:switch-b',
-    'ACK E2E_DELIVERY:switch-b',
-  )
+  const taskB = await task(page, stack, 'Switch task B', 'Second E2E_DELIVERY:switch-b', ACK_B)
   // Its reply stays in progress for the rest of the run.
   const long = await task(
     page,
@@ -164,6 +162,7 @@ async function scenario(page: Page, stack: Stack) {
 
   await restart(page)
   await open(page, 'task, first open', taskA, { history: ACK_A })
+  await focused(page, 'task, first open')
   await leave(page, taskA.title, ACK_A)
   await open(page, 'task, first open, reply in progress', long, {
     history: 'Long E2E_LONG',
@@ -172,7 +171,7 @@ async function scenario(page: Page, stack: Stack) {
     typedTo: 'LONG_END',
   })
   await open(page, 'bot chat, first open', chatA, lastPost(chatA))
-  await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
+  await open(page, 'task, first open, another', taskB, { history: ACK_B })
   await open(page, 'task, opened before', taskA, { history: ACK_A })
   await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
@@ -192,6 +191,11 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
   await open(page, 'bot chat, first open, 200 posts', longChat, lastPost(longChat, LONG_POSTS))
   await loadEarlier(page, longChat.title)
+  await overlayScenarios(page, { ...taskA, text: ACK_A }, { ...taskB, text: ACK_B })
+  await backHome(page)
+  await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
+  await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
+  await farScenario(page, stack, proxy, { task, open, restart, api, lastPost, taskA, chatA, chatB })
 }
 
 /** What fails the run. */
@@ -234,15 +238,9 @@ function check(baseline: Record<string, number> | null) {
   }
   // The same view as it was left, not one rebuilt on the way back.
   for (const line of notKept) failed.push(`${line} (not kept as left)`)
-  const away = cases.find(({ name }) => name === 'bot chat, new post while away')
+  failed.push(...overlayFailed, ...farFailed(cases))
 
-  // Heard of at once from the backend's push, not on a poll (#3523).
-  if (away && (away.watch.newestAfterMs ?? Infinity) >= AWAY_MS)
-    failed.push(
-      `${away.name}: the newest post took ${String(away.watch.newestAfterMs)} ms, budget ${String(AWAY_MS)} ms`,
-    )
-
-  return { failed, table: lines.join('\n') }
+  return { failed, table: [...lines, '', '**Overlays**', '', ...overlayLines].join('\n') }
 }
 
 let desktop: Desktop | undefined
@@ -255,13 +253,15 @@ try {
   process.env.OPENAB_ACP_STREAMING = 'true'
   const stack = await startStack()
 
-  desktop = await startDesktop(stack.apiUrl)
+  const proxy = await startLatencyProxy(stack.apiUrl)
+
+  desktop = await startDesktop(proxy.url)
   desktop.page.setDefaultTimeout(30_000)
   const { page } = desktop
 
   for (const step of signInScenarios) await step.run(page, stack)
   // The recording is the pull request's evidence of what a switch looks like.
-  await recordScreencast(page, 'chat-switch-frames', () => scenario(page, stack))
+  await recordScreencast(page, 'chat-switch-frames', () => scenario(page, stack, proxy))
   const baseline = existsSync(BASELINE)
     ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<string, number>)
     : null

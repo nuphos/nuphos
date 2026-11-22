@@ -111,7 +111,7 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second', { send, sessionId })
   // Nuphos tells the agent when a person dismisses its question.
   if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {

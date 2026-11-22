@@ -350,3 +350,29 @@ test("a busy Bot's chat row never previews the Bot's own transcript, only the ch
   assert.ok(!shown.includes('Narration for the owner only'))
   assert.equal(row('idle')?.preview, 'Second post of the turn')
 })
+
+test("a Bot whose last run failed keeps the chat's newest post, with the alert mark", () => {
+  // An unattended run (a Trigger's turn) failed in the Bot's own session; the
+  // chat still ends with its newest post, which is what the row previews.
+  const chat = {
+    ...item(),
+    key: 'chat',
+    channel: true,
+    preview: 'The newest reply posted in this chat',
+  }
+  const failed = { state: 'idle' as const, schemaVersion: 2 as const, phase: 'failed' }
+  const [failedRow] = botChatRows({
+    chat,
+    bot: { conversation, runtimeState: failed },
+    kids: [],
+    faces: [],
+    teamId: 'team-a',
+    unread: false,
+    openId: undefined,
+  })
+
+  assert.equal(failedRow?.previewNode, undefined)
+  assert.equal(failedRow.preview, 'The newest reply posted in this chat')
+  assert.ok(isValidElement<{ runtimeState: unknown }>(failedRow.trailing))
+  assert.equal(failedRow.trailing.props.runtimeState, failed, 'the alert mark still says it failed')
+})

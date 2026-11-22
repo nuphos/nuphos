@@ -23,8 +23,6 @@ import { AppError } from '@/lib/errors'
 import { runtimeLabel } from './runtime-provider'
 import { runtimeGone } from './runtime-refusal'
 
-import type { RuntimeModelCatalog } from './runtime-models'
-import type { PreviewRuntimeStatus } from './runtime-status'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
@@ -52,6 +50,8 @@ export type LocalRuntimeSummary = {
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Why the CLI is unusable, as reported by its existing probe. */
+  probeError?: string
   /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
   everSignedIn?: true
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
@@ -164,6 +164,7 @@ export async function listOwnLocalRuntimes(
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
+              ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
@@ -247,54 +248,5 @@ export async function resolveLocalRuntimeEndpoint(
     local: { userId: ref.userId, deviceId: ref.deviceId },
     ...(ref.provider === 'claude-code' ? {} : { provider: ref.provider }),
     ...(presence.status?.backendUrl ? { backendUrl: presence.status.backendUrl } : {}),
-  }
-}
-
-/** The computer reports its agent's models when it connects, so none need a conversation first. */
-export async function localRuntimeModels(
-  runtimeId: string,
-  model: string | undefined,
-  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = defaultDeps,
-): Promise<RuntimeModelCatalog> {
-  const ref = parseLocalRuntimeId(runtimeId)
-  const agent = ref
-    ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)
-    : undefined
-  const catalog = agent?.models?.failed ? undefined : agent?.models
-  const missing = agent?.models?.failed ? 'undiscovered' : 'unreported'
-
-  if (!catalog)
-    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : missing }
-  const modelId = model && model !== 'default' ? model : catalog.defaultModel
-  // A controls-only report names no model: its entry answers a caller asking for none.
-  const split = catalog.controlsOnly && (!model || model === 'default')
-  const controls = catalog.controls[modelId] ?? (split ? catalog.controls.default : undefined)
-
-  if (!controls) return { models: catalog.models }
-
-  return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
-}
-
-/** A local runtime's status comes from its computer's tunnel, not a probe. */
-export async function localRuntimeStatus(
-  runtimeId: string,
-  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = defaultDeps,
-): Promise<PreviewRuntimeStatus> {
-  const ref = parseLocalRuntimeId(runtimeId)
-  const presence = ref ? await deps.getPresence(ref.userId, ref.deviceId) : null
-  const agent = ref ? reportedLocalAgent(presence?.status, ref) : undefined
-  const online = agent !== undefined
-  const signedIn = agent?.cli.loggedIn
-
-  return {
-    configured: true,
-    selected: true,
-    connected: online,
-    online,
-    attachedConversations: null,
-    busyConversations: null,
-    ...(agent?.version ? { runtimeAdapterVersion: agent.version } : {}),
-    ...(typeof signedIn === 'boolean' ? { authenticated: signedIn } : {}),
-    ...(signedIn && agent?.cli.apiKey ? { apiKey: true as const } : {}),
   }
 }

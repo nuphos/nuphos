@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto'
 
-import { redactPersonalAccounts } from '@/lib/personal-credentials/redact'
 import { normalizeCredentialSelection } from '@/routes/agent/team-scope'
 
 import type {
@@ -125,10 +124,7 @@ export function serializePanel(
     // Mirrors the dashboard's schedule for desktops that still edit it per panel.
     cadence: dashboard.cadence ?? null,
     credentialAccess: doc.credentialAccess
-      ? redactPersonalAccounts(
-          { credentialAccess: normalizeCredentialSelection(doc.credentialAccess) },
-          doc.createdBy === viewerId,
-        ).credentialAccess
+      ? normalizeCredentialSelection(doc.credentialAccess)
       : null,
     currentSnapshot: currentSnapshot ? serializeSnapshot(currentSnapshot) : null,
     lastSuccessfulSnapshot: lastSuccessfulSnapshot

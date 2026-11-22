@@ -4,20 +4,20 @@ import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { archivePopoverScenarios } from './archive-popover-scenarios.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
 import { avatarBackgroundScenarios } from './avatar-background-scenarios.ts'
 import { backendFailures, backendLines } from './backend-log.ts'
+import {
+  botChatScenarios,
+  createBotScenario,
+  finishBotSetupScenario,
+} from './bot-chat-scenarios.ts'
 import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
-import { botUnreadScenarios } from './bot-unread-scenarios.ts'
-import { botWorkingDotsScenarios } from './bot-working-dots-scenarios.ts'
-import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
-import { channelScenarios } from './channel-scenarios.ts'
-import { channelAwayScenarios } from './channel-away-scenarios.ts'
-import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
@@ -40,14 +40,17 @@ import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
+import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
+import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalAccountScenarios } from './personal-accounts-scenarios.ts'
 import { personalConnectScenarios } from './personal-connect-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
@@ -55,7 +58,7 @@ import { providerUnreachableScenarios } from './provider-unreachable-scenarios.t
 import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { replyFileScenarios } from './reply-file-scenarios.ts'
-import { replyDiskScenario } from './reply-disk-scenario.ts'
+import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -64,6 +67,7 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
+import { sessionRevokedScenario } from './session-revoked-scenario.ts'
 import { startStack } from './stack.ts'
 import { stepUpScenarios } from './step-up-scenarios.ts'
 import { twoFactorResumeScenarios } from './two-factor-resume-scenarios.ts'
@@ -73,6 +77,7 @@ import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -104,45 +109,14 @@ const scenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
     },
   },
-  {
-    // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
-    name: 'create a Bot, talk to it in its chat, and answer its question there',
-    run: async (page, stack) => {
-      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
-      await page.getByRole('button', { name: 'Create', exact: true }).click()
-      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
-      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
-      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
-      await until('the unprompted Bot introduction to finish', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
-      )
-      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
-      await send(
-        page,
-        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
-      )
-      await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
-      await checkDecisionOutline(page)
-      await checkOutgoingChip(page)
-      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await until('the answer in the Bot chat to reach the Bot', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-      )
-    },
-  },
-  { name: 'a reply and low disk warning remain visible together', run: replyDiskScenario },
-  ...botUnreadScenarios,
-  ...channelScenarios,
-  ...botWorkingDotsScenarios,
-  ...channelAwayScenarios,
-  ...channelRestartScenarios,
+  createBotScenario,
+  ...botChatScenarios,
   ...mcpDefaultsScenarios,
   ...mcpCredentialDefaultsScenarios,
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
+  ...archivePopoverScenarios,
   ...leaveChatScenarios,
   ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
@@ -158,6 +132,7 @@ const scenarios: Scenario[] = [
   ...voiceScenarios,
   ...personalCredentialScenarios,
   ...personalConnectScenarios,
+  ...personalAccountScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
@@ -178,6 +153,9 @@ const scenarios: Scenario[] = [
   ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
+  ...usageQueueScenarios,
+  ...moveMidTurnScenarios,
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
@@ -194,10 +172,13 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // Makes its own Task and Bot, so it can sit here while the main window is still in use.
   ...triggerLinkScenarios,
+  // After every turn of this half: it reads what the backend logged for them.
+  runEndTraceScenario,
 ]
 
-// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
-// A scenario that needs something created earlier in the run stays in its creator's half.
+// CI runs three parts on three runners (#4471, #4445): the first part without the Bot chats,
+// the Bot chats, and these. Each after the first signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's part.
 const later: Scenario[] = [
   ...computerScenarios,
   ...computerUpdateScenarios,
@@ -207,6 +188,7 @@ const later: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
+  newTaskGreetingScenario,
   ...offlineScenarios,
   ...mcpNotificationScenarios,
   ...webhookScenarios,
@@ -230,14 +212,24 @@ const later: Scenario[] = [
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
   formScenario,
+  // Last of all: it signs the app out.
+  sessionRevokedScenario,
 ]
 const shard = process.env.E2E_SHARD
 const selected =
   shard === '1'
-    ? scenarios
+    ? scenarios.flatMap((scenario) =>
+        scenario === createBotScenario
+          ? [scenario, finishBotSetupScenario]
+          : botChatScenarios.includes(scenario)
+            ? []
+            : [scenario],
+      )
     : shard === '2'
       ? [...signInScenarios, ...later]
-      : [...scenarios, ...later]
+      : shard === 'bots'
+        ? [...signInScenarios, createBotScenario, ...botChatScenarios, runEndTraceScenario]
+        : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
@@ -252,7 +244,7 @@ try {
     await desktop.traceNextScenario()
     const from = backendLines()
 
-    await scenario.run(desktop.page, stack)
+    await scenario.run(desktop.page, stack, desktop)
     const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })

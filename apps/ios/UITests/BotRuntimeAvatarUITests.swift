@@ -95,7 +95,15 @@ final class BotRuntimeAvatarUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.staticTexts["Release notes"].firstMatch.waitForExistence(timeout: 10))
         app.staticTexts["Release notes"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Everyone here sees each message and decides for themselves whether to reply, as in any group chat."].waitForExistence(timeout: 10))
+        let group = app.staticTexts["Everyone here sees each message and decides for themselves whether to reply, as in any group chat."]
+        // A Bot's own chat (its one face is the Bot) introduces the Bot, as on Desktop and Android (#4578).
+        if faces.count == 1, faces[0]["agent"] != nil {
+            XCTAssertTrue(app.staticTexts["This is your conversation with Release notes. Talk about what you want help with, and shape how you work together."].waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts["You can start by telling Release notes what you would like to do."].exists)
+            XCTAssertFalse(group.exists)
+        } else {
+            XCTAssertTrue(group.waitForExistence(timeout: 10))
+        }
         shot(name + "-empty-chat-44")
         app.terminate()
     }

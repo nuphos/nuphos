@@ -6,34 +6,9 @@ import { useEffect, useId, useState } from 'react'
 import { t } from '../../../i18n'
 
 import { PRESETS } from './stall'
-import { getAgentLocale } from './textUtils'
+import { getAgentLocale, splitForAnimation } from './textUtils'
 
 import type { ReactNode } from 'react'
-
-function splitForAnimation(text: string, lang: string): string[] {
-  try {
-    const isCJK = /^(zh|ja|ko)/i.test(lang)
-    const SegmenterCtor = (
-      Intl as unknown as {
-        Segmenter?: new (
-          l: string,
-          opts: { granularity: 'grapheme' | 'word' },
-        ) => { segment(s: string): Iterable<{ segment: string }> }
-      }
-    ).Segmenter
-
-    if (!SegmenterCtor) {
-      return isCJK ? Array.from(text) : text.split(/(\s+)/)
-    }
-    const segmenter = new SegmenterCtor(lang, {
-      granularity: isCJK ? 'grapheme' : 'word',
-    })
-
-    return Array.from(segmenter.segment(text), (s) => s.segment)
-  } catch {
-    return text.split(/(\s+)/)
-  }
-}
 
 export function AgentHomeAnimation({ title = t('What should we work on?') }: { title?: string }) {
   const segments = splitForAnimation(title, getAgentLocale() ?? navigator.language ?? 'en')
@@ -77,7 +52,7 @@ export function AgentHomeAnimation({ title = t('What should we work on?') }: { t
               duration: 0.35,
               ease: easeOut,
             }}
-            style={{ display: 'inline-block', whiteSpace: 'pre' }}
+            style={{ display: 'inline-block', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             aria-hidden
           >
             {segment}
@@ -95,25 +70,22 @@ export function DelayedPanelReveal({
   children,
   className,
   delayMs = COMPOSER_REVEAL_MS,
-  replayKey = 0,
 }: {
   children: ReactNode
   className?: string
   delayMs?: number
-  /** A new value replays the reveal without remounting `children`. */
-  replayKey?: number
 }) {
   const shouldReduceMotion = useReducedMotion()
   const [open, setOpen] = useState(() => Boolean(shouldReduceMotion))
 
-  // Only a new replayKey (or a motion preference change) replays the reveal; a
-  // block whose delay moves, as a card's does when one before it goes, stays.
-  const revealKey = `${shouldReduceMotion ? '1' : '0'}|${String(replayKey)}`
-  const [revealedFor, setRevealedFor] = useState(revealKey)
+  // Only a motion preference change replays the reveal; a block whose delay
+  // moves, as a card's does when one before it goes, stays.
+  const reduced = Boolean(shouldReduceMotion)
+  const [revealedFor, setRevealedFor] = useState(reduced)
 
-  if (revealKey !== revealedFor) {
-    setRevealedFor(revealKey)
-    setOpen(Boolean(shouldReduceMotion))
+  if (reduced !== revealedFor) {
+    setRevealedFor(reduced)
+    setOpen(reduced)
   }
 
   useEffect(() => {
@@ -121,7 +93,7 @@ export function DelayedPanelReveal({
     const timer = window.setTimeout(() => setOpen(true), delayMs)
 
     return () => window.clearTimeout(timer)
-  }, [delayMs, shouldReduceMotion, replayKey])
+  }, [delayMs, shouldReduceMotion])
 
   return (
     <div

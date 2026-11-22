@@ -536,6 +536,26 @@ test('a draining replica hands a lost session on at once instead of dropping it'
   expect(workLost).toBeNull()
 })
 
+// A loop that began before the drain used to reattach the session here a minute
+// into it, so its output came to a replica about to exit (#4000).
+test('a reattach loop the drain overtakes hands the session on instead', async () => {
+  const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(false)
+
+  acquire = spyOn(registry, 'acquire').mockImplementation(async () => {
+    draining.mockReturnValue(true)
+    throw new Error('runtime restarting')
+  })
+  try {
+    expect(await reattachAfterTransportLoss(session, session.client, [0, 0], instant)).toBe(false)
+  } finally {
+    draining.mockRestore()
+  }
+
+  expect(acquire).toHaveBeenCalledTimes(1)
+  expect(JSON.parse(handoffs.get('team:conv') ?? 'null')).toMatchObject({ conversationId: 'conv' })
+  expect(workLost).toBeNull()
+})
+
 test('a draining replica does not hand on a session that moved elsewhere', async () => {
   const draining = spyOn(lifecycle, 'isShuttingDown').mockReturnValue(true)
 

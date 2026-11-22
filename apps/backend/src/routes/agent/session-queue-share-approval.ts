@@ -7,6 +7,7 @@ import {
 } from '@/lib/agent/db'
 import { listPendingUserMessages, takePendingUserMessages } from '@/lib/agent/pending-queue'
 import { sessionReleased } from '@/lib/agent/session-released'
+import { listRuntimeInstances } from '@/lib/claude-code-preview/runtime-catalog'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
@@ -98,6 +99,11 @@ async function startConversation(args: WaitingChat, runtimeId: string) {
   const message = args.clientView.at(-1)
 
   if (!args.teamId || message?.role !== 'user') return null
+  const instance = (await listRuntimeInstances(args.teamId, args.userId)).find(
+    (candidate) => candidate.id === runtimeId,
+  )
+
+  if (!instance) return null
   await upsertConversationShell({
     sessionId: args.sessionId,
     userId: args.runOwnerUserId,
@@ -106,7 +112,9 @@ async function startConversation(args: WaitingChat, runtimeId: string) {
     firstMessage: messageText(message),
     locale: args.context.locale,
     source: 'app',
+    agentRuntime: instance.provider,
     runtimeId,
+    runtimeLabel: instance.label,
   })
 
   return getConversationBySessionId(args.sessionId)

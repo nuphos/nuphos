@@ -10,6 +10,8 @@ export const isGoogle = (provider: PersonalCredentialProvider) =>
   (GOOGLE_PROVIDERS as readonly string[]).includes(provider)
 
 export type PersonalCredential = {
+  /** The connection's own id: a member can connect several accounts of one provider. */
+  id: string
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
