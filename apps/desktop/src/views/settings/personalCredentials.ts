@@ -4,13 +4,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { isGoogle } from '../../types'
 
-import { credentialsFor } from './personalAccounts'
-
-import type {
-  PersonalCredential,
-  PersonalCredentialDeepLinkPayload,
-  PersonalCredentialProvider,
-} from '../../types'
+import type { PersonalCredentialDeepLinkPayload, PersonalCredentialProvider } from '../../types'
 
 /** Fired after the main process claims an OAuth grant, so an open section refetches. */
 export const PERSONAL_CREDENTIALS_CHANGED = 'personal-credentials:changed'
@@ -49,15 +43,6 @@ export async function connectPersonalCredential(
       toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
     }
   }
-}
-
-/** The first account that applies in this team. */
-export function credentialFor(
-  credentials: PersonalCredential[] | null,
-  provider: PersonalCredentialProvider,
-  teamId: string | undefined,
-): PersonalCredential | undefined {
-  return credentialsFor(credentials, provider, teamId)[0]
 }
 
 /** The personal entries the Connectors page lists, with the words people search them by. */
