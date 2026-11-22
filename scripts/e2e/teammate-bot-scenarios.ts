@@ -61,16 +61,16 @@ export const teammateBotScenarios: Scenario[] = [
       await page.waitForTimeout(400)
       await row.screenshot({ path: `${artifacts}/group-row-hover.png` })
       await row.click()
-      const post = page.locator('.group\\/post', {
+      const post = page.locator('.group\\/post:visible', {
         has: page.getByText('POSTED E2E_DELIVERY:teammate-bot', { exact: true }),
       })
 
       await post.waitFor({ timeout: 60_000 })
       // #4189: compare the viewer, the human teammate, and the Bot in the real Desktop.
-      const teammatePost = page.locator('.group\\/post', {
+      const teammatePost = page.locator('.group\\/post:visible', {
         has: page.getByText('Minutes, please E2E_DELIVERY:teammate-bot', { exact: true }),
       })
-      const ownPost = page.locator('.group\\/post', {
+      const ownPost = page.locator('.group\\/post:visible', {
         has: page.getByText('My own message E2E_BUBBLE:own', { exact: true }),
       })
 

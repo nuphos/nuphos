@@ -112,7 +112,7 @@ export const botFoldScenarios: Scenario[] = [
       const before = answered()
 
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E thread' }).first().click()
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the stopped sub-agent to let go of its command', async () => answered() > before)
       // Back in the Bot chat, where the scenarios after this one found the window before.
       await row.click()
