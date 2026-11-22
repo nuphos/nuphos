@@ -198,12 +198,12 @@ try {
   await away.start()
   await online('E2E homes away', 2)
   await stack.restartBackend()
+  // Restored since, the Task is not marked reclaimed by that older generation: watch the home.
   await until(
-    'the home archived while its computer was off to be reclaimed',
-    async () => reclaimedAt(stack, offline),
+    'the home archived while its computer was off to be removed',
+    async () => !existsSync(offline.home),
     180_000,
   )
-  must(!existsSync(offline.home), 'the home archived while its computer was off to be removed')
   must(existsSync(restoredAway), 'a late reclaim to leave the home restored meanwhile')
   must(existsSync(restored), "the restored Task's new home to be kept by the sweep")
   must(
