@@ -1,12 +1,14 @@
 // What a person does in the app that most scenarios repeat.
 import { until } from './processes.ts'
 
+import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
-  run: (page: Page, stack: Stack) => Promise<void>
+  /** `desktop` is given by the main suite (run.ts) alone. */
+  run: (page: Page, stack: Stack, desktop?: Desktop) => Promise<void>
   /** A backend failure this scenario alone is known to cause. */
   expected?: RegExp
 }

@@ -260,7 +260,7 @@ try {
     await desktop.traceNextScenario()
     const from = backendLines()
 
-    await scenario.run(desktop.page, stack)
+    await scenario.run(desktop.page, stack, desktop)
     const failures = backendFailures(from, scenario.expected)
 
     await desktop.page.screenshot({ path: `${artifacts}/${String(index + 1)}.png` })
