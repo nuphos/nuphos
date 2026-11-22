@@ -80,6 +80,10 @@ final class AgentStore {
     /// The open agent conversation's idle poll, owned here for the same reason.
     private var conversationPoll: (session: ChatSession, task: Task<Void, Never>)?
 
+    /// The chats opened last, newest first. Reopening one shows the
+    /// transcript it already has while it reads the conversation again (#3525).
+    @ObservationIgnored private var recentSessions: [ChatSession] = []
+
     /// The polls hold only their conversation, so they would outlive a signed-out store.
     deinit {
         channelPoll?.cancel()
@@ -816,11 +820,21 @@ final class AgentStore {
 
     /// A live session for an existing conversation, already loading. The
     /// load belongs to the session, not to the view showing it, so a view
-    /// SwiftUI cancels or keeps cannot leave it unloaded.
+    /// SwiftUI cancels or keeps cannot leave it unloaded. A chat opened
+    /// recently comes back as it was and reads the conversation again.
     func session(for conversation: AgentConversation) -> ChatSession {
+        let teamId = conversation.teamId ?? selectedTeam?.id ?? ""
+        if let i = recentSessions.firstIndex(where: { $0.sessionId == conversation.sessionId && $0.teamId == teamId }) {
+            let session = recentSessions.remove(at: i)
+            if session.loadError == nil {
+                recentSessions.insert(session, at: 0)
+                Task { await session.revalidate() }
+                return session
+            }
+        }
         let session = ChatSession(
             token: token,
-            teamId: conversation.teamId ?? selectedTeam?.id ?? "",
+            teamId: teamId,
             sessionId: conversation.sessionId,
             title: conversation.displayTitle,
             agentRuntime: conversation.agentRuntime,
@@ -828,6 +842,11 @@ final class AgentStore {
         )
         session.me = me
         session.userId = userId
+        recentSessions.insert(session, at: 0)
+        // A session still streaming stays, or reopening it would build a second one following the same run.
+        if recentSessions.count > 20, let oldest = recentSessions.lastIndex(where: { !$0.streaming }) {
+            recentSessions.remove(at: oldest)
+        }
         Task { await session.load() }
         return session
     }

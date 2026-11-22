@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -58,7 +59,8 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 /** Chats where people and agents talk, and each Bot without a chat yet, as on iOS and Desktop. */
 @Composable
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
-    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true) {
+    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true,
+    onNewBot: (() -> Unit)? = null) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
     val scope = rememberCoroutineScope()
@@ -125,8 +127,12 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     // Like iOS, no "+" either: a Bot would have nothing to run on.
     else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
-    // Bots always lists, so its "+" can make the first one.
-    } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
+    // Without the list's "+", an empty workspace says what a Bot is and offers the first one, as Desktop does.
+    } else if (!showCreateButton && rows.isEmpty() && store.search.isEmpty() && store.pins.isEmpty()) ai.nuphos.android.ui.agent.EmptyState(
+        Icons.Outlined.SmartToy, stringResource(R.string.chats_first_bot_title), stringResource(R.string.chats_first_bot_body),
+        stringResource(R.string.chats_new_bot), onNewBot)
+    // With the "+", Bots always lists, so it can make the first one.
+    else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
         if (store.search.isEmpty() && store.pins.isNotEmpty()) item(key = "pinned-bots-shelf") {
             PinShelf(store.pins, status = { pinStatus(it, store.bots + store.conversations) }, enabled = !store.savingPins,
                 onOpen = { row ->
