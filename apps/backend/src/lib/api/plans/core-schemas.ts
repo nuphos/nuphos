@@ -22,16 +22,6 @@ export const PLAN_LIMITS = {
   stepTitle: 80,
   stepDescription: 300,
   jobsPerStep: 12,
-  commandsPerJob: 20,
-  title: 120,
-  overview: 400,
-  decisions: 12,
-  steps: 10,
-  costSummary: 200,
-  costDetail: 120,
-  riskWorstCase: 400,
-  riskMitigations: 8,
-  riskMitigation: 200,
 } as const
 
 export const planDecisionSchema = z.object({
