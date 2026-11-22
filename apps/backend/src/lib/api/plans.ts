@@ -8,7 +8,6 @@ export {
 } from './plans/core-schemas'
 export {
   planApiOperations,
-  planApprovalPolicyGetOperation,
   planGetOperation,
   planListOperation,
 } from './plans/operations'
@@ -17,6 +16,5 @@ export {
   listPlansAgentInputSchema,
   listPlansQuerySchema,
   listPlansResponseSchema,
-  planApprovalPolicyQuerySchema,
   planIdPathSchema,
 } from './plans/update-schemas'

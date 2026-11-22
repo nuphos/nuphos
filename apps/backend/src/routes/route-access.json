@@ -222,7 +222,6 @@
   "GET /agent/memories/attribution/:sessionId": "user",
   "GET /agent/memories/ingest/:sessionId": "user",
   "GET /agent/memories/scorecard": "user",
-  "GET /agent/plan-approval-policy": "user",
   "GET /agent/plans": "user",
   "GET /agent/plans/:planId": "user",
   "GET /agent/reminders": "user",
