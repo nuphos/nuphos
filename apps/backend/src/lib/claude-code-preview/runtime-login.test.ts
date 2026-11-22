@@ -513,7 +513,14 @@ test('a sign-in is kept as of when the runtime reported it, and a newer one is n
 
 test("a computer's agent is reset before it signs in; an older host signs in as before", async () => {
   const start = (reset: ReturnType<typeof resetter>['reset'], runtimeId = 'local_host_box_codex') =>
-    resetBeforeSignIn('team', runtimeId, 'lead', reset, async () => true)
+    resetBeforeSignIn(
+      'team',
+      runtimeId,
+      'lead',
+      reset,
+      async () => true,
+      async () => false,
+    )
   const done = resetter()
   const id = '3f8b2a8e-6a55-4b8e-9f0e-0c6f3a1d2b4c'
 
@@ -555,7 +562,14 @@ test("a person's own computer's default agent signs in without a reset; its adde
     async () => true,
   )
   expect(done.asked).toEqual([])
-  await resetBeforeSignIn('team', `local_host_mac_opencode_${id}`, 'lead', done.reset, notABox)
+  await resetBeforeSignIn(
+    'team',
+    `local_host_mac_opencode_${id}`,
+    'lead',
+    done.reset,
+    notABox,
+    async () => false,
+  )
   expect(done.asked).toEqual([
     {
       device: { userId: 'host', deviceId: 'mac' },
@@ -563,6 +577,20 @@ test("a person's own computer's default agent signs in without a reset; its adde
       by: { actorId: 'lead', teamId: 'team' },
     },
   ])
+})
+
+// An added agent whose CLI is still installing waited out the install in its reset, so its
+// sign-in failed as offline before "Installing…" could show.
+test('an added agent that has not run yet signs in without a reset', async () => {
+  const done = resetter()
+  const id = '3f8b2a8e-6a55-4b8e-9f0e-0c6f3a1d2b4c'
+  const fresh = async () => true
+
+  await resetBeforeSignIn('team', `local_host_box_codex_${id}`, 'lead', done.reset, fresh, fresh)
+  expect(done.asked).toEqual([])
+  // A default agent is the computer's own: it resets whatever the host reports.
+  await resetBeforeSignIn('team', 'local_host_box_codex', 'lead', done.reset, fresh, fresh)
+  expect(done.asked).toHaveLength(1)
 })
 
 test('a sign-in does not start while its computer cannot reset the agent', async () => {

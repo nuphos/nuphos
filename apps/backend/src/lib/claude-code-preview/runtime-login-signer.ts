@@ -1,11 +1,15 @@
 import { endAgentSignIn, recordAgentSignIn } from '@/lib/agent/devices/agent-sign-ins'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { requireAgentSignInAccess } from '@/lib/agent/devices/manage-access'
 import { requestAgentReset } from '@/lib/agent/devices/pending-resets'
 import { agentDevices } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
+import { reportedLocalAgent } from './local-runtime-catalog'
+
 import type { RuntimeLoginDoc } from './runtime-login-store'
+import type { LocalAgentRef } from '@/lib/agent/devices/local-runtime/address'
 
 export type SignerDeps = {
   /** Whether the signer still manages the computer once their sign-in is recorded. */
@@ -19,6 +23,17 @@ const isBox = async ({ userId, deviceId }: { userId: string; deviceId: string })
   Boolean((await agentDevices().findOne({ userId, deviceId }, { projection: { box: 1 } }))?.box)
 
 /**
+ * An added agent its online computer is still installing, or does not list yet, has never run,
+ * so its own home holds no account. Its reset would wait out the install, past the call's deadline.
+ */
+async function unstarted(ref: LocalAgentRef): Promise<boolean> {
+  const status = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status
+  const agent = status && reportedLocalAgent(status, ref)
+
+  return Boolean(status && (!agent || agent.cli.installing))
+}
+
+/**
  * Has the computer delete every account its agent holds before someone signs it in, so it
  * ends up holding theirs alone. A host too old to reset signs in over them, as it always has,
  * and so do the default agents a host never resets: a person's own computer's, which is their
@@ -30,11 +45,13 @@ export async function resetBeforeSignIn(
   userId: string,
   reset = requestAgentReset,
   box = isBox,
+  fresh = unstarted,
 ): Promise<void> {
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref) return
   if (!ref.instanceId && (ref.provider === 'antigravity' || !(await box(ref)))) return
+  if (ref.instanceId && (await fresh(ref))) return
   const agent = ref.instanceId ? { instanceId: ref.instanceId } : { provider: ref.provider }
   const result = await reset(ref, agent, { actorId: userId, teamId })
 
