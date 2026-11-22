@@ -42,6 +42,7 @@ import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { emailDomainScenarios } from './email-domain-scenarios.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
@@ -153,6 +154,8 @@ const scenarios: Scenario[] = [
   ...stepUpScenarios,
   ...twoFactorResumeScenarios,
   ...accessScenarios,
+  // A second app of its own, signed in with a gmail.com address, which it quits again.
+  ...emailDomainScenarios,
   ...runtimeScenarios,
   // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
   ...usageQueueScenarios,

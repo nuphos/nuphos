@@ -5803,6 +5803,7 @@
   "{days} at {time} your time ({utc})": "{days} เวลา {time} ตามเวลาของคุณ ({utc})",
   "{days}d {hours}h": "{days} วัน {hours} ชม.",
   "{device} is offline. The runtime leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.": "{device} ออฟไลน์อยู่ รันไทม์จะถูกนำออกจากพื้นที่ทำงานนี้ทันที และ {device} จะลบรันไทม์และการลงชื่อเข้าใช้ในครั้งถัดไปที่เชื่อมต่อ",
+  "{domain} is a public email provider, so it can't be used. Sign in with a company email to turn this on.": "{domain} เป็นผู้ให้บริการอีเมลสาธารณะ จึงใช้ไม่ได้ ลงชื่อเข้าใช้ด้วยอีเมลของบริษัทเพื่อเปิดใช้งาน",
   "{email} will join as Editor": "{email} จะเข้าร่วมในฐานะผู้แก้ไข",
   "{engine} connection": "การเชื่อมต่อ {engine}",
   "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this task or continue in a new one.)": "{error} (ล้มเหลวติดต่อกัน {count} ครั้งแล้ว — การลองซ้ำด้วยวิธีเดิมจะไม่ช่วย หากยังเกิดขึ้นอีก ให้เปิดงานนี้ใหม่หรือทำต่อในงานใหม่)",
