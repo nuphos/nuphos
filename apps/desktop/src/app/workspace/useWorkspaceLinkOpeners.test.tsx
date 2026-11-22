@@ -144,3 +144,22 @@ test('opening a conversation from inside Settings opens it in view, as Archived 
     assert.equal(state.settingsOpen, false)
   })
 })
+
+// #4505: reopening that chat from its own team would take the app back to the page's team.
+test("a page of another team opens on a new chat in that team, not in the chat's dock", async () => {
+  const { openInApp } = await import('./openInApp')
+  const { selectBucket, selectScope, sessionKeyOf } = await import('./store/workspaceState')
+  const other = '0123456789abcdef01234568'
+  const sessionId = '11111111-2222-4333-8444-555555555555'
+
+  await paneUnderSettings(({ store }) => {
+    store.actions.selectSession(sessionId, { teamId: TEAM })
+    openInApp(`/teams/${other}/dashboards`)
+
+    const state = store.getState()
+
+    assert.equal(state.sessionId, null)
+    assert.equal(selectScope(state)?.teamId, other)
+    assert.deepEqual(selectBucket(state, sessionKeyOf(sessionId)).tabs, [])
+  })
+})
