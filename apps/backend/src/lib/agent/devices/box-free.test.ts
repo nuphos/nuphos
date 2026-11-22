@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useObservability } from '@/lib/test/doubles/observability'
+import { useRedis } from '@/lib/test/doubles/redis'
 
 import { IDLE_PAUSE_MS, assertFreeAllowance, monthStart, vcpuHours } from './box-free'
 import { sweepFreeBoxes } from './box-free-sweep'
@@ -16,12 +17,25 @@ useObservability({
   },
 })
 
+// One claim store for every replica, as Redis is: the first claim of a key wins until reset.
+const claimed = new Set<string>()
+
+useRedis({
+  claimRun: (key: string) => {
+    if (claimed.has(key)) return Promise.resolve(false)
+    claimed.add(key)
+
+    return Promise.resolve(true)
+  },
+})
+
 const saved = { ...config.box }
 const now = Date.parse('2026-11-18T12:00:00Z')
 const at = (iso: string) => new Date(`2026-11-${iso}Z`)
 
 beforeEach(() => {
   events.length = 0
+  claimed.clear()
   config.box.instabox = { apiKey: 'ibk_test' }
   config.box.defaultVcpuLimit = 2
   config.box.defaultMonthlyHours = 50
@@ -137,6 +151,14 @@ describe('free Box sweep', () => {
 
     await sweepFreeBoxes(now, d)
     expect(paused).toEqual(['idle', 'recent', 'silent-turn', 'unjoined'])
+  })
+
+  test('two replicas sweeping at once pause an idle Box once and note its usage once', async () => {
+    const { deps: d, paused, noted } = deps()
+
+    await Promise.all([sweepFreeBoxes(now, d), sweepFreeBoxes(now, d)])
+    expect(paused).toEqual(['idle'])
+    expect(noted).toEqual(['free'])
   })
 
   test('does nothing without the setting', async () => {

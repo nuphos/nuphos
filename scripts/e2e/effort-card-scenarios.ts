@@ -55,7 +55,7 @@ export const effortCardScenarios: Scenario[] = [
         )
         const started = await openChip(page, 'effort-card-started-task')
 
-        await page.locator('button[title="Stop"]').click()
+        await page.locator('button[title="Stop"]:visible').click()
         await until('the held turn to be cancelled', async () =>
           agentEvents(stack).includes('cancelled E2E_DELIVERY:effort-held'),
         )

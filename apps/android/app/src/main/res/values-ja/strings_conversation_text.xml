@@ -60,6 +60,7 @@
     <string name="convtext_runtime_not_found">このランタイムはこのワークスペースで利用できなくなりました。続けるには別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_offline">このランタイムを実行しているコンピューターはオフラインです。そのコンピューターで Nuphos を開くか、別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_paused">%1$s は一時停止中です。送信すると再開します。</string>
+    <string name="convtext_runtime_starting">%1$s を起動しています。数秒で使えるようになります。</string>
     <string name="convtext_ask_owner">所有者に依頼</string>
     <string name="convtext_ask_admin">管理者に依頼</string>
     <string name="convtext_server_status">Nuphos からステータス %1$d が返されました。</string>

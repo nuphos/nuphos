@@ -26,14 +26,18 @@ export const splitPaneScenarios: Scenario[] = [
       await reply.waitFor()
       // The Bot chat alone in the window: no pane to close.
       await page.getByRole('tab', { name: 'Bots' }).click()
-      await page.getByText('E2E Bot', { exact: true }).first().click()
+      await page.getByText('E2E Bot', { exact: true }).filter({ visible: true }).first().click()
       await reply.waitFor({ state: 'hidden' })
       await expectClose('not split', 0)
       // Split, with the Task in the new pane: both panes can be closed from their headers.
       await page.keyboard.press('Escape')
       await page.keyboard.press('Control+d')
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      await page.getByText('Beside a Bot E2E_DELIVERY:split').first().click()
+      await page
+        .getByText('Beside a Bot E2E_DELIVERY:split')
+        .filter({ visible: true })
+        .first()
+        .click()
       await reply.waitFor()
       await expectClose('split beside the Bot chat', 2)
       // The Bot chat's pane is first; its own button closes it and leaves the Task.

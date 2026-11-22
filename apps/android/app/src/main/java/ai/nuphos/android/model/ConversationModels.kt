@@ -76,6 +76,8 @@ data class AgentConversation(
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
     val inputRequests: List<InputRequest>? = null,
     val botOnboarding: String? = null,
+    /** A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270). */
+    val tasks: TaskCounts? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -128,6 +130,9 @@ data class AgentConversation(
 
     @Serializable
     data class TokenUsage(val costUsd: Double? = null)
+
+    @Serializable
+    data class TaskCounts(val running: Int = 0, val waiting: Int = 0)
 
     @Serializable
     data class ActivitySource(
@@ -267,6 +272,8 @@ data class AgentConversationDetail(
         val cause: String? = null,
         /** `agent_reply_failed`: when an agent out of usage gets it back. */
         @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
+        /** `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do. */
+        val verifyUrl: String? = null,
     )
     @Serializable
     data class ActiveRun(

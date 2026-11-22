@@ -10,6 +10,7 @@ import { ProfileSection } from './ProfileSection'
 import { SignedInDevicesSection } from './SignedInDevicesSection'
 import { TwoFactorSection } from './TwoFactorSection'
 import { UpdatesSection } from './UpdatesSection'
+import { WebhooksSection } from './WebhooksSection'
 
 import type { AtlasTeam, UserInfo } from '../../types'
 import type { ReactNode } from 'react'
@@ -35,6 +36,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
     />
   ),
   'workspace.instructions': ({ team }) => <InstructionsSection team={team} scope="team" />,
+  'workspace.webhooks': ({ team }) => <WebhooksSection team={team} />,
   'preferences.instructions': ({ team }) => <InstructionsSection team={team} scope="personal" />,
   'preferences.localSetup': ({ team }) => <LocalSetupSection team={team} />,
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (

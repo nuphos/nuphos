@@ -95,8 +95,10 @@ useDb({
               ? {}
               : null,
         ),
-      // The turn reads its recent window: sorted newest first and limited.
+      // The turn reads its recent window: sorted newest first and limited. Its
+      // fires, read by id, are not stored yet.
       find: () => ({
+        toArray: () => Promise.resolve([]),
         sort: () => ({
           toArray: () => Promise.resolve(history),
           limit: () => ({ toArray: () => Promise.resolve([...history].reverse()) }),

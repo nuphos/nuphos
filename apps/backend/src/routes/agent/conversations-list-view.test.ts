@@ -199,3 +199,19 @@ test("a group chat says so, so a client never takes it for a Bot's 1:1 chat", as
   expect(group?.group).toBe(true)
   expect(chat?.group).toBeUndefined()
 })
+
+test('the list gives a teammate the count of allowed personal accounts, never their ids', async () => {
+  const id = 'a1'.repeat(12)
+  const row = {
+    ...conversation('shared'),
+    credentialAccess: { personalCredentialIds: ['github'], personalConnectionIds: [id] },
+  }
+  const as = async (userId: string) =>
+    JSON.stringify(await serializeConversationList([row], { id: userId } as never, 'team-a'))
+
+  expect(await as('user-a')).toContain(id)
+  const theirs = await as('user-b')
+
+  expect(theirs).not.toContain(id)
+  expect(theirs).toContain('"personalAccountCount":1')
+})

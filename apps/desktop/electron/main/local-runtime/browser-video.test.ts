@@ -100,7 +100,8 @@ test('record_start with a helper also records what the tab shows, and record_sto
 
   assert.equal(bytes.subarray(0, 4).toString('hex'), '1a45dfa3')
   assert.ok(bytes.includes('VP8'))
-  assert.equal(video?.frames, 1)
+  // The page as it was at record_start, then the screencast frame.
+  assert.equal(video?.frames, 2)
   assert.equal(video?.truncated, false)
 })
 
@@ -130,7 +131,8 @@ test('a video past its frame budget stops taking frames and says it was cut shor
   const done = await stopVideo(video, join(temp, 'cut.webm'))
 
   assert.equal(done.truncated, true)
-  assert.equal(done.frames, 2)
+  // The first frame at record_start, then the two screencast frames within the budget.
+  assert.equal(done.frames, 3)
 })
 
 test('a video that fails to start closes its helper page and leaves no listener behind', async () => {
@@ -195,7 +197,10 @@ test('a video with no frame at all fails record_stop instead of writing an empty
   const { contents } = tab()
   const video = await startVideo(contents.debugger, () => Promise.resolve(helper({ empty: true })))
 
-  await assert.rejects(stopVideo(video, join(temp, 'empty.webm')), /No frame/)
+  await assert.rejects(
+    stopVideo(video, join(temp, 'empty.webm')),
+    /No frame of the tab was recorded \(1 sent, \{"drawn":2,.*\}\)/,
+  )
 })
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
@@ -233,4 +238,43 @@ test('a helper that never finishes fails record_stop within 15 s, saying how far
   } finally {
     mock.timers.reset()
   }
+})
+
+test('a page that sends no frame at all still gives a one-frame video, captured at record_stop', async () => {
+  const { contents } = tab({ failScreenshot: true })
+  const page = helper()
+  const video = await startVideo(contents.debugger, () => Promise.resolve(page))
+  const shots: string[] = []
+
+  // No screenshot at record_start, and no screencast frame: a still page in a hidden tab.
+  video.snapshot = () => Promise.resolve((shots.push('stop'), 'STILL'))
+  const result = await stopVideo(video, join(temp, 'still.webm'))
+
+  assert.deepEqual(shots, ['stop'])
+  assert.ok(page.scripts.includes('draw("STILL", 0)'))
+  assert.ok(
+    page.scripts.indexOf('draw("STILL", 0)') <
+      page.scripts.findIndex((s) => s.startsWith('finish(')),
+  )
+  assert.ok(readFileSync(result.file).length > 0)
+})
+
+test('a Desktop tab is captured with its own capturePage, not a CDP screenshot', async () => {
+  const { contents, debug } = tab()
+  const page = helper()
+  const desktop = Object.assign(contents, {
+    // Like Electron's WebContents, it only works called on the tab.
+    capturePage(this: unknown) {
+      if (this !== desktop) return Promise.reject(new TypeError('Object has been destroyed'))
+
+      return Promise.resolve({ isEmpty: () => false, toJPEG: () => Buffer.from('PAGE') })
+    },
+  })
+
+  await startRecording(desktop, () => Promise.resolve(page))
+  assert.ok(
+    page.scripts.includes(`draw(${JSON.stringify(Buffer.from('PAGE').toString('base64'))}, 0)`),
+  )
+  assert.ok(!methods(debug).includes('Page.captureScreenshot'))
+  await stopRecording(desktop, output)
 })

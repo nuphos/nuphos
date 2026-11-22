@@ -7,6 +7,7 @@ import { logError } from '@/lib/observability'
 import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { changedBy, writeTrigger } from '../trigger-history'
+import { parsePayloadFilters } from '../trigger-payload-filter'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
 import { validateCreateTriggerShape } from './create-validation'
@@ -15,6 +16,7 @@ import {
   assertBindableSession,
   serializeTrigger,
   isDuplicateKeyError,
+  validateExpiresAt,
   validateMinInterval,
 } from './shared'
 
@@ -59,18 +61,14 @@ export async function createTrigger(
     cronExpression = input.cronExpression.trim()
   }
 
-  if (
-    input.expiresAt !== undefined &&
-    !(input.expiresAt instanceof Date && !Number.isNaN(input.expiresAt.getTime()))
-  ) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be a valid date')
-  }
-  if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be in the future')
-  }
+  if (input.expiresAt !== undefined) validateExpiresAt(input.expiresAt)
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
 
+  const payloadFilters =
+    input.payloadFilters === undefined
+      ? []
+      : parsePayloadFilters(input.triggerType, input.payloadFilters)
   const { dedupeKey } = input
 
   // Idempotency: a dedupeKey that already exists returns the existing trigger
@@ -110,6 +108,7 @@ export async function createTrigger(
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
+    ...(payloadFilters.length > 0 ? { payloadFilters } : {}),
     configRevision: 1,
     createdAt: now,
     updatedAt: now,

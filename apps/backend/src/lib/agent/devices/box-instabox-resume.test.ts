@@ -1,4 +1,4 @@
-import { Sandbox } from '@insforge/instabox-sdk'
+import { InstaboxTimeoutError, Sandbox } from '@insforge/instabox-sdk'
 import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
@@ -116,6 +116,29 @@ test('a pause that happened is not reported as failed when ending the update not
     getAgentDevice: () =>
       Promise.resolve({ ...paused, box: { ...paused.box, updateStartedAt: new Date() } }),
     agentDevices: () => failingWrite,
+  })
+  await expect(pauseBox('u1', 'd1').finally(restore)).resolves.toMatchObject({ deviceId: 'd1' })
+})
+
+test('a pause instabox is still saving when the wait ends is under way, not failed', async () => {
+  const savedBox = config.box.instabox
+  const connect = spyOn(Sandbox, 'connect').mockResolvedValue({
+    pause: () =>
+      Promise.reject(
+        new InstaboxTimeoutError('suspend did not finish within 30000 ms (phase uploading)', {
+          code: 'operation_timeout',
+        }),
+      ),
+  } as unknown as Sandbox)
+  const restore = () => {
+    connect.mockRestore()
+    config.box.instabox = savedBox
+  }
+
+  config.box.instabox = { apiKey: 'test' }
+  installStore({
+    getAgentDevice: () => Promise.resolve(paused),
+    agentDevices: () => ({ updateOne: () => Promise.resolve({ matchedCount: 1 }) }) as never,
   })
   await expect(pauseBox('u1', 'd1').finally(restore)).resolves.toMatchObject({ deviceId: 'd1' })
 })
