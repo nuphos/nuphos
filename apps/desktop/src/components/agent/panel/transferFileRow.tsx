@@ -14,9 +14,10 @@ import { useEffect, useState } from 'react'
 import { useStableCallback } from '../../../hooks/useStableCallback'
 import { t } from '../../../i18n'
 import { filePreviewKind } from '../../../lib/filePreviews'
+import { isXlsxFile } from '../../../lib/xlsxPreview'
 import { Button } from '../../ui/button'
 
-import { openFilePreview, prefetchFilePreview } from './filePreview'
+import { openFilePreview, openSpreadsheetPreview, prefetchFilePreview } from './filePreview'
 import { formatTransferBytes } from './transferDownloads'
 
 import type { FileTransferGroup } from '../../../types'
@@ -42,14 +43,16 @@ export function FileRow({
   compact: boolean
   busy: string | null
   onDownload: () => void
-  /** Where the file resolves, to open it in the dock; only HTML and Markdown files use it. */
+  /** Where the file resolves, to open it in the dock; HTML, Markdown and XLSX files use it. */
   preview?: { teamId: string; groupId: string; channelId?: string }
 }) {
   const [previewing, setPreviewing] = useState(false)
   const failed = f.status === 'failed'
-  const canPreview =
-    !expired && f.status === 'ready' && Boolean(preview && filePreviewKind(f.fileName))
-  const source = canPreview && preview ? { ...preview, fileId: f.id } : null
+  const ready = !expired && f.status === 'ready' && Boolean(preview)
+  const spreadsheet = ready && isXlsxFile(f.fileName, f.contentType)
+  const text = ready && !spreadsheet && filePreviewKind(f.fileName) !== null
+  const canPreview = text || spreadsheet
+  const source = text && preview ? { ...preview, fileId: f.id } : null
   const prefetch = () => {
     if (source) prefetchFilePreview(source)
   }
@@ -57,6 +60,11 @@ export function FileRow({
   const row = usePrefetchWhenShown(source && small ? prefetch : null, f.id)
   const openPreview = () => {
     if (!preview || previewing) return
+    if (spreadsheet) {
+      openSpreadsheetPreview({ ...preview, fileId: f.id, fileName: f.fileName, size: f.size })
+
+      return
+    }
     setPreviewing(true)
     void openFilePreview({ ...preview, fileId: f.id, fileName: f.fileName }).finally(() =>
       setPreviewing(false),

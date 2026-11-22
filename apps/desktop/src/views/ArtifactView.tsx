@@ -21,8 +21,15 @@ import { ChartPlot } from '../components/ChartPlot'
 import { EmptyState } from '../components/EmptyState'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { isFilePreviewId, readFilePreview, subscribeFilePreviews } from '../lib/filePreviews'
+import {
+  isFilePreviewId,
+  readFilePreview,
+  readSpreadsheetPreview,
+  subscribeFilePreviews,
+} from '../lib/filePreviews'
 import { ARTIFACT_PAGE, pickArtifactVersion } from '../lib/sessionArtifacts'
+
+import { SpreadsheetView } from './SpreadsheetView'
 
 import type { ArtifactKind, ArtifactVersion } from '../components/agent/artifacts/artifactPayload'
 import type { ArtifactViewMode } from '../components/agent/artifacts/ArtifactToolbar'
@@ -58,6 +65,9 @@ export function ArtifactView({
   const sessionLine = useArtifactLine(conversationId, artifactId)
   // An HTML or Markdown file opened from its card is held apart from the chat's artifacts.
   const file = useSyncExternalStore(subscribeFilePreviews, () => readFilePreview(artifactId))
+  const spreadsheet = useSyncExternalStore(subscribeFilePreviews, () =>
+    readSpreadsheetPreview(artifactId),
+  )
   const line = useMemo(() => (file ? [file] : sessionLine), [file, sessionLine])
   const picked = usePickedArtifactVersion(conversationId, artifactId)
   const current = line.find((entry) => entry.version === picked) ?? line.at(-1)
@@ -80,6 +90,18 @@ export function ArtifactView({
       return { version, messages: [...messages, message] }
     })
   }
+
+  if (spreadsheet && !file)
+    return (
+      <PageMeta
+        pageKey={ARTIFACT_PAGE}
+        title={spreadsheet.title}
+        icon={<FileText className="h-3.5 w-3.5" />}
+        iconKey="xlsx"
+      >
+        <SpreadsheetView key={artifactId} source={spreadsheet.source} name={spreadsheet.title} />
+      </PageMeta>
+    )
 
   return (
     <PageMeta

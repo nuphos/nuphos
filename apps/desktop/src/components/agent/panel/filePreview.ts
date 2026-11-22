@@ -1,7 +1,7 @@
 import { api } from '../../../api'
 import { openInApp } from '../../../app/workspace/openInApp'
 import { t } from '../../../i18n'
-import { filePreviewId, putFilePreview } from '../../../lib/filePreviews'
+import { filePreviewId, putFilePreview, putSpreadsheetPreview } from '../../../lib/filePreviews'
 import { artifactPagePath } from '../../../lib/sessionArtifacts'
 import { toast } from '../../ui/toast'
 
@@ -75,4 +75,15 @@ export async function openFilePreview(args: {
   } catch (err) {
     toast.apiError(t('Preview failed'), err)
   }
+}
+
+/** XLSX opens in the existing artifact dock; bytes are read only on demand. */
+export function openSpreadsheetPreview(
+  args: PreviewSource & { fileName: string; size: number | null },
+) {
+  const { fileName, ...source } = args
+  const id = filePreviewId(source.groupId, source.fileId)
+
+  putSpreadsheetPreview(id, fileName, source)
+  openInApp(artifactPagePath(source.teamId, id))
 }
