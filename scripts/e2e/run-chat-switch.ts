@@ -1,6 +1,6 @@
 // `bun run e2e:chat-switch`: what a click on a chat's sidebar row shows, asserted without timing
 // anything (real latency is the app's `chat_switch` event). Writes chat-switch.json and .md.
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { backendLog } from './backend-log.ts'
@@ -29,6 +29,10 @@ const POSTS = 40
 const MAX_TYPED_FRAMES = 3
 const ACK_A = 'ACK E2E_DELIVERY:switch-a'
 const ACK_B = 'ACK E2E_DELIVERY:switch-b'
+// Measure only (#3523): a finished Task with many long turns.
+const DONE_TURNS = 12
+const done = (turn: number) => `E2E_DELIVERY:switch-done-${String(turn).padStart(2, '0')}`
+const DONE_LAST = `ACK ${done(DONE_TURNS)}`
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -159,6 +163,23 @@ async function scenario(page: Page, stack: Stack) {
     'LONG_START',
   )
 
+  const longDone = await task(
+    page,
+    stack,
+    'Switch task done',
+    `Done E2E_LONG_REPLY ${done(1)}`,
+    `ACK ${done(1)}`,
+  )
+
+  for (let turn = 2; turn <= DONE_TURNS; turn++) {
+    await send(page, `Done E2E_LONG_REPLY ${done(turn)}`)
+    await page
+      .getByText(`ACK ${done(turn)}`)
+      .filter({ visible: true })
+      .first()
+      .waitFor({ timeout: 60_000 })
+  }
+
   await restart(page)
   await open(page, 'task, first open', taskA, { history: ACK_A })
   await focused(page, 'task, first open')
@@ -194,6 +215,54 @@ async function scenario(page: Page, stack: Stack) {
   await backHome(page)
   await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
   await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
+  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB }, '')
+  // The same with a slow network between the window and the backend.
+  const cdp = await page.context().newCDPSession(page)
+
+  await cdp.send('Network.enable')
+  await cdp.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: LATENCY_MS,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  })
+  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB }, ` +${String(LATENCY_MS)} ms`)
+}
+
+const LATENCY_MS = 300
+
+/** Measure-only rows for #3523, with no budget: what a long Task and a Task reply cost. */
+async function measure(
+  page: Page,
+  stack: Stack,
+  { longDone, taskA, taskB, chatA, chatB }: Record<string, Chat>,
+  suffix: string,
+) {
+  const name = (what: string) => `measure: ${what}${suffix}`
+  const away = `E2E_DELIVERY:switch-away${suffix ? '-slow' : ''}`
+  const release = join(artifacts, 'release')
+
+  await restart(page)
+  await open(page, name('long finished task, first open'), longDone, { history: DONE_LAST })
+  await open(page, name('task, first open'), taskA, { history: ACK_A })
+  await open(page, name('bot chat, first open'), chatB, lastPost(chatB))
+  await open(page, name('long finished task, reopened'), longDone, { history: DONE_LAST })
+  // Two other Tasks opened since: it is no longer kept.
+  await open(page, name('task, first open, another'), taskB, { history: ACK_B })
+  await open(page, name('task, reopened'), taskA, { history: ACK_A })
+  await open(page, name('long finished task, after eviction'), longDone, { history: DONE_LAST })
+  // A Task reply that lands while another chat is on screen.
+  await open(page, name('task, reopened, to send'), taskB, { history: ACK_B })
+  await send(page, `Away E2E_WAIT_RELEASE ${away}`)
+  await page.getByText(`Away E2E_WAIT_RELEASE ${away}`).filter({ visible: true }).first().waitFor()
+  await open(page, name('bot chat, reopened'), chatA, lastPost(chatA))
+  writeFileSync(release, '')
+  await new Promise((resolve) => setTimeout(resolve, 3_000))
+  rmSync(release)
+  await open(page, name('task, reply landed while away'), taskB, {
+    history: `Away E2E_WAIT_RELEASE ${away}`,
+    newest: `ACK ${away}`,
+  })
 }
 
 /** What fails the run. */
