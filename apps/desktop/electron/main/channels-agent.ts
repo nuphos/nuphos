@@ -240,10 +240,6 @@ export const agentChannels = {
     args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number },
   ) => agent.listPlans(args ?? {}),
   'agent:getPlan': (_e: unknown, planId: string, teamId?: string) => agent.getPlan(planId, teamId),
-  'agent:getPlanApprovalPolicy': (_e: unknown, teamId: string) =>
-    agent.getPlanApprovalPolicy(teamId),
-  'agent:updatePlanApprovalPolicy': (_e: unknown, teamId: string, minimumOtherApprovals: number) =>
-    agent.updatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   ...agentTriggerChannels,
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>

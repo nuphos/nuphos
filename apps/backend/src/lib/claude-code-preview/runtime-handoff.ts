@@ -203,6 +203,9 @@ export async function adoptRuntimeHandoffs(
         session_id: handoff.conversationId,
         attempts,
         retry,
+        offline_cause: offline
+          ? (error.details as { cause?: string } | undefined)?.cause
+          : undefined,
       })
       if (retry)
         await withRedis((redis) =>

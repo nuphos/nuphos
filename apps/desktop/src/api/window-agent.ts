@@ -28,7 +28,7 @@ import type {
   AgentSlackThread,
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
-import type { Plan, PlanApprovalRequirement, PlansPage } from './plan-types.ts'
+import type { Plan, PlansPage } from './plan-types.ts'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
@@ -246,11 +246,6 @@ export type WindowAgentApi = AgentDecisionApi & {
     limit?: number
   }): Promise<PlansPage>
   agentGetPlan(planId: string, teamId?: string): Promise<Plan>
-  agentGetPlanApprovalPolicy(teamId: string): Promise<PlanApprovalRequirement>
-  agentUpdatePlanApprovalPolicy(
-    teamId: string,
-    minimumOtherApprovals: number,
-  ): Promise<PlanApprovalRequirement>
   agentListTriggers(teamId?: string, targetSessionId?: string): Promise<AgentTrigger[]>
   agentGetTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger>
   agentUpdateTrigger(

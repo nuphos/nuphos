@@ -243,9 +243,6 @@ export const agentApi = {
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     window.api.agentListTriggers(teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
