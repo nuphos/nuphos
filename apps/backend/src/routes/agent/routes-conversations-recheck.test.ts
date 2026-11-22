@@ -41,12 +41,13 @@ beforeEach(() => {
   rechecked = []
 })
 
-test('the sidebar list rechecks its rows’ tags, as opening a conversation does', async () => {
+test('the sidebar list does not recheck its rows’ linked resources', async () => {
   const response = await app.request(`/agent/conversations?teamId=${teamId}`, {
     headers: { authorization: 'Bearer test-token' },
   })
 
   expect(response.status).toBe(200)
-  // A row's PR may sit in a repository whose events never reach its installation.
-  expect(rechecked).toEqual(['s1', 's2'])
+  // Rechecking every listed row spent the GitHub installation's rate limit; only the
+  // open conversation's resource poll rechecks.
+  expect(rechecked).toEqual([])
 })

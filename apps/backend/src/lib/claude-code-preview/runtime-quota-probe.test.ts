@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -38,6 +39,16 @@ function probe(files: Record<string, unknown>, status: number) {
   return parseQuotaReading(run.stdout)
 }
 
+/** The plan a Claude login reports, with the provider answering. */
+function planOf(oauth: Record<string, string>) {
+  const reading = probe(
+    { '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access', ...oauth } } },
+    200,
+  )
+
+  return 'plan' in reading ? reading.plan : undefined
+}
+
 test('a one-year token the usage API refuses says why instead of an HTTP code', () => {
   expect(
     probe(
@@ -59,6 +70,15 @@ test('an ordinary login keeps its plain HTTP reason', () => {
   expect(
     probe({ '.credentials.json': { claudeAiOauth: { accessToken: 'fixture-access' } } }, 403),
   ).toEqual({ error: 'HTTP 403', asked: true })
+})
+
+test('a Max 20x tier reads as Ultra, the name Anthropic gave that plan', () => {
+  // Claude Code still stores "max" for both; only the rate limit tier tells them apart.
+  expect(planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_20x' })).toBe('ultra')
+  expect(planOf({ subscriptionType: 'max', rateLimitTier: 'default_claude_max_5x' })).toBe('max')
+  expect(planOf({ subscriptionType: 'max' })).toBe('max')
+  expect(planOf({ subscriptionType: 'pro' })).toBe('pro')
+  expect(planOf({ subscriptionType: 'team', rateLimitTier: 'default_claude_max_20x' })).toBe('team')
 })
 
 test('a lapsed one-year token is not used: the ordinary login beside it is', () => {
@@ -112,4 +132,54 @@ test('an API key in Claude settings is signed in, with no usage to read, before 
   ).toEqual({ error: 'API-key agents have no usage limits' })
   // Settings without a key leave the sign-in as it was.
   expect(probe({ 'settings.json': { env: {} } }, 200)).toEqual({ error: 'Sign in required' })
+})
+
+test('the probe names the Claude quota by a hash of its account and organization, never the email', () => {
+  const home = mkdtempSync(join(tmpdir(), 'quota-probe-'))
+
+  homes.push(home)
+  mkdirSync(join(home, '.claude'), { recursive: true })
+  writeFileSync(
+    join(home, '.claude', '.credentials.json'),
+    JSON.stringify({ claudeAiOauth: { accessToken: 'fixture-access' } }),
+  )
+  writeFileSync(
+    join(home, '.claude.json'),
+    JSON.stringify({
+      oauthAccount: {
+        accountUuid: 'acc-1',
+        organizationUuid: 'org-1',
+        emailAddress: 'a@example.com',
+      },
+    }),
+  )
+  writeFileSync(join(home, 'params.json'), JSON.stringify({ provider: 'claude-code' }))
+  writeFileSync(join(home, 'probe.mjs'), RUNTIME_QUOTA_PROBE)
+  writeFileSync(
+    join(home, 'fake-fetch.mjs'),
+    `globalThis.fetch = async () => new Response('{}', { status: 200 })`,
+  )
+  const run = spawnSync(
+    process.execPath,
+    ['--preload', join(home, 'fake-fetch.mjs'), join(home, 'probe.mjs'), home],
+    { env: { HOME: home, PATH: process.env.PATH }, encoding: 'utf8' },
+  )
+
+  expect(run.stdout).not.toContain('a@example.com')
+  expect(parseQuotaReading(run.stdout)).toEqual({
+    usage: {},
+    accountKey: createHash('sha256').update('claude-code:acc-1:org-1').digest('hex').slice(0, 20),
+  })
+})
+
+test('a reading keeps only a 20-hex account key', () => {
+  expect(parseQuotaReading('__NUPHOS_QUOTA__{"usage":{},"accountKey":"a@example.com"}\n')).toEqual({
+    usage: {},
+  })
+  // A 16-hex key came from a computer that named the person, not the quota.
+  expect(
+    parseQuotaReading('__NUPHOS_QUOTA__{"usage":{},"accountKey":"359cc9796000792b"}\n'),
+  ).toEqual({
+    usage: {},
+  })
 })

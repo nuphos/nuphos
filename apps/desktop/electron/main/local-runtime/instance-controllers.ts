@@ -12,6 +12,7 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { RefreshDefault } from './default-agent.ts'
+import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -111,13 +112,14 @@ export class InstanceControllers {
     return instanceStatus(this.entries.values())
   }
 
-  private add(metadata: AgentInstanceRecord, userId: string): Entry {
+  /** `install`: set for an agent being added, whose missing CLI this computer installs. */
+  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller }
+    const entry: Entry = { metadata, controller, install }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -175,7 +177,10 @@ export class InstanceControllers {
       return true
     }
     if (final && !(entry.metadata.state === undefined && loggedIn == null))
-      await this.remove(entry.metadata.instanceId, userId)
+      await this.remove(entry.metadata.instanceId, userId).catch((error: unknown) => {
+        // The agent is gone either way; only a Keychain entry may be left behind.
+        console.warn('[local-runtime] removing an unfinished agent', error)
+      })
 
     return false
   }
@@ -192,9 +197,12 @@ export class InstanceControllers {
 
     await entry.starting?.catch(() => {})
     await entry.controller.shutdown()
-    if (entry.metadata.provider === 'claude-code')
-      await this.removeCredential(secureStorageEnv(dir, userId))
-    rmSync(dir, { recursive: true, force: true })
+    try {
+      if (entry.metadata.provider === 'claude-code')
+        await this.removeCredential(secureStorageEnv(dir, userId))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   }
 
   async request(request: unknown, userId: string | null): Promise<unknown> {
@@ -253,7 +261,7 @@ export class InstanceControllers {
       userDir(this.deps.dataDir(), userId),
       [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const entry = this.add(record, userId)
+    const entry = this.add(record, userId, {})
 
     entry.starting = entry.controller.setUser(userId).then(this.changed)
     entry.starting.catch(() => {

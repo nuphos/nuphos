@@ -59,6 +59,7 @@ export function serializeTimelineEvents(
         ...(event.agentId ? { agentId: event.agentId } : {}),
         cause: event.cause ?? 'other',
         ...(event.resetsAt ? { resetsAt: event.resetsAt } : {}),
+        ...(event.verifyUrl ? { verifyUrl: event.verifyUrl } : {}),
       }
     const actor = person(event.actorId)
 
@@ -68,14 +69,24 @@ export function serializeTimelineEvents(
         : undefined
       const to: Runtime = { label: event.toLabel, provider: event.toProvider }
       const reason = event.reason
-      const text =
+      const moved =
         reason && from
           ? `${FALLBACK_CAUSE[reason](from.label)}, so this session moved to ${to.label}`
           : from
             ? `${actor.name} moved this session from ${from.label} to ${to.label}`
             : `${actor.name} moved this session to ${to.label}`
+      const text = event.retrying ? `${moved}. Retrying on ${to.label}` : moved
 
-      return { kind: event.kind, at, text, actor, from, to, ...(reason ? { reason } : {}) }
+      return {
+        kind: event.kind,
+        at,
+        text,
+        actor,
+        from,
+        to,
+        ...(reason ? { reason } : {}),
+        ...(event.retrying ? { retrying: true } : {}),
+      }
     }
     if (event.kind === 'message_edited' || event.kind === 'conversation_forked')
       return {

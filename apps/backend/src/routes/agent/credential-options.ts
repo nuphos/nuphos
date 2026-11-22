@@ -262,7 +262,7 @@ export async function getAgentCredentialOptions(
     }))
   const [devices, personalCredentials] = await Promise.all([
     resolveDeviceOptions(userId, teamId),
-    ownPersonalCredentialOptions(userId),
+    ownPersonalCredentialOptions(userId, teamId),
   ])
 
   return {

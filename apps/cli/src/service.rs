@@ -16,8 +16,45 @@ pub const UNIT: &str = "nuphos-agent.service";
 /// The LaunchAgent's label; launchd hands it to the job as XPC_SERVICE_NAME.
 const LABEL: &str = "ai.nuphos.agent";
 
-/// What the service needs from the shell that installed it. PATH finds node, claude and codex.
-const FORWARD: [&str; 4] = ["PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
+/// What the service needs from the shell that installed it. HOME keeps the agent's data
+/// where that shell keeps it: launchd and systemd would start the service in the
+/// account's own home. PATH finds node, claude and codex.
+const FORWARD: [&str; 5] = ["HOME", "PATH", "NUPHOS_API_URL", "NUPHOS_DOWNLOAD_URL", "NUPHOS_AGENT_HOME"];
+
+/// The agents' own model provider, set where `nuphos agent` is run: the variables Claude Code
+/// and Codex read, which the host passes on to them. The same list as host-provider.ts in the
+/// desktop app; the service's files are 0600, as they may hold these keys.
+const PROVIDER: [&str; 24] = [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "CLAUDE_CODE_USE_BEDROCK",
+    "AWS_REGION",
+    "AWS_PROFILE",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "AWS_BEARER_TOKEN_BEDROCK",
+    "CLAUDE_CODE_USE_VERTEX",
+    "ANTHROPIC_VERTEX_PROJECT_ID",
+    "CLOUD_ML_REGION",
+    "GOOGLE_APPLICATION_CREDENTIALS",
+    "CLAUDE_CODE_USE_FOUNDRY",
+    "ANTHROPIC_FOUNDRY_API_KEY",
+    "ANTHROPIC_FOUNDRY_RESOURCE",
+    "ANTHROPIC_FOUNDRY_BASE_URL",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_KEY",
+];
+
+/// The service's environment: the installing shell's values of FORWARD and PROVIDER.
+fn service_env(var: impl Fn(&str) -> Option<String>) -> Vec<(&'static str, String)> {
+    FORWARD.iter().chain(&PROVIDER).filter_map(|key| var(key).map(|value| (*key, value))).collect()
+}
 
 /// How long a join may take before the install reports it as not joined.
 const JOIN_WAIT: Duration = Duration::from_secs(60);
@@ -28,17 +65,24 @@ const JOIN_WAIT: Duration = Duration::from_secs(60);
 /// only the first, and a process `setsid` left to PID 1 only the second.
 pub fn wanted() -> bool {
     if cfg!(target_os = "macos") {
-        return std::env::var("XPC_SERVICE_NAME").as_deref() != Ok(LABEL);
+        return !running();
     }
-    let unit = std::env::var_os("INVOCATION_ID").is_some()
-        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default());
     cfg!(target_os = "linux")
-        && !unit
+        && !running()
         && systemctl(&["show-environment"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|s| s.success())
+}
+
+/// Whether this process is a service's own: the LaunchAgent's, or a systemd unit's.
+pub fn running() -> bool {
+    if cfg!(target_os = "macos") {
+        return std::env::var("XPC_SERVICE_NAME").as_deref() == Ok(LABEL);
+    }
+    std::env::var_os("INVOCATION_ID").is_some()
+        && is_manager(&std::fs::read_to_string("/proc/self/stat").unwrap_or_default())
 }
 
 /// Writes the unit and its environment, (re)starts the service and, given a join
@@ -50,8 +94,7 @@ pub fn install(join: Option<&str>) -> Result<i32> {
     let config = config_home()?;
     let unit_path = config.join("systemd/user").join(UNIT);
     let env_path = config.join("nuphos/agent.env");
-    let forwarded: Vec<(&str, String)> =
-        FORWARD.iter().filter_map(|key| std::env::var(key).ok().map(|value| (*key, value))).collect();
+    let forwarded = service_env(|key| std::env::var(key).ok());
     write(&env_path, &env_file(&forwarded, join))?;
     write(&unit_path, &unit(&std::env::current_exe()?, &env_path))?;
     for args in [&["daemon-reload"][..], &["enable", "--quiet", UNIT], &["restart", UNIT]] {
@@ -105,8 +148,7 @@ fn install_launch_agent(join: Option<&str>) -> Result<i32> {
     let home = PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?);
     let plist_path = home.join("Library/LaunchAgents").join(format!("{LABEL}.plist"));
     let log = home.join("Library/Logs/nuphos-agent.log");
-    let forwarded: Vec<(&str, String)> =
-        FORWARD.iter().filter_map(|key| std::env::var(key).ok().map(|value| (*key, value))).collect();
+    let forwarded = service_env(|key| std::env::var(key).ok());
     let exe = std::env::current_exe()?;
     write(&plist_path, &plist(&exe, &forwarded, join, &log))?;
     let domain = gui_domain();
@@ -311,6 +353,41 @@ mod tests {
         assert!(text.contains("<key>NUPHOS_JOIN_TOKEN</key><string>nbj_1</string>"));
         assert!(text.contains("<key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>"));
         assert!(!plist(Path::new("/n"), &vars, None, log).contains("NUPHOS_JOIN_TOKEN"));
+    }
+
+    #[test]
+    fn the_service_keeps_the_home_it_was_installed_from() {
+        // launchd and systemd start the service in the account's own home; installed from
+        // another HOME, the agent's data has to stay there.
+        let env = service_env(|key| (key == "HOME").then(|| "/tmp/isolated".to_owned()));
+        assert_eq!(env, [("HOME", "/tmp/isolated".to_owned())]);
+        let log = Path::new("/tmp/isolated/Library/Logs/nuphos-agent.log");
+        assert!(plist(Path::new("/n"), &env, None, log).contains("<key>HOME</key><string>/tmp/isolated</string>"));
+        assert!(env_file(&env, None).contains("HOME=/tmp/isolated\n"));
+    }
+
+    #[test]
+    fn the_service_keeps_the_model_provider_only_when_set() {
+        let shell = |key: &str| match key {
+            "PATH" => Some("/usr/bin".to_owned()),
+            "CLAUDE_CODE_USE_BEDROCK" => Some("1".to_owned()),
+            "OPENAI_API_KEY" => Some("sk-test".to_owned()),
+            "UNRELATED_TOKEN" => Some("other".to_owned()),
+            _ => None,
+        };
+        let env = service_env(shell);
+        assert_eq!(
+            env,
+            [
+                ("PATH", "/usr/bin".to_owned()),
+                ("CLAUDE_CODE_USE_BEDROCK", "1".to_owned()),
+                ("OPENAI_API_KEY", "sk-test".to_owned())
+            ]
+        );
+        assert_eq!(
+            service_env(|key| (key == "PATH").then(|| "/usr/bin".to_owned())),
+            [("PATH", "/usr/bin".to_owned())]
+        );
     }
 
     #[test]

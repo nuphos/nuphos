@@ -9,10 +9,14 @@ const noop = () => {}
 // AgentPanel reports the open chat's heading; `saved` is whether the server has stored it.
 let saved = false
 let reported: boolean | undefined
+let panelProps: Record<string, unknown> = {}
 
 type PanelProps = { sessionId: string; onTitleChange: (...args: unknown[]) => void }
 mock.module('../../components/agent/AgentPanel', () => ({
-  AgentPanel: ({ sessionId, onTitleChange }: PanelProps) => {
+  AgentPanel: (props: PanelProps) => {
+    const { sessionId, onTitleChange } = props
+
+    panelProps = props
     useEffect(() => {
       if (reported === saved) return
       reported = saved
@@ -27,13 +31,15 @@ mock.module('../../components/agent/SessionHeaderMenu', () => ({ SessionHeaderMe
 mock.module('../../components/agent/summary/ChatSummaryPanel', () => ({ ChatSummaryPanel: none }))
 mock.module('../../components/agent/summary/ChatSummaryToggle', () => ({ ChatSummaryToggle: none }))
 mock.module('../../components/agent/summary/useSessionInputRequests', () => ({
-  useSessionInputRequests: () => ({ requests: [], loaded: true, failed: false }),
-}))
-mock.module('../../components/agent/summary/useComposerReplyTarget', () => ({
-  useComposerReplyTarget: () => ({ replyTarget: null, openQuestions: [] }),
+  // The Task waits on a question of its own.
+  useSessionInputRequests: () => ({
+    requests: [{ sessionId: 'new-task', inputRequest: { id: 'q1', question: 'Publish now?' } }],
+    loaded: true,
+    failed: false,
+  }),
 }))
 
-test('a new Task asks for its resources only once the server has stored it', async () => {
+test('a new Task asks for its resources once stored, and its composer answers no question', async () => {
   const { Window } = await import('happy-dom')
   const { act } = await import('react')
   const { createRoot } = await import('react-dom/client')
@@ -72,7 +78,7 @@ test('a new Task asks for its resources only once the server has stored it', asy
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
   const ws = new Proxy(
-    { scope: { teamId: 'team-1' }, selectedSessionId: 'new-task', workspaceActions: {} },
+    { selectedSessionId: 'new-task', workspaceActions: {} },
     { get: (target, key) => (key in target ? target[key as keyof typeof target] : noop) },
   )
   const render = () =>
@@ -80,6 +86,7 @@ test('a new Task asks for its resources only once the server has stored it', asy
       root.render(
         createElement(WorkspaceAgentPane, {
           ws: ws as never,
+          teamId: 'team-1',
           user: { id: 'user-1', name: 'Ada' } as never,
         }),
       ),
@@ -95,6 +102,10 @@ test('a new Task asks for its resources only once the server has stored it', asy
     await render()
     await render()
     assert.deepEqual(requested, ['new-task'])
+    // The question's card answers it; what the composer sends is an ordinary message.
+    assert.deepEqual(panelProps.openQuestions, [{ id: 'q1', question: 'Publish now?' }])
+    assert.equal(panelProps.decisionReplyTo, undefined)
+    assert.equal(panelProps.replyTarget, undefined)
   } finally {
     await act(() => root.unmount())
     await dom.happyDOM.close()

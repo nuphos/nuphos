@@ -78,16 +78,15 @@ class Fake {
     return {
       toArray: async () => rows,
       sort: () => ({ toArray: async () => rows }),
-      async *[Symbol.asyncIterator]() {
-        yield* rows
-      },
     }
   }
-  distinctCalls = 0
-  async distinct() {
-    this.distinctCalls += 1
+  aggregateCalls = 0
+  aggregate() {
+    this.aggregateCalls += 1
 
-    return []
+    return {
+      async *[Symbol.asyncIterator]() {},
+    }
   }
 }
 const byName = new Map<string, Fake>()
@@ -442,12 +441,12 @@ describe('rollupOnOneReplica', () => {
     claims.clear()
     const events = coll('memory_runtime_attributions')
 
-    events.distinctCalls = 0
+    events.aggregateCalls = 0
     await Promise.all([rollupOnOneReplica(), rollupOnOneReplica()])
-    expect(events.distinctCalls).toBe(1)
+    expect(events.aggregateCalls).toBe(1)
     // The next hour, once the claim has expired, runs again.
     claims.clear()
     await rollupOnOneReplica()
-    expect(events.distinctCalls).toBe(2)
+    expect(events.aggregateCalls).toBe(2)
   })
 })

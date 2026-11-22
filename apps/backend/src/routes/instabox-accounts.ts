@@ -126,7 +126,7 @@ instaboxAccountsRoutes.delete(
       throw new AppError(
         409,
         'instabox_account_in_use',
-        `Delete its Boxes first: ${boxes.map((d) => d.label).join(', ')}`,
+        `Delete its computers first: ${boxes.map((d) => d.label).join(', ')}`,
       )
     await teamByosBindings().updateOne(
       { _id: parseObjectId(teamId, 'teamId') },

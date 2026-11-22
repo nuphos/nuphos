@@ -34,8 +34,8 @@ export type AnalyticsEvent =
   | 'logout'
   | 'team_switched'
   | 'navigation'
-  | 'tab_opened'
-  | 'tab_closed'
+  // Click on a chat's row to its messages on screen, in ms.
+  | 'chat_switch'
   | 'agent_chat_started'
   | 'agent_client_tool_deadline_exceeded'
   | 'agent_message_sent'
@@ -54,9 +54,6 @@ export type AnalyticsEvent =
   | 'agent_resume_dispatched'
   | 'agent_end_effects_deferred'
   | 'agent_end_effects_drained'
-  | 'agent_plan_approved'
-  | 'agent_plan_rejected'
-  | 'agent_plan_changes_requested'
   // Trust depth. The decision is a GRADIENT (once < session < always), not a
   // boolean approve/reject: how far the user is willing to let the agent run
   // unattended is the signal, and it stays readable without knowing how wide

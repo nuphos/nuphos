@@ -101,15 +101,19 @@ async function getZeaburHandle(teamId: ObjectId, zeaburId: string) {
   }
 }
 
-zeaburProvidersRoutes.get('/:zeaburId/credentials', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const handle = await getZeaburHandle(teamId, getZeaburIdParam(c))
+zeaburProvidersRoutes.get(
+  '/:zeaburId/credentials',
+  requireTeamRole('ADMINISTRATOR', 'EDITOR'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const handle = await getZeaburHandle(teamId, getZeaburIdParam(c))
 
-  return c.json({
-    zeaburId: handle.zeaburId,
-    token: handle.token,
-  })
-})
+    return c.json({
+      zeaburId: handle.zeaburId,
+      token: handle.token,
+    })
+  },
+)
 
 zeaburProvidersRoutes.get('/:zeaburId/projects', async (c) => {
   const teamId = parseObjectId(c.get('teamId'), 'teamId')

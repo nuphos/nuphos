@@ -65,7 +65,7 @@ export const STEPS: StepDef[] = [
   },
   {
     id: 'chat',
-    label: t('Ask the agent your first question'),
+    label: t('Ask Nuphos your first question'),
     description: t('Deploy, debug, or query in plain language.'),
     navKey: 'team.agent',
     completeOnOpen: true,

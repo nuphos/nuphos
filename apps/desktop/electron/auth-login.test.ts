@@ -23,6 +23,7 @@ const USER: UserInfo = {
 }
 
 const TOKEN = 'nus_test-session'
+const BAD_EMAIL = "That email address doesn't look right. Check it and try again."
 const HANDLE = 'h'.repeat(43)
 /** What the backend puts on the loopback redirect after a real sign-in. */
 const DELIVERY_CODE = 'd'.repeat(43)
@@ -157,6 +158,8 @@ before(async () => {
 
     if (url.endsWith('/auth/email/request-code')) {
       codeRequestClients.push(new Headers(init?.headers).get('x-atlas-client'))
+      if (String(init?.body).includes('..'))
+        return json({ error: { code: 'invalid_email', message: BAD_EMAIL } }, 400)
 
       return json({ ok: true })
     }
@@ -731,4 +734,14 @@ test('asking for a sign-in code names the app, so the email can say so', async (
   const { CLIENT_VERSION_VALUE } = await import('./client-version.ts')
 
   assert.deepEqual(codeRequestClients, [CLIENT_VERSION_VALUE])
+})
+
+test('a refused address keeps the backend code, so the sign-in shows its sentence', async () => {
+  const { atlasErrorInfo } = await import('./atlas/error.ts')
+
+  await assert.rejects(auth.requestEmailCode('dev..typo@example.com'), (err: unknown) => {
+    assert.deepEqual(atlasErrorInfo(err), { message: BAD_EMAIL, code: 'invalid_email' })
+
+    return true
+  })
 })

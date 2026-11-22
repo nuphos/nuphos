@@ -77,7 +77,7 @@ export function SettingsPage({
     : undefined
   const pageProps = { teamId: team?.id, currentUserId: user.id, onOpenAgentChat }
   const fullHeightSections: Partial<Record<string, ReactNode>> = {
-    'workspace.computers': <ComputersSection team={team} onOpenSection={setSection} />,
+    'workspace.computers': <ComputersSection team={team} />,
     'workspace.members': <MembersSection teamId={team?.id} currentUserId={user.id} />,
     'workspace.billing': team ? (
       <BillingSection teamId={team.id} isAdmin={team.role === 'ADMINISTRATOR'} />
@@ -126,7 +126,6 @@ export function SettingsPage({
                     onTeamRemoved={onTeamRemoved}
                     onSignOut={onSignOut}
                     onOpenConversation={onOpenConversation}
-                    onOpenSection={setSection}
                   />
                 </div>
               </HeaderEdge>

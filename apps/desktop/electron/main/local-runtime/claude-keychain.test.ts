@@ -18,6 +18,10 @@ mock.module('node:child_process', {
       services.push(args[args.indexOf('-s') + 1] ?? '')
       callback(null, JSON.stringify({ claudeAiOauth: { accessToken: 'test-only' } }), '')
     },
+    // agent-cli-usage.ts imports it for Grok; reading Claude never calls it.
+    spawn: () => {
+      throw new Error('spawn is not expected here')
+    },
   },
 })
 const { readAgentUsage } = await import('./agent-cli-usage.ts')

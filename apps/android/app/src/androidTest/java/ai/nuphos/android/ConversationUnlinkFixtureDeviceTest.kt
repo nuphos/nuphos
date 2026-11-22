@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -169,6 +169,9 @@ class ConversationUnlinkFixtureDeviceTest {
         val bitmap = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         val file = java.io.File(app.getExternalFilesDir(null), "unlink-$name.png")
         file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        // And to the additional test output, which CI uploads with the device test report (#3468).
+        val uploaded = java.io.File(app.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        java.io.File(uploaded, "unlink-$name.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
     }
 
@@ -313,6 +316,31 @@ class ConversationUnlinkFixtureDeviceTest {
         assertTrue(requests.none { it.url.encodedPath.contains("stream") || it.url.encodedPath.contains("bypass") })
     }
 
+    /** Someone else in a teammate's Task archives it for themselves (#3686), from its row; renaming stays the owner's. */
+    @Test fun aTeammatesTaskIAmInIsArchivedFromItsRowButNotRenamed() {
+        render()
+        compose.runOnIdle { state(store, "conversations").value = store.conversations.map {
+            if (it.sessionId == "child") it.copy(isOwner = false, canManage = false, canArchive = true) else it } }
+        assertTrue(store.canArchive(child()))
+        assertFalse(store.canRename(child()))
+        assertFalse(store.canArchive(store.conversations.first { it.sessionId == "shared" }))
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { swipeLeft() }
+        compose.onNodeWithTag("row-rail:child").assertExists()
+        shot("3686-teammates-task-swipe")
+        androidx.test.espresso.Espresso.pressBack()
+        compose.onNodeWithTag("conversation-row:child").performTouchInput { longClick() }
+        compose.onNodeWithTag("menu-archive:child").assertIsDisplayed()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        shot("3686-teammates-task-menu")
+        androidx.test.espresso.Espresso.pressBack()
+        detailBody = """{"messages":[],"isOwner":false,"canManage":false,"canArchive":false,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(child(), true) }
+        assertTrue(requests.none { it.method == "PATCH" })
+        detailBody = """{"messages":[],"isOwner":false,"canManage":false,"canArchive":true,"readOnly":false}"""
+        runBlocking(Dispatchers.Main) { store.archive(child(), true) }
+        assertEquals(1, requests.count { it.method == "PATCH" && it.url.encodedPath.endsWith("/archive") })
+        assertNull(store.rowActionError)
+    }
 
     @Test fun archiveConfirmationCancelAndFullSwipeDoNotWrite() {
         render()

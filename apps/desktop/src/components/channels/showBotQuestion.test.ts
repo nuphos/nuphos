@@ -31,6 +31,6 @@ test('a question the chat draws no card for opens the Inbox with it selected', (
   const opened: string[] = []
 
   showBotQuestion(chatWith(null), 'team-a', 'q2', (href) => opened.push(href) > 0)
-  assert.deepEqual(picked, [['team-a', { id: 'q2', index: 0 }]])
+  assert.deepEqual(picked, [['team-a', 'q2']])
   assert.deepEqual(opened, ['/teams/team-a/inbox'])
 })

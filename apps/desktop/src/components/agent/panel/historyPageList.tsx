@@ -54,7 +54,6 @@ export function HistoryPageList({
   sentinelRef,
   loadingMore,
   loadMore,
-  emptyLabel,
   onOpenConversation,
   onArchive,
 }: {
@@ -62,10 +61,6 @@ export function HistoryPageList({
   loading: boolean
   debouncedQuery: string
   ownerId: string | null
-  /** Replaces the "no conversations" copy where the list is not Chats — a
-   *  Trigger's runs need to say the trigger hasn't fired, not that nobody has
-   *  chatted. Search and loading still speak for themselves. */
-  emptyLabel?: string
   historyScope: 'mine' | 'team'
   teamId?: string
   openingSessionId: string | null
@@ -84,11 +79,12 @@ export function HistoryPageList({
   const unreadSessions = useAgentUnreadSessions()
 
   // Rename and Slack pick-up are the owner's (pick-up binds the thread to the
-  // owner's DM); a manager may also archive.
+  // owner's DM). Archive follows the server's canArchive, so a participant can
+  // archive a teammate's Task for themselves alone.
   const isOwn = (conversation: AgentConversation) =>
     historyScope === 'mine' || conversation.isOwner === true
   const canArchive = (conversation: AgentConversation) =>
-    isOwn(conversation) || conversation.canManage === true
+    conversation.canArchive ?? (isOwn(conversation) || conversation.canManage === true)
 
   const openRowMenu = (event: MouseEvent, conversation: AgentConversation) => {
     event.preventDefault()
@@ -102,12 +98,11 @@ export function HistoryPageList({
           ? t('Loading…')
           : debouncedQuery
             ? t('No Bots or tasks match your search.')
-            : (emptyLabel ??
-              (ownerId
-                ? t('No tasks from this member yet.')
-                : historyScope === 'team'
-                  ? t('No team tasks yet.')
-                  : t("You haven't started any tasks yet.")))}
+            : ownerId
+              ? t('No tasks from this member yet.')
+              : historyScope === 'team'
+                ? t('No team tasks yet.')
+                : t("You haven't started any tasks yet.")}
       </div>
     )
   }
@@ -161,7 +156,7 @@ export function HistoryPageList({
               ? ([
                   {
                     key: 'rename',
-                    label: rowMenu.conversation.avatar ? t('Rename Bot') : t('Rename task'),
+                    label: rowMenu.conversation.avatar ? t('Edit Bot') : t('Rename task'),
                     icon: Pencil,
                     disabled: !teamId,
                     onSelect: () => setRenameTarget(rowMenu.conversation),

@@ -155,7 +155,8 @@ describe('agents in a channel', () => {
     })
 
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
+    // Its presence is the presence tests' to check.
+    expect(await response.json()).toMatchObject({
       agents: [
         {
           sessionId: 'agent-a',
@@ -343,63 +344,6 @@ describe('retrying an agent that could not reply', () => {
     expect((await send('POST', `/conversations/${channelId}/agents/agent-b/wake`)).status).toBe(404)
     viewer = TEAMMATE
     expect((await send('POST', `/conversations/${channelId}/agents/agent-a/wake`)).status).toBe(403)
-  })
-})
-
-describe('answering in a chat', () => {
-  const ask = (status: string) => ({
-    inputRequests: [
-      {
-        id: 'q1',
-        category: 'approval',
-        question: 'Ship?',
-        options: ['Yes'],
-        status,
-        askedAt: new Date(),
-      },
-    ],
-    // Archived, so the post records and answers without waking a turn here.
-    archivedAt: new Date(),
-  })
-
-  test("a post naming the Bot's open question is its answer", async () => {
-    const channelId = await createChannel()
-
-    await seedAgent('bot', OWNER, ask('open'))
-    await agentConversations().updateOne(
-      { sessionId: channelId },
-      { $set: { agentSessionIds: ['bot'] } },
-    )
-    const response = await send('POST', `/conversations/${channelId}/channel-messages`, {
-      id: 'm1',
-      text: 'Yes',
-      decisionReplyTo: 'q1',
-    })
-
-    expect(response.status).toBe(201)
-    expect(appended[0]?.messages[0]).toMatchObject({ parts: [{ type: 'text', text: 'Yes' }] })
-    expect((await agentConversations().findOne({ sessionId: 'bot' }))?.inputRequests).toEqual([])
-  })
-
-  test('refuses a question already answered, or one no agent in the chat asked', async () => {
-    const channelId = await createChannel()
-
-    // An answered question is off its agent's list, as is one asked elsewhere.
-    await seedAgent('bot', OWNER, { ...ask('open'), inputRequests: [] })
-    await seedAgent('elsewhere', OWNER, {
-      ...ask('open'),
-      inputRequests: [{ ...ask('open').inputRequests[0], id: 'q2' }],
-    })
-    await agentConversations().updateOne(
-      { sessionId: channelId },
-      { $set: { agentSessionIds: ['bot'] } },
-    )
-    const post = (decisionReplyTo: string) =>
-      send('POST', `/conversations/${channelId}/channel-messages`, { text: 'Yes', decisionReplyTo })
-
-    expect((await post('q1')).status).toBe(404)
-    expect((await post('q2')).status).toBe(404)
-    expect(appended).toHaveLength(0)
   })
 })
 

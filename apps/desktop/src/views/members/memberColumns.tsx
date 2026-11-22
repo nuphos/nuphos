@@ -67,9 +67,11 @@ export function buildMemberColumns(): Column<MemberRow>[] {
             {roleLabel(row.member.role)}
           </span>
         ) : (
+          // What they join as; the Member column already says "Invited", and the pending
+          // tint and mail icon mark it. "Invited as …" would not fit this column.
           <span className="inline-flex items-center gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2 py-1 text-[12px] font-medium text-warning">
             <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
-            {t('Invited')}
+            {roleLabel(row.invitation.role ?? 'EDITOR')}
           </span>
         ),
     },

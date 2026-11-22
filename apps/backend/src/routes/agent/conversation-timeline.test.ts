@@ -40,6 +40,22 @@ describe('session timeline events', () => {
     })
   })
 
+  test('a move that resends the failed turn says so', () => {
+    const moved: ConversationTimelineEvent = {
+      kind: 'runtime_moved',
+      at,
+      actorId: 'alice',
+      fromLabel: 'Claude Code',
+      toLabel: 'Codex',
+      retrying: true,
+    }
+
+    expect(serializeTimelineEvents([moved], people)[0]).toMatchObject({
+      text: 'Alice moved this session from Claude Code to Codex. Retrying on Codex',
+      retrying: true,
+    })
+  })
+
   test('an agent that could not reply reads as the chat’s own line', () => {
     const failed: ConversationTimelineEvent[] = [
       { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops', reason: 'No agent.' },
@@ -53,6 +69,16 @@ describe('session timeline events', () => {
         cause: 'usage_limit',
         reason: 'its Claude Code account hit its usage limit.',
         resetsAt: '2026-11-10T16:00:00.000Z',
+      },
+      {
+        kind: 'agent_reply_failed',
+        at,
+        actorId: 'system',
+        agentId: 'ops',
+        agentName: 'Ops',
+        cause: 'usage_limit',
+        reason: 'its Claude Code account must be verified with Anthropic.',
+        verifyUrl: 'https://portal.anthropic.com/verify',
       },
     ]
 
@@ -76,6 +102,14 @@ describe('session timeline events', () => {
         agentId: 'ops',
         cause: 'usage_limit',
         resetsAt: '2026-11-10T16:00:00.000Z',
+      },
+      {
+        kind: 'agent_reply_failed',
+        at: at.toISOString(),
+        text: 'Ops couldn’t reply: its Claude Code account must be verified with Anthropic.',
+        agentId: 'ops',
+        cause: 'usage_limit',
+        verifyUrl: 'https://portal.anthropic.com/verify',
       },
     ])
   })

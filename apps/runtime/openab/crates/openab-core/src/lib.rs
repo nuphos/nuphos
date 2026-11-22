@@ -1,6 +1,5 @@
 pub mod acp;
 pub mod adapter;
-#[cfg(feature = "acp-mcp")]
 pub mod acp_mcp;
 pub mod redact;
 pub mod bot_turns;

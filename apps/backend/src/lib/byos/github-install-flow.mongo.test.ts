@@ -20,6 +20,13 @@ useByosGithub({
     } as never),
 })
 
+const access = {
+  memberAllowList: ['u1'],
+  ownerUserId: 'u1',
+  updatedAt: new Date(),
+  updatedBy: 'u1',
+}
+
 async function installations(team: ObjectId): Promise<number[] | undefined> {
   const bindings = await teamByosBindings().findOne({ _id: team })
 
@@ -39,14 +46,14 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('bindGithubInstallation on a real
     const team = new ObjectId()
 
     await teamByosBindings().insertOne({ _id: team, awsRoles: [] } as never)
-    await bindGithubInstallation(team, 42)
+    await bindGithubInstallation(team, 42, access)
     expect(await installations(team)).toEqual([42])
   })
 
   test('creates the team document when this is its first connector', async () => {
     const team = new ObjectId()
 
-    await bindGithubInstallation(team, 42)
+    await bindGithubInstallation(team, 42, access)
     expect(await installations(team)).toEqual([42])
     expect((await teamByosBindings().findOne({ _id: team }))?.awsRoles).toEqual([])
   })
@@ -54,8 +61,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('bindGithubInstallation on a real
   test('binding the same installation twice keeps one binding', async () => {
     const team = new ObjectId()
 
-    await bindGithubInstallation(team, 42)
-    await bindGithubInstallation(team, 42)
+    await bindGithubInstallation(team, 42, access)
+    await bindGithubInstallation(team, 42, access)
     expect(await installations(team)).toEqual([42])
   })
 })

@@ -244,7 +244,7 @@ export function useComposerState({
     const next = readOnly
       ? (readOnlyPlaceholder ?? t('This task is read-only'))
       : streaming
-        ? t('Agent is replying...')
+        ? t('Replying...')
         : idlePlaceholder
 
     swapPlaceholder(next)

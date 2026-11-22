@@ -1,0 +1,114 @@
+// Another computer, as `nuphos agent` runs one: the real host on a home of its own, with no
+// agent CLI. Adding an agent there installs fixture-install.sh's `claude`.
+import { execFileSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+
+import { backendLog } from './backend-log.ts'
+import { artifacts, spawn, stop, until } from './processes.ts'
+
+import type { Stack } from './stack.ts'
+
+export const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
+
+// It dials the backend at `apiUrl` and runs its agents from the bundle in `runtimeDir`. With
+// `stagedUpdate` it reports that update downloaded, as a Nuphos Desktop does; updating it stops
+// the host, which starts again on its own without one, as the Desktop opens again once installed.
+export async function startSecondComputer(
+  stack: Stack,
+  label: string,
+  {
+    apiUrl = stack.apiUrl,
+    runtimeDir = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64'),
+    stagedUpdate = '',
+    env: extra = {},
+    prepare,
+  }: {
+    apiUrl?: string
+    runtimeDir?: string
+    stagedUpdate?: string
+    env?: Record<string, string>
+    /** Runs on the computer's home and its agent home before the host starts. */
+    prepare?: (home: string, agentHome: string) => void
+  } = {},
+) {
+  const deviceId = randomUUID()
+  const home = join(artifacts, `computer-${deviceId.slice(0, 8)}`)
+  const agentHome = join(home, '.nuphos-agent')
+  // Beside the app's node_modules, which the host resolves its keyring module from.
+  const host = join(DESKTOP_DIR, 'build', 'e2e-host.mjs')
+
+  // Signed in as `nuphos login` leaves it, beside the app's sign-in files the artifacts leave out.
+  const cliConfig = join(artifacts, 'sign-in', `computer-${deviceId.slice(0, 8)}.yaml`)
+
+  mkdirSync(agentHome, { recursive: true })
+  mkdirSync(dirname(cliConfig), { recursive: true })
+  writeFileSync(cliConfig, `token: ${stack.token}\n`, { mode: 0o600 })
+  writeFileSync(
+    join(agentHome, 'device-identity.json'),
+    JSON.stringify({ deviceId, label, createdAt: new Date().toISOString() }),
+  )
+  prepare?.(home, agentHome)
+  execFileSync(
+    'bun',
+    [
+      'build',
+      'electron/main/local-runtime/cli-host.ts',
+      '--target=node',
+      '--format=esm',
+      '--external',
+      '@napi-rs/keyring',
+      `--outfile=${host}`,
+    ],
+    { cwd: DESKTOP_DIR, stdio: 'ignore' },
+  )
+  const env = {
+    HOME: home,
+    NUPHOS_AGENT_HOME: agentHome,
+    NUPHOS_LOCAL_RUNTIME_DIR: runtimeDir,
+    NUPHOS_API_URL: apiUrl,
+    NUPHOS_CLI_CONFIG: cliConfig,
+    NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+    ...extra,
+  }
+  let stopped = false
+  let restarts = 0
+  let child = spawn(`computer-${label}`, ['node', host], {
+    env: stagedUpdate ? { ...env, NUPHOS_E2E_STAGED_UPDATE: stagedUpdate } : env,
+  })
+
+  if (stagedUpdate)
+    child.once('exit', () => {
+      if (stopped) return
+      restarts++
+      child = spawn(`computer-${label}`, ['node', host], { env })
+    })
+
+  const opened = () =>
+    backendLog().filter(
+      (line) => line.includes('tunnel_opened') && line.includes(`"device_id":"${deviceId}"`),
+    ).length
+
+  await until(`${label} to connect`, async () => opened() > 0)
+
+  return {
+    deviceId,
+    home,
+    /** How often the host stopped and started again on its own. */
+    restarts: () => restarts,
+    stop: () => {
+      stopped = true
+
+      return stop(child)
+    },
+    /** The same computer coming back after stop(). */
+    start: async () => {
+      const before = opened()
+
+      stopped = false
+      child = spawn(`computer-${label}`, ['node', host], { env })
+      await until(`${label} to reconnect`, async () => opened() > before)
+    },
+  }
+}

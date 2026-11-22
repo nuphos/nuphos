@@ -177,10 +177,11 @@ Maven Central) before adding or bumping a dependency by hand:
 
 One deliberate exception has no delay at all: the runtime image's Claude Agent
 SDK and Codex CLI (`apps/runtime/image`). `runtime-update-claude-sdk.yml` and
-`runtime-update-codex-cli.yml` take each vendor's latest release daily, with
+`runtime-update-codex-cli.yml` take each vendor's latest release, with
 whatever new transitive packages it brings, so the runtime keeps up with the
-agents it runs. The reviewer of those pull requests is the gate: read the
-lockfile diff for new or unexpected packages before approving.
+agents it runs. They run on demand, and every runtime release pull request
+includes the latest SDK and Codex CLI. The reviewer of that pull request is the
+gate: read the lockfile diff for new or unexpected packages before approving.
 
 Bun's version lives in `.bun-version` (every CI job reads it) and in
 `apps/backend/Dockerfile`; CI fails if they differ, and Renovate updates both

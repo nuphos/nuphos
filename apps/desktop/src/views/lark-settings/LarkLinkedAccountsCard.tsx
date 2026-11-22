@@ -1,6 +1,6 @@
-import { faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Trash2 as Trash2Icon } from 'lucide-react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { LarkUserMapping, TeamMember } from '../../types'
@@ -60,7 +60,7 @@ export function LarkLinkedAccountsCard({
                   title={t('Remove mapping')}
                   aria-label={t('Remove linked account')}
                 >
-                  <FontAwesomeIcon icon={faTrash} className="h-3 w-3" />
+                  <UiIcon size={16} icon={Trash2Icon} className="h-4 w-4" />
                 </button>
               </div>
             )

@@ -6,6 +6,8 @@ export type ConversationProps = {
   currentUrl?: string
   /** Match the docked composer's horizontal inset. */
   sidebar?: boolean
+  /** The composer below: the transcript's end keeps room for the bars floating above it. */
+  composer?: HTMLElement | null
   /** False when a keep-alive panel is collapsed or its home page is shown. */
   visible?: boolean
   /** Fetch the previous page of a tail-loaded transcript (scroll-up paging). */
@@ -21,17 +23,9 @@ export type ConversationProps = {
   /** Viewer is a team administrator — gates approving permission-grant proposals. */
   isTeamAdmin?: boolean
   onDockToSidebar?: () => void
-  onStop?: () => void
-  /** Approve callback for an inline plan card. PATCHes the plan to `approved`
-   *  and sends the synthetic resume message. */
-  onApprovePlan?: (planId: string) => void
-  onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
-  /** Plan-level gating for the latest plan. Drives the Approve / Chat
-   *  visibility on that plan's inline card instead of message-level recency. */
+  /** The latest plan's card keeps polling while its tab streams. */
   activePlanCanAct?: {
     toolCallId: string
-    canApprove: boolean
-    canChat: boolean
     keepPolling: boolean
   } | null
   /** Opens Nuphos markdown links from assistant messages inside the desktop workspace. */

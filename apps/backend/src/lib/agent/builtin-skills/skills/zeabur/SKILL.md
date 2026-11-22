@@ -1,6 +1,6 @@
 ---
 name: zeabur
-description: Inspect or manage Zeabur (PaaS) resources for a Nuphos-bound Zeabur provider — projects, services, deployments, runtime/build logs, and environment variables — via the Zeabur GraphQL API (and the zeabur CLI when present). Includes a setup script that loads the selected provider's API token into the sandbox.
+description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs and environment variables, via the Zeabur GraphQL API or CLI."
 ---
 
 # Zeabur
@@ -25,6 +25,8 @@ Load the token for the selected provider before any call:
 bash .claude/skills/zeabur/scripts/setup-credentials.sh <teamId> <zeaburId>
 source ~/.zeabur/nuphos.env   # exports ZEABUR_TOKEN, ZEABUR_ID, ZEABUR_KIND, ZEABUR_NAME
 ```
+
+Editors and administrators may use a selected connector; only administrators may manage its binding. The runtime receives the connector’s long-lived token with its full upstream authority, not a read-only grant. Viewer access remains denied.
 
 The script fetches the token through the ordinary Nuphos team API. A conversation bearer is authorized against this conversation's selected providers automatically. The script writes `~/.zeabur/nuphos.env` and runs `zeabur auth login --token` if the CLI exists. `<zeaburId>` is the `zeaburId` shown in this session's enabled-credentials list.
 
@@ -51,10 +53,10 @@ A deployment URL carries every id you need:
 https://zeabur.com/projects/<projectID>/services/<serviceID>/deployments/<deploymentID>?envID=<environmentID>
 ```
 
-- `projectID`   → project
-- `serviceID`   → service
+- `projectID` → project
+- `serviceID` → service
 - `deploymentID`→ a specific deployment (optional for runtime logs)
-- `envID`       → environmentID (Zeabur projects have one environment per env; most queries need it)
+- `envID` → environmentID (Zeabur projects have one environment per env; most queries need it)
 
 If the URL omits `envID`, list environments for the project with `environments(projectID:)` and pick the right one.
 

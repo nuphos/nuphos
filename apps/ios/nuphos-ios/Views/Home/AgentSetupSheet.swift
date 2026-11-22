@@ -30,6 +30,8 @@ struct AgentSetupView: View {
     @State private var busy = false
     /// A just-created agent is still starting; sign-in needs it to answer first.
     @State private var agentStarting = false
+    /// The wait and sign-in start, which must not outlive the view: Cancel removes a just-added runtime.
+    @State private var starting: Task<Void, Never>?
     @State private var copied = false
     @State private var error: String?
 
@@ -54,7 +56,7 @@ struct AgentSetupView: View {
         Form {
             signIn(runtime)
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .navigationTitle(runtime.label)
@@ -71,6 +73,7 @@ struct AgentSetupView: View {
             }
         }
         .interactiveDismissDisabled(busy || login?.pending == true)
+        .onDisappear { starting?.cancel() }
         .task(id: login?.attemptId) {
             guard let token = auth.token, login?.pending == true else { return }
             while !Task.isCancelled, login?.pending == true {
@@ -94,7 +97,7 @@ struct AgentSetupView: View {
                 ZStack(alignment: .bottomTrailing) {
                     ProviderIcon(provider: runtime.provider, size: 64)
                     if connected {
-                        Image(systemName: "checkmark.circle.fill")
+                        LucideIcon("circle-check")
                             .font(.system(size: 22))
                             .foregroundStyle(.white, .green)
                             .background(Circle().fill(Theme.canvas).padding(-2))
@@ -106,7 +109,7 @@ struct AgentSetupView: View {
                     .font(.title3.weight(.semibold))
                 Text(headline(runtime))
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.body)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -129,7 +132,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(userCode).font(.title2.monospaced().weight(.semibold)).textSelection(.enabled)
                             Spacer()
-                            Button(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc") {
+                            DesignButton(copied ? "Copied" : "Copy", image: copied ? "lucide-check" : "lucide-copy") {
                                 UIPasteboard.general.string = userCode
                                 copied = true
                             }
@@ -217,7 +220,7 @@ struct AgentSetupView: View {
                         HStack {
                             Text(option.label).foregroundStyle(Theme.heading)
                             Spacer()
-                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(.secondary) }
+                            if let hint = option.hint { Text(hint).font(.footnote).foregroundStyle(Theme.body) }
                         }
                         .contentShape(Rectangle())
                     }
@@ -225,7 +228,7 @@ struct AgentSetupView: View {
                     .disabled(busy)
                 }
             } header: {
-                Text(step.message ?? "Choose")
+                Text(step.message ?? String(localized: "Choose"))
             }
         } else if step.kind == "input" {
             Section {
@@ -290,14 +293,14 @@ struct AgentSetupView: View {
     }
 
     private func headline(_ runtime: RuntimeInstance) -> String {
-        if agentStarting { return "A new runtime takes a moment to start." }
-        guard let login else { return "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply." }
+        if agentStarting { return String(localized: "A new runtime takes a moment to start.") }
+        guard let login else { return String(localized: "Use your own \(account(runtime.provider)) account. Your plan's usage limits apply.") }
         switch login.state {
-        case "connected": return "\(runtime.label) is ready to use."
+        case "connected": return String(localized: "\(runtime.label) is ready to use.")
         case "starting", "awaiting_authorization":
-            if login.step != nil, login.url == nil { return "Choose how to sign in, then follow the steps." }
-            return login.url == nil ? "Getting your sign-in page ready." : "Sign in with your \(account(runtime.provider)) account, then come back here."
-        default: return login.error ?? "Sign-in didn't finish."
+            if login.step != nil, login.url == nil { return String(localized: "Choose how to sign in, then follow the steps.") }
+            return login.url == nil ? String(localized: "Getting your sign-in page ready.") : String(localized: "Sign in with your \(account(runtime.provider)) account, then come back here.")
+        default: return login.error ?? String(localized: "Sign-in didn't finish.")
         }
     }
 
@@ -309,18 +312,26 @@ struct AgentSetupView: View {
         guard let token = auth.token else { return }
         struct Status: Decodable { let online: Bool }
         busy = true; error = nil
-        Task {
+        starting = Task {
             defer { busy = false; agentStarting = false }
             do {
                 // Like Desktop: wait (up to ~3 minutes) until the agent answers, then sign in.
                 // `wake` resumes a paused Box, which would otherwise never answer.
                 for _ in 0..<90 {
-                    let status: Status? = try? await WorkspaceAPI.request(path(runtime) + "/status", query: [URLQueryItem(name: "wake", value: "1")], token: token)
-                    if status?.online == true { break }
+                    do {
+                        let status: Status = try await WorkspaceAPI.request(path(runtime) + "/status", query: [URLQueryItem(name: "wake", value: "1")], token: token)
+                        if status.online { break }
+                    } catch AgentChatAPI.Conflict.runtimeLoginRequired {
+                        // A just-added runtime answers this way until its first sign-in: it is ready for it (#3959).
+                        break
+                    } catch AgentChatAPI.Conflict.runtimeNotFound {
+                        throw AgentChatAPI.Conflict.runtimeNotFound
+                    } catch {}
                     agentStarting = true
                     try await Task.sleep(for: .seconds(2))
                 }
                 login = try await WorkspaceAPI.request(path(runtime) + "/login", token: token, method: "POST")
+            } catch is CancellationError {
             } catch { self.error = error.localizedDescription }
         }
     }

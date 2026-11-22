@@ -26,8 +26,11 @@ export const appApi = {
   atlasListPersonalCredentials: () => window.api.atlasListPersonalCredentials(),
   atlasStartPersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
     window.api.atlasStartPersonalCredential(provider, teamId),
-  atlasDeletePersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
-    window.api.atlasDeletePersonalCredential(provider, teamId),
+  atlasDeletePersonalCredential: (
+    provider: PersonalCredentialProvider,
+    teamId?: string,
+    connectionId?: string,
+  ) => window.api.atlasDeletePersonalCredential(provider, teamId, connectionId),
   atlasListSignInSessions: () => window.api.atlasListSignInSessions(),
   atlasSignOutSession: (id: string) => window.api.atlasSignOutSession(id),
   atlasSignOutOtherSessions: () => window.api.atlasSignOutOtherSessions(),
@@ -135,6 +138,7 @@ export const appApi = {
     window.api.designsApplyOps(teamId, designId, ops),
   designsDelete: (teamId: string, designId: string) => window.api.designsDelete(teamId, designId),
   dashboardsList: (teamId: string) => window.api.dashboardsList(teamId),
+  dashboardsFormerMembers: (teamId: string) => window.api.dashboardsFormerMembers(teamId),
   dashboardsCreate: (teamId: string, input: import('../dashboards/schema').CreateDashboardInput) =>
     window.api.dashboardsCreate(teamId, input),
   dashboardsGet: (teamId: string, dashboardId: string, viewRange?: DashboardViewRange) =>

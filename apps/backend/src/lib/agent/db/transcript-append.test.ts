@@ -38,12 +38,35 @@ const store: Doc[] = [
   ]),
 ]
 const before = JSON.stringify(store)
+const recorded: Record<string, unknown>[] = []
 
 useDb({
   db: () => ({
     collection: () => ({
-      find: () => ({ toArray: () => Promise.resolve(store.map((d) => ({ ...d }))) }),
-      updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+      // Only targeted reads: a long session holds tens of thousands of messages.
+      find: (filter: { messageId?: { $in: string[] }; 'parts.toolCallId'?: { $in: string[] } }) => {
+        const ids = filter.messageId?.$in
+        const calls = filter['parts.toolCallId']?.$in
+
+        if (!ids && !calls) throw new Error('an append read the whole transcript')
+        const found = store.filter((d) =>
+          ids
+            ? ids.includes(d.messageId)
+            : d.parts.some((part) =>
+                calls!.includes((part as { toolCallId?: string }).toolCallId!),
+              ),
+        )
+
+        return { toArray: () => Promise.resolve(found.map((d) => ({ ...d }))) }
+      },
+      findOne: () =>
+        Promise.resolve(store.reduce<Doc | null>((a, d) => (a && a.index > d.index ? a : d), null)),
+      countDocuments: () => Promise.resolve(store.length),
+      updateOne: (_filter: unknown, update: { $set?: Record<string, unknown> }) => {
+        if (update.$set) recorded.push(update.$set)
+
+        return Promise.resolve({ upsertedCount: 0 })
+      },
       deleteMany: () => Promise.reject(new Error('a turn must not delete stored messages')),
       bulkWrite: (ops: Upsert[]) => {
         for (const { updateOne } of ops) {
@@ -103,4 +126,29 @@ test('agent and trigger turns keep stored messages their history cannot represen
     [4, 'trigger'],
     [5, 'trigger-reply'],
   ])
+})
+
+test('a turn that passes only its recent messages appends after all of them and keeps the first message', async () => {
+  const stored = store.length
+  const lastTwo = store
+    .slice(-2)
+    .map(({ messageId, role, parts }) => ({ id: messageId, role, parts }))
+
+  recorded.length = 0
+  const { count } = await appendTranscriptMessages({
+    sessionId: SESSION,
+    userId: OWNER,
+    title: '',
+    // What a window's first user message would make of it.
+    firstMessage: 'trigger',
+    messages: [...lastTwo, { id: 'late', role: 'user', parts: [{ type: 'text', text: 'late' }] }],
+    preserveTitle: true,
+  })
+
+  expect(count).toBe(stored + 1)
+  expect(store.at(-1)).toMatchObject({ index: stored, messageId: 'late' })
+  expect(store.slice(0, 2).map((d) => d.messageId)).toEqual(['photo', 'reply'])
+  expect(recorded.some((set) => 'firstMessage' in set && set.messageCount !== undefined)).toBe(
+    false,
+  )
 })

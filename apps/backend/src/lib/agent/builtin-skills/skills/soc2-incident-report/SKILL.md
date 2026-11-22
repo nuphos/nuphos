@@ -1,6 +1,6 @@
 ---
 name: soc2-incident-report
-description: Generate an incident report that satisfies common SOC 2 Type II audit requirements (with optional ISO 22301 mapping). Trigger whenever the user asks to write, compile, or output an incident report — Incident Report, post-incident review, PIR, post-mortem, outage/failure report — in any language. Especially suited to service outages, security incidents, production failures, and customer-impacting events, and to the "Nuphos just finished investigating, now wrap it up into a report" flow. Output is Markdown (convertible to .docx or PDF) written in the user's preferred language.
+description: Write an incident report, post-mortem, PIR or outage/failure report, in any language, that meets SOC 2 Type II audit needs (optional ISO 22301), as Markdown.
 ---
 
 # SOC 2 incident report

@@ -266,6 +266,17 @@ test('a send to an offline Box queues at once, even on a free session without a 
   ])
 })
 
+test('a send whose runtime does not answer its status waits for it, never refused', async () => {
+  const attached = { ...conversation, claudeCodePreview: {} } as AgentConversation
+  const admitted = await admit('blip', {
+    conversation: attached,
+    snapshot: { state: 'disconnected' },
+  })
+
+  expect(admitted?.mode).toBe('queued')
+  expect((await listPendingUserMessages(OWNER, SESSION)).map((item) => item.id)).toEqual(['blip'])
+})
+
 test('a send queues only for the computer its runtime resolution authorized', async () => {
   const offline = (runtimeId?: string) =>
     new AppError(409, 'runtime_offline', 'offline', runtimeId ? { runtimeId } : undefined)

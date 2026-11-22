@@ -44,6 +44,41 @@ replacement key, replace a global keystore, uninstall the app, or clear its data
 to bypass a signing mismatch. Keep private keys outside Git and public artifacts.
 Play app signing and CI upload keys remain separate from this development key.
 
+## Translations
+
+The app follows the system language, using the seven languages Desktop ships
+(`zh-rTW`, `zh-rCN`, `ja`, `ko`, `th`, `in` for Indonesian, `es`) with English as
+the fallback. Android 13 and later list them in the app's language setting; there
+is no in-app picker.
+
+Put user-facing text in `res/values/strings_<area>.xml` and read it with
+`stringResource` in Compose. Code outside Compose, such as a store's error
+message, reads it with `Words(R.string.key)`; JVM tests then see the English from
+the same file. Never branch on a displayed string, since it changes with the
+language. Server text, logs and text the model reads stay as they are.
+
+After adding or changing a string, fill what Desktop already translates, from the
+repository root:
+
+```sh
+node scripts/fill-mobile-locales.mjs android
+```
+
+It keeps translations written by hand and copies Desktop's where the English
+matches exactly. Write the rest, and every plural, in each
+`values-<locale>/strings_<area>.xml`. `lintDebug` fails when a string is missing
+any of the languages (`MissingTranslation`). Mark text that must stay as written
+`translatable="false"`. If you cannot write all seven languages, ask for
+translations in the pull request; a follow-up commit on the same branch fills
+them before it merges.
+
+Legal and consent statements (the sign-in terms, the AI data sharing consent,
+account deletion and the voice transcription notice) stay in English in every
+language until a native speaker confirms the translation (#3031). They are
+`translatable="false"`, and `LegalTextTest` fails if one is translated before
+review. To ship a reviewed language set, add the translations, remove
+`translatable="false"` and list the key in the test's `REVIEWED`.
+
 ## Service support
 
 The app defaults to Nuphos Cloud (`api.nuphos.ai`). On the welcome screen,
@@ -396,10 +431,7 @@ folding-feature exclusions. At medium width and above, history and detail share
 the window; compact width shows the selected pane. Resizing retains one NavHost
 and moves the existing new-chat composer without replacing its local state.
 
-For physical-device synthetic tests, build with
-`-PnuphosIsolatedAdaptiveFixture=true`. This debug-only option changes the
-application ID to `ai.nuphos.android.adaptivefixture`; it never updates the store
-app. Run `AdaptivePanesFixtureDeviceTest` for an in-flight load and draft across
+Run `AdaptivePanesFixtureDeviceTest` for an in-flight load and draft across
 pane collapse, and `ConversationLinksFixtureDeviceTest` with
 `-e isolatedConversationLinks true` for the real HomeRoute lifecycle. The latter
 refuses physical devices unless this isolated application ID is installed and
@@ -437,10 +469,7 @@ codes and passwords must be entered again. Nothing sends automatically on restor
 
 `AccountApiTest` covers unauthenticated wire contracts and invalid responses.
 `EmailLoginFixtureDeviceTest` uses synthetic Compose content and an injected
-transport/clock, without live sign-in or email delivery. Build using
-`-PnuphosIsolatedEmailFixture=true` and run only that class on the separately
-installed `ai.nuphos.android.emailfixture1335` package. Keep the Play app, its data,
-keys and `FLAG_SECURE` unchanged. These tests do not establish real mail delivery
+transport/clock, without live sign-in or email delivery. These tests do not establish real mail delivery
 or server-side password/session revocation; those require a separately approved
 isolated-account test plan.
 `EmailSessionFixtureDeviceTest` intercepts every request while testing duplicate
@@ -457,9 +486,7 @@ retention, image conversion and submission pipeline as selected files. Source
 permission payloads remain reachable until the app-owned copy is complete; no
 persistable URI permission or broad storage permission is requested.
 
-`ContentInputFixtureDeviceTest` requires the isolated
-`ai.nuphos.android.contentinput1337` package.
-Build it with `-PnuphosIsolatedContentFixture=true`. Its test-only provider serves
+`ContentInputFixtureDeviceTest`'s test-only provider serves
 fixed synthetic PNG/TXT data. It covers native clipboard paste, mixed text/file queueing, IME `commitContent`, exact retained
 bytes, invalid images, denied reads, empty files, count/size limits and cancellation
 when switching drafts during delayed reads. `ContentDropFixtureDeviceTest` uses
@@ -484,18 +511,15 @@ pruned on a later export, with at most 20 pending copies. Saving uses a pending
 MediaStore Images entry under Pictures/Nuphos and deletes it on write failure.
 No storage permission is requested. Existing transfer Save file remains available.
 
-`ImageExportsFixtureDeviceTest` requires a separate application ID ending in
-`.imageexport1336` (`-PnuphosIsolatedImageExportFixture=true`). It uses synthetic images to check original SHA-256, detected
+`ImageExportsFixtureDeviceTest` uses synthetic images to check original SHA-256, detected
 MIME, MediaStore publication, URI grants, expiry and failed downloads. It deletes
 its own saved images and never launches a share receiver or reads account data.
 
-Enable only one `nuphosIsolated*` flag per build; configuration rejects multiple
+Enable only one `nuphosIsolated*` flag (the share fixtures) per build; configuration rejects multiple
 true flags before selecting a suffix. Before installing a fixture, inspect the
 built application and androidTest APK manifests and record their SHA-256, actual
 package IDs, instrumentation runner, targetPackage and signing certificate in the
-validation evidence. Expected image fixture values are
-`ai.nuphos.android.imageexport1336`, its separate test package and
-`androidx.test.runner.AndroidJUnitRunner`; build properties alone are not proof.
+validation evidence; build properties alone are not proof.
 
 ### Receive from the Android Sharesheet
 
@@ -607,9 +631,7 @@ For narrow rows or large fonts, the rail shows two actions and More; the menu
 always contains every available action. TalkBack custom actions provide the same
 operations without a swipe. Horizontal reveal follows layout direction.
 
-Build a separate installation using `-PnuphosIsolatedRowActionsFixture=true`
-(`ai.nuphos.android.rowactions1357`), then run
-`ConversationRowActionsFixtureDeviceTest`, `ConversationUnlinkFixtureDeviceTest`,
+Run `ConversationRowActionsFixtureDeviceTest`, `ConversationUnlinkFixtureDeviceTest`,
 `ConversationWatchFixtureDeviceTest`, and `ConversationNestingFixtureDeviceTest`.
 The row fixture renders synthetic Compose content only. It checks real click,
 long press, full swipe, Back, outside tap, disabled actions, RTL/large text, and

@@ -11,7 +11,7 @@ import { useSessionRuntimeControl } from '../agent/panel/conversationRuntimeCont
 
 import { listedConversation } from './channelShared'
 
-import type { AgentConversation } from '../../api'
+import type { AgentConversation, ChannelAgent } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { UserInfo } from '../../types'
 
@@ -23,6 +23,8 @@ export function useBotRuntimeControl(
   user: UserInfo,
   runtimeState: RuntimeExecution | undefined,
   refresh: () => void,
+  /** What the chat lends its composer: the Bot's settings to open, and the chat's agents. */
+  chat?: { manage?: () => void; agents?: ChannelAgent[] },
 ) {
   const client = useQueryClient()
   const catalog = useRuntimeInstances(botId ? teamId : undefined)
@@ -55,7 +57,8 @@ export function useBotRuntimeControl(
   }, [teamId, botId, owned])
 
   const current = owned && detail?.sessionId === botId ? detail : null
-  const control = useSessionRuntimeControl({
+
+  return useSessionRuntimeControl({
     teamId,
     currentUser: user,
     isTeamAdmin: false,
@@ -63,7 +66,7 @@ export function useBotRuntimeControl(
     runtimeInstancesLoading: catalog.loading,
     runtimeInstancesError: catalog.error,
     runtimeQuotas: quotas,
-    onOpenAgentSettings: undefined,
+    onOpenAgentSettings: chat?.manage,
     activeTab: current
       ? {
           id: current.sessionId,
@@ -88,6 +91,4 @@ export function useBotRuntimeControl(
       await client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) })
     },
   })
-
-  return control ? { ...control, quiet: true } : undefined
 }

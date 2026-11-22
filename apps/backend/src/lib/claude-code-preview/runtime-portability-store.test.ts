@@ -5,7 +5,7 @@ import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import {
   assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
+  discardRuntimeDeletion,
 } from './runtime-portability-store'
 
 let memory = portabilityDb()
@@ -15,26 +15,21 @@ beforeEach(() => {
   memory = portabilityDb()
 })
 
-test('only unfinished deletions block matching runtime identities and URLs within the team', async () => {
-  const job = {
-    _id: 'old-binding',
-    teamId: 'team',
-    placements: [{ url: 'wss://runtime/acp' }],
-    completedAt: new Date(),
-  }
+test('a leftover teardown job blocks nothing and goes with its runtime, in its team only', async () => {
+  const job = { _id: 'old-binding', teamId: 'team', placements: [{ url: 'wss://runtime/acp' }] }
 
   memory.rows('agent_runtime_deletions').push(job)
-  await assertRuntimeNotDeleting('team', 'old-binding')
-  await assertRuntimeNotDeleting('team', 'new-binding', 'wss://runtime/acp')
-  Reflect.deleteProperty(job, 'completedAt')
-  await expect(assertRuntimeNotDeleting('team', 'old-binding')).rejects.toMatchObject({
-    code: 'runtime_deleting',
+  memory.rows('agent_conversations').push({
+    sessionId: 'agent',
+    teamId: 'team',
+    runtimeId: 'old-binding',
+    claudeCodePreview: { runtimeUrl: 'wss://runtime/acp' },
   })
-  await expect(
-    assertRuntimeNotDeleting('team', 'new-binding', 'wss://runtime/acp'),
-  ).rejects.toMatchObject({ code: 'runtime_deleting' })
-  await assertRuntimeNotDeleting('other-team', 'old-binding', 'wss://runtime/acp')
-  await assertRuntimeNotDeleting('team', 'new-binding', 'wss://another/acp')
+  await assertConversationRuntimeAvailable('agent')
+  await discardRuntimeDeletion('other-team', 'old-binding')
+  expect(memory.rows('agent_runtime_deletions')).toEqual([job])
+  await discardRuntimeDeletion('team', 'old-binding')
+  expect(memory.rows('agent_runtime_deletions')).toEqual([])
 })
 
 test('a channel never runs a turn, whichever path asks', async () => {
@@ -44,4 +39,16 @@ test('a channel never runs a turn, whichever path asks', async () => {
     code: 'channel_conversation',
   })
   await assertConversationRuntimeAvailable('agent')
+})
+
+test('a restored Task may run while an older home generation awaits cleanup', async () => {
+  memory.rows('agent_conversations').push({
+    sessionId: 'restored',
+    teamId: 'team',
+    archiveHomePendingEpochs: [
+      { epoch: 0, runtimeId: 'local_owner_device', provider: 'claude-code' },
+    ],
+    sessionHomeEpoch: 1,
+  })
+  await expect(assertConversationRuntimeAvailable('restored')).resolves.toBeUndefined()
 })

@@ -16,7 +16,7 @@ import { DownloadGroups } from './DownloadGroups'
 import { withoutQuestionRows } from './openQuestionParts'
 import { CollapsedWorkView, PlanBookkeepingPart, ThinkingPartView } from './partChrome'
 import { isHiddenMemoryIngestPart } from './parts'
-import { renderPartRange, renderSelectedParts } from './renderPartRange'
+import { renderPartRange, renderSelectedParts, withApprovalNotice } from './renderPartRange'
 import { steeringMessage } from './steering'
 import { stoppedTurnCalls, withoutNoResponsePlaceholder } from './stoppedTurn'
 import { StoppedTurnEnding } from './StoppedTurnEnding'
@@ -35,6 +35,7 @@ import type { Part, TextPart } from './parts'
 import type { RenderPartOptions } from './renderPartRange'
 import type { ActivePlanCanAct } from './toolParts'
 import type { FileTransferGroup } from '../../../types'
+import type { ReactNode } from 'react'
 
 // Historical message identity stays stable across the streaming clock tick.
 export const AssistantMessage = memo(
@@ -48,9 +49,6 @@ export const AssistantMessage = memo(
     downloadGroups,
     prevCreatedAt,
     isLatestReply = false,
-    onStop,
-    onApprovePlan,
-    onRejectPlan,
     activePlanCanAct,
     canActOnPlans = false,
     canReplyToQuestions = false,
@@ -76,14 +74,11 @@ export const AssistantMessage = memo(
     isLatestReply?: boolean
     /** Viewer is a team administrator — gates approving permission-grant proposals. */
     isTeamAdmin?: boolean
-    /** Tab is idle (not streaming, not read-only) — any `proposed` plan card in
-     *  the transcript can be approved/rejected, not only the latest. */
+    /** Tab is idle (not streaming, not read-only) — cards in the transcript
+     *  can be acted on, not only the latest. */
     canActOnPlans?: boolean
     /** Viewer may answer questions; replies can queue while the runtime is busy or offline. */
     canReplyToQuestions?: boolean
-    onStop?: () => void
-    onApprovePlan?: (planId: string) => void
-    onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
     activePlanCanAct?: ActivePlanCanAct | null
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
     onMessageFeedback?: (
@@ -197,11 +192,7 @@ export const AssistantMessage = memo(
               now={now}
               teamId={teamId}
               streaming={streaming}
-              canActOnPlans={canActOnPlans}
               activePlanCanAct={activePlanCanAct}
-              onStop={onStop}
-              onApprovePlan={onApprovePlan}
-              onRejectPlan={onRejectPlan}
             />
           )
         }
@@ -225,55 +216,54 @@ export const AssistantMessage = memo(
     const liveHistory =
       streaming && !activityHistory ? liveActivityIndices(displayParts) : new Set<number>()
     const liveIndices = displayParts.map((_, index) => index).slice(recallLead)
-
     const livePast = liveIndices.filter((index) => liveHistory.has(index))
     const liveCurrent = liveIndices.filter((index) => !liveHistory.has(index))
+    // One keyed list in every state, so a card lifted out of the fold keeps what was typed in it.
+    const body: ReactNode[] = renderRange(0, recallLead)
+
+    if (liveHistory.size > 0) {
+      body.push(
+        <CollapsedWorkView
+          key="activity"
+          seconds={null}
+          label={t('Activity')}
+          toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
+        >
+          {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}
+        </CollapsedWorkView>,
+        ...renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now),
+      )
+    } else {
+      if (foldHasWork)
+        body.push(
+          <CollapsedWorkView
+            key="fold"
+            seconds={workSeconds}
+            toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
+          >
+            {() => renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)}
+          </CollapsedWorkView>,
+        )
+      body.push(...renderRange(folded ? collapseSplit : recallLead, orderedParts.length))
+    }
+    if (teamId && downloadGroups)
+      body.push(<DownloadGroups key="downloads" groups={downloadGroups} teamId={teamId} />)
+    // Mid-turn recall belongs beside what the agent learned.
+    for (const p of orderedParts)
+      if (p.type === 'memory-provenance')
+        body.push(
+          <MemoryProvenancePartView
+            key={`${p.id}:lookedUp`}
+            part={p}
+            teamId={teamId}
+            section="lookedUp"
+          />,
+        )
+    body.push(...planIndices.map((i) => renderMessagePart(displayParts[i], i)))
 
     return (
       <div className="group/message space-y-2">
-        {/* Above the fold, always: what the turn already knew when it started. */}
-        {renderRange(0, recallLead)}
-        {liveHistory.size > 0 ? (
-          <>
-            <CollapsedWorkView
-              seconds={null}
-              label={t('Activity')}
-              toolCallIds={toolAnchorIds(displayParts.filter((_, index) => liveHistory.has(index)))}
-            >
-              {() => renderSelectedParts(displayParts, livePast, renderMessagePart, now)}
-            </CollapsedWorkView>
-            {renderSelectedParts(displayParts, liveCurrent, renderMessagePart, now)}
-          </>
-        ) : folded ? (
-          <>
-            {foldHasWork && (
-              <CollapsedWorkView
-                seconds={workSeconds}
-                toolCallIds={toolAnchorIds(displayParts.slice(recallLead, collapseSplit))}
-              >
-                {() =>
-                  renderPartRange(displayParts, recallLead, collapseSplit, renderFoldPart, now)
-                }
-              </CollapsedWorkView>
-            )}
-            {renderRange(collapseSplit, orderedParts.length)}
-          </>
-        ) : (
-          renderRange(recallLead, orderedParts.length)
-        )}
-        {teamId && downloadGroups && <DownloadGroups groups={downloadGroups} teamId={teamId} />}
-        {/* Mid-turn recall belongs beside what the agent learned. */}
-        {orderedParts
-          .filter((p) => p.type === 'memory-provenance')
-          .map((p) => (
-            <MemoryProvenancePartView
-              key={`${p.id}:lookedUp`}
-              part={p}
-              teamId={teamId}
-              section="lookedUp"
-            />
-          ))}
-        {planIndices.map((i) => renderMessagePart(displayParts[i], i))}
+        {withApprovalNotice(body, orderedParts)}
         {!streaming && (
           <TurnLinkChips parts={orderedParts} teamId={teamId} onOpen={onOpenNuphosLink} />
         )}

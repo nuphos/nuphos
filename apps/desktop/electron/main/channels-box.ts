@@ -1,7 +1,6 @@
 import {
   boxBillingPage,
   boxBillingSummary,
-  boxDesktop,
   boxJoinToken,
   openSessionDesktop,
   createBox,
@@ -9,6 +8,8 @@ import {
   removeDeviceAgent,
   deleteBox,
   removeDevice,
+  updateDeviceApp,
+  clearBoxCaches,
   getBoxUsage,
   getBoxUsageHistory,
   bindInstaboxAccount,
@@ -22,10 +23,12 @@ import {
   pauseBox,
   resumeBox,
 } from '../atlas/boxes.ts'
+import { setDeviceAutoInstall } from '../atlas/computer-settings.ts'
 import {
   askRuntimeSignIn,
   decideShareApproval,
   dropShareTrust,
+  getDeviceAccessHistory,
   getDeviceShare,
   listShareApprovals,
   listShareTrusts,
@@ -36,6 +39,7 @@ import {
 
 import { LOCAL_AGENT_PROVIDERS } from './local-runtime/providers.ts'
 
+import type { IpcMainInvokeEvent } from 'electron'
 import type {
   AgentDeviceListOptions,
   BoxAccess,
@@ -158,8 +162,12 @@ export const boxChannels = {
     deleteBox(string(deviceId), string(teamId)),
   'box:removeDevice': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     removeDevice(string(deviceId), string(teamId)),
-  'box:desktop': (_e: unknown, deviceId: unknown, teamId: unknown) =>
-    boxDesktop(string(deviceId), string(teamId)),
+  'box:appUpdate': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    updateDeviceApp(string(deviceId), string(teamId)),
+  'box:clearCaches': (_e: unknown, deviceId: unknown, teamId: unknown) =>
+    clearBoxCaches(string(deviceId), string(teamId)),
+  'box:autoInstall': (_e: unknown, deviceId: unknown, teamId: unknown, enabled: unknown) =>
+    setDeviceAutoInstall(string(deviceId), string(teamId), enabled === true),
   'box:join-token': () => boxJoinToken(),
   'box:setAccess': (_e: unknown, deviceId: unknown, teamId: unknown, access: unknown) =>
     setBoxAccess(string(deviceId), string(teamId), boxAccess(access)),
@@ -169,6 +177,12 @@ export const boxChannels = {
     renameBox(string(deviceId), string(teamId), string(label)),
   'localShare:get': (_e: unknown, deviceId: unknown, teamId: unknown) =>
     getDeviceShare(string(deviceId), string(teamId)),
+  'box:accessHistory': (_e: unknown, deviceId: unknown, teamId: unknown, before: unknown) =>
+    getDeviceAccessHistory(
+      string(deviceId),
+      string(teamId),
+      before === undefined ? undefined : string(before),
+    ),
   'localShare:set': (_e: unknown, deviceId: unknown, teamId: unknown, input: unknown) =>
     setDeviceShare(string(deviceId), string(teamId), localShare(input)),
   'localShare:approvals': (_e: unknown, teamId: unknown) => listShareApprovals(string(teamId)),
@@ -189,6 +203,27 @@ export const boxChannels = {
     listShareTrusts(string(deviceId), string(teamId)),
   'localShare:untrust': (_e: unknown, deviceId: unknown, teamId: unknown, actorId: unknown) =>
     dropShareTrust(string(deviceId), string(teamId), string(actorId)),
+  'computers:notifyShared': async (
+    e: IpcMainInvokeEvent,
+    key: unknown,
+    teamId: unknown,
+    title: unknown,
+    body: unknown,
+  ) => {
+    // Loaded on use: it reaches into Electron, which this module's tests do not load.
+    const [{ notifyComputerShared }, { BrowserWindow }] = await Promise.all([
+      import('../agent/notify.ts'),
+      import('electron'),
+    ])
+
+    return notifyComputerShared({
+      key: string(key),
+      teamId: string(teamId),
+      title: string(title),
+      body: string(body),
+      parentWindow: BrowserWindow.fromWebContents(e.sender),
+    })
+  },
   'localShare:notify': async (
     _e: unknown,
     approvalId: unknown,

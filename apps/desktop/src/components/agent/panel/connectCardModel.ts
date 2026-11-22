@@ -1,9 +1,13 @@
 import { t } from '../../../i18n/index.ts'
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '../../../types/personal-credentials.ts'
 
 import { parseDecisionQuestions } from './decisionFormModel.ts'
+import { parseSecretFields, SECRET_NAME } from './secretCardModel.ts'
 
 import type { DecisionQuestion } from './decisionFormModel.ts'
+import type { SecretField } from './secretCardModel.ts'
 import type { AgentCredentialSelection } from '../../../api'
+import type { PersonalCredentialProvider } from '../../../types'
 import type { AddIntegrationKey } from '../../../views/addIntegrationCatalog'
 
 // The connectors an integration `request_user_decision` may list in `providers`,
@@ -45,6 +49,15 @@ export const CONNECT_SELECTION_KEY = {
 
 export type ConnectProvider = keyof typeof CONNECT_SELECTION_KEY
 
+/** A Connect card's rows: any access of a kind, or only the member's own credential (`personal`). */
+export type ConnectRequest = { reason: string } & (
+  | { providers: ConnectProvider[]; personal: false }
+  | { providers: PersonalCredentialProvider[]; personal: true }
+)
+
+const isPersonalProvider = (id: unknown): id is PersonalCredentialProvider =>
+  (PERSONAL_CREDENTIAL_PROVIDERS as readonly unknown[]).includes(id)
+
 // Card-local progress; `connected`, `available` and `choose` come from the live
 // selection. `available`: exactly one bound credential, so one click selects it.
 // `choose`: several, so the user picks the one they mean in the credential picker.
@@ -56,9 +69,7 @@ export type ConnectRowStatus = 'connected' | 'available' | 'choose' | ConnectPha
  * for any access of a kind, `credentials` for the member's own credential only
  * (`personal`). One that names both is no card: what answers it is unclear.
  */
-export function parseConnectRequest(
-  value: unknown,
-): { providers: ConnectProvider[]; reason: string; personal: boolean } | null {
+export function parseConnectRequest(value: unknown): ConnectRequest | null {
   if (!value || typeof value !== 'object') return null
   const { category, providers, credentials, question } = value as {
     category?: unknown
@@ -75,9 +86,7 @@ export function parseConnectRequest(
     const own = [
       ...new Set(
         credentials.flatMap((ref: { provider?: unknown; id?: unknown }) =>
-          ref?.provider === 'personal' && (ref.id === 'github' || ref.id === 'linear')
-            ? [ref.id as ConnectProvider]
-            : [],
+          ref?.provider === 'personal' && isPersonalProvider(ref.id) ? [ref.id] : [],
         ),
       ),
     ]
@@ -96,24 +105,67 @@ export function parseConnectRequest(
   return known.length > 0 ? { providers: known, reason, personal: false } : null
 }
 
-/** A credential `request_user_decision` that names a `secretName`: its secure input card. */
-export function parseSecretRequest(value: unknown): { name: string; reason: string } | null {
+const named = (list: unknown) => Array.isArray(list) && list.length > 0
+
+/**
+ * An integration question that names `providers` or `credentials`: the server
+ * takes no words or option for it, only selecting what it names answers it.
+ */
+export function answeredBySelection(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const { category, providers, credentials } = value as {
+    category?: unknown
+    providers?: unknown
+    credentials?: unknown
+  }
+
+  return category === 'integration' && (named(providers) || named(credentials))
+}
+
+/**
+ * A credential `request_user_decision` that names a `secretName`: its secure
+ * input card. With `fields` and a `site` it asks for a website form's details
+ * together; fields it cannot read leave the one masked input for `secretName`.
+ */
+export function parseSecretRequest(
+  value: unknown,
+): { name: string; reason: string; fields?: SecretField[]; site?: string } | null {
   if (!value || typeof value !== 'object') return null
-  const { category, secretName, question } = value as {
+  const { category, secretName, question, fields, site } = value as {
     category?: unknown
     secretName?: unknown
     question?: unknown
+    fields?: unknown
+    site?: unknown
   }
 
   if (category !== 'credential' || typeof secretName !== 'string') return null
-  if (!/^[A-Za-z]\w{0,63}$/.test(secretName)) return null
+  if (!SECRET_NAME.test(secretName)) return null
 
-  return { name: secretName, reason: typeof question === 'string' ? question : '' }
+  return {
+    name: secretName,
+    reason: typeof question === 'string' ? question : '',
+    ...parseSecretFields(fields, site),
+  }
 }
 
 /** The reply a secret card sends once its value is saved, before the file's path. */
 export function secretSavedReply(name: string): string {
   return `🔒 ${name} saved to `
+}
+
+/**
+ * The reply a card with several fields sends: it opens as a single secret's
+ * does, so every client reads it as saved, then names one file per field.
+ */
+export function secretFieldsSavedReply(
+  name: string,
+  saved: readonly { name: string; path: string }[],
+): string {
+  return [
+    `${secretSavedReply(name)}these files, one per field:`,
+    ...saved.map((field) => `${field.name}: ${field.path}`),
+  ].join('\n')
 }
 
 /** Any other `request_user_decision`: its question card, with the options as replies. */
@@ -197,7 +249,7 @@ export function connectBlock(
  * never by a team binding or identity; `available` once they have connected it.
  */
 export function personalConnectStatus(
-  provider: 'github' | 'linear',
+  provider: PersonalCredentialProvider,
   selected: AgentCredentialSelection,
   own: readonly { provider: string }[],
 ): ConnectRowStatus {

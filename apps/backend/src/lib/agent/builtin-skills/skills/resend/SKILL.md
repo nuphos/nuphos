@@ -1,6 +1,6 @@
 ---
 name: resend
-description: Send transactional email through a Resend account the user's team has bound to Nuphos — send a message, check what happened to one that was already sent, and (with a full-access key) inspect verified sending domains, audiences and contacts. Use whenever the user asks to email someone, mail a report/summary/alert, or check whether an email was delivered. Nuphos backend hands the agent a Resend API key; the agent calls api.resend.com directly with curl.
+description: Email someone, or mail a report or alert, through a team-bound Resend account and check delivery; with a full-access key, inspect domains, audiences and contacts.
 ---
 
 # resend

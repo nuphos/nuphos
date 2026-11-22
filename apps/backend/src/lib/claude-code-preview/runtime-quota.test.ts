@@ -25,7 +25,7 @@ const claude: RuntimeInstance = {
   provider: 'claude-code',
   label: 'Claude',
   status: 'active',
-  kind: 'managed',
+  kind: 'external',
   createdAt: fetchedAt,
 }
 const codex: RuntimeInstance = { ...claude, id: 'codex-1', provider: 'codex', label: 'Codex' }
@@ -190,6 +190,39 @@ test("normalizes Grok's billing period", async () => {
     plan: 'SuperGrok',
     windows: [
       { id: 'period', label: 'Weekly', usedPercent: 12.3, resetsAt: '2026-10-06T06:37:43Z' },
+    ],
+  })
+})
+
+test('reads a Grok period with no credit use yet as 0%', async () => {
+  const grok: RuntimeInstance = { ...claude, id: 'grok-1', provider: 'grok', label: 'Grok' }
+  // What a fresh SuperGrok account answers: protobuf JSON leaves a zero out.
+  const { deps } = probing({
+    usage: {
+      config: {
+        currentPeriod: {
+          type: 'USAGE_PERIOD_TYPE_WEEKLY',
+          start: '2026-11-17T06:37:43.943694+00:00',
+          end: '2026-11-24T06:37:43.943694+00:00',
+        },
+        onDemandCap: { val: 0 },
+        onDemandUsed: { val: 0 },
+        prepaidBalance: { val: 0 },
+        isUnifiedBillingUser: true,
+      },
+      subscription_tier: 'SuperGrok Plus',
+    },
+  })
+
+  expect(await fetchRuntimeQuota('t', grok, frozen, deps)).toMatchObject({
+    available: true,
+    windows: [
+      {
+        id: 'period',
+        label: 'Weekly',
+        usedPercent: 0,
+        resetsAt: '2026-11-24T06:37:43.943694+00:00',
+      },
     ],
   })
 })

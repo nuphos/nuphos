@@ -25,6 +25,7 @@ export type TunnelClientDeps = {
   connectTerminal?: () => SocketLike
   connectExec?: () => SocketLike
   connectUpload?: () => SocketLike
+  connectDownload?: () => SocketLike
   /** Computer Use, only where the Codex App can provide it. */
   connectCua?: () => SocketLike
   connectBrowser?: () => SocketLike
@@ -39,8 +40,11 @@ export type TunnelClientDeps = {
   }
   sampleMetrics?: () => Promise<DeviceMetrics | null>
   status: () => LocalRuntimeTunnelStatus
-  /** `connected` is exactly whether Nuphos holds this computer's tunnel right now. */
-  onChange?: (connected: boolean, superseded: boolean) => void
+  /**
+   * `connected` is exactly whether Nuphos holds this computer's tunnel right now; `revoked`, that
+   * the backend disconnected this computer and it stopped dialing.
+   */
+  onChange?: (connected: boolean, superseded: boolean, revoked?: boolean) => void
   /** The backend revoked this computer's credential; the tunnel stays down. */
   onRevoked?: () => void
 }
@@ -57,6 +61,7 @@ export function connectLocalStream(
     attachments: deps.connectAttachments,
     exec: deps.connectExec,
     upload: deps.connectUpload,
+    download: deps.connectDownload,
     cua: deps.connectCua,
     browser: deps.connectBrowser,
     browserView: deps.connectBrowserView,
@@ -64,4 +69,21 @@ export function connectLocalStream(
   }
 
   return connectors[purpose]?.(instanceId)
+}
+
+/**
+ * `reconnecting` is every drop the tunnel redials by itself; `superseded` waits for the other app
+ * on this computer to let go; `revoked` was disconnected from Nuphos and does not dial again.
+ */
+export type LocalConnection = 'online' | 'reconnecting' | 'superseded' | 'revoked'
+
+export function connectionOf(
+  online: boolean,
+  superseded: boolean,
+  revoked: boolean,
+): LocalConnection {
+  if (online) return 'online'
+  if (revoked) return 'revoked'
+
+  return superseded ? 'superseded' : 'reconnecting'
 }

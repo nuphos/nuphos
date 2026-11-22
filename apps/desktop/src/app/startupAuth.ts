@@ -4,7 +4,6 @@
 
 import { api } from '../api'
 import { claimComposerDrafts } from '../components/agent/panel/composerDrafts'
-import { claimClearedReplies } from '../components/agent/panel/composerReplyCleared'
 import { identifyUser } from '../lib/analytics'
 
 import { setStorageAccount } from './accountStorage'
@@ -30,7 +29,6 @@ export async function enterAs(user: UserInfo): Promise<AuthState> {
   setStorageAccount(accounts.find((a) => a.active)?.key ?? `${user.id}@unlisted`)
   identifyUser(user)
   claimComposerDrafts(user.id)
-  claimClearedReplies(user.id)
 
   return { status: 'authenticated', user }
 }

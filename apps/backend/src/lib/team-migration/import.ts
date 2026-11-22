@@ -185,7 +185,6 @@ async function insertContents(
     'work/designs.ndjson': db().collection(designs().collectionName),
     'work/triggers.ndjson': db().collection(agentTriggers().collectionName),
   }
-  let highestPlanNumber = 0
   const messageCounts = new Map<string, number>()
 
   for (const [part, path] of archive.paths) {
@@ -230,8 +229,6 @@ async function insertContents(
       batchDestination = destination
       batch.push(mapped)
       batchBytes += size
-      if (part === 'work/plans.ndjson')
-        highestPlanNumber = Math.max(highestPlanNumber, Number(row.number))
       if (part === 'conversations/messages.ndjson') {
         const id = String(mapped.sessionId)
 
@@ -246,10 +243,6 @@ async function insertContents(
       { $set: { messageCount } },
       { session },
     )
-  if (highestPlanNumber)
-    await db()
-      .collection<{ _id: string; seq: number }>('plan_counters')
-      .insertOne({ _id: `team:${teamId}`, seq: highestPlanNumber }, { session })
   for await (const skill of importedRows(archive.paths.get('knowledge/skills.ndjson')!)) {
     const now = new Date()
 

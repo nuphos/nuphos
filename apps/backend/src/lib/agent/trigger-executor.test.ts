@@ -5,8 +5,8 @@ import '@/routes/agent'
 import { describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useTriggerRunExecute } from '@/lib/test/doubles/trigger-run-execute'
@@ -88,14 +88,24 @@ useDb({
         Promise.resolve(
           name === 'agent_conversations'
             ? conversation
-            : name === 'agent_messages' &&
-                channelPosts.some((post) =>
-                  post.messages.some((message) => message.id === filter.messageId),
-                )
+            : name === 'agent_triggers'
               ? {}
-              : null,
+              : name === 'agent_messages' &&
+                  channelPosts.some((post) =>
+                    post.messages.some((message) => message.id === filter.messageId),
+                  )
+                ? {}
+                : null,
         ),
-      find: () => ({ sort: () => ({ toArray: () => Promise.resolve(history) }) }),
+      // The turn reads its recent window: sorted newest first and limited. Its
+      // fires, read by id, are not stored yet.
+      find: () => ({
+        toArray: () => Promise.resolve([]),
+        sort: () => ({
+          toArray: () => Promise.resolve(history),
+          limit: () => ({ toArray: () => Promise.resolve([...history].reverse()) }),
+        }),
+      }),
     }),
   }),
 })
@@ -110,7 +120,7 @@ useTriggerRunExecute({
   },
 })
 
-const { executeTrigger } = await import('./trigger-executor')
+const { executeTrigger, fireTrigger } = await import('./trigger-executor')
 const { startQueuedTurn } = await import('./queued-turn')
 const { installQueuedTurnStarter } = await import('./session-released')
 
@@ -233,6 +243,42 @@ describe('a Trigger bound to an existing session', () => {
     }
   })
 
+  test('distinct webhook alerts during a running turn are accepted at once and run next, in order', async () => {
+    runs.length = 0
+    conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
+    const alert = { ...bound, messageTemplate: 'alert {{payload.status}}' }
+    let finish!: () => void
+
+    heldTurn = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    try {
+      // The first alert starts a turn that is still running.
+      const started = await fireTrigger(alert, { status: 'firing' }, { runKind: 'webhook' })
+
+      for (let i = 0; i < 100 && runs.length === 0; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      // The next one waits in the queue, and the one after joins it there. Each is accepted
+      // (fireTrigger resolves) while that turn still runs.
+      const queued = await fireTrigger(alert, { status: 'resolved' }, { runKind: 'webhook' })
+      const joined = await fireTrigger(alert, { status: 'firing again' }, { runKind: 'webhook' })
+
+      expect(runs).toHaveLength(1)
+      expect(texts(0)).toContain('alert firing')
+      heldTurn = undefined
+      finish()
+      await started.run
+      await Promise.all([queued.run, joined.run])
+      for (let i = 0; i < 100 && runs.length < 2; i++)
+        await new Promise((resolve) => setTimeout(resolve, 1))
+      expect(runs).toHaveLength(2)
+      expect(texts(1)).toEqual(['alert resolved', 'alert firing again'])
+    } finally {
+      heldTurn = undefined
+      conversation = null
+    }
+  })
+
   test('records the finished run without moving updatedAt, which means "configuration changed"', async () => {
     triggerWrites.length = 0
     conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
@@ -247,16 +293,17 @@ describe('a Trigger bound to an existing session', () => {
     expect(lastRunWrite?.$set).not.toHaveProperty('updatedAt')
   })
 
-  test('wakes an archived session, whose turn then restores it', async () => {
+  test('does not wake or restore an archived session', async () => {
     runs.length = 0
     conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1', archivedAt: new Date() }
     try {
-      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'archived' })
+      await expect(
+        executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'archived' }),
+      ).rejects.toMatchObject({ code: 'trigger_target_session_archived' })
     } finally {
       conversation = null
     }
-    expect(runs).toHaveLength(1)
-    expect(runs[0]?.sessionId).toBe(sessionId)
+    expect(runs).toHaveLength(0)
   })
 
   test('pauses instead of firing when the session is gone', async () => {

@@ -25,7 +25,7 @@ useModels({
     }) as never,
   cloudflareOAuthResult: () =>
     ({
-      updateOne: (filter: unknown, update: unknown) => {
+      replaceOne: (filter: unknown, update: unknown) => {
         results.push({ filter, update })
 
         return Promise.resolve({ acknowledged: true })
@@ -41,6 +41,8 @@ afterEach(() => {
   results.length = 0
   slackUpdateError = null
 })
+
+const ACCESS = { memberAllowList: ['*'], updatedAt: new Date(0), updatedBy: 'u' }
 
 describe('connector persist functions', () => {
   test('slack: a workspace claimed by another team mid-flow reports workspace_taken', async () => {
@@ -60,18 +62,22 @@ describe('connector persist functions', () => {
   })
 
   test('cloudflare: rebinds in place and records the polling result', async () => {
-    const params = await persistCloudflareBinding(TEAM, {
-      state: 's1',
-      accountId: 'acc1',
-      accountName: 'Acme',
-      oauth: {
-        clientId: 'cid',
-        scope: 'read',
-        encryptedAccessToken: envelope as never,
-        encryptedRefreshToken: null,
-        accessTokenExpiresAt: null,
+    const params = await persistCloudflareBinding(
+      TEAM,
+      {
+        state: 's1',
+        accountId: 'acc1',
+        accountName: 'Acme',
+        oauth: {
+          clientId: 'cid',
+          scope: 'read',
+          encryptedAccessToken: envelope as never,
+          encryptedRefreshToken: null,
+          accessTokenExpiresAt: null,
+        },
       },
-    })
+      ACCESS,
+    )
 
     expect(params).toEqual({
       binding_id: CF_BINDING.toHexString(),

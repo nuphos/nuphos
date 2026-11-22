@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
 import { initializeSessionBypass } from '@/lib/agent/auto-mode/store'
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { startTraceSpan } from '@/lib/agent/tracing'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
 import { registry } from '@/lib/claude-code-preview/agent-chat-registry'
@@ -32,6 +33,7 @@ import type { ConversationTriggerRun } from '@/lib/agent/conversation-trigger-ru
 import type { AgentClientMeta, AgentCredentialAccess } from '@/lib/agent/db'
 import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { LarkReplyToolContext, SlackReplyToolContext } from '@/lib/agent/tools-skilled/types'
+import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { UIMessage } from 'ai'
 
 export type { AgentRunFrameSink } from './run-registry'
@@ -57,12 +59,20 @@ export type TriggerRunParams = {
   // channels omit it and default to 'user'.
   origin?: AgentSessionOrigin
   client?: AgentClientMeta
+  /** The agent a new conversation runs on, already checked against the caller. */
+  runtimeId?: string
+  /** The model and effort a new conversation starts with, already checked against its agent. */
+  initialSessionConfig?: RuntimeDefaults
+  /** The Bot a new conversation starts under, already checked against the caller: its credentials and mode apply. */
+  parentSessionId?: string
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
   frameSink?: AgentRunFrameSink
   /** A refused turn is not recorded as interrupted; the caller requeues its messages. */
   clientResendsRefusal?: boolean
+  /** An agent out of usage is not recorded either; the caller requeues its messages. */
+  waitsOutUsage?: boolean
   /** The channels whose posts this turn answers. */
   channelIds?: string[]
   /** Only channel posts started this turn: its end is not pushed to the owner. */
@@ -98,11 +108,15 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
     ownerUserId: conversationOwnerUserId,
     sessionId,
     source,
+    ...(params.runtimeId ? { runtimeId: params.runtimeId } : {}),
   })
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
 
   await restoreArchivedForTurn(existingConversation, params.origin ?? 'user')
+  // A conversation opened over MCP starts with the app's default selection, as a
+  // new chat does; a Task under a Bot uses the Bot's instead.
+  const mcpFirstTurn = source === 'mcp' && !existingConversation && !params.parentSessionId
 
   const chatSpan = startTraceSpan({
     name: 'turn',
@@ -174,6 +188,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       agentRuntime: chatRuntime.runtime,
       runtimeId: chatRuntime.runtimeId,
       runtimeLabel: chatRuntime.runtimeLabel,
+      ...(params.parentSessionId ? { parentSessionId: params.parentSessionId } : {}),
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {
@@ -195,7 +210,9 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       isNewConversationPromise,
       ensurePreviewChannelCredentialsSafe({
         selectAllCredentials: channelDefaults,
-        channelOriginated: channelDefaults || Boolean(params.slackReply ?? params.larkReply),
+        appDefaults: mcpFirstTurn,
+        channelOriginated:
+          channelDefaults || mcpFirstTurn || Boolean(params.slackReply ?? params.larkReply),
         sessionId,
         teamId,
         actorUserId: userId,
@@ -207,6 +224,13 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       getSlackAgentThreadBySessionId(sessionId).catch(() => null),
     ])
 
+    // Fixed before the first session exists, as the app's first-turn pick is.
+    if (params.initialSessionConfig && (await isNewConversationPromise))
+      await keepFirstSessionPick(sessionId, teamId, params.initialSessionConfig, {
+        actorId: params.userId,
+        via: source === 'mcp' ? 'mcp_ask' : 'trigger',
+        ...(params.client?.name ? { client: params.client.name.slice(0, 80) } : {}),
+      })
     const ended = await runClaudeCodePreviewChatTurn({
       run,
       sessionId,
@@ -222,19 +246,24 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       locale,
       endpoint: chatRuntime.endpoint,
       onRunHandoff: attachFrameSink,
-      onTurnUsage: (usage) => {
+      onTurnUsage: (report) => {
         recordRuntimeTurnUsage({
           sessionId,
           userId: conversationOwnerUserId,
           teamId,
           provider: chatRuntime.endpoint.provider ?? 'claude-code',
-          usage,
+          ...report,
+          actorUserId: HUMAN_SENDER_SOURCES.has(source) ? userId : conversationOwnerUserId,
+          turnSource: source,
+          runtimeId: chatRuntime.endpoint.runtimeId,
+          deviceId: chatRuntime.endpoint.local?.deviceId,
           ...(params.trigger ? { trigger: params.trigger } : {}),
         })
       },
       ...(channelDefaults || source === 'lark.agent' ? { channelTurn: true } : {}),
       ...(params.turnContext ? { turnContext: params.turnContext } : {}),
       ...(params.clientResendsRefusal ? { clientResendsRefusal: true } : {}),
+      ...(params.waitsOutUsage ? { waitsOutUsage: true } : {}),
       ...(slackThread
         ? {
             slackThread: {
@@ -250,15 +279,17 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
 
     return { status: 'completed', finishReason: ended ?? 'stop' }
   } catch (err) {
-    recordTriggerRunFailure(
+    const failed = recordTriggerRunFailure(
       err,
       runTrace,
       source,
       teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
+      params.clientResendsRefusal,
     )
+
     chatSpan.end()
     if (!run.abortController.signal.aborted) {
-      appendAgentRunError(run, err)
+      if (failed) appendAgentRunError(run, err)
       appendAgentRunDone(run)
     }
     finishAgentRun(run)
