@@ -222,6 +222,22 @@ try {
   console.log('PASS an archived Task’s home and Triggers go with its sub-Task’s, and only theirs')
   console.log('PASS a restored Task keeps its new home and Triggers through the sweep')
   console.log('PASS archive, restore, then a late reclaim removes only the archived generation')
+
+  // A computer from before generations ran the restored Task's turn in its first home;
+  // archived again, only generation 1 is queued, and the sweep removes both (#4723).
+  const before = reclaimedAt(stack, target)
+
+  mkdirSync(target.home, { recursive: true })
+  await archive(target)
+  await stack.restartBackend()
+  await until(
+    "the archived Task's home of each generation to be removed",
+    async () =>
+      !existsSync(target.home) && !existsSync(restored) && reclaimedAt(stack, target) > before,
+    180_000,
+  )
+  must(existsSync(control.home), "the other Task's home to be kept by the sweep")
+  console.log('PASS archived again, a home an older computer used goes with the queued generation')
   await computer.stop()
   await away.stop()
 } catch (error) {
