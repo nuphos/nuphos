@@ -110,7 +110,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
   )
 
   _worker.on('failed', (job, err) => {
-    void whoseJob(job, err).then((owner) =>
+    void whoseJob(job).then((owner) =>
       logError('agent.trigger_scheduler.job_failed', err, {
         job_id: job?.id,
         job_name: job?.name,

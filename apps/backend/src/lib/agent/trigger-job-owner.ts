@@ -8,11 +8,10 @@ import type { Job } from 'bullmq'
 
 /**
  * Whose a failed job is and when it was due, so its log line says which team and
- * conversation missed a run (#3718, #4475). A Trigger's fire also keeps the error.
+ * conversation missed a run (#3718, #4475).
  */
 export async function whoseJob(
   job: Pick<Job, 'name' | 'data' | 'timestamp' | 'opts'> | undefined,
-  error: Error,
 ): Promise<Record<string, string | undefined>> {
   if (!job) return {}
   // A cron fire carries its slot; any other job was due once its delay passed.
@@ -25,11 +24,7 @@ export async function whoseJob(
 
   if (typeof triggerId === 'string' && ObjectId.isValid(triggerId)) {
     const trigger = await agentTriggers()
-      .findOneAndUpdate(
-        { _id: new ObjectId(triggerId) },
-        { $set: { lastRunError: { message: error.message, at: new Date() } } },
-        { projection: { teamId: 1, targetSessionId: 1 } },
-      )
+      .findOne({ _id: new ObjectId(triggerId) }, { projection: { teamId: 1, targetSessionId: 1 } })
       .catch(() => null)
 
     return {
