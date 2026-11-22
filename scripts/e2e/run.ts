@@ -164,7 +164,6 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
-  ...triggerLinkScenarios,
   ...instructionScenarios,
   ...botTriggerRowScenarios,
   ...webhookSecretScenarios,
@@ -211,6 +210,7 @@ const scenarios: Scenario[] = [
   ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
+  ...triggerLinkScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
