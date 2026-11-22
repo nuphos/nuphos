@@ -9,5 +9,8 @@
   "bot chat, new post while away": 1,
   "task, opened before, reply in progress": 0,
   "bot chat, opened before, again": 0,
-  "tasks tab, back to a reply in progress": 0
+  "tasks tab, back to a reply in progress": 0,
+  "far: long finished task, first open": 1,
+  "far: task, first open": 1,
+  "far: bot chat, new post while away": 1
 }
