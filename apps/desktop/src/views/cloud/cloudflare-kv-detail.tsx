@@ -1,7 +1,6 @@
 import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -9,8 +8,7 @@ import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
-import { queryKeys } from '../../lib/query/keys'
-import { refreshAfterWrite } from '../../lib/query/refreshAfterWrite'
+import { useResetOnKey } from '../useResetOnKey'
 
 import { CfDetailActionBar } from './cf-shared'
 import { KvValueDialog } from './cloudflare-kv-value-dialog'
@@ -29,29 +27,75 @@ export function CloudflareKvNamespaceDetailView({
   namespaceId: string
   onLoading?: (loading: boolean) => void
 }) {
+  const [keys, setKeys] = useState<CloudflareKvKey[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
   const [prefix, setPrefix] = useState('')
+  // The first listing is already in flight on mount, so start in the loading
+  // state — the render-time reset only covers later prefix/namespace changes.
+  const [loading, setLoading] = useState(true)
+  const [paging, setPaging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ key: string; value: string; isNew: boolean } | null>(
     null,
   )
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
-  const query = useInfiniteQuery({
-    queryKey: queryKeys.cloudflare(teamId, accountId, 'kv', namespaceId, 'keys', prefix),
-    queryFn: ({ pageParam }) =>
-      api.atlasListCloudflareKvKeys(teamId, accountId, namespaceId, prefix || undefined, pageParam),
-    initialPageParam: null as string | null,
-    // Cloudflare ends a listing with an empty cursor, not a missing one.
-    getNextPageParam: (page) => page.cursor || null,
-  })
-  const keys = query.data?.pages.flatMap((page) => page.keys) ?? []
-  const client = useQueryClient()
-  // A write changes the listing under every prefix, not only the one on screen.
-  const reload = () =>
-    void refreshAfterWrite(client, {
-      queryKey: queryKeys.cloudflare(teamId, accountId, 'kv', namespaceId, 'keys'),
-    })
+  const genRef = useRef(0)
 
-  // Not polled, so a fetch is the first page or a reload after a write; "Load more" shows its own.
-  useReportLoading(query.isFetching && !query.isFetchingNextPage, onLoading)
+  useReportLoading(loading, onLoading)
+
+  const fetchKeys = useCallback(
+    (p: string) => {
+      const gen = ++genRef.current
+
+      api
+        .atlasListCloudflareKvKeys(teamId, accountId, namespaceId, p || undefined, null)
+        .then((page) => {
+          if (genRef.current !== gen) return
+          setKeys(page.keys)
+          setCursor(page.cursor)
+          setLoading(false)
+        })
+        .catch((e: unknown) => {
+          if (genRef.current !== gen) return
+          setError(String(e instanceof Error ? e.message : e))
+          setLoading(false)
+        })
+    },
+    [teamId, accountId, namespaceId],
+  )
+
+  // Manual refresh handlers still go through `loadKeys` for the spinner; the
+  // prefix-driven listing gets it from the render-time reset instead.
+  const loadKeys = useCallback(
+    (p: string) => {
+      setLoading(true)
+      setError(null)
+      fetchKeys(p)
+    },
+    [fetchKeys],
+  )
+
+  useResetOnKey(`${teamId}|${accountId}|${namespaceId}|${prefix}`, () => {
+    setLoading(true)
+    setError(null)
+  })
+  useEffect(() => fetchKeys(prefix), [fetchKeys, prefix])
+
+  const loadMore = useCallback(() => {
+    if (!cursor || paging) return
+    const gen = genRef.current
+
+    setPaging(true)
+    api
+      .atlasListCloudflareKvKeys(teamId, accountId, namespaceId, prefix || undefined, cursor)
+      .then((page) => {
+        if (genRef.current !== gen) return
+        setKeys((k) => [...k, ...page.keys])
+        setCursor(page.cursor)
+        setPaging(false)
+      })
+      .catch(() => setPaging(false))
+  }, [cursor, paging, teamId, accountId, namespaceId, prefix])
 
   async function openKey(key: string) {
     try {
@@ -83,12 +127,12 @@ export function CloudflareKvNamespaceDetailView({
           className="px-2.5 py-1.5 rounded-md bg-surface border border-line-control text-main outline-none focus:border-line-focus font-mono text-[12px] w-72"
         />
       </div>
-      {query.error && !query.data ? (
-        <ErrorBlock message={query.error.message} />
+      {error ? (
+        <ErrorBlock message={error} />
       ) : (
         <>
           <Table<CloudflareKvKey>
-            loading={query.isPending}
+            loading={loading}
             rows={keys}
             rowKey={(r) => r.name}
             onPrimaryAction={(r) => void openKey(r.name)}
@@ -139,15 +183,14 @@ export function CloudflareKvNamespaceDetailView({
               },
             ]}
           />
-          {query.hasNextPage && (
+          {cursor && (
             <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
               <button
-                onClick={() => void query.fetchNextPage()}
-                // Paging during a reload would cancel it and append to the pages read before.
-                disabled={query.isFetching}
+                onClick={loadMore}
+                disabled={paging}
                 className="px-3 py-1 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary text-[12px] disabled:opacity-50"
               >
-                {query.isFetchingNextPage ? t('Loading…') : t('Load more')}
+                {paging ? t('Loading…') : t('Load more')}
               </button>
             </div>
           )}
@@ -164,7 +207,7 @@ export function CloudflareKvNamespaceDetailView({
             await api.atlasWriteCloudflareKvValue(teamId, accountId, namespaceId, { key, value })
             setEditing(null)
             toast.success(t('Value saved'))
-            reload()
+            loadKeys(prefix)
           }}
         />
       )}
@@ -183,7 +226,7 @@ export function CloudflareKvNamespaceDetailView({
           if (pendingDelete) {
             await api.atlasDeleteCloudflareKvValue(teamId, accountId, namespaceId, pendingDelete)
             toast.success(t('Key deleted'))
-            reload()
+            loadKeys(prefix)
           }
         }}
         onClose={() => setPendingDelete(null)}
