@@ -53,6 +53,12 @@ final class ChannelSession {
         self.channelId = channelId
         self.title = title
         questions = OpenQuestions(token: token, teamId: teamId)
+        // What this chat showed last, at once; no revision, so the first poll reads it in full (#3525).
+        if let kept = LaunchCache.transcript(of: channelId, token: token),
+           let detail = try? NuphosAPI.decoder.decode(AgentConversationDetail.self, from: kept) {
+            apply(detail, agents: [])
+            revision = nil
+        }
     }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
@@ -137,7 +143,10 @@ final class ChannelSession {
                 let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
                 guard probe.channelRevision != revision else { return }
             }
-            async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
+            async let detail = NuphosAPI.conversationDetail(
+                token: token, teamId: teamId, sessionId: channelId, tail: Self.tail,
+                keep: { [channelId, token] in LaunchCache.keepTranscript($0, of: channelId, token: token) }
+            )
             async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
             let (read, people) = try await (detail, listed)
             apply(read, agents: people)

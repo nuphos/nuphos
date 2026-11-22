@@ -74,7 +74,8 @@ extension NuphosAPI {
     /// `GET /agent/conversations/:sessionId?teamId=&tail=` — the last `tail`
     /// messages of a conversation.
     static func conversationDetail(
-        token: String, teamId: String, sessionId: String, tail: Int = 100, displayed: Bool = true
+        token: String, teamId: String, sessionId: String, tail: Int = 100, displayed: Bool = true,
+        keep: ((Data) -> Void)? = nil
     ) async throws -> AgentConversationDetail {
         let detail: AgentConversationDetail = try await get(
             "agent/conversations/\(sessionId)",
@@ -84,7 +85,8 @@ extension NuphosAPI {
             query: [URLQueryItem(name: "teamId", value: teamId), URLQueryItem(name: "tail", value: String(tail)),
                     URLQueryItem(name: "runtimeState", value: "omit")],
             token: token,
-            timeout: 20
+            timeout: 20,
+            keep: keep
         )
         ConversationUnread.forAccount(token).receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: displayed)
         return detail
@@ -137,7 +139,7 @@ extension NuphosAPI {
         let error: Inner?
     }
 
-    private static let decoder: JSONDecoder = {
+    static let decoder: JSONDecoder = {
         let d = JSONDecoder()
         let iso = ISO8601DateFormatter()
         iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -152,7 +154,8 @@ extension NuphosAPI {
 
 
     private static func get<T: Decodable>(
-        _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval
+        _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval,
+        keep: ((Data) -> Void)? = nil
     ) async throws -> T {
         var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
@@ -170,7 +173,9 @@ extension NuphosAPI {
 
         switch http.statusCode {
         case 200..<300:
-            do { return try decoder.decode(T.self, from: data) } catch { throw Failure.invalidResponse }
+            guard let value = try? decoder.decode(T.self, from: data) else { throw Failure.invalidResponse }
+            keep?(data)
+            return value
         case 403 where needsStepUp(data):
             throw Failure.reauthRequired
         case 401, 403:
