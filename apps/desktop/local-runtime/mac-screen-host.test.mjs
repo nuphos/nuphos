@@ -140,3 +140,37 @@ test(
     assert.deepEqual([fields.width, fields.height], [320, 208])
   },
 )
+
+/** The host's display lookup, as it ships, run against a display that is asleep for `asleep` lookups. */
+function findDisplay(asleep) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'mac-screen-host-'))
+  const program = path.join(dir, 'main.swift')
+
+  writeFileSync(
+    program,
+    [
+      'import Foundation',
+      source.slice(source.indexOf('// MARK: - Display'), source.indexOf('// MARK: - Main')),
+      'nonisolated(unsafe) var lookups = 0',
+      'nonisolated(unsafe) var wakes = 0',
+      `let found = try await awakeDisplay(wake: { wakes += 1 }, find: { lookups += 1; return lookups > ${String(asleep)} ? "display" : nil })`,
+      'print("\\(found ?? "none") \\(wakes) \\(lookups)")',
+    ].join('\n'),
+  )
+  execFileSync('xcrun', ['swiftc', '-o', path.join(dir, 'find'), program], { stdio: 'inherit' })
+
+  return execFileSync(path.join(dir, 'find'), { encoding: 'utf8' }).trim()
+}
+
+test(
+  'the screen host wakes a sleeping display and waits for it (#4518)',
+  { skip: process.platform !== 'darwin' && 'the host is macOS only', timeout: 120_000 },
+  () => {
+    // Asleep for the first two lookups: woken once, then shown.
+    assert.equal(findDisplay(2), 'display 1 3')
+    // Awake: shown at once, and nothing wakes a display that is on.
+    assert.equal(findDisplay(0), 'display 0 1')
+    // A Mac with no display at all gives up after five seconds.
+    assert.equal(findDisplay(1000), 'none 1 21')
+  },
+)
