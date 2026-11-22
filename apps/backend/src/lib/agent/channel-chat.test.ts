@@ -33,6 +33,8 @@ import {
 } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
+import { startQueuedTurn } from './queued-turn'
+import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 import { noteReplyFailed } from './reply-failed'
 
@@ -854,6 +856,28 @@ describe('a person posting while an agent’s turn runs', () => {
     expect(
       (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner', true)).messages,
     ).toHaveLength(1)
+  })
+
+  test('a notice that cannot steer never reads as the session let go', async () => {
+    // #4164: each give-up said the session was released, so a turn waiting out a usage limit
+    // was sent again every few seconds rather than after its wait.
+    const starts: boolean[] = []
+
+    installQueuedTurnStarter(async (_userId, _sessionId, released) => {
+      starts.push(released)
+    })
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    steerable = false
+    try {
+      await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+      expect(starts).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+    }
   })
 
   test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
