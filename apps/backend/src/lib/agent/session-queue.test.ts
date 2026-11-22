@@ -9,6 +9,7 @@ import { useRedis } from '@/lib/test/doubles/redis'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
 
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
+import * as runtimeCatalog from '@/lib/claude-code-preview/runtime-catalog'
 import { refusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import * as lifecycle from '@/lib/lifecycle'
@@ -38,6 +39,7 @@ import {
   requeueTurnQueue,
   sessionReleased,
   sweepQueuedSessions,
+  waitingOutRefusal,
 } from './session-released'
 import * as failedRuns from './trigger-failed-runs'
 import { TRIGGER_SENDER_PREFIX } from './trigger-missed-runs'
@@ -73,6 +75,8 @@ const wakes: (string | undefined)[] = []
 let fakeRedis: unknown = null
 let signInRequest: SignInRequest | null = null
 let conversationRuntime = 'managed-1'
+/** The runtime a conversation is on when no sign-in ask names one. */
+let usageRuntime: string | undefined
 
 useRedis({
   withRedis: (async (op: (client: unknown) => unknown) =>
@@ -91,6 +95,7 @@ useAgentDb({
     ...conversation,
     claudeCodePreview: {} as never,
     // On the agent the ask is about, unless a test moves it.
+    ...(usageRuntime ? { runtimeId: usageRuntime } : {}),
     ...(signInRequest ? { signInRequest, runtimeId: conversationRuntime } : {}),
   }),
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
@@ -275,6 +280,34 @@ test('a refused queued turn goes back to the front of the queue', async () => {
   await requeueTurnQueue(OWNER, SESSION, [], refused)
 
   expect(await waiting()).toEqual(['refused', 'behind'])
+})
+
+test('a usage reset days away is looked at again within the hour, in case it comes early', async () => {
+  const before = Date.now()
+
+  await requeueTurnQueue(
+    OWNER,
+    SESSION,
+    [],
+    human('limited'),
+    new Date(before + 5 * 86_400_000).toISOString(),
+  )
+  const until = Date.parse((await listPendingUserMessages(OWNER, SESSION))[0]?.retryAfter ?? '')
+
+  expect(until - before).toBeGreaterThan(59 * 60_000)
+  expect(until - Date.now()).toBeLessThanOrEqual(60 * 60_000)
+})
+
+test('a head stored before refusedAt still waits out its own releases', () => {
+  const head = {
+    ...human('stored earlier'),
+    retryAfter: new Date(Date.now() + 5 * 60_000 - 1_000).toISOString(),
+  }
+
+  expect(waitingOutRefusal(head, true)).toBe(true)
+  expect(
+    waitingOutRefusal({ ...head, retryAfter: new Date(Date.now() + 60_000).toISOString() }, true),
+  ).toBe(false)
 })
 
 test("releasing the session starts the queue for a teammate's message too", async () => {
@@ -1096,6 +1129,59 @@ test('a queued turn whose agent is out of usage keeps the queue, and it runs onc
     ).toEqual(sent.map((message) => message.id))
     expect(await listPendingUserMessages(OWNER, session)).toEqual([])
   } finally {
+    await clearPendingUserMessages(OWNER, session)
+  }
+}, 10_000)
+
+test('a queued turn whose agent is out of usage waits for its reset, at most an hour, and a release still starts it', async () => {
+  const session = 'usage-reset-session'
+  const resetsAt = new Date(Date.now() + 20 * 60_000).toISOString()
+  const resets = spyOn(runtimeCatalog, 'usageResetsAt').mockResolvedValue(resetsAt)
+  let limited = true
+
+  usageRuntime = 'codex-1'
+  installQueuedTurnStarter(startQueuedTurn)
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {
+      released++
+      sessionReleased(OWNER, session)
+    },
+    runAgentForTrigger: async (args) => {
+      runs.push(args)
+      if (limited)
+        throw new OpenAbRpcError(
+          '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Try again at Nov 27th, 2026 11:22 AM.',
+          -32603,
+        )
+
+      return { status: 'completed' }
+    },
+  })
+  try {
+    const event = agent('check run failed')
+
+    await enqueuePendingUserMessage(OWNER, session, event)
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    // One try, then the head waits for the reset the runtime reports: no quick retries.
+    expect((await listPendingUserMessages(OWNER, session))[0]?.retryAfter).toBe(resetsAt)
+    expect(resets).toHaveBeenCalledWith('team', OWNER, 'codex-1')
+    // Neither the quick retries, the refusal's own releases nor the backstop try again.
+    await startQueuedTurn(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 5_100))
+    expect(runs).toHaveLength(1)
+
+    // Moved to another agent: the move's release starts the queue at once.
+    limited = false
+    sessionReleased(OWNER, session)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(runs).toHaveLength(2)
+    expect(await listPendingUserMessages(OWNER, session)).toEqual([])
+  } finally {
+    resets.mockRestore()
+    usageRuntime = undefined
     await clearPendingUserMessages(OWNER, session)
   }
 }, 10_000)
