@@ -14,7 +14,7 @@ const LATER = 'E2E Task archived on another device'
 const MINE = 'E2E my archived Task'
 const BOTS = "E2E the Bot's archived Task"
 
-/** A Task archived through the API, as an agent or another device does: this window hears nothing. */
+/** A Task imported and archived through the API, as another device does: this window hears nothing. */
 export async function archivedTask(stack: Stack, title: string, parentSessionId?: string) {
   const api = rest(stack, stack.token)
   const sessionId = randomUUID()
@@ -23,6 +23,7 @@ export async function archivedTask(stack: Stack, title: string, parentSessionId?
     teamId: stack.teamId,
     title,
     agentRuntime: 'claude-code',
+    import: true,
     messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
   })
   if (parentSessionId)
