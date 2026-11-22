@@ -251,7 +251,8 @@ export function useConversationCatchUp(acc: Acc): void {
     }
 
     // A tab just shown draws what it holds first; its catch-up read waits for that frame.
-    const frame = window.requestAnimationFrame(() => window.setTimeout(() => void poll()))
+    // Cleanup needs no cancel: poll does nothing once stopped.
+    window.requestAnimationFrame(() => window.setTimeout(() => void poll()))
     const timer = window.setInterval(() => void poll(), WAKEUP_POLL_MS)
     const pollIfThisSession = (event: Event) => {
       if ((event as CustomEvent<string>).detail === sessionId) void poll()
@@ -261,7 +262,6 @@ export function useConversationCatchUp(acc: Acc): void {
 
     return () => {
       state.stopped = true
-      window.cancelAnimationFrame(frame)
       window.clearInterval(timer)
       window.removeEventListener(TIMELINE_CHANGED_EVENT, pollIfThisSession)
     }

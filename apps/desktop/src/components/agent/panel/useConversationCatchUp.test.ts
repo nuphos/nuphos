@@ -6,16 +6,17 @@ let reads = 0
 let settleRead: () => void = () => {}
 let listed = false
 const asked: unknown[] = []
+// Frame and task callbacks wait until the test runs them.
+const frames: (() => void)[] = []
+const tasks: (() => void)[] = []
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: Object.assign(new EventTarget(), {
     setInterval: () => 0,
     clearInterval: () => {},
-    // The first read waits for a frame and then a task; here both come at once.
-    requestAnimationFrame: (run: () => void) => run(),
-    cancelAnimationFrame: () => {},
-    setTimeout: (run: () => void) => run(),
+    requestAnimationFrame: (run: () => void) => frames.push(run),
+    setTimeout: (run: () => void) => tasks.push(run),
   }),
 })
 // Mock React's scheduling and the API only; run the real poll.
@@ -54,6 +55,8 @@ mock.module('./toUiMessages.ts', { namedExports: { toUiMessages: () => [] } })
 const { useConversationCatchUp } = await import('./useConversationCatchUp.ts')
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
+const drawFrame = () => frames.splice(0).forEach((run) => run())
+const runTasks = () => tasks.splice(0).forEach((run) => run())
 
 function render(sessionId = 's1') {
   cleanup?.()
@@ -71,16 +74,23 @@ function render(sessionId = 's1') {
   } as never)
 }
 
+/** Shows the chat and lets its first frame and the task after it run. */
+function show(sessionId?: string) {
+  render(sessionId)
+  drawFrame()
+  runTasks()
+}
+
 test('a re-run waits for the catch-up read already in flight', async () => {
-  render()
+  show()
   assert.equal(reads, 1)
   // A new message or a stream ending re-runs the effect while the read hangs.
-  render()
-  render()
+  show()
+  show()
   assert.equal(reads, 1)
   settleRead()
   await settle()
-  render()
+  show()
   assert.equal(reads, 2)
   cleanup?.()
 })
@@ -90,7 +100,7 @@ test('the probe asks for the runtime state only of a session the list does not p
     listed = isListed
     asked.length = 0
     // Its own session: the first test leaves a read of s1 in flight.
-    render(isListed ? 's2' : 's3')
+    show(isListed ? 's2' : 's3')
     settleRead()
     await settle()
     assert.deepEqual(
@@ -101,4 +111,34 @@ test('the probe asks for the runtime state only of a session the list does not p
     )
   }
   cleanup?.()
+})
+
+test('a shown chat sends its first read after its first frame, not before', () => {
+  const before = reads
+
+  render('s4')
+  assert.equal(reads, before)
+  drawFrame()
+  assert.equal(reads, before)
+  runTasks()
+  assert.equal(reads, before + 1)
+  settleRead()
+  cleanup?.()
+})
+
+test('a chat left before its first read sends none', () => {
+  const before = reads
+
+  // Left before its first frame.
+  render('s5')
+  cleanup?.()
+  drawFrame()
+  runTasks()
+  // Left between its first frame and the task after it.
+  render('s6')
+  drawFrame()
+  cleanup?.()
+  runTasks()
+  cleanup = undefined
+  assert.equal(reads, before)
 })
