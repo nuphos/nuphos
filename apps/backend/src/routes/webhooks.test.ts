@@ -227,15 +227,22 @@ describe('POST /webhooks/:triggerId', () => {
     expect((await post()).status).toBe(500)
   })
 
-  test('a Trigger paused by its own checks answers like a disabled one, not a 4xx', async () => {
-    stored = webhook()
-    refusal = new AppError(409, 'trigger_target_session_invalid', 'The Trigger was paused')
+  test.each([
+    'trigger_target_session_invalid',
+    'trigger_target_session_archived',
+    'trigger_execution_principal_invalid',
+  ])(
+    'a Trigger paused by its own checks (%s) answers like a disabled one, not a 4xx',
+    async (code) => {
+      stored = webhook()
+      refusal = new AppError(409, code, 'The Trigger was paused')
 
-    const res = await post()
+      const res = await post()
 
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: false, reason: 'trigger_target_session_invalid' })
-  })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ ok: false, reason: code })
+    },
+  )
 
   test('any other conflict on the way is an error, not a delivery', async () => {
     stored = webhook()
