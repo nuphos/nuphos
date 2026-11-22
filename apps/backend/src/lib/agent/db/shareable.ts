@@ -20,4 +20,6 @@ export function isShareable(conversation: AgentConversation): boolean {
 export function assertShareable(conversation: AgentConversation) {
   if (!isShareable(conversation))
     throw new AppError(403, 'not_shareable', 'Only a Task you opened yourself can be shared')
+
+  return conversation
 }

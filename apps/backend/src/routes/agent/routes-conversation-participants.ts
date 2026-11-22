@@ -157,9 +157,7 @@ conversationParticipantsRoutes.post('/conversations/:sessionId/participants', as
   // Releases that offered roles send one; only reply is left.
   if (body.role !== undefined && body.role !== 'reply')
     throw new AppError(400, 'invalid_request', 'role must be "reply"')
-  const conversation = await requireOwnedConversation(sessionId, userId, teamId)
-
-  assertShareable(conversation)
+  const conversation = assertShareable(await requireOwnedConversation(sessionId, userId, teamId))
   const invitees = userIds.filter((id) => id !== conversation.userId)
   // A private conversation is worth nothing shared with someone who cannot open
   // it, so an invitee outside the team is a request error, not a silent no-op.
@@ -285,8 +283,7 @@ conversationParticipantsRoutes.patch('/conversations/:sessionId/access', async (
   const generalAccess = body.generalAccess as GeneralAccess
   const conversation = await requireOwnedConversation(sessionId, c.get('userId'), teamId)
 
-  // Taking a conversation private is never sharing it.
-  if (generalAccess !== 'none') assertShareable(conversation)
+  if (generalAccess !== 'none') assertShareable(conversation) // Going private is never sharing.
   const allowed = generalAccessValues(conversation)
 
   if (!allowed.includes(generalAccess))
