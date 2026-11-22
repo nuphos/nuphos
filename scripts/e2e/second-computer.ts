@@ -85,11 +85,12 @@ export async function startSecondComputer(
       child = spawn(`computer-${label}`, ['node', host], { env })
     })
 
-  await until(`${label} to connect`, async () =>
-    backendLog().some(
+  const opened = () =>
+    backendLog().filter(
       (line) => line.includes('tunnel_opened') && line.includes(`"device_id":"${deviceId}"`),
-    ),
-  )
+    ).length
+
+  await until(`${label} to connect`, async () => opened() > 0)
 
   return {
     deviceId,
@@ -100,6 +101,14 @@ export async function startSecondComputer(
       stopped = true
 
       return stop(child)
+    },
+    /** The same computer coming back after stop(). */
+    start: async () => {
+      const before = opened()
+
+      stopped = false
+      child = spawn(`computer-${label}`, ['node', host], { env })
+      await until(`${label} to reconnect`, async () => opened() > before)
     },
   }
 }

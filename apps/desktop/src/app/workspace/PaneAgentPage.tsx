@@ -89,7 +89,7 @@ export function PaneAgentPage({
           sessionId={tab.agentSessionId}
           onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
           onOpenNuphosLink={onOpenNuphosLink}
-          onOpenAgentSettings={() => onOpenSettingsSection('workspace.agent')}
+          onOpenAgentSettings={() => onOpenSettingsSection('workspace.computers')}
           autoFocusComposer={active}
           pendingImport={pendingPageImport?.tabId === tabId ? pendingPageImport.snapshot : null}
           onImportConsumed={onPagePendingImportConsumed}

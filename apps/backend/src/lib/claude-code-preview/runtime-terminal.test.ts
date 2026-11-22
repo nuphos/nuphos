@@ -81,6 +81,7 @@ test('input frames retain socket order without waiting a round trip for each key
     userId: 'owner',
     label: 'Runtime',
     sessionId: 'conversation',
+    homeEpoch: 0,
   })
 
   try {
@@ -122,6 +123,7 @@ test('parallel sockets share user admission and closing twice releases only one 
     userId: 'quota-owner',
     label: 'Runtime',
     sessionId: 'conversation',
+    homeEpoch: 0,
   }
   const sockets = Array.from({ length: 9 }, () => runtimeTerminalEvents(target))
 
@@ -152,14 +154,16 @@ test('parallel sockets share user admission and closing twice releases only one 
 test('before start resolves only output acknowledgements are accepted, not input', async () => {
   let finish!: () => void
   const operations: string[] = []
+  let started: unknown
   const client = {
     initialize: async () => ({
       agentCapabilities: { _meta: { 'dev.openab/runtimeTerminal': true } },
     }),
     onClosed: () => () => {},
     close: () => {},
-    terminalRequest: (operation: string) => {
+    terminalRequest: (operation: string, params: unknown) => {
       operations.push(operation)
+      if (operation === 'start') started = params
 
       return operation === 'start'
         ? new Promise((resolve) => {
@@ -176,6 +180,7 @@ test('before start resolves only output acknowledgements are accepted, not input
     userId: 'starting-owner',
     label: 'Runtime',
     sessionId: 'conversation',
+    homeEpoch: 2,
   })
 
   try {
@@ -191,6 +196,8 @@ test('before start resolves only output acknowledgements are accepted, not input
     )
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(operations).toEqual(['start', 'ack'])
+    // The shell opens the home generation the restored Task's turns use.
+    expect(started).toMatchObject({ sessionId: 'conversation', homeEpoch: 2 })
   } finally {
     events.onClose?.(new CloseEvent('close'), ws)
     finish()
@@ -228,6 +235,7 @@ test('escaped input survives, oversized input is dropped, and start uses measure
     userId: 'paste-owner',
     label: 'Runtime',
     sessionId: 'conversation',
+    homeEpoch: 0,
   }
   const events = runtimeTerminalEvents(target, { cols: '132', rows: '43' })
   const send = async (data: string) => {
