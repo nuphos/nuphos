@@ -4869,7 +4869,7 @@
   "This is a larger grant than listing devices. If this OAuth client also carries device-write scopes, consider binding a separate client that only has {scope}, so the credential Nuphos holds for the data plane can do nothing else.": "此授权的范围比列出设备更大。如果此 OAuth 客户端还具有设备写入作用域，建议另外绑定一个仅有 {scope} 的客户端，使 Nuphos 用于数据平面的凭据无法执行其他操作。",
   "This is not a missing IAM role — the API is turned off on the project.": "这不是缺少 IAM 角色 — 而是该项目未启用此 API。",
   "This is what Kubernetes says the credential can do, not what we claim. Widen or narrow it with RBAC in your cluster and re-check.": "这是 Kubernetes 报告的该凭证权限，而非我们的声明。可在集群中通过 RBAC 扩大或缩小权限，然后重新检查。",
-  "This is your conversation with {name}. Talk about what you want help with, and shape how you work together.": "这里是你和 {name} 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。",
+  "This is where you and {name} get things done. Talk about what you want help with, and shape how you work together.": "你可以在这里和 {name} 一起完成工作。聊聊你需要什么协助，一起建立适合你的工作方式。",
   "This legacy role connection is retired and cannot be used by Bots and tasks. Remove it and connect a regular role if you need access to this cloud account.": "此旧版角色连接已失效，Bot 和任务无法使用。如需访问此云账号，请将其移除并连接普通角色。",
   "This legacy service account connection is retired and cannot be used by Bots and tasks. Remove it and connect a regular service account if you need access to this cloud account.": "此旧版服务账号连接已失效，Bot 和任务无法使用。如需访问此云账号，请将其移除并连接普通服务账号。",
   "This lightweight resource resolves the active Cloudflare connector on every request. No API token or connection string is copied into Databases.": "此轻量资源会在每次请求时解析当前启用的 Cloudflare 连接器。不会将任何 API 令牌或连接字符串复制到“数据库”中。",

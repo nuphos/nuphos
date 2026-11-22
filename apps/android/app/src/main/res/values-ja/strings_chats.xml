@@ -60,7 +60,7 @@
     <string name="chats_question_snooze_tomorrow">明日 9:00</string>
     <string name="chats_question_snooze_monday">来週月曜 9:00</string>
     <string name="chats_question_dismiss_reason">理由（任意）</string>
-    <string name="chats_empty_bot_body">ここは %1$s との会話です。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。</string>
+    <string name="chats_empty_bot_body">ここで %1$s と一緒に仕事を進めましょう。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。</string>
     <string name="chats_empty_bot_start">まずは %1$s にやりたいことを伝えてみましょう。</string>
     <string name="chats_bot_computer_offline">%1$s のコンピューターはオフラインです。</string>
     <string name="chats_presence_online">オンライン</string>

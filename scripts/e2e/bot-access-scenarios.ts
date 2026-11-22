@@ -169,7 +169,7 @@ export const botAccessScenarios: Scenario[] = [
       await openChat(page, UNCHOSEN)
       // #4038: in a chat with no posts the banner sits in the intro's column, 16px under it.
       const intro = page
-        .getByText(`This is your conversation with ${UNCHOSEN}.`, { exact: false })
+        .getByText(`This is where you and ${UNCHOSEN} get things done.`, { exact: false })
         .locator('xpath=..')
       const banner = page.getByText(CHOOSE).locator('xpath=..')
 

@@ -30683,48 +30683,48 @@
         }
       }
     },
-    "This is your conversation with %@. Talk about what you want help with, and shape how you work together." : {
+    "This is where you and %@ get things done. Talk about what you want help with, and shape how you work together." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Esta es tu conversación con %@. Cuéntale qué ayuda necesitas y definan cómo trabajar juntos."
+            "value" : "Aquí tú y %@ sacan adelante el trabajo. Cuéntale qué ayuda necesitas y definan cómo trabajar juntos."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ini percakapan Anda dengan %@. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama."
+            "value" : "Di sini Anda dan %@ menyelesaikan pekerjaan. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ここは %@ との会話です。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。"
+            "value" : "ここで %@ と一緒に仕事を進めましょう。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요."
+            "value" : "%@와 함께 일을 해내는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "นี่คือการสนทนาของคุณกับ %@ บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน"
+            "value" : "ที่นี่คุณกับ %@ ทำงานให้สำเร็จไปด้วยกัน บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这里是你和 %@ 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。"
+            "value" : "你可以在这里和 %@ 一起完成工作。聊聊你需要什么协助，一起建立适合你的工作方式。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這裡是你和 %@ 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。"
+            "value" : "你可以在這裡和 %@ 一起完成工作。聊聊你需要什麼協助，一起建立適合你的工作方式。"
           }
         }
       }

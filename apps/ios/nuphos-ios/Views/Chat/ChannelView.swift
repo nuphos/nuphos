@@ -232,7 +232,7 @@ struct ChannelView: View {
                 // A Bot's own chat introduces the Bot, in Desktop's words.
                 Group {
                     if channel.botId != nil {
-                        Text("This is your conversation with \(channel.title). Talk about what you want help with, and shape how you work together.")
+                        Text("This is where you and \(channel.title) get things done. Talk about what you want help with, and shape how you work together.")
                         Text("You can start by telling \(channel.title) what you would like to do.")
                     } else {
                         Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
