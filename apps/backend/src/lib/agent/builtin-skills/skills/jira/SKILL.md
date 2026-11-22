@@ -1,6 +1,6 @@
 ---
 name: jira
-description: Operate on Jira issues — read, create, comment, and transition — through a Jira Cloud site the user's team has bound to Nuphos via OAuth. Use whenever the user asks to open/track/close a Jira issue, file a ticket for an incident, comment on an issue, or check issue status. Nuphos backend hands the agent a short-lived Atlassian access token + cloudId; the agent calls api.atlassian.com/ex/jira/<cloudId>/rest/api/3 directly with curl.
+description: Read, create, comment on and transition Jira Cloud issues in a team-bound site. Use for opening, tracking or closing an issue, filing an incident ticket or checking status.
 ---
 
 # jira

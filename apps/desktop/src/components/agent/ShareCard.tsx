@@ -8,6 +8,7 @@ import { t } from '../../i18n'
 import { Button } from '../ui/button'
 import { toast } from '../ui/toast'
 
+import { joinNames } from './joinNames'
 import { PersonFace } from './PersonFace'
 import { PresenceTag } from './PresenceTag'
 import { ParticipantMenu } from './ShareAccess'
@@ -17,17 +18,6 @@ import type { Pickable } from './PersonFace'
 
 // The pieces of the Share card in SessionParticipants (the picker lives in
 // TeammatePicker). The card owns who is picked, who was just added, and what is busy.
-
-/** "Ann", "Ann and Bo", "Ann, Bo, and 2 others". */
-function joinNames(names: string[]) {
-  if (names.length === 2) return t('{a} and {b}', { a: names[0], b: names[1] })
-  if (names.length < 2) return names.join('')
-  const others = names.length - 2
-
-  return others === 1
-    ? t('{a}, {b}, and 1 other', { a: names[0], b: names[1] })
-    : t('{a}, {b}, and {n} others', { a: names[0], b: names[1], n: String(others) })
-}
 
 const AVATAR_SIZE = 22
 // Reuse the ring the IAM avatar group uses, recoloured for the agent titlebar so

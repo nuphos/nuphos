@@ -32,7 +32,7 @@
   "POST /auth/email/verify-code": {
     "status": 200,
     "body": {
-      "token": "synthetic-alex-session",
+      "token": "preview-only",
       "user": {
         "id": "demo-alex",
         "name": "Alex Chen",

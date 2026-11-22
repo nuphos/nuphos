@@ -45,6 +45,7 @@
     <string name="chats_reply">回复</string>
     <string name="chats_copy">复制</string>
     <string name="chats_usage_resets">用量%1$s。</string>
+    <string name="chats_verify_with_anthropic">前往 Anthropic 验证</string>
     <string name="chats_switch_runtime">切换运行环境</string>
     <string name="chats_retry">重试</string>
     <string name="chats_send_failed_title">无法发送消息</string>
@@ -59,4 +60,11 @@
     <string name="chats_question_dismiss_reason">理由（可选）</string>
     <string name="chats_empty_bot_body">这里是你和 %1$s 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告诉 %1$s，你想做些什么。</string>
+    <string name="chats_bot_computer_offline">%1$s 的电脑离线。</string>
+    <string name="chats_presence_online">在线</string>
+    <string name="chats_presence_busy">忙碌中</string>
+    <string name="chats_presence_offline">离线</string>
+    <string name="chats_presence_sign_in">需要登录</string>
+    <string name="chats_presence_usage">用量已用完</string>
+    <string name="chats_presence_unavailable">不可用</string>
 </resources>

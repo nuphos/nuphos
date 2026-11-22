@@ -1,6 +1,8 @@
+import { ArrowDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
@@ -42,6 +44,8 @@ export function UpdatesSection() {
   const progress = state.kind === 'downloading' ? updateProgress(state) : null
   const installerUrl = state.kind === 'ready' ? state.installerUrl : null
   const [autoInstall, setAutoInstall] = useState<boolean | null>(null)
+  // A restart stops Bots and tasks on this computer, so ask first, as the sidebar does.
+  const [asking, setAsking] = useState(false)
 
   useEffect(() => {
     api
@@ -78,7 +82,7 @@ export function UpdatesSection() {
                   {t('Download installer')}
                 </Button>
               )}
-              <Button onClick={() => void api.updaterInstall()}>{t('Restart')}</Button>
+              <Button onClick={() => setAsking(true)}>{t('Restart')}</Button>
             </div>
           ) : (
             state.kind !== 'downloading' && (
@@ -136,6 +140,21 @@ export function UpdatesSection() {
             }}
           />
         </label>
+      )}
+      {state.kind === 'ready' && (
+        <ConfirmDialog
+          open={asking}
+          title={t('Update ready')}
+          description={t(
+            'Restart to finish installing Nuphos {version}. Bots and tasks on this computer stop, so replies still running there are cut off.',
+            { version: state.version },
+          )}
+          confirmLabel={t('Update')}
+          cancelLabel={t('Not now')}
+          icon={<ArrowDown className="h-4 w-4" strokeWidth={2} />}
+          onConfirm={() => void api.updaterInstall()}
+          onClose={() => setAsking(false)}
+        />
       )}
     </div>
   )

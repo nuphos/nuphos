@@ -68,11 +68,44 @@ export const reporting = (send) => async (sessionId, name, args) => {
   return message
 }
 
+/** E2E_CALL's arguments; a Bot's chat post reaches its prompt as a JSON string, escaped. */
+function parseArgs(args) {
+  try {
+    return JSON.parse(args)
+  } catch {
+    return JSON.parse(JSON.parse(`"${args}"`))
+  }
+}
+
 /** E2E_CALL <tool> <JSON arguments>: calls that tool and logs its answer, for arguments only a scenario knows. */
 export async function callNamed({ log, sessionId, text }) {
   // One call per line, in order, all in this turn's conversation (#3887 drives one tab with several).
   for (const [, name, args] of text.matchAll(/E2E_CALL (\S+) (\{.*\})/g)) {
-    const message = await call(sessionId, name, JSON.parse(args))
+    const message = await call(sessionId, name, parseArgs(args))
+
+    log({ sessionId, event: 'called', name, result: message.result ?? message.error })
+    if (name === 'request_user_decision') {
+      const id = /(nuphos-[0-9a-f-]{36})/.exec(JSON.stringify(message.result))?.[1]
+
+      if (id) lastAsked.set(sessionId, id)
+    }
+  }
+}
+
+// The question each session asked last through E2E_CALL, for E2E_RECHECK.
+const lastAsked = new Map()
+
+/** E2E_RECHECK (#4175): looks again at the question this turn asked, as an agent that heard nothing back does. */
+export async function recheck({ log, sessionId }) {
+  const requestId = lastAsked.get(sessionId)
+  const checks = [
+    ['list_user_decisions', { label: 'List my questions' }],
+    ['update_user_decision', { label: 'Correct it', requestId, body: 'Still waiting on you.' }],
+    ['withdraw_user_decision', { label: 'Withdraw it', requestId }],
+  ]
+
+  for (const [name, args] of checks) {
+    const message = await call(sessionId, name, args)
 
     log({ sessionId, event: 'called', name, result: message.result ?? message.error })
   }
@@ -98,15 +131,83 @@ export async function personalToken({ log, sessionId, marker, text }) {
   })
 }
 
+const TASK_PROMPT = 'Report E2E_REPORT_BACK E2E_DELIVERY:webhook-task'
+
+/** #4361: hands off a Task that reports back; a nested E2E_CALL's JSON did not parse in the Task. */
+export async function reportBack({ log, sessionId, marker }) {
+  const [name, args] = marker.endsWith('-task')
+    ? ['report_task', { label: 'Report', report_id: 'e2e', status: 'done', summary: 'Done' }]
+    : ['create_thread', { label: 'Hand off', title: 'E2E webhook task', prompt: TASK_PROMPT }]
+  const message = await call(sessionId, name, args)
+
+  log({ sessionId, marker, event: 'called', name, result: message.result ?? message.error })
+}
+
+/** E2E_INSTRUCTION (#4427): writes a personal Instruction with the session's token, in the turn and after it. */
+export async function instruction({ log, sessionId, marker }) {
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const write = async (name) => {
+    const response = await fetch(`${team}/instructions`, {
+      method: 'POST',
+      headers: {
+        ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ scope: 'personal', title: name, content: 'Answer briefly.' }),
+    })
+    const body = await response.json().catch(() => ({}))
+
+    log({
+      sessionId,
+      marker,
+      event: 'instruction',
+      name,
+      result: { status: response.status, id: body.id, code: body.error?.code },
+    })
+  }
+
+  await write('live')
+  // Not awaited: the turn ends meanwhile.
+  setTimeout(() => void write('idle'), 5_000)
+}
+
+/** E2E_ACK_WORK:<done|failed> confirms the scheduled work (E2E_ACK_ID:<id> names another) over REST with this session's token. */
+export async function confirmWork({ log, sessionId, marker, text }) {
+  const id =
+    /E2E_ACK_ID:([0-9a-f]{24})/.exec(text)?.[1] ?? /Scheduled work ([0-9a-f]{24})/.exec(text)?.[1]
+  const outcome = /E2E_ACK_WORK:(done|failed)/.exec(text)?.[1]
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const response = await fetch(`${team}/agent-reminders/${id}/ack`, {
+    method: 'POST',
+    headers: {
+      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ outcome, reason: 'e2e says so' }),
+  })
+  const body = await response.json().catch(() => ({}))
+
+  log({
+    sessionId,
+    marker,
+    event: 'work-ack',
+    name: id,
+    result: { status: response.status, state: body.status, code: body.error?.code ?? body.code },
+  })
+}
+
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
-  // #3409 hands off a second one, which its scenario tells apart by name.
-  const kid = marker.includes('unlisted') ? 'unlisted-kid' : 'bot-kid'
+  // #3409 and #4156 hand off more, which their scenarios tell apart by name.
+  const name = /E2E_DELIVERY:(unlisted|par-[a-z])/.exec(marker)?.[1]
+  const kid = name ? `${name}-kid` : 'bot-kid'
   const message = await call(sessionId, 'create_thread', {
     label: 'Hand off',
-    title: `E2E ${kid.replace('-', ' ')}`,
-    // #3409's waits for its scenario's release, so it is still running when the sidebar lists it.
-    prompt: `Reply ${kid === 'unlisted-kid' ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
+    title: `E2E ${kid.replaceAll('-', ' ')}`,
+    // Those wait for their scenario's release, so they are still running meanwhile.
+    prompt: `Reply ${name ? 'E2E_WAIT_RELEASE ' : ''}E2E_DELIVERY:${kid}`,
   })
 
   log({

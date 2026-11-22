@@ -6,7 +6,7 @@ import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
 import { AppError } from '@/lib/errors'
 
 // Each dimension as an expression over one usage record. `conversation` is the
-// record's own conversation, joined only when a Bot or Task dimension is asked.
+// record's own conversation, joined only when a conversation, Bot or Task is asked.
 const DIMENSIONS = {
   // The sender; rows from before senders were recorded fall back to the owner.
   member: { $ifNull: ['$actorUserId', '$userId'] },
@@ -26,14 +26,16 @@ const DIMENSIONS = {
       '$conversation.parentSessionId',
     ],
   },
-  task: {
-    $cond: [
-      { $and: [{ $not: ['$conversation.avatar'] }, '$conversation.parentSessionId'] },
-      '$sessionId',
-      null,
-    ],
-  },
+  // Desktop 0.130.2 and earlier still ask for `task`; it now means the same as `conversation`.
+  // Remove once those releases are gone.
+  task: '$sessionId',
 } as const
+
+/** Every record in a conversation another member made private, under any conversation grouping. */
+export const OTHERS_PRIVATE = 'private:others'
+
+// The dimensions read off the record's own conversation, and so hidden with it.
+const CONVERSATION_DIMENSIONS = ['conversation', 'bot', 'task']
 
 export type UsageDimension = keyof typeof DIMENSIONS
 export const USAGE_DIMENSIONS = Object.keys(DIMENSIONS) as [UsageDimension, ...UsageDimension[]]
@@ -49,6 +51,8 @@ export type UsageQuery = {
   timeZone?: string
   groupBy: UsageDimension[]
   filters: Partial<Record<UsageDimension, string[]>>
+  /** Whose view: another member's private conversations are one OTHERS_PRIVATE value to them. */
+  viewerId: string
 }
 
 export type UsageQueryRow = {
@@ -60,7 +64,7 @@ export type UsageQueryRow = {
   outputTokens: number
   reasoningTokens: number
   totalTokens: number
-  /** At list prices; absent when none of the group's models has a known price. */
+  /** At list prices; absent when any of the group's models has no known price. */
   costUsd?: number
 }
 
@@ -68,12 +72,19 @@ type GroupRow = Omit<UsageQueryRow, 'keys' | 'costUsd'> & {
   _id: Record<string, string | Date | null> & { provider: string; modelId: string }
 }
 
-/** The whole team's usage, for any member; `usageNames` decides which names each viewer sees. */
+/** The whole team's usage, for any member. Another member's private conversation counts as
+ *  OTHERS_PRIVATE under every conversation grouping; `usageNames` decides the other names. */
 export async function queryTeamUsage(teamId: string, query: UsageQuery): Promise<UsageQueryRow[]> {
   const { filters } = query
   const used = [...new Set([...query.groupBy, ...(Object.keys(filters) as UsageDimension[])])]
-  // Bot and Task are read off the conversation, joined once per group, not per record.
-  const joined: UsageDimension[] = used.filter((d) => d === 'bot' || d === 'task')
+  // Conversation, Bot and Task are read off the conversation, joined once per group, not per record.
+  const joined: UsageDimension[] = used.filter((d) => CONVERSATION_DIMENSIONS.includes(d))
+  const hidden = {
+    $and: [
+      { $eq: ['$conversation.generalAccess', 'none'] },
+      { $ne: ['$conversation.userId', query.viewerId] },
+    ],
+  }
   const direct = used.filter((dimension) => !joined.includes(dimension))
   // Each dimension's value as `d_<name>`, then only the records its filter allows.
   const select = (dimensions: UsageDimension[]) =>
@@ -81,7 +92,12 @@ export async function queryTeamUsage(teamId: string, query: UsageQuery): Promise
       ? [
           {
             $set: Object.fromEntries(
-              dimensions.map((dimension) => [`d_${dimension}`, DIMENSIONS[dimension]]),
+              dimensions.map((dimension) => [
+                `d_${dimension}`,
+                CONVERSATION_DIMENSIONS.includes(dimension)
+                  ? { $cond: [hidden, OTHERS_PRIVATE, DIMENSIONS[dimension]] }
+                  : DIMENSIONS[dimension],
+              ]),
             ),
           },
           {
@@ -140,7 +156,17 @@ export async function queryTeamUsage(teamId: string, query: UsageQuery): Promise
                 from: 'agent_conversations',
                 localField: 'sessionId',
                 foreignField: 'sessionId',
-                pipeline: [{ $project: { _id: 0, avatar: 1, parentSessionId: 1 } }],
+                pipeline: [
+                  {
+                    $project: {
+                      _id: 0,
+                      avatar: 1,
+                      parentSessionId: 1,
+                      generalAccess: 1,
+                      userId: 1,
+                    },
+                  },
+                ],
                 as: 'conversation',
               },
             },
@@ -194,6 +220,8 @@ function foldModels(rows: GroupRow[], groupBy: UsageDimension[]): UsageQueryRow[
       totalTokens: 0,
     }
     const cost = providerCostUsd({ ..._id, ...tokens })
+    // A group with any unpriced model has no cost, rather than the priced part of it.
+    const pricedSoFar = !groups.has(id) || group.costUsd !== undefined
 
     group.inputTokens += tokens.inputTokens
     group.cachedInputTokens += tokens.cachedInputTokens
@@ -201,7 +229,8 @@ function foldModels(rows: GroupRow[], groupBy: UsageDimension[]): UsageQueryRow[
     group.outputTokens += tokens.outputTokens
     group.reasoningTokens += tokens.reasoningTokens
     group.totalTokens += tokens.totalTokens
-    if (cost !== undefined) group.costUsd = (group.costUsd ?? 0) + cost
+    if (cost !== undefined && pricedSoFar) group.costUsd = (group.costUsd ?? 0) + cost
+    else delete group.costUsd
     groups.set(id, group)
   }
 

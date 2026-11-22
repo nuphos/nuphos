@@ -43,7 +43,8 @@ fun runtimeHttpsUrl(value: String): Boolean = runCatching {
     val uri = java.net.URI(value)
     uri.scheme == "https" && !uri.host.isNullOrEmpty() && uri.rawUserInfo == null
 }.getOrDefault(false)
-fun validRuntimeCode(value: String) = value.matches(Regex("^[A-Za-z0-9_.~-]{1,2048}#[A-Za-z0-9_.~-]{1,512}$"))
+// Mirrors the backend's AUTHORIZATION_CODE: Claude's `code#state`, Google's bare `4/…` code, or the loopback address.
+fun validRuntimeCode(value: String) = value.matches(Regex("^(?:[A-Za-z0-9_.~-]{1,2048}#[A-Za-z0-9_.~-]{1,512}|4/[A-Za-z0-9_-]{1,2048}|http://(?:127\\.0\\.0\\.1|localhost):\\d{1,5}/\\?[A-Za-z0-9_.~%&=/+:-]{1,4096})$"))
 class RuntimeLoginAbsent : Exception("No sign-in is in progress for this account.")
 class RuntimeHttpFailure(val status: Int, val errorCode: String?, val serverMessage: String? = null) : Exception(serverMessage ?: "Runtime request was rejected ($status).")
 

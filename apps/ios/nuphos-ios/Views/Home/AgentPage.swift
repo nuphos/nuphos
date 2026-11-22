@@ -59,7 +59,7 @@ struct AgentPage: View {
             .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
-                NewBotSheet { title, avatar in
+                NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
                     guard let bot = try await store.createBot(title: title, avatar: avatar) else { return }
                     await openBotChat(bot)
                 }
@@ -277,8 +277,18 @@ struct AgentPage: View {
                         NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
                     } else if conversation.isBot {
                         // A Bot with no 1:1 chat yet: the list stays while it is made.
+                        // A Button, not a link: picking a link would show the chat before it exists, and
+                        // hide the list that reports a failure (#1738). It ends with the links' chevron (#3614).
                         Button { Task { await openBotChat(conversation.sessionId) } } label: {
-                            treeRow(item) { ChannelRow(channel: conversation) }.contentShape(Rectangle())
+                            HStack(spacing: 0) {
+                                treeRow(item) { ChannelRow(channel: conversation) }
+                                Image(systemName: "chevron.forward")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                                    .padding(.leading, 11)
+                                    .opacity(store.creatingBot ? 0 : 1)
+                            }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(store.creatingBot)
@@ -301,7 +311,7 @@ struct AgentPage: View {
                         pinAction(conversation)
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -316,7 +326,7 @@ struct AgentPage: View {
                     }
                 } else {
                     row.swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        if let acted, acted.canManage {
+                        if let acted, acted.canArchive {
                             Button {
                                 if acted.isBot { archivingBot = acted }
                                 else { Task { await store.archive(sessionId: acted.sessionId, teamId: acted.teamId) } }
@@ -389,7 +399,7 @@ struct AgentPage: View {
 
     @ViewBuilder
     private func rowActions(_ conversation: AgentConversation, tinted: Bool = true) -> some View {
-        if conversation.canManage { Button {
+        if conversation.canArchive { Button {
             if conversation.isBot { archivingBot = conversation; return }
             Task { await store.archive(sessionId: conversation.sessionId, teamId: conversation.teamId) }
         } label: {
@@ -501,9 +511,9 @@ struct AgentPage: View {
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A Bot's
 /// chat is named after the Bot. A chat shows its newest post (`lastMessage`),
-/// and when it last moved. A question from the Bot or a thread it dispatched
-/// comes first; otherwise the row shows the chat's typing dots exactly while
-/// the chat shows them (#3522). A Bot at work adds nothing else here.
+/// on up to two lines, and when it last moved. The row shows the chat's typing
+/// dots exactly while the chat shows them (#3522). A question from the Bot stays
+/// in the Inbox (#4508), and a Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -511,9 +521,6 @@ struct ChannelRow: View {
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         let title = store.title(of: channel)
-        let bot = channel.isChannel ? store.bot(of: channel) : nil
-        let runs = bot.map { [$0] + store.threads(of: $0) } ?? []
-        let question = runs.lazy.compactMap { $0.attentionInputRequests.first?.question }.first
         HStack(spacing: 12) {
             if channel.isChannel {
                 ChatIcon(faces: channel.faces ?? [], title: title, size: 36)
@@ -532,12 +539,7 @@ struct ChannelRow: View {
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
-                if let question {
-                    Text("Needs your input: \(question)")
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.body)
-                        .lineLimit(1)
-                } else if channel.botTyping(in: store.observations, team: team) {
+                if channel.botTyping(in: store.observations, team: team) {
                     // As iMessage does: the dots stand in for the newest post until the reply lands.
                     TypingDots(size: 5)
                         .frame(height: 16)
@@ -546,7 +548,7 @@ struct ChannelRow: View {
                     Text(preview)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             }
             if store.unread.contains(team: team, session: channel.sessionId) {

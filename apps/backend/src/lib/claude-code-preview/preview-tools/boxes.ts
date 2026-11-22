@@ -1,28 +1,16 @@
 // Boxes an agent manages on its own: machines on one of the team's instabox
 // accounts (never the deployment's, never a person's computer). Creating one
-// selects it for this conversation, so local_exec, local_cua and update_thread
+// selects it for this conversation, so local_exec, local_cua and update_task
 // can use it at once. The tools run under the conversation's permission mode.
 import { tool } from 'ai'
 import { z } from 'zod'
 
 import { agentConversations, credentialSourceOf } from '@/lib/agent/db'
 import { deviceAccessDeps, requireDeviceAccess } from '@/lib/agent/devices/box-access'
-import {
-  boxState,
-  createBox,
-  destroyBox,
-  pauseBox,
-  resumeBox,
-} from '@/lib/agent/devices/box-instabox'
-import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
-import { holderChannel } from '@/lib/agent/devices/local-runtime/protocol'
+import { deleteBox } from '@/lib/agent/devices/box-delete'
+import { boxState, createBox, pauseBox, resumeBox } from '@/lib/agent/devices/box-instabox'
 import { isDevicePresent, waitForPresence } from '@/lib/agent/devices/presence'
-import {
-  deleteAgentDevice,
-  getAgentDevice,
-  listTeamBoxes,
-  revokeAgentDeviceCredential,
-} from '@/lib/agent/devices/store'
+import { getAgentDevice, listTeamBoxes } from '@/lib/agent/devices/store'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
 
@@ -93,7 +81,7 @@ export function boxToolModule(
         description:
           "List the team's instabox accounts and the Boxes (computers from Nuphos) on them that you may use, " +
           'with each one’s state. Use an account id with create_box and a deviceId with update_box, ' +
-          'local_exec, local_cua or update_thread.',
+          'local_exec, local_cua or update_task.',
         inputSchema: z.object({ label }).strict(),
         execute: async () => {
           const accounts = await teamAccounts(ctx)
@@ -115,7 +103,7 @@ export function boxToolModule(
           "Create a Box, a Linux computer with a desktop, on one of the team's instabox accounts; " +
           'instabox bills that account. It joins the team as a Nuphos computer and is selected for ' +
           'this conversation and its sub-agents: use it with local_exec and local_cua, or move a ' +
-          'sub-agent onto its agent with update_thread runtimeId (from list_agent_runtimes). ' +
+          'sub-agent onto its agent with update_task runtimeId (from list_agent_runtimes). ' +
           'Waits until it has joined, usually under a minute. Needs a team administrator. ' +
           'Stop or delete it with update_box when the work is done.',
         inputSchema: z
@@ -196,15 +184,7 @@ export function boxToolModule(
           if (action === 'stop') await pauseBox(userId, deviceId)
           if (action === 'start') await resumeBox(userId, deviceId)
           if (action !== 'delete') return { deviceId, action, done: true }
-          // As the Box delete route: close its tunnel cleanly before the machine goes.
-          if (await revokeAgentDeviceCredential(userId, deviceId))
-            await tunnelBus().publish(
-              holderChannel(userId, deviceId),
-              JSON.stringify({ t: 'revoke' }),
-            )
-          const killed = await destroyBox(userId, deviceId)
-
-          await deleteAgentDevice(userId, deviceId)
+          const killed = await deleteBox(userId, deviceId)
 
           return { deviceId, action, done: true, ...(killed ? {} : { machineLeft: true }) }
         },

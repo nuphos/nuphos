@@ -12,7 +12,13 @@ test('claims the staged grant with the one-time code', async () => {
     (provider, state, code) => {
       calls.push([provider, state, code])
 
-      return Promise.resolve({ provider, login: 'fong', workspaceName: null, connectedAt: 'now' })
+      return Promise.resolve({
+        id: 'c1',
+        provider,
+        login: 'fong',
+        workspaceName: null,
+        connectedAt: 'now',
+      })
     },
   )
 

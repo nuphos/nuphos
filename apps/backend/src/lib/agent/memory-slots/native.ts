@@ -116,7 +116,6 @@ export const nativeMemoryProvider: MemoryProvider = {
         userId: ctx.userId,
         teamId: ctx.teamId,
         conversationId: ctx.conversationId,
-        origin: ctx.origin,
         getActivePlanId: ctx.getActivePlanId,
         onMemorySavedItem: ({ scope, item, title }) => {
           ctx.observer.saved(savedEventFromItem(scope, item, title))

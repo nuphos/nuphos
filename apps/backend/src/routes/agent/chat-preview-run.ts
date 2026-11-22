@@ -56,6 +56,8 @@ export type PreviewChatTurnArgs = {
   turnContext?: string
   /** A headless caller that puts its own messages back on the queue when the runtime refuses. */
   clientResendsRefusal?: boolean
+  /** A headless caller that puts its messages back while its agent is out of usage. */
+  waitsOutUsage?: boolean
   /** The message this turn runs: a refusal puts it at the head of the session queue. */
   queued?: PendingUserMessage
   /** `queued` was sent just now and never waited there, so a Stop is aimed at it. */

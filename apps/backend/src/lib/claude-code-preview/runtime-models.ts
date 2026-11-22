@@ -8,7 +8,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { resolveDefaultModel } from './runtime-default-model'
-import { localRuntimeModels } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 import { createRuntimeModelCatalog } from './runtime-model-cache'
 import { RUNTIME_MODEL_PROBE } from './runtime-model-probe'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
@@ -169,8 +169,8 @@ export async function discoverModels(
     ? catalog
     : {
         models: [],
-        // A managed runtime reports its models once it is up; any other needs its sign-in or an update.
-        reason: instance.kind === 'managed' ? 'unreported' : 'undiscovered',
+        // A runtime that reports none needs its sign-in or an update.
+        reason: 'undiscovered',
       }
 }
 

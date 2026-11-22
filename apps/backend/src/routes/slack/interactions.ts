@@ -4,15 +4,12 @@ import { upsertSlackReplyFeedback } from '@/lib/slack/agent-bot'
 import { canVerifySlackRequests, verifySlackSignature } from '@/lib/slack/api'
 import { HOME_REFRESH_ACTION } from '@/lib/slack/home-tab'
 import { publishHomeTabForUser } from '@/routes/slack/home'
-import { handleLinkChannelInteraction } from '@/routes/slack/link-channel'
 import {
   PERMISSION_APPROVE_ACTION,
   PERMISSION_REJECT_ACTION,
 } from '@/routes/slack/permission-cards'
 import { handlePermissionGrantInteraction } from '@/routes/slack/permission-decide'
 import { PICKUP_SESSION_ACTION, handlePickupSessionInteraction } from '@/routes/slack/pickup'
-import { handlePlanApproveInteraction } from '@/routes/slack/plan-approve'
-import { PLAN_APPROVE_ACTION } from '@/routes/slack/plan-cards'
 import {
   TOOL_APPROVAL_ALLOW_ACTION,
   TOOL_APPROVAL_REJECT_ACTION,
@@ -28,6 +25,8 @@ import type { Hono } from 'hono'
 // handler keeps answering these action_ids so old cards don't dead-end.
 const FEEDBACK_UP_ACTION = 'nuphos_feedback_up'
 const FEEDBACK_DOWN_ACTION = 'nuphos_feedback_down'
+// Same for the Approve button on retired Plan cards (#2316).
+const PLAN_APPROVE_ACTION = 'nuphos_plan_approve'
 
 // 👍/👎 pressed on a finalized agent reply. Recorded per (message, user) —
 // pressing the other button later flips the vote. Responds ephemerally so the
@@ -108,35 +107,19 @@ async function handleSlackInteraction(
   }
 
   if (action.action_id === PLAN_APPROVE_ACTION) {
-    // Ack within Slack's 3-second deadline, then do the approval and swap the
-    // card asynchronously via response_url. Doing the work inline would blow
-    // past 3s and Slack would drop the card update — leaving the button and
-    // the pending task_cards frozen even though execution had started.
-    void handlePlanApproveInteraction({
-      slackWorkspaceId,
-      slackUserId,
-      value: action.value ?? '',
-      responseUrl: payload.response_url,
-      channelId: payload.channel?.id,
-      // The plan card is always a threaded message, so thread_ts is the root
-      // to attach ephemerals to; ts is a defensive fallback.
-      threadTs: payload.message?.thread_ts ?? payload.message?.ts,
-    }).catch((err: unknown) => {
-      logError('slack.plan.approve.error', err, {
-        slack_workspace_id: slackWorkspaceId,
-        slack_user_id: slackUserId,
-      })
-    })
-
-    return null
+    return {
+      response_type: 'ephemeral',
+      replace_original: false,
+      text: 'Plans are retired. Agents now ask for approval with a decision in the Nuphos Inbox.',
+    }
   }
 
   if (
     action.action_id === PERMISSION_APPROVE_ACTION ||
     action.action_id === PERMISSION_REJECT_ACTION
   ) {
-    // Detached for the same reason as the plan card: applying IAM changes
-    // across a provider API cannot fit in Slack's 3-second ack.
+    // Ack within Slack's 3-second deadline, then decide asynchronously:
+    // applying IAM changes across a provider API cannot fit in it.
     void handlePermissionGrantInteraction({
       slackWorkspaceId,
       slackUserId,
@@ -210,46 +193,13 @@ async function handleSlackInteraction(
     return null
   }
 
-  if (action.action_id !== 'nuphos_link_channel') {
-    logEvent('info', 'slack.interaction.unhandled', {
-      interaction_type: payload.type,
-      action_id: action.action_id,
-      slack_workspace_id: slackWorkspaceId,
-    })
+  logEvent('info', 'slack.interaction.unhandled', {
+    interaction_type: payload.type,
+    action_id: action.action_id,
+    slack_workspace_id: slackWorkspaceId,
+  })
 
-    return null
-  }
-  // The DM/Home-tab picker carries the channel in selected_conversation; the
-  // in-channel "Link this channel" button carries it in value.
-  const channelId = action.selected_conversation || action.value
-
-  if (!channelId) return null
-
-  // Slack's ack deadline is 3 seconds and the link flow awaits Slack + Mongo
-  // round-trips. With an out-of-band delivery path (response_url on message
-  // actions, views.publish/DM on Home-tab actions) run the work detached and
-  // ack immediately; without one, respond synchronously as the only channel
-  // back to the user.
-  const linkArgs = {
-    payload,
-    slackWorkspaceId,
-    slackUserId,
-    channelId,
-    fromPicker: Boolean(action.selected_conversation),
-  }
-
-  if (payload.response_url || payload.view?.type === 'home') {
-    void handleLinkChannelInteraction(linkArgs).catch((err: unknown) => {
-      logError('slack.onboarding.channel_link.error', err, {
-        slack_workspace_id: slackWorkspaceId,
-        slack_channel_id: channelId,
-      })
-    })
-
-    return null
-  }
-
-  return await handleLinkChannelInteraction(linkArgs)
+  return null
 }
 
 export function registerSlackInteractionRoutes(

@@ -4,17 +4,13 @@ import { getTeamMembership } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 
 import { agentMessages, appendConversationMessages, getConversationBySessionId } from './db'
-import {
-  channelNotice,
-  channelNoticeSender,
-  noteReplyFailed,
-  steerQueuedNotice,
-  steerRunningTurn,
-} from './channel-wake'
+import { channelNotice } from './db/channel-notes'
+import { channelNoticeSender, steerQueuedNotice, steerRunningTurn } from './channel-wake'
+import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
 import { chatName, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
-import { pushTimelineEvent } from './db/participants'
+import { clearReplyFailed, pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { notePost } from './mentions'
 import { listPendingUserMessages } from './pending-queue'
@@ -66,12 +62,14 @@ export async function postChannelMessage(
   })
   await bumpConversationActivity(channel.sessionId, channel.userId)
   await notePost({ ...channel, teamId }, post, authorSessionId !== undefined)
-  if (authorSessionId)
+  if (authorSessionId) {
+    // It replied: its couldn't-reply line no longer says how it is.
+    await clearReplyFailed(channel.sessionId, authorSessionId)
     await agentConversations().updateOne(
       { sessionId: authorSessionId },
       { $addToSet: { channelWakes: channel.sessionId } },
     )
-  else await wakeChannelAgents({ ...channel, teamId }, undefined)
+  } else await wakeChannelAgents({ ...channel, teamId }, undefined)
 
   return true
 }
@@ -138,11 +136,16 @@ export async function postAsAgent(
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
   const quote = await replyQuote(channel, replyTo)
+  // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
+  const id =
+    channel.external === 'slack'
+      ? await slackPost(channel, agent, text, files, quote)
+      : randomUUID()
 
   await postChannelMessage(
     channel,
     {
-      id: randomUUID(),
+      id,
       text,
       metadata: {
         version: 1,
@@ -161,6 +164,20 @@ export async function postAsAgent(
     },
     agent.sessionId,
   )
+}
+
+async function slackPost(
+  channel: AgentConversation,
+  agent: Pick<AgentConversation, 'title'>,
+  text: string,
+  files: object[],
+  quote: MessageMetadata['replyTo'],
+) {
+  if (files.length > 0) throw new Error('Files cannot be posted to a Slack channel yet.')
+  // Lazy so importing this does not pull in the Slack client.
+  const { postToSlack } = await import('@/lib/slack/external-chat-post')
+
+  return await postToSlack(channel, agent, text, quote)
 }
 
 /** One more agent-woken turn, if the budget has room for it. */
@@ -219,22 +236,24 @@ export async function notifyAgent(
   // An agent runs as its owner, so it goes quiet once its owner leaves the team.
   if (!(await getTeamMembership(agent.userId, channel.teamId))) return
   // The title is a member's words, so it travels only in the metadata.
-  const metadata = channelNoticeSender(
-    channel.teamId,
-    channel.sessionId,
-    chatName(channel) || 'Nuphos channel',
-  )
+  const metadata = channelNoticeSender(channel.teamId, channel, wakeName(channel))
 
   // An agent's posts still wait for the turn to end: one wake per turn (#1458).
-  if (!fromAgent && (await steerRunningTurn(agent, channel.sessionId, metadata))) return
+  if (!fromAgent && (await steerRunningTurn(agent, channel, metadata))) return
   const waiting = (await listPendingUserMessages(agent.userId, sessionId)).find(
     (message) => message.metadata?.sender?.id === metadata.sender.id,
   )
   const queued = waiting?.id ?? (await startNotice(channel, agent, metadata, fromAgent))
 
   // A turn still starting refused the steer above: the post must not wait for its end.
-  if (queued && !fromAgent) steerQueuedNotice(agent, channel.sessionId, metadata, queued)
+  if (queued && !fromAgent) steerQueuedNotice(agent, channel, metadata, queued)
 }
+
+/** What the Bot's own conversation calls the chat that woke it: a Slack channel by its Slack name. */
+export const wakeName = (channel: AgentConversation) =>
+  channel.external === 'slack'
+    ? `Slack #${(channel.title ?? '').replace(/^#/, '')}`
+    : chatName(channel) || 'Nuphos channel'
 
 /** Starts the notice's turn, or queues it: the id of a queued notice. */
 async function startNotice(
@@ -261,7 +280,7 @@ async function startNotice(
     },
     agent,
     // Fixed per channel, so the queue's dedupe keeps one.
-    channelNotice(channel.sessionId),
+    channelNotice(channel),
     'agent.resource',
     metadata,
   )

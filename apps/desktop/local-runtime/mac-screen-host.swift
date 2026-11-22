@@ -19,6 +19,7 @@
 import AppKit
 import CoreMedia
 import Darwin
+import IOKit.pwr_mgt
 import ScreenCaptureKit
 import VideoToolbox
 
@@ -718,6 +719,22 @@ nonisolated final class Viewer: NSObject, SCStreamOutput, @unchecked Sendable {
     }
 }
 
+// MARK: - Display
+
+/// A sleeping display is not there to capture, so a screen opened then showed nothing (#4518).
+/// `wake` wakes it, and `find` is asked again while it comes back.
+func awakeDisplay<Display>(wake: () -> Void, find: () async throws -> Display?) async throws -> Display? {
+    if let display = try await find() { return display }
+    wake()
+    // By the clock, not by the count: a lookup takes its own time.
+    let deadline = Date().addingTimeInterval(5)
+    while Date() < deadline {
+        try await Task.sleep(nanoseconds: 250_000_000)
+        if let display = try await find() { return display }
+    }
+    return nil
+}
+
 // MARK: - Main
 
 unlink(socketPath)
@@ -767,8 +784,16 @@ Thread.detachNewThread {
         }
         Task {
             do {
-                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first else {
+                let display = try await awakeDisplay(wake: {
+                    // What a key press does, and as little: the display sleeps again on its own timer.
+                    var activity: IOPMAssertionID = 0
+                    IOPMAssertionDeclareUserActivity("A viewer opened this Mac's screen" as CFString, kIOPMUserActiveLocal, &activity)
+                }, find: {
+                    let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                    return content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first
+                })
+                guard let display else {
+                    fputs("mac-screen-host: no display to show, even after waking it\n", stderr)
                     Darwin.close(fd)
                     return
                 }

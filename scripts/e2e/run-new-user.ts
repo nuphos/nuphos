@@ -63,7 +63,11 @@ try {
   await page.screenshot({ path: `${artifacts}/new-user-cloud-computer.png` })
   // Back returns to Connect a runtime, where it was chosen.
   await page.getByRole('button', { name: 'Back', exact: true }).click()
-  await page.getByText('Connect a runtime', { exact: true }).first().waitFor()
+  await page
+    .getByText('Connect a runtime', { exact: true })
+    .filter({ visible: true })
+    .first()
+    .waitFor()
   await cloud.waitFor()
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${artifacts}/new-user-back.png` })

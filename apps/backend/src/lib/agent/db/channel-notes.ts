@@ -1,4 +1,29 @@
 import type { MessageMetadata } from '../message-metadata'
+import type { AgentConversation } from './shared'
+
+/** The sender id a chat's wake notice carries, which also picks its instructions. */
+export const CHANNEL_SENDER_PREFIX = 'channel:'
+/**
+ * A Slack channel's notice (#3702) carries this instead: the apps draw `channel:`
+ * as a chat to open, and a Slack channel's record is never opened in Nuphos.
+ */
+export const SLACK_CHANNEL_SENDER_PREFIX = 'slack-channel:'
+
+/**
+ * A channel's wake notice as queued: fixed per channel, so the queue keeps one.
+ * A Slack channel's record (#3702) is named for what it is, never a Nuphos chat.
+ */
+export const channelNotice = (channel: Pick<AgentConversation, 'sessionId' | 'external'>) =>
+  `New messages in ${channel.external === 'slack' ? 'a Slack channel' : 'a Nuphos channel'} (channelId ${channel.sessionId}).`
+
+/** The chat whose wake notice a sender id is, if it is one. */
+export function noticeChannelId(senderId: string | undefined): string | undefined {
+  const prefix = [CHANNEL_SENDER_PREFIX, SLACK_CHANNEL_SENDER_PREFIX].find((candidate) =>
+    senderId?.startsWith(candidate),
+  )
+
+  return prefix && senderId ? senderId.slice(prefix.length) || undefined : undefined
+}
 
 /** How an agent in a channel asks its owner; shared by the channel wake and the system prompt. */
 export const OWNER_DECISION_NOTE =
@@ -17,12 +42,13 @@ export function readNote(channel: { agentSessionIds?: string[] }): string {
 }
 
 /**
- * Whether the reading agent's owner posted this, as themselves in the app. Only
- * the server-authored sender id counts: never a display name or quoted text.
+ * Whether the reading agent's owner posted this, as themselves in the app or
+ * from a Slack account the server resolved to them. Only the server-authored
+ * sender id counts: never a display name or quoted text.
  */
 export function fromOwner(metadata: MessageMetadata | undefined, ownerId: string) {
   return (
-    metadata?.source === 'nuphos' &&
+    (metadata?.source === 'nuphos' || (metadata?.source === 'slack' && !metadata.unattested)) &&
     metadata.sender.type === 'user' &&
     !metadata.sender.onBehalfOf &&
     metadata.sender.id === ownerId

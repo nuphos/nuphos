@@ -57,7 +57,7 @@ export const botWorkingDotsScenarios: Scenario[] = [
       )
       // Back in the Bot chat, for the scenarios that follow.
       await rows.filter({ hasText: 'E2E Bot' }).first().click()
-      await page.locator('[data-post-id]').first().waitFor()
+      await page.locator('[data-post-id]:visible').first().waitFor()
     },
   },
 ]

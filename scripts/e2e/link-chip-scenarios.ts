@@ -24,7 +24,7 @@ export const linkChipScenarios: Scenario[] = [
         `Ask https://nuphos.ai/teams/${stack.teamId}/agent/${bot.sessionId} E2E_DELIVERY:chip`,
       )
       await page.getByText('ACK E2E_DELIVERY:chip').waitFor()
-      const chip = page.locator('.user-message-bubble .atlas-mention').last()
+      const chip = page.locator('.user-message-bubble:visible .atlas-mention').last()
 
       await chip.locator('.atlas-mention-label', { hasText: 'E2E Bot' }).waitFor()
       await chip.locator('img.atlas-mention-avatar').waitFor()

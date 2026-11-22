@@ -8,7 +8,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { canManage } from './agentPresentation'
-import { diskWarning } from './boxMetricsPresentation'
+import { diskWarning, memoryWarning } from './boxMetricsPresentation'
 import { providerPause } from './boxPresentation'
 import { outdatedNotice } from './computerOutdated'
 
@@ -29,6 +29,7 @@ export function ComputerNotices({
 }) {
   const outdated = outdatedNotice(device, here)
   const paused = providerPause(device)
+  const memory = memoryWarning(device)
 
   return (
     <>
@@ -37,14 +38,17 @@ export function ComputerNotices({
           {paused}
         </p>
       )}
-      {outdated && (
-        <div role="status" className="mt-2 text-[11.5px] leading-4">
-          <p className="flex items-center gap-1 text-warning">
-            <TriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
-            {outdated.text}
-          </p>
-          <p className="mt-0.5 text-tertiary">{outdated.hint}</p>
-        </div>
+      {[outdated, memory].map(
+        (notice) =>
+          notice && (
+            <div key={notice.text} role="status" className="mt-2 text-[11.5px] leading-4">
+              <p className="flex items-center gap-1 text-warning">
+                <TriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
+                {notice.text}
+              </p>
+              <p className="mt-0.5 text-tertiary">{notice.hint}</p>
+            </div>
+          ),
       )}
       <DiskWarning
         teamId={teamId}
@@ -122,7 +126,7 @@ export function ClearCachesConfirm({
       open={open}
       title={t('Clear caches on {boxLabel}?', { boxLabel: device.label })}
       description={t(
-        'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer, and a build running in a terminal right now may fail. It does not start while anything on it is replying.',
+        'This removes the package and build caches that tools on {boxLabel} download or rebuild when they next need them: Go, Bun, pnpm, pip, uv and Docker’s build cache. Workspaces, sign-ins, Docker images and volumes are kept. The next installs and builds take longer. Running Tasks aren’t stopped, but a build or install in progress may fail and need to run again.',
         { boxLabel: device.label },
       )}
       confirmLabel={t('Clear caches')}

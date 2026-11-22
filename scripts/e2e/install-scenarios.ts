@@ -7,13 +7,14 @@ import { join, resolve } from 'node:path'
 import { client, joinAsAdmin, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { fixtureBundle } from './tunnel-scenarios.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 /** Settings › Local runtime, through ⌘K, where this computer's own agents are. */
-async function openLocalRuntime(page: Page) {
+export async function openLocalRuntime(page: Page) {
   await page
     .getByRole('button', { name: /^Search/ })
     .first()
@@ -25,7 +26,7 @@ async function openLocalRuntime(page: Page) {
 }
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 const FIXTURE_CLAUDE = resolve(import.meta.dirname, 'fixture-claude.mjs')
 
 /** What the person sees at this step, once anything fading in has settled. */
@@ -47,10 +48,13 @@ async function pasteCode(page: Page, name: string) {
 export const installScenarios: Scenario[] = [
   {
     // Yuanlin's case: from one computer, adding an agent to another that lacks its CLI.
-    name: 'adding Claude Code to another computer without it installs it there, then signs it in',
+    name: 'adding Claude Code to a just-connected computer without it installs it there, signs it in, and runs a turn',
     run: async (page, stack) => {
       const label = 'E2E Mac mini'
-      const computer = await startSecondComputer(stack, label)
+      // The fixture agent behind its Claude Code, so the turn below gets the fixture's answer.
+      const computer = await startSecondComputer(stack, label, {
+        runtimeDir: fixtureBundle(stack, 'install'),
+      })
 
       try {
         await openComputers(page)
@@ -64,6 +68,13 @@ export const installScenarios: Scenario[] = [
         await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
         await shot(page, 'remote-4-added')
         await page.getByText('Back to app', { exact: true }).click()
+
+        // The agent it just installed runs a turn there.
+        await newTask(page)
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await pickInRow(page, label, /^Claude Code/)
+        await send(page, 'On the computer it was added to E2E_DELIVERY:installed-turn')
+        await page.getByText('ACK E2E_DELIVERY:installed-turn').waitFor({ timeout: 60_000 })
       } finally {
         await computer.stop()
       }
@@ -109,8 +120,25 @@ export const installScenarios: Scenario[] = [
     // the app's computer has Claude Code from here on.
     name: 'this computer without Claude Code installs it from its settings, then signs it in',
     run: async (page) => {
+      // #3848: its card adds a runtime with the same + as any other computer, not a link away.
+      await page.setViewportSize({ width: 1280, height: 880 })
       await openComputers(page)
-      await page.getByRole('button', { name: 'Set up' }).first().click()
+      await page
+        .getByRole('button', { name: /^New runtime on / })
+        .first()
+        .click()
+      await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).waitFor()
+      await shot(page, 'local-0-new-runtime')
+      await page.keyboard.press('Escape')
+      await page.getByText('Back to app', { exact: true }).click()
+      await page
+        .getByRole('button', { name: /^Search/ })
+        .first()
+        .click()
+      await page.keyboard.type('User settings')
+      await page.getByRole('option', { name: 'User settings' }).first().click()
+      await page.getByRole('searchbox', { name: 'Search settings' }).fill('Local runtime')
+      await page.keyboard.press('Enter')
       const install = page.getByRole('button', { name: 'Install Claude Code' })
 
       await install.waitFor()
@@ -128,6 +156,8 @@ export const installScenarios: Scenario[] = [
       await code.fill('e2e-code#e2e-state')
       await page.getByRole('button', { name: 'Submit code' }).click()
       await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
+      // #3916: an Ultra login reads as Ultra, though Claude Code stores "max".
+      await page.getByText('· ultra').waitFor({ timeout: 10_000 })
       await shot(page, 'local-3-signed-in')
       await page.getByRole('button', { name: 'Done', exact: true }).click()
       await page.getByText('Back to app', { exact: true }).click()
@@ -177,8 +207,7 @@ export const installScenarios: Scenario[] = [
       await newTask(page)
       // This computer's own row lists its agents by name alone.
       await page.getByRole('button', { name: /^Runtime:/ }).click()
-      await page.getByRole('menu').getByText(hostname()).click()
-      await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+      await pickInRow(page, hostname(), /^Claude Code/)
       await send(page, 'Which Claude Code runs this?')
       await until(
         'the session to start the Claude app’s new copy',
@@ -206,10 +235,22 @@ export const installScenarios: Scenario[] = [
       try {
         await newTask(page)
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(hostname()).click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+        await pickInRow(page, hostname(), /^Claude Code/)
         await send(page, 'Start Claude Code')
-        await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
+        await page
+          .getByText(REINSTALL)
+          .filter({ visible: true })
+          .first()
+          .waitFor({ timeout: 60_000 })
+        // Desktop starts a turn that broke mid-stream again a few times before it gives up.
+        // Wait for the last attempt, or its error lands in the next scenario's backend log.
+        // Only this chat's Stop: chats opened before stay mounted, hidden.
+        await until(
+          'the turn to stop retrying',
+          async () =>
+            (await page.locator('button[title="Stop"]').filter({ visible: true }).count()) === 0,
+          60_000,
+        )
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
         await shot(page, 'local-6-chat-reinstall')
         const raw = await page.getByText(/ENOENT|native binary|-32603/).count()
@@ -220,6 +261,4 @@ export const installScenarios: Scenario[] = [
       }
     },
   },
-  // TODO(#3654): adding an agent to a just-connected computer can skip installing its CLI;
-  // this one is back in with that fix.
-].filter((scenario) => !scenario.name.startsWith('adding Claude Code to another computer'))
+]

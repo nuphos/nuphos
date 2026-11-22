@@ -16,6 +16,7 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.Words
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.botsList
 import ai.nuphos.android.model.ConversationScope
@@ -80,6 +81,21 @@ class AgentStore(
         historyRevision
         return historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
     }
+    enum class TaskState { Waiting, Running, Idle }
+    /** What a Task is doing: its runtime's word while seen lately, the run its row reported otherwise. */
+    fun taskState(row: AgentConversation, now: Double = RuntimeObservation.now()): TaskState {
+        if (row.isWaiting) return TaskState.Waiting
+        val observed = historyObservation(row)?.takeIf { it.runtime.fresh(now) }
+        val running = if (observed != null) observed.label(now) == Words(R.string.convtext_status_running)
+            else row.activeRun != null && row.activeRun != JsonValue.Null
+        return if (running) TaskState.Running else TaskState.Idle
+    }
+    /** The Tasks a session dispatched: waiting, then running, then idle, newest first within each. */
+    fun tasks(under: String, teamId: String): List<AgentConversation> {
+        val now = RuntimeObservation.now()
+        return conversations.filter { it.parentSessionId == under && (it.teamId == null || it.teamId == teamId) }
+            .sortedWith(compareBy<AgentConversation> { taskState(it, now).ordinal }.thenByDescending { it.lastActiveAt })
+    }
     suspend fun markRead(teamId: String, sessionId: String, seq: Long) = ConversationReadApi.mark(token, teamId, sessionId, seq)
     fun applyRead(teamId: String, sessionId: String, seq: Long, state: ConversationReadApi.State) {
         if (!hasAiAccess() || selectedTeam?.id != teamId) return
@@ -121,6 +137,9 @@ class AgentStore(
     /** Null until a listing for this workspace answers. A failed one says nothing, so the last answer stays. */
     var hasRuntimes by mutableStateOf<Boolean?>(null)
         private set
+    var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
+        private set
+    val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
 
@@ -134,10 +153,13 @@ class AgentStore(
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         storeScope.launch {
-            val any = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog().isNotEmpty() }
+            val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
-            if (any != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
-                workspaceRevision == workspace && generation == runtimesGeneration) hasRuntimes = any
+            if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
+                workspaceRevision == workspace && generation == runtimesGeneration) {
+                hasRuntimes = catalog.isNotEmpty()
+                creationRuntimes = catalog
+            }
         }
     }
 
@@ -156,6 +178,35 @@ class AgentStore(
 
     /** The Bots page: every chat, and each Bot without one yet. */
     val botsList: List<AgentConversation> get() = botsList(channels, bots)
+
+    private val botPins = BotPins(
+        scope = {
+            selectedTeam?.id?.takeIf { !disposed && hasAiAccess() }?.let {
+                BotPins.Scope(it, workspaceRevision, AiAccess.revision)
+            }
+        },
+        read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
+        write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
+    )
+    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    val pins: List<AgentConversation> get() {
+        val rows = botsList.associateBy { it.sessionId }
+        return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
+    }
+    val pinActionFailed get() = botPins.failed
+    val savingPins get() = botPins.saving
+    fun clearPinActionError() = botPins.clearError()
+    fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    suspend fun loadFavorites() = botPins.load()
+    suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
+        val team = selectedTeam?.id ?: return
+        if (row.teamId != null && row.teamId != team) return
+        val current = botsList.firstOrNull { it.sessionId == row.sessionId } ?: return
+        val label = if (current.isChannel) current.title.ifBlank {
+            current.faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: strings.getString(R.string.chats_untitled_chat)
+        } else current.displayTitle
+        botPins.setPinned(team, current.sessionId, label, pinned)
+    }
 
     var openingBotId by mutableStateOf<String?>(null)
         private set
@@ -306,6 +357,7 @@ class AgentStore(
             BotFaces.learn(channels)
             channelsLoaded = true
             rememberHasChats()
+            if (current()) loadFavorites()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -396,9 +448,11 @@ class AgentStore(
     }
 
     private fun resetHistory() {
+        botPins.reset()
         runtimesGeneration++
         runtimesListedFor = null
         hasRuntimes = null
+        creationRuntimes = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()
@@ -445,7 +499,7 @@ class AgentStore(
         reload()
     }
     suspend fun archive(session: ChatSession, archived: Boolean) {
-        require(session.canManage) { "Only the owner can archive this agent." }
+        require(session.canArchive) { "Only someone in this task can archive it." }
         ConversationActions.archive(token, session.teamId, session.sessionId, archived)
         session.reloadFromServer()
         reload()
@@ -456,11 +510,14 @@ class AgentStore(
     var rowActionError: String? by mutableStateOf(null)
         private set
     fun clearRowActionError() { rowActionError = null }
+    /** The owner archives it for everyone; someone else in a Task, for themselves (#3686). */
     fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
-        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+        (it.canArchive ?: it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
 
-    fun canRename(row: AgentConversation) = canArchive(row)
+    fun canRename(row: AgentConversation) = currentActionRow(row)?.let {
+        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+    } == true
 
     suspend fun rename(row: AgentConversation, title: String): Boolean {
         val current = currentActionRow(row) ?: return false
@@ -513,7 +570,7 @@ class AgentStore(
         try {
             val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
-            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+            require(detail.readOnly != true && (detail.canArchive ?: detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
             require((detail.archivedAt != null) == row.isArchived)
             ConversationActions.archive(token, team, current.sessionId, archive)

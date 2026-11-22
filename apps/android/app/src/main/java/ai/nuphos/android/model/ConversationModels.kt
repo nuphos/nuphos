@@ -56,6 +56,8 @@ data class AgentConversation(
     val unread: JsonValue? = null,
     val parentSessionId: String? = null,
     val canManage: Boolean? = null,
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive: Boolean? = null,
     val agentRuntime: String? = null,
     val runtimeId: String? = null,
     val runtimeLabel: String? = null,
@@ -67,11 +69,15 @@ data class AgentConversation(
     val faces: List<ChatFace>? = null,
     /** A Bot's face, e.g. `05-rembrandt`; null for a Task. */
     val avatar: String? = null,
+    /** The tint a Bot's face sits on, e.g. `sky`; null for none. */
+    val avatarBackground: String? = null,
     /** A chat's newest post. Read through [lastPost], so a bad value only costs the preview. */
     val lastMessage: JsonValue? = null,
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
     val inputRequests: List<InputRequest>? = null,
     val botOnboarding: String? = null,
+    /** A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270). */
+    val tasks: TaskCounts? = null,
 ) {
     @Transient
     val id: String get() = sessionId
@@ -85,6 +91,11 @@ data class AgentConversation(
 
     /** An agent with a face: a Bot, talked to in its 1:1 chat. */
     val isBot: Boolean get() = avatar != null && !isChannel
+    /** An open question waits on the viewer; a Bot's own setup preferences don't count while it is being set up. */
+    val isWaiting: Boolean get() {
+        val onboarding = botOnboarding == "pending" || botOnboarding == "active"
+        return inputRequests.orEmpty().any { !onboarding || it.category != "preference" }
+    }
 
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
     val botId: String? get() = faces?.takeIf { isChannel && group != true }?.botFace?.id
@@ -121,6 +132,9 @@ data class AgentConversation(
     data class TokenUsage(val costUsd: Double? = null)
 
     @Serializable
+    data class TaskCounts(val running: Int = 0, val waiting: Int = 0)
+
+    @Serializable
     data class ActivitySource(
         val origin: String,
         val linkedSlackThread: Boolean? = null,
@@ -136,7 +150,7 @@ data class ChatFace(
     val agent: Agent? = null,
 ) {
     @Serializable
-    data class Agent(val avatar: String? = null, val provider: String? = null)
+    data class Agent(val avatar: String? = null, val provider: String? = null, val avatarBackground: String? = null)
 }
 
 /** A question still waiting on the conversation's owner. */
@@ -209,6 +223,7 @@ data class AgentConversationDetail(
     val readOnly: Boolean? = null,
     val isOwner: Boolean? = null,
     val canManage: Boolean? = null,
+    val canArchive: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,
@@ -236,6 +251,7 @@ data class AgentConversationDetail(
     val faces: List<ChatFace> = emptyList(),
     /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */
     val group: Boolean? = null,
+    val avatar: String? = null,
 ) {
     val isChannel: Boolean get() = kind == "channel"
 
@@ -256,6 +272,8 @@ data class AgentConversationDetail(
         val cause: String? = null,
         /** `agent_reply_failed`: when an agent out of usage gets it back. */
         @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
+        /** `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do. */
+        val verifyUrl: String? = null,
     )
     @Serializable
     data class ActiveRun(

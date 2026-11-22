@@ -89,16 +89,22 @@ export async function setupCoreIndexes(): Promise<void> {
     { expiresAt: 1 },
     { expireAfterSeconds: 0, name: 'personal_credential_oauth_pending_ttl' },
   )
-  // Google grants are per team (each team's own OAuth client); others have no teamId.
-  // Created first, so the collection exists when the old index is dropped.
+  // Google grants are per team (each team's own OAuth client), and a member may
+  // connect several Google accounts to it; others have no teamId and keep one.
+  // Created first, so the collection exists when the old indexes are dropped.
   await personalCredentials().createIndex(
-    { userId: 1, provider: 1, teamId: 1 },
-    { unique: true, name: 'personal_credentials_user_provider_team_unique' },
+    { userId: 1, provider: 1, teamId: 1, providerUserId: 1 },
+    { unique: true, name: 'personal_credentials_user_provider_team_account_unique' },
   )
-  try {
-    await personalCredentials().dropIndex('personal_credentials_user_provider_unique')
-  } catch (err) {
-    if ((err as { codeName?: string }).codeName !== 'IndexNotFound') throw err
+  for (const old of [
+    'personal_credentials_user_provider_unique',
+    'personal_credentials_user_provider_team_unique',
+  ]) {
+    try {
+      await personalCredentials().dropIndex(old)
+    } catch (err) {
+      if ((err as { codeName?: string }).codeName !== 'IndexNotFound') throw err
+    }
   }
   // A Lark custom app (by app_id) can only be connected to one Nuphos team.
   await teamByosBindings().createIndex(

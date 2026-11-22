@@ -23,8 +23,8 @@ async function namedSettings(page: Page, shot: string, level: RegExp) {
   return (await chip(page).getAttribute('aria-label')) ?? ''
 }
 
-/** The settings the session that ran `marker` was opened with, on `agent`. */
-function sessionDefaults(stack: Stack, agent: string, marker: string) {
+/** The session that ran `marker`, on `agent`, as the fixture logged its opening. */
+function sessionOf(stack: Stack, agent: string, marker: string) {
   const log = agentLog(stack)
   const turn = log.find((entry) => entry.event === 'finish' && entry.marker === marker)
   const session = log.find(
@@ -34,7 +34,7 @@ function sessionDefaults(stack: Stack, agent: string, marker: string) {
   if (session?.agent !== agent)
     throw new Error(`${marker} did not run on ${agent}: ${JSON.stringify(session)}`)
 
-  return session.defaults ?? {}
+  return session
 }
 
 export const providerMoveScenarios: Scenario[] = [
@@ -56,10 +56,25 @@ export const providerMoveScenarios: Scenario[] = [
         await pickAgent(page, 'E2E fixture agent')
         await send(page, 'On Claude Code E2E_DELIVERY:provider-start')
         await page.getByText('ACK E2E_DELIVERY:provider-start').waitFor()
+        // #4195: a Task's session compacts at 200k like a Bot's, but keeps next-prompt suggestions.
+        const taskEnv = sessionOf(stack, 'first', 'E2E_DELIVERY:provider-start').env
+
+        if (
+          JSON.stringify(taskEnv) !== JSON.stringify({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' })
+        )
+          throw new Error(`The Task's session has the wrong settings: ${JSON.stringify(taskEnv)}`)
+        // Three replies of about 12k characters outgrow the history a fresh session gets.
+        for (const turn of ['long-1', 'long-2', 'long-3']) {
+          await send(page, `Answer at length E2E_LONG_REPLY E2E_DELIVERY:provider-${turn}`)
+          await page.getByText(`ACK E2E_DELIVERY:provider-${turn}`).waitFor()
+        }
 
         // Claude Code → Codex: the Codex agent's own effort, named, never a blank "Default".
         await pickAgent(page, 'E2E Codex agent', 'Codex')
-        await page.getByText('moved this task from E2E fixture agent to E2E Codex agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E Codex agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-codex', /Low/)
         // A model picked there is saved with that effort, not alone.
         await chip(page).click()
@@ -67,7 +82,15 @@ export const providerMoveScenarios: Scenario[] = [
         await namedSettings(page, 'provider-move-codex-picked', /Low/)
         await send(page, 'On Codex E2E_DELIVERY:provider-codex')
         await page.getByText('ACK E2E_DELIVERY:provider-codex').waitFor()
-        const onCodex = sessionDefaults(stack, 'codex', 'E2E_DELIVERY:provider-codex')
+        // #3970: the Codex session starts with at most 32k characters of the conversation, and
+        // is told where the omitted turns are.
+        const history = agentLog(stack).find(
+          (entry) => entry.event === 'start' && entry.marker === 'E2E_DELIVERY:provider-codex',
+        )?.history
+
+        if (!history?.omitted || !history.readConversation || history.chars > 34_000)
+          throw new Error(`The fresh session's history is not bounded: ${JSON.stringify(history)}`)
+        const onCodex = sessionOf(stack, 'codex', 'E2E_DELIVERY:provider-codex').defaults ?? {}
 
         if (onCodex.model !== 'fixture-small' || onCodex.effort !== 'low')
           throw new Error(
@@ -76,11 +99,14 @@ export const providerMoveScenarios: Scenario[] = [
 
         // Codex → Claude Code: Claude Code's effort, named, and stored for its next session.
         await pickAgent(page, 'E2E fixture agent')
-        await page.getByText('moved this task from E2E Codex agent to E2E fixture agent').waitFor()
+        await page
+          .getByText('moved this task from E2E Codex agent to E2E fixture agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-back', /Low/)
         await send(page, 'Back on Claude Code E2E_DELIVERY:provider-back')
         await page.getByText('ACK E2E_DELIVERY:provider-back').waitFor()
-        const back = sessionDefaults(stack, 'first', 'E2E_DELIVERY:provider-back')
+        const back = sessionOf(stack, 'first', 'E2E_DELIVERY:provider-back').defaults ?? {}
 
         if (!back.effort)
           throw new Error(`The session after moving back has no effort: ${JSON.stringify(back)}`)

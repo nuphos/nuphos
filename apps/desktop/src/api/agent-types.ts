@@ -65,11 +65,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
   agent?: AgentFace
 }
 
-export type ConversationAccessState = {
-  generalAccess: GeneralAccess
-  participants: AgentConversationParticipant[]
-}
-
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
@@ -82,6 +77,8 @@ export type ChannelFace = {
 }
 
 export type AgentConversation = {
+  /** A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270). */
+  tasks?: { running: number; waiting: number }
   /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
   waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
@@ -114,6 +111,8 @@ export type AgentConversation = {
   readOnly?: boolean
   /** The owner: may change the runtime and credentials. */
   canManage?: boolean
+  /** May archive it: the owner for everyone, a participant in a Task for themselves alone. */
+  canArchive?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   /** A Task under a Bot: the conversation whose credentials and computers it uses. */

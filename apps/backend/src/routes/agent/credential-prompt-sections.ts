@@ -12,13 +12,12 @@ export function appendAwsRoleLines(lines: string[], awsRoles: Options['awsRoles'
   if (awsRoles.length === 0) return
   lines.push('', 'AWS roles:')
   for (const role of awsRoles) {
-    const accountBase = `https://nuphos.ai/teams/${encodeURIComponent(teamId)}/infra/aws/${encodeURIComponent(role.accountId)}`
     const accountLabel = role.accountAlias
       ? `${role.accountAlias} (${role.accountId})`
       : role.accountId
 
     lines.push(
-      `- accountId=${role.accountId}; roleId=${role.roleId}; roleArn=${role.roleArn}; accountLabel=${accountLabel}; setupCommand="bash skills/aws/scripts/setup-credentials.sh ${teamId} ${role.accountId} us-east-1 ${role.roleId}"; guiLinks={account:"${accountBase}", eksClusters:"${accountBase}/eks-clusters", ecsClusters:"${accountBase}/ecs-clusters", s3Buckets:"${accountBase}/s3-buckets"}; guiTemplates={eksCluster:"${accountBase}/clusters/<region>/<clusterName>", ecsServices:"${accountBase}/ecs-clusters/<region>/<clusterName>/services", ecsTasks:"${accountBase}/ecs-clusters/<region>/<clusterName>/tasks", ecsInfrastructure:"${accountBase}/ecs-clusters/<region>/<clusterName>/infrastructure", ecsMetrics:"${accountBase}/ecs-clusters/<region>/<clusterName>/metrics", s3Bucket:"${accountBase}/s3-buckets/<bucket>"}`,
+      `- accountId=${role.accountId}; roleId=${role.roleId}; roleArn=${role.roleArn}; accountLabel=${accountLabel}; setupCommand="bash skills/aws/scripts/setup-credentials.sh ${teamId} ${role.accountId} us-east-1 ${role.roleId}"`,
     )
   }
 }
@@ -32,29 +31,22 @@ export function appendGcpServiceAccountLines(
   lines.push('', 'GCP service accounts:')
   for (const account of gcpServiceAccounts) {
     const projectBase = `/teams/${teamId}/gcp-projects/${account.projectId}`
-    const guiBase = `https://nuphos.ai/teams/${encodeURIComponent(teamId)}/infra/gcp/${encodeURIComponent(account.projectId)}`
 
     lines.push(
-      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"; firebaseProjectEndpoint="${projectBase}/firebase/project"; firebaseAppsEndpoint="${projectBase}/firebase/apps"; gceInstancesEndpoint="${projectBase}/gce-instances"; clustersEndpoint="${projectBase}/clusters"; vpcsEndpoint="${projectBase}/vpcs"; firewallsEndpoint="${projectBase}/firewalls"; guiLinks={gceInstances:"${guiBase}/gce-instances"}; guiTemplates={gceSsh:"${guiBase}/gce/<region>/instances/<instanceName>/ssh"}`,
+      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"; firebaseProjectEndpoint="${projectBase}/firebase/project"; firebaseAppsEndpoint="${projectBase}/firebase/apps"; gceInstancesEndpoint="${projectBase}/gce-instances"; clustersEndpoint="${projectBase}/clusters"; vpcsEndpoint="${projectBase}/vpcs"; firewallsEndpoint="${projectBase}/firewalls"`,
     )
   }
 }
 
-export function appendOnpremClusterLines(
-  lines: string[],
-  clusters: Options['onpremClusters'],
-  teamId: string,
-) {
+export function appendOnpremClusterLines(lines: string[], clusters: Options['onpremClusters']) {
   if (clusters.length === 0) return
   lines.push(
     '',
     'On-prem Kubernetes clusters (each is a context in the kubeconfig `get_kubeconfig` returns; use its contextName):',
   )
   for (const cluster of clusters) {
-    const guiBase = `https://nuphos.ai/teams/${encodeURIComponent(teamId)}/k8s/onprem/${encodeURIComponent(cluster.clusterId)}/onprem/${encodeURIComponent(cluster.clusterId)}/workloads/pods`
-
     lines.push(
-      `- clusterId=${cluster.clusterId}; label=${safePromptField(cluster.label)}; contextName=${cluster.contextName}; guiLinks={cluster:"${guiBase}"}`,
+      `- clusterId=${cluster.clusterId}; label=${safePromptField(cluster.label)}; contextName=${cluster.contextName}`,
     )
   }
 }
@@ -203,12 +195,11 @@ export function appendUptimeKumaInstanceLines(
   lines.push('', 'Uptime Kuma instances:')
   for (const instance of uptimeKumaInstances) {
     const base = `/teams/${teamId}/uptime-kuma-instances/${instance.instanceId}`
-    const guiBase = `https://nuphos.ai/teams/${encodeURIComponent(teamId)}/infra/uptime-kuma/${encodeURIComponent(instance.instanceId)}`
     const label = safePromptField(instance.label)
     const baseUrl = safePromptField(instance.baseUrl)
 
     lines.push(
-      `- instanceId=${instance.instanceId}; label=${label}; baseUrl=${baseUrl}; authType=${instance.authType}; monitorsEndpoint="${base}/monitors"; monitorEndpointTemplate="${base}/monitors/<monitorId>"; createMonitor="POST ${base}/monitors"; updateMonitor="PATCH ${base}/monitors/<monitorId>"; pauseMonitor="POST ${base}/monitors/<monitorId>/pause"; resumeMonitor="POST ${base}/monitors/<monitorId>/resume"; deleteMonitor="DELETE ${base}/monitors/<monitorId>"; guiLinks={monitors:"${guiBase}/monitors"}`,
+      `- instanceId=${instance.instanceId}; label=${label}; baseUrl=${baseUrl}; authType=${instance.authType}; monitorsEndpoint="${base}/monitors"; monitorEndpointTemplate="${base}/monitors/<monitorId>"; createMonitor="POST ${base}/monitors"; updateMonitor="PATCH ${base}/monitors/<monitorId>"; pauseMonitor="POST ${base}/monitors/<monitorId>/pause"; resumeMonitor="POST ${base}/monitors/<monitorId>/resume"; deleteMonitor="DELETE ${base}/monitors/<monitorId>"`,
     )
   }
 }

@@ -5,12 +5,14 @@ import { t } from '../../i18n/index.ts'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
+import { announceSavedSelection } from '../../lib/savedCredentialSelection.ts'
 import { EMPTY_CREDENTIAL_OPTIONS } from '../agent/panel/constants.ts'
 import { storedConversationCredentialAccess } from '../agent/panel/conversationCredentialAccess.ts'
 import {
   normalizeCredentialAccess,
   normalizeCredentialOptions,
 } from '../agent/panel/credentialAccess.ts'
+import { keepTaskSelection } from '../agent/panel/taskTranscript.ts'
 import { toast } from '../ui/toast.ts'
 
 import { listedConversation } from './channelShared.ts'
@@ -111,9 +113,14 @@ export function useBotCredentials(
         .agentUpdateConversationCredentials({ sessionId: botId, teamId, credentialAccess: next })
         .then((result) => {
           if (latest.current !== request) return
+          const saved = normalizeCredentialAccess(result.credentialAccess)
+
           keepOptions(result.options)
-          setStored({ botId, value: normalizeCredentialAccess(result.credentialAccess) })
+          setStored({ botId, value: saved })
           setDraft(undefined)
+          // The conversation may be a Task, open or read ahead: both show what was saved here.
+          keepTaskSelection(queryClient, teamId, botId, saved)
+          announceSavedSelection({ sessionId: botId, credentialAccess: saved })
           // Selecting a credential a question asked for answers it on the server.
           refreshInputRequests()
         })

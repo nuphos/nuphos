@@ -90,8 +90,8 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.322), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.167.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.330), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.171.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                                                |
 | `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                                                       |
@@ -376,11 +376,15 @@ it only to teams that may share them.
 Nuphos conversations have separate CLI homes under
 `~/.nuphos/session-homes/<sha256-conversation-id>`. Both adapters give shell tools
 that conversation's `HOME`, XDG directories, and explicit config paths for gcloud,
-gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly seven caches stay in
+gh, AWS, Kubernetes, Azure, Docker, Git, npm and GPG. Exactly nine caches stay in
 the runtime home and are shared by every conversation: `GOCACHE`, `GOMODCACHE`,
 `BUN_INSTALL_CACHE_DIR`, `PLAYWRIGHT_BROWSERS_PATH`, `PIP_CACHE_DIR`,
-`UV_CACHE_DIR` and the pnpm store (`<runtime home>/.local/share/pnpm/store`, set
-through `pnpm_config_store_dir` and the conversation's `pnpm/rc`). `XDG_CACHE_HOME` remains
+`UV_CACHE_DIR`, the npm cache (`npm_config_cache`, `<runtime home>/.npm`), the pnpm
+store (`<runtime home>/.local/share/pnpm/store`, set through `pnpm_config_store_dir`
+and the conversation's `pnpm/rc`) and Gradle's `caches/` (the conversation's
+`~/.gradle/caches` links to `<runtime home>/.gradle/caches`; `gradle.properties`
+stays per conversation). Cargo's registry is not shared: Cargo locks it from
+`CARGO_HOME`, so two homes sharing one registry would not see each other's lock. `XDG_CACHE_HOME` remains
 per conversation because some tools keep login state there. On the OpenCode
 runtime, `$XDG_DATA_HOME/opencode` (OpenCode's login and sessions) links to the
 runtime home; the rest of `XDG_DATA_HOME` stays per conversation. On the DeepSeek
@@ -620,8 +624,9 @@ OpenAI, xAI or Google.
 
 ### Automatic Claude SDK updates
 
-`Update Claude SDK` checks npm's stable `latest` daily at 06:23 UTC, with a
-manual **Run workflow** option. A newer SDK in the same major updates the SDK
+`Update Claude SDK` checks npm's stable `latest` when run by hand (**Run
+workflow**). Every runtime release pull request already includes the latest SDK
+and Codex CLI, so it has no schedule. A newer SDK in the same major updates the SDK
 override, lockfile and Dockerfile assertion together. Helpers, patched Claude
 adapter regressions, an image build and native model discovery must pass before
 it opens (or refreshes) the `runtime/update-claude-sdk` pull request with the
@@ -633,7 +638,9 @@ main only takes signed commits through a reviewed pull request, so the workflow
 creates its commit with the GitHub API and never pushes to main. The pull request
 is opened with `GITHUB_TOKEN`, which needs **Allow GitHub Actions to create and
 approve pull requests** enabled; such pull requests do not trigger CI, so the
-workflow's own checks are the gate. If publication fails after tagging, rerun the
+workflow's own checks are the gate. That setting is off in this repository, so
+the step that opens the pull request fails; put the update in the runtime
+release pull request instead. If publication fails after tagging, rerun the
 failed jobs, or run **Build runtime image** with that tag; do not create another
 version merely to retry. Publishing does not update Nuphos's configured runtime
 version or the Desktop's pinned runtime commit; those remain separate deployment
@@ -650,17 +657,16 @@ human edits. Every release, manual or automatic, uses this same path.
 
 ### Automatic Codex CLI updates
 
-`Update Codex CLI` checks npm's stable `latest` daily at 07:23 UTC
-and supports manual dispatch. It updates the pinned CLI and lockfile, runs the
+`Update Codex CLI` checks npm's stable `latest` when run by hand. It updates the pinned CLI and lockfile, runs the
 Codex adapter, active-turn steering and real CLI environment-isolation regressions,
 then builds and smoke-tests a candidate image including prompt-free model discovery.
 Only passing updates open (or refresh) the `runtime/update-codex-cli` pull request
 with a runtime patch bump; merging it releases. No change opens nothing; major CLI
 changes require manual review. If both update pull requests are open, they bump
-the same version: merge one, and the next scheduled run rebases the other.
+the same version: merge one, then run the other again to rebase it.
 
 Both ACP adapters remain pinned: Nuphos patches their bundles, so adapter upgrades
-require a reviewed patch port and compatibility tests. CLI/SDK updates are automatic;
+require a reviewed patch port and compatibility tests. CLI/SDK updates are scripted;
 ACP adapter updates are not. Deployment to existing runtimes remains separate.
 
 The Codex candidate-image probe runs without an account: an explicit native

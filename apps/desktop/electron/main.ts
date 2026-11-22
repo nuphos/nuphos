@@ -48,6 +48,7 @@ import { localTerminalChannels } from './main/channels-local-terminal'
 import { monitoringChannels } from './main/channels-monitoring'
 import { posthogChannels } from './main/channels-posthog'
 import { teamChannels } from './main/channels-team'
+import { webhooksChannels } from './main/channels-webhooks'
 import {
   findDeepLinkInArgv,
   flushPendingDeepLinks,
@@ -287,6 +288,7 @@ const channels = {
   ...agentReadChannels,
   ...agentChannelChannels,
   ...instructionsChannels,
+  ...webhooksChannels,
   ...deviceChannels,
   ...boxChannels,
 } as const

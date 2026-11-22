@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 // Small Mongo fixture for the lifecycle state machine, including positional
 // updates (by `placements.id` or a top-level $elemMatch) and duplicate-key
 // behavior used by the placement lease.
@@ -16,6 +18,7 @@ function matches(doc: Doc, query: Doc): boolean {
     const actual = valueAt(doc, key)
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$not' in expected) return !matches(doc, { [key]: expected.$not })
       if ('$elemMatch' in expected)
         return (
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
@@ -28,6 +31,9 @@ function matches(doc: Doc, query: Doc): boolean {
         )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
+      // Like Mongo, an array or document is compared by value.
+      if ('$ne' in expected && expected.$ne && typeof expected.$ne === 'object')
+        return !isDeepStrictEqual(actual, expected.$ne)
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
       if ('$in' in expected)
@@ -39,7 +45,36 @@ function matches(doc: Doc, query: Doc): boolean {
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
   })
 }
+// The aggregation operators the backend's pipeline updates use.
+function evaluate(doc: Doc, expr: any): any {
+  if (typeof expr === 'string' && expr.startsWith('$')) return doc[expr.slice(1)]
+  if (Array.isArray(expr)) return expr.map((one) => evaluate(doc, one))
+  if (!expr || typeof expr !== 'object' || expr instanceof Date) return expr
+  if ('$ifNull' in expr) return evaluate(doc, expr.$ifNull[0]) ?? evaluate(doc, expr.$ifNull[1])
+  if ('$add' in expr)
+    return expr.$add.reduce((sum: number, one: any) => sum + Number(evaluate(doc, one)), 0)
+  if ('$setUnion' in expr) {
+    const all = expr.$setUnion.flatMap((one: any) => evaluate(doc, one))
+
+    return all.filter(
+      (one: any, i: number) =>
+        all.findIndex((other: any) => JSON.stringify(other) === JSON.stringify(one)) === i,
+    )
+  }
+
+  return Object.fromEntries(Object.entries(expr).map(([k, v]) => [k, evaluate(doc, v)]))
+}
+
 function update(doc: Doc, query: Doc, mutation: Doc) {
+  if (Array.isArray(mutation)) {
+    for (const stage of mutation)
+      Object.assign(
+        doc,
+        Object.fromEntries(Object.entries(stage.$set ?? {}).map(([k, v]) => [k, evaluate(doc, v)])),
+      )
+
+    return
+  }
   // Like Mongo, `$` names the element the query matched, before any $set changes it.
   const positional = new Map<string, Doc>()
 
@@ -145,12 +180,6 @@ export function portabilityDb() {
       return cursor
     },
     insertOne: async (doc: Doc) => {
-      // The unique { teamId, hostedSlot } index on hosted runtimes.
-      if (
-        typeof doc.hostedSlot === 'number' &&
-        rows(name).some((row) => row.teamId === doc.teamId && row.hostedSlot === doc.hostedSlot)
-      )
-        throw Object.assign(new Error('Duplicate key'), { code: 11000 })
       rows(name).push(doc)
 
       return { insertedId: doc._id }
