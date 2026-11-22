@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { backendLog } from './backend-log.ts'
 import { kept, leave, notKept } from './chat-keep.ts'
 import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
+import { overlayFailed, overlayLines, overlayScenarios } from './chat-switch-overlays.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll } from './processes.ts'
@@ -27,6 +28,7 @@ const POSTS = 40
 // start; a typewriter takes hundreds of frames.
 const MAX_TYPED_FRAMES = 3
 const ACK_A = 'ACK E2E_DELIVERY:switch-a'
+const ACK_B = 'ACK E2E_DELIVERY:switch-b'
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -145,13 +147,7 @@ async function scenario(page: Page, stack: Stack) {
   const chatB = await chat(stack, 'Switch chat B')
   const longChat = await chat(stack, 'Switch chat long', LONG_POSTS)
   const taskA = await task(page, stack, 'Switch task A', 'First E2E_DELIVERY:switch-a', ACK_A)
-  const taskB = await task(
-    page,
-    stack,
-    'Switch task B',
-    'Second E2E_DELIVERY:switch-b',
-    'ACK E2E_DELIVERY:switch-b',
-  )
+  const taskB = await task(page, stack, 'Switch task B', 'Second E2E_DELIVERY:switch-b', ACK_B)
   // Its reply stays in progress for the rest of the run.
   const long = await task(
     page,
@@ -173,7 +169,7 @@ async function scenario(page: Page, stack: Stack) {
   })
   await open(page, 'bot chat, first open', chatA, lastPost(chatA))
   await leave(page, chatA.title, lastPost(chatA).history)
-  await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
+  await open(page, 'task, first open, another', taskB, { history: ACK_B })
   await open(page, 'task, opened before', taskA, { history: ACK_A })
   await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
@@ -194,6 +190,7 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
   await open(page, 'bot chat, first open, 200 posts', longChat, lastPost(longChat, LONG_POSTS))
   await loadEarlier(page, longChat.title)
+  await overlayScenarios(page, { ...taskA, text: ACK_A }, { ...taskB, text: ACK_B })
 }
 
 /** What fails the run. */
@@ -236,6 +233,7 @@ function check(baseline: Record<string, number> | null) {
   }
   // The same view as it was left, not one rebuilt on the way back.
   for (const line of notKept) failed.push(`${line} (not kept as left)`)
+  failed.push(...overlayFailed)
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
   // Heard of at once from the backend's push, not on a poll (#3523).
@@ -244,7 +242,7 @@ function check(baseline: Record<string, number> | null) {
       `${away.name}: the newest post took ${String(away.watch.newestAfterMs)} ms, budget ${String(AWAY_MS)} ms`,
     )
 
-  return { failed, table: lines.join('\n') }
+  return { failed, table: [...lines, '', '**Overlays**', '', ...overlayLines].join('\n') }
 }
 
 let desktop: Desktop | undefined
