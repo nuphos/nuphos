@@ -5350,7 +5350,7 @@
   "You are always included. Approval alone never adds an executor.": "你始终会被包含在内。仅批准不会添加执行者。",
   "You are here": "当前位置",
   "You can also add runtimes to it, rename it and choose who uses it.": "你还可以为它添加运行环境、重命名，以及选择谁可以使用。",
-  "You can always use a connection you add. Change this later from its page.": "你始终可以使用自己添加的连接。之后可以到它的页面修改。",
+  "You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.": "你始终可以使用自己添加的连接；一旦分享给任何人，管理员也能使用。之后可以到它的页面修改。",
   "You can change it after they join.": "对方加入后可以更改。",
   "You can connect more runtimes later on the Runtimes page.": "之后可以在“运行环境”页面连接更多 runtime。",
   "You can execute": "你可以执行",
