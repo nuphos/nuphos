@@ -167,15 +167,23 @@ try {
   await archive(target)
   await archive(offline)
 
-  // Archiving removes the Task's Triggers and, its computer online, its home at once.
+  // Archiving removes the Task's Triggers at once; the sweep, a minute after the backend
+  // starts, removes its home while its computer is online (#4629).
   must((await triggersOf(target)).length === 0, "the archived Task's Triggers to be deleted")
   must((await triggersOf(child)).length === 0, 'the Triggers of a sub-Task archived with it to go')
-  must(!existsSync(child.home), "the sub-Task's home to be removed with it")
   must(
     JSON.stringify(await triggersOf(control)) === JSON.stringify(controlTriggers),
     "the other Task's Trigger to be kept",
   )
-  must(!existsSync(target.home), "the archived Task's home to be removed from the computer")
+  must(existsSync(target.home), "the archived Task's home to be left to the sweep")
+  must(!reclaimedAt(stack, target), 'the archived Task not to be marked reclaimed before the sweep')
+  await stack.restartBackend()
+  await until(
+    "the archived Task's home and its sub-Task's to be removed from the computer",
+    async () =>
+      !existsSync(target.home) && !existsSync(child.home) && Boolean(reclaimedAt(stack, target)),
+    180_000,
+  )
   must(Boolean(reclaimedAt(stack, target)), 'the archived Task to be marked reclaimed')
   must(existsSync(control.home), "the other Task's home on that computer to be kept")
   must(!reclaimedAt(stack, control), 'the Task still in use not to be marked reclaimed')
