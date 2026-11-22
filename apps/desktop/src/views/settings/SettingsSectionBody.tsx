@@ -3,13 +3,13 @@ import { InstructionsSection } from './InstructionsSection'
 import { LocalExecSection } from './LocalExecSection'
 import { LocalRuntimeSection } from './LocalRuntimeSection'
 import { LocalSetupSection } from './LocalSetupSection'
-import { PersonalCredentialsSection } from './PersonalCredentialsSection'
 import { AppearanceSection } from './personalSections'
 import { PrivacySection } from './PrivacySection'
 import { ProfileSection } from './ProfileSection'
 import { SignedInDevicesSection } from './SignedInDevicesSection'
 import { TwoFactorSection } from './TwoFactorSection'
 import { UpdatesSection } from './UpdatesSection'
+import { VaultSection } from './VaultSection'
 import { WebhooksSection } from './WebhooksSection'
 
 import type { AtlasTeam, UserInfo } from '../../types'
@@ -23,7 +23,6 @@ type SectionProps = {
   onTeamRemoved: (teamId: string) => void
   onSignOut: () => void
   onOpenConversation?: (sessionId: string) => void
-  onOpenSection?: (section: string) => void
 }
 
 const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
@@ -42,11 +41,9 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (
     <ProfileSection user={user} onSignOut={onSignOut} onUserUpdated={onUserUpdated} />
   ),
-  'account.personalCredentials': ({ team, onOpenSection }) => (
-    <PersonalCredentialsSection team={team} onOpenSection={onOpenSection} />
-  ),
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'account.mfa': ({ onSignOut }) => <TwoFactorSection onSignOut={onSignOut} />,
+  'account.vault': ({ user }) => <VaultSection userId={user.id} />,
   'device.appearance': () => <AppearanceSection />,
   'device.updates': () => <UpdatesSection />,
   'device.privacy': () => <PrivacySection />,

@@ -38,7 +38,6 @@
     <string name="convtext_phase_preparing_tools">Preparing tools…</string>
     <string name="convtext_phase_building_prompt">Building prompt…</string>
     <string name="convtext_phase_recalling_memory">Recalling memory…</string>
-    <string name="convtext_phase_loading_history">Loading history…</string>
     <string name="convtext_phase_preparing_model">Preparing model…</string>
     <string name="convtext_phase_connecting">Connecting…</string>
     <string name="convtext_phase_thinking">Thinking…</string>

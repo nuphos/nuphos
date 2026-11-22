@@ -1,5 +1,6 @@
 // Scenarios about the Inbox's question cards: snoozing them, and dismissing them with a reason.
 import { agentEvents } from './agent-log.ts'
+import { inboxDismissAllScenario } from './inbox-dismiss-all-scenario.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -56,4 +57,5 @@ export const inboxScenarios: Scenario[] = [
       )
     },
   },
+  inboxDismissAllScenario,
 ]

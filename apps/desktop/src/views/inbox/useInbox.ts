@@ -185,6 +185,9 @@ export function replyInInbox(
   })
 }
 
+/** Why the last reply to this question failed, if it did. */
+export const answerFailure = (requestId: string) => failures.get(requestId)
+
 /** A conversation's cards answered through the server, each naming the open request it shows. */
 export function cardAnswers(
   teamId: string | undefined,

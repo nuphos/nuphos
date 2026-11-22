@@ -1,0 +1,11 @@
+export const vaultApi = {
+  vaultStatus: () => window.api.vaultStatus(),
+  vaultEnroll: () => window.api.vaultEnroll(),
+  vaultApprove: (deviceId: string, fingerprint: string) =>
+    window.api.vaultApprove(deviceId, fingerprint),
+  vaultRemoveDevice: (deviceId: string) => window.api.vaultRemoveDevice(deviceId),
+  vaultItems: () => window.api.vaultItems(),
+  vaultGet: (name: string) => window.api.vaultGet(name),
+  vaultSet: (name: string, value: string) => window.api.vaultSet(name, value),
+  vaultDelete: (name: string) => window.api.vaultDelete(name),
+}

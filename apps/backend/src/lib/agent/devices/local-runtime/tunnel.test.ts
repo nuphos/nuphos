@@ -595,6 +595,47 @@ test('the first frame advertises presence with the status it carries', async () 
   expect((await presence.get('u1', 'd1'))?.status?.localExec).toBe(true)
 })
 
+test('a recovered model catalog is published before the next heartbeat', async () => {
+  const presence = createMemoryPresenceStore()
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    { bus: createLocalTunnelBus(), presence, isMember: async () => true, heartbeatMs: 60_000 },
+  )
+
+  tunnels.push(tunnel)
+  const report = (failed: boolean) =>
+    tunnel.receive(
+      JSON.stringify({
+        t: 'status',
+        status: {
+          agents: {
+            codex: {
+              cli: { installed: true, loggedIn: true },
+              models: {
+                models: failed ? [] : [{ id: 'fixture', name: 'Fixture' }],
+                defaultModel: failed ? '' : 'fixture',
+                controls: {},
+                ...(failed ? { failed: true } : {}),
+              },
+            },
+          },
+        },
+      }),
+    )
+
+  report(true)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.failed).toBe(true)
+
+  report(false)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.models).toEqual([
+    { id: 'fixture', name: 'Fixture' },
+  ])
+})
+
 test('a model catalog over its bounds costs the catalog, never the presence', async () => {
   const presence = createMemoryPresenceStore()
   const tunnel = await attachRuntimeTunnel(

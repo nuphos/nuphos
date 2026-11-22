@@ -256,7 +256,7 @@ export function SidebarNavItem({
             <span className="flex min-h-4 items-center gap-2">
               <span
                 className={clsx(
-                  'flex-1 min-w-0 truncate text-left text-[13px] leading-4 font-normal',
+                  'flex-1 min-w-0 line-clamp-2 break-words text-left text-[13px] leading-4 font-normal',
                   preview ? 'text-secondary' : 'text-tertiary',
                 )}
               >

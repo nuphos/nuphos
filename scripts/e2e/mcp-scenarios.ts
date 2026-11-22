@@ -202,7 +202,11 @@ export const mcpScenarios: Scenario[] = [
       )
       await askOverMcp(tool, stack.teamId, 'E2E_DELIVERY:mcp')
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      await page.getByText(prompt('E2E_DELIVERY:mcp'), { exact: true }).first().click()
+      await page
+        .getByText(prompt('E2E_DELIVERY:mcp'), { exact: true })
+        .filter({ visible: true })
+        .first()
+        .click()
       await page.getByText('ACK E2E_DELIVERY:mcp', { exact: true }).waitFor()
     },
   },

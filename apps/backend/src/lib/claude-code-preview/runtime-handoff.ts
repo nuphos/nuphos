@@ -26,7 +26,7 @@ import {
 } from './runtime-handoff-store'
 
 import type { RuntimeHandoff } from './runtime-handoff-store'
-import type { TeamPreviewClient } from './team-openab-runtime'
+import type { TeamPreviewClient, TeamSession } from './team-openab-runtime'
 
 export type { RuntimeHandoff } from './runtime-handoff-store'
 
@@ -42,45 +42,34 @@ const RUNTIME_OWNED_PHASES = new Set([
   'background_tools',
 ])
 
-const queued: RuntimeHandoff[] = []
-
-export function queueRuntimeHandoff(handoff: Omit<RuntimeHandoff, 'at'>): void {
-  queued.push({ ...handoff, at: Date.now() })
-}
-
 /**
- * A session with no user turn here can still have work the runtime owns: a
- * turn the runtime started itself (a wakeup or a background-task
- * continuation) whose output this replica carries, or a background task whose
- * completion it continues on its own. Its output goes to the connection that
- * last resumed the session, so once this replica exits the runtime parks it as
- * "output connection lost" until something resumes the session again. Hand
- * those on as well; an idle session needs nobody. A user turn is never picked
- * here: it may be running on another replica, and only the turn route knows it
- * runs on this one. A runtime-started turn has no route, but this replica
- * knows it carries one: its transcript is open here.
+ * The sessions whose output this replica still carries. A turn that runs here
+ * (a person's turn force-paused by the drain keeps running on the runtime, and
+ * its output keeps coming to this replica's connection) or a runtime-started
+ * turn whose transcript is open here needs a new carrier. So does a session
+ * whose runtime owns work it will continue on its own: its output goes to the
+ * connection that last resumed it, and once this replica exits the runtime
+ * parks it as "output connection lost" until something resumes the session
+ * again. An idle session needs nobody.
  */
-async function queueRuntimeOwnedWork(): Promise<void> {
-  const handedOff = new Set(queued.map(field))
+async function sessionsToHandOff(): Promise<TeamSession[]> {
+  const sessions = await Promise.all(
+    [...sessionsByConversation.values()].map(async (session) => {
+      if (session.activeTurn && !session.activeTurn.cancelled) return session
+      if (session.autonomousTranscriptOpen) return session
+      const state = await Promise.race([
+        session.client
+          .getSessionExecutionState(session.openabSessionId)
+          .then(parseSessionExecutionState)
+          .catch(() => null),
+        Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
+      ])
 
-  await Promise.all(
-    [...sessionsByConversation.values()]
-      .filter((session) => !handedOff.has(field(session)))
-      .map(async (session) => {
-        if (!session.autonomousTranscriptOpen) {
-          const state = await Promise.race([
-            session.client
-              .getSessionExecutionState(session.openabSessionId)
-              .then(parseSessionExecutionState)
-              .catch(() => null),
-            Bun.sleep(RUNTIME_STATE_PROBE_MS).then(() => null),
-          ])
-
-          if (!RUNTIME_OWNED_PHASES.has(state?.phase ?? '')) return
-        }
-        queueRuntimeHandoff(sessionHandoff(session))
-      }),
+      return RUNTIME_OWNED_PHASES.has(state?.phase ?? '') ? session : undefined
+    }),
   )
+
+  return sessions.filter((session) => session !== undefined)
 }
 
 /**
@@ -89,18 +78,17 @@ async function queueRuntimeOwnedWork(): Promise<void> {
  * the connection that started it until that connection goes away.
  */
 export async function publishRuntimeHandoffs(): Promise<number> {
-  await queueRuntimeOwnedWork()
-  const handoffs = queued.splice(0)
+  const sessions = await sessionsToHandOff()
+  const at = Date.now()
+  const handoffs = sessions.map((session) => ({ ...sessionHandoff(session), at }))
   const clients = new Set<TeamPreviewClient>()
 
-  for (const handoff of handoffs) {
-    const session = sessionsByConversation.get(field(handoff))
-
-    if (!session) continue
+  for (const session of sessions) {
     session.stopObserving?.()
     clients.add(session.client)
   }
   for (const client of clients) client.close()
+
   if (handoffs.length === 0) return 0
   await advertiseRuntimeHandoffs(handoffs)
 
@@ -143,6 +131,7 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
       backendUrl: endpoint.backendUrl,
       humanTurn: handoff.humanTurn,
       parentSessionId: conversation.parentSessionId,
+      sessionHomeEpoch: conversation.sessionHomeEpoch,
       bot: isBot(conversation),
       toolsVersion: await nuphosToolsVersion({
         userId: handoff.actorUserId,

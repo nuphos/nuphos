@@ -1,5 +1,5 @@
 import MarkdownParser
-// `TextLabelView` / `TextLabel.Layout` come from Litext, which MarkdownView
+// `TextLabelView` comes from Litext, which MarkdownView
 // re-exports — no separate product to link.
 import MarkdownView
 import SwiftUI
@@ -181,18 +181,6 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             if let url { coordinator?.onLink?(url) }
         }
 
-        // Litext selects on a *pointer* drag and on double/triple tap; a finger
-        // long press — how every other iOS transcript starts a selection — does
-        // nothing. This adds that entry point: the press selects the word under
-        // the finger, and Litext takes it from there. `cancelsTouchesInView` is
-        // off on purpose, so the label still gets its `touchesEnded` and shows
-        // its own edit menu over the new selection when the finger lifts.
-        let longPress = UILongPressGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.selectWord(_:))
-        )
-        longPress.cancelsTouchesInView = false
-        view.addGestureRecognizer(longPress)
         return view
     }
 
@@ -214,7 +202,6 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     /// The package's `MarkdownViewCoordinator`, minus the parts we don't use:
     /// applies text at most 20×/s and answers SwiftUI's width probes with
     /// the last concrete width so a resize never lays out for a stale one.
-    /// Also owns the long-press that starts a selection.
     @MainActor
     final class Coordinator: NSObject {
         static let throttleInterval: TimeInterval = 1 / 20
@@ -314,57 +301,18 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
             }
             fills = content.blocks.contains(where: \.isWide)
             view.setContentImmediately(content, theme: theme)
+            // Litext draws glyphs itself, so UIKit cannot infer their spoken text.
+            // Expose the rendered label for plain and Markdown messages alike.
+            let label = view.textLabelView
+            label.isAccessibilityElement = true
+            label.accessibilityLabel = label.attributedText.string
+            label.accessibilityTraits = .staticText
             view.invalidateIntrinsicContentSize()
             lastText = text
             lastTheme = theme
             applied = true
             appliedView = view
             lastApplyDate = Date()
-        }
-
-        // MARK: - Long press to select
-
-        /// The layout used to turn a touch into a string index. It is a second
-        /// `TextLabel.Layout` over the same string at the same width, so it
-        /// resolves to the same index Litext's own (internal) one would —
-        /// kept between presses because building it rebuilds a framesetter.
-        private var hitTestLayout: (text: NSAttributedString, width: CGFloat, layout: TextLabel.Layout)?
-
-        @objc func selectWord(_ recognizer: UILongPressGestureRecognizer) {
-            guard recognizer.state == .began,
-                  let view = recognizer.view as? MarkdownTextView
-            else { return }
-            // A table cell or code block is its own label drawn over the
-            // reply's, so the word comes from whichever label is under the finger.
-            guard view.textLabelView.isSelectable,
-                  let label = view.hitTest(recognizer.location(in: view), with: nil) as? TextLabelView,
-                  let range = wordRange(at: recognizer.location(in: label), in: label)
-            else { return }
-
-            label.selectionRange = range
-            UISelectionFeedbackGenerator().selectionChanged()
-        }
-
-        private func wordRange(at point: CGPoint, in label: TextLabelView) -> NSRange? {
-            let text = label.attributedText
-            let size = label.bounds.size
-            guard text.length > 0, size.width > 0, size.height > 0 else { return nil }
-
-            let layout: TextLabel.Layout
-            if let cached = hitTestLayout, cached.width == size.width, cached.text.isEqual(to: text) {
-                layout = cached.layout
-            } else {
-                layout = TextLabel.Layout(attributedString: text)
-                hitTestLayout = (text, size.width, layout)
-            }
-            // Litext lays out against the label's bounds and CoreText counts y
-            // from the bottom, so the hit point is flipped the same way its own
-            // `convertPointForTextLayout` flips it.
-            layout.containerSize = size
-            let flipped = CGPoint(x: point.x, y: size.height - point.y)
-
-            guard let index = layout.nearestTextIndex(at: flipped) else { return nil }
-            return Self.wordRange(in: text.string as NSString, at: index)
         }
 
         /// The word around `index`, falling back to the character there when

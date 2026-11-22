@@ -21,13 +21,14 @@ final class MarkdownTableSelectionUITests: XCTestCase {
         let composer = field.exists ? field : app.textFields.firstMatch
         sleep(2)
         shot(app, "reply")
-        // The reply ends just above the composer: the paragraph is its last line,
-        // about 140 pt up, and the table's rows fill the space above it. This
-        // lands on a "Cellword" a few rows up from the table's bottom.
-        let point = CGPoint(x: 55, y: composer.frame.minY - 260)
-        app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: point.x, dy: point.y))
-            .press(forDuration: 1)
+        // The table's first column holds the header and then a "Cellword" per
+        // row. A label is only as tall as its text, while the wrapped notes make
+        // each row taller, so press the fifth row's label itself.
+        let cell = app.collectionViews["chat.transcript"].scrollViews.firstMatch
+            .children(matching: .other).element(boundBy: 0)
+            .children(matching: .other).element(boundBy: 5)
+        XCTAssertTrue(cell.waitForExistence(timeout: 5), "No table cell")
+        cell.press(forDuration: 1)
         let copy = app.menuItems["Copy"].firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 5), "The long press selected nothing")
         shot(app, "selection")
@@ -38,7 +39,7 @@ final class MarkdownTableSelectionUITests: XCTestCase {
         let paste = app.menuItems["Paste"].firstMatch
         XCTAssertTrue(paste.waitForExistence(timeout: 5))
         paste.tap()
-        XCTAssertEqual(composer.value as? String, "Cellword", "The press at \(point) in \(window) copied the wrong word")
+        XCTAssertEqual(composer.value as? String, "Cellword", "The press on \(cell.frame) in \(window) copied the wrong word")
         shot(app, "pasted")
     }
 

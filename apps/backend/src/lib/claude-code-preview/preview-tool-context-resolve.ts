@@ -30,6 +30,7 @@ export async function resolvePreviewToolContext(args: {
     ...(context?.localTools === true ? { localTools: true } : {}),
     ...(context?.secretCard === true ? { secretCard: true } : {}),
     locale: conversation?.metadata?.locale ?? 'en',
+    ...(conversation?.agentRuntime ? { agentRuntime: conversation.agentRuntime } : {}),
     ...(context?.diagramId ? { diagramId: context.diagramId } : {}),
     ...(thread
       ? {

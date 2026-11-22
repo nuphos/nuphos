@@ -27,8 +27,8 @@ const desktop = (app: App) => ({
   client: `nuphos-desktop/${app.version}`,
   status: { agents: {}, app },
 })
-// #3560: a Desktop above the floor (0.127.0) with a newer release downloaded, waiting for a restart.
-const behind = desktop({ version: '0.127.0', update: { version: '0.131.0', ready: true } })
+// Below the floor (0.127.0), with a newer release downloaded and waiting for a restart.
+const behind = desktop({ version: '0.123.0', update: { version: '0.131.0', ready: true } })
 let presence: object = behind
 let fail: (() => Error) | null = () => new Error(restoreFailed)
 let finished = 0
@@ -108,7 +108,7 @@ beforeEach(() => {
   summary = ''
 })
 
-test('a failed turn on a Desktop with a newer release waiting says Nuphos there is out of date', async () => {
+test('a failed turn on a Desktop below the floor with an update waiting says Nuphos there is out of date', async () => {
   presence = behind
   const error = await runClaudeCodePreviewChatTurn(localTurn('run-old')).catch((e: unknown) => e)
 
@@ -118,12 +118,19 @@ test('a failed turn on a Desktop with a newer release waiting says Nuphos there 
   expect(summary).toBe(`The agent failed before it could answer. ${DESKTOP_UPDATE_READY_HINT}`)
 })
 
-test('a failed turn on an up-to-date Desktop keeps its error as it was', async () => {
-  presence = desktop({ version: '0.127.0' })
-  const error = await runClaudeCodePreviewChatTurn(localTurn('run-new')).catch((e: unknown) => e)
+test('a failed turn on a computer at or above the floor keeps its error, even with a newer release out', async () => {
+  // A timeout on CLI 0.27.3 was told to update, though no update fixes a timeout.
+  for (const host of [
+    desktop({ version: '0.127.0' }),
+    desktop({ version: '0.127.0', update: { version: '0.131.0', ready: true } }),
+    { client: 'nuphos-cli/0.27.3', status: { agents: {}, cliVersion: '0.27.3' } },
+  ]) {
+    presence = host
+    const error = await runClaudeCodePreviewChatTurn(localTurn('run-new')).catch((e: unknown) => e)
 
-  expect((error as Error).message).toBe(restoreFailed)
-  expect(summary).toBe('The agent failed before it could answer.')
+    expect((error as Error).message).toBe(restoreFailed)
+    expect(summary).toBe('The agent failed before it could answer.')
+  }
 })
 
 test('a turn that succeeds on a Desktop behind the latest release is not touched', async () => {

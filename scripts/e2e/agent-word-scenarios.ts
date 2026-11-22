@@ -61,7 +61,6 @@ export const agentWordScenarios: Scenario[] = [
       for (const [settings, section, shot] of [
         ['Team settings', 'Instructions', 'agent-words-team-instructions'],
         ['User settings', 'Local runtime', 'agent-words-local-runtime'],
-        ['User settings', 'Personal Credentials', 'agent-words-personal-credentials'],
         // Batch 5: the team's skills, memories and audit log.
         ['Team settings', 'Skills', 'agent-words-team-skills'],
         ['Team settings', 'Memories', 'agent-words-team-memories'],
