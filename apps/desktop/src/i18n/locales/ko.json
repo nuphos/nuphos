@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "스케줄링된 Pod",
   "Scheduled on": "스케줄링된 노드",
   "Scheduled task": "예약된 작업",
+  "Scheduled times: {times}. Source rule: {rule}": "예약 시간: {times}. 원본 규칙: {rule}",
   "Scheduling": "스케줄링",
   "Scheduling signals": "스케줄링 정보",
   "Schema": "스키마",

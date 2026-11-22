@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "Pods programados",
   "Scheduled on": "Programado en",
   "Scheduled task": "Tarea programada",
+  "Scheduled times: {times}. Source rule: {rule}": "Fechas programadas: {times}. Regla de origen: {rule}",
   "Scheduling": "Programación",
   "Scheduling signals": "Señales de programación",
   "Schema": "Esquema",

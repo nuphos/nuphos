@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "已排程的 Pod",
   "Scheduled on": "排程於",
   "Scheduled task": "排程工作",
+  "Scheduled times: {times}. Source rule: {rule}": "排程時間：{times}。來源規則：{rule}",
   "Scheduling": "排程方式",
   "Scheduling signals": "排程訊號",
   "Schema": "結構描述",

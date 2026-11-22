@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "Pod ที่จัดลงโหนดนี้",
   "Scheduled on": "จัดลงที่",
   "Scheduled task": "งานตามกำหนดเวลา",
+  "Scheduled times: {times}. Source rule: {rule}": "เวลาตามกำหนด: {times} กฎต้นทาง: {rule}",
   "Scheduling": "การจัดกำหนดการ",
   "Scheduling signals": "สัญญาณการจัดตาราง",
   "Schema": "สคีมา",

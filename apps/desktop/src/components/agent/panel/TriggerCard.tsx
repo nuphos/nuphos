@@ -5,8 +5,7 @@ import { useState } from 'react'
 import { api } from '../../../api'
 import { useOpenChatLabel } from '../../../hooks/useOpenChatLabel'
 import { t } from '../../../i18n'
-import { scheduleSummary } from '../../../views/triggers/cron'
-import { viewerTimeZone } from '../../../views/triggers/cronTime'
+import { userScheduleSummary } from '../../../views/triggers/scheduleDisplay'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
@@ -14,7 +13,6 @@ import { ChatLink } from '../MessageResponse'
 
 import { NextRuns } from './TriggerCardBody'
 import { triggerCardInfo } from './triggerCards'
-import { cardSchedule } from './triggerSchedule'
 import { useTrigger } from './useTrigger'
 
 import type { OpenLink } from './LocalUrlChip'
@@ -25,9 +23,7 @@ const CARD =
   't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-state-selected'
 
 function scheduleLine(trigger: AgentTrigger): string {
-  if (trigger.triggerType !== 'cron') return scheduleSummary(trigger)
-
-  return cardSchedule(trigger.cronExpression ?? '', viewerTimeZone())
+  return userScheduleSummary(trigger)
 }
 
 function Placeholder({ missing }: { missing: boolean }) {

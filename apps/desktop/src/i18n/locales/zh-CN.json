@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "已调度的 Pod",
   "Scheduled on": "调度至",
   "Scheduled task": "定时任务",
+  "Scheduled times: {times}. Source rule: {rule}": "计划时间：{times}。来源规则：{rule}",
   "Scheduling": "调度方式",
   "Scheduling signals": "调度信号",
   "Schema": "架构",

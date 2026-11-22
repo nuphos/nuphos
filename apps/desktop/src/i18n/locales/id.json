@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "Pod terjadwal",
   "Scheduled on": "Dijadwalkan di",
   "Scheduled task": "Tugas terjadwal",
+  "Scheduled times: {times}. Source rule: {rule}": "Waktu terjadwal: {times}. Aturan sumber: {rule}",
   "Scheduling": "Penjadwalan",
   "Scheduling signals": "Sinyal penjadwalan",
   "Schema": "Skema",

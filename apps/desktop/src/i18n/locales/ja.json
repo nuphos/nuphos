@@ -4159,6 +4159,7 @@
   "Scheduled Pods": "スケジュールされた Pod",
   "Scheduled on": "スケジュール先",
   "Scheduled task": "スケジュールタスク",
+  "Scheduled times: {times}. Source rule: {rule}": "実行予定日時：{times}。元のルール：{rule}",
   "Scheduling": "スケジュール",
   "Scheduling signals": "スケジューリング情報",
   "Schema": "スキーマ",
