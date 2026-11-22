@@ -141,10 +141,8 @@ export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error
 /** How far an owner lets teammates use their own computer's Local Agent. */
 export type LocalShareLevel = 'off' | 'approve' | 'full'
 
-/**
- * Who a computer is shared with in one team, and how far. `managerIds` also manage it; only its
- * owner sends them, and leaving them out keeps them.
- */
+/** Who a computer is shared with in one team, and how far. `managerIds` also manage it; only
+ *  its owner sends them, and leaving them out keeps them. */
 export type LocalShareInput = {
   level: LocalShareLevel
   everyone: boolean

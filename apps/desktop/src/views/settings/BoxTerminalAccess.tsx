@@ -32,7 +32,7 @@ export function BoxTerminalAccess({
         open={confirming}
         title={t('Allow terminals for Use access?')}
         description={t(
-          "Members with Use access will be able to open a terminal on this computer. A terminal can read the computer's files, including the agent's sign-in, and act as the signed-in account.",
+          "Members with Use access will be able to open a terminal on this computer. A terminal can read the computer's files, including its sign-ins, and act as the signed-in account.",
         )}
         confirmLabel={t('Allow')}
         onConfirm={() => onChange(true)}
