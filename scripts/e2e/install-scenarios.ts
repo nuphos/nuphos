@@ -237,7 +237,11 @@ export const installScenarios: Scenario[] = [
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await pickInRow(page, hostname(), /^Claude Code/)
         await send(page, 'Start Claude Code')
-        await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
+        await page
+          .getByText(REINSTALL)
+          .filter({ visible: true })
+          .first()
+          .waitFor({ timeout: 60_000 })
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
         await shot(page, 'local-6-chat-reinstall')
         const raw = await page.getByText(/ENOENT|native binary|-32603/).count()

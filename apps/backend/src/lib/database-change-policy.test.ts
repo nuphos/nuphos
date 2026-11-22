@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   databaseChangePermissions,
+  submittedDatabaseChangeStatus,
   validDatabaseChangeApprovalCount,
 } from './database-change-policy'
 
@@ -149,5 +150,38 @@ describe('database change approval and execution policy', () => {
     expect(permissions.canApprove).toBe(false)
     expect(permissions.canReject).toBe(false)
     expect(permissions.canExecute).toBe(false)
+  })
+
+  test('a policy needing no approvals approves a request on submit', () => {
+    const none = { minimumApprovals: 0, version: 3 }
+    const status = submittedDatabaseChangeStatus(none)
+    const submitted = request({ status })
+
+    expect(status).toBe('approved')
+    expect(
+      databaseChangePermissions({
+        request: submitted,
+        policy: none,
+        userId: 'requester',
+        teamRole: 'MEMBER',
+        memberCanUse: true,
+      }).canExecute,
+    ).toBe(true)
+  })
+
+  test('a policy needing one approval still keeps the requester from approving', () => {
+    const status = submittedDatabaseChangeStatus(policy)
+    const submitted = request({ status })
+
+    expect(status).toBe('pending_approval')
+    expect(
+      databaseChangePermissions({
+        request: submitted,
+        policy,
+        userId: 'requester',
+        teamRole: 'MEMBER',
+        memberCanUse: true,
+      }).canApprove,
+    ).toBe(false)
   })
 })

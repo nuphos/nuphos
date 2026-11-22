@@ -64,8 +64,11 @@ export function botChatRows({
   const typing =
     Boolean(chat.channel) &&
     chatTyping(bot?.runtimeState, chat.key.replace('agent-session:', ''), true)
+  // A question is the Inbox's to show: the preview stays the chat's newest post.
   const status =
-    busy || activity.kind === 'idle' ? undefined : <BotStatusLine activity={activity} />
+    activity.kind === 'onboarding' || activity.kind === 'error' ? (
+      <BotStatusLine activity={activity} />
+    ) : undefined
   const previewNode = status ?? (typing ? <TypingPreview /> : undefined)
   // A Bot with no chat yet is listed by its own session, which has no chat faces: its own face.
   const face: ChannelFace[] | undefined =

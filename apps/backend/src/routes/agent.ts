@@ -42,7 +42,6 @@ export { renderAgentCredentialPrompt } from './agent/credential-prompt'
 export { resolveAgentCredentialAccess } from './agent/credential-resolve'
 export { renderPermissionWallPrompt } from './agent/permission-wall'
 export { agent } from './agent/router'
-export { isPlanReadyForApproval } from '@/lib/agent/plan-readiness'
 export { drainInFlightAgentRuns } from './agent/run-frames'
 export { startAgentRunStallSweeper } from './agent/run-stall'
 export {

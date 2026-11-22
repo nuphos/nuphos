@@ -53,6 +53,9 @@ function serveForm(port: number): { seen: Seen[]; close: () => void } {
   return { seen, close: () => server.close() }
 }
 
+// The card on screen: a Task opened before stays in the page, hidden, with its own card.
+const field = (page: Page, label: string) => page.getByLabel(label).filter({ visible: true })
+
 export const formScenario = {
   // The card's reply is sent from a transcript the app is one turn behind on: the backend
   // answers 409 once, and the app reloads the transcript and sends the reply again.
@@ -95,8 +98,8 @@ export const formScenario = {
 
       await page.getByText(`Details needed for ${site}`).waitFor()
       // #3397: the person types while the agent's turn still runs, and the turn ends under them.
-      await page.getByLabel('ID number').fill(ID)
-      await page.getByLabel('Date of birth').fill(BIRTH)
+      await field(page, 'ID number').fill(ID)
+      await field(page, 'Date of birth').fill(BIRTH)
       await until('the asking turn to end', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:form'),
       )
@@ -113,8 +116,8 @@ export const formScenario = {
       // the page says when. After it, the card is still the card that was typed in.
       await new Promise((resolve) => setTimeout(resolve, 2000))
       const kept =
-        (await page.getByLabel('ID number').inputValue()) === ID &&
-        (await page.getByLabel('Date of birth').inputValue()) === BIRTH
+        (await field(page, 'ID number').inputValue()) === ID &&
+        (await field(page, 'Date of birth').inputValue()) === BIRTH
 
       if (!kept) throw new Error('The card lost what was typed when the turn ended')
       await page.getByRole('button', { name: 'Send securely' }).click()

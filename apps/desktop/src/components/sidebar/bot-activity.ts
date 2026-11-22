@@ -11,20 +11,16 @@ export type Run = { conversation: AgentConversation; runtimeState: RuntimeExecut
 export type Activity =
   | { kind: 'idle' }
   | { kind: 'onboarding' }
-  | { kind: 'asking'; question: string }
+  | { kind: 'asking' }
   | { kind: 'working'; run: Run }
   | { kind: 'background'; run: Run | undefined }
   | { kind: 'error' }
 
 export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const runs = [...(bot ? [bot] : []), ...kids]
-  const asking = runs.find((run) => attentionInputRequests(run.conversation).length > 0)
 
-  if (asking)
-    return {
-      kind: 'asking',
-      question: attentionInputRequests(asking.conversation)[0]?.question ?? '',
-    }
+  if (runs.some((run) => attentionInputRequests(run.conversation).length > 0))
+    return { kind: 'asking' }
   if (bot && runtimeTurnActive(bot.runtimeState)) return { kind: 'working', run: bot }
   const busy = kids.find((kid) => runtimeTurnActive(kid.runtimeState))
 

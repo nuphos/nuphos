@@ -49,7 +49,7 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
   let deletionOk: boolean
   const warning = page.getByRole('status').filter({ hasText: 'disk is almost full (91%)' })
   const row = page
-    .locator('.group\\/post')
+    .locator('.group\\/post:visible')
     .filter({ hasText: 'A fictional note to reply to' })
     .last()
   const cancel = page.getByRole('button', { name: 'Cancel reply' })

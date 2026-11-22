@@ -16,8 +16,8 @@ export type InteractionRepliers = {
 }
 
 /**
- * Delivery helpers shared by the detached card-decision handlers (plan
- * approve, permission approve/reject). All best-effort: a failed post must not
+ * Delivery helpers shared by the detached card-decision handlers (permission
+ * and tool approvals). All best-effort: a failed post must not
  * throw out of a detached handler, so failures are logged and swallowed.
  *
  * `reply` posts to the card's response_url; without one it can only log.

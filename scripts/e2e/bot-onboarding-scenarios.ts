@@ -39,8 +39,18 @@ export const botOnboardingScenarios: Scenario[] = [
       assert.equal(bot.botOnboarding, 'active')
       assert.equal(bot.inputRequests?.length, 1)
       assert.equal((await list(true)).conversations.length, 0)
-      await page.getByText('Getting started', { exact: true }).first().waitFor()
-      assert.equal(await page.getByText(/^Needs your input/).count(), 0)
+      await page
+        .getByText('Getting started', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
+      assert.equal(
+        await page
+          .getByText(/^Needs your input/)
+          .filter({ visible: true })
+          .count(),
+        0,
+      )
       await page.screenshot({ path: `${artifacts}/onboarding-chat.png` })
       await page.getByRole('tab', { name: 'Inbox', exact: true }).click()
       await page
@@ -48,7 +58,11 @@ export const botOnboardingScenarios: Scenario[] = [
         .waitFor({ state: 'hidden' })
       await page.screenshot({ path: `${artifacts}/onboarding-inbox-empty.png` })
       await page.getByRole('tab', { name: /^Bots/ }).click()
-      await page.getByText('Release Helper', { exact: true }).first().click()
+      await page
+        .getByText('Release Helper', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .click()
       await page.reload()
       await page.getByText('Which marker should the fixture use?', { exact: true }).waitFor()
       const resumed = (await list()).conversations.find((row) => row.sessionId === bot.sessionId)!
@@ -63,7 +77,10 @@ export const botOnboardingScenarios: Scenario[] = [
       // so the title-bar pill never says the Bot works elsewhere while it does them.
       const neverElsewhere = async () => {
         for (let i = 0; i < 16; i++) {
-          if ((await page.getByText('Working outside this chat').count()) > 0)
+          if (
+            (await page.getByText('Working outside this chat').filter({ visible: true }).count()) >
+            0
+          )
             throw new Error("The Bot's chat pill says it works outside the chat it answers")
           await page.waitForTimeout(250)
         }
@@ -134,7 +151,7 @@ export const botOnboardingScenarios: Scenario[] = [
 
         await line.waitFor()
         // The line names no address: Verify with Anthropic opens the portal Anthropic named.
-        assert.equal(await page.getByText(portal).count(), 0)
+        assert.equal(await page.getByText(portal).filter({ visible: true }).count(), 0)
         const verify = page.getByRole('button', { name: 'Verify with Anthropic', exact: true })
 
         assert.equal(await verify.getAttribute('href'), portal)

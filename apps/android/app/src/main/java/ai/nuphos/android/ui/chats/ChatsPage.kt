@@ -186,9 +186,9 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
         },
         headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        // As iMessage does: the dots stand in for the newest post until the reply lands.
+        // As iMessage does: the dots stand in for the newest post until the reply lands. The post gets two lines (#4508).
         supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
-            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
