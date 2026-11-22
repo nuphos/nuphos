@@ -1,6 +1,6 @@
 // A Trigger's turn in a Bot failed while its chat ends with a good post. The Bot's row kept
 // saying "Failed" in place of that post, though the chat showed nothing wrong. The row keeps
-// the newest post and its alert mark.
+// the newest post and its alert mark; the next turn, which goes through, clears the mark.
 import { agentEvents } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { openBotChat } from '../channel-quotes.ts'
@@ -11,6 +11,7 @@ import type { Scenario } from '../ui.ts'
 
 const BEFORE = 'E2E_DELIVERY:before-failure'
 const FAILED = 'E2E_DELIVERY:trigger-failed'
+const AFTER = 'E2E_DELIVERY:after-failure'
 
 const scenario: Scenario = {
   name: "a Bot whose Trigger turn failed keeps its chat's newest post in its row",
@@ -37,7 +38,7 @@ const scenario: Scenario = {
         name: 'Hourly check',
         triggerType: 'cron',
         cronExpression: '0 * * * *',
-        messageTemplate: `Check E2E_API_UNREACHABLE ${FAILED}`,
+        messageTemplate: `Check E2E_FAIL_ONCE ${FAILED}`,
       })
     ).body as { id: string }
 
@@ -58,6 +59,13 @@ const scenario: Scenario = {
       throw new Error('"Failed" took the place of the chat\'s newest post')
     await row.getByText(`POSTED ${BEFORE}`).waitFor()
 
+    // The next turn goes through: its post is the preview, and the alert mark is gone.
+    await send(page, `Post this ${AFTER}`)
+    await transcriptPost(page, `POSTED ${AFTER}`).waitFor()
+    await row.getByText(`POSTED ${AFTER}`).waitFor()
+    await alert.waitFor({ state: 'detached' })
+    await page.waitForTimeout(500)
+    await row.screenshot({ path: `${artifacts}/bot-failed-then-ok-row-light.png` })
     await api('DELETE', `/agent/triggers/${trigger.id}?teamId=${stack.teamId}`)
   },
 }
