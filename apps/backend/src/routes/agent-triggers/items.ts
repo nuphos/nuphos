@@ -70,6 +70,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
+        ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
       },
       {
         ...actor,
@@ -128,6 +129,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       // null removes the expiry.
       ...(expiresAt === null ? { expiresAt } : {}),
       ...(typeof expiresAt === 'string' ? { expiresAt: new Date(expiresAt) } : {}),
+      ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
     })
 
     return c.json(updated)

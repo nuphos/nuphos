@@ -35,9 +35,6 @@ export function Conversation({
   composer = null,
   visible = true,
   onDockToSidebar,
-  onStop,
-  onApprovePlan,
-  onRejectPlan,
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
@@ -177,9 +174,6 @@ export function Conversation({
             hasEarlier={hasEarlier}
             captureEarlierAnchor={captureEarlierAnchor}
             onLoadEarlier={onLoadEarlier}
-            onStop={onStop}
-            onApprovePlan={onApprovePlan}
-            onRejectPlan={onRejectPlan}
             activePlanCanAct={activePlanCanAct}
             onOpenNuphosLink={onOpenNuphosLink}
             onOpenAgentSettings={onOpenAgentSettings}

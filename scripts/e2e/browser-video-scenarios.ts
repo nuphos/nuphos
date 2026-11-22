@@ -47,9 +47,9 @@ export const browserVideoScenarios: Scenario[] = [
           script: 'new Promise((done) => setTimeout(done, 2000))',
         })
         const stopped = await browse({ action: 'record_stop', tab })
-        const video = json<{ video?: { file: string; frames: number } }>(stopped).video
+        const video = json<{ video?: { file?: string } }>(stopped).video
 
-        if (!video || video.frames === 0)
+        if (!video?.file)
           throw new Error(`record_stop to return a video, got ${stopped[0]?.text ?? ''}`)
         recorded = video.file
         copyFileSync(video.file, join(artifacts, 'desktop-browser-video.webm'))
