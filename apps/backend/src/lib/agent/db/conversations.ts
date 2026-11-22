@@ -2,6 +2,7 @@
 // provider registry, whose native adapter reaches identity.ts and back into
 // this file (import cycle).
 import { resolveForNewSession } from '@/lib/agent/memory-slots/session-stamp'
+import { AppError } from '@/lib/errors'
 
 import { canReplyIn } from '../devices/conversation-computer'
 import { fallbackTitle } from '../title-fallback'
@@ -100,8 +101,12 @@ export async function upsertConversationShell(
             ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
           },
         },
-    { upsert: true },
+    // Only a group chat is stored without a runtime; anything else updates an existing one.
+    { upsert: Boolean(data.agentRuntime) || data.kind === 'channel' },
   )
+
+  if (result.matchedCount === 0 && result.upsertedCount === 0)
+    throw new AppError(409, 'runtime_required', 'Choose an agent before starting a conversation.')
 
   return { isNew: result.upsertedCount > 0 }
 }

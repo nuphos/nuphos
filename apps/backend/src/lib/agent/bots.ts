@@ -48,7 +48,13 @@ export async function createBot(
 ) {
   const avatar = bot.avatar ?? derivedAvatar(sessionId)
   const title = bot.title ?? 'New Bot'
-  const { source, agentRuntime, runtimeId, runtimeLabel } = bot
+  const { source } = bot
+  // Stored on its runtime before its first turn, so every list shows the right mark.
+  const { agentRuntime, runtimeId, runtimeLabel } = bot.agentRuntime
+    ? bot
+    : await (
+        await import('@/lib/claude-code-preview/conversation-chat-route')
+      ).resolveNewConversationRuntime(teamId, userId, bot.runtimeId)
   const background = bot.background === 'none' ? undefined : bot.background
   const credentialAccess =
     bot.credentialAccess === undefined
@@ -75,7 +81,7 @@ export async function createBot(
     ...(bot.onboarding || bot.starter ? { instructions: botStarterInstructions(bot.starter) } : {}),
     ...(bot.onboarding ? { botOnboarding: 'pending' as const } : {}),
     ...(bot.locale ? { locale: bot.locale } : {}),
-    ...(agentRuntime ? { agentRuntime } : {}),
+    agentRuntime,
     ...(runtimeId ? { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } : {}),
   })
   await initializeSessionBypass(sessionId, userId, bypass)
