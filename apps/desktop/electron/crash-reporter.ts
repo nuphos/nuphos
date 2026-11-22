@@ -72,7 +72,7 @@ export function setSendDiagnostics(value: unknown): boolean {
  * started that outlives it (a dev server, an agent's tool) inherits its Crashpad connection,
  * which keeps the handler alive, one more after every update (#4708).
  */
-export function leftoverCrashHandlers(ps: string, dumps: string): number[] {
+function leftoverCrashHandlers(ps: string, dumps: string): number[] {
   return ps
     .split('\n')
     .filter(
