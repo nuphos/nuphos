@@ -1,9 +1,10 @@
 // Discord as the backend sees it: a REST API and a Gateway on one local port, and the key that
 // signs its interactions. Nothing here reaches Discord.
-import { generateKeyPairSync, sign } from 'node:crypto'
+import { createHash, generateKeyPairSync, sign } from 'node:crypto'
+import { createServer } from 'node:http'
 
 import type { Stack } from './stack.ts'
-import type { ServerWebSocket } from 'bun'
+import type { Duplex } from 'node:stream'
 
 export const DISCORD_GUILD = 'GE2E'
 export const DISCORD_CHANNEL = 'CE2E'
@@ -19,7 +20,7 @@ const channels = new Map<string, DiscordChannel>([
 ])
 const posts: { channelId: string; content: string }[] = []
 const interactionReplies: { content?: string }[] = []
-let gateway: ServerWebSocket | undefined
+let gateway: Duplex | undefined
 let sequence = 0
 
 /** What the backend posted to a channel or thread, oldest first. */
@@ -70,53 +71,114 @@ async function rest(request: Request, path: string, origin: string): Promise<Res
   return json([])
 }
 
+/** One unmasked text frame, as a server sends it. */
+function frame(text: string): Buffer {
+  const payload = Buffer.from(text)
+  const header =
+    payload.length < 126
+      ? Buffer.from([0x81, payload.length])
+      : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 0xff])
+
+  return Buffer.concat([header, payload])
+}
+
+const send = (socket: Duplex, message: object) => socket.write(frame(JSON.stringify(message)))
+
 function dispatch(t: string, d: unknown) {
   if (!gateway) throw new Error('The backend has no Discord Gateway connection')
-  gateway.send(JSON.stringify({ op: 0, s: ++sequence, t, d }))
+  send(gateway, { op: 0, s: ++sequence, t, d })
+}
+
+/** The masked text frames a client sends; the backend's are well under 64 KiB. */
+function* frames(buffer: Buffer): Generator<{ opcode: number; text: string; end: number }> {
+  let at = 0
+
+  while (buffer.length - at >= 6) {
+    const opcode = buffer[at] & 0x0f
+    let length = buffer[at + 1] & 0x7f
+    let start = at + 2
+
+    if (length === 126) {
+      length = buffer.readUInt16BE(start)
+      start += 2
+    }
+    if (buffer.length < start + 4 + length) return
+    const mask = buffer.subarray(start, start + 4)
+    const payload = buffer.subarray(start + 4, start + 4 + length).map((b, i) => b ^ mask[i % 4])
+
+    at = start + 4 + length
+    yield { opcode, text: payload.toString(), end: at }
+  }
+}
+
+function serveGateway(socket: Duplex, key: string, port: number) {
+  // eslint-disable-next-line sonarjs/hashing -- RFC 6455 fixes SHA-1 for the handshake.
+  const accept = createHash('sha1')
+    .update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`)
+    .digest('base64')
+
+  socket.write(
+    'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
+      `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
+  )
+  gateway = socket
+  send(socket, { op: 10, d: { heartbeat_interval: 30_000 } })
+  let pending = Buffer.alloc(0)
+
+  socket.on('data', (chunk: Buffer) => {
+    pending = Buffer.concat([pending, chunk])
+    for (const { opcode, text, end } of frames(pending)) {
+      pending = pending.subarray(end)
+      if (opcode === 8) socket.end()
+      if (opcode !== 1) continue
+      const { op } = JSON.parse(text) as { op: number }
+
+      if (op === 1) send(socket, { op: 11 })
+      // Identify or resume: either way the backend learns who the bot is.
+      if (op === 2 || op === 6) {
+        dispatch('READY', {
+          session_id: 'e2e',
+          resume_gateway_url: `ws://127.0.0.1:${String(port)}/gateway`,
+          user: { id: DISCORD_BOT },
+        })
+      }
+    }
+  })
+  socket.on('close', () => {
+    if (gateway === socket) gateway = undefined
+  })
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */
 export async function startDiscordStub(): Promise<Record<string, string>> {
-  const server = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    async fetch(request, server) {
-      const url = new URL(request.url)
+  const server = createServer((request, response) => {
+    const origin = `http://${request.headers.host ?? ''}`
+    const chunks: Buffer[] = []
 
-      if (url.pathname === '/gateway') {
-        return server.upgrade(request) ? undefined : new Response(null, { status: 400 })
-      }
+    request.on('data', (chunk: Buffer) => chunks.push(chunk))
+    request.on('end', () => {
+      const body = chunks.length > 0 ? Buffer.concat(chunks) : undefined
+      const path = (request.url ?? '/').split('?')[0].replace(/^\/api\/v10/, '')
+      const fetchRequest = new Request(origin + path, { method: request.method, body })
 
-      return await rest(request, url.pathname.replace(/^\/api\/v10/, ''), url.origin)
-    },
-    websocket: {
-      open(socket) {
-        gateway = socket
-        socket.send(JSON.stringify({ op: 10, d: { heartbeat_interval: 30_000 } }))
-      },
-      message(socket, raw) {
-        const { op } = JSON.parse(String(raw)) as { op: number }
-
-        if (op === 1) socket.send(JSON.stringify({ op: 11 }))
-        // Identify or resume: either way the backend learns who the bot is.
-        if (op === 2 || op === 6) {
-          dispatch('READY', {
-            session_id: 'e2e',
-            resume_gateway_url: `ws://127.0.0.1:${String(server.port)}/gateway`,
-            user: { id: DISCORD_BOT },
-          })
-        }
-      },
-      close(socket) {
-        if (gateway === socket) gateway = undefined
-      },
-    },
+      void rest(fetchRequest, path, origin).then(async (answer) => {
+        response.writeHead(answer.status, { 'content-type': 'application/json' })
+        response.end(Buffer.from(await answer.arrayBuffer()))
+      })
+    })
   })
+
+  server.on('upgrade', (request, socket) => {
+    serveGateway(socket, String(request.headers['sec-websocket-key']), port)
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const address = server.address()
+  const port = typeof address === 'object' && address ? address.port : 0
 
   server.unref()
 
   return {
-    DISCORD_API_BASE_URL: `http://127.0.0.1:${String(server.port)}/api/v10`,
+    DISCORD_API_BASE_URL: `http://127.0.0.1:${String(port)}/api/v10`,
     DISCORD_BOT_TOKEN: 'e2e-discord-bot-token',
     DISCORD_PUBLIC_KEY: publicKey
       .export({ format: 'der', type: 'spki' })
