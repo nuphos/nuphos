@@ -11,6 +11,7 @@ import {
   OpenAbRpcError,
   isSessionOutputSinkUnavailable,
   retrySessionPromptWhenBusy,
+  runtimeUsageExhaustedMessage,
   SESSION_OUTPUT_SINK_UNAVAILABLE,
 } from './openab-acp-errors'
 
@@ -63,8 +64,68 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(new AppError(503, 'claude_code_runtime_offline', 'Offline'))).toBe(
       'offline',
     )
+    expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
+  })
+
+  test('a Codex usage limit, on a > detail line, is the agent out of usage', () => {
+    // Runtime v0.1.50+ relays the adapter's bare message; the notice is only in the display text.
+    const relayed = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+      {
+        code: -32603,
+        message: 'Internal error',
+      },
+    )
+    // Older runtimes send the display wrapper alone.
+    const wrappedOnly = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+      -32603,
+    )
+
+    expect(turnFailureCause(relayed)).toBe('usage_limit')
+    expect(turnFailureCause(wrappedOnly)).toBe('usage_limit')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
+  })
+
+  test('a provider’s 401 for the API key behind Codex is a sign-in to repair', () => {
+    // As production logged it (#3926), with a stand-in key.
+    const rejected = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> unexpected status 401 Unauthorized: Incorrect API key provided: sk-e2e****0000. You can find your API key at https://platform.openai.com/account/api-keys., url: https://api.openai.com/v1/responses, auth error: 401, auth error code: invalid_api_key',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    )
+
+    expect(turnFailureCause(rejected)).toBe('auth')
+    expect(isRuntimeAuthRequired(rejected)).toBe(true)
+  })
+
+  test('an account Anthropic holds for verification is refused like one out of usage', () => {
+    // The refusal production logged (#3926), with a stand-in org id.
+    const notice =
+      "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"verification_required"}`,
+      -32603,
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    expect(isRuntimeAuthRequired(refused)).toBe(false)
+  })
+
+  test('OpenCode’s free usage limit, as the runtime relays it, is the agent out of usage', () => {
+    const notice =
+      'The model provider refused the request: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+    const refused = wrapped(notice)
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    // Any other refusal the runtime relays stays unclassified.
+    expect(turnFailureCause(wrapped('The model provider refused the request: overloaded'))).toBe(
+      'other',
+    )
   })
 })
 

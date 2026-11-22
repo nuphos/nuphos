@@ -14,7 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.model.ComposerAttachment
@@ -54,7 +54,6 @@ class ContentInputFixtureDeviceTest {
     private var inputDescription = "Ask Nuphos anything"
 
     private fun render(streaming: Boolean = false, controlledPicker: Boolean = false) {
-        assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
         inputDescription = if (streaming) "Queue a message" else "Ask Nuphos anything"
         lease.value?.key?.accountId?.let { account ->
             kotlinx.coroutines.runBlocking { (context.applicationContext as NuphosApplication).incomingShares.bindAccount(account) }
@@ -233,7 +232,6 @@ class ContentInputFixtureDeviceTest {
         } finally { attachment.releaseOwnedCopy() }
     }
     @Test fun photoPickerVideoKeepsOriginalMimeAndBytesWithoutBitmapDecode() {
-        assumeTrue("Requires isolated content fixture package", context.packageName == "ai.nuphos.android.contentinput1337")
         val input = ai.nuphos.android.ui.chat.selectionInput(context, uri("clip.mp4"), images = true)
         assertEquals("video/mp4", input.mime)
         assertFalse(input.isImage)
@@ -356,7 +354,8 @@ class ContentInputFixtureDeviceTest {
         assertEquals("second draft", sent?.text)
         assertTrue(sent!!.attachments.isEmpty())
         assertEquals("first draft", first.text)
-        assertEquals("", second.text)
+        // The composer clears the draft after the send callback returns and the sent state is saved.
+        compose.waitUntil(10_000) { second.text.isEmpty() }
         assertTrue(java.io.File(context.filesDir, "chat-attachments").listFiles().orEmpty().isEmpty())
     }
 

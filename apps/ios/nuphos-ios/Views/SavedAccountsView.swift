@@ -4,9 +4,15 @@ import SwiftUI
 struct SavedAccountsView: View {
     @Environment(AuthSession.self) private var session
     var allowAdding = false
+    var editProfile: (() -> Void)? = nil
     @State private var removing: SavedAccount?
 
-    private var accounts: [SavedAccount] { session.savedAccounts.accounts }
+    private var accounts: [SavedAccount] {
+        #if DEBUG
+        if PreviewIsolation.isActive { return session.savedAccounts.accounts.filter { $0.token == "preview-only" } }
+        #endif
+        return session.savedAccounts.accounts
+    }
     private var busy: Bool { session.state == .signingIn }
 
     var body: some View {
@@ -18,7 +24,7 @@ struct SavedAccountsView: View {
             if allowAdding {
                 Button { session.addAccount() } label: {
                     HStack(spacing: 12) {
-                        Image(systemName: "plus")
+                        LucideIcon("plus")
                             .font(.body.weight(.medium))
                             .frame(width: 36, height: 36)
                             .background(Theme.canvas, in: Circle())
@@ -35,11 +41,7 @@ struct SavedAccountsView: View {
             }
             if let error = session.accountError { errorMessage(error) }
             if let error = session.savedAccounts.error { errorMessage(error) }
-            if session.addingAccount {
-                Button("Cancel adding account") { Task { await session.cancelAddAccount() } }
-                    .frame(minHeight: 44).padding(.top, 8)
-                    .disabled(busy)
-            }
+
         }
         .confirmationDialog("Sign out of this account?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
             Button("Sign out", role: .destructive) {
@@ -71,7 +73,7 @@ struct SavedAccountsView: View {
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     if active {
-                        Image(systemName: "checkmark.circle.fill")
+                        LucideIcon("check")
                             .font(.body).foregroundStyle(Theme.heading)
                             .accessibilityLabel("Active account")
                     }
@@ -84,9 +86,17 @@ struct SavedAccountsView: View {
             .disabled(busy)
             .accessibilityAddTraits(active ? .isSelected : [])
             Menu {
-                Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) { removing = account }
+                if active, let editProfile {
+                    Button(action: editProfile) { Label("Edit profile", image: "lucide-pencil") }
+                }
+                Button(role: .destructive) { removing = account } label: {
+                    Label { Text("Sign out") } icon: {
+                        Image(uiImage: (UIImage(named: "lucide-log-out") ?? UIImage())
+                            .withTintColor(.systemRed, renderingMode: .alwaysOriginal))
+                    }
+                }
             } label: {
-                Image(systemName: "ellipsis")
+                LucideIcon("ellipsis")
                     .font(.body.weight(.medium)).foregroundStyle(Theme.muted)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }

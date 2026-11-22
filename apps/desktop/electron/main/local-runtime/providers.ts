@@ -15,10 +15,11 @@ export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
   opencode: 'OpenCode',
   dsh: 'DeepSeek Harness',
   hermes: 'Hermes Agent',
+  pi: 'Pi',
 }
 
 /**
- * Grok Build, Antigravity, OpenCode, DeepSeek Harness and Hermes Agent run behind the image's
+ * Grok Build, Antigravity, OpenCode, DeepSeek Harness, Hermes Agent and Pi run behind the image's
  * ACP shim, whose /home/node this home stands in for. openab runs their login wrapper under its own
  * HOME, so the shim and the wrapper are both told the CLI and the home.
  */
@@ -43,13 +44,13 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
-/** Grok Build, OpenCode 1.x, DeepSeek Harness and Hermes Agent have no status command: their
- *  login is this file, as in the cloud runtime. */
+/** Grok Build, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
+ *  their login is this file, as in the cloud runtime. */
 const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
-  opencode: '.local/share/opencode/auth.json',
   dsh: '.dsh/.credentials.yaml',
   hermes: '.hermes/auth.json',
+  pi: '.pi/agent/auth.json',
 }
 
 /** Whether the agent's home holds its login; undefined for an agent its CLI reports on. */
@@ -74,6 +75,7 @@ export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
   opencode: 'Nuphos could not prepare a separate OpenCode home on this computer.',
   dsh: 'Nuphos could not prepare a separate DeepSeek Harness home on this computer.',
   hermes: 'Nuphos could not prepare a separate Hermes Agent home on this computer.',
+  pi: 'Nuphos could not prepare a separate Pi home on this computer.',
 }
 
 export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
@@ -83,7 +85,8 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   antigravity:
     'Install Antigravity CLI 1.5.0 or newer on this computer to run it as a local runtime.',
   opencode: 'Install OpenCode on this computer to run it as a local runtime.',
-  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh` (Node.js 24.9 or newer) to run it as a local runtime.',
+  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh@latest` (Node.js 24.9 or newer) to run it as a local runtime.',
   hermes:
     'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
+  pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (Node.js 22.19 or newer) to run it as a local runtime.',
 }

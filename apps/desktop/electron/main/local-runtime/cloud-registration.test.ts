@@ -61,6 +61,14 @@ mock.module('./sleep-prevention-electron.ts', {
     taskActivity: {},
   },
 })
+mock.module('../updater.ts', {
+  namedExports: {
+    getUpdaterState: () => ({ kind: 'idle' }),
+    installUpdate: () => {},
+    readyUpdate: () => null,
+    watchUpdater: () => {},
+  },
+})
 mock.module('./tunnel-client.ts', {
   namedExports: {
     RuntimeTunnelClient: class {

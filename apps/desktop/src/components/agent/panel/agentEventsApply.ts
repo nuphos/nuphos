@@ -8,7 +8,7 @@ import { finalizeIncompleteTools, latchTabError } from './clientTools'
 import { dispatchedDraft, showTurnQueued } from './queuedAutoSend'
 import { normalizeAgentError, uid } from './stall'
 import { stampAssistantTurnEnd } from './messagePlacement'
-import { updateCurrentAssistantParts } from './turnBoundaries'
+import { openReplyExplainsFailure, replyId, updateCurrentAssistantParts } from './turnBoundaries'
 
 import type { PanelCtx } from './ctx'
 
@@ -18,9 +18,9 @@ import type { PanelCtx } from './ctx'
 const busyNoticeShownForStream = new Set<string>()
 
 // Module-level: the tab callbacks below shadow `t`.
-const BUSY_TITLE = t('Agent is replying in Slack')
+const BUSY_TITLE = t('Replying in Slack')
 const BUSY_DETAIL = t(
-  'The agent is currently replying in the linked Slack thread. Send your message again once that reply finishes.',
+  'A reply is in progress in the linked Slack thread. Send your message again once that reply finishes.',
 )
 const WAITING_FOR_APPROVAL = t('Waiting for approval')
 const waitingForSignIn = (name: string) => t('Waiting for {name} to sign in', { name })
@@ -175,7 +175,7 @@ export function applyStreamEvent(
           phase: null,
           autoResumeAttempts: 0,
           agentSetupRequired: null,
-          ...latchTabError(t, err),
+          ...(openReplyExplainsFailure(t.messages) ? {} : latchTabError(t, err)),
         }
 
         queueTranscriptSync(nextTab, 250)
@@ -215,7 +215,11 @@ export function applyStreamEvent(
 
         return nextTab
       }
-      const msgs = updateCurrentAssistantParts(t.messages, uid, (parts) => applyEvent(parts, sse))
+      const msgs = updateCurrentAssistantParts(
+        t.messages,
+        () => replyId(t, uid),
+        (parts) => applyEvent(parts, sse),
+      )
       const partsChanged = msgs !== t.messages
 
       const nextTab = {

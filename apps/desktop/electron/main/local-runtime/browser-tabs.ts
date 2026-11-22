@@ -1,14 +1,20 @@
-import { BrowserWindow } from 'electron'
+import path from 'node:path'
+
+import { app, BrowserWindow } from 'electron'
 
 import { extensionHost } from '../browser-extensions/host.ts'
 import { browserSession } from '../browser-extensions/manage.ts'
 import { isAppQuitting } from '../window-session.ts'
 import { raiseWindow } from '../../window-raise.ts'
 
+import { saveDownloadsOf, withDownloadNews } from './agent-downloads.ts'
+import { handBack } from './browser-hand-back.ts'
 import { startRecording, stopRecording } from './browser-recording.ts'
+import { openVideoWindow } from './browser-video-window.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
 import { proxyFetch } from './dock-proxy.ts'
+import { showDownloadNotice } from './download-notice.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
@@ -64,22 +70,24 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window, opener })
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
+  // Its downloads are saved with no save dialog, which the agent could not answer, where the
+  // person looks for downloads, and a notice in the window tells them.
+  saveDownloadsOf(
+    contents,
+    conversation,
+    () => app.getPath('downloads'),
+    (file, state) => showDownloadNotice(window, file, state),
+  )
+  // Never shown just to hide again: a window flashed this way may never paint, so its page can
+  // never be captured (#4305).
+  window.once('ready-to-show', () => window.setOpacity(1))
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))
 }
 
 /** A hidden window on the user's browser session, so its pages keep the user's sign-ins. */
-function openTab(url: string, conversation: string): WebContents {
+function openTab(url: string, conversation: string, team: string): WebContents {
   const window = new BrowserWindow({
     ...VIEWPORT,
     useContentSize: true,
@@ -102,6 +110,7 @@ function openTab(url: string, conversation: string): WebContents {
   window.on('close', (event) => {
     if (isAppQuitting()) return
     event.preventDefault()
+    if (window.isVisible()) handBack(team, conversation, contents.id)
     window.hide()
   })
   contents.loadURL(url).catch(() => {
@@ -172,16 +181,12 @@ function onPage<T>(
       stop()
       reject(new Error(message))
     }
-    const onNavigation = (details: {
-      url: string
-      isMainFrame: boolean
-      isSameDocument: boolean
-    }) => {
-      if (details.isMainFrame && !details.isSameDocument)
-        fail(
-          `The tab navigated to ${details.url} before the script finished, so its result is lost. Run eval again on the new page.`,
-        )
-    }
+    // On commit, not start: a link to a file starts a navigation that becomes a download and
+    // never replaces the page, so the script still finishes.
+    const onNavigation = (_event: unknown, url: string) =>
+      fail(
+        `The tab navigated to ${url} before the script finished, so its result is lost. Run eval again on the new page.`,
+      )
     const onGone = () => fail('The tab closed or crashed during the call.')
     const timer = setTimeout(
       () => fail(`The call did not finish within ${String(ms / 1000)}s.`),
@@ -189,12 +194,12 @@ function onPage<T>(
     )
     const stop = () => {
       clearTimeout(timer)
-      contents.off('did-start-navigation', onNavigation)
+      contents.off('did-navigate', onNavigation)
       contents.off('destroyed', onGone)
       contents.off('render-process-gone', onGone)
     }
 
-    if (untilNavigation) contents.on('did-start-navigation', onNavigation)
+    if (untilNavigation) contents.on('did-navigate', onNavigation)
     contents.on('destroyed', onGone)
     contents.on('render-process-gone', onGone)
     work.finally(stop).then(resolve, reject)
@@ -205,7 +210,8 @@ function onPage<T>(
 export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> {
   // Without a conversation, tabs nobody opened (the app's own renderer included) would match.
   if (!call.session) return failed('session is required.')
-  if (call.action === 'tabs') return text(browserTabs(call.session).map(describe))
+  if (call.action === 'tabs')
+    return withDownloadNews(call.session, text(browserTabs(call.session).map(describe)))
   if (call.action === 'dock') return dockMirrorOf(call)
   if (call.action === 'focus') return focusDockTab(call)
   // The iPhone closes a dock tab by its workspace id; an agent closes its own tab.
@@ -214,7 +220,7 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
   if (call.action === 'fetch') return proxyFetch(call)
   if (call.action === 'open') {
     if (!isHttp(call.url)) return failed('url must be an http(s) URL.')
-    const contents = openTab(call.url, call.session)
+    const contents = openTab(call.url, call.session, call.team)
 
     await loaded(contents)
 
@@ -251,31 +257,34 @@ export async function runBrowserCall(call: BrowserCall): Promise<CuaToolResult> 
       return result
     })
 
-    return text(value === undefined ? 'undefined' : value)
+    return withDownloadNews(call.session, text(value === undefined ? 'undefined' : value))
   }
-  const window = tabs.get(contents)?.window
-
   if (call.action === 'show') {
     show(contents)
 
-    return text(`Tab ${String(contents.id)} is on screen; closing its window hides it again.`)
+    return text(`Tab ${String(contents.id)} is on screen; closing it wakes you to continue.`)
   }
   if (call.action === 'close') {
-    window?.destroy()
+    tabs.get(contents)?.window.destroy()
 
     return text(`Closed tab ${String(contents.id)}.`)
   }
   if (call.action === 'record_start') {
     // A recorded page keeps running at full speed until record_stop.
     contents.setBackgroundThrottling(false)
-    await startRecording(contents)
+    await startRecording(contents, call.video ? openVideoWindow : undefined)
 
     return text(`Recording tab ${String(contents.id)}. Use the page, then call record_stop.`)
   }
   if (call.action === 'record_stop') {
     contents.setBackgroundThrottling(true)
 
-    return text(await stopRecording(contents))
+    return text(
+      await stopRecording(contents, {
+        dir: path.join(app.getPath('userData'), 'har'),
+        creator: { name: 'Nuphos Desktop', version: app.getVersion() },
+      }),
+    )
   }
   const image = await unthrottled(contents, () => onPage(contents, contents.capturePage()))
 

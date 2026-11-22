@@ -95,7 +95,7 @@ export function renderTeamPages(ctx: ScopeRenderContext): React.ReactNode | unde
   if (scope.kind === 'team' && active === 'team.agent') {
     return renderPage(
       'team.agent',
-      t('Agent'),
+      t('Task'),
       <MessageSquare className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       null,
     )

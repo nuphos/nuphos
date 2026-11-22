@@ -1,5 +1,7 @@
 package ai.nuphos.android.session
 
+import ai.nuphos.android.model.Words
+import ai.nuphos.android.R
 import ai.nuphos.android.data.SessionConfigState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,9 +46,9 @@ class ModelSettingsStore(
             if (!current(ticket)) return
             config = if (write == null) incoming else incoming.retaining(config)
             if (write == null) { picks = legalPicks(incoming); pending = emptyMap() }
-            error = if (write == null && incoming.options.isEmpty()) "No models available. Try again." else null
-        } catch (e: CancellationException) { if (current(ticket)) error = "Request cancelled. Refresh model settings before trying again."; throw e }
-        catch (_: Exception) { if (current(ticket)) error = "Could not load model settings. Try again." }
+            error = if (write == null && incoming.options.isEmpty()) Words(R.string.storetext_models_none) else null
+        } catch (e: CancellationException) { if (current(ticket)) error = Words(R.string.storetext_models_cancelled); throw e }
+        catch (_: Exception) { if (current(ticket)) error = Words(R.string.storetext_models_load_failed) }
         finally { if (current(ticket)) loading = false }
         if (current(ticket) && error == null) drain()
     }
@@ -64,9 +66,9 @@ class ModelSettingsStore(
                 config = incoming
                 picks = legalPicks(incoming)
                 pending = emptyMap()
-                error = if (incoming.options.isEmpty()) "No models available. Try again." else null
+                error = if (incoming.options.isEmpty()) Words(R.string.storetext_models_none) else null
             } catch (e: CancellationException) { if (current(ticket)) pending = emptyMap(); throw e }
-            catch (_: Exception) { if (current(ticket)) error = "Could not change model settings. Try again." }
+            catch (_: Exception) { if (current(ticket)) error = Words(R.string.storetext_models_change_failed) }
             finally { if (current(ticket)) saving = false }
         } else drain()
     }
@@ -88,8 +90,8 @@ class ModelSettingsStore(
                 if (!current(ticket)) return
                 config = incoming.retaining(config)
                 pending = pending - id
-            } catch (e: CancellationException) { if (current(ticket)) error = "Request cancelled. Refresh model settings before trying again."; throw e }
-            catch (_: Exception) { if (current(ticket)) error = "Could not apply model settings. Try again or cancel pending changes." }
+            } catch (e: CancellationException) { if (current(ticket)) error = Words(R.string.storetext_models_cancelled); throw e }
+            catch (_: Exception) { if (current(ticket)) error = Words(R.string.storetext_models_apply_failed) }
             finally { if (current(ticket)) saving = false }
         }
     }

@@ -78,6 +78,12 @@ test('a host report is live on the first read; demand still reaches older hosts'
   tunnel.receive(JSON.stringify({ t: 'metrics', metrics: { ...sample, cpuPercent: 99 } }))
   await tick()
   expect((await presence.get('u', 'd'))?.metrics?.cpuPercent).toBe(99)
+  // #4345: when the host saw an OOM kill, the reading carries it through to the devices list.
+  const killed = { ...sample, oomKilledAt: new Date().toISOString() }
+
+  tunnel.receive(JSON.stringify({ t: 'metrics', metrics: killed }))
+  await tick()
+  expect((await readBoxMetrics('u', 'd', false, deps)).metrics).toEqual(killed)
   expect(frames.some((f) => f.t === 'metrics')).toBe(false)
   await readBoxMetrics('u', 'd', true, deps)
   await tick()

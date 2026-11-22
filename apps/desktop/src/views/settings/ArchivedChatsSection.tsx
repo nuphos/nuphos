@@ -26,8 +26,10 @@ export function ArchivedChatsSection({
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-main">
       <PageHeader
-        title={t('Archived agents')}
-        subtitle={t('Your agents in this team that you archived or that sat idle for a week')}
+        title={t('Archived')}
+        subtitle={t(
+          'Your Bots and tasks in this team that you archived or that sat idle for a week',
+        )}
       />
       <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6">
         <SearchBox filter={filter} onFilterChange={setFilter} count={count} />

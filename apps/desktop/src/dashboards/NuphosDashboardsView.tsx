@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { RefreshButton } from '../components/toolbar-controls'
-import { useToolbarHeaderRightSlot } from '../hooks/useToolbarControls'
 import { useTeamRole } from '../hooks/useTeamRole'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -11,11 +8,10 @@ import { t } from '../i18n'
 
 import { AlertModal } from './AlertModal'
 import { PanelEditorModal } from './PanelEditorModal'
-import { CadenceMenu } from './view/CadenceMenu'
 import { DashboardCanvas } from './view/DashboardCanvas'
 import { DashboardListPage } from './view/DashboardListPage'
 import { DashboardToolbar } from './view/DashboardToolbar'
-import { latestCompletedRefreshAt, orderPanels, refreshAge } from './view/helpers'
+import { latestCompletedRefreshAt, orderPanels } from './view/helpers'
 import { useDashboardActions } from './view/useDashboardActions'
 import { useDashboardData } from './view/useDashboardData'
 import { usePanelActions } from './view/usePanelActions'
@@ -66,10 +62,8 @@ export function NuphosDashboardsView({
   const { isActive } = useWorkspaceTab()
   const dragFrom = useRef<number | null>(null)
   const selectedId = openDashboardId ?? null
-  const headerRightSlot = useToolbarHeaderRightSlot(!embedded && isActive && Boolean(selectedId))
-  // Viewers read dashboards; the backend refuses them anything that changes one.
-  const role = useTeamRole(teamId)
-  const canEdit = role !== undefined && role !== 'VIEWER'
+  // Any member creates a dashboard, which starts personal; what else they may change is per dashboard.
+  const canCreate = useTeamRole(teamId) !== undefined
 
   const {
     dashboards,
@@ -138,7 +132,7 @@ export function NuphosDashboardsView({
   // Publish "New dashboard" to the shared toolbar CTA slot — nothing while a
   // dashboard is open, or while this is a keep-alive'd background tab.
   useToolbarPrimaryAction(
-    !embedded && isActive && !selectedId && canEdit ? t('New dashboard') : null,
+    !embedded && isActive && !selectedId && canCreate ? t('New dashboard') : null,
     () => void createDashboard(),
     creating,
   )
@@ -176,9 +170,10 @@ export function NuphosDashboardsView({
     return (
       <DashboardListPage
         embedded={embedded}
-        canEdit={canEdit}
+        teamId={teamId}
         loading={loading}
         dashboards={dashboards}
+        setDashboards={setDashboards}
         visibleDashboards={visibleDashboards}
         dashboardToDelete={dashboardToDelete}
         setDashboardToDelete={setDashboardToDelete}
@@ -190,10 +185,16 @@ export function NuphosDashboardsView({
     )
   }
 
+  // A move between Personal and Team, or a new cadence: the open dashboard and its row in the list.
+  const onDashboardSaved = (dashboard: NuphosDashboard) => {
+    setDetail((current) => current && { ...current, dashboard })
+    setDashboards((prev) => prev.map((d) => (d.id === dashboard.id ? dashboard : d)))
+  }
+
   return (
     <div className="flex h-full flex-col">
       {embedded && (
-        <div className="flex shrink-0 items-center justify-between px-3 py-2">
+        <div className="flex shrink-0 items-center px-3 py-2">
           <button
             type="button"
             className="text-xs text-secondary hover:text-main"
@@ -201,30 +202,8 @@ export function NuphosDashboardsView({
           >
             {t('Back')}
           </button>
-          <RefreshButton onRefresh={() => void refreshAll(true)} loading={refreshing} />
         </div>
       )}
-      {headerRightSlot &&
-        createPortal(
-          <>
-            <span
-              title={lastRefreshAt ? new Date(lastRefreshAt).toLocaleString() : undefined}
-              className="hidden whitespace-nowrap text-[12px] text-tertiary @xl:inline"
-            >
-              {lastRefreshAt ? refreshAge(lastRefreshAt) : t('No completed refresh')}
-            </span>
-            <CadenceMenu
-              teamId={teamId}
-              detail={detail}
-              onSaved={(dashboard) => {
-                setDetail((current) => current && { ...current, dashboard })
-                setDashboards((prev) => prev.map((d) => (d.id === dashboard.id ? dashboard : d)))
-              }}
-            />
-            <RefreshButton onRefresh={() => void refreshAll(true)} loading={refreshing} />
-          </>,
-          headerRightSlot,
-        )}
       <DashboardToolbar
         teamId={teamId}
         onDefaultSaved={loadDetail}
@@ -233,11 +212,14 @@ export function NuphosDashboardsView({
         customRange={customRange}
         setCustomRange={setCustomRange}
         refreshing={refreshing}
+        lastRefreshAt={lastRefreshAt}
+        onRefresh={() => void refreshAll(true)}
         editingLayout={editingLayout}
         setEditingLayout={setEditingLayout}
         applyDate={applyDate}
         onAddPanel={() => setEditor({ panel: null })}
         openPanelAssistant={openPanelAssistant}
+        onSaved={onDashboardSaved}
       />
 
       <DashboardCanvas

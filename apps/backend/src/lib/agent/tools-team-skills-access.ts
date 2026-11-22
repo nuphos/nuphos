@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 
 import {
@@ -17,6 +18,25 @@ export const scopeInput = z
 
 export type SkillScopeName = z.infer<typeof scopeInput>
 
+/** The Skills page's role rule for team skills: any member reads, VIEWER cannot write, only ADMINISTRATOR deletes. */
+export type ScopeNeed = 'read' | 'write' | 'delete'
+
+export const label = z
+  .string()
+  .min(1)
+  .max(160)
+  .describe('Short human-readable description of this single action, shown to the user as a step.')
+
+/** Runs a skill tool, answering a refused store call with its reason instead of throwing. */
+export async function run<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: string }> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (err instanceof AppError) return { ok: false, error: `${err.code}: ${err.message}` }
+    throw err
+  }
+}
+
 // Checked on every call rather than by hiding the tools: an agent without the
 // tools cannot tell "not allowed" from "not supported" and reports neither.
 export async function requireScopeAccess(args: {
@@ -24,9 +44,9 @@ export async function requireScopeAccess(args: {
   teamId: string
   ownerUserId: string
   scope: SkillScopeName
-  write: boolean
+  need: ScopeNeed
 }): Promise<{ ok: true; scope: string } | { ok: false; error: string }> {
-  const { userId, teamId, scope, write } = args
+  const { userId, teamId, scope, need } = args
 
   if (!isSkillsStoreConfigured()) {
     return { ok: false, error: 'unavailable: this Nuphos server has no team skills store' }
@@ -48,7 +68,10 @@ export async function requireScopeAccess(args: {
     return { ok: false, error: 'forbidden: you are not a member of this team' }
   }
   if (scope === 'personal') return { ok: true, scope: personalSkillsScope(teamId, userId) }
-  if (write && membership.role === 'VIEWER') {
+  if (need === 'delete' && membership.role !== 'ADMINISTRATOR') {
+    return { ok: false, error: 'forbidden: only an ADMINISTRATOR can delete team skills' }
+  }
+  if (need === 'write' && membership.role === 'VIEWER') {
     return { ok: false, error: 'forbidden: VIEWER role cannot create or update team skills' }
   }
 

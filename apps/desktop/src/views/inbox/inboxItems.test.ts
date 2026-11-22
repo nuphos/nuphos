@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { answeredIn, inboxCount, inboxGroups, inboxQuestions, openQuestion } from './inboxItems.ts'
+import {
+  answeredIn,
+  botAbove,
+  inboxCount,
+  inboxGroups,
+  inboxQuestions,
+  openQuestion,
+} from './inboxItems.ts'
 
 import type { AgentConversation } from '../../api/agent-types.ts'
 
@@ -54,18 +61,47 @@ test('the Inbox groups open questions by who asked, newest first, without those 
   )
 })
 
-test('the Inbox keeps the open question, and opens the next row once it is answered', () => {
-  const rows = inboxQuestions([waiting('a', 'q1', 'q2', 'q3')], new Map())
+test("a Bot's tasks list their questions in the Bot's group, as the sidebar files them", () => {
+  const bot = { ...waiting('bot', 'q2'), avatar: 'face' }
+  const task = { ...waiting('task', 'q1', 'q4'), parentSessionId: 'bot' }
+  const subtask = { ...waiting('subtask', 'q5'), parentSessionId: 'task' }
+  const nestedBot = { ...waiting('nested', 'q6'), avatar: 'face', parentSessionId: 'bot' }
+  const orphan = { ...waiting('orphan', 'q7'), parentSessionId: 'unlisted' }
+  const listing = [bot, task, subtask, nestedBot, orphan, waiting('alone', 'q3')]
+  const byId = new Map(listing.map((row) => [row.sessionId, row]))
+  const rows = inboxQuestions(listing, new Map(), (conversation) =>
+    botAbove(conversation, byId, (row) => Boolean(row.avatar)),
+  )
 
-  // The first listing opens the top row; an empty Inbox opens nothing.
+  // A Bot stands on its own even when nested; a task whose parents are not listed stays its own group.
+  assert.deepEqual(
+    inboxGroups(rows).map((group) =>
+      group.map(
+        (row) => `${row.bot?.sessionId ?? '-'}:${row.conversation.sessionId}:${row.request.id}`,
+      ),
+    ),
+    [
+      ['-:orphan:q7'],
+      ['-:nested:q6'],
+      ['bot:subtask:q5', 'bot:task:q4', '-:bot:q2', 'bot:task:q1'],
+      ['-:alone:q3'],
+    ],
+  )
+  assert.equal(inboxCount(listing, new Map()), 7)
+})
+
+test('the Inbox keeps the open question while newer ones are listed above it', () => {
+  const rows = inboxQuestions([waiting('a', 'q1', 'q2', 'q3')], new Map())
+  const later = inboxQuestions([waiting('a', 'q1', 'q2', 'q3', 'q4')], new Map())
+
+  // Nothing picked yet: the top row opens; an empty Inbox opens nothing.
   assert.equal(openQuestion(rows, null)?.request.id, 'q3')
   assert.equal(openQuestion([], null), undefined)
-  assert.equal(openQuestion(rows, { id: 'q2', index: 1 })?.request.id, 'q2')
-  // q2 answered: the row that took its place opens, else the last one.
-  const rest = rows.filter((row) => row.request.id !== 'q2')
-
-  assert.equal(openQuestion(rest, { id: 'q2', index: 1 })?.request.id, 'q1')
-  assert.equal(openQuestion(rest, { id: 'q1', index: 2 })?.request.id, 'q1')
+  assert.equal(openQuestion(rows, 'q2')?.request.id, 'q2')
+  // q4 is newer and listed first; q2 is still the one open.
+  assert.equal(openQuestion(later, 'q2')?.request.id, 'q2')
+  // A question no longer listed opens the top row.
+  assert.equal(openQuestion(rows, 'gone')?.request.id, 'q3')
 })
 
 test('a listing settles answers it no longer has open, and those past their deadline', () => {
@@ -78,4 +114,58 @@ test('a listing settles answers it no longer has open, and those past their dead
   const listing = [waiting('a', 'sending', 'sent', 'stale')]
 
   assert.deepEqual(answeredIn(listing, answered, 1_000), ['gone', 'stale'])
+})
+
+test('a snoozed question leaves the Inbox and its count until its time, listed as snoozed', () => {
+  const now = Date.parse('2026-11-17T08:00:00Z')
+  const listing = [waiting('a', 'q1', 'q2')]
+  const request = listing[0]!.inputRequests![0]!
+
+  request.snoozedUntil = '2026-11-17T09:00:00Z'
+  assert.deepEqual(
+    inboxQuestions(listing, new Map(), undefined, { now }).map((row) => row.request.id),
+    ['q2'],
+  )
+  assert.equal(inboxCount(listing, new Map(), now), 1)
+  assert.deepEqual(
+    inboxQuestions(listing, new Map(), undefined, { now, snoozed: true }).map((r) => r.request.id),
+    ['q1'],
+  )
+  // Its time has come: it is back, and no longer snoozed.
+  const later = Date.parse('2026-11-17T09:00:01Z')
+
+  assert.equal(inboxCount(listing, new Map(), later), 2)
+  assert.deepEqual(inboxQuestions(listing, new Map(), undefined, { now: later, snoozed: true }), [])
+})
+
+test('onboarding preferences stay in the Bot chat without entering the Inbox', () => {
+  const bot = {
+    ...waiting('new-bot', 'setup'),
+    botOnboarding: 'active' as const,
+    inputRequests: waiting('new-bot', 'setup').inputRequests!.map((r) => ({
+      ...r,
+      category: 'preference',
+    })),
+  }
+
+  assert.equal(inboxCount([bot], new Map()), 0)
+  assert.equal(inboxCount([{ ...bot, botOnboarding: 'completed' }], new Map()), 1)
+  assert.equal(
+    inboxCount(
+      [
+        {
+          ...bot,
+          inputRequests: [...bot.inputRequests, ...waiting('new-bot', 'approval').inputRequests!],
+        },
+      ],
+      new Map(),
+    ),
+    1,
+  )
+})
+
+test('legacy introduced Bots keep their normal Inbox questions', () => {
+  const bot = { ...waiting('legacy', 'work'), botOnboarding: 'started' as const }
+
+  assert.equal(inboxCount([bot], new Map()), 1)
 })

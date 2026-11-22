@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness). Claude Code and Codex get this layer by patching their Node adapters;
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness), and for Pi behind the pi-acp
+// adapter. Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
 //
@@ -15,10 +16,12 @@ import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
+import { openCodeEndpoint, openCodeRefusal } from './opencode-session.mjs'
+import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -33,6 +36,7 @@ const SESSION_ENV = new Set([
   'TEAM',
   'NUPHOS_SESSION_ID',
   'NUPHOS_SESSION_ACTOR',
+  'NUPHOS_SESSION_HOME_EPOCH',
   'NUPHOS_PLAN_API_BASE',
   'NUPHOS_PLAN_API_TOKEN',
   // The backend clears these for a selected connector, so the runtime's own do
@@ -83,6 +87,8 @@ export const PROVIDERS = {
     instruct: null,
     // A prompt sent while a turn runs joins that turn instead of starting its own.
     serialPrompts: true,
+    // A refused turn never ends on its own: see opencode-session.mjs.
+    refusal: true,
   },
   hermes: {
     command: ['hermes', 'acp'],
@@ -103,6 +109,25 @@ export const PROVIDERS = {
     // DSH resumes a session without replaying it, and has no session/load; OpenAB only
     // loads, so a load is sent as a resume.
     loadAsResume: true,
+  },
+  pi: {
+    // Pi speaks its own RPC, not ACP: pi-acp, installed beside this file, runs the CLI.
+    adapter: true,
+    command: [
+      process.execPath,
+      fileURLToPath(new URL('./node_modules/pi-acp/dist/index.js', import.meta.url)),
+    ],
+    // An agent directory of the session home's own: see pi-session.mjs.
+    home: (runtimeHome, sessionHome, runtimeEnv) => ({
+      PI_CODING_AGENT_DIR: piAgentDir(runtimeHome, sessionHome ?? runtimeHome),
+      PI_ACP_PI_COMMAND: runtimeEnv.NUPHOS_AGENT_EXECUTABLE || 'pi',
+    }),
+    // pi-acp passes a session's MCP servers nowhere; Pi reads them from its agent directory.
+    mcpServers: (env, servers) => writePiMcpServers(env.PI_CODING_AGENT_DIR, servers),
+    // pi-acp ends a failed turn as if Pi had replied; Pi's session file says why it failed.
+    turnError: (env, sessionId) => piTurnError(env.PI_CODING_AGENT_DIR, sessionId),
+    instruct: null,
+    serialPrompts: true,
   },
 }
 
@@ -127,7 +152,7 @@ export function agentEnv(provider, context, runtimeEnv = process.env) {
     ...runtimeEnv,
     ...env,
     ...sessionHome,
-    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME),
+    ...PROVIDERS[provider].home(runtimeHome, sessionHome.NUPHOS_SESSION_HOME, runtimeEnv),
   }
 }
 
@@ -138,8 +163,16 @@ function shareFromRuntimeHome(path, sessionHome, runtimeHome) {
   mkdirSync(dirname(link), { recursive: true, mode: 0o700 })
   try {
     lstatSync(link)
-  } catch {
-    symlinkSync(join(runtimeHome, path), link)
+    return
+  } catch {}
+  try {
+    // A junction on Windows, where a symlink needs Developer Mode or an administrator.
+    symlinkSync(join(runtimeHome, path), link, 'junction')
+  } catch (error) {
+    // Unshared, the agent starts without the runtime's login there; the turn still runs.
+    process.stderr.write(
+      `nuphos: could not share ${path} with the runtime home: ${error.message}\n`,
+    )
   }
 }
 
@@ -197,6 +230,11 @@ export function runShim({
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
   settleMs = 1000,
+  // How often an open turn checks whether its provider refused it (spec.refusal), once
+  // the agent has sent nothing for the session for `refusalQuietMs`.
+  refusalPollMs = 1500,
+  refusalQuietMs = 15_000,
+  readOpenCodeRefusal = openCodeRefusal,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -217,21 +255,65 @@ export function runShim({
   const tasks = new Map()
   const internal = new Map()
   const transforms = new Map()
+  // Why each prompt's provider refused it; the agent's answer to the cancel closes them.
+  const refused = new Map()
+  // When the agent last sent anything for each session.
+  const heard = new Map()
+  const activityVersion = new Map()
+  const sessionDirectories = new Map()
   let initialize
   let agent
+  let agentEnvironment
+  let agentEndpoint
+  let pendingInitialize
+  let restarting
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
 
-  const start = (env) => {
-    agent?.kill('SIGTERM')
+  const start = async (env, withoutStatus = false) => {
+    const previous = agent
+
+    agent = undefined
+    previous?.kill('SIGTERM')
+    let endpoint
+    if (provider === 'opencode' && !withoutStatus) {
+      try {
+        endpoint = await openCodeEndpoint()
+      } catch {
+        // A missing status endpoint must not prevent an otherwise normal turn.
+      }
+    }
+    const originalEnv = env
+
+    if (endpoint) env = { ...env, OPENCODE_SERVER_PASSWORD: endpoint.password }
     // A computer running the agent locally names its own CLI, which may be off PATH.
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
-    const child = spawnAgent([env.NUPHOS_AGENT_EXECUTABLE || command, ...args], env)
+    // An adapter runs the CLI itself, named to it in its home's environment.
+    const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
+    const child = spawnAgent(
+      endpoint
+        ? [executable, ...args, '--hostname', '127.0.0.1', '--port', String(endpoint.port)]
+        : [executable, ...args],
+      env,
+    )
     agent = child
+    agentEnvironment = env
+    agentEndpoint = endpoint
     // The agent is the session: when it ends, so does this process.
+    let initialized = false
     child.on('exit', (code) => {
-      if (agent === child) onExit(code ?? 1)
+      if (agent !== child) return
+      if (endpoint && !initialized) {
+        const retry = pendingInitialize
+
+        restarting = start(originalEnv, true).then(() => {
+          if (retry && pendingInitialize === retry) send(retry)
+        })
+        void restarting.catch(() => onExit(code ?? 1))
+        return
+      }
+      onExit(code ?? 1)
     })
     createInterface({ input: child.stdout }).on('line', (line) => {
       if (agent !== child) return
@@ -240,6 +322,10 @@ export function runShim({
         message = JSON.parse(line)
       } catch {
         return output.write(`${line}\n`)
+      }
+      if (pendingInitialize && message.id === pendingInitialize.id && !message.method) {
+        initialized = true
+        pendingInitialize = undefined
       }
       fromAgent(message)
     })
@@ -267,12 +353,34 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
+    if (sessionId) {
+      heard.set(sessionId, Date.now())
+      activityVersion.set(sessionId, (activityVersion.get(sessionId) ?? 0) + 1)
+    }
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
-      forward(message)
+      // Cancelled by this process for its provider's refusal, or a refusal the agent ended as
+      // if it had replied.
+      const failure =
+        refused.get(message.id) ??
+        (message.result && spec.turnError?.(agentEnvironment, promptSession))
+      refused.delete(message.id)
+      // A failed turn answers as Claude Code's does, so every client shows why it failed.
+      forward(
+        failure
+          ? {
+              jsonrpc: '2.0',
+              id: message.id,
+              error: {
+                code: -32603,
+                message: `Internal error: The model provider refused the request: ${failure}`,
+              },
+            }
+          : message,
+      )
       const next = queued.get(promptSession)?.shift()
       if (next) sendPrompt(next)
       else queued.delete(promptSession)
@@ -337,7 +445,43 @@ export function runShim({
     }
     forward(message)
   }
-  const send = (message) => agent.stdin.write(`${JSON.stringify(message)}\n`)
+  const send = (message) => {
+    if (message.method === 'initialize') pendingInitialize = message
+    agent.stdin.write(`${JSON.stringify(message)}\n`)
+  }
+  const watchRefusal = (id, sessionId) => {
+    heard.set(sessionId, Date.now())
+    let checking = false
+    const timer = setInterval(async () => {
+      if (prompts.get(id) !== sessionId) return clearInterval(timer)
+      // A turn the agent is still answering is not refused.
+      if (checking || Date.now() - heard.get(sessionId) < refusalQuietMs) return
+      checking = true
+      const lastHeard = heard.get(sessionId)
+      const lastActivity = activityVersion.get(sessionId)
+      const checkedAgent = agent
+      let why
+      try {
+        why = await readOpenCodeRefusal(agentEndpoint, sessionId, sessionDirectories.get(sessionId))
+      } catch {
+        // Whatever cannot be read leaves the turn as it is.
+      } finally {
+        checking = false
+      }
+      if (
+        !why ||
+        prompts.get(id) !== sessionId ||
+        agent !== checkedAgent ||
+        heard.get(sessionId) !== lastHeard ||
+        activityVersion.get(sessionId) !== lastActivity
+      )
+        return
+      clearInterval(timer)
+      refused.set(id, why)
+      send({ jsonrpc: '2.0', method: 'session/cancel', params: { sessionId } })
+    }, refusalPollMs)
+    timer.unref?.()
+  }
   const request = (method, params) =>
     new Promise((resolve, reject) => {
       const id = `nuphos-shim-${String(++nextId)}`
@@ -355,7 +499,8 @@ export function runShim({
       // a teammate now acts in the conversation; restart it under this one's
       // before it opens the session. The client already holds the initialize answer.
       boundHome = env.NUPHOS_SESSION_HOME ?? ''
-      start(env)
+      await start(env)
+      if (restarting) await restarting
       if (initialize) await request('initialize', initialize.params)
     }
     await nuphosSyncRuntimeSkills(message.params)
@@ -367,12 +512,14 @@ export function runShim({
       _meta: meta,
       mcpServers: nuphosBridgeMcpServers(message.params?.mcpServers ?? [], runtimeEnv),
     }
+    spec.mcpServers?.(agentEnvironment, params.mcpServers)
     if (params.sessionId) opening.add(params.sessionId)
     transforms.set(message.id, async (reply) => {
       opening.delete(params.sessionId)
       if (reply.error) return reply
       // A loaded or resumed session gets the current instructions too.
       const sessionId = reply.result?.sessionId ?? params.sessionId
+      if (sessionId && typeof params.cwd === 'string') sessionDirectories.set(sessionId, params.cwd)
       if (text && !spec.instruct) pendingInstructions.set(sessionId, text)
       const agentApi = {
         setSessionConfigOption: (options) => request('session/set_config_option', options),
@@ -391,6 +538,7 @@ export function runShim({
   }
 
   const handle = async (message) => {
+    if (restarting) await restarting
     if (message.method === 'initialize') {
       // OpenAB offers to run terminals itself, in the gateway's environment rather
       // than this session's. The agent runs its own commands, as Claude and Codex do.
@@ -437,6 +585,7 @@ export function runShim({
   const sendPrompt = (message) => {
     const sessionId = message.params.sessionId
     prompts.set(message.id, sessionId)
+    if (spec.refusal) watchRefusal(message.id, sessionId)
     write(sessionState(sessionId, 'active'))
     const text = pendingInstructions.get(sessionId)
     pendingInstructions.delete(sessionId)
@@ -453,9 +602,8 @@ export function runShim({
     )
   }
 
-  start(agentEnv(provider, undefined, runtimeEnv))
   // Frames are handled in order: a prompt must not overtake the session it belongs to.
-  let queue = Promise.resolve()
+  let queue = start(agentEnv(provider, undefined, runtimeEnv))
   createInterface({ input }).on('line', (line) => {
     let message
     try {

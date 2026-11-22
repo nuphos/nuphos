@@ -49,7 +49,7 @@ export function finalizeIncompleteTools(messages: Message[], errorText: string):
 // Outside latchTabError: its tab parameter shadows `t`.
 function repeatedFailureText(err: string, streak: number) {
   return t(
-    "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this agent or continue in a new one.)",
+    "{error} (This has failed {count} times in a row — retrying the same way won't help. If it persists, reopen this task or continue in a new one.)",
     { error: err, count: streak },
   )
 }

@@ -11,7 +11,7 @@ import type { LocalUrl } from './localUrls'
 export type OpenLink = (href: string, beside: boolean) => boolean
 
 const CHIP =
-  'group/local inline-flex h-[22px] max-w-full items-center gap-1.5 rounded-md border border-line-control bg-state-selected pl-1.5 pr-0.5 align-[-0.35em] text-[12.5px] leading-none text-main no-underline transition-colors duration-150 hover:border-line-control hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus motion-reduce:transition-none'
+  'chat-resource-chip group/local inline-flex h-[22px] max-w-full items-center gap-1.5 rounded-md border border-line-control bg-state-selected pl-1.5 pr-0.5 align-[-0.35em] text-[12.5px] leading-none text-main no-underline transition-colors duration-150 hover:border-line-control hover:bg-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-line-focus motion-reduce:transition-none'
 
 /** A prominent local preview, opened in the existing browser pane with one click. */
 export function LocalUrlChip({

@@ -1,18 +1,20 @@
 import { CornerUpLeft, Pause } from 'lucide-react'
-import { Fragment, useCallback, useRef, useState } from 'react'
+import { Fragment, useCallback, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
+import { CONVERSATION_TAIL_LIMIT } from '../agent/panel/taskTranscript'
 import { ContextMenu } from '../ContextMenu'
 
-import { replyTo } from './channelReply'
+import { endsInboxAnswer, replyTo } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
-import { BotWorkStatus } from './BotWorkStatus'
+import { useOpenAtPost, usePostJump } from './postJump'
 
 import type {
   AgentMessageReply,
@@ -38,7 +40,7 @@ function Notice({ event }: { event: AgentTimelineEvent }) {
       <span className="flex items-center gap-1.5 rounded-full border border-line-control/60 bg-main px-3 py-1 text-[12px] text-secondary">
         <Pause className="h-3 w-3 shrink-0 text-warning" strokeWidth={2.5} />
         {t(
-          'Agents paused after {count} replies to each other. They pick up again when someone posts.',
+          'Bots paused after {count} replies to each other. They pick up again when someone posts.',
           { count: event.turns ?? 10 },
         )}
       </span>
@@ -54,7 +56,32 @@ const stamp = (value: string | undefined) => Date.parse(value ?? '') || 0
 const postedAt = (message: AgentPersistedMessage) =>
   stamp(parseMessageMetadata(message.metadata)?.sentAt ?? message.createdAt)
 
+/**
+ * Where the drawn posts start. Opening draws the latest only, as a Task does: drawing every post
+ * held the click that opened the chat (#4382). The rest are drawn on request, or for a link to one.
+ */
+function useRecentPosts(messages: AgentPersistedMessage[], channelId: string) {
+  // The chat whose posts are all drawn: another chat opens with its latest again.
+  const [whole, setWhole] = useState<string>()
+  const from = whole === channelId ? 0 : Math.max(0, messages.length - CONVERSATION_TAIL_LIMIT)
+  const jump = usePostJump(channelId)
+
+  if (from > 0 && jump && messages.slice(0, from).some((message) => message.id === jump))
+    setWhole(channelId)
+
+  const showEarlier = () => {
+    const top = messages[from]?.id
+
+    flushSync(() => setWhole(channelId))
+    // The post that was first stays where the reader was, with the earlier ones above it.
+    if (top) document.querySelector(`[data-post-id="${CSS.escape(top)}"]`)?.scrollIntoView()
+  }
+
+  return { from, showEarlier }
+}
+
 export function ChannelMessages({
+  botId,
   messages,
   events,
   agents,
@@ -63,11 +90,11 @@ export function ChannelMessages({
   onOpenSession,
   onOpenNuphosLink,
   channelId,
-  botId,
   onReply,
   extraRows = [],
   fixes,
 }: {
+  botId?: string
   messages: AgentPersistedMessage[]
   events: AgentTimelineEvent[]
   agents: ChannelAgent[]
@@ -76,8 +103,6 @@ export function ChannelMessages({
   onOpenSession: (sessionId: string) => void
   onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
   channelId: string
-  /** A Bot's chat: what the Bot is doing shows in place of its typing dots. */
-  botId?: string
   /** Replies to a post; absent where the viewer cannot post. */
   onReply?: (reply: AgentMessageReply) => void
   /** Other lines in the timeline, such as the questions a Bot's chat waits on. */
@@ -86,6 +111,8 @@ export function ChannelMessages({
   fixes?: ChannelFixes
 }) {
   const renderAgentLink = useAgentLinks(teamId, onOpenNuphosLink)
+
+  useOpenAtPost(channelId)
   // One function across renders: a new one makes every post rebuild its text,
   // which drops a selection the reader is dragging.
   const renderLink = useCallback(
@@ -102,13 +129,13 @@ export function ChannelMessages({
   )
   const [openedAt] = useState(Date.now)
   const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
-  const timeline = useRef<HTMLDivElement>(null)
-  const bot = agents.find((agent) => agent.sessionId === botId)
   const lastEvent = events.at(-1)
   const lastPostAt = Math.max(0, ...messages.map(postedAt))
+  const { from, showEarlier } = useRecentPosts(messages, channelId)
   // Posts and timeline lines in the order they happened.
   const rows: TimelineRow[] = [
-    ...messages.map((message, i) => {
+    ...messages.slice(from).map((message, shown) => {
+      const i = from + shown
       const at = postedAt(message)
       // A time above the post starts a new run, as in iMessage.
       const gap = startsTimeGap(at, i > 0 ? postedAt(messages[i - 1]!) : undefined)
@@ -133,6 +160,7 @@ export function ChannelMessages({
               teamId={teamId}
               links={links}
               onOpenSession={onOpenSession}
+              answeredInInbox={endsInboxAnswer(messages, i)}
               onMenu={
                 onReply &&
                 ((event) => {
@@ -156,6 +184,7 @@ export function ChannelMessages({
     }),
     ...events
       .filter((event) => event.kind === 'agents_paused' || event.kind === 'agent_reply_failed')
+      .filter((event) => from === 0 || stamp(event.at) >= postedAt(messages[from]!))
       .map((event) => ({
         at: stamp(event.at),
         key: `event-${event.kind}-${event.at}`,
@@ -179,25 +208,19 @@ export function ChannelMessages({
   ].sort((a, b) => a.at - b.at)
 
   return (
-    <div ref={timeline} className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      {from > 0 && (
+        // Read by SessionFindBar: part of the chat is not in the DOM.
+        <div data-earlier-messages className="flex justify-center py-1 text-[11.5px] text-tertiary">
+          <button type="button" onClick={showEarlier} className="hover:text-main transition-colors">
+            {t('Load earlier messages')}
+          </button>
+        </div>
+      )}
       {rows.map((row) => (
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
-      <Typing agents={agents.filter((agent) => agent !== bot)} channelId={channelId} />
-      {bot && (
-        <BotWorkStatus
-          teamId={teamId}
-          channelId={channelId}
-          agent={bot}
-          onOpenSession={owned.has(bot.sessionId) ? onOpenSession : undefined}
-          // The oldest open question, the one the line names, wherever it was asked.
-          onShowQuestion={() =>
-            timeline.current
-              ?.querySelector('[data-open-question]')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
-        />
-      )}
+      <Typing agents={agents} channelId={channelId} botId={botId} />
       {menu && onReply && (
         <ContextMenu
           x={menu.x}

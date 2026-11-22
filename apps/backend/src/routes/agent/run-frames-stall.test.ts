@@ -2,7 +2,7 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
-import { appendAgentRunDone, finishAgentRun } from './run-frames'
+import { appendAgentRunDone, appendAgentRunFrame, finishAgentRun } from './run-frames'
 import { createAgentRun } from './run-registry'
 import { RUN_FRAME_STALL_MS, stalledAgentRuns } from './run-stall'
 
@@ -74,4 +74,18 @@ describe('stalled run detection', () => {
     expect(stalledAgentRuns([subject], now)).toHaveLength(1)
     subject.releaseOwnership()
   })
+})
+
+// A runtime's repeated snapshot carries nothing new, so it is not kept, but it still
+// shows the run is alive: a long, quiet tool call must not look stalled.
+test('a dropped repeat snapshot still counts as a sign of life', () => {
+  const subject = run('quiet-tool')
+  const snapshot = `data: ${JSON.stringify({ type: 'runtime-state', snapshot: { phase: 'tool' } })}\n\n`
+
+  appendAgentRunFrame(subject, snapshot)
+  subject.lastFrameAt = Date.now() - RUN_FRAME_STALL_MS - 1
+  appendAgentRunFrame(subject, snapshot)
+
+  expect(stalledAgentRuns([subject], Date.now())).toHaveLength(0)
+  expect(subject.frames.filter((frame) => frame.includes('runtime-state'))).toHaveLength(1)
 })

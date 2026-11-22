@@ -90,7 +90,7 @@ export type TeamByosBindings = {
   larkApps?: LarkAppBinding[]
   /**
    * The team's own Google OAuth client (Web application) for its members'
-   * Gmail and Google Drive Personal Credentials. Unset until an admin adds it.
+   * Gmail, Google Drive and Google Calendar Personal Credentials. Unset until an admin adds it.
    */
   googleOAuthClient?: {
     clientId: string
@@ -167,6 +167,10 @@ export type TeamInvitation = {
   inviteeEmail: string
   acceptedAt?: Date
   rejectedAt?: Date
+  /** When an invitation email last went out; unset while none has. */
+  lastSentAt?: Date
+  /** The role its person joins with; older invitations have none and join as editors. */
+  role?: 'ADMINISTRATOR' | 'EDITOR' | 'VIEWER'
 }
 
 export type SidebarFavoriteEntry = {

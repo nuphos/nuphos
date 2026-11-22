@@ -11,6 +11,11 @@ export type BoxConfig = {
   downloadUrl?: string
   /** vCPUs a team's running Boxes may use when its document sets no `boxVcpuLimit`; unset is unlimited. */
   defaultVcpuLimit?: number
+  /**
+   * Hours a month a team without its own `boxVcpuLimit` may run Boxes at `defaultVcpuLimit`.
+   * Set, such a team has one Box, which Nuphos pauses when idle; unset is unlimited.
+   */
+  defaultMonthlyHours?: number
   /** The billing service clients open to buy or change a plan; unset shows no Upgrade. */
   billingUrl?: string
 }
@@ -23,6 +28,9 @@ export function boxConfig(): BoxConfig {
     ...(downloadUrl ? { downloadUrl } : {}),
     ...(optional('BOX_DEFAULT_VCPU_LIMIT')
       ? { defaultVcpuLimit: boundedInt('BOX_DEFAULT_VCPU_LIMIT', 0, { min: 0, max: 10_000 }) }
+      : {}),
+    ...(optional('BOX_DEFAULT_MONTHLY_HOURS')
+      ? { defaultMonthlyHours: boundedInt('BOX_DEFAULT_MONTHLY_HOURS', 0, { min: 0, max: 744 }) }
       : {}),
     ...(optional('NUPHOS_BILLING_URL') ? { billingUrl: optional('NUPHOS_BILLING_URL') } : {}),
     instabox: apiKey

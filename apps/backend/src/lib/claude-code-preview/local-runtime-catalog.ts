@@ -48,7 +48,6 @@ export type LocalRuntimeSummary = {
   instanceId?: string
   /** The team member who added this agent through Nuphos; absent for older and default agents. */
   addedBy?: { userId: string; at: string }
-  agentInstances?: boolean
   /** Whether the computer reports this agent right now. */
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
@@ -59,6 +58,8 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
+  /** Which account's quota the agent spends, hashed by that computer; see runtime-quota-shape. */
+  accountKey?: string
   /** Present when the computer is a Box Nuphos made, rather than someone's own machine. */
   box?: Pick<AgentDeviceBox, 'provider'>
   /** Present when it is a teammate's own computer they share with the viewer; see local-share. */
@@ -155,7 +156,6 @@ export async function listOwnLocalRuntimes(
               deviceId: device.deviceId,
               deviceLabel: device.label,
               ...(label ? { agentLabel: label } : {}),
-              agentInstances: presence?.status?.agentInstances === true,
               ...(presence?.status?.desktopOpen === true ? { desktopOpen: true as const } : {}),
               ...(device.box ? { box: { provider: device.box.provider } } : {}),
               ...(shared ? { shared: { level: 'full' as const } } : {}),
@@ -165,6 +165,7 @@ export async function listOwnLocalRuntimes(
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
+              ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
                 ? {
                     usage: reported.usage,
@@ -215,6 +216,7 @@ export async function resolveLocalRuntimeEndpoint(
   // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
   const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
+  const offlineCause = presence ? 'agent_unreported' : 'no_presence' // logged by adopt_failed
 
   // Removed from its computer: no report will bring it back, so it is gone, not offline.
   if (!agent && !kept && purpose !== 'login') throw runtimeGone()
@@ -225,9 +227,11 @@ export async function resolveLocalRuntimeEndpoint(
       409,
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
-      // The placement just authorized: a send to an offline Box queues for it (queueForOfflineBox).
-      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
+      // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
+      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label, cause: offlineCause },
     )
+  if (agent?.cli.probeError && purpose !== 'login')
+    throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)
   if (agent?.cli.loggedIn === false && purpose !== 'login')
     throw new AppError(
       409,
@@ -253,15 +257,14 @@ export async function localRuntimeModels(
   deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = defaultDeps,
 ): Promise<RuntimeModelCatalog> {
   const ref = parseLocalRuntimeId(runtimeId)
-  const catalog = ref
-    ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)?.models
+  const agent = ref
+    ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)
     : undefined
+  const catalog = agent?.models?.failed ? undefined : agent?.models
+  const missing = agent?.models?.failed ? 'undiscovered' : 'unreported'
 
   if (!catalog)
-    return {
-      models: [],
-      message: 'The computer running this agent has not reported its models yet. Retry shortly.',
-    }
+    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : missing }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
   // A controls-only report names no model: its entry answers a caller asking for none.
   const split = catalog.controlsOnly && (!model || model === 'default')

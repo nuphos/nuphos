@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n/index.ts'
 
+import { refreshLocalModels } from './refreshLocalModels'
+
 import type { ModelControl } from './ModelSelector'
 import type { SessionConfigPick, SessionConfigState } from '../../../api/session-config-types'
 
@@ -61,7 +63,11 @@ export function useRuntimeModelConfig(
     open,
     setOpen: (next: boolean) => {
       setOpen(next)
-      if (next) setRevision((previous) => previous + 1)
+      if (!next) return
+      setRevision((previous) => previous + 1)
+      refreshLocalModels(api.localRuntimeRefreshModels, () =>
+        setRevision((previous) => previous + 1),
+      )
     },
     select: ({ configId, value }) => onPick({ ...pick, [configId]: value }),
     refresh: () => setRevision((previous) => previous + 1),

@@ -18,6 +18,7 @@ import {
   SquareTerminal,
   SunMedium,
   Users,
+  Webhook,
 } from 'lucide-react'
 
 import { t } from '../../i18n/index.ts'
@@ -46,6 +47,7 @@ const SETTINGS_SECTION_FOR_PAGE: Partial<Record<string, string>> = {
   'team.agents': 'workspace.computers',
   'team.agent-skills': 'workspace.skills',
   'team.agent-memories': 'workspace.memories',
+  'team.billing': 'workspace.billing',
 }
 
 export function settingsSectionForPage(key: string): string | undefined {
@@ -80,7 +82,8 @@ const TEAM_GROUPS: SettingsNavGroup[] = [
       { key: 'workspace.instructions', label: t('Instructions'), icon: FileText },
       { key: 'workspace.skills', label: t('Skills'), icon: Sparkles },
       { key: 'workspace.memories', label: t('Memories'), icon: Brain },
-      { key: 'workspace.archived', label: t('Archived agents'), icon: Archive },
+      { key: 'workspace.webhooks', label: t('Webhooks'), icon: Webhook },
+      { key: 'workspace.archived', label: t('Archived'), icon: Archive },
       { key: 'workspace.audit', label: t('Audit log'), icon: ScrollText },
     ],
   },

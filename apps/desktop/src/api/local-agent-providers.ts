@@ -10,6 +10,7 @@ export const LOCAL_AGENT_PROVIDERS = [
   'opencode',
   'dsh',
   'hermes',
+  'pi',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]

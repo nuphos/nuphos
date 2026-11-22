@@ -1,10 +1,17 @@
-import { faCheck, faCopy, faRotateRight } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Copy, Download, ExternalLink, File as FileIcon, X } from 'lucide-react'
+import {
+  Check as CheckIcon,
+  RotateCw as RotateCwIcon,
+  Copy,
+  Download,
+  ExternalLink,
+  File as FileIcon,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { DetailSidebarTransition } from '../../components/DetailSidebarTransition'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { isImageObject, isTextObject, s3ConsoleObjectUrl, s3Uri } from './s3-helpers'
@@ -125,9 +132,10 @@ export function S3ObjectPreviewPanel({
               className="ml-auto text-tertiary hover:text-main shrink-0"
               title={t('Reload preview')}
             >
-              <FontAwesomeIcon
-                icon={faRotateRight}
-                className={`w-3.5 h-3.5${previewLoading ? ' animate-spin' : ''}`}
+              <UiIcon
+                size={16}
+                icon={RotateCwIcon}
+                className={`w-4 h-4${previewLoading ? ' animate-spin' : ''}`}
               />
             </button>
             <button
@@ -257,7 +265,7 @@ export function S3ObjectPreviewPanel({
                     : t('Copy the full file content')
                 }
               >
-                <FontAwesomeIcon icon={copiedContent ? faCheck : faCopy} className="w-3.5 h-3.5" />
+                <UiIcon size={16} icon={copiedContent ? CheckIcon : Copy} className="w-4 h-4" />
                 {copiedContent ? t('Copied') : t('Copy content')}
               </button>
             )}

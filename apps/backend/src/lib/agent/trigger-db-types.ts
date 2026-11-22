@@ -1,6 +1,6 @@
 import type { AgentCredentialAccess } from './db'
-import type { SessionRouting } from './session-routing'
 import type { TriggerCredentialMode } from './trigger-credential-access'
+import type { PayloadFilter } from './trigger-payload-filter'
 import type { ObjectId } from 'mongodb'
 
 export type TriggerType = 'cron' | 'webhook'
@@ -46,8 +46,6 @@ export type AgentTrigger = {
   cronExpression?: string
   timeZone?: string
   webhookSecret?: string
-  /** Legacy: only on rows created before binding was required. Binding clears it. */
-  sessionRouting?: SessionRouting
   /**
    * The existing conversation every fire is delivered into. It must belong to
    * the execution principal in the same team. Required on every new Trigger;
@@ -63,22 +61,33 @@ export type AgentTrigger = {
   /** Idempotency key for automation callers: create with the same key returns the existing trigger. */
   dedupeKey?: string
   /**
-   * Minimum seconds between webhook-triggered runs (flood guard). Unset falls
-   * back to config.agent.triggers.webhookCooldownSeconds; 0 disables. Cron
-   * runs are already rate-bound by their schedule and manual test-fires are
-   * user-initiated, so only webhook deliveries consult this.
+   * Minimum seconds between webhook-triggered runs. A delivery sooner is held
+   * (heldDeliveries) and fires with the others when the window ends. Unset or 0: no limit.
+   * Cron runs are already rate-bound by their schedule and manual test-fires
+   * are user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
+  /** Webhook only: a delivery that fails these rules is answered and starts no turn. */
+  payloadFilters?: PayloadFilter[]
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.
    */
   configRevision?: number
   lastRunAt?: Date
+  /** Task archive epoch in which this Trigger was created. */
+  archiveEpoch?: number
+  /** Webhook deliveries that arrived inside the minimum-interval window, oldest first. */
+  heldDeliveries?: unknown[]
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: Date
-  /** Scheduled time of the latest fire that never ran; unset by the next fire. */
+  /** Time of the latest fire that never ran; unset by the next turn that runs. */
   missedRunAt?: Date
+  /**
+   * Fires in a row whose turn failed for a reason that cannot pass with time.
+   * Unset by a turn that runs and by the pause it leads to.
+   */
+  failedRunCount?: number
   createdAt: Date
   updatedAt: Date
 }

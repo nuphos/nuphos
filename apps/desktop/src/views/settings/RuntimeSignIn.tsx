@@ -73,9 +73,12 @@ function RuntimeSignInContent({
         )}
       </div>
     )
-  // OpenCode and Hermes Agent sign in to one model provider at a time and keep them all; DSH
+  // OpenCode, Hermes Agent and Pi sign in to one model provider at a time and keep them all; DSH
   // switches between its API key and its account.
-  if (authenticated && !(['opencode', 'hermes', 'dsh'].includes(instance.provider) && onSignIn)) {
+  if (
+    authenticated &&
+    !(['opencode', 'hermes', 'dsh', 'pi'].includes(instance.provider) && onSignIn)
+  ) {
     return <p className="px-4 py-4 text-xs text-tertiary">{t('Signed in on the runtime.')}</p>
   }
   const signedOut = authenticated === false

@@ -44,36 +44,42 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
-    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
-    private(set) var bots: [AgentConversation] = []
+    /// The viewer's Bots, own and shared, listed by the server rather than found in the
+    /// loaded history. A shared one is in no history here, so its face is learned from this.
+    private(set) var bots: [AgentConversation] = [] {
+        didSet { BotFaces.shared.learn(bots) }
+    }
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
-    /// Then one's Bots, for those that have no chat yet.
+    /// Then the Bots in the same two, for those that have no chat yet: one shared
+    /// with the viewer is theirs to open too (#3852).
     func loadChannels() async {
         guard let team = selectedTeam else { return }
         let query = search
         var rows: [AgentConversation] = []
+        var botRows: [AgentConversation] = []
         for scope in ["mine", "shared"] {
             guard let page = try? await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: 100, search: query, scope: scope, channels: true
+            ), let botPage = try? await NuphosAPI.conversations(
+                token: token, teamId: team.id, limit: 100, search: query, scope: scope, bots: true
             ) else { return }
             let seen = Set(rows.map(\.sessionId))
             rows += page.conversations.filter { !seen.contains($0.sessionId) }
+            let seenBots = Set(botRows.map(\.sessionId))
+            botRows += botPage.conversations.filter { !seenBots.contains($0.sessionId) }
         }
-        guard let botPage = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, limit: 100, search: query, bots: true
-        ) else { return }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        bots = botPage.conversations
+        bots = botRows.sorted { $0.lastActiveAt > $1.lastActiveAt }
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
 
     func channel(for conversation: AgentConversation) -> ChannelSession {
-        channel(sessionId: conversation.sessionId, title: conversation.displayTitle, teamId: conversation.teamId)
+        channel(sessionId: conversation.sessionId, title: title(of: conversation), teamId: conversation.teamId)
     }
 
     /// The open chat's poll. Owned here, not by a view: SwiftUI can cancel a
@@ -123,17 +129,56 @@ final class AgentStore {
         return channel
     }
 
-    /// What Tasks lists: every agent, Bots too, by latest activity (#1691).
+    /// The Bot each loaded thread works for, as Desktop decides it (#2341).
+    private var botOwners: [String: String] { ConversationNesting.botOwners(conversations + bots) }
+
+    /// What Tasks lists, by latest activity: no Bot, and nothing a Bot dispatched
+    /// at any depth, which opens from the Bot's page instead (#2341).
     var listedConversations: [AgentConversation] {
-        conversations.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        let owners = botOwners
+        return conversations.filter { !$0.isBot && owners[$0.sessionId] == nil }
+            .sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
-    /// What Bots lists, newest first: every chat, and each Bot that has no
-    /// 1:1 chat yet, by its face.
+    /// What Bots lists, newest first: every chat, and each Bot that is in no
+    /// listed chat, group chats included, by its face.
     var botsList: [AgentConversation] {
-        let chatted = Set(channels.compactMap(\.botId))
+        let chatted = Set(channels.flatMap { $0.agentSessionIds ?? $0.botId.map { [$0] } ?? [] })
         let unchatted = bots.filter { $0.isBot && !chatted.contains($0.sessionId) }
         return (channels + unchatted).sorted { $0.lastActiveAt > $1.lastActiveAt }
+    }
+
+    /// The Bot a chat is the 1:1 of, or the Bot itself, when it is listed.
+    func bot(of row: AgentConversation) -> AgentConversation? {
+        guard let id = row.isBot ? row.sessionId : row.botId else { return nil }
+        // The history first: a rename reloads it before the Bots listing.
+        return (conversations + bots).first { $0.sessionId == id }
+    }
+
+    /// A Bots row's name: a Bot's 1:1 chat is named after the Bot (#2668).
+    func title(of row: AgentConversation) -> String {
+        bot(of: row)?.displayTitle ?? row.displayTitle
+    }
+
+    /// A turn runs in this conversation, on any client.
+    func inTurn(_ row: AgentConversation) -> Bool {
+        guard row.isNativeRuntime else { return row.activeRun != nil }
+        return observations.value(team: row.teamId ?? selectedTeam?.id ?? "", session: row.sessionId)?.turnActive == true
+    }
+
+    /// What a Bot dispatched itself: its direct threads, not Bots.
+    func threads(of bot: AgentConversation) -> [AgentConversation] {
+        conversations.filter { !$0.isBot && $0.parentSessionId == bot.sessionId }
+    }
+
+    /// Rows that ask for the viewer on Bots and on Tasks, as Desktop badges
+    /// its pages. Open questions count in the Inbox, not here (#2669).
+    var pageCounts: [HomePage: Int] {
+        let team = selectedTeam?.id ?? ""
+        let asks = { (row: AgentConversation) in
+            !row.isWaiting && self.unread.contains(team: row.teamId ?? team, session: row.sessionId)
+        }
+        return [.chats: channels.filter(asks).count, .agent: listedConversations.filter(asks).count]
     }
 
     // MARK: - Archive
@@ -145,6 +190,8 @@ final class AgentStore {
             try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: true)
             guard scope == workspaceScope else { return }
             removeFromList(sessionId)
+            // An archived Bot comes back folded, as on Desktop.
+            updateFolds { _ = $0.remove("bots:\(sessionId)") }
             // A Bot goes with its chat on the server, so the chats list drops it too.
             await loadChannels()
         } catch {
@@ -195,23 +242,78 @@ final class AgentStore {
     // MARK: - Threads
 
     private static let foldedThreadsKey = "nuphos.agent.foldedThreads"
-    /// Thread parents folded on the Agent page, per team.
+    /// Tasks rows folded by hand, per team. A row is open until folded.
     private var foldedThreads: [String: Set<String>] =
         (UserDefaults.standard.dictionary(forKey: AgentStore.foldedThreadsKey) as? [String: [String]] ?? [:])
             .mapValues(Set.init)
 
     /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [])
+        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
     }
 
-    func isFolded(_ sessionId: String) -> Bool { foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true }
+    /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
+    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
+
+    func isFolded(_ sessionId: String) -> Bool {
+        foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
+    }
+
+    // MARK: - Pins
+
+    /// The viewer's favorites in this team, which Desktop pins Bots and chats into.
+    private(set) var favorites: SidebarFavorites?
+
+    /// Pinned chats and Bots, in the order they were pinned or arranged.
+    private var pinnedIds: [String] { favorites?.entries.compactMap(\.sessionId) ?? [] }
+
+    /// The pin shelf above Bots: only Bots and chats pin; an older Task pin stays stored.
+    var pins: [AgentConversation] {
+        let rows = Dictionary(botsList.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
+        return pinnedIds.compactMap { rows[$0] }
+    }
+
+    func isPinned(_ row: AgentConversation) -> Bool { pinnedIds.contains(row.sessionId) }
+
+    func loadFavorites() async {
+        guard let team = selectedTeam?.id, let saved = try? await NuphosAPI.sidebarFavorites(token: token, teamId: team),
+              team == selectedTeam?.id else { return }
+        favorites = saved
+    }
+
+    /// Pins or unpins at once, then writes the whole list over the one on the
+    /// server, reading it again when another client changed it meanwhile.
+    func setPinned(_ pinned: Bool, _ row: AgentConversation) async {
+        guard let team = selectedTeam?.id else { return }
+        let scope = workspaceScope
+        func apply(_ entries: [SidebarFavorites.Entry]) -> [SidebarFavorites.Entry] {
+            let rest = entries.filter { $0.sessionId != row.sessionId }
+            return pinned ? rest + [.init(label: title(of: row), href: "/teams/\(team)/agent/\(row.sessionId)")] : rest
+        }
+        favorites = SidebarFavorites(entries: apply(favorites?.entries ?? []), revision: favorites?.revision ?? 0)
+        var lastError: Error?
+        for _ in 0..<4 {
+            do {
+                let current = try await NuphosAPI.sidebarFavorites(token: token, teamId: team)
+                let entries = apply(current.entries)
+                try await NuphosAPI.saveSidebarFavorites(token: token, teamId: team, entries: entries, revision: current.revision)
+                guard scope == workspaceScope else { return }
+                favorites = SidebarFavorites(entries: entries, revision: current.revision + 1)
+                return
+            } catch { lastError = error }
+        }
+        guard scope == workspaceScope else { return }
+        await loadFavorites()
+        rowActionFailed(lastError ?? NuphosAPI.Failure.invalidResponse, scope: scope) { [weak self] in await self?.setPinned(pinned, row) }
+    }
 
     func toggleFolded(_ sessionId: String) {
+        updateFolds { if $0.remove(sessionId) == nil { $0.insert(sessionId) } }
+    }
+
+    private func updateFolds(_ change: (inout Set<String>) -> Void) {
         guard let team = selectedTeam?.id else { return }
-        var folded = foldedThreads[team] ?? []
-        if folded.remove(sessionId) == nil { folded.insert(sessionId) }
-        foldedThreads[team] = folded
+        change(&foldedThreads[team, default: []])
         UserDefaults.standard.set(foldedThreads.mapValues(Array.init), forKey: Self.foldedThreadsKey)
     }
 
@@ -242,7 +344,7 @@ final class AgentStore {
         guard scope == workspaceScope else { return nil }
         await loadChannels()
         let title = (conversations + bots).first { $0.sessionId == botId }?.displayTitle ?? ""
-        return channel(sessionId: id, title: channels.first { $0.sessionId == id }?.displayTitle ?? title, teamId: teamId)
+        return channel(sessionId: id, title: title, teamId: teamId)
     }
 
     /// "+" on Bots: makes the Bot with the picked name and face and returns
@@ -308,6 +410,12 @@ final class AgentStore {
         selectedTeam == nil || !runtimesLoaded || newConversationRuntime == nil
     }
 
+    /// The workspace has a runtime to start a task on. New Task then asks for one
+    /// ("Choose runtime") if the remembered one is unavailable.
+    var canStartTask: Bool {
+        selectedTeam != nil && runtimesLoaded && RuntimeInstance.defaultPick(runtimes) != nil
+    }
+
     func selectRuntime(_ runtime: RuntimeInstance) {
         guard let team = selectedTeam else { return }
         selectedRuntimeId = runtime.id
@@ -332,17 +440,28 @@ final class AgentStore {
 
     private(set) var agentDevices: [AgentDevice] = []
     private(set) var agentDevicesError = false
+    /// Desktop's Add computer offers a Box on the same two flags: the deployment makes
+    /// Boxes, and the viewer is a team administrator.
+    private(set) var canCreateBox = false
+    /// The deployment makes Boxes, whoever the viewer is: a member is told only administrators rent one.
+    private(set) var boxAvailable = false
+    /// The team's devices have loaded at least once.
+    private(set) var agentDevicesLoaded = false
 
-    func loadAgentDevices() async {
+    /// `metrics`: asks every online host to sample, which only a meters view needs.
+    func loadAgentDevices(metrics: Bool = true) async {
         guard let team = selectedTeam else { return }
-        struct Envelope: Decodable { let devices: [AgentDevice] }
+        struct Envelope: Decodable { let devices: [AgentDevice]; let boxAvailable: Bool?; let canCreateBox: Bool? }
         do {
-            let query = [URLQueryItem(name: "metrics", value: "true"), URLQueryItem(name: "teamId", value: team.id)]
+            let query = (metrics ? [URLQueryItem(name: "metrics", value: "true")] : []) + [URLQueryItem(name: "teamId", value: team.id)]
             let data = try await AgentChatAPI.send("GET", "agent/devices", query: query, token: token, body: JSONValue?.none)
             let result = try JSONDecoder().decode(Envelope.self, from: data)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevices = result.devices
             agentDevicesError = false
+            canCreateBox = NewBox.offered(boxAvailable: result.boxAvailable, canCreateBox: result.canCreateBox)
+            boxAvailable = result.boxAvailable == true
+            agentDevicesLoaded = true
         } catch {
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
             agentDevicesError = true
@@ -381,6 +500,14 @@ final class AgentStore {
         return "Model"
     }
 
+    /// The model a Bot runs, as its own Task's model settings name it; nil when unknown.
+    func botModel(_ botId: String) async -> String? {
+        guard let team = selectedTeam?.id,
+              let config = try? await AgentChatAPI.sessionConfig(token: token, teamId: team, sessionId: botId),
+              let model = config.model, !model.currentValue.isEmpty else { return nil }
+        return model.currentLabel
+    }
+
     func loadNewModelConfig() async {
         guard let team = selectedTeam, let runtime = newConversationRuntime, canConfigureNewModel else {
             newModelConfig = nil
@@ -404,7 +531,8 @@ final class AgentStore {
             newModelConfig = config
             newModelError = config.options.isEmpty ? "No models available. Try again." : nil
         } catch {
-            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id else { return }
+            guard newModelRequest == request, selectedTeam?.id == team.id, newConversationRuntime?.id == runtime.id,
+                  !Task.isCancelled else { return }
             newModelError = error.localizedDescription
         }
     }
@@ -428,9 +556,13 @@ final class AgentStore {
         credentials.reset()
         channels = []
         bots = []
+        favorites = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
+        canCreateBox = false
+        boxAvailable = false
+        agentDevicesLoaded = false
         runtimesLoaded = false
         quotas = [:]
         selectedRuntimeId = selectedTeam.flatMap { UserDefaults.standard.string(forKey: runtimeKey(for: $0)) }
@@ -445,10 +577,18 @@ final class AgentStore {
     private var isShareEntry = false
     let unread: ConversationUnread
     let observations: RuntimeObservations
+
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
     private var loadedPageCursors: [String] = []
     private var refreshPageIndex = 0
+
+    /// What a conversation is doing, as its row and a Bot's details show it.
+    func indicator(for row: AgentConversation, team: String) -> ConversationIndicator {
+        let unread = unread.contains(team: team, session: row.sessionId)
+        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
+        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
+    }
 
     /// The title of one of the viewer's Bots or tasks the store has loaded.
     func title(ofSession sessionId: String) -> String? {
@@ -457,10 +597,27 @@ final class AgentStore {
 
     /// The viewer's own sessions whose title or first message contains
     /// `query`, newest first, other than `excluded` — what an `@` offers.
-    func mentionableSessions(teamId: String, excluding excluded: String?, matching query: String) async -> [AgentConversation] {
-        guard loadsHistory else { return [] }
-        guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, limit: 6, search: query) else { return [] }
-        return Array(page.conversations.filter { $0.sessionId != excluded }.prefix(5))
+    /// The viewer's own Bots and Tasks, every page, listed before an `@` so typing only filters them.
+    private var mentionable: (teamId: String, rows: [AgentConversation])?
+
+    /// What an `@` offers in `teamId`, but `excluded`; nil until listed once.
+    func mentionableSessions(teamId: String, excluding excluded: String?) -> [AgentConversation]? {
+        guard let mentionable, mentionable.teamId == teamId else { return nil }
+        return mentionable.rows.filter { $0.sessionId != excluded }
+    }
+
+    /// Lists them again, in the background of a composer that has appeared.
+    func loadMentionableSessions(teamId: String) async {
+        var rows: [AgentConversation] = []
+        var cursor: String?
+        var seen: Set<String> = []
+        while loadsHistory {
+            guard let page = try? await NuphosAPI.conversations(token: token, teamId: teamId, cursor: cursor, limit: 100) else { return }
+            rows += page.conversations
+            guard page.hasMore, let next = page.nextCursor, seen.insert(next).inserted else { break }
+            cursor = next
+        }
+        mentionable = (teamId, rows)
     }
 
     // MARK: - Composer settings (IAM + permission mode)
@@ -490,6 +647,7 @@ final class AgentStore {
             credentials.finish(load, with: .success(try await NuphosAPI.credentialOptions(token: token, teamId: team.id)))
             publishSharingContext()
         } catch {
+            guard !Task.isCancelled else { return }
             credentials.finish(load, with: .failure(error))
         }
     }
@@ -528,6 +686,7 @@ final class AgentStore {
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
+        let shown = teamsPhase
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -545,6 +704,8 @@ final class AgentStore {
                 await reload()
             }
         } catch {
+            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
+            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -612,15 +773,17 @@ final class AgentStore {
         loadedPageCursors = []
         refreshPageIndex = 0
         let generation = loadGeneration
+        let shown = phase
         if conversations.isEmpty { phase = .loading }
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
+        async let pinsLoad: () = loadFavorites()
 
         do {
             let page = try await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: Self.pageSize, search: search
             )
-            _ = await (runtimesLoad, channelsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad)
             guard generation == loadGeneration else { return }
             conversations = page.rows
             nextCursor = page.nextCursor
@@ -631,6 +794,8 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
+            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
                 return

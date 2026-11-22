@@ -13,11 +13,12 @@ import { createTransfer, finalizeTransfer, resolveDownloads } from '@/lib/file-t
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { RUNTIME_FILE_PROGRAM } from './runtime-file-program'
 import { parseRuntimeFile, parseRuntimeDirectory, parseRuntimeStat } from './runtime-file-codec'
+import { RUNTIME_FILE_PROGRAM } from './runtime-file-program'
+import { resolveTeamRuntimeEndpoints } from './runtime-registry'
+
 export { parseRuntimeFile, parseRuntimeDirectory } from './runtime-file-codec'
 export type { RuntimeDirectory } from './runtime-file-codec'
-import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 const unavailable = () =>
   new AppError(
@@ -76,6 +77,7 @@ async function runtimeFileOperation(
   path: string,
   request:
     | { action: 'read' | 'list' | 'stat' }
+    | { action: 'read'; secret: true }
     | { action: 'upload'; url: string; size: number }
     | { action: 'import'; url?: string; size: number; sha256: string },
   timeoutMs = 10_000,
@@ -104,7 +106,7 @@ async function runtimeFileOperation(
       ? await resolveLocalRuntimeEndpoint(teamId, runtimeId, userId, 'control')
       : instance.kind === 'development'
         ? developmentRuntimeEndpoint(instance.provider, 'control')
-        : (await resolveTeamRuntimeEndpoints(teamId, undefined, instance.provider, 'control')).find(
+        : (await resolveTeamRuntimeEndpoints(teamId, instance.provider, 'control')).find(
             (item) => item.runtimeId === runtimeId,
           )
 
@@ -114,7 +116,13 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { path, ...request, workspace: '/workspace', sessionId }
+  const params = {
+    path,
+    ...request,
+    workspace: '/workspace',
+    sessionId,
+    sessionHomeEpoch: conversation.sessionHomeEpoch ?? 0,
+  }
   let output: string
 
   try {
@@ -187,6 +195,32 @@ export async function readRuntimeFile(
   return parseRuntimeFile(
     await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, { action: 'read' }),
   )
+}
+
+/** A file the secure input card saved on the conversation's runtime (`putConversationSecret`). */
+export const SAVED_SECRET_PATH = /[\\/]nuphos-secret-[^\\/]+[\\/]\d+[\\/][^\\/]+$/
+
+/**
+ * The value in one of those files, for `local_browser` `fill`. It is returned
+ * to the caller only: never log it or put it in a tool result.
+ */
+export async function readSavedSecret(
+  teamId: string,
+  userId: string,
+  runtimeId: string,
+  sessionId: string,
+  path: string,
+): Promise<string> {
+  if (!SAVED_SECRET_PATH.test(path))
+    throw new AppError(400, 'invalid_path', 'Not a file the secure input card saved.')
+  const file = parseRuntimeFile(
+    await runtimeFileOperation(teamId, userId, runtimeId, sessionId, path, {
+      action: 'read',
+      secret: true,
+    }),
+  )
+
+  return Buffer.from(file.data, 'base64').toString('utf8')
 }
 
 export async function listRuntimeFiles(

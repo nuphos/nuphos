@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
@@ -49,6 +51,8 @@ fun CredentialPickerSheet(
     onSelectionChange: (CredentialSelection) -> Unit,
     onDismiss: () -> Unit,
     computersOnly: Boolean = false,
+    /** An integration question's providers: only the credentials that answer it are offered. */
+    providers: List<String>? = null,
     onConfirm: (() -> Unit)? = null,
 ) {
     val store = LocalAgentStore.current
@@ -61,7 +65,7 @@ fun CredentialPickerSheet(
         else if (selection.newConversation || selection.stored != null) loaded else ai.nuphos.android.model.CredentialCatalog(
             loaded.sections.filter { it.provider in ai.nuphos.android.model.CredentialCatalog.PROVIDERS },
         )
-    }
+    }?.answering(providers)
     val error = store.credentialCatalogError
     val scope = rememberCoroutineScope()
     // Like iOS, always ask the server when the picker opens: a connector unbound
@@ -74,13 +78,13 @@ fun CredentialPickerSheet(
             val actionFontScale = maxOf(androidx.compose.ui.platform.LocalDensity.current.fontScale,
                 androidx.compose.ui.platform.LocalConfiguration.current.fontScale)
             val compactActions = actionFontScale >= 1.5f
-            val bulkLabel = if (allSelected) "Clear all" else "Select all"
+            val bulkLabel = if (allSelected) stringResource(R.string.composer_clear_all) else stringResource(R.string.composer_select_all)
             val bulkAction = {
                 catalog?.let { onSelectionChange(if (allSelected) selection.clearComputers() else selection.selectAllComputers(it)) }
                 Unit
             }
             CenterAlignedTopAppBar(
-                title = { Text("Computers", style = MaterialTheme.typography.titleMedium,
+                title = { Text(stringResource(R.string.composer_computers), style = MaterialTheme.typography.titleMedium,
                     maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = Modifier.testTag("credential-picker-title")) },
                 navigationIcon = {
@@ -92,8 +96,8 @@ fun CredentialPickerSheet(
                 },
                 actions = {
                     if (compactActions) androidx.compose.material3.IconButton(onClick = onConfirm ?: onDismiss,
-                        modifier = Modifier.testTag("computer-picker-done")) { Icon(Icons.Outlined.Check, "Done") }
-                    else TextButton(onClick = onConfirm ?: onDismiss, modifier = Modifier.testTag("computer-picker-done")) { Text("Done", maxLines = 1) }
+                        modifier = Modifier.testTag("computer-picker-done")) { Icon(Icons.Outlined.Check, stringResource(R.string.done)) }
+                    else TextButton(onClick = onConfirm ?: onDismiss, modifier = Modifier.testTag("computer-picker-done")) { Text(stringResource(R.string.done), maxLines = 1) }
                 },
                 expandedHeight = maxOf(64f, 48f * actionFontScale).dp,
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -102,27 +106,27 @@ fun CredentialPickerSheet(
         } else {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             // Keep the readable title out of the action buttons' measurement.
-            Text(if (computersOnly) "Choose computers" else "IAM",
+            Text(if (computersOnly) stringResource(R.string.composer_choose_computers) else stringResource(R.string.iam),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.fillMaxWidth().testTag("credential-picker-title"))
             Row(Modifier.fillMaxWidth().testTag("credential-picker-actions"),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    if (!selection.isEmpty) TextButton(onClick = { onSelectionChange(if (computersOnly) selection.clearComputers() else CredentialSelection()) }) { Text("Clear") }
+                    if (!selection.isEmpty) TextButton(onClick = { onSelectionChange(if (computersOnly) selection.clearComputers() else CredentialSelection()) }) { Text(stringResource(R.string.composer_clear)) }
                 }
-                if (onConfirm != null) TextButton(onClick = onDismiss) { Text("Cancel") }
-                TextButton(onClick = onConfirm ?: onDismiss) { Text("Done") }
+                if (onConfirm != null) TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = onConfirm ?: onDismiss) { Text(stringResource(R.string.done)) }
             }
         }
         }
         when {
             catalog == null && error != null -> Column(Modifier.padding(24.dp)) {
                 Text(error, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = { scope.launch { store.loadCredentialOptions(force = true) } }) { Text("Retry") }
+                TextButton(onClick = { scope.launch { store.loadCredentialOptions(force = true) } }) { Text(stringResource(R.string.composer_retry)) }
             }
-            catalog == null -> Text(if (computersOnly) "Loading computers…" else "Loading IAM…", modifier = Modifier.padding(24.dp))
-            catalog.isEmpty -> Text(if (computersOnly) "No computers available. Connect a computer in Nuphos to use it here." else "No computers or IAM available. Connect a computer or cloud account in Nuphos to use it here.", modifier = Modifier.padding(24.dp))
+            catalog == null -> Text(if (computersOnly) stringResource(R.string.composer_loading_computers) else stringResource(R.string.composer_loading_iam), modifier = Modifier.padding(24.dp))
+            catalog.isEmpty -> Text(if (computersOnly) stringResource(R.string.composer_no_computers) else stringResource(R.string.composer_no_computers_or_iam), modifier = Modifier.padding(24.dp))
             else -> LazyColumn {
                 catalog.sections.forEach { section ->
                     val rows = section.items.filter { !it.unavailable || selection.contains(it) }
@@ -130,17 +134,22 @@ fun CredentialPickerSheet(
                     item {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             if (computersOnly) Icon(Icons.Outlined.Computer, null, Modifier.size(18.dp).padding(end = 4.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(section.provider.title, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
+                            Text(when (section.provider.optionsKey) {
+                                "devices" -> stringResource(R.string.composer_computers)
+                                "onpremClusters" -> stringResource(R.string.storetext_credentials_clusters)
+                                "personalCredentials" -> stringResource(R.string.storetext_credentials_personal)
+                                else -> section.provider.title
+                            }, style = MaterialTheme.typography.titleSmall, color = if (computersOnly) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
                             if (!computersOnly && section.provider.optionsKey == "devices") {
                                 val allSelected = selection.containsAllComputers(catalog)
                                 TextButton(onClick = {
                                     onSelectionChange(if (allSelected) selection.clearComputers() else selection.selectAllComputers(catalog))
-                                }) { Text(if (allSelected) "Clear all" else "Select all") }
+                                }) { Text(if (allSelected) stringResource(R.string.composer_clear_all) else stringResource(R.string.composer_select_all)) }
                             }
                         }
                     }
                     if (!computersOnly && section.provider.optionsKey == "devices") {
-                        item { Text("Allow this agent to operate the computers you select.", modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
+                        item { Text(stringResource(R.string.composer_allow_computers), modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall) }
                     }
                     itemsIndexed(rows, key = { _, item -> item.id }) { index, item ->
                         if (computersOnly) {
@@ -193,7 +202,7 @@ fun PermissionModeSheet(
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
-        Text("Permission mode", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
+        Text(stringResource(R.string.composer_permission_mode), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
         PermissionMode.entries.forEach { option ->
             ListItem(
                 headlineContent = { Text(option.title) },

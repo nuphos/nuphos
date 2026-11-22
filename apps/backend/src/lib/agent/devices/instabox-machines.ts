@@ -2,7 +2,7 @@
 // functions so a test can stand them in (the SDK exports a class, which the
 // shared doubles cannot wrap).
 
-import { Sandbox } from '@insforge/instabox-sdk'
+import { DEFAULT_API_URL, Sandbox } from '@insforge/instabox-sdk'
 
 import type { ConnectionOptions } from '@insforge/instabox-sdk'
 
@@ -38,4 +38,29 @@ export async function runOnRunningMachine(
   if ((await sandbox.getInfo()).state !== 'running') return undefined
 
   return (await sandbox.commands.run(cmd, { envs, timeoutMs: 60_000 })).stdout
+}
+
+/**
+ * Why instabox itself paused or stopped the machine last (`memory_pressure`, `idle`, …), from
+ * its operation log; undefined when a client asked for it or it ran again since.
+ */
+export async function lastPausedBy(
+  conn: ConnectionOptions,
+  sandboxId: string,
+): Promise<string | undefined> {
+  const url = `${conn.apiUrl ?? DEFAULT_API_URL}/v1/machines/${encodeURIComponent(sandboxId)}/logs?tail=1`
+  const response = await (conn.fetch ?? fetch)(url, {
+    headers: { 'X-API-Key': conn.apiKey ?? '' },
+    signal: AbortSignal.timeout(conn.requestTimeoutMs ?? 10_000),
+  })
+
+  if (!response.ok) throw new Error(`instabox answered ${String(response.status)} for ${url}`)
+  const { operations } = (await response.json()) as {
+    operations?: { type: string; state: string; trigger?: string | null }[]
+  }
+  const last = operations?.at(-1)
+
+  return (last?.type === 'suspend' || last?.type === 'stop') && last.state === 'succeeded'
+    ? (last.trigger ?? undefined)
+    : undefined
 }

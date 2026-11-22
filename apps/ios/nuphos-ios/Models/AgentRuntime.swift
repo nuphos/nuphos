@@ -20,6 +20,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         static let opencode = Self(rawValue: "opencode")
         static let hermes = Self(rawValue: "hermes")
         static let dsh = Self(rawValue: "dsh")
+        static let pi = Self(rawValue: "pi")
     }
     enum Status: String, Codable, Sendable { case active, disabled }
 
@@ -35,8 +36,6 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         let signedIn: Bool?
         /// Present when it is a teammate's own computer shared with this person.
         var shared: Shared? = nil
-        /// Its computer opens its own desktop on request; only `ownerUserId` may open it.
-        var desktopOpen: Bool? = nil
     }
 
     /// How a teammate shares their computer: `approve` asks them before each conversation runs.
@@ -49,8 +48,8 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
 
         var title: String {
             switch self {
-            case .myComputers: "My computers"
-            case .cloud: "Cloud"
+            case .myComputers: String(localized: "My computers")
+            case .cloud: String(localized: "Cloud")
             }
         }
     }
@@ -76,16 +75,16 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// viewer can sign it in themselves.
     static func signInAsk(_ runtimeId: String?, viewerId: String?, isAdministrator: Bool) -> String? {
         guard let runtimeId, let viewerId else { return nil }
-        if isLocalAgent(runtimeId) { return runtimeId.hasPrefix("local_\(viewerId)_") ? nil : "Ask owner" }
-        return isAdministrator ? nil : "Ask an admin"
+        if isLocalAgent(runtimeId) { return runtimeId.hasPrefix("local_\(viewerId)_") ? nil : String(localized: "Ask owner") }
+        return isAdministrator ? nil : String(localized: "Ask an admin")
     }
 
     var providerName: String { Provider.name(provider.rawValue) }
 
     var subtitle: String? {
         let hint: String? =
-            if local?.signedIn == false { "Signed out · sign in to \(providerName) on that computer" }
-            else if status == .disabled { tier == .myComputers ? "Offline · open Nuphos on that computer" : "Disabled" }
+            if local?.signedIn == false { String(localized: "Signed out · sign in to \(providerName) on that computer") }
+            else if status == .disabled { tier == .myComputers ? String(localized: "Offline · open Nuphos on that computer") : String(localized: "Disabled") }
             else { nil }
         guard tier == .myComputers else { return hint }
         return [providerName, hint].compactMap(\.self).joined(separator: " · ")
@@ -127,8 +126,9 @@ extension RuntimeInstance.Provider {
         case "opencode": "OpenCode"
         case "hermes": "Hermes Agent"
         case "dsh": "DeepSeek Harness"
+        case "pi": "Pi"
         case "nuphos": "Nuphos"
-        default: raw?.isEmpty == false ? "Unknown runtime" : "Runtime"
+        default: raw?.isEmpty == false ? String(localized: "Unknown runtime") : String(localized: "Runtime")
         }
     }
 }
@@ -142,6 +142,24 @@ struct RuntimeQuota: Decodable, Sendable {
 
         /// What is left of the window, floored so it never promises more than there is.
         var leftPercent: Int { min(100, max(0, Int((100 - usedPercent).rounded(.down)))) }
+    }
+
+    /// "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nil when the reset is
+    /// unknown or past. Every usage bar and usage-limit notice says it this way, as on Desktop.
+    static func resetsIn(_ date: Date?, now: Date = .now) -> String? {
+        guard let date, date > now else { return nil }
+        let total = Int((date.timeIntervalSince(now) / 60).rounded(.up))
+        let days = total / 1440, hours = total % 1440 / 60, minutes = total % 60
+        if days > 0 { return String(localized: "resets in \(days)d \(hours)h") }
+        if hours > 0 { return String(localized: "resets in \(hours)h \(minutes)m") }
+        return String(localized: "resets in \(minutes)m")
+    }
+
+    /// The widest a reset reads, under a day and past one, for a column that fits any of them.
+    static var widestResets: [String] {
+        let now = Date(timeIntervalSince1970: 0)
+        let minutes: [Double] = [1439, 43_140] // 23h 59m, 29d 23h
+        return minutes.compactMap { (minutes: Double) -> String? in resetsIn(now.addingTimeInterval(minutes * 60), now: now) }
     }
 
     let runtimeId: String
@@ -183,7 +201,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
                 return options.first { candidate in
                     candidate.value.lowercased() != "default" && candidate.name.lowercased() != "default" &&
                     choice?.description?.localizedCaseInsensitiveContains(candidate.name) == true
-                }?.name ?? "Model"
+                }?.name ?? String(localized: "Model")
             }
             return choice?.name ?? currentValue
         }
@@ -211,7 +229,8 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     }
 
     var model: Option? { options.first { $0.kind == .model } }
-    var isFast: Bool { options.contains { $0.kind == .fast && $0.currentValue != "off" } }
+    /// A started conversation offers fast with no value until its session confirms one.
+    var isFast: Bool { options.contains { $0.kind == .fast && !["", "off"].contains($0.currentValue) } }
 
     /// Writes restore a dormant session, so its remembered settings stay editable.
     var isEditable: Bool { [.ready, .busy, .dormant].contains(status) && !options.isEmpty }
@@ -219,7 +238,7 @@ struct SessionConfigState: Codable, Equatable, Sendable {
     /// Show the model whenever one is known; "unavailable" means the agent is offline.
     var modelTitle: String {
         if let model, !model.currentValue.isEmpty { return model.currentLabel }
-        return status == .offline ? "Model unavailable" : "Model"
+        return status == .offline ? String(localized: "Model unavailable") : String(localized: "Model")
     }
 
     var hint: String? {

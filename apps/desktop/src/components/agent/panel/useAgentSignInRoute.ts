@@ -1,4 +1,5 @@
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
+import { useManagedComputers } from '../../../hooks/useManagedComputers'
 import { useRuntimeInstances } from '../../../hooks/useRuntimeInstances'
 import { useTeamMemberList } from '../../../hooks/useTeamMemberList'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -25,6 +26,7 @@ export function useAgentSignInRoute({
   const owner = useThisComputer()
   const viewerId = useCurrentUser()?.id
   const { instances } = useRuntimeInstances(teamId)
+  const managed = useManagedComputers(teamId, runtimeId?.startsWith('local_') === true)
   const personalAgent = runtimeId?.startsWith('local_') === true
   const onThisComputer = Boolean(
     runtimeId && personalAgent && agentTier({ id: runtimeId, label: '' }, owner) === 'local',
@@ -37,6 +39,7 @@ export function useAgentSignInRoute({
       onThisComputer,
       instance: instances.find((instance) => instance.id === runtimeId),
       members,
+      manages: (deviceId) => managed.has(deviceId),
     })
   // Who to ask never depends on the members; only their names do.
   const asksSomeone = routeOf(null).kind === 'ask'

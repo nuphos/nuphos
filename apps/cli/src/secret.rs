@@ -33,7 +33,7 @@ pub fn enabled() -> bool {
 }
 
 #[cfg(target_os = "macos")]
-mod imp {
+pub(crate) mod imp {
     use anyhow::{Context, Result};
     use security_framework::os::macos::keychain::SecKeychain;
 
@@ -73,7 +73,7 @@ mod imp {
 }
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
-mod imp {
+pub(crate) mod imp {
     use std::sync::{Arc, LazyLock};
 
     use anyhow::{anyhow, Context, Result};
@@ -132,7 +132,7 @@ mod imp {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-mod imp {
+pub(crate) mod imp {
     use anyhow::{bail, Result};
 
     pub fn available() -> bool {

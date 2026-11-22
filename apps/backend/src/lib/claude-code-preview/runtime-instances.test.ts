@@ -1,14 +1,7 @@
-import { randomBytes } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 
-import { OPENAB_PROVIDERS } from './runtime-provider'
 import { afterAll, beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
-
-import {
-  publishedRuntimeImage,
-  publishRuntimeRelease,
-  restoreRuntimeReleases,
-} from './runtime-release-testing'
 
 import { config } from '@/config'
 import { AppError } from '@/lib/errors'
@@ -19,12 +12,10 @@ import type { TeamAuthVariables } from '@/middleware/auth'
 import type { OpenAbProvider } from './runtime-provider'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
-const FLEET_VERSION = '0.3.1'
 
 config.claudeCodePreview.tokenEncryptionKey = randomBytes(32).toString('base64')
 afterAll(() => {
   config.claudeCodePreview.tokenEncryptionKey = previousKey
-  restoreRuntimeReleases()
 })
 
 let store = portabilityDb()
@@ -32,8 +23,7 @@ let store = portabilityDb()
 useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 const { registerAgentRuntimeRoutes } = await import('@/routes/teams/agent-runtimes')
 const { listRuntimeInstances, requireRuntimeInstance } = await import('./runtime-catalog')
-const { resolveTeamRuntimeEndpoints } = await import('./runtime-registry')
-const { createManagedRuntimeInstance } = await import('./runtime-instances')
+const { registerTeamRuntime } = await import('./runtime-registry')
 
 function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATOR') {
   const app = new Hono<{ Variables: TeamAuthVariables }>()
@@ -56,76 +46,24 @@ function app(teamId = 'one', role: TeamAuthVariables['teamRole'] = 'ADMINISTRATO
 function json(method: string, body: unknown) {
   return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
-// Seed a runtime that predates retirement without reopening the HTTP creation path.
+// A runtime the team connected, on the cluster's own network.
 async function existing(label: string, provider: OpenAbProvider = 'codex') {
-  return createManagedRuntimeInstance({ teamId: 'one', userId: 'admin', label, provider })
+  const id = randomUUID()
+
+  return registerTeamRuntime({
+    id,
+    teamId: 'one',
+    userId: 'admin',
+    url: `ws://openab-${provider}-${id.slice(0, 8)}.openab-runtimes.svc:8080/acp`,
+    provider,
+    authKey: randomBytes(32).toString('hex'),
+    label,
+  })
 }
 const runtimeRows = () => store.rows('claude_code_runtimes')
 
-beforeEach(async () => {
+beforeEach(() => {
   store = portabilityDb()
-  await publishRuntimeRelease({ version: FLEET_VERSION })
-})
-
-test('an existing managed runtime keeps its row but no longer resolves', async () => {
-  for (const provider of OPENAB_PROVIDERS) {
-    const created = await existing(`${provider} work`, provider)
-    const row = runtimeRows().find((doc) => doc._id === created.id)!
-
-    expect(created).toMatchObject({
-      kind: 'managed',
-      image: publishedRuntimeImage(FLEET_VERSION, provider),
-    })
-    expect(row).toMatchObject({ hostedBy: 'nuphos', provider, status: 'active' })
-    expect(row.url).toMatch(
-      new RegExp(
-        `^ws://openab-[a-z]+-[0-9a-f]{24}\\.${config.claudeCodeRuntimeProvisioner.namespace}\\.svc:8080/acp$`,
-      ),
-    )
-    expect(await resolveTeamRuntimeEndpoints('one', undefined, provider)).toEqual([])
-  }
-})
-
-test('hosted runtimes list as managed; rows of the retired provisioner model are hidden', async () => {
-  const created = await existing('Hosted', 'claude-code')
-
-  runtimeRows().push({
-    _id: 'legacy',
-    teamId: 'one',
-    url: 'ws://openab-team-one.openab-runtimes.svc:8080/acp',
-    provider: 'claude-code',
-    status: 'active',
-    managedBy: 'provisioner',
-    createdByUserId: 'provisioner',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  })
-  const instances = await listRuntimeInstances('one')
-
-  expect(instances.map((instance) => [instance.id, instance.kind])).toEqual([
-    [created.id, 'managed'],
-  ])
-})
-
-test('a retired managed runtime lists as disabled and refuses status, update and patch', async () => {
-  const server = app()
-  const instance = await existing('Work')
-
-  expect(await requireRuntimeInstance('one', instance.id)).toMatchObject({
-    status: 'disabled',
-    kind: 'managed',
-  })
-  for (const [path, init] of [
-    [`/agent-runtimes/${instance.id}/status`, undefined],
-    [`/agent-runtimes/${instance.id}/update`, json('POST', {})],
-    [`/agent-runtimes/${instance.id}`, json('PATCH', { status: 'active' })],
-  ] as const) {
-    const response = await server.request(path, init)
-
-    expect(response.status).toBe(410)
-    expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
-  }
-  expect(runtimeRows().find((doc) => doc._id === instance.id)).toMatchObject({ label: 'Work' })
 })
 
 test('workspace scope and administrator checks apply to each instance mutation', async () => {
@@ -187,7 +125,7 @@ test('model discovery needs a runtime from the current workspace, not an adminis
   expect((await server.request(`/agent-runtimes/${instance.id}/models`)).status).toBe(409)
 })
 
-test('retired creation leaves existing runtime records and routes untouched', async () => {
+test('creation stays retired and leaves existing runtime records untouched', async () => {
   const runtime = await existing('Existing')
   const before = JSON.stringify(runtimeRows())
 
@@ -196,7 +134,22 @@ test('retired creation leaves existing runtime records and routes untouched', as
   expect(response.status).toBe(410)
   expect(await response.json()).toEqual({ code: 'managed_runtime_retired' })
   expect(JSON.stringify(runtimeRows())).toBe(before)
-  expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'managed' })
+  expect(await requireRuntimeInstance('one', runtime.id)).toMatchObject({ kind: 'external' })
   expect((await app().request('/agent-runtimes')).status).toBe(200)
-  expect(await resolveTeamRuntimeEndpoints('one', undefined, 'codex')).toEqual([])
+})
+
+// #2401: a conversation still pointing at a runtime whose record was deleted.
+test('a runtime whose record is gone answers runtime_not_found, not an error', async () => {
+  const gone = await existing('Deleted')
+
+  store.rows('claude_code_runtimes').splice(
+    runtimeRows().findIndex((doc) => doc._id === gone.id),
+    1,
+  )
+
+  await expect(requireRuntimeInstance('one', gone.id)).rejects.toMatchObject({
+    status: 404,
+    code: 'runtime_not_found',
+  })
+  expect((await app().request(`/agent-runtimes/${gone.id}/status`)).status).toBe(404)
 })

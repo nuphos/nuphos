@@ -1,0 +1,40 @@
+<resources>
+    <string name="plans_title_fallback">แผน</string>
+    <string name="plans_back">ย้อนกลับ</string>
+    <string name="plans_actions">การดำเนินการ</string>
+    <string name="plans_mark_unplanned">ทำเครื่องหมายว่านอกแผน</string>
+    <string name="plans_plan_number">แผน %1$s</string>
+    <string name="plans_untitled">แผนไม่มีชื่อ</string>
+    <string name="plans_still_building">เอเจนต์ยังสร้างแผนนี้ไม่เสร็จ ขั้นตอน ค่าใช้จ่าย และความเสี่ยงจะมาครบก่อนที่จะอนุมัติได้</string>
+    <string name="plans_decisions">การตัดสินใจ</string>
+    <string name="plans_steps">ขั้นตอน</string>
+    <string name="plans_cost">ค่าใช้จ่าย</string>
+    <string name="plans_cost_one_time">"ครั้งเดียว  %1$s"</string>
+    <string name="plans_cost_monthly">"รายเดือน  %1$s"</string>
+    <string name="plans_cost_savings">"การประหยัด  %1$s"</string>
+    <string name="plans_risk">ความเสี่ยง</string>
+    <string name="plans_risk_worst_case">"กรณีเลวร้ายที่สุด  %1$s"</string>
+    <string name="plans_approval">การอนุมัติ</string>
+    <string name="plans_approval_requester">ผู้ขอ %1$s</string>
+    <string name="plans_approval_team">ทีม %1$d/%2$d</string>
+    <string name="plans_loading">กำลังโหลดแผน…</string>
+    <string name="plans_unplan_confirm_title">ทำเครื่องหมายแผน %1$s ว่านอกแผนใช่ไหม</string>
+    <string name="plans_unplan_confirm_body">แผนจะถูกเก็บไว้เพื่ออ้างอิง แต่จะไม่ถูกดำเนินการอีก</string>
+    <string name="plans_error_title">เกิดข้อผิดพลาด</string>
+    <string name="plans_ok">ตกลง</string>
+    <string name="plans_approval_notice_title">การอนุมัติแผน</string>
+    <string name="plans_approval_already_recorded">บันทึกการอนุมัติของคุณสำหรับแผนนี้ไว้แล้ว</string>
+    <string name="plans_approve_failed">อนุมัติแผนไม่สำเร็จ</string>
+    <plurals name="plans_step_count">
+        <item quantity="other">%1$d ขั้นตอน</item>
+    </plurals>
+    <plurals name="plans_job_count">
+        <item quantity="other">%1$d งาน</item>
+    </plurals>
+    <plurals name="plans_command_count">
+        <item quantity="other">%1$d คำสั่ง</item>
+    </plurals>
+    <plurals name="plans_approvals_recorded">
+        <item quantity="other">บันทึกการอนุมัติแล้ว %1$d รายการ</item>
+    </plurals>
+</resources>

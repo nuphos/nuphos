@@ -1,5 +1,6 @@
 package ai.nuphos.android
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.*
 import ai.nuphos.android.model.TeamMember
 import ai.nuphos.android.session.SharingState
@@ -36,7 +37,7 @@ class SessionSharingTest {
     }
     @Test fun aParticipantRepliesOnlyWithTheComputer() {
         assertFalse(viewer.canReply)
-        assertEquals("Can view", viewer.roleTitle)
+        assertEquals(R.string.chat_share_can_view, viewer.roleTitle)
         assertTrue(viewer.copy(role = "reply").canReply)
     }
     @Test fun ownerGateAndFailurePreserveAuthoritativeState() = runTest {

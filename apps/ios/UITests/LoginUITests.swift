@@ -70,7 +70,7 @@ final class LoginUITests: XCTestCase {
         XCTAssertTrue(email.waitForExistence(timeout: 5))
         XCTAssertEqual(email.value as? String, email.placeholderValue)
         XCTAssertFalse(code.exists)
-        app.buttons["Cancel adding account"].tap()
+        app.buttons["Back"].tap()
         XCTAssertTrue(account.waitForExistence(timeout: 10))
         account.tap()
         app.buttons["Account options for alex@example.com"].tap()

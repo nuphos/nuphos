@@ -3,6 +3,20 @@ name: CI
 on:
   pull_request:
   merge_group:
+  # Format and lint only, so a regression two merged PRs create together shows on main.
+  push:
+    branches: [main]
+  # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
+  workflow_dispatch:
+    inputs:
+      real_disk:
+        description: Run the isolated real-disk Desktop evidence scenario
+        type: boolean
+        default: false
+  # The full macOS package every night, since PRs and the queue build it only
+  # when a packaging input changes.
+  schedule:
+    - cron: '0 19 * * *'
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
@@ -14,10 +28,18 @@ permissions:
   contents: read
   pull-requests: read
 
+# Most Linux jobs run on instabox-medium (amd64, outside the hosted-runner concurrency
+# limit). Only this repository's own code runs there; a fork's pull request stays
+# on GitHub's hosts.
 jobs:
+  # Every PR in a merge group already passed format on pull_request, so the merge
+  # queue skips it (a skipped job still satisfies its required check); it runs
+  # again on main after each merge. Lint stays in the queue: two PRs can push a
+  # file past max-lines only together, and that must not reach main.
   format:
     name: Format (prettier --check)
-    runs-on: ubuntu-24.04-arm
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,7 +57,8 @@ jobs:
   # it reports success there instead of blocking the queue.
   dco:
     name: DCO
-    runs-on: ubuntu-slim
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - name: Skip in the merge queue
         if: github.event_name == 'merge_group'
@@ -59,7 +82,8 @@ jobs:
 
   changes:
     name: Detect changed apps
-    runs-on: ubuntu-24.04-arm
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     outputs:
       # A version-only diff (a release PR) skips these; see the step below.
       backend: ${{ steps.filter.outputs.backend == 'true' && steps.bump.outputs.version_only != 'true' }}
@@ -72,6 +96,7 @@ jobs:
       dev_scripts: ${{ steps.filter.outputs.dev_scripts }}
       lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
+      e2e: ${{ steps.filter.outputs.e2e == 'true' && steps.bump.outputs.version_only != 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,6 +104,10 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
+          # A merge group is judged by all it adds to main, not by its own PR: its base_sha is
+          # the group ahead's head, so a group touching only iOS skipped Backend lint and, as
+          # the queue's green head, merged the failing groups ahead of it.
+          base: ${{ github.event.merge_group.base_ref }}
           filters: |
             # Backend tests import electron main's local runtime, so its typecheck follows it,
             # and from there the desktop's shared types and one runtime-image script.
@@ -90,19 +119,23 @@ jobs:
               - 'apps/runtime/image/antigravity-status.mjs'
               - '.bun-version'
               - '.github/workflows/ci.yml'
-            # electron main imports runtime-file-program.ts from the backend.
+            # electron main imports these program texts from the backend.
             desktop:
               - 'apps/desktop/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               # The local runtime bundles most of the runtime image (apps/runtime/README.md).
               - 'apps/runtime/image/**'
               - '.github/workflows/ci.yml'
-            # What electron-builder adds beyond the vite bundle, which every
-            # desktop change still builds. The single `*` takes the top-level
-            # config: package.json (electron-builder's config) and the lockfile.
+            # What a PR needs the Mac for: what electron-builder adds beyond the
+            # vite bundle, and the macOS-only native addon. The single `*` takes
+            # the top-level config: package.json (electron-builder's config) and
+            # the lockfile.
             desktop_package:
               - 'apps/desktop/*'
+              - 'apps/desktop/native/**'
               - 'apps/backend/src/lib/claude-code-preview/runtime-file-program.ts'
+              - 'apps/backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
               - 'apps/runtime/image/**'
               - 'apps/desktop/electron/**'
               - 'apps/desktop/local-runtime/**'
@@ -152,6 +185,15 @@ jobs:
               - 'scripts/check-import-cycles.test.mjs'
               - 'scripts/import-cycles.baseline.json'
               - '.github/workflows/ci.yml'
+            # What `bun run e2e` starts: the backend, the Desktop app and OpenAB.
+            e2e:
+              - 'apps/desktop/**'
+              - 'apps/backend/**'
+              - 'apps/runtime/openab/**'
+              - 'scripts/e2e/**'
+              - 'package.json'
+              - 'bun.lock'
+              - '.github/workflows/ci.yml'
 
       # A release PR changes only `version` fields, the App Store notes and the
       # runtime's SDK pins. No job here reads a version: Electron and the
@@ -162,17 +204,19 @@ jobs:
       - name: Detect a version-only diff
         id: bump
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_ref }}
         run: |
           git fetch --no-tags --depth=1 origin "$BASE"
           # A failed diff or jq must fail the step or answer false, never true.
-          git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/changed"
+          git diff --no-renames --name-only FETCH_HEAD HEAD > "$RUNNER_TEMP/changed"
           only=true
           while read -r f; do
             case "$f" in
-              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
+              apps/cli/* | apps/ios/whats-new.txt) ;;
+              # The runtime's SDK pins; its own code under apps/runtime is not a bump (#4481).
+              apps/runtime/README.md | apps/runtime/image/Dockerfile | apps/runtime/image/*-acp/package*.json) ;;
               apps/*/package.json)
-                old=$(git show "$BASE:$f" | jq -S 'del(.version)') &&
+                old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
                   [ "$old" = "$new" ] || only=false ;;
               *) only=false ;;
@@ -183,11 +227,14 @@ jobs:
   ios:
     name: iOS (simulator build)
     needs: changes
-    if: needs.changes.outputs.ios == 'true'
-    # Same Xcode as release-ios.yml.
-    runs-on: xcode-27
+    # Each PR in the merge queue already passed this; a Mac is too scarce to build it twice.
+    if: github.event_name != 'merge_group' && needs.changes.outputs.ios == 'true'
+    # Same-repo pull requests use the maintainers' Mac (label nuphos-m1), which has
+    # only Xcode 27.2; everything else keeps the hosted Xcode release-ios.yml uses.
+    # A fork's pull request never reaches that Mac: its job-started hook refuses it too.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'xcode-27' }}
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && '/Applications/Xcode.app/Contents/Developer' || '/Applications/Xcode_27.1.app/Contents/Developer' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -199,15 +246,21 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild -project nuphos-ios.xcodeproj -scheme nuphos-ios -configuration Debug \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO build -quiet
+      # A string added in code without a catalog entry would ship untranslated.
+      - name: Check that the string catalog matches the code
+        working-directory: apps/ios
+        run: |
+          bash tests/sync-strings.sh build
+          git diff --exit-code Shared/Localizable.xcstrings
 
   cli:
     name: CLI (fmt + clippy + test)
     needs: changes
     if: needs.changes.outputs.cli == 'true'
     # The image ships rustup and a stable toolchain.
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/cli
@@ -235,7 +288,8 @@ jobs:
   cli-macos:
     name: CLI (macOS clippy + test)
     needs: changes
-    if: needs.changes.outputs.cli == 'true'
+    # Not in the merge queue: each PR already passed it, and macOS runners are scarce.
+    if: github.event_name != 'merge_group' && needs.changes.outputs.cli == 'true'
     # The keychain code (src/secret.rs) compiles only on macOS.
     runs-on: macos-15
     defaults:
@@ -251,6 +305,15 @@ jobs:
         run: cargo test --locked
       - name: Test install.sh
         run: sh install.test.sh
+      # The CLI binary, to try a pull request's CLI on a Mac. cargo test builds only the test binaries.
+      - name: Build
+        run: cargo build --locked
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nuphos-cli-macos-arm64
+          path: apps/cli/target/debug/nuphos
+          retention-days: 7
+          if-no-files-found: error
 
   skill-install:
     name: Skill installers (${{ matrix.os }})
@@ -259,7 +322,8 @@ jobs:
     # Local runtimes run these scripts on macOS, the managed image on Linux.
     strategy:
       matrix:
-        os: [ubuntu-24.04-arm, macos-15]
+        # The merge queue drops macOS: each PR already passed it, and macOS runners are scarce.
+        os: ${{ github.event_name == 'merge_group' && fromJSON('["ubuntu-24.04-arm"]') || fromJSON('["ubuntu-24.04-arm", "macos-15"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -272,7 +336,7 @@ jobs:
     name: openab (clippy + test)
     needs: changes
     if: needs.changes.outputs.openab == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     defaults:
       run:
         working-directory: apps/runtime/openab
@@ -285,16 +349,17 @@ jobs:
         run: rustup toolchain install 1.99.0 --profile minimal --component clippy
       - name: Clippy
         run: cargo +1.99.0 clippy --locked --workspace --features unified -- -D warnings
-      # The ACP gateway and MCP tunnel tests are behind features the shipped
-      # binary enables, so default features would compile them away.
       - name: Test
-        run: cargo +1.99.0 test --locked --workspace --features openab-gateway/acp,openab-core/acp-mcp
+        run: cargo +1.99.0 test --locked --workspace
+      # A gateway adapter without the root acp feature must still build (#3049).
+      - name: Check without acp
+        run: cargo +1.99.0 check --locked --features telegram
 
   backend:
     name: Backend (typecheck + test + docker build)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     # The runtime-state store's compare-and-set is a Lua script; its suite runs
     # only against a real Redis (TEST_REDIS_URL below).
     services:
@@ -351,8 +416,9 @@ jobs:
           CONTENDED='@/routes/agent|@/lib/identity|@/lib/agent/db|@/models|@/lib/slack/api|@/lib/slack/agent-bot|@/middleware/auth'
           # A suite that loads the whole app binds every route module's
           # middleware at once, so it is isolated too.
-          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'|import\('@/index-app'\)" src --include='*.test.ts' | sort)
-          shared=$(find src -name '*.test.ts' | sort | comm -23 - <(echo "$isolated"))
+          # The *.mongo.test.ts suites run in the next step, against the database.
+          isolated=$(grep -rlE "mock\.module\('($CONTENDED)'|import\('@/index-app'\)" src --include='*.test.ts' --exclude='*.mongo.test.ts' | sort)
+          shared=$(find src -name '*.test.ts' ! -name '*.mongo.test.ts' | sort | comm -23 - <(echo "$isolated"))
           echo "isolated suites:"; echo "$isolated" | sed 's/^/  /'
           bun test $shared
           for suite in $isolated; do
@@ -360,6 +426,32 @@ jobs:
             bun test "$suite"
             echo "::endgroup::"
           done
+      # For the `*.mongo.test.ts` suites, which check what the database itself does
+      # with a document. Same image, rseq setting and single-node replica set as
+      # deploy/compose: transactions need one, and a service container takes no command.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 -e GLIBC_TUNABLES=glibc.pthread.rseq=1 \
+            mongo:8.0.32 --replSet rs0 --bind_ip_all
+          timeout 120 bash -c 'until docker exec mongo mongosh --quiet --eval "
+            try { rs.status() } catch (e) { rs.initiate({ _id: \"rs0\", members: [{ _id: 0, host: \"127.0.0.1:27017\" }] }) }
+            quit(db.hello().isWritablePrimary ? 0 : 1)"; do sleep 2; done'
+      # Their own process: MONGODB_URI is read once, when the config module loads,
+      # and the unit tests above must keep the unreachable address they are given.
+      - name: Tests against a real MongoDB
+        working-directory: apps/backend
+        env:
+          TEST_MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          MONGODB_DB: nuphos_test
+        # A suite that skips here passes without having touched the database.
+        run: |
+          # A run block is `bash -e` without pipefail: without this, tee's exit hides bun's.
+          set -o pipefail
+          bun test $(find src -name '*.mongo.test.ts' | sort) 2>&1 | tee "$RUNNER_TEMP/mongo-tests.txt"
+          if grep -q '^(skip)' "$RUNNER_TEMP/mongo-tests.txt"; then
+            echo "::error::A *.mongo.test.ts test skipped against the real MongoDB"; exit 1
+          fi
       - name: Check API schema is up-to-date
         working-directory: apps/backend
         run: bun run check:api
@@ -372,11 +464,181 @@ jobs:
           load: false
           provenance: false
 
-  desktop:
-    name: Desktop (Nuphos macOS package)
+  # The Desktop app driven against a real backend, MongoDB, file store and OpenAB,
+  # with a deterministic agent in place of a model: `bun run e2e`, the same command
+  # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
+  e2e:
+    # The two halves of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
+    # that start a stack of their own run side by side; the first half keeps the check name
+    # and the `e2e` artifact.
+    name: Desktop against a real backend${{ matrix.part == '2' && ' (second half)' || matrix.part == 'standalone' && ' (standalone suites)' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        part: ['1', '2', standalone]
+    needs: changes
+    # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
+    # Not in the merge queue: each PR already passed it, and one flaky run there ejects
+    # the PR and rebuilds every group behind it.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
+    # A one-day trial of instabox runners (ubuntu-24.04 image, 4 vCPU / 8 GiB),
+    # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
+    # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
+    # Each half of the main scenarios takes about 25 minutes with openab from the cache,
+    # the standalone leg about 6. A change to prepare.mjs or the openab source misses that cache until it
+    # lands on main, and compiling openab adds about 6 minutes.
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      # Ubuntu 24.04 keeps unprivileged user namespaces from Chrome, so the headless Chrome the
+      # second computer drives cannot start its sandbox; our own runners do not restrict them.
+      - name: Let Chrome start its sandbox
+        if: runner.environment == 'github-hosted'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # Attested openab from openab-cache.yml on main; otherwise the next step compiles it.
+      - id: openab
+        uses: ./.github/actions/openab-binaries
+      # Always staged: the app runs its own local agents from it. A cache hit reuses that openab.
+      - name: Stage the local runtime
+        working-directory: apps/desktop
+        run: node local-runtime/prepare.mjs --targets linux-x64 --require
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          (cd apps/backend && bun install --frozen-lockfile)
+          (cd apps/desktop && pnpm install --frozen-lockfile)
+      # Before the 35-minute run, since a scenario that does not typecheck fails late and
+      # obscurely. Here rather than in its own job: the scenarios reach into the Desktop
+      # sources, so they need the install above to resolve what those import.
+      - name: Typecheck the scenarios
+        run: ./node_modules/.bin/tsc -p scripts/tsconfig.json
+      # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
+      # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
+      - name: Pull the MongoDB and file store images
+        run: |
+          docker pull mongo:8.0.32
+          docker pull rustfs/rustfs:1.0.0
+      - name: Run isolated real-disk Desktop evidence
+        if: matrix.part == '1' && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/real-disk-shots
+          OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
+        run: |
+          set -euo pipefail
+          workdir=$(mktemp -d "$RUNNER_TEMP/nuphos-e2e-disk.XXXXXX")
+          disk="$workdir/disk.img"
+          mountpoint="$workdir/mount"
+          mkdir -p "$mountpoint" "$E2E_ARTIFACTS"
+          # Install Electron before HOME points at the nearly full test filesystem.
+          (cd apps/desktop && xvfb-run --auto-servernum pnpm exec electron --version)
+          truncate -s 2G "$disk"
+          mkfs.ext4 -q -F -m 0 "$disk"
+          sudo mount -o loop "$disk" "$mountpoint"
+          trap 'sudo umount "$mountpoint"; rm -f "$disk"; rmdir "$mountpoint" "$workdir"' EXIT
+          sudo chown "$(id -u):$(id -g)" "$mountpoint"
+          # ext4 metadata consumes space too; size the filler from the actual filesystem.
+          fill_bytes=$(python3 -c 'import os,sys; s=os.statvfs(sys.argv[1]); print(int((s.f_blocks * 0.94 - (s.f_blocks - s.f_bfree)) * s.f_frsize))' "$mountpoint")
+          test "$fill_bytes" -gt 0
+          fallocate -l "$fill_bytes" "$mountpoint/fill"
+          E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
+      - name: Upload real-disk screenshots
+        if: always() && matrix.part == '1' && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: real-disk-screenshots
+          path: |
+            ${{ runner.temp }}/real-disk-shots/real-disk-before.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-dismissed.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-second-window.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-restarted.png
+            ${{ runner.temp }}/real-disk-shots/real-disk-space-freed.png
+          if-no-files-found: warn
+      # Its own run, so a failure in the shared scenarios cannot mask a missing path.
+      - name: Check every way into the product
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-entry-points
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:entry-points
+      - name: Run the end-to-end scenarios
+        if: matrix.part != 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+          E2E_SHARD: ${{ matrix.part }}
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e
+      - name: Run Bot onboarding lifecycle scenarios
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-onboarding
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:bot-onboarding
+      # How fast a chat shows after its row is clicked, against the budgets in run-chat-switch.ts.
+      - name: Time chat switches
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-chat-switch
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          xvfb-run --auto-servernum bun run e2e:chat-switch
+      # A stack of its own: it restarts its backend for the session-home sweep (#4265).
+      - name: Remove an archived Task's home from its computer
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-session-homes
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          bun run e2e:session-homes
+      # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: e2e${{ matrix.part != '1' && format('-{0}', matrix.part) || '' }}
+          path: |
+            ${{ runner.temp }}/e2e
+            !${{ runner.temp }}/e2e/mongo
+            !${{ runner.temp }}/e2e/sign-in
+            ${{ runner.temp }}/e2e-onboarding
+            !${{ runner.temp }}/e2e-onboarding/mongo
+            !${{ runner.temp }}/e2e-onboarding/sign-in
+            ${{ runner.temp }}/e2e-chat-switch
+            !${{ runner.temp }}/e2e-chat-switch/mongo
+            !${{ runner.temp }}/e2e-chat-switch/sign-in
+            ${{ runner.temp }}/e2e-entry-points
+            !${{ runner.temp }}/e2e-entry-points/mongo
+            !${{ runner.temp }}/e2e-entry-points/sign-in
+            ${{ runner.temp }}/e2e-session-homes
+            !${{ runner.temp }}/e2e-session-homes/mongo
+            !${{ runner.temp }}/e2e-session-homes/sign-in
+          retention-days: 7
+
+  # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
+  # from a Linux runner instead of waiting for a Mac.
+  desktop-checks:
+    name: Desktop (typecheck, tests, build)
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
-    runs-on: macos-26
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -422,22 +684,67 @@ jobs:
         run: |
           bun build electron/main/local-runtime/cli-host.ts --target=node --format=esm --external @napi-rs/keyring --outfile "$RUNNER_TEMP/host.mjs"
           (env -u NUPHOS_AGENT_HOME node "$RUNNER_TEMP/host.mjs" 2>&1 || true) | tee /dev/stderr | grep -qF 'NUPHOS_AGENT_HOME is not set'
-      # Staging and electron-builder cost ~4 minutes and have not caught
-      # anything the steps above missed, so they run only on a pull request that
-      # changes a packaging input. The merge queue re-runs the steps above on
-      # the merged result and skips the package, so a queued PR does not wait
-      # for it again; the release workflow packages before anything ships.
+
+  # Some tests only run on macOS (the keychain, macOS config paths), and the
+  # native addon only compiles there. A PR or queue entry gets the Mac only when
+  # it changes a packaging input or the addon (desktop_package); every other
+  # desktop change is checked by the Linux job above, and its skipped Mac job
+  # still passes the required check. The full package runs on main every
+  # night, so what only the Mac catches shows up within a day.
+  # Staging and electron-builder are skipped in the queue: the PR already
+  # packaged the same inputs.
+  desktop:
+    name: Desktop (Nuphos macOS package)
+    needs: changes
+    # On schedule `changes` is skipped; !cancelled() keeps this job running.
+    if: >-
+      ${{ !cancelled() && (github.event_name == 'schedule' ||
+      (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
+      needs.changes.outputs.desktop_package == 'true')) }}
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Install dependencies
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile
+      - name: Run tests
+        timeout-minutes: 3
+        working-directory: apps/desktop
+        run: pnpm test
+      # On macOS this also compiles the native addon (apps/desktop/native).
+      - name: Build renderer and main bundles
+        working-directory: apps/desktop
+        run: pnpm exec vite build
       - name: Stage the local agent adapter
-        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: node local-runtime/prepare.mjs --targets darwin-arm64,darwin-x64 --no-openab
       # Exercise both native architectures without producing release ZIP/DMG files.
       - name: Package Nuphos macOS app
-        if: github.event_name == 'pull_request' && needs.changes.outputs.desktop_package == 'true'
+        if: github.event_name != 'merge_group'
         working-directory: apps/desktop
         run: pnpm exec electron-builder --mac --arm64 --x64 --dir --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+      # Nobody watches the nightly run, so a failure is posted to the maintainers.
+      - name: Report a failed nightly run
+        if: failure() && github.event_name == 'schedule'
+        env:
+          WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: >-
+          curl -fsS -X POST "$WEBHOOK" -H 'content-type: application/json'
+          -d "{\"run\":\"$RUN\",\"commit\":\"$GITHUB_SHA\"}"
 
   # Type-aware ESLint is the slowest step in both apps, so it runs beside their
   # main jobs instead of after typecheck. A PR then waits for the slower of the
@@ -445,8 +752,9 @@ jobs:
   backend-lint:
     name: Backend lint
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    # On push, changes is skipped, so !cancelled() keeps this job from skipping with it.
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.backend == 'true') }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -475,8 +783,8 @@ jobs:
   desktop-lint:
     name: Desktop lint
     needs: changes
-    if: needs.changes.outputs.desktop == 'true'
-    runs-on: ubuntu-24.04-arm
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changes.outputs.desktop == 'true') }}
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -505,7 +813,7 @@ jobs:
     name: Dev scripts
     needs: changes
     if: needs.changes.outputs.dev_scripts == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -523,8 +831,14 @@ jobs:
         run: bun run lint
       - name: Test the dev launcher's local stack wiring
         run: node --test --experimental-strip-types scripts/dev*.test.ts
+      - name: Test which backend log lines fail an e2e run
+        run: node --test --experimental-strip-types scripts/e2e/*.test.ts
+      - name: Test filling mobile strings from the Desktop translations
+        run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
         run: node --test scripts/release-workflows.test.mjs
+      - name: iOS UI results comparison tests
+        run: node --test scripts/compare-ios-ui-results.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if
       # they still fire; a rule that silently stops reporting is worse than no
       # rule. These suites fail if any of the three does.
@@ -540,7 +854,7 @@ jobs:
     name: Lint config integrity
     needs: changes
     if: needs.changes.outputs.lint_config == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -575,7 +889,7 @@ jobs:
     name: Import cycles
     needs: changes
     if: needs.changes.outputs.import_cycles == 'true'
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

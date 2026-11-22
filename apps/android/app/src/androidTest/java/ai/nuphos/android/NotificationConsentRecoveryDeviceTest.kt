@@ -8,7 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.*
@@ -52,7 +52,6 @@ class NotificationConsentRecoveryDeviceTest {
     private val fixture = object : ExternalResource() {
         override fun before() {
             app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as NuphosApplication
-            assumeTrue("Disposable navigation fixture only", app.packageName == "ai.nuphos.android.navigation1371")
             savedAccess = state(AiAccess, "state", false).value
             oldRevoked = AiAccess.onRevoked
             AiAccess.onRevoked = {} // A transient failure must not clear a tap, as in the application.

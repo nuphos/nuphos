@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 /** Saved accounts with switching and per-account sign-out; shared by Account and sign-in. */
 @Composable
@@ -65,20 +67,20 @@ fun SavedAccountsList(auth: AuthSession, allowAdding: Boolean, onSwitch: () -> U
                 Box(contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Add, contentDescription = null, Modifier.size(20.dp)) }
             }
             Spacer(Modifier.width(12.dp))
-            Text("Add account", style = MaterialTheme.typography.bodyLarge)
+            Text(stringResource(R.string.profile_accounts_add), style = MaterialTheme.typography.bodyLarge)
         }
     }
     removing?.let { account ->
         AlertDialog(
             onDismissRequest = { removing = null },
-            title = { Text("Sign out of this account?") },
+            title = { Text(stringResource(R.string.profile_accounts_sign_out_confirm)) },
             text = { Text(account.user.email.ifEmpty { account.user.displayName }) },
             confirmButton = {
                 TextButton(onClick = { removing = null; auth.removeAccount(account.id) }) {
-                    Text("Sign out", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -101,17 +103,17 @@ private fun AccountRow(account: SavedAccount, activeUser: ai.nuphos.android.mode
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (!BackendOrigin.isCloud(account.origin)) Text(account.origin.removePrefix("https://"),
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (account.token == null) Text("Sign in again", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
+            if (account.token == null) Text(stringResource(R.string.profile_accounts_sign_in_again), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.error)
         }
-        if (activeUser != null) Icon(Icons.Filled.CheckCircle, contentDescription = "Active account",
+        if (activeUser != null) Icon(Icons.Filled.CheckCircle, contentDescription = stringResource(R.string.profile_accounts_active),
             Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         Box {
             IconButton(onClick = { menu = true }, enabled = !busy) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "Account options for ${user.email}",
+                Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.profile_accounts_options, user.email),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Sign out", color = MaterialTheme.colorScheme.error) },
+                DropdownMenuItem(text = { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) },
                     onClick = { menu = false; onSignOut() })
             }
         }

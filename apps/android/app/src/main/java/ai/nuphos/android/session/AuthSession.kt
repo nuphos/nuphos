@@ -2,6 +2,7 @@ package ai.nuphos.android.session
 
 import android.app.Activity
 import android.app.Application
+import ai.nuphos.android.R
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -121,7 +122,7 @@ class AuthSession(
             // Let the previous account's queued private-draft deletion finish first.
             try { awaitIdentityCleanup?.invoke() } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
-                if (generation == expected) state = State.SignedOut("Saved draft cleanup failed. Check storage, then try again.")
+                if (generation == expected) state = State.SignedOut(app.getString(R.string.shell_auth_cleanup_failed))
                 return@launch
             }
             if (generation == expected) restore()
@@ -206,14 +207,14 @@ class AuthSession(
                 if (!matches(expected, current) || request != consentRequest) return@launch
                 if (AiAccess.revision != revision) {
                     consentVersion = null
-                    consentError = "Your AI access changed. Reload your sharing choice before continuing."
+                    consentError = app.getString(R.string.shell_auth_ai_access_changed)
                     return@launch
                 }
                 consentVersion = result.version
                 if (result.version == AccountApi.AI_CONSENT_VERSION && result.accepted) {
                     if (!AiAccess.grantIfCurrent(current, revision)) {
                         consentVersion = null
-                        consentError = "Your AI access changed. Reload your sharing choice before continuing."
+                        consentError = app.getString(R.string.shell_auth_ai_access_changed)
                     }
                 } else {
                     composerDrafts.clear()
@@ -221,7 +222,7 @@ class AuthSession(
                     runtimeSelections.clear()
                     AiAccess.revoke()
                     if (result.version != AccountApi.AI_CONSENT_VERSION) {
-                        consentError = "This privacy notice has changed. Please update Nuphos before using AI."
+                        consentError = app.getString(R.string.shell_auth_privacy_notice_changed)
                     }
                 }
             } catch (_: NuphosApi.Failure.Unauthorized) {
@@ -230,7 +231,7 @@ class AuthSession(
                 if (matches(expected, current) && request == consentRequest) {
                     AiAccess.revoke()
                     consentVersion = null
-                    consentError = "We could not load your AI sharing choice. Retry or manage your account."
+                    consentError = app.getString(R.string.shell_auth_consent_load_failed)
                 }
             } finally {
                 if (generation == expected && request == consentRequest) consentBusy = false
@@ -252,7 +253,7 @@ class AuthSession(
                 if (!matches(expected, current) || request != consentRequest) return@launch
                 if (AiAccess.revision != revision) {
                     consentVersion = null
-                    consentError = "Your AI access changed. Reload your sharing choice before continuing."
+                    consentError = app.getString(R.string.shell_auth_ai_access_changed)
                     return@launch
                 }
                 consentVersion = result.version
@@ -260,7 +261,7 @@ class AuthSession(
                     if (accepted) {
                         if (!AiAccess.grantIfCurrent(current, revision)) {
                             consentVersion = null
-                            consentError = "Your AI access changed. Reload your sharing choice before continuing."
+                            consentError = app.getString(R.string.shell_auth_ai_access_changed)
                         }
                     } else {
                         composerDrafts.clear()
@@ -270,12 +271,13 @@ class AuthSession(
                     }
                 } else {
                     AiAccess.revoke()
-                    consentError = "Nuphos could not confirm your AI sharing choice. Please retry."
+                    consentError = app.getString(R.string.shell_auth_consent_unconfirmed)
                 }
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             } catch (e: Exception) {
-                if (matches(expected, current) && request == consentRequest) consentError = e.message ?: "We could not save your choice."
+                if (e is CancellationException) throw e
+                if (matches(expected, current) && request == consentRequest) consentError = e.message ?: app.getString(R.string.shell_auth_consent_save_failed)
             } finally {
                 if (generation == expected && request == consentRequest) consentBusy = false
             }
@@ -296,7 +298,8 @@ class AuthSession(
             if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             false
         } catch (e: Exception) {
-            if (matches(expected, current)) profileError = e.message ?: "We could not update your photo."
+            if (e is CancellationException) throw e
+            if (matches(expected, current)) profileError = e.message ?: app.getString(R.string.shell_auth_photo_failed)
             false
         }
     }
@@ -314,8 +317,9 @@ class AuthSession(
             if (matches(expected, current)) signOut(NuphosApi.Failure.Unauthorized.message)
             false
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (matches(expected, current)) profileError = if (e is NuphosApi.Failure.Http && e.code == 409)
-                "That username is already in use. Choose another one." else e.message ?: "We could not save your profile."
+                app.getString(R.string.shell_auth_username_taken) else e.message ?: app.getString(R.string.shell_auth_profile_failed)
             false
         }
     }
@@ -350,7 +354,7 @@ class AuthSession(
                 state = State.SignedOut(null)
             } catch (_: Exception) {
                 if (generation != expected) return@launch
-                state = State.SignedOut("We could not reach Nuphos. Check your connection and try again.")
+                state = State.SignedOut(app.getString(R.string.shell_auth_unreachable))
             }
         }
     }
@@ -408,11 +412,11 @@ class AuthSession(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: ActivityNotFoundException) {
-                if (generation == expected) state = State.SignedOut("We could not open the sign-in window. Please try again.")
+                if (generation == expected) state = State.SignedOut(app.getString(R.string.shell_auth_window_failed))
             } catch (e: NuphosApi.Failure.MfaRequired) {
                 if (generation == expected) askForMfa(e.challenge)
             } catch (_: Exception) {
-                if (generation == expected) state = State.SignedOut("Secure sign-in did not complete. Check your connection and try again.")
+                if (generation == expected) state = State.SignedOut(app.getString(R.string.shell_auth_secure_incomplete))
             } finally {
                 attempt?.close()
                 if (loginAttempt === attempt) {
@@ -485,8 +489,8 @@ class AuthSession(
                     if (generation == expected) { state = State.SignedOut(null); onRefused(e.message) }
                     return@launch
                 } catch (_: NuphosApi.Failure.Unauthorized) {
-                    if (generation == expected) state = State.SignedOut(if (password) "The email or password is incorrect." else "Incorrect or expired code. Request a new code if needed.")
-                    onRefused?.invoke("That code is not valid.")
+                    if (generation == expected) state = State.SignedOut(if (password) app.getString(R.string.shell_auth_wrong_password) else app.getString(R.string.shell_auth_code_expired))
+                    onRefused?.invoke(app.getString(R.string.shell_auth_code_invalid))
                     return@launch
                 }
                 ensureActive()
@@ -504,13 +508,13 @@ class AuthSession(
             } catch (e: NuphosApi.Failure.Http) {
                 onRefused?.invoke(e.message)
                 if (generation == expected) state = State.SignedOut(if (password) e.message else when (e.code) {
-                    400 -> "Incorrect or expired code, or invalid details. Check your entries or request a new code."
-                    429 -> "Too many attempts. Wait before requesting a new code."
-                    else -> "Email sign-in did not complete. Try again or request a new code."
+                    400 -> app.getString(R.string.shell_auth_code_rejected)
+                    429 -> app.getString(R.string.shell_auth_too_many_attempts)
+                    else -> app.getString(R.string.shell_auth_email_incomplete)
                 })
             } catch (_: Exception) {
-                if (generation == expected) state = State.SignedOut("Sign-in did not complete. Check your details and connection, then try again.")
-                onRefused?.invoke("Sign-in did not complete. Check your connection, then try again.")
+                if (generation == expected) state = State.SignedOut(app.getString(R.string.shell_auth_incomplete))
+                onRefused?.invoke(app.getString(R.string.shell_auth_incomplete_connection))
             } finally {
                 if (generation == expected) loginJob = null
             }
@@ -591,7 +595,7 @@ class AuthSession(
                 val cleanupError = try { cleanup(); null }
                 catch (failure: Exception) {
                     if (failure is kotlinx.coroutines.CancellationException) throw failure
-                    "Signed out, but saved draft cleanup failed. Check storage before closing the app."
+                    app.getString(R.string.shell_auth_signed_out_cleanup_failed)
                 }
                 if (generation == expected && token == null) state = State.SignedOut(cleanupError ?: error)
             }

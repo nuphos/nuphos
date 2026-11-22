@@ -154,11 +154,16 @@ export function RuntimeLoginBody({
       ) : (
         <div className="flex items-center gap-3 text-[13px] text-secondary">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-          {reachable
-            ? t('Preparing secure sign-in…')
-            : t(
-                'Starting your runtime… You can close this and sign in from its card once it is running.',
-              )}
+          {login?.installing
+            ? t('Installing {name} on {computer}…', {
+                name: AGENT_PROVIDER[instance.provider].label,
+                computer: instance.local?.deviceLabel ?? '',
+              })
+            : reachable
+              ? t('Preparing secure sign-in…')
+              : t(
+                  'Starting your runtime… You can close this and sign in from its card once it is running.',
+                )}
         </div>
       )}
       {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}

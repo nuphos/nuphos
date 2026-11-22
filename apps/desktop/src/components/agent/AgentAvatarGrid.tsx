@@ -17,13 +17,14 @@ export function AgentAvatarGrid({
   onChange,
   onPreview,
 }: {
-  value: BotAvatarFile
+  /** Absent when no character is picked, as for a Bot wearing a photo. */
+  value?: BotAvatarFile
   onChange: (file: BotAvatarFile) => void
   /** The avatar under the pointer, or null once it leaves the grid. */
   onPreview: (file: BotAvatarFile | null) => void
 }) {
   const tiles = useRef<(HTMLButtonElement | null)[]>([])
-  const [focused, setFocused] = useState(BOT_AVATARS.indexOf(value))
+  const [focused, setFocused] = useState(value ? BOT_AVATARS.indexOf(value) : 0)
 
   function move(event: React.KeyboardEvent) {
     const last = BOT_AVATARS.length - 1
@@ -70,7 +71,7 @@ export function AgentAvatarGrid({
             aria-checked={selected}
             aria-label={botAvatarLabel(file)}
             title={botAvatarLabel(file)}
-            tabIndex={selected ? 0 : -1}
+            tabIndex={selected || (!value && index === 0) ? 0 : -1}
             onFocus={() => setFocused(index)}
             onPointerEnter={() => onPreview(file)}
             onClick={() => onChange(file)}

@@ -6,15 +6,23 @@ environment, not a private sandbox for mutually untrusted members.
 
 ## What sharing grants
 
-The `use` permission includes running conversations, commands, terminals, file
-operations, browser/computer control and runtime sign-in (including local exec). The computer's OS
-account determines which local files, existing sign-ins and services are
-reachable. Share a dedicated team machine rather than a personal environment
-containing unrelated private data.
+`use` lets a teammate run their conversations on the computer's agents. Those
+agents run with the computer's own Claude Code or Codex sign-in, so teammates'
+chats count against that account's plan and usage limits. The agents act as the
+computer's OS account: through their own tools they can read the files and run
+the commands that account can. Share a dedicated team machine rather than a
+personal environment containing unrelated private data.
 
-`manage` also permits computer management and changing who may use it. The
-owner retains ownership actions. Team membership or team-administrator status
-does not by itself grant access to another member's personal computer.
+`manage` also permits Nuphos's own device tools (local exec, file upload and
+browser/computer control), opening a terminal, signing the computer's agents in
+or out, computer management, and changing who may use it. The owner of a computer
+from Nuphos can let teammates who only use it open a terminal too. The owner retains
+ownership actions. Team membership or team-administrator status does not by
+itself grant access to another member's personal computer.
+
+Inviting someone to a conversation that runs on a computer they cannot use asks
+whether to give them `use` of that whole computer. Removing them from the
+conversation later does not take that back.
 
 Slack, Discord, scheduled triggers and agent threads can run work where the person
 accountable for that work has computer access. They are not categorically

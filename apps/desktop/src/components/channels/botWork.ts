@@ -1,3 +1,4 @@
+import { attentionInputRequests } from '../../lib/agentInputRequests.ts'
 import { runtimeTypingIn, runtimeTurnActive } from '../../lib/runtimeExecution.ts'
 import { subAgentState } from '../../lib/subAgentState.ts'
 import { activityOf } from '../sidebar/bot-activity.ts'
@@ -7,7 +8,10 @@ import type { Run } from '../sidebar/bot-activity.ts'
 
 /** What a run is doing right now, as specific as its runtime says. */
 export type Step =
-  { kind: 'command'; command: string } | { kind: 'tool'; title: string } | { kind: 'thinking' }
+  | { kind: 'command'; command: string }
+  | { kind: 'tool'; title: string }
+  | { kind: 'plan'; title: string }
+  | { kind: 'thinking' }
 
 /**
  * What a Bot's chat says the Bot is doing, from the same reading as its row in
@@ -15,9 +19,10 @@ export type Step =
  */
 export type BotWork =
   | { kind: 'turn'; step: Step; reason: 'chat' | 'report' | 'other'; kids: Run[] }
+  | { kind: 'onboarding'; kids: Run[] }
   | { kind: 'waiting'; kids: Run[] }
   | { kind: 'background'; kids: Run[] }
-  | { kind: 'asking'; question: string; kids: Run[] }
+  | { kind: 'asking'; question: string; id: string; count: number; kids: Run[] }
 
 const RUNNING = new Set(['running', 'in_progress', 'pending'])
 
@@ -30,6 +35,8 @@ export function stepOf(runtimeState: RuntimeExecution | undefined): Step {
   const tool = tools.find((item) => RUNNING.has(item.status ?? '') && item.title)
 
   if (tool?.title) return { kind: 'tool', title: oneLine(tool.title) }
+  if (runtimeState?.phase === 'plan' && runtimeState.label)
+    return { kind: 'plan', title: runtimeState.label }
 
   return { kind: 'thinking' }
 }
@@ -54,11 +61,25 @@ function reasonOf(bot: Run, kids: Run[], channelId: string): 'chat' | 'report' |
 }
 
 export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string): BotWork | null {
-  const activity = activityOf(bot, kids)
   const working = activeKids(kids)
+  // Every open question of the Bot and the agents under it, the oldest first.
+  const open = [...(bot ? [bot] : []), ...kids]
+    .flatMap((run) => attentionInputRequests(run.conversation))
+    .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  const oldest = open.at(0)
 
-  if (activity.kind === 'asking')
-    return { kind: 'asking', question: activity.question, kids: working }
+  if (oldest)
+    return {
+      kind: 'asking',
+      question: oldest.question,
+      id: oldest.id,
+      count: open.length,
+      kids: working,
+    }
+  const activity = activityOf(bot, kids)
+
+  if (activity.kind === 'onboarding') return { kind: 'onboarding', kids: working }
+
   if (
     activity.kind === 'working' &&
     bot &&

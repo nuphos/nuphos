@@ -81,8 +81,6 @@ export function localBackendEnv(stack: LocalStack): Record<string, string> {
     MONGODB_URI: `mongodb://127.0.0.1:${String(stack.mongoPort)}/?directConnection=true`,
     MONGODB_DB: 'nuphos',
     ATLAS_REDIS_ENABLED: 'false',
-    CLAUDE_CODE_RUNTIME_KUBECTL: 'false',
-    CLAUDE_CODE_RUNTIME_PROVISIONER_ENABLED: 'false',
     NUPHOS_DEV_EMAIL_OTP_LOG: 'true',
     NUPHOS_LOCAL_STACK: 'true',
     NUPHOS_FILE_TRANSFER_S3_BUCKET: S3_BUCKETS.fileTransfers,

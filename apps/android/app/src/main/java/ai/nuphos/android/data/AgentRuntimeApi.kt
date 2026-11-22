@@ -11,7 +11,7 @@ import java.util.UUID
 
 /** Only catalog identity and admission fields are retained, never connection defaults. */
 data class AgentRuntime(val id: String, val provider: String, val label: String, val status: String, val kind: String, val deleting: Boolean = false, val signedIn: Boolean? = null, val local: RuntimeHost? = null) {
-    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "hermes", "dsh") &&
+    val selectable get() = id.matches(Regex("[A-Za-z0-9_-]{1,200}")) && provider in setOf("claude-code", "codex", "grok", "antigravity", "opencode", "hermes", "dsh", "pi") &&
         signedIn != false && status == "active" && kind in setOf("managed", "external", "development", "local") && !deleting
 }
 
@@ -43,7 +43,8 @@ fun runtimeHttpsUrl(value: String): Boolean = runCatching {
     val uri = java.net.URI(value)
     uri.scheme == "https" && !uri.host.isNullOrEmpty() && uri.rawUserInfo == null
 }.getOrDefault(false)
-fun validRuntimeCode(value: String) = value.matches(Regex("^[A-Za-z0-9_.~-]{1,2048}#[A-Za-z0-9_.~-]{1,512}$"))
+// Mirrors the backend's AUTHORIZATION_CODE: Claude's `code#state`, Google's bare `4/…` code, or the loopback address.
+fun validRuntimeCode(value: String) = value.matches(Regex("^(?:[A-Za-z0-9_.~-]{1,2048}#[A-Za-z0-9_.~-]{1,512}|4/[A-Za-z0-9_-]{1,2048}|http://(?:127\\.0\\.0\\.1|localhost):\\d{1,5}/\\?[A-Za-z0-9_.~%&=/+:-]{1,4096})$"))
 class RuntimeLoginAbsent : Exception("No sign-in is in progress for this account.")
 class RuntimeHttpFailure(val status: Int, val errorCode: String?) : Exception("Runtime request was rejected ($status).")
 
@@ -69,7 +70,9 @@ class AgentRuntimeApi internal constructor(private val token: String, teamId: St
         return list.map(::decodeRuntime).also { if (it.map { item -> item.id }.distinct().size != it.size) throw NuphosApi.Failure.InvalidResponse }
     }
     suspend fun quotas(): Map<String, RuntimeQuota> = decodeRuntimeQuotas(execute("$path/quota", "GET", expected = 200))
-    suspend fun devices(): List<RuntimeDevice> = decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}&metrics=true", "GET", expected = 200))
+    /** `metrics`: asks every online host to sample, which only a meters view needs. */
+    suspend fun devices(metrics: Boolean = true): List<RuntimeDevice> =
+        decodeRuntimeDevices(execute("agent/devices?teamId=${path.split("/")[1]}${if (metrics) "&metrics=true" else ""}", "GET", expected = 200))
     override suspend fun update(runtimeId: String, label: String?, status: String?): AgentRuntime {
         require(label != null || status != null)
         require(label == null || label.trim().length in 1..120)

@@ -83,7 +83,7 @@ export function useRowLinkActions<T>(
         },
         {
           key: 'open-in-chat',
-          label: t('Open in agent'),
+          label: t('Open in a task'),
           icon: MessageSquare,
           onSelect: () => openInChat(href),
         },

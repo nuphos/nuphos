@@ -7,19 +7,27 @@ const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(ses
 
 /**
  * A new channel, private until shared; its people and agents are added after.
- * It has no name: each member sees it called by the others in it.
+ * Without a name, each member sees it called by the others in it.
  */
 export async function createChannel(
   teamId: string,
   group?: boolean,
+  title?: string,
 ): Promise<{ sessionId: string }> {
-  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, group ? { group } : {})
+  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, {
+    ...(group ? { group } : {}),
+    ...(title ? { title } : {}),
+  })
 }
 
 /** Where a new Bot runs: the runtime a new chat would start on. */
 export type NewBot = {
+  onboarding?: boolean
+  starter?: 'coordinate'
+  locale?: string
   title?: string
   avatar?: string
+  background?: string
   runtimeId?: string
   agentRuntime?: string
   runtimeLabel?: string
@@ -29,7 +37,7 @@ export type NewBot = {
 export async function createBot(
   teamId: string,
   bot: NewBot = {},
-): Promise<{ sessionId: string; title: string; avatar: string }> {
+): Promise<{ sessionId: string; title: string; avatar: string; avatarBackground?: string }> {
   return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, bot)
 }
 
@@ -82,8 +90,7 @@ export async function wakeChannelAgent(
 /**
  * `id` makes a resend the same message; `upload` is a finished upload's group;
  * `mentions` are the user ids of the composer's mention chips; `replyTo` is the
- * id of the post it answers; `decisionReplyTo` the question of an agent in the
- * channel it answers.
+ * id of the post it answers.
  */
 export async function postChannelMessage(
   channelId: string,
@@ -93,7 +100,6 @@ export async function postChannelMessage(
   upload?: string,
   mentions?: string[],
   replyTo?: string,
-  decisionReplyTo?: string,
 ): Promise<{ id: string }> {
   return callJsonForRenderer('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
     text,
@@ -101,7 +107,6 @@ export async function postChannelMessage(
     ...(upload ? { upload } : {}),
     ...(mentions?.length ? { mentions } : {}),
     ...(replyTo ? { replyTo } : {}),
-    ...(decisionReplyTo ? { decisionReplyTo } : {}),
   })
 }
 
@@ -120,4 +125,14 @@ export async function resolveChannelAttachment(
 /** The Inbox's channel entries: posts that @mention the viewer. */
 export async function listChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }> {
   return callJsonForRenderer('GET', `/agent/channels/mentions${teamQuery(teamId)}`)
+}
+
+export function startBotOnboarding(
+  sessionId: string,
+  teamId: string,
+  channelId: string,
+): Promise<{ started: boolean }> {
+  return callJsonForRenderer('POST', `${at(sessionId)}/bot-onboarding${teamQuery(teamId)}`, {
+    channelId,
+  })
 }

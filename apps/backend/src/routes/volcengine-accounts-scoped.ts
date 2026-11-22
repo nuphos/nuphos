@@ -1,18 +1,17 @@
 import { Hono } from 'hono'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { volcengineHandleFor } from '@/lib/byos/handles'
 import { listVkeClusters, generateVkeKubeconfig, BOOTSTRAP_REGION } from '@/lib/byos/volcengine'
 import { listVolcEcsInstances, getVolcRegions } from '@/lib/byos/volcengine-ecs'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -58,55 +57,27 @@ export const volcengineAccountScoped = new Hono<{ Variables: VolcengineAccountVa
 
 volcengineAccountScoped.use('*', requireVolcengineAccount())
 
-volcengineAccountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('volcengineBinding').access)),
+registerBindingAccessRoutes(volcengineAccountScoped, 'volcengineAccounts', (c) =>
+  c.get('volcengineBinding'),
 )
 
-volcengineAccountScoped.put(
-  '/access',
+volcengineAccountScoped.delete(
+  '/',
   requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
+  requireCanDisconnect('volcengineBinding'),
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('volcengineBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'volcengineAccounts.id': accountId },
-      { $set: { 'volcengineAccounts.$.access': access, updatedAt: access.updatedAt } },
-    )
 
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(
-        404,
-        'volcengine_account_not_found',
-        'Volcengine account binding not found',
-      )
-    }
+    await disconnectBinding(c, teamId, 'volcengineAccounts', { id: accountId })
 
-    return c.json(accessView(access))
+    return c.body(null, 204)
   },
 )
 
-volcengineAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const accountId = c.get('volcengineBinding').id
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    { $pull: { volcengineAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-  )
-
-  return c.body(null, 204)
-})
-
 // Below: any team member with allow-list access to this binding.
 volcengineAccountScoped.use('*', async (c, next) => {
-  if (
-    c.get('teamRole') !== 'ADMINISTRATOR' &&
-    !canUseAllowList(c.get('volcengineBinding').access?.memberAllowList, c.get('userId'))
-  ) {
+  if (!canRequestUseBinding(c, c.get('volcengineBinding').access)) {
     throw new AppError(403, 'forbidden', 'You do not have access to this Volcengine binding')
   }
   await next()

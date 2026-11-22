@@ -37,6 +37,9 @@ importers:
       posthog-node:
         specifier: ^5.35.2
         version: 5.35.2
+      undici:
+        specifier: ^7.30.1
+        version: 7.30.1
     devDependencies:
       '@base-ui/react':
         specifier: ^1.5.0
@@ -9257,8 +9260,7 @@ snapshots:
 
   undici@6.29.1: {}
 
-  undici@7.30.1:
-    optional: true
+  undici@7.30.1: {}
 
   unified@11.0.5:
     dependencies:

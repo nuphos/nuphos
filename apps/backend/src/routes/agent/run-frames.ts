@@ -4,6 +4,7 @@ import { RunHandoff } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { notifyAgentRunEnded, notifyApprovalRequested } from '@/lib/push/notify'
 import { drainRunsUntilForcePause } from '@/lib/shutdown-budget'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import {
   AGENT_STREAM_DONE_EVENT,
@@ -12,13 +13,12 @@ import {
 } from './constants'
 import { agentStreamErrorFrame } from './errors'
 import { listInFlightAgentRuns, scheduleAgentRunCleanup } from './run-registry'
-import { traceAgentChatError, traceAgentChatEvent } from './trace'
+import { traceAgentChatEvent, traceAgentChatRefusal } from './trace'
 
 import type { AgentRun } from './types'
 
 export function appendAgentRunFrame(run: AgentRun, frame: string) {
-  // Once a run is done, drop late frames (e.g. buffered chunks after an abort)
-  // so nothing lands after the terminal paused/done frame in frames + Redis.
+  // Drop late frames (buffered chunks after an abort) once the run is done.
   if (run.done) {
     traceAgentChatEvent('warn', 'agent.chat.run.late_frame_dropped', run.trace, {
       frame_type: agentRunFrameType(frame),
@@ -30,11 +30,16 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
 
     return
   }
-  run.frames.push(frame)
+  const frameType = agentRunFrameType(frame)
+
+  // Even a repeat shows the producer is alive, which the stall sweeper reads.
   run.lastAccessAt = Date.now()
   run.lastFrameAt = run.lastAccessAt
-  mirrorAgentRunFrame(run.userId, run.streamId, frame)
-  const frameType = agentRunFrameType(frame)
+  const kept = frameType === 'runtime-state' ? changedRuntimeState(run, frame) : frame
+
+  if (kept === undefined) return
+  run.frames.push(kept)
+  mirrorAgentRunFrame(run.userId, run.streamId, kept)
 
   if (
     frameType === 'error' ||
@@ -60,8 +65,31 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   }
   if (frameType === 'tool-approval-request') {
     notifyApprovalRequested(run)
+    queueWebhookEvents(run.sessionId)
   }
   for (const subscriber of run.subscribers) subscriber.poke()
+}
+
+/** Drop a repeat, and unchanged commands: clients keep the last list (an empty one is `[]`). */
+function changedRuntimeState(run: AgentRun, frame: string): string | undefined {
+  const payload = JSON.parse(frame.slice('data: '.length)) as {
+    snapshot?: { commands?: unknown }
+  }
+  const snapshot = JSON.stringify(payload.snapshot)
+
+  if (snapshot === run.lastRuntimeSnapshot) return undefined
+  run.lastRuntimeSnapshot = snapshot
+  if (payload.snapshot?.commands === undefined) return frame
+  const commands = JSON.stringify(payload.snapshot.commands)
+
+  if (commands !== run.lastRuntimeCommands) {
+    run.lastRuntimeCommands = commands
+
+    return frame
+  }
+  const { commands: _unchanged, ...rest } = payload.snapshot
+
+  return `data: ${JSON.stringify({ ...payload, snapshot: rest })}\n\n`
 }
 
 function recordConversationActivity(run: AgentRun) {
@@ -117,8 +145,6 @@ function hasTerminalFrame(run: AgentRun): boolean {
  * but strands every other reader, because a replica tailing the Redis mirror
  * has only `atlas-stream-done` to detect the end — so it keeps replaying
  * heartbeats against a buffer that never closes, for the full 2h key TTL.
- * Observed 2026-09-11: a stopped run released its owner lease while its Redis
- * buffer still ended on a `text-delta`.
  */
 export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ended-without-result') {
   if (!run.done && !hasTerminalFrame(run)) {
@@ -156,11 +182,17 @@ export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ende
   })
   for (const subscriber of run.subscribers) subscriber.poke()
   notifyAgentRunEnded(run)
+  queueWebhookEvents(run.sessionId)
   scheduleAgentRunCleanup(run)
 }
 
 export function appendAgentRunError(run: AgentRun, error: unknown) {
-  traceAgentChatError('agent.chat.run.error_frame_appended', error, run.trace, {
+  const event = {
+    error: 'agent.chat.run.error_frame_appended',
+    queued: 'agent.chat.run.queued_frame_appended',
+  }
+
+  traceAgentChatRefusal(event, error, run.trace, {
     frame_count: run.frames.length,
     last_finish_reason: run.lastFinishReason,
     run_age_ms: Date.now() - run.createdAt,

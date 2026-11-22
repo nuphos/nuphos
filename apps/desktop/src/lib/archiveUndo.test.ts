@@ -57,8 +57,8 @@ test('the receipt names the chat and never merges with another archive', () => {
   offerArchiveUndo({ sessionId: 'a', teamId: 'team', title: 'Deploy notes' })
 
   assert.equal(shown.length, 1)
-  assert.equal(shown[0].title, 'Agent archived')
-  assert.equal(shown[0].description, '"Deploy notes" is still available in the Agent history.')
+  assert.equal(shown[0].title, 'Task archived')
+  assert.equal(shown[0].description, '"Deploy notes" is still available in Archived.')
   assert.equal(shown[0].action?.label, 'Undo')
   assert.equal(shown[0].dedupe, false)
 })
@@ -71,8 +71,8 @@ test('the receipt says a Bot or a chat was archived when the server said so', ()
   assert.deepEqual(
     shown.map((toast) => [toast.title, toast.description]),
     [
-      ['Bot archived', '"Release helper" is still available in Archived agents.'],
-      // Archived agents does not list chats, so nothing promises one is there.
+      ['Bot archived', '"Release helper" is still available in Archived.'],
+      // Archived does not list chats, so nothing promises one is there.
       ['Chat archived', undefined],
     ],
   )
@@ -124,8 +124,8 @@ test('a failed restore always shows an error and leaves the chat archived', asyn
   assert.deepEqual(log, [])
   assert.deepEqual(failures, [
     {
-      title: 'Could not restore agent',
-      fallback: 'The agent is still archived. Try again from the Agent history.',
+      title: 'Could not undo archive',
+      fallback: '"Deploy notes" is still archived.',
     },
   ])
 })

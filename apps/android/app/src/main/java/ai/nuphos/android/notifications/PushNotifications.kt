@@ -148,7 +148,11 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
         Http.client.newCall(request).execute().close()
     }
 
+    /** Runs on the FCM worker thread, so the blocking face render stays off the main thread. */
     fun receive(data: Map<String, String>) {
+        // Rendered before the lock, so registration and binding never wait on an SVG decode.
+        val sender = if (data["kind"] == "badge") null else NotificationSender.from(data)
+        val face = sender?.let { NotificationAvatars.bitmap(app, it.avatarFile) }
         synchronized(bindingLock) {
             if (!prefs.getBoolean("consent_granted", false)) return
             val savedToken = app.tokenStore.read() ?: return
@@ -167,7 +171,8 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             }
             // Tap routing re-checks current account, team and consent as well.
             LocalNotifications(app, { account }, { prefs.getBoolean("consent_granted", false) }).post(
-                target, "Nuphos", data["body"]?.take(200) ?: "Open Nuphos to view the update", badge)
+                target, "Nuphos", data["body"]?.take(200) ?: app.getString(ai.nuphos.android.R.string.shell_notification_open_update), badge,
+                sender?.let { s -> face?.let { NotificationFace(s.name, it) } })
         }
     }
 
@@ -187,7 +192,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
                 // Never lost silently, whatever failed: replacing the notification also stops the
                 // reply spinner, the text comes back, and a tap opens the conversation.
                 if (sent) app.localNotifications.dismiss(target)
-                else LocalNotifications(app, { target.accountId }, { true }).post(target, "Reply not sent", text)
+                else LocalNotifications(app, { target.accountId }, { true }).post(target, app.getString(ai.nuphos.android.R.string.shell_notification_reply_not_sent), text)
             } finally {
                 done()
             }

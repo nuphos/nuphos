@@ -23,8 +23,6 @@ useAgentDb({
     if (clearFails) throw new Error('still unavailable')
     cleared.push(sessionId)
   },
-  // An ordinary question, not a plan's.
-  findInputRequest: async () => undefined,
   resolveInputRequest: async (sessionId, userId, toolCallId) => {
     resolved.push([sessionId, userId, toolCallId])
 
@@ -53,6 +51,12 @@ beforeEach(() => {
   resolved = []
   writeFails = false
   clearFails = false
+})
+
+test('a phone turn stores that it draws the secure input card, and no Desktop-tool capability', async () => {
+  await persistPreviewTurnContext({ ...turn(false), secretCardEnabled: true }, 'req-1')
+
+  expect(written).toEqual([{ activeTurnKey: 'req-1', activeTurnOrigin: 'user', secretCard: true }])
 })
 
 test('a capable turn stores the Desktop-tool capability', async () => {

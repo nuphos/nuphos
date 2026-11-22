@@ -1,3 +1,5 @@
+import { artifactPagePath } from '../../../lib/sessionArtifacts'
+import { useArtifactCall } from '../artifacts/useSessionArtifacts'
 import { Chart } from '../Chart'
 import { tryParseChartPayload } from '../chartPayload'
 import { tryParsePlanPayload } from '../planPayload'
@@ -8,28 +10,19 @@ import { LoadingText, ToolElapsedBadge } from './partChrome'
 import { getToolLabel } from './toolPartUtils'
 import { ToolPartView } from './ToolPartView'
 
+import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
 
 export function PlanToolPart({
   part,
   now,
   teamId,
-  canApprove,
-  canChat,
   keepPolling,
-  onChat,
-  onApprovePlan,
-  onRejectPlan,
 }: {
   part: ToolPart
   now: number
   teamId?: string
-  canApprove: boolean
-  canChat: boolean
   keepPolling?: boolean
-  onChat?: () => void
-  onApprovePlan?: (planId: string) => void
-  onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
 }) {
   const label = getToolLabel(part)
   const errored = part.state === 'output-error'
@@ -41,7 +34,7 @@ export function PlanToolPart({
 
   // Legacy `plan` tool calls (pre-migration conversations) embedded the full
   // payload in input/output and have no DB row. Render them statically — no
-  // live status, no actions.
+  // live status.
   if (part.toolName === 'plan') {
     const payload = tryParsePlanPayload(part.output) ?? tryParsePlanPayload(part.input)
 
@@ -56,7 +49,7 @@ export function PlanToolPart({
       )
     }
 
-    return <PlanTool payload={payload} canApprove={false} canChat={false} foldable />
+    return <PlanTool payload={payload} foldable />
   }
 
   // Persisted Plan-producing tools return either a top-level planId or a typed
@@ -77,12 +70,7 @@ export function PlanToolPart({
     <PlanCard
       planId={planId}
       teamId={teamId}
-      canApprove={canApprove}
-      canChat={canChat}
       keepPolling={keepPolling}
-      onChat={onChat}
-      onApprove={onApprovePlan ? () => onApprovePlan(planId) : undefined}
-      onReject={onRejectPlan ? (reason, mode) => onRejectPlan(planId, reason, mode) : undefined}
       foldable
       fallback={
         <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 overflow-hidden text-[12.5px] text-tertiary">
@@ -96,8 +84,6 @@ export function PlanToolPart({
 
 export type ActivePlanCanAct = {
   toolCallId: string
-  canApprove: boolean
-  canChat: boolean
   keepPolling: boolean
 }
 
@@ -106,44 +92,41 @@ export function AssistantPlanPart({
   now,
   teamId,
   streaming,
-  canActOnPlans,
   activePlanCanAct,
-  onStop,
-  onApprovePlan,
-  onRejectPlan,
 }: {
   part: ToolPart
   now: number
   teamId?: string
   streaming: boolean
-  canActOnPlans: boolean
   activePlanCanAct?: ActivePlanCanAct | null
-  onStop?: () => void
-  onApprovePlan?: (planId: string) => void
-  onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
 }) {
   const active = activePlanCanAct?.toolCallId === part.toolCallId ? activePlanCanAct : null
 
-  // The latest plan uses the live active-plan gate; any other plan in the
-  // transcript stays approvable purely on its own status (PlanCard only shows
-  // Approve while `proposed`) when the tab is idle — so continuing an OLDER
-  // plan surfaces that plan's button, not the last one's.
+  // The latest plan polls while its tab streams; any other plan polls while
+  // this message streams.
   return (
     <PlanToolPart
       part={part}
       now={now}
       teamId={teamId}
-      canApprove={active ? active.canApprove : canActOnPlans}
-      canChat={active ? active.canChat : false}
       keepPolling={active ? active.keepPolling : streaming}
-      onChat={onStop}
-      onApprovePlan={onApprovePlan}
-      onRejectPlan={onRejectPlan}
     />
   )
 }
 
-export function ChartToolPart({ part, now }: { part: ToolPart; now: number }) {
+export function ChartToolPart({
+  part,
+  now,
+  teamId,
+  onOpen,
+}: {
+  part: ToolPart
+  now: number
+  teamId: string | undefined
+  onOpen: OpenLink | undefined
+}) {
+  // The chat collects each chart as an artifact, so it opens in the artifact's dock tab.
+  const call = useArtifactCall(part.toolCallId)
   // The tool's execute() echoes the validated input, so either side carries the
   // payload. Prefer output (post-validation) but fall back to input so a chart
   // can render mid-stream before the tool result lands.
@@ -169,5 +152,14 @@ export function ChartToolPart({ part, now }: { part: ToolPart; now: number }) {
     )
   }
 
-  return <Chart payload={payload} />
+  return (
+    <Chart
+      payload={payload}
+      onOpen={
+        teamId && onOpen && call
+          ? () => onOpen(artifactPagePath(teamId, call.artifactId), false)
+          : undefined
+      }
+    />
+  )
 }

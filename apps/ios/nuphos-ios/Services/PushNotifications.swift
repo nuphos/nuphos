@@ -10,15 +10,12 @@ struct PushTarget: Equatable, Hashable, Identifiable {
     let teamId: String
     let sessionId: String
     let title: String
-    /// The open question the conversation's composer answers once open: an Inbox card's "Other…".
-    var answering: AgentConversation.InputRequest?
     var id: String { "\(teamId)/\(sessionId)" }
 
-    init(teamId: String, sessionId: String, title: String = "Agent", answering: AgentConversation.InputRequest? = nil) {
+    init(teamId: String, sessionId: String, title: String = "Agent") {
         self.teamId = teamId
         self.sessionId = sessionId
         self.title = title
-        self.answering = answering
     }
 
     nonisolated init?(userInfo: [AnyHashable: Any]) {
@@ -94,10 +91,10 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         #endif
     }
 
-    /// Whether this phone hears when a computer goes offline or comes back; on unless turned off.
+    /// Legacy phone preference, kept for registration compatibility with older backends.
     static let computerAlertsKey = "push.computerAlerts"
     private static var computerAlerts: Bool {
-        UserDefaults.standard.object(forKey: computerAlertsKey) as? Bool ?? true
+        UserDefaults.standard.object(forKey: computerAlertsKey) as? Bool ?? false
     }
 
     /// Sends the account sheet's switch to the backend with this phone's registration.

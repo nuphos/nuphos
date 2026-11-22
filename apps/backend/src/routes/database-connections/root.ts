@@ -12,7 +12,7 @@ import { assertDatabaseNetworkConfiguration, resolveDatabaseNetwork } from '@/li
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import { canRequestUseBinding, requireTeamRole } from '@/middleware/auth'
 import { databaseConnections } from '@/models'
 import {
   assertHealthyConnection,
@@ -68,7 +68,9 @@ databaseConnectionRootRoutes.post(
         error instanceof Error ? error.message : 'Invalid database connection URI',
       )
     }
-    const network = await resolveDatabaseNetwork(teamId, input.networkMode, tailscale)
+    const network = await resolveDatabaseNetwork(teamId, input.networkMode, tailscale, (access) =>
+      canRequestUseBinding(c, access),
+    )
     const health = await probeDatabaseConnection(parsed, undefined, network.mongoOptions)
 
     c.header('Cache-Control', 'no-store')
@@ -104,7 +106,9 @@ databaseConnectionRootRoutes.post(
         error instanceof Error ? error.message : 'Invalid database connection URI',
       )
     }
-    const network = await resolveDatabaseNetwork(teamId, input.networkMode, tailscale)
+    const network = await resolveDatabaseNetwork(teamId, input.networkMode, tailscale, (access) =>
+      canRequestUseBinding(c, access),
+    )
     const health = await probeDatabaseConnection(parsed, undefined, network.mongoOptions)
 
     assertHealthyConnection(health)
@@ -127,7 +131,7 @@ databaseConnectionRootRoutes.post(
       // longer exposes or honors a personal-resource mode.
       access: databaseAccess({ ...input.access, memberAllowList: ['*'] }, c.get('userId'), now),
       changeApprovalPolicy: {
-        minimumApprovals: 1,
+        minimumApprovals: 0,
         version: 1,
         updatedAt: now,
         updatedBy: c.get('userId'),

@@ -13,13 +13,19 @@ struct AgentAvatar: View {
             if enabled, let face = BotFaces.shared.face(for: agentId) {
                 // A face this build doesn't ship falls back to the one the id derives, as on Desktop.
                 Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
+                    // Behind the character, unclipped: a head may break out of the disc (#3504).
+                    .background {
+                        if let tint = Theme.avatarBackground(BotFaces.shared.background(for: agentId)) {
+                            Circle().fill(tint)
+                        }
+                    }
                     .overlay(alignment: .bottomTrailing) {
                         if showBadge {
                             AgentRuntimeBadge(runtime: runtime, size: size <= 24 ? 9 : 12)
                         }
                     }
             } else {
-                RuntimeMark(runtime: runtime, size: 20)
+                RuntimeMark(runtime: runtime, size: min(size, 20))
             }
         }
         .frame(width: size, height: size)

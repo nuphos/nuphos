@@ -1,6 +1,7 @@
 package ai.nuphos.android.session
 
 import ai.nuphos.android.model.AgentConversation
+import java.time.Instant
 
 /** A bounded, iterative forest over the authorized, loaded page only. No detail fetches. */
 object ConversationNesting {
@@ -16,9 +17,14 @@ object ConversationNesting {
     )
     data class Result(val rows: List<Row>)
 
+    private data class FamilyRank(val waiting: Boolean, val activity: Instant)
+
+    private fun familyRank(row: AgentConversation) = FamilyRank(row.isWaiting, row.lastActiveAt)
+
     fun nest(
         conversations: List<AgentConversation>,
         folded: Set<String> = emptySet(), accountId: String? = null, groupSections: Boolean = true,
+        byFamily: Boolean = false,
     ): Result {
         val rows = conversations.distinctBy { it.sessionId }
         val byId = rows.associateBy { it.sessionId }
@@ -67,14 +73,36 @@ object ConversationNesting {
             finalChildren[row.sessionId].orEmpty().asReversed().forEach(stack::addLast)
         }
         val counts = mutableMapOf<String, Int>()
+        val familyRanks = mutableMapOf<String, FamilyRank>()
         for (row in order.asReversed()) {
-            val p = parent[row.sessionId] ?: continue
+            val id = row.sessionId
+            val p = parent[id] ?: continue
+            if (byFamily) {
+                val child = familyRanks[id] ?: familyRank(row)
+                val ancestor = byId.getValue(p)
+                val rank = familyRanks[p] ?: familyRank(ancestor)
+                familyRanks[p] = FamilyRank(rank.waiting || child.waiting, maxOf(rank.activity, child.activity))
+            }
             counts[p] = (counts[p] ?: 0) + 1 + (counts[row.sessionId] ?: 0)
         }
         val hiddenRoot = mutableMapOf<String, String>()
         val hiddenChildren = mutableMapOf<String, MutableList<AgentConversation>>()
         val trails = mutableMapOf<String, List<Boolean>>()
         val visible = mutableListOf<Row>()
+        if (byFamily) {
+            val roots = finalChildren[null].orEmpty().sortedWith(
+                compareByDescending<AgentConversation> {
+                    familyRanks[it.sessionId]?.waiting ?: familyRank(it).waiting
+                }.thenByDescending { familyRanks[it.sessionId]?.activity ?: it.lastActiveAt },
+            )
+            order.clear()
+            roots.asReversed().forEach(stack::addLast)
+            while (stack.isNotEmpty()) {
+                val row = stack.removeLast()
+                order += row
+                finalChildren[row.sessionId].orEmpty().asReversed().forEach(stack::addLast)
+            }
+        }
         for (row in order) {
             val id = row.sessionId
             val p = parent[id]

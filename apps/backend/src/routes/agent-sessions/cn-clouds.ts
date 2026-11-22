@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import { agentSubjectId } from '@/lib/agents/identity'
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { aliyunBootstrapRegion } from '@/lib/byos/aliyun'
 import {
   aliyunHandleFor,
@@ -16,7 +16,7 @@ import { BOOTSTRAP_REGION as VOLC_BOOTSTRAP_REGION } from '@/lib/byos/volcengine
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { teamByosBindings } from '@/models'
-import { getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
+import { agentPrincipals, getAgentCredentialAccess } from '@/routes/agent-sessions/shared'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type {
@@ -61,10 +61,10 @@ async function loadCnBinding<
   return binding
 }
 
-function assertCnAgentAccess(
+export function assertCnAgentAccess(
   binding: { id: import('mongodb').ObjectId; access?: { memberAllowList?: string[] } },
   selectedIds: string[],
-  userId: string,
+  principals: readonly string[],
   deniedCode: string,
   providerLabel: string,
 ): void {
@@ -77,7 +77,7 @@ function assertCnAgentAccess(
       `This ${providerLabel} account is not enabled for this agent session`,
     )
   }
-  if (!canUseAllowList(binding.access?.memberAllowList, userId)) {
+  if (!canPrincipalsUseAllowList(binding.access?.memberAllowList, principals)) {
     throw new AppError(
       403,
       deniedCode,
@@ -102,7 +102,7 @@ cnCloudScoped.get('/tencent-accounts/:accountId/credentials', async (c) => {
   assertCnAgentAccess(
     binding,
     access.tencentAccountIds,
-    c.get('userId'),
+    agentPrincipals(c),
     'tencent_account_agent_access_denied',
     'Tencent',
   )
@@ -134,7 +134,7 @@ cnCloudScoped.get('/aliyun-accounts/:accountId/credentials', async (c) => {
   assertCnAgentAccess(
     binding,
     access.aliyunAccountIds,
-    c.get('userId'),
+    agentPrincipals(c),
     'aliyun_account_agent_access_denied',
     'Aliyun',
   )
@@ -166,7 +166,7 @@ cnCloudScoped.get('/volcengine-accounts/:accountId/credentials', async (c) => {
   assertCnAgentAccess(
     binding,
     access.volcengineAccountIds,
-    c.get('userId'),
+    agentPrincipals(c),
     'volcengine_account_agent_access_denied',
     'Volcengine',
   )
@@ -197,7 +197,7 @@ cnCloudScoped.get('/huawei-accounts/:accountId/credentials', async (c) => {
   assertCnAgentAccess(
     binding,
     access.huaweiAccountIds,
-    c.get('userId'),
+    agentPrincipals(c),
     'huawei_account_agent_access_denied',
     'Huawei Cloud',
   )
@@ -240,7 +240,7 @@ cnCloudScoped.get('/azure-accounts/:accountId/credentials', async (c) => {
   assertCnAgentAccess(
     binding,
     access.azureAccountIds,
-    c.get('userId'),
+    agentPrincipals(c),
     'azure_account_agent_access_denied',
     'Azure',
   )

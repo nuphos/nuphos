@@ -4,7 +4,11 @@ import { z } from 'zod'
 
 import { agentFileParts, resolveChannelFiles } from '@/lib/agent/channel-attachments'
 import { postAsAgent } from '@/lib/agent/channel-chat'
-import { getConversationBySessionId, upsertConversationShell } from '@/lib/agent/db'
+import {
+  agentConversations,
+  getConversationBySessionId,
+  upsertConversationShell,
+} from '@/lib/agent/db'
 import { assertBot, speakingBot } from '@/lib/agent/db/bot-membership'
 import {
   addChannelAgent,
@@ -46,6 +50,11 @@ const post = z
       .max(10)
       .optional()
       .describe('Transfer group ids you pushed (e.g. with transfer-push.sh), shown as file cards.'),
+    replyTo: z
+      .number()
+      .int()
+      .optional()
+      .describe('The index of the one message you answer: your post quotes it, as in its thread.'),
   })
   .strict()
 const create = z
@@ -178,6 +187,8 @@ async function createChannel(ctx: PreviewToolContext, input: z.infer<typeof crea
     firstMessage: '',
     kind: 'channel',
   })
+  // Named, it is a group: with only its owner and one Bot it would be the Bot's own chat.
+  await agentConversations().updateOne({ sessionId }, { $set: { group: true } })
   for (const id of [speaker.sessionId, ...agents]) await addChannelAgent(sessionId, id)
   // The owner is already in their own channel.
   const invitees = people.flatMap((member) =>
@@ -264,11 +275,11 @@ export function channelToolModule(): PreviewToolModule {
         const parsed = post.safeParse(args)
 
         if (!parsed.success) return toolError(parsed.error.message)
-        const { channelId: id, text, files = [] } = parsed.data
+        const { channelId: id, text, files = [], replyTo } = parsed.data
 
         return answer(
           memberChannel(ctx, id).then(async ({ self }) => {
-            await postAsAgent(id, self, text, await agentFileParts(self, files))
+            await postAsAgent(id, self, text, await agentFileParts(self, files), replyTo)
 
             return { posted: true, channelId: id, files: files.length }
           }),

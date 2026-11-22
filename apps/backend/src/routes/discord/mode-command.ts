@@ -5,6 +5,7 @@ import {
   discordInstallations,
   discordUserMappings,
 } from '@/lib/discord/store'
+import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
 
@@ -67,7 +68,13 @@ export async function handleDiscordModeCommand(
     return 'Link your Discord account to this Nuphos workspace first.'
   }
   // Permission grants are actor scoped: nobody can disarm a teammate's gate.
-  await setSessionBypass(thread.sessionId, mapping.nuphosUserId, command === 'full-access')
+  try {
+    await setSessionBypass(thread.sessionId, mapping.nuphosUserId, command === 'full-access')
+  } catch (error) {
+    // A Task under a Bot follows the Bot's mode; the refusal says where to change it.
+    if (error instanceof AppError) return error.message
+    throw error
+  }
   logEvent('info', 'discord.thread.permission_mode_changed', {
     team_id: thread.teamId,
     session_id: thread.sessionId,

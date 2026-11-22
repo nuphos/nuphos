@@ -23,6 +23,7 @@ export type AppShortcutAction =
   | 'next-tab'
   | 'open-settings'
   | 'open-team-settings'
+  | 'open-computers'
   | 'open-updates'
   | 'toggle-sidebar'
   | 'toggle-dock'
@@ -30,6 +31,7 @@ export type AppShortcutAction =
   | 'shortcuts-help'
   | 'reopen-closed-tab'
   | `select-tab-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}`
+  | `select-sidebar-tab-${1 | 2 | 3}`
   | SessionShortcutAction
   | RegionShortcutAction
 
@@ -57,6 +59,10 @@ export type WindowShellApi = {
   sidebarAlignmentFeedback?(): void
   takeWindowSurface?(): Promise<WindowSurface | null>
   reportWindowSurface?(surface: WindowSurface): void
+  /** Opens a new window showing the page at `url`, with its dock expanded. */
+  openPageWindow?(url: string): void
+  /** The page this window was opened to show; null once taken or for any other window. */
+  takeWindowPage?(): Promise<string | null>
   acceptDockTerminal(id: string): Promise<boolean>
   onDockTerminalRequest(callback: (request: DockTerminalRequest) => void): () => void
   localTerminalProcesses(): Promise<{ id: string; name: string }[]>
@@ -105,6 +111,10 @@ export type WindowShellApi = {
   podExecClose(id: string): Promise<void>
   onPodExecEvent(cb: (payload: PodExecEvent) => void): () => void
   onAgentEvent(cb: (payload: { streamId: string; event: unknown }) => void): () => void
+  /** A team's conversation that changed; `sessionId` null: the push stream came up or went down. */
+  onAgentChanges(
+    cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
+  ): () => void
   onAgentPlanUpdated(cb: (payload: { plan: Plan }) => void): () => void
   onAppShortcut(cb: (action: AppShortcutAction) => void): () => void
   suspendAppShortcuts(suspended: boolean): void

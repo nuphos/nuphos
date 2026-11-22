@@ -39,12 +39,23 @@ describe('handleMcpMessage', () => {
     const list = (res as { result: { tools: { name: string }[] } }).result.tools
 
     expect(list.map((t) => t.name).sort((a, b) => a.localeCompare(b))).toEqual([
+      'nuphos_archive_session',
       'nuphos_ask',
       'nuphos_capabilities',
       'nuphos_check',
+      'nuphos_events',
+      'nuphos_files',
+      'nuphos_find_pr_sessions',
       'nuphos_list_credentials',
+      'nuphos_list_queue',
+      'nuphos_list_runtimes',
+      'nuphos_list_sessions',
       'nuphos_list_teams',
+      'nuphos_remove_queued',
+      'nuphos_stop',
       'nuphos_update_credentials',
+      'nuphos_update_session',
+      'nuphos_webhooks',
     ])
   })
 

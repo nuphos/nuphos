@@ -12,6 +12,7 @@ type Source = {
   sessionId: string
   runtimeId: string
   label: string
+  conversationTitle?: string
   /** The open file was read from this computer rather than the agent's workspace. */
   local?: boolean
 }
@@ -29,6 +30,8 @@ type Result = {
   tooLarge?: boolean
   /** Over the transfer store's limit as well: nothing to offer. */
   overLimit?: boolean
+  error?: string
+  errorCode?: string
 }
 
 const MEDIA: [MediaKind, RegExp][] = [
@@ -120,7 +123,7 @@ export function useRuntimeFiles(
           if (!conversation.runtimeId) {
             toast.error(
               t('No runtime selected'),
-              t('Select a runtime for this agent, then refresh Files.'),
+              t('Select a runtime for this task, then refresh Files.'),
             )
             setResult({ source: null, directory: null, preview: null, loading: false })
 
@@ -131,6 +134,7 @@ export function useRuntimeFiles(
             sessionId: conversationId,
             runtimeId: conversation.runtimeId,
             label: conversation.runtimeLabel || 'Runtime',
+            conversationTitle: conversation.title,
           }
         }
         const target = source.current
@@ -185,7 +189,8 @@ export function useRuntimeFiles(
       } catch (error) {
         if (cancelled) return
         const tooLarge = tooLargeError(error)
-        const details = parseAtlasError(error).details
+        const failure = parseAtlasError(error)
+        const details = failure.details
         const local =
           details &&
           typeof details === 'object' &&
@@ -194,7 +199,6 @@ export function useRuntimeFiles(
         // Media reached the transfer store, which refused it too.
         const overLimit = tooLarge && Boolean(mediaKind(fileName))
 
-        if (!tooLarge) toast.apiError(t('Could not load runtime files'), error)
         setResult({
           source:
             local && source.current
@@ -205,6 +209,12 @@ export function useRuntimeFiles(
           loading: false,
           tooLarge: tooLarge && !overLimit,
           overLimit,
+          error: tooLarge
+            ? undefined
+            : failure.code
+              ? failure.message
+              : t('This file could not be previewed.'),
+          errorCode: failure.code,
         })
       }
     }

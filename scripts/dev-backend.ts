@@ -8,7 +8,6 @@ import { backendEnv } from './dev-backend-env.ts'
 import { ANSI_COLOR, pipeLines, stripAnsi } from './dev-child-output.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
 import { localBackendEnv } from './dev-local-stack-env.ts'
-import { managedBackendEnv } from './dev-managed-env.ts'
 import { findFreePort, releasePort } from './dev-ports.ts'
 import { storageTunnelUrl } from './dev-quick-tunnel.ts'
 import { backend, ensureDeps, openLog, startTiming, writeRaw } from './dev-services.ts'
@@ -157,8 +156,7 @@ function assignBackendPort(port: number) {
   pushEvent(backend, `starting on :${port} …`)
 }
 
-/** `managedContext` is the verified local kube context the provisioner deploys into, or null to keep it off. */
-export async function startBackend(local: LocalStack, managedContext: string | null = null) {
+export async function startBackend(local: LocalStack) {
   backend.status = 'starting'
   backend.health = {}
   backendPortConflict = false
@@ -175,16 +173,17 @@ export async function startBackend(local: LocalStack, managedContext: string | n
   const probeFrom = backendRetries > 0 && backend.port ? backend.port + 1 : BASE_BACKEND_PORT
 
   if (backend.port) releasePort(backend.port) // give up the port that was taken
-  assignBackendPort(await findFreePort(probeFrom))
+  const port = await findFreePort(probeFrom)
+
+  assignBackendPort(port)
   const baseEnv = backendEnv()
   // Runtimes and Boxes need a public URL for *this* backend, never PROD. A restart on the
   // same port keeps a live quick tunnel, since Boxes were already handed its URL.
   const alive = tunnel.proc?.exitCode === null && tunnel.proc.signalCode === null
-  const keep =
-    alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === backend.port
-  const tunnelUrl = keep ? tunnel.url : await setupTunnel(backend.port)
+  const keep = alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === port
+  const tunnelUrl = keep ? tunnel.url : await setupTunnel(port)
 
-  tunnelPort = backend.port
+  tunnelPort = port
   // Boxes upload and fetch skills through presigned URLs, so they must not name 127.0.0.1.
   const storageUrl = await storageTunnelUrl(local.rustfsPort)
   const child = spawn('bun', ['run', 'dev'], {
@@ -192,7 +191,6 @@ export async function startBackend(local: LocalStack, managedContext: string | n
     env: {
       ...baseEnv,
       ...localBackendEnv(local),
-      ...(managedContext ? managedBackendEnv(managedContext) : {}),
       PORT: String(backend.port),
       NUPHOS_DEV_LAUNCHER_PID: String(process.pid),
       FORCE_COLOR: '1',
@@ -227,7 +225,7 @@ export async function startBackend(local: LocalStack, managedContext: string | n
         backend,
         `port taken by another worktree — retrying on a new port (${backendRetries}/${MAX_BACKEND_RETRIES})…`,
       )
-      void startBackend(local, managedContext)
+      void startBackend(local)
     } else {
       pushEvent(backend, `exited (code ${code}) — press r to restart`)
     }

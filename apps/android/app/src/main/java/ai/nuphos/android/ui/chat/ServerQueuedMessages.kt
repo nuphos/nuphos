@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -18,25 +20,28 @@ internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, ca
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(8.dp).heightIn(max = 210.dp).verticalScroll(rememberScrollState())) {
-            Text("Queued messages", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(R.string.composer_queued_messages), style = MaterialTheme.typography.labelLarge)
             queue.error?.let { problem ->
                 Text(problem, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { scope.launch { queue.refresh() } }, enabled = queue.busy.isEmpty()) { Text("Refresh queue") }
+                TextButton(onClick = { scope.launch { queue.refresh() } }, enabled = queue.busy.isEmpty()) { Text(stringResource(R.string.composer_refresh_queue)) }
             }
             queue.recoveredText?.let { text ->
-                Text("Taken back. Restore this text before leaving the task.", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.composer_taken_back), style = MaterialTheme.typography.bodySmall)
                 androidx.compose.foundation.text.selection.SelectionContainer { Text(text.text) }
-                if (text.files.isNotEmpty()) Text(text.files.joinToString(", ") { it.filename ?: "Queued attachment" })
-                TextButton(onClick = { queue.restoreRecovered(onRecall) }) { Text("Restore draft") }
+                if (text.files.isNotEmpty()) {
+                    val queuedAttachment = stringResource(R.string.composer_queued_attachment)
+                    Text(text.files.joinToString(", ") { it.filename ?: queuedAttachment })
+                }
+                TextButton(onClick = { queue.restoreRecovered(onRecall) }) { Text(stringResource(R.string.composer_restore_draft)) }
             }
             queue.items.forEachIndexed { index, item ->
                 Column(Modifier.testTag("server-queued:${item.id}")) {
                     Text("${index + 1}. ${item.text}", maxLines = 3, style = MaterialTheme.typography.bodySmall)
                     Row {
                         val available = writable && queue.busy.isEmpty()
-                        TextButton(enabled = available && queue.recoveredText == null, onClick = { scope.launch { queue.take(item.id, onRecall) } }) { Text("Edit") }
-                        TextButton(enabled = available, onClick = { scope.launch { queue.take(item.id) } }) { Text("Remove") }
-                        TextButton(enabled = available && canSteer, onClick = { scope.launch { queue.sendIntoTurn(item.id) } }) { Text("Send into turn") }
+                        TextButton(enabled = available && queue.recoveredText == null, onClick = { scope.launch { queue.take(item.id, onRecall) } }) { Text(stringResource(R.string.composer_edit)) }
+                        TextButton(enabled = available, onClick = { scope.launch { queue.take(item.id) } }) { Text(stringResource(R.string.composer_remove)) }
+                        TextButton(enabled = available && canSteer, onClick = { scope.launch { queue.sendIntoTurn(item.id) } }) { Text(stringResource(R.string.composer_send_into_turn)) }
                     }
                 }
             }

@@ -6,19 +6,10 @@
 // an MCP server is the zero-glue integration surface (no custom CLI or A2A
 // bridge required on the caller's side).
 //
-// Transport: MCP Streamable HTTP, JSON-response mode. We speak JSON-RPC 2.0 over
-// a single `POST /mcp` endpoint and reply with `application/json`. We do NOT
-// open a server->client SSE stream (`GET /mcp` is unsupported), because the
-// long-running-task story is handled at the data layer, not the transport:
-//   - `nuphos_ask` starts an agent run and blocks until it finishes. The run is
-//     created via `runAgentForTrigger`, which drives its own AbortController
-//     independent of this HTTP request — so if the caller's tool-call times out
-//     and the connection drops, the agent keeps running to completion and the
-//     transcript is persisted.
-//   - `nuphos_check` reconnects to a session by id and returns the answer if the
-//     run has finished, or "running" if it's still going. This is how a caller
-//     recovers a result after a timeout — no separate "task" concept is exposed;
-//     the session id is the only handle.
+// POST speaks JSON-RPC in JSON-response mode. GET subscribes to a readable
+// session's current state over SSE, rebuilt from persisted answers and Task
+// reports on reconnect; it does not keep an in-process completion callback.
+// A dropped request never cancels the agent's independent run.
 //
 // The pure JSON-RPC/protocol layer lives in lib/mcp/protocol.ts; the
 // agent-touching tool implementations live in routes/mcp/*.
@@ -32,6 +23,7 @@ import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { mcpResourceUrl } from '@/lib/oauth/metadata'
 import { getClient } from '@/lib/oauth/store'
 import { verifyAccessToken } from '@/lib/oauth/tokens'
+import { subscribeMcpSession } from '@/routes/mcp/notifications'
 import { toolsForContext } from '@/routes/mcp/tools'
 
 import type { AgentClientMeta } from '@/lib/agent/db'
@@ -118,6 +110,4 @@ mcp.post('/', async (c) => {
   return c.json(body, status)
 })
 
-// We don't support the optional server->client SSE stream; long-running work is
-// recovered via nuphos_check, not a held-open GET stream.
-mcp.get('/', (c) => c.json(fail(null, -32000, 'SSE stream not supported; use POST.'), 405))
+mcp.get('/', subscribeMcpSession)

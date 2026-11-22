@@ -2,10 +2,17 @@ import { randomUUID } from 'node:crypto'
 
 import { z } from 'zod'
 
-import { BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
+import { BOT_AVATAR_BACKGROUNDS, BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
+import { startBotOnboarding } from '@/lib/agent/bot-onboarding'
+import { botInstructions } from '@/lib/agent/bot-instructions'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
-import { claimBotAvatar, getReadableConversation, setConversationAvatar } from '@/lib/agent/db'
+import {
+  claimBotAvatar,
+  getReadableConversation,
+  setConversationAvatar,
+  updateBotSelf,
+} from '@/lib/agent/db'
 import { leaveChats } from '@/lib/agent/db/bot-membership'
 import { systemSender } from '@/lib/agent/message-metadata'
 import {
@@ -13,7 +20,9 @@ import {
   validateRequestedRuntimeId,
 } from '@/lib/claude-code-preview/runtime-routing'
 import { AppError } from '@/lib/errors'
+import { pruneAvatars, storeAvatar } from '@/lib/identity/avatar-upload'
 import { logError } from '@/lib/observability'
+import { avatarBodyLimit } from '@/routes/auth'
 
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
@@ -25,6 +34,8 @@ const avatarBody = z
       .string()
       .regex(/^\d{2}-[a-z0-9-]{1,40}$/)
       .nullable(),
+    // The tint the face sits on; left out, the Bot keeps the one it has.
+    background: z.enum(BOT_AVATAR_BACKGROUNDS).optional(),
     teamId: z.string().optional(),
   })
   .strict()
@@ -42,15 +53,63 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 
   if (!conversation || conversation.userId !== userId)
     throw new AppError(404, 'not_found', 'Conversation not found')
-  if (!(await setConversationAvatar(sessionId, body.data.avatar, userId))) {
+  const { avatar, background } = body.data
+
+  if (!(await setConversationAvatar(sessionId, avatar, userId, background))) {
     if (body.data.avatar !== null && !conversation.avatar)
       throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
+  // A photo the Bot wore until now is no longer its face.
+  if (conversation._id) await pruneAvatars(conversation._id.toHexString())
   // A Task is never in a chat.
   if (body.data.avatar === null) await leaveChats(sessionId)
 
-  return c.json({ avatar: body.data.avatar })
+  return c.json({ avatar, ...(background ? { background } : {}) })
+})
+
+const instructionsBody = z
+  .object({ instructions: botInstructions, teamId: z.string().optional() })
+  .strict()
+
+// The owner rewrites a Bot's standing instructions in Bot details, as the Bot does with
+// `update_self`: the same field and limits. They are in the system prompt the Bot's
+// runtime session reads when it opens.
+agent.patch('/conversations/:sessionId/instructions', async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const body = instructionsBody.safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success)
+    throw new AppError(400, 'invalid_request', 'Instructions must be at most 8000 characters')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.data.teamId))
+  const { instructions } = body.data
+
+  if (!(await updateBotSelf(sessionId, userId, teamId, { instructions })))
+    throw new AppError(404, 'not_found', 'Bot not found')
+
+  return c.json({ instructions })
+})
+
+// The owner gives a Bot a photo for a face. Like the PATCH above, it never makes a Task a Bot.
+agent.put('/conversations/:sessionId/avatar/image', avatarBodyLimit, async (c) => {
+  const userId = c.get('userId')
+  const sessionId = c.req.param('sessionId')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
+
+  if (!conversation?._id || conversation.userId !== userId)
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  if (!conversation.avatar)
+    throw new AppError(400, 'invalid_request', 'Only a Bot has a face to change')
+  const botId = conversation._id.toHexString()
+  const avatar = await storeAvatar(botId, new Uint8Array(await c.req.arrayBuffer()))
+
+  if (!(await setConversationAvatar(sessionId, avatar, userId)))
+    throw new AppError(404, 'not_found', 'Conversation not found')
+  await pruneAvatars(botId)
+
+  return c.json({ avatar })
 })
 
 // "+" on Bots. It is placed on the runtime the client would start a new chat on, so its
@@ -58,8 +117,12 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
 const createBotBody = z
   .object({
     teamId: z.string().optional(),
+    onboarding: z.boolean().optional(),
+    starter: z.literal('coordinate').optional(),
+    locale: z.string().min(2).max(35).optional(),
     title: z.string().trim().min(1).max(120).optional(),
     avatar: z.enum(BOT_AVATARS).optional(),
+    background: z.enum(BOT_AVATAR_BACKGROUNDS).optional(),
     runtimeId: z.unknown().optional(),
     agentRuntime: z.unknown().optional(),
     runtimeLabel: z.string().max(200).optional(),
@@ -82,8 +145,12 @@ agent.post('/bots', async (c) => {
     // A Bot works on its own, so it starts in full access, as a new chat would set it.
     await createBot(c.get('userId'), teamId, true, {
       source: { via: 'new_bot' },
+      onboarding: body.data.onboarding,
+      starter: body.data.starter,
+      locale: body.data.locale,
       title: body.data.title,
       avatar: body.data.avatar,
+      background: body.data.background,
       agentRuntime,
       runtimeId,
       runtimeLabel,
@@ -135,7 +202,29 @@ agent.post('/conversations/:sessionId/bot', async (c) => {
     systemSender('nuphos:make-bot', 'Nuphos'),
   )
     .then(({ run }) => run)
-    .catch((error: unknown) => logError('agent.make_bot.turn_failed', error))
+    .catch((error: unknown) => {
+      logError('agent.make_bot.turn_failed', error)
+    })
 
   return c.json({ avatar })
+})
+
+const onboardingBody = z.object({ channelId: z.string().uuid() }).strict()
+
+agent.post('/conversations/:sessionId/bot-onboarding', async (c) => {
+  const body = onboardingBody.safeParse(await c.req.json().catch(() => ({})))
+
+  if (!body.success) throw new AppError(400, 'invalid_request', 'Invalid Bot chat')
+  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c))
+
+  if (!teamId) throw new AppError(403, 'forbidden', 'Workspace membership is required')
+
+  return c.json(
+    await startBotOnboarding(
+      c.get('userId'),
+      teamId,
+      c.req.param('sessionId'),
+      body.data.channelId,
+    ),
+  )
 })

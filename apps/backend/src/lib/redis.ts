@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto'
 import Redis from 'ioredis'
 
 import { config } from '@/config'
+import { outsideTokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
@@ -89,7 +90,8 @@ function errorFields(err: unknown): { error_name: string; error_message: string 
 }
 
 function newClient(role: 'client' | 'subscriber'): Redis {
-  const client = new Redis(buildOptions())
+  // Made lazily, often inside a request: it must not keep that request's token limit.
+  const client = outsideTokenTeamScope(() => new Redis(buildOptions()))
 
   client.on('error', (err) => {
     logEvent('warn', 'redis.client.error', { role, replica_id: replicaId, ...errorFields(err) })
@@ -170,6 +172,18 @@ export async function withRedis<T>(op: (client: Redis) => Promise<T>): Promise<T
   } finally {
     if (timer) clearTimeout(timer)
   }
+}
+
+/**
+ * One run of a periodic job across every replica: true for the first replica to
+ * claim `key`, false for the others until the claim expires after `ttlMs`.
+ * Without Redis there is one process, so it always runs; a Redis error skips the
+ * run rather than letting every replica do it.
+ */
+export async function claimRun(key: string, ttlMs: number): Promise<boolean> {
+  if (!redisEnabled()) return true
+
+  return (await withRedis((c) => c.set(key, replicaId, 'PX', ttlMs, 'NX'))) === 'OK'
 }
 
 export async function pingRedis(): Promise<boolean> {

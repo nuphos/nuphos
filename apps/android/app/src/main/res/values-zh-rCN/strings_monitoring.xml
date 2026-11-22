@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">搜索监控</string>
+    <string name="monitoring_clear_filters">清除筛选条件</string>
+    <string name="monitoring_refresh">刷新</string>
+    <string name="monitoring_all_providers">所有提供商</string>
+    <string name="monitoring_all_statuses">所有状态</string>
+    <string name="monitoring_select_team">请选择团队以查看监控。</string>
+    <string name="monitoring_loading">正在加载监控…</string>
+    <string name="monitoring_access_denied">无权访问监控。请检查你的团队成员身份。</string>
+    <string name="monitoring_load_failed">无法加载监控。%1$s</string>
+    <string name="monitoring_stale">数据已过时，刷新失败。%1$s</string>
+    <string name="monitoring_provider_errors_title">部分提供商无法加载</string>
+    <string name="monitoring_hide_provider_errors">隐藏提供商错误</string>
+    <string name="monitoring_show_provider_errors">显示提供商错误</string>
+    <string name="monitoring_empty_title">没有监控检查项</string>
+    <string name="monitoring_empty_body">来自 Better Stack、Grafana 和 GCP 的受支持检查项会显示在这里。</string>
+    <string name="monitoring_open_connectors">打开连接器</string>
+    <string name="monitoring_no_matching_checks">没有匹配的检查项</string>
+    <string name="monitoring_detail_status">状态：%1$s</string>
+    <string name="monitoring_detail_provider">提供商：%1$s</string>
+    <string name="monitoring_detail_connector">连接器：%1$s</string>
+    <string name="monitoring_detail_last_incident">最近一次故障：%1$s</string>
+    <string name="monitoring_detail_kind">类型：%1$s</string>
+    <string name="monitoring_detail_resource">资源：%1$s</string>
+    <string name="monitoring_detail_target">目标：%1$s</string>
+    <string name="monitoring_open_provider">在提供商处打开</string>
+    <string name="monitoring_open_provider_failed">无法打开提供商链接。</string>
+    <string name="monitoring_close">关闭</string>
+</resources>

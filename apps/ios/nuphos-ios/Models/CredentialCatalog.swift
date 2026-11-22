@@ -108,6 +108,35 @@ struct CredentialCatalog: Equatable, Sendable {
         CredentialCatalog(sections: sections.filter { scope.includes($0.provider.selectionKey) })
     }
 
+    /// The backend's `CONNECTABLE_PROVIDERS`: the selection key an integration question's provider is answered by.
+    static let connectKeys: [String: String] = [
+        "github": "githubInstallationIds", "gitlab": "gitlabBindingIds", "linear": "linearWorkspaceIds",
+        "jira": "jiraSiteIds", "asana": "asanaAccountIds", "sentry": "sentryAccountIds",
+        "posthog": "posthogIntegrationIds", "plaud": "plaudAccountIds", "grafana": "grafanaInstanceIds",
+        "sonarqube": "sonarqubeIntegrationIds", "notion": "notionIntegrationIds", "upstash": "upstashAccountIds",
+        "resend": "resendIntegrationIds", "trello": "trelloIntegrationIds", "cloudflare": "cloudflareAccountIds",
+        "betterstack": "betterStackIntegrationIds", "uptime-kuma": "uptimeKumaInstanceIds",
+        "tailscale": "tailscaleClientIds", "zeabur": "zeaburIds", "vanta": "vantaIntegrationIds",
+        "secureframe": "secureframeIntegrationIds", "aws": "awsRoleIds", "gcp": "gcpServiceAccountIds",
+        "azure": "azureAccountIds", "linode": "linodeAccountIds", "hetzner": "hetznerAccountIds",
+        "tencent": "tencentAccountIds", "aliyun": "aliyunAccountIds", "volcengine": "volcengineAccountIds",
+        "huawei": "huaweiAccountIds", "onprem-k8s": "onpremClusterIds",
+    ]
+
+    /// Only what answers a question asking for `providers`, as the server decides: a credential of
+    /// that kind, or the member's own one of that name. Nil keeps everything.
+    func answering(_ providers: [String]?) -> CredentialCatalog {
+        guard let providers else { return self }
+        let keys = Set(providers.compactMap { Self.connectKeys[$0] })
+        return CredentialCatalog(sections: sections.compactMap { section in
+            let items = section.items.filter {
+                keys.contains($0.provider.selectionKey)
+                    || ($0.provider.selectionKey == "personalCredentialIds" && providers.contains($0.id))
+            }
+            return items.isEmpty ? nil : (section.provider, items)
+        })
+    }
+
     static func platformName(_ platform: String) -> String {
         switch platform {
         case "darwin": "macOS"
@@ -170,12 +199,11 @@ struct CredentialSelection: Equatable, Sendable {
     }
 
     /// What a conversation starts with when nobody has chosen: everything
-    /// usable except Resend, whose mail is irreversible and so stays opt-in, and
-    /// the member's own GitHub / Linear, which a chat acts as only when picked.
+    /// usable, the member's own Personal Credentials included, except Resend,
+    /// whose mail is irreversible and so stays opt-in, and Trello.
     /// Mirrors the desktop's `defaultCredentialAccess`.
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
-        ids["personalCredentialIds"] = []
         ids["resendIntegrationIds"] = []
         ids["trelloIntegrationIds"] = []
     }
@@ -215,6 +243,25 @@ struct CredentialSelection: Equatable, Sendable {
     }
 
     init() {}
+
+    /// The kinds the server reads as every one when a stored selection leaves them unset, as the
+    /// desktop's `TEAM_WIDE_WHEN_UNSET`.
+    static let teamWideWhenUnset: Set<String> = [
+        "githubInstallationIds", "gitlabBindingIds", "grafanaInstanceIds", "sonarqubeIntegrationIds",
+        "notionIntegrationIds", "upstashAccountIds", "cloudflareAccountIds", "instaboxAccountIds", "personalCredentialIds",
+    ]
+
+    /// What a stored selection reaches: each of those kinds it left unset ticked in full, so the
+    /// picker shows what the agent can use and an edit there stores it as a list (#4034).
+    func reaching(_ catalog: CredentialCatalog?) -> CredentialSelection {
+        guard let stored, let catalog else { return self }
+        var copy = self
+        for item in catalog.allItems
+        where Self.teamWideWhenUnset.contains(item.provider.selectionKey) && !stored.contains(item.provider.selectionKey) {
+            copy.ids[item.provider.selectionKey, default: []].insert(item.id)
+        }
+        return copy
+    }
 
     /// Drops ids the catalog no longer offers.
     func pruned(to catalog: CredentialCatalog) -> CredentialSelection {

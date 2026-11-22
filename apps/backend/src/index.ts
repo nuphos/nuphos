@@ -8,36 +8,42 @@ import '@/otel/bootstrap'
 import { config } from '@/config'
 import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
+import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
+import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
+import { closeTunnelsForRestart } from '@/lib/agent/devices/local-runtime/holder'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
-import { cancelOpenAgentPlans } from '@/lib/agent/plans'
-import { drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { cancelOpenAgentPlans, migrateTeamPlanApprovalPolicies } from '@/lib/agent/plans'
+import { drainAgentProducers, stopHttpWithDeadline } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { initStuckTurnProbe, shutdownStuckTurnProbe } from '@/lib/agent/stuck-turn-probe'
+import { startReminderSweeper } from '@/lib/agent/reminder-delivery'
 import { flushTraceWrites, setupTraceIndexes } from '@/lib/agent/trace-store/store'
 import { initTriggerScheduler } from '@/lib/agent/trigger-scheduler'
 import { quiesceAgentWorkers, closeAgentWorkerQueues } from '@/lib/agent/worker-shutdown'
 import { validateAwsOidcConfig } from '@/lib/byos/aws-oidc'
+import { installRuntimeWake } from '@/lib/claude-code-preview/agent-chat-registry'
 import {
   publishRuntimeHandoffs,
   startRuntimeHandoffAdoption,
 } from '@/lib/claude-code-preview/runtime-handoff'
 import {
-  initClaudeCodeRuntimeProvisioner,
-  shutdownClaudeCodeRuntimeProvisioner,
-} from '@/lib/claude-code-preview/runtime-provisioner'
+  initRuntimeMetricsSampler,
+  shutdownRuntimeMetricsSampler,
+} from '@/lib/claude-code-preview/runtime-metrics-sampler'
 import { recoverDashboardPanelExecutions } from '@/lib/dashboards/exec-service'
 import { dashboardRefreshScheduler } from '@/lib/dashboards/refresh-schedule'
 import { connectDb, closeDb } from '@/lib/db'
 import { watchDevLauncher } from '@/lib/dev-launcher-watchdog'
 import { devTlsOptions } from '@/lib/dev-tls'
 import { initDiscordGateway, shutdownDiscordGateway } from '@/lib/discord/gateway'
+import { startEventLoopStallLog } from '@/lib/event-loop-stall'
 import { backfillPersonalTokenExpiry } from '@/lib/identity/cli-tokens'
 import { initInternalTokens } from '@/lib/internal-token'
 import { initJournalSealer, shutdownJournalSealer } from '@/lib/journal/seal-scheduler'
@@ -47,6 +53,7 @@ import { logError, logEvent } from '@/lib/observability'
 import { shutdownPostHog } from '@/lib/posthog'
 import { closeRedis } from '@/lib/redis'
 import { startHealthTelemetry } from '@/lib/telemetry/report'
+import { startWebhookDelivery } from '@/lib/webhooks/deliver'
 import {
   setupIndexes,
   tolerateIndexConflict,
@@ -76,13 +83,10 @@ logEvent('info', 'backend.mongodb.connected')
 // MEMORY_PROVIDER default naming an unregistered/external provider fails the
 // deploy here, never a turn (SPI spec §a; A1 external-as-default rejection).
 assertRegistryInvariants()
-// Build indexes before listening. setupIndexes() runs its groups in parallel
-// (Promise.all), so the old serial ~24s cost is gone — but this deliberately
-// stays on the startup path: several groups carry UNIQUE indexes (identity,
-// email-otp, invitations, slack/lark, …), and serving requests before
-// those constraints exist would let duplicate/invalid records slip in on a fresh
-// deploy. Index-spec conflicts (Mongo 85/86) are tolerated per group — see
-// tolerateIndexConflict. Everything else still fails the boot.
+// Build indexes before listening (groups run in parallel). Several carry UNIQUE indexes
+// (identity, email-otp, invitations, slack/lark, …), and serving before they exist would let
+// duplicate records in on a fresh deploy. Index-spec conflicts (Mongo 85/86) are tolerated per
+// group (see tolerateIndexConflict); anything else fails the boot.
 await setupIndexes()
 await tolerateIndexConflict(setupMcpOAuthIndexes, 'mcp-oauth')
 logEvent('info', 'backend.mongodb.indexes_ready')
@@ -102,8 +106,8 @@ const removedTencent = await migrateLegacyTencentBindings()
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
-// Plans were replaced by approval decisions (#2316): an agent Plan still open
-// would wait forever. Idempotent — a no-op once none remain.
+// Plans gave way to decisions and connection policies (#2316). Both steps are idempotent.
+await migrateTeamPlanApprovalPolicies()
 const cancelledPlans = await cancelOpenAgentPlans()
 
 if (cancelledPlans > 0) {
@@ -112,12 +116,11 @@ if (cancelledPlans > 0) {
 
 await backfillPersonalTokenExpiry()
 
-// A message queued behind a turn starts the next one when that turn lets go.
+// A queued message starts when the turn ahead lets go; a runtime back wakes its agents.
 installQueuedTurnStarter(startQueuedTurn)
+installRuntimeWake(wakeOnRuntime)
 await dashboardRefreshScheduler.init()
-if (await initTriggerScheduler()) {
-  logEvent('info', 'backend.trigger_scheduler.ready')
-}
+if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
 if (await initJournalSealer()) {
   logEvent('info', 'backend.journal_sealer.ready')
@@ -131,17 +134,19 @@ logEvent('info', 'backend.memory_retention_rollup.ready')
 // Counts turns stranded on an unanswered tool call — the one agent failure no
 // request can observe, because it IS the missing request.
 initStuckTurnProbe()
+startReminderSweeper()
 logEvent('info', 'backend.stuck_turn_probe.ready')
 
-if (initClaudeCodeRuntimeProvisioner()) {
-  logEvent('info', 'backend.claude_code_runtime_provisioner.ready')
-}
+initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
-startBotImportCleanup()
+const stopBotImportCleanup = startBotImportCleanup()
+const stopFreeBoxSweep = startFreeBoxSweep()
+const stopWebhookDelivery = startWebhookDelivery()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
 if (await initDiscordGateway()) logEvent('info', 'backend.discord_gateway.ready')
 startHealthTelemetry()
+startEventLoopStallLog()
 
 // Bun only prints these; log them so the next one names its request and time.
 process.on('unhandledRejection', (error) => {
@@ -150,16 +155,17 @@ process.on('unhandledRejection', (error) => {
 
 const tls = devTlsOptions()
 
+// Both listeners. Bun defaults to a 10s idle timeout, which drops a legitimately
+// slow request (e.g. a burst of reads while MongoDB is reachable only over a
+// high-latency path) mid-flight — the client sees "other side closed". Raise it
+// so slow requests complete instead of failing; healthy requests close normally
+// well before this, so it's inert in prod.
+const listen = { hostname: config.server.listenHost, idleTimeout: 120, websocket }
+
 const server = Bun.serve({
+  ...listen,
   port: config.port,
-  // Bun defaults to a 10s idle timeout, which drops a legitimately slow request
-  // (e.g. a burst of reads while MongoDB is reachable only over a high-latency
-  // path) mid-flight — the client sees "other side closed". Raise it so slow
-  // requests complete instead of failing; healthy requests close normally well
-  // before this, so it's inert in prod.
-  idleTimeout: 120,
   ...(tls ? { tls } : {}),
-  websocket,
   async fetch(req, bunServer) {
     // No global shutdown gate here: readiness (→503) drains the LB and new agent
     // runs are gated at registration, so resumes/in-flight requests keep working
@@ -170,15 +176,14 @@ const server = Bun.serve({
 
 logEvent('info', 'backend.server.listening', {
   protocol: tls ? 'https' : 'http',
-  host: 'localhost',
+  host: config.server.listenHost ?? '0.0.0.0',
   port: config.port,
 })
 
 const devHttpServer = config.server.devHttpPort
   ? Bun.serve({
+      ...listen,
       port: config.server.devHttpPort,
-      idleTimeout: 120,
-      websocket,
       fetch: (req, bunServer) => app.fetch(req, { server: bunServer }),
     })
   : undefined
@@ -211,19 +216,22 @@ async function shutdown(sig: string) {
   shutdownStarted = true
   logEvent('info', 'backend.shutdown.started', { signal: sig })
   markShuttingDown()
+  // 1. Stop schedulers and background loops so nothing new touches storage.
   dashboardRefreshScheduler.shutdown()
-  // Stop reconciliation before draining so the old backend cannot overwrite
-  // runtime Deployments after the replacement revision takes ownership.
-  shutdownClaudeCodeRuntimeProvisioner()
+  shutdownRuntimeMetricsSampler()
   shutdownDiscordGateway()
-  const workersStopped = quiesceAgentWorkers()
+  shutdownMemoryRetentionRollup()
+  conversationAutoArchive.shutdown()
+  shutdownStuckTurnProbe()
+  stopBotImportCleanup()
+  stopFreeBoxSweep()
+  stopWebhookDelivery()
+  const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
 
-  // Give k8s time to observe /health/ready returning 503 and deregister this
-  //    pod from Service endpoints before we stop accepting new connections.
+  // Let k8s see /health/ready return 503 and deregister this pod first.
   await new Promise((r) => setTimeout(r, shutdownBudget.lbGraceMs))
 
-  // 2. Drain in-flight agent SSE runs first — a pod-local run force-closed
-  //    mid-stream surfaces to clients as a 502.
+  // 2. Drain in-flight agent SSE runs first: one force-closed mid-stream reaches clients as a 502.
   try {
     await drainInFlightAgentRuns(shutdownBudget.agentDrainForcePauseAtMs)
   } catch (err) {
@@ -233,25 +241,9 @@ async function shutdown(sig: string) {
     })
   }
 
-  // 3. Drain HTTP and detached producers within the same deadline before closing storage.
-  const forceTimer = setTimeout(() => {
-    logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
-      drain_deadline_ms: shutdownBudget.httpDrainMs,
-    })
-    void server.stop(true)
-    void devHttpServer?.stop(true)
-  }, shutdownBudget.httpDrainMs)
-
-  try {
-    await drainHttpAndAgentProducers(
-      () => Promise.all([server.stop(false), devHttpServer?.stop(false)]),
-      shutdownBudget.httpDrainMs,
-      workersStopped,
-    )
-  } catch (err) {
-    logError('backend.shutdown.server_stop_failed', err)
-  }
-  clearTimeout(forceTimer)
+  // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
+  closeTunnelsForRestart()
+  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
   stopRuntimeHandoffAdoption()
   try {
     await publishRuntimeHandoffs()
@@ -259,9 +251,7 @@ async function shutdown(sig: string) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
 
-  // 4. Flush asynchronous busy-guard releases before Redis closes so sessions
-  //    are not blocked until their lease TTL expires. The run-store owner-lease
-  //    sweep remains the fallback for releases that arrive after this point.
+  // 4. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
       logError('backend.shutdown.guard_flush_failed', err, {
@@ -272,23 +262,19 @@ async function shutdown(sig: string) {
       logError('backend.shutdown.trace_flush_failed', error)
     }),
   ])
-
   await closeAgentWorkerQueues()
 
-  // 5. Close downstream dependencies.
-  shutdownMemoryRetentionRollup()
-  conversationAutoArchive.shutdown()
-  shutdownStuckTurnProbe()
-  await Promise.allSettled([shutdownPostHog(), shutdownJournalSealer(), closeRedis(), closeDb()])
+  // 5. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
+  await Promise.allSettled([
+    shutdownPostHog(),
+    shutdownTelemetry().catch((err: unknown) => {
+      logError('backend.shutdown.telemetry_shutdown_failed', err)
+    }),
+  ])
 
-  // 6. Flush + close OTel pipelines AFTER deps so any "db closing" /
-  //    "redis quit" spans land before the exporter goes away.
-  try {
-    await shutdownTelemetry()
-  } catch (err) {
-    logError('backend.shutdown.telemetry_shutdown_failed', err)
-  }
-
+  // 6. Let transcript writes started by closed tunnels land, then close storage and exit at once.
+  await drainAgentProducers(shutdownBudget.guardFlushMs)
+  await Promise.allSettled([closeRedis(), closeDb()])
   process.exit(0)
 }
 

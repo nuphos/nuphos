@@ -1,17 +1,16 @@
 import { Hono } from 'hono'
 
-import {
-  accessView,
-  bindingAccessUpdateSchema,
-  canUseAllowList,
-  normalizeAccessInput,
-} from '@/lib/byos/access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import { generateAksKubeconfig, listAksClusters, listAzureRoleAssignments } from '@/lib/byos/azure'
 import { azureHandleFor } from '@/lib/byos/handles'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
-import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import {
+  canRequestUseBinding,
+  disconnectBinding,
+  requireCanDisconnect,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -53,51 +52,25 @@ export const azureAccountScoped = new Hono<{ Variables: AzureAccountVariables }>
 
 azureAccountScoped.use('*', requireAzureAccount())
 
-azureAccountScoped.get('/access', requireTeamRole('ADMINISTRATOR'), (c) =>
-  c.json(accessView(c.get('azureBinding').access)),
-)
+registerBindingAccessRoutes(azureAccountScoped, 'azureAccounts', (c) => c.get('azureBinding'))
 
-azureAccountScoped.put(
-  '/access',
+azureAccountScoped.delete(
+  '/',
   requireTeamRole('ADMINISTRATOR'),
-  zv('json', bindingAccessUpdateSchema),
+  requireCanDisconnect('azureBinding'),
   async (c) => {
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const accountId = c.get('azureBinding').id
-    const access = normalizeAccessInput(c.req.valid('json'), c.get('userId'))
-    const res = await teamByosBindings().updateOne(
-      { _id: teamId, 'azureAccounts.id': accountId },
-      { $set: { 'azureAccounts.$.access': access, updatedAt: access.updatedAt } },
-    )
 
-    // Guard the concurrent-delete race: if the binding was removed between the
-    // middleware fetch and this write, don't report success for a no-op.
-    if (res.matchedCount === 0) {
-      throw new AppError(404, 'azure_account_not_found', 'Azure account binding not found')
-    }
+    await disconnectBinding(c, teamId, 'azureAccounts', { id: accountId })
 
-    return c.json(accessView(access))
+    return c.body(null, 204)
   },
 )
 
-azureAccountScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const accountId = c.get('azureBinding').id
-
-  await teamByosBindings().updateOne(
-    { _id: teamId },
-    { $pull: { azureAccounts: { id: accountId } }, $set: { updatedAt: new Date() } },
-  )
-
-  return c.body(null, 204)
-})
-
 // Below: any team member with allow-list access to this binding.
 azureAccountScoped.use('*', async (c, next) => {
-  if (
-    c.get('teamRole') !== 'ADMINISTRATOR' &&
-    !canUseAllowList(c.get('azureBinding').access?.memberAllowList, c.get('userId'))
-  ) {
+  if (!canRequestUseBinding(c, c.get('azureBinding').access)) {
     throw new AppError(403, 'forbidden', 'You do not have access to this Azure binding')
   }
   await next()

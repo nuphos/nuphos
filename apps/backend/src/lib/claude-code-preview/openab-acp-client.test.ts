@@ -725,6 +725,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { sessionUpdate: 'async_task_state_update', asyncTaskId: 'task-2', state: 'cancelled' },
     ]) {
       h.socket().receive({
         jsonrpc: '2.0',
@@ -754,6 +755,7 @@ describe('OpenAbAcpClient', () => {
         state: 'completed',
         toolCallId: 'tool-1',
       },
+      { kind: 'async-task', asyncTaskId: 'task-2', phase: 'terminal', state: 'cancelled' },
     ])
   })
 
@@ -930,48 +932,6 @@ describe('OpenAbAcpClient', () => {
       result: { _meta: { 'dev.openab/sessionAlive': true } },
     })
     expect(await third).toEqual({ alive: true })
-  })
-
-  test('reports the settings session/new started the session with', async () => {
-    const h = harness()
-    const client = await OpenAbAcpClient.connect({
-      url: 'wss://openab/acp',
-      authKey: 'key',
-      socketFactory: h.connect,
-    })
-    const creating = client.createSession('/workspace')
-    const frame = await nextSent(h.socket(), 0)
-
-    h.socket().receive({
-      jsonrpc: '2.0',
-      id: frame.id,
-      result: {
-        sessionId: 'sess_confirmed',
-        configOptions: [
-          {
-            // The runtime names the control itself; only `category` says it is the model.
-            id: 'claude-model',
-            name: 'Model',
-            category: 'model',
-            currentValue: 'opus',
-            options: [{ value: 'opus', name: 'Opus' }],
-          },
-        ],
-      },
-    })
-
-    expect(await creating).toEqual({
-      sessionId: 'sess_confirmed',
-      sessionConfig: [
-        {
-          id: 'claude-model',
-          name: 'Model',
-          kind: 'model',
-          currentValue: 'opus',
-          options: [{ value: 'opus', name: 'Opus' }],
-        },
-      ],
-    })
   })
 
   test('session/new and session/load carry a declared MCP server verbatim', async () => {

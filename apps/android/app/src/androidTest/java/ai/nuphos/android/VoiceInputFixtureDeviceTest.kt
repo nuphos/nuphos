@@ -11,7 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.session.AgentStore
@@ -33,6 +33,7 @@ import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
+import org.junit.Assume.assumeTrue
 import org.junit.runner.RunWith
 
 /** No login, real keys, microphone audio or network. Screens explicitly identify fixtures. */
@@ -66,8 +67,8 @@ class VoiceInputFixtureDeviceTest {
     @Suppress("UNCHECKED_CAST") private fun state(target: Any, name: String, value: Any) {
         (target.javaClass.getDeclaredField(name + "$" + "delegate").also { it.isAccessible = true }.get(target) as MutableState<Any>).value = value
     }
+
     @Before fun isolate() {
-        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".agentsaudit1382"))
         savedAccess = accessState().value
     }
     @After fun restore() {

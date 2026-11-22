@@ -1,12 +1,15 @@
 import { createHash, randomUUID } from 'node:crypto'
 
+import { withRedisLogContext } from '@/lib/redis-op-log'
+
 import { postChannelMessage } from './channel-chat'
 import { buildTriggerRunStamp } from './conversation-trigger-run'
-import { executeConversationTurn } from './conversation-turn'
+import { startConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
-import { agentTriggers, isRetiredTriggerShape } from './trigger-db'
+import { isRetiredTriggerShape } from './trigger-db'
 import { resolveExecutionAuthorization } from './trigger-executor-authorization'
 import { readReportedStatus, resolveMessageTemplate } from './trigger-executor-context'
+import { TRIGGER_SENDER_PREFIX, recordTriggerRan } from './trigger-missed-runs'
 
 import type { ConversationTriggerRun, ConversationTriggerRunKind } from './conversation-trigger-run'
 import type { AgentConversation } from './db'
@@ -33,6 +36,22 @@ export async function executeTrigger(
   webhookPayload: unknown,
   options: TriggerFireOptions,
 ): Promise<string> {
+  const { sessionId, run } = await fireTrigger(trigger, webhookPayload, options)
+
+  await run
+
+  return sessionId
+}
+
+/**
+ * Hands the fire to its bound conversation and resolves once it is accepted: started, or parked
+ * behind the turn running there. `run` settles when its turn has run.
+ */
+export async function fireTrigger(
+  trigger: AgentTrigger,
+  webhookPayload: unknown,
+  options: TriggerFireOptions,
+): Promise<{ sessionId: string; run: Promise<unknown> }> {
   if (!trigger._id) throw new Error('Cannot execute a trigger without an id')
   if (isRetiredTriggerShape(trigger)) {
     throw new Error(`Trigger ${trigger._id.toHexString()} is a retired database alert`)
@@ -50,14 +69,14 @@ export async function executeTrigger(
   })
 
   // Unbound Triggers never get here: authorization pauses them.
-  await deliverToTargetSession(
+  const { run } = await deliverToTargetSession(
     trigger,
     target,
     resolveMessageTemplate(trigger.messageTemplate, context),
     { fireId: options.fireId, trigger: runStamp },
   )
 
-  return target.sessionId
+  return { sessionId: target.sessionId, run }
 }
 
 /** A fire is the Trigger speaking, never the owner: shown and attributed as such. */
@@ -65,7 +84,7 @@ function triggerMetadata(trigger: AgentTrigger): MessageMetadata {
   const triggerId = trigger._id!.toHexString()
 
   return systemSender(
-    `trigger:${triggerId}`,
+    `${TRIGGER_SENDER_PREFIX}${triggerId}`,
     trigger.name,
     `/teams/${trigger.teamId}/triggers/${triggerId}`,
   )
@@ -80,7 +99,7 @@ async function deliverToTargetSession(
   target: AgentConversation,
   text: string,
   delivery: { fireId?: string; trigger: ConversationTriggerRun },
-): Promise<void> {
+): Promise<{ run: Promise<unknown> }> {
   const triggerId = trigger._id!.toHexString()
   const { sessionId } = target
 
@@ -90,8 +109,15 @@ async function deliverToTargetSession(
 
   if (target.kind === 'channel') {
     await postChannelMessage(target, { id: messageId, text, metadata: triggerMetadata(trigger) })
-  } else
-    await executeConversationTurn(
+    await recordTriggerRan(triggerId)
+
+    return { run: Promise.resolve() }
+  }
+
+  // The turn records the run once it has run (runTurn), which may be later, from the queue.
+  // A Redis op that fails during it names this session and route.
+  return withRedisLogContext({ session_id: sessionId, route: 'agent.resource' }, () =>
+    startConversationTurn(
       {
         userId: target.userId,
         // resolveExecutionAuthorization paused the Trigger unless this is its team.
@@ -105,8 +131,8 @@ async function deliverToTargetSession(
       text,
       'agent.resource',
       triggerMetadata(trigger),
-    )
-  await agentTriggers().updateOne({ _id: trigger._id }, { $set: { lastRunAt: new Date() } })
+    ),
+  )
 }
 
 /**

@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 
 import { intersectTriggerCredentialAccess } from '@/lib/agent/trigger-credential-access'
 
+import { TEAM_WIDE_WHEN_UNSET } from '../../../../desktop/src/components/agent/panel/teamWideWhenUnset.ts'
+
 import { normalizeCredentialAccess } from './shared'
 
 import type { AgentCredentialAccess } from '@/lib/agent/db'
@@ -33,7 +35,7 @@ describe('normalizeCredentialAccess', () => {
       notionIntegrationIds: { id: 'n-1' },
       gcpServiceAccountIds: 'sa-1',
       awsRoleIds: ['role-1', null, 3, 'role-2'],
-      personalCredentialIds: ['github', 'gmail', null],
+      personalCredentialIds: ['github', 'gmail', 'slack', null],
     })
 
     expect(access.cloudflareAccountIds).toEqual([])
@@ -41,7 +43,7 @@ describe('normalizeCredentialAccess', () => {
     expect(access.notionIntegrationIds).toEqual([])
     expect(access.gcpServiceAccountIds).toEqual([])
     expect(access.awsRoleIds).toEqual(['role-1', 'role-2'])
-    expect(access.personalCredentialIds).toEqual(['github'])
+    expect(access.personalCredentialIds).toEqual(['github', 'gmail'])
   })
 
   test('leaves well-formed lists unchanged', () => {
@@ -73,4 +75,13 @@ describe('a panel with no selection, held to a conversation with a stored null l
     expect(access.githubInstallationIds).toEqual([])
     expect(access.gitlabBindingIds).toBeUndefined()
   })
+})
+
+// Desktop shows a conversation with nothing stored by this rule (#3259); the two must not drift.
+test('Desktop reads nothing stored as team-wide for exactly the kinds kept absent here', () => {
+  const absent = Object.entries(normalizeCredentialAccess(undefined))
+    .filter(([, ids]) => ids === undefined)
+    .map(([kind]) => kind)
+
+  expect(new Set<string>(TEAM_WIDE_WHEN_UNSET)).toEqual(new Set(absent))
 })

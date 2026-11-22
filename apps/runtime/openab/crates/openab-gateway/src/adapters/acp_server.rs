@@ -2362,7 +2362,9 @@ async fn handle_acp_connection(
                     | "session/resume"
                     | "session/prompt"
                     | "session/set_config_option"
+                    | "session/close"
                     | "_openab/session/config_options"
+                    | "_openab/agent/config_options"
                     | "_openab/session/steer"
                     | "_openab/session/state"
                     | "_openab/runtime/state"
@@ -3249,6 +3251,81 @@ async fn handle_acp_connection(
                     let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
                 }));
             }
+            // What a new session would offer, without creating one here: the
+            // client learns the agent's models before its first conversation.
+            "_openab/agent/config_options" => {
+                if !initialized {
+                    let resp = JsonRpcResponse::error(id, -32002, "Not initialized");
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                }
+                let model = req.params.as_ref().and_then(|p| p.get("model"));
+                let model = match model {
+                    None | Some(Value::Null) => None,
+                    Some(Value::String(m)) if !m.is_empty() && m.len() <= 500 => Some(m.clone()),
+                    Some(_) => {
+                        let resp = JsonRpcResponse::error(id, -32602, "model must be a string");
+                        let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                        continue;
+                    }
+                };
+                let Some(tx) = state.acp_fresh_config.clone() else {
+                    let resp = JsonRpcResponse::error(
+                        id,
+                        -32601,
+                        "Session configuration requires the unified runtime",
+                    );
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                };
+                if prompt_tasks.len() >= MAX_INFLIGHT_PROMPTS {
+                    let resp =
+                        JsonRpcResponse::error(id, ACP_OVERLOADED, "Too many in-flight requests");
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                    continue;
+                }
+                let out_tx = out_tx.clone();
+                prompt_tasks.push(tokio::spawn(async move {
+                    let (reply, response) = tokio::sync::oneshot::channel();
+                    let resp = if tx.try_send((model, reply)).is_err() {
+                        JsonRpcResponse::error(id, ACP_OVERLOADED, "Configuration queue is full")
+                    } else {
+                        match tokio::time::timeout(std::time::Duration::from_secs(60), response)
+                            .await
+                        {
+                            Ok(Ok(Ok(value))) => JsonRpcResponse::success(id, value),
+                            Ok(Ok(Err((code, message)))) => {
+                                JsonRpcResponse::error(id, code, message)
+                            }
+                            _ => JsonRpcResponse::error(
+                                id,
+                                -32603,
+                                "Agent did not report its configuration",
+                            ),
+                        }
+                    };
+                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+                }));
+            }
+            // Ends a session this connection may cancel: the agent stops and its process exits.
+            "session/close" => {
+                let session_id = req.params.as_ref().and_then(|p| p["sessionId"].as_str());
+                let resp = if !initialized {
+                    JsonRpcResponse::error(id, -32002, "Not initialized")
+                } else if !scope.owns_session(session_id) {
+                    JsonRpcResponse::error(id, -32003, FOREIGN_SESSION)
+                } else if !runtime_control
+                    && !sessions
+                        .lock()
+                        .await
+                        .contains_key(session_id.unwrap_or_default())
+                {
+                    JsonRpcResponse::error(id, -32003, "Session is not attached to this connection")
+                } else {
+                    handle_session_close(&state, id, session_id)
+                };
+                let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
+            }
             "session/cancel" => {
                 if !scope.owns_session(req.params.as_ref().and_then(|p| p["sessionId"].as_str())) {
                     if !is_notification {
@@ -3653,6 +3730,28 @@ async fn handle_session_resume(
     )
 }
 
+/// Hands a session's thread to the pool to be reset; the reply does not wait for it.
+fn handle_session_close(
+    state: &crate::AppState,
+    id: Value,
+    session_id: Option<&str>,
+) -> JsonRpcResponse {
+    let Some(channel) = session_id.and_then(derive_channel_id) else {
+        return JsonRpcResponse::error(id, -32602, "Invalid sessionId");
+    };
+    let Some(tx) = &state.acp_pool_close else {
+        return JsonRpcResponse::error(
+            id,
+            -32601,
+            "Closing a session requires the unified runtime",
+        );
+    };
+    if tx.try_send(format!("acp:{channel}")).is_err() {
+        return JsonRpcResponse::error(id, ACP_OVERLOADED, "Close queue is full");
+    }
+    JsonRpcResponse::success(id, json!({}))
+}
+
 /// Handle `session/cancel`. Per ACP it is a one-way notification. The notification
 /// forwards a control event to core; only the inner runtime's terminal response
 /// completes the client-facing prompt, preserving one execution-state authority.
@@ -4054,6 +4153,8 @@ async fn handle_session_prompt(
                 s.session_meta.clone(),
                 s.permission_relay.clone(),
             ),
+            // No session, so no reservation to release. This arm still holds the
+            // `sessions` guard of the match scrutinee: locking it again here would hang.
             None => {
                 let resp = JsonRpcResponse::error(
                     id,
@@ -4061,7 +4162,6 @@ async fn handle_session_prompt(
                     format!("Unknown session: {}", redact_id(&session_id)),
                 );
                 let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
-                release_prompt(sessions, &session_id).await;
                 return;
             }
         };
@@ -7299,6 +7399,48 @@ mod acp_review_fixes {
                 b as char
             );
         }
+    }
+
+    // A prompt whose session is gone from the connection's map by the time the handler runs
+    // must answer "Unknown session" and leave the map usable. The `None` arm runs while the
+    // match scrutinee's `sessions` guard is still alive, so locking `sessions` again there
+    // (as `release_prompt` does) waits on itself forever.
+    #[tokio::test]
+    async fn prompt_for_a_session_gone_from_the_map_answers_and_does_not_hang() {
+        let (event_tx, _event_rx) = tokio::sync::broadcast::channel::<String>(16);
+        let state = Arc::new(crate::AppState::test_default(event_tx));
+        let sessions = sessions_map();
+        let sid = format!("sess_{}", Uuid::new_v4());
+        let (out_tx, mut out_rx) = mpsc::unbounded_channel::<String>();
+        let params = json!({"sessionId": sid, "prompt": [{"type": "text", "text": "hi"}]});
+
+        let handled = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            handle_session_prompt(
+                &state,
+                &sessions,
+                json!(9),
+                Some(&params),
+                &out_tx,
+                sid.clone(),
+                Arc::new(tokio::sync::Notify::new()),
+                "conn-test",
+                0,
+            ),
+        )
+        .await;
+
+        assert!(
+            handled.is_ok(),
+            "the handler deadlocked on the sessions lock"
+        );
+        let resp: Value = serde_json::from_str(&out_rx.try_recv().unwrap()).unwrap();
+        assert_eq!(resp["id"], json!(9));
+        assert_eq!(resp["error"]["code"], json!(-32602));
+        assert!(
+            sessions.try_lock().is_ok(),
+            "the sessions map must stay usable"
+        );
     }
 
     // R16-F1 — the read loop now reserves the prompt's cancel state SYNCHRONOUSLY (busy + a
@@ -12183,6 +12325,29 @@ mod acp_teardown_ownership {
             Some("evt_new"),
             "conn-A's cleanup must leave conn-B's sink in place, or the live session goes mute"
         );
+    }
+}
+
+#[cfg(test)]
+mod session_close_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn close_hands_the_session_thread_to_the_pool() {
+        let (events, _) = tokio::sync::broadcast::channel(1);
+        let mut state = crate::AppState::test_default(events);
+        let sid = format!("sess_{}", Uuid::new_v4());
+        let unified = handle_session_close(&state, json!(1), Some(&sid));
+        assert_eq!(unified.error.unwrap().code, -32601);
+        let (tx, mut rx) = mpsc::channel::<String>(1);
+        state.acp_pool_close = Some(tx);
+        let bad = handle_session_close(&state, json!(2), Some("bad"));
+        assert_eq!(bad.error.unwrap().code, -32602);
+        assert!(rx.try_recv().is_err());
+        let closed = handle_session_close(&state, json!(3), Some(&sid));
+        assert!(closed.error.is_none());
+        let channel = derive_channel_id(&sid).unwrap();
+        assert_eq!(rx.try_recv().unwrap(), format!("acp:{channel}"));
     }
 }
 

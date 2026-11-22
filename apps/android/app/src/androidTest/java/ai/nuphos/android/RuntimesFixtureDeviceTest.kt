@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.*
@@ -27,6 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.io.IOException
+import org.junit.Assume.assumeTrue
 
 /** Pure synthetic callbacks: no HTTP client, credentials, real writes or account state. */
 @RunWith(AndroidJUnit4::class)
@@ -38,17 +39,18 @@ class RuntimesFixtureDeviceTest {
     private var management = 0
     private var failure = false
     private var empty = false
+    /** `box.state` of the synthetic Box while it is not online; null keeps it online. */
+    private var startingState: String? = null
     private lateinit var store: RuntimesStore
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
     private val offline = local.copy(id = "offline", label = "Synthetic Offline", local = RuntimeHost("mac", "Synthetic Mac", false))
     private fun render(rtl: Boolean = false, waitLoaded: Boolean = true) {
-        require(InstrumentationRegistry.getInstrumentation().targetContext.packageName in setOf("ai.nuphos.android.runtimes1373","ai.nuphos.android.agentsaudit1382"))
         compose.setContent {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
-                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0)))) },
-                { listOf(RuntimeDevice("host", "Synthetic Box", true, true, "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, false, "offline", null, null, null)) }, {}) }
+                { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
+                { listOf(if (startingState != null) RuntimeDevice("host", "Synthetic Box", false, RuntimeDevice.Box(startingState), "offline", null, null, null) else RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
@@ -64,14 +66,17 @@ class RuntimesFixtureDeviceTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync()
         Thread.sleep(500) // Platform window/compositor settling, not product loading.
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        File(context.getExternalFilesDir(null), (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name).outputStream().use {
-            InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG,100,it)
-        }
+        val file = (if (InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") "dark-" else "light-") + name
+        val shot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(context.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, file).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()
         compose.onNodeWithText("Cloud").assertIsDisplayed()
-        compose.onNodeWithText("62% left").assertExists()
+        // #3732: the bar says when its window resets, in days past a day.
+        compose.onNodeWithText("62% left · resets in 2d 5h").assertExists()
         shot("runtimes-normal.png")
         compose.onNodeWithTag("runtime-row-cloud").performScrollTo().performClick()
         assertEquals("cloud", details); assertEquals(1, detailClicks)
@@ -83,6 +88,25 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
+    }
+    /** #4192: a Box coming up says Starting… then Connecting…, like Desktop and iOS, and nothing once online. */
+    @Test fun aStartingBoxSaysStartingThenConnectingNotOffline() {
+        startingState = "creating"
+        render()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        compose.onNodeWithText("Starting…").assertIsDisplayed()
+        shot("runtimes-box-starting-4192.png")
+        startingState = "connecting"
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Starting…").assertDoesNotExist()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-connecting-4192.png")
+        startingState = null
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-online-4192.png")
     }
     @Test fun firstLoadNeverShowsEmptyAndFailedRequestOffersRealRetry() {
         held = kotlinx.coroutines.CompletableDeferred()

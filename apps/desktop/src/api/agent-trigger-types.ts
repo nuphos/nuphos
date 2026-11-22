@@ -22,8 +22,6 @@ export type AgentTrigger = {
   timeZone?: string
   /** Every fire is delivered into this conversation instead of a new one. */
   targetSessionId?: string
-  /** Present on webhook triggers that route to a session per resource. */
-  sessionRouting?: object
   messageTemplate: string
   enabled: boolean
   source?: AgentTriggerSource
@@ -32,6 +30,8 @@ export type AgentTrigger = {
   expiresAt?: string
   // Webhook flood guard: min seconds between runs (unset = server default).
   minIntervalSeconds?: number
+  // Webhook only: a delivery that fails these rules starts no turn.
+  payloadFilters?: { path: string; in?: string[]; notIn?: string[] }[]
   lastRunAt?: string
   /** A scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: string

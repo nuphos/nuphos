@@ -61,19 +61,24 @@ function CellTooltip({
                 <div className="px-1 text-main">{hover.name}</div>
                 <div className="mb-1 px-1 text-tertiary">{span(hover.cell)}</div>
                 {hover.cell.sessions.length === 0 ? (
-                  <div className="px-1 text-tertiary">{t('No agents running')}</div>
+                  <div className="px-1 text-tertiary">{t('Nothing running')}</div>
                 ) : (
                   <div className="space-y-px">
-                    {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => (
-                      <BaseButton
-                        key={s.id}
-                        onClick={() => onOpenSession?.(s.id, s.title)}
-                        className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:bg-state-hover"
-                      >
-                        <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
-                        <span className="truncate">{s.title || t('Untitled task')}</span>
-                      </BaseButton>
-                    ))}
+                    {hover.cell.sessions.slice(0, MAX_TITLES).map((s) => {
+                      // Another member's title is an administrator's to see.
+                      const title = s.title ?? t('Conversation')
+
+                      return (
+                        <BaseButton
+                          key={s.id}
+                          onClick={() => onOpenSession?.(s.id, title)}
+                          className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none transition-colors hover:bg-state-hover hover:text-main focus-visible:bg-state-hover"
+                        >
+                          <AgentAvatar agentId={s.id} provider={s.runtime} size={14} />
+                          <span className="truncate">{title || t('Untitled task')}</span>
+                        </BaseButton>
+                      )
+                    })}
                     {hover.cell.sessions.length > MAX_TITLES && (
                       <div className="px-1 text-tertiary">
                         {t('and {n} more', { n: hover.cell.sessions.length - MAX_TITLES })}

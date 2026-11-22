@@ -1,6 +1,7 @@
 import path from 'node:path'
 
-import { LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
+import { LOCAL_AGENT_PROVIDERS, probeFailure } from './agent-cli.ts'
+import { connectionOf } from './tunnel-streams.ts'
 
 import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstance } from './agent-instances.ts'
@@ -12,6 +13,7 @@ import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+import type { LocalConnection } from './tunnel-streams.ts'
 
 export type LocalAgentState = {
   /** This build ships the agent for this platform. */
@@ -29,6 +31,8 @@ export type LocalRuntimeState = {
   workspace: string | null
   /** Who this computer's agents belong to right now. */
   userId: string | null
+  /** This computer's own connection to Nuphos, while someone is signed in. */
+  connection?: LocalConnection
 }
 
 /** Desktop IPC contract, including account login and device-local sleep state. */
@@ -70,7 +74,8 @@ export type LocalRuntimeControllerDeps = {
   nodeExecPath: string
   /** Where this app reaches Nuphos; the agents on this computer use the same address. */
   backendUrl: string
-  userEnv: () => Promise<NodeJS.ProcessEnv>
+  /** `fresh` reads the shell again instead of reusing what it said when the app started. */
+  userEnv: (fresh?: boolean) => Promise<NodeJS.ProcessEnv>
   probeCli: (
     provider: LocalAgentProvider,
     env: NodeJS.ProcessEnv,
@@ -99,10 +104,12 @@ export type LocalRuntimeControllerDeps = {
   createTunnel: (
     runtime: (provider: LocalAgentProvider, instanceId?: string) => RunningRuntime | null,
     status: () => LocalRuntimeTunnelStatus,
-    onChange: (connected: boolean, superseded: boolean) => void,
+    onChange: (connected: boolean, superseded: boolean, revoked?: boolean) => void,
     instances?: (request: unknown) => Promise<unknown>,
   ) => RuntimeTunnel
   log?: (message: string, data?: Record<string, unknown>) => void
+  /** The vendor's installer an added agent missing its CLI runs once; `installAgentCli` unless replaced. */
+  installCli?: (provider: LocalAgentProvider, env: NodeJS.ProcessEnv) => Promise<void>
   /** A Box: Nuphos owns the whole computer, so its default agents' logins are Nuphos's
    *  to delete. A person's computer never removes them; their CLIs keep their logins. */
   ownsMachine?: boolean
@@ -121,14 +128,14 @@ export type Agent = {
   restartAttempt: number
   restartTimer?: ReturnType<typeof setTimeout>
   generation: number
+  /** The look for a CLI that was missing, while it runs. */
+  recheck?: Promise<void>
 }
 
-/** Everything a user's local agents keep lives under their own directory. */
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
   return path.join(dataDir, 'users', userId, ...parts)
 }
 
-/** The CLI facts worth keeping for the next launch, under the owner's id. */
 export function saveCli(
   deps: Pick<LocalRuntimeControllerDeps, 'writeCliCache'>,
   userId: string | null,
@@ -141,14 +148,12 @@ export const RESTART_BACKOFF_MS = [1_000, 2_000, 5_000, 15_000, 30_000]
 /** Matches the hold Nuphos keeps on a provider's answer: sampling faster would
  *  spend this person's rate limit on numbers that have not moved. */
 export const USAGE_SAMPLE_MS = 600_000
-/** A sign-in is worth reading again for; mashing Check is not. */
 export const USAGE_SIGN_IN_FLOOR_MS = 30_000
 export const HEALTHY_AFTER_MS = 60_000
 export function freshAgent(): Agent {
   return { runtime: null, cli: null, restartAttempt: 0, generation: 0 }
 }
 
-/** What the backend should see: only the agents running right now. */
 export function tunnelStatusOf(
   running: Record<LocalAgentProvider, Agent>,
   backendUrl: string,
@@ -158,7 +163,12 @@ export function tunnelStatusOf(
   for (const provider of LOCAL_AGENT_PROVIDERS) {
     const agent = running[provider]
 
-    if (!agent.runtime || !agent.cli?.installed) continue
+    if (!agent.runtime || !agent.cli?.installed) {
+      const failure = probeFailure(agent.cli)
+
+      if (failure) agents[provider] = failure
+      continue
+    }
     agents[provider] = {
       cli: {
         installed: true,
@@ -169,12 +179,12 @@ export function tunnelStatusOf(
       ...(agent.usage !== undefined && agent.usageAt && !agent.cli.customProvider
         ? { usage: agent.usage, usageAt: agent.usageAt }
         : {}),
+      ...(agent.cli.accountKey ? { accountKey: agent.cli.accountKey } : {}),
       ...(agent.cli.version ? { version: `${provider} ${agent.cli.version}` } : {}),
       ...(agent.models ? { models: agent.models } : {}),
     }
   }
 
-  // A Box's host is the `nuphos` CLI (`nuphos agent` sets it); the backend offers its update.
   const cliVersion = process.env.NUPHOS_CLI_VERSION
 
   return { agents, backendUrl, ...(cliVersion ? { cliVersion } : {}) }
@@ -259,6 +269,7 @@ export function runtimeStateOf(
   superseded: boolean,
   userId: string | null,
   instances?: LocalRuntimeState['instances'],
+  revoked = false,
 ): LocalRuntimeState {
   const bundle = deps.bundle()
 
@@ -271,6 +282,7 @@ export function runtimeStateOf(
     }),
     workspace: userId ? userDir(deps.dataDir(), userId, 'workspace') : null,
     userId,
+    ...(userId ? { connection: connectionOf(online, superseded, revoked) } : {}),
   }
 }
 

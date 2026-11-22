@@ -1,5 +1,8 @@
+import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { isGoogle } from '../../types'
 
 import type {
   PersonalCredential,
@@ -15,6 +18,7 @@ const NAMES: Record<PersonalCredentialProvider, string> = {
   linear: 'Linear',
   gmail: 'Gmail',
   'google-drive': 'Google Drive',
+  'google-calendar': 'Google Calendar',
 }
 
 export function nameOf(provider: PersonalCredentialProvider): string {
@@ -23,10 +27,31 @@ export function nameOf(provider: PersonalCredentialProvider): string {
 
 export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
 
-export const isGoogle = (provider: PersonalCredentialProvider) =>
-  provider === 'gmail' || provider === 'google-drive'
+/** Starts signing in to the member's own account in the browser; a failure says why. */
+export async function connectPersonalCredential(
+  provider: PersonalCredentialProvider,
+  teamId: string | undefined,
+): Promise<void> {
+  try {
+    const { authorizeUrl } = await api.atlasStartPersonalCredential(
+      provider,
+      isGoogle(provider) ? teamId : undefined,
+    )
 
-/** The credential that applies in this team: Gmail / Google Drive grants are per team. */
+    await api.appOpenExternal(authorizeUrl)
+  } catch (err) {
+    if (parseAtlasError(err).code === 'personal_credential_not_configured') {
+      toast.error(
+        t('Could not connect {name}', { name: nameOf(provider) }),
+        t('Not configured on this server yet'),
+      )
+    } else {
+      toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
+    }
+  }
+}
+
+/** The credential that applies in this team: Google grants are per team. */
 export function credentialFor(
   credentials: PersonalCredential[] | null,
   provider: PersonalCredentialProvider,
@@ -60,6 +85,11 @@ export const PERSONAL_CONNECTORS: PersonalConnector[] = [
     provider: 'google-drive',
     summary: t('Find, read and save your own files.'),
     keywords: 'google docs sheets files',
+  },
+  {
+    provider: 'google-calendar',
+    summary: t('Check your schedule and set up events.'),
+    keywords: 'google calendar events meetings schedule',
   },
 ]
 

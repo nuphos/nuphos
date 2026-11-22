@@ -1,4 +1,6 @@
-import { doneGroup, nestItems } from './nest-items.ts'
+import { nearestBot } from '../../lib/nearestBot.ts'
+
+import { nestItems } from './nest-items.ts'
 
 import type { Item, Section } from './types'
 import type { ReactNode } from 'react'
@@ -11,29 +13,30 @@ export function foldKey(section: Pick<Section, 'title'>, key: string): string {
   return section.title === BOTS_SECTION ? `bots:${key}` : key
 }
 
-/** A Bot tree fold, not its done group: folded at rest, opened only by hand and never remembered. */
+/** A Bot tree fold: folded until opened by hand, then remembered per team. */
 export function isBotTreeFold(title: string): boolean {
-  return title.startsWith('bots:') && !title.endsWith(':done')
+  return title.startsWith('bots:')
+}
+
+/** The stored fold of a Bots row's tree. */
+export function botFoldTitle(sessionId: string): string {
+  return foldKey({ title: BOTS_SECTION }, `agent-session:${sessionId}`)
 }
 
 type Fold = Pick<Section, 'title' | 'defaultCollapsed'>
 
-/** A section's rows as nested, with its thread folds and done groups read and toggled by row key. */
+/** A section's rows as nested, with its thread folds read and toggled by row key. */
 export function sectionFolds(
   section: Pick<Section, 'title' | 'items'>,
   isCollapsed: (fold: Fold) => boolean,
   toggle?: (fold: Fold) => void,
 ) {
-  const done = (key: string) => doneGroup(foldKey(section, key))
   const folded = (key: string) => isCollapsed({ title: foldKey(section, key) })
-  const doneOpen = (key: string) => !isCollapsed(done(key))
 
   return {
-    nest: () => nestItems(section.items, folded, doneOpen),
+    nest: () => nestItems(section.items, folded),
     folded,
     toggleFold: (key: string) => toggle?.({ title: foldKey(section, key) }),
-    doneOpen,
-    toggleDone: (key: string) => toggle?.(done(key)),
   }
 }
 
@@ -58,22 +61,17 @@ export function withChatSections(
   const originals = new Map(
     agents.items.filter((item) => !item.botNested).map((item) => [item.key, item]),
   )
-  const botOwner = (item: Item): Item | undefined => {
-    const seen = new Set<string>()
-    let parent = item.parentKey
-
-    while (parent && !seen.has(parent)) {
-      seen.add(parent)
-      const row = originals.get(parent)
-
-      if (!row) return undefined
-      if (row.bot) return row
-      parent = row.parentKey
-    }
-
-    return undefined
-  }
-  const owners = new Map([...originals].map(([key, item]) => [key, botOwner(item)]))
+  const owners = new Map(
+    [...originals].map(([key, item]) => [
+      key,
+      nearestBot(
+        item.parentKey,
+        (parent) => originals.get(parent),
+        (row) => Boolean(row.bot),
+        (row) => row.parentKey,
+      ),
+    ]),
+  )
   const chatByBot = new Map<string, string>()
 
   for (const item of agents.items) {
@@ -115,8 +113,10 @@ export function withChatSections(
   return sections.flatMap((section) =>
     section === agents
       ? [
-          { title: BOTS_SECTION, items: chats },
-          ...(tasks.length > 0 ? [{ title: 'Tasks', items: tasks }] : []),
+          { title: BOTS_SECTION, items: chats, loading: agents.loading },
+          ...(tasks.length > 0 || agents.loading
+            ? [{ title: 'Tasks', items: tasks, loading: agents.loading }]
+            : []),
         ]
       : [section],
   )
@@ -157,4 +157,26 @@ export function withSectionActions(
 
     return action ? { ...section, action } : section
   })
+}
+
+/** Assemble the chat navigation in one place for the full and compact sidebar. */
+export function decorateChatSections(options: {
+  sections: Section[]
+  openBot: (botId: string) => void
+  projects: (tasks: Item[]) => Item[]
+  favorites: Item[]
+  compact: boolean
+  actions: Partial<Record<string, ReactNode>>
+}): Section[] {
+  const sections = withChatSections(options.sections, options.openBot, options.projects)
+
+  if (options.favorites.length)
+    sections.splice(1, 0, { title: 'Favorites', items: options.favorites })
+
+  return withSectionActions(
+    options.compact
+      ? sections.filter((section, index) => index === 0 || isChatSection(section))
+      : sections,
+    options.actions,
+  )
 }

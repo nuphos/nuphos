@@ -11,6 +11,20 @@ export function shouldDeferTranscriptCatchUp(
   )
 }
 
+/**
+ * An idle tab takes the stored transcript. It is now the record of the turns it
+ * holds, the failed one's own line included, so a live stream's error is gone.
+ * The catch-up calls this only when the stored transcript changed: it holds the
+ * failed turn or a later one. A failure that never reached it (a connection lost
+ * before the backend recorded anything) leaves it unchanged, and the error stays.
+ */
+export function adoptStoredTranscript<T extends { error: string | null }, M>(
+  tab: T,
+  stored: { messages: M; historyBaseIndex: number },
+): T & { messages: M; historyBaseIndex: number } {
+  return { ...tab, ...stored, error: null }
+}
+
 type CatchUpTab = {
   streaming: boolean
   historyBaseIndex?: number

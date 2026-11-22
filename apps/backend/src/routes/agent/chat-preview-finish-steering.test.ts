@@ -7,37 +7,39 @@ import '@/routes/agent'
 import { describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useAgentPlans } from '@/lib/test/doubles/agent-plans'
 
 import type { AgentRun } from './types'
 import type { UIMessage } from 'ai'
 
 const persisted: { messages: { id: string; role: string; parts: unknown[] }[] }[] = []
 const storedAt = new Date('2026-10-09T04:00:00.000Z')
-let createdPlans: unknown[] = []
 
 useAgentDb({
   appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
-    return Promise.resolve({ isNew: false, count: args.messages.length })
+    return Promise.resolve({
+      isNew: false,
+      count: args.messages.length,
+      lastIndex: args.messages.length - 1,
+    })
   },
-  getConversationMessagesHead: async () =>
-    persisted.at(-1)!.messages.map((message) => ({
-      ...message,
-      messageId: message.id,
-      createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
-    })),
-})
-useAgentPlans({
-  listPlansCreatedForConversation: async () => createdPlans,
+  // The finished turn reads back only its recent window.
+  getConversationMessages: async (_session, _user, options) =>
+    persisted
+      .at(-1)!
+      .messages.slice(-(options?.tail ?? Infinity))
+      .map((message) => ({
+        ...message,
+        messageId: message.id,
+        createdAt: message.id === 'old-answer' ? new Date('2026-10-08T04:00:00.000Z') : storedAt,
+      })),
 })
 
 const { finishPreviewTurn, persistInterruptedPreviewTurn } = await import('./chat-preview-finish')
 
 describe('finishPreviewTurn with steering segments', () => {
   test('persists assistant/user/assistant in exchange order', async () => {
-    createdPlans = []
     const frames: Record<string, unknown>[] = []
     const steered: UIMessage[] = [
       { id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'answer 1' }] },
@@ -45,7 +47,7 @@ describe('finishPreviewTurn with steering segments', () => {
     ]
 
     await finishPreviewTurn({
-      run: { trace: undefined } as unknown as AgentRun,
+      run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
       sessionId: 's1',
       teamId: 't1',
       userId: 'u1',
@@ -54,7 +56,6 @@ describe('finishPreviewTurn with steering segments', () => {
       locale: 'en-US',
       provider: 'test',
       requestId: 'r1',
-      startedAt: 0,
       text: 'answer 2',
       reasoning: '',
       toolSteps: [],
@@ -80,47 +81,10 @@ describe('finishPreviewTurn with steering segments', () => {
     expect(JSON.stringify(persisted[0]!.messages.at(-1))).toContain('answer 2')
     expect(JSON.stringify(persisted[0]!.messages[2])).toContain('改查 staging')
   })
-
-  test('persists a native Plan card even though its script ran outside MCP', async () => {
-    createdPlans = [
-      {
-        id: '404',
-        title: 'Build staging',
-        overview: 'Create the staging resources.',
-        status: 'proposed',
-      },
-    ]
-
-    await finishPreviewTurn({
-      run: { trace: undefined } as unknown as AgentRun,
-      sessionId: 's2',
-      teamId: 't1',
-      userId: 'u1',
-      messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'build it' }] }],
-      firstMessage: 'build it',
-      locale: 'en-US',
-      provider: 'test',
-      requestId: 'r2',
-      startedAt: 1,
-      text: 'Review the risk before approval.',
-      reasoning: '',
-      toolSteps: [],
-      finalStepStart: 0,
-      steered: [],
-      memory: null,
-      emit: () => {},
-    })
-
-    const final = JSON.stringify(persisted.at(-1)?.messages.at(-1))
-
-    expect(final).toContain('plan_create')
-    expect(final).toContain('404')
-  })
 })
 
 for (const interrupted of [false, true]) {
   test(`tail keeps stored timestamps for historical and ${interrupted ? 'interrupted' : 'completed'} replies`, async () => {
-    createdPlans = []
     const frames: Record<string, unknown>[] = []
     const args = {
       run: {
@@ -142,7 +106,6 @@ for (const interrupted of [false, true]) {
       locale: 'en-US',
       provider: 'test',
       requestId: 'request',
-      startedAt: 0,
       text: 'New files',
       reasoning: '',
       toolSteps: [],
@@ -169,7 +132,6 @@ for (const interrupted of [false, true]) {
   })
 
   test(`tail of ${interrupted ? 'an interrupted' : 'a completed'} turn starts at its prompt, leaving earlier history out`, async () => {
-    createdPlans = []
     const frames: Record<string, unknown>[] = []
     const text = (value: string) => [{ type: 'text' as const, text: value }]
     const args = {
@@ -190,7 +152,6 @@ for (const interrupted of [false, true]) {
       locale: 'en-US',
       provider: 'test',
       requestId: 'request',
-      startedAt: 0,
       text: 'partial answer',
       reasoning: '',
       toolSteps: [],
@@ -221,9 +182,8 @@ for (const interrupted of [false, true]) {
 }
 
 test('a completed turn without text or tools preserves its assistant completion boundary', async () => {
-  createdPlans = []
   await finishPreviewTurn({
-    run: { trace: undefined } as unknown as AgentRun,
+    run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
     sessionId: 'empty',
     teamId: 'team',
     userId: 'owner',
@@ -232,7 +192,6 @@ test('a completed turn without text or tools preserves its assistant completion 
     locale: 'en-US',
     provider: 'test',
     requestId: 'empty-run',
-    startedAt: 0,
     text: '',
     reasoning: '',
     orderedParts: [],
@@ -244,7 +203,8 @@ test('a completed turn without text or tools preserves its assistant completion 
   })
   expect(persisted.at(-1)!.messages).toEqual([
     { id: 'question', role: 'user', parts: [{ type: 'text', text: 'start' }] },
-    { id: expect.any(String), role: 'assistant', parts: [] },
+    // The reply is stored under its run's stream id, the id a client's live reply has.
+    { id: 'stream', role: 'assistant', parts: [] },
   ])
 })
 
@@ -252,11 +212,10 @@ describe('successful empty completion', () => {
   test.each(['_(no response)_', '(no response)', '   ', ''])(
     'persists a completion receipt without placeholder text: %s',
     async (text) => {
-      createdPlans = []
       const frames: Record<string, unknown>[] = []
 
       await finishPreviewTurn({
-        run: { trace: undefined } as unknown as AgentRun,
+        run: { trace: undefined, streamId: 'stream' } as unknown as AgentRun,
         sessionId: 'silent',
         teamId: 't1',
         userId: 'u1',
@@ -267,7 +226,6 @@ describe('successful empty completion', () => {
         locale: 'en-US',
         provider: 'test',
         requestId: 'silent',
-        startedAt: 0,
         text,
         reasoning: '',
         orderedParts: text ? [{ type: 'text', text }] : [],
