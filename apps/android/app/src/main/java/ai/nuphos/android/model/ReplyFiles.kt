@@ -14,8 +14,9 @@ object ReplyFiles {
     // Lowercase hex only, as Desktop's `MessageResponse` matches it.
     private val citation = Regex("""!\[[^\]\n]*]\(https://nuphos\.ai/_reply-images/([0-9a-f]{24})\)""")
     private val fenceRun = Regex("""^(`{3,}|~{3,})""")
-    /** Block quote and list markers a fence can follow on its line, as in `- ~~~`. */
-    private val container = Regex("""^(?:>\s?|[-*+]\s+|\d{1,9}[.)]\s+)*""")
+    /** Block quote markers, then list markers, that a fence can follow on its line, as in `> - ~~~`. */
+    private val quote = Regex("""^(?:[ \t]*>[ \t]?)*""")
+    private val item = Regex("""^(?:[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)*""")
 
     /** Leading columns, a tab reaching the next multiple of four as in CommonMark. Four or more is a code block. */
     private fun indent(line: String): Int {
@@ -29,6 +30,10 @@ object ReplyFiles {
         val segments = mutableListOf<Segment>()
         val lines = mutableListOf<String>()
         var fence: String? = null
+        // The block quote depth and list item content column the open fence belongs to, and the current list item's.
+        var fenceDepth = 0
+        var fenceColumn = 0
+        var column = 0
         fun flush() {
             val markdown = lines.joinToString("\n")
             if (markdown.isNotBlank()) segments += Segment.Text(markdown)
@@ -37,7 +42,18 @@ object ReplyFiles {
         for (line in text.split("\n")) {
             val trimmed = line.trim()
             val shallow = indent(line) < 4
-            val body = container.replace(trimmed, "")
+            val quoted = quote.find(line)!!.value
+            val depth = quoted.count { it == '>' }
+            val inner = line.substring(quoted.length)
+            val marker = item.find(inner)!!.value
+            val body = inner.substring(marker.length).trim()
+            // A fence also ends with the block quote or list item it opened in.
+            if (fence != null && (depth < fenceDepth || (inner.isNotBlank() && indent(inner) < fenceColumn))) fence = null
+            if (fence == null) column = when {
+                marker.isNotEmpty() -> marker.length
+                inner.isNotBlank() && indent(inner) < column -> 0
+                else -> column
+            }
             val run = if (shallow) fenceRun.find(body)?.value else null
             val open = fence
             if (open != null) {
@@ -45,6 +61,8 @@ object ReplyFiles {
                 if (run != null && run[0] == open[0] && run.length >= open.length && body.length == run.length) fence = null
             } else if (run != null && !(run[0] == '`' && body.drop(run.length).contains('`'))) {
                 fence = run
+                fenceDepth = depth
+                fenceColumn = column
             } else if (shallow && citation.containsMatchIn(trimmed) && citation.replace(trimmed, "").isBlank()) {
                 flush()
                 segments += citation.findAll(trimmed).map { Segment.Files(it.groupValues[1]) }
