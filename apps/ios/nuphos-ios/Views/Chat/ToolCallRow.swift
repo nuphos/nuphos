@@ -328,7 +328,9 @@ struct WorkGroup: View {
                 disclose(readingInteraction) { expanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
-                    Text(title)
+                    // The rule takes only the width the label leaves, as on the desktop: left to
+                    // share it evenly, the stack would wrap the label to give the rule half the row.
+                    Text(title).layoutPriority(1)
                     LucideIcon("chevron-right")
                         .font(Theme.Text.micro.weight(.bold))
                         .rotationEffect(.degrees(expanded ? 90 : 0))
