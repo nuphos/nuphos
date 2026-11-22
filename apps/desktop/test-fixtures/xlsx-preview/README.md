@@ -32,3 +32,16 @@ Production routing/authentication and the Electron download dialog are outside
 this isolated component test. Both channel output files and assistant output
 files use DownloadGroups. UploadedFilesCard is a separate existing read-only
 list and is deliberately unchanged, as are Markdown/Text preview features.
+
+## Real Electron attachment scenario
+
+From the repository root, `bun scripts/e2e/run-xlsx-preview.ts` starts the
+standard isolated MongoDB, S3-compatible storage, backend, OpenAB and Electron
+stack. It creates a fictional assistant output through the real transcript and
+file-transfer APIs, uploads the XLSX bytes, finalizes the transfer, verifies the
+stored bytes, and opens the attachment in the dock before switching worksheets.
+The same scenario runs in `scripts/e2e/run.ts` in CI. It does not automate the
+native save dialog. The component fixture above remains a separate test.
+
+The viewer intentionally has no permanent explanatory banner. The read-only
+behavior and limitations documented above still apply.

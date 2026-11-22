@@ -66,6 +66,7 @@ import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
+import { xlsxPreviewScenarios } from './xlsx-preview-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
@@ -140,6 +141,7 @@ const scenarios: Scenario[] = [
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
   ...replyFileScenarios,
+  ...xlsxPreviewScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,

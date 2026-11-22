@@ -84,11 +84,6 @@ export function SpreadsheetView({ source, name }: { source: SpreadsheetSource; n
           />
         )}
       </div>
-      <p className="border-b border-line-control px-3 py-2 text-xs text-tertiary">
-        {t('Read-only · Saved values; formulas are not calculated.')}
-        <br />
-        {t('Raw cell values. Excel formatting, charts and images are not shown.')}
-      </p>
       {failed ? (
         <div role="status" className="p-4 text-sm text-secondary">
           {t('Preview unavailable')} · {t('Download file')}
