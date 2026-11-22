@@ -38,6 +38,10 @@ class ReplyFilesTest {
             // A blank line inside a list item's fence, or less indent at the top level, keeps it open.
             "- ~~~\n  a\n\n  ![example](https://nuphos.ai/_reply-images/$id)\n  ~~~",
             "  ~~~\n![example](https://nuphos.ai/_reply-images/$id)\n  ~~~",
+            // List and block quote markers inside a fence are code, so they do not close it.
+            "~~~\n- ~~~\n![example](https://nuphos.ai/_reply-images/$id)\n~~~",
+            "~~~\n> ~~~\n![example](https://nuphos.ai/_reply-images/$id)\n~~~",
+            "> ~~~\n> > ~~~\n> ![example](https://nuphos.ai/_reply-images/$id)\n> ~~~",
             // An unterminated fence runs to the end.
             "```kotlin\n![x](https://nuphos.ai/_reply-images/$id)",
         ).forEach { assertEquals(it, listOf(Segment.Text(it)), ReplyFiles.segments(it)) }

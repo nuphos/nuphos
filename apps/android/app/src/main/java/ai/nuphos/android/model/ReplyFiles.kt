@@ -16,6 +16,7 @@ object ReplyFiles {
     private val fenceRun = Regex("""^(`{3,}|~{3,})""")
     /** Block quote markers, then list markers, that a fence can follow on its line, as in `> - ~~~`. */
     private val quote = Regex("""^(?:[ \t]*>[ \t]?)*""")
+    private val quoteMarker = Regex("""^[ \t]*>[ \t]?""")
     private val item = Regex("""^(?:[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+)*""")
 
     /** Leading columns, a tab reaching the next multiple of four as in CommonMark. Four or more is a code block. */
@@ -54,12 +55,20 @@ object ReplyFiles {
                 inner.isNotBlank() && indent(inner) < column -> 0
                 else -> column
             }
-            val run = if (shallow) fenceRun.find(body)?.value else null
             val open = fence
             if (open != null) {
+                // Inside a fence only its own block quote markers are structure. A `- ~~~` or `> ~~~` there is code.
+                var code = line
+                repeat(fenceDepth) { code = code.replaceFirst(quoteMarker, "") }
+                code = code.trim()
                 // A fence closes only on a bare run of its own character at least as long as the one that opened it.
-                if (run != null && run[0] == open[0] && run.length >= open.length && body.length == run.length) fence = null
-            } else if (run != null && !(run[0] == '`' && body.drop(run.length).contains('`'))) {
+                val run = fenceRun.find(code)?.value
+                if (shallow && run != null && run[0] == open[0] && run.length >= open.length && code.length == run.length) fence = null
+                lines += line
+                continue
+            }
+            val run = if (shallow) fenceRun.find(body)?.value else null
+            if (run != null && !(run[0] == '`' && body.drop(run.length).contains('`'))) {
                 fence = run
                 fenceDepth = depth
                 fenceColumn = column
