@@ -87,20 +87,14 @@ export function useWorkspaceLinkOpeners(a: Args) {
     workspaceActions.openTab(createWorkspaceTab(teamId), { openDock: true })
   }, [workspaceActions, workspaceStore])
 
-  // A page of another team opens in that team the way the team switcher goes there, on a new
-  // chat. Opened in the chat on screen, it would stay in that chat's dock, and reopening the
-  // chat from its own team would take the app back to the page's team (#4505).
-  const enterTeam = useCallback(
-    (teamId: string) => {
-      if (teamId !== selectScope(workspaceStore.getState())?.teamId) {
-        workspaceActions.switchTeam(teamId)
-      }
-    },
-    [workspaceActions, workspaceStore],
-  )
-
   const openNuphosLinkInNewTab = useCallback(
     (href: string, beside = false): boolean => {
+      // A page of another team opens on a new chat in that team, as the team switcher does. In the
+      // chat on screen it would stay in its dock and take the app back there later (#4505).
+      const enterTeam = (teamId: string) => {
+        if (teamId !== selectScope(workspaceStore.getState())?.teamId)
+          workspaceActions.switchTeam(teamId)
+      }
       const trimmed = href.trim()
       let url: URL
 
@@ -202,7 +196,6 @@ export function useWorkspaceLinkOpeners(a: Args) {
     },
     [
       accountsByTeam,
-      enterTeam,
       openConversationInNewTab,
       openSessionBeside,
       openSettingsSection,
