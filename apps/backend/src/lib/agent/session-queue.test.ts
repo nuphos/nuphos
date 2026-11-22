@@ -39,6 +39,7 @@ import {
   requeueTurnQueue,
   sessionReleased,
   sweepQueuedSessions,
+  waitingOutRefusal,
 } from './session-released'
 import * as failedRuns from './trigger-failed-runs'
 import { TRIGGER_SENDER_PREFIX } from './trigger-missed-runs'
@@ -279,6 +280,34 @@ test('a refused queued turn goes back to the front of the queue', async () => {
   await requeueTurnQueue(OWNER, SESSION, [], refused)
 
   expect(await waiting()).toEqual(['refused', 'behind'])
+})
+
+test('a usage reset days away is looked at again within the hour, in case it comes early', async () => {
+  const before = Date.now()
+
+  await requeueTurnQueue(
+    OWNER,
+    SESSION,
+    [],
+    human('limited'),
+    new Date(before + 5 * 86_400_000).toISOString(),
+  )
+  const until = Date.parse((await listPendingUserMessages(OWNER, SESSION))[0]?.retryAfter ?? '')
+
+  expect(until - before).toBeGreaterThan(59 * 60_000)
+  expect(until - Date.now()).toBeLessThanOrEqual(60 * 60_000)
+})
+
+test('a head stored before refusedAt still waits out its own releases', () => {
+  const head = {
+    ...human('stored earlier'),
+    retryAfter: new Date(Date.now() + 5 * 60_000 - 1_000).toISOString(),
+  }
+
+  expect(waitingOutRefusal(head, true)).toBe(true)
+  expect(
+    waitingOutRefusal({ ...head, retryAfter: new Date(Date.now() + 60_000).toISOString() }, true),
+  ).toBe(false)
 })
 
 test("releasing the session starts the queue for a teammate's message too", async () => {
@@ -1111,9 +1140,9 @@ test('a queued turn whose agent is out of usage keeps the queue, and it runs onc
   }
 }, 10_000)
 
-test('a queued turn whose agent is out of usage waits for its reset, not five minutes, and a release still starts it', async () => {
+test('a queued turn whose agent is out of usage waits for its reset, at most an hour, and a release still starts it', async () => {
   const session = 'usage-reset-session'
-  const resetsAt = new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString()
+  const resetsAt = new Date(Date.now() + 20 * 60_000).toISOString()
   const resets = spyOn(runtimeCatalog, 'usageResetsAt').mockResolvedValue(resetsAt)
   let limited = true
 

@@ -26,6 +26,8 @@ const MAX_RETRY_MS = 30_000
 const QUICK_REFUSALS = 3
 const REFUSED_WAIT_MS = 5 * 60_000
 const OWN_RELEASE_MS = 5_000
+// A reset can come early (a raised limit) with nothing to release the queue; look hourly.
+const USAGE_WAIT_MS = 60 * 60_000
 const backoff = new Map<string, { timer?: ReturnType<typeof setTimeout>; delayMs: number }>()
 const backoffKey = (userId: string, sessionId: string) => `${userId}:${sessionId}`
 
@@ -104,9 +106,10 @@ export async function requeueTurnQueue(
   // ones is busy for minutes, so every replica's backstop and retry wait it out.
   // A known end of the wait, such as a usage reset, is waited out from the first try.
   const waited = !queued.offlineSince && attempts >= QUICK_REFUSALS
+  const reset = Math.min(Date.parse(until ?? ''), now + USAGE_WAIT_MS)
   const retryAfter =
-    until && Date.parse(until) > now
-      ? until
+    reset > now
+      ? new Date(reset).toISOString()
       : (waited && new Date(now + REFUSED_WAIT_MS).toISOString()) || undefined
 
   // A waiting head is the backstop's to start, or a release's.
@@ -125,7 +128,8 @@ export async function requeueTurnQueue(
  */
 export function waitingOutRefusal(head: PendingUserMessage | undefined, released: boolean) {
   const until = Date.parse(head?.retryAfter ?? '')
-  const refusedAt = Date.parse(head?.refusedAt ?? '')
+  // A head stored before \`refusedAt\` waited a fixed time.
+  const refusedAt = Date.parse(head?.refusedAt ?? '') || until - REFUSED_WAIT_MS
 
   return until > Date.now() && (!released || Date.now() - refusedAt < OWN_RELEASE_MS)
 }
