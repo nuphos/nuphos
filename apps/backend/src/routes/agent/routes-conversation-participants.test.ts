@@ -350,6 +350,15 @@ describe('only a Task a person opened, or a group chat, is shared', () => {
   test('a Bot’s chat is never shared', () =>
     refused({ kind: 'channel', agentSessionIds: ['bot'], participantIds: [] }))
 
+  // Speaking in a Slack or Discord thread, or a first message, still joins: only Share is refused.
+  test('a teammate still joins by speaking where sharing is refused', async () => {
+    const { addConversationParticipants } = await import('@/lib/agent/db/participants')
+
+    await refused({ metadata: { source: 'slack.thread' } })
+    await addConversationParticipants('shared', [INVITEE])
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
   test('a Task opened by hand is shared, and anything may still go private', async () => {
     conversation!.metadata = { source: 'app' }
     expect((await invite([INVITEE])).status).toBe(200)
