@@ -139,6 +139,9 @@ class AgentStore(
         private set
     var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
         private set
+    /** The label of a Box that is still coming up while the workspace has no runtime. */
+    var startingBox by mutableStateOf<String?>(null)
+        private set
     val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
@@ -155,10 +158,16 @@ class AgentStore(
         storeScope.launch {
             val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            // An empty workspace may already have a Box on its way, as a new account's free one is.
+            val starting = if (catalog?.isEmpty() != true) null else try {
+                val devices = ai.nuphos.android.data.AgentRuntimeApi(token, team.id).devices(metrics = false)
+                ai.nuphos.android.data.ComputerPresence.starting(devices)?.label
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { startingBox }
             if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
                 workspaceRevision == workspace && generation == runtimesGeneration) {
                 hasRuntimes = catalog.isNotEmpty()
                 creationRuntimes = catalog
+                startingBox = starting
             }
         }
     }
@@ -446,6 +455,7 @@ class AgentStore(
         runtimesListedFor = null
         hasRuntimes = null
         creationRuntimes = null
+        startingBox = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()

@@ -1,9 +1,11 @@
 import { readableByFilter } from './access'
+import { withoutBotWork } from './bot-work'
 import { after, decodeCursor, encodeCursor } from './conversations-cursor'
 import { attentionInputRequests, OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
 
 import type { AgentConversation } from './shared'
+import type { WithId } from 'mongodb'
 
 /** A sign-in ask holds its requester's messages this long; after that they run as usual. */
 export const ASK_OPEN_MS = 60 * 60_000
@@ -147,12 +149,25 @@ export async function getConversations(
     )
 
   const cursor = options.cursor ? decodeCursor(options.cursor) : undefined
-  const page = (filter: Record<string, unknown>, field: string) =>
-    agentConversations()
-      .find(cursor ? after(filter, field, cursor) : filter)
-      .sort({ [field]: -1, _id: -1 })
-      .limit(limit + 1)
+  const page = (filter: Record<string, unknown>, field: string) => {
+    const match = cursor ? after(filter, field, cursor) : filter
+
+    if (options.sort !== 'archived')
+      return agentConversations()
+        .find(match)
+        .sort({ [field]: -1, _id: -1 })
+        .limit(limit + 1)
+        .toArray()
+
+    return agentConversations()
+      .aggregate<WithId<AgentConversation>>([
+        { $match: match },
+        { $sort: { [field]: -1, _id: -1 } },
+        ...withoutBotWork(options.teamId),
+        { $limit: limit + 1 },
+      ])
       .toArray()
+  }
   // My Archived also lists the shared Tasks I archived for myself, by when I did.
   const sharedArchived = options.sort === 'archived' && scope === 'mine'
   const sortedBy = (row: AgentConversation) =>
