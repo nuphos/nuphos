@@ -12,7 +12,8 @@ import { toast } from '../ui/toast'
 
 import type { ReactNode } from 'react'
 
-const iconButton =
+/** A sidebar header's small icon button, as Add project beside Tasks and Dismiss all beside Inbox. */
+export const iconButton =
   'inline-flex h-5 w-5 items-center justify-center rounded text-tertiary hover:bg-[var(--sidebar-overlay-hover)] hover:text-secondary'
 
 export function RowButton({
