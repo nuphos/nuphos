@@ -1,12 +1,12 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-import { AppError } from '@/lib/errors'
 import { findEmbeddedSecret } from '@/lib/secrets/scan'
 
 import {
   assertSkillNameNotBuiltinOverlay,
   buildSkillMdContent,
+  deleteSkillByName,
   getSkillManifest,
   putSkillObjects,
   skillObjectKeyForName,
@@ -14,15 +14,9 @@ import {
   validateSkillObjectKey,
   validateSkillRelativePath,
 } from './skill-store/service'
-import { requireScopeAccess, scopeInput } from './tools-team-skills-access'
+import { label, requireScopeAccess, run, scopeInput } from './tools-team-skills-access'
 
-import type { SkillScopeName } from './tools-team-skills-access'
-
-const label = z
-  .string()
-  .min(1)
-  .max(160)
-  .describe('Short human-readable description of this single action, shown to the user as a step.')
+import type { ScopeNeed, SkillScopeName } from './tools-team-skills-access'
 
 const skillFileInputSchema = z.object({
   path: z
@@ -34,16 +28,7 @@ const skillFileInputSchema = z.object({
   content: z.string().describe('UTF-8 text file content.'),
 })
 
-async function run<T>(fn: () => Promise<T>): Promise<T | { ok: false; error: string }> {
-  try {
-    return await fn()
-  } catch (err) {
-    if (err instanceof AppError) return { ok: false, error: `${err.code}: ${err.message}` }
-    throw err
-  }
-}
-
-type ScopeAccess = (scope: SkillScopeName, write: boolean) => ReturnType<typeof requireScopeAccess>
+type ScopeAccess = (scope: SkillScopeName, need: ScopeNeed) => ReturnType<typeof requireScopeAccess>
 
 function createSkillListTool(access: ScopeAccess) {
   return tool({
@@ -53,7 +38,7 @@ function createSkillListTool(access: ScopeAccess) {
     inputSchema: z.object({ label, scope: scopeInput }),
     execute: async (input) =>
       run(async () => {
-        const resolved = await access(input.scope, false)
+        const resolved = await access(input.scope, 'read')
 
         if (!resolved.ok) return resolved
         const manifest = await getSkillManifest(resolved.scope)
@@ -83,13 +68,13 @@ export function createTeamSkillTools(
     conversationOwnerUserId?: string
   },
 ) {
-  const access: ScopeAccess = (scope, write) =>
+  const access: ScopeAccess = (scope, need) =>
     requireScopeAccess({
       userId,
       teamId,
       ownerUserId: auditContext?.conversationOwnerUserId ?? userId,
       scope: scope ?? 'team',
-      write,
+      need,
     })
 
   const mutationContext = (toolCallId: string) => ({
@@ -141,7 +126,7 @@ export function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const resolved = await access(input.scope, true)
+        const resolved = await access(input.scope, 'write')
 
         if (!resolved.ok) return resolved
         const { scope } = resolved
@@ -234,7 +219,7 @@ export function createTeamSkillTools(
     }),
     execute: async (input, { toolCallId }) =>
       run(async () => {
-        const resolved = await access(input.scope, true)
+        const resolved = await access(input.scope, 'write')
 
         if (!resolved.ok) return resolved
         const { scope } = resolved
@@ -278,5 +263,35 @@ export function createTeamSkillTools(
       }),
   })
 
-  return { skill_list: createSkillListTool(access), skill_create, skill_upsert }
+  const skill_delete = tool({
+    description:
+      'Delete a whole skill (every file under `skills/<name>/`) from the team store, or with `scope: "personal"` from the conversation owner\'s personal skills. ' +
+      'Destructive and not undoable: call it only when the user explicitly asked to delete this skill by name in this conversation, never to tidy up on your own. ' +
+      'Same rule as the Skills page: only an ADMINISTRATOR can delete a team skill; the owner can delete their own personal skills.',
+    inputSchema: z.object({
+      label,
+      scope: scopeInput,
+      name: z.string().min(1).max(80).describe('Skill directory name, e.g. "deploy-checklist".'),
+    }),
+    execute: async (input, { toolCallId }) =>
+      run(async () => {
+        const resolved = await access(input.scope, 'delete')
+
+        if (!resolved.ok) return resolved
+        const result = await deleteSkillByName(
+          resolved.scope,
+          input.name,
+          mutationContext(toolCallId),
+        )
+
+        return {
+          ok: true,
+          scope: resolved.scope,
+          name: result.name,
+          deletedCount: result.deletedCount,
+        }
+      }),
+  })
+
+  return { skill_list: createSkillListTool(access), skill_create, skill_upsert, skill_delete }
 }

@@ -7,7 +7,7 @@ export function attachSidebarSwipe(
   layer: HTMLDivElement,
   page: SidebarPage,
   onPage: (page: SidebarPage) => void,
-  feedback: { onThreshold?: () => void; onStart?: () => void } = {},
+  feedback: { onThreshold?: () => void } = {},
 ) {
   let selected = page
   let width = el.clientWidth
@@ -70,7 +70,6 @@ export function attachSidebarSwipe(
   }
 
   const begin = () => {
-    feedback.onStart?.()
     freeze()
     origin = position
     distance = 0
@@ -186,10 +185,16 @@ export function attachSidebarSwipe(
   }
 
   return {
+    /** Jump to a slot without animating or reporting a page change (the order moved). */
+    place: (target: SidebarPage) => {
+      freeze()
+      selected = target
+      position = -target * width
+      paint(position)
+    },
     nativePhase: (phase: 'begin' | 'end') => {
       clearTimeout(end)
       if (phase === 'begin') {
-        feedback.onStart?.()
         freeze()
         nativeTracking = true
         ignoreMomentum = false

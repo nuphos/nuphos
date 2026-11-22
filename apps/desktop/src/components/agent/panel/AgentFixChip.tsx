@@ -22,7 +22,7 @@ export function AgentFixChip({ fix, fixes }: { fix: AgentFix; fixes: PickerFixes
     return (
       <span className={clsx(CHIP, 'border-warning/30 bg-warning/10 text-warning')} role="status">
         <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin motion-reduce:animate-none" />
-        {fix.kind === 'resume' ? t('Waking…') : t('Checking…')}
+        {t('Checking…')}
       </span>
     )
 

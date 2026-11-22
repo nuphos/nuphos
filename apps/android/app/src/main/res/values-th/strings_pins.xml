@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">ปักหมุด Bot</string>
+    <string name="pins_unpin_bot">เลิกปักหมุด Bot</string>
+    <string name="pins_pin">ปักหมุด</string>
+    <string name="pins_unpin">เลิกปักหมุด</string>
+    <string name="pins_no_messages">ยังไม่มีข้อความ</string>
+    <string name="pins_needs_input">ต้องการคำตอบจากคุณ</string>
+    <string name="pins_running">กำลังทำงาน</string>
+    <string name="pins_unread">โพสต์ที่ยังไม่ได้อ่าน</string>
+</resources>

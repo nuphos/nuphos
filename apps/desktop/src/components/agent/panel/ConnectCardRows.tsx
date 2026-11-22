@@ -5,16 +5,20 @@ import { CloudLogo } from '../../CloudLogo'
 import { LinearMark } from '../../LinearMark'
 import { Button } from '../../ui/button'
 
-import { CONNECT_ITEMS } from './connectCardItems'
+import { connectItem } from './connectCardItems'
 
 import type { ConnectProvider, ConnectRowStatus } from './connectCardModel'
+import type { PersonalCredentialProvider } from '../../../types'
+
+// A team connector, or the member's own credential on a personal card.
+type RowProvider = ConnectProvider | PersonalCredentialProvider
 
 const ACTION_LABEL: Partial<Record<ConnectRowStatus, string>> = {
   error: t('Try again'),
-  available: t('Use in agent'),
+  available: t('Use in task'),
 }
 
-function ProviderLogo({ provider }: { provider: ConnectProvider }) {
+function ProviderLogo({ provider }: { provider: RowProvider }) {
   return (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-surface-sheet">
       {provider === 'linear' ? (
@@ -37,7 +41,7 @@ function RowAction({
   interactive: boolean
   /** Why this viewer cannot bind it: shown instead of Connect, which could only fail. */
   blocked?: { label: string }
-  onConnect: () => void
+  onConnect?: () => void
   onUse: () => void
 }) {
   if (status === 'connected') {
@@ -55,7 +59,7 @@ function RowAction({
     )
   }
   // Only Connect is blocked: selecting what the team already bound is not a bind,
-  // so an `available` row keeps its "Use in agent" for every member.
+  // so an `available` row keeps its "Use in task" for every member.
   const use = status === 'available'
 
   if (blocked && !use) return <span className="text-[12px] text-tertiary">{blocked.label}</span>
@@ -93,14 +97,15 @@ export function ConnectRow({
   onConnect,
   onUse,
 }: {
-  provider: ConnectProvider
+  provider: RowProvider
   status: ConnectRowStatus
   interactive: boolean
   blocked?: { label: string }
-  onConnect: () => void
+  /** Absent on a personal row, which is connected in Settings and only ever selected here. */
+  onConnect?: () => void
   onUse: () => void
 }) {
-  const item = CONNECT_ITEMS.get(provider)
+  const item = connectItem(provider)
 
   return (
     <li className="flex items-center gap-3 border-t border-line-control/60 px-4 py-2.5">
@@ -121,14 +126,8 @@ export function ConnectRow({
   )
 }
 
-export function ConnectHeader({
-  providers,
-  reason,
-}: {
-  providers: ConnectProvider[]
-  reason: string
-}) {
-  const single = providers.length === 1 ? CONNECT_ITEMS.get(providers[0])?.name : undefined
+export function ConnectHeader({ providers, reason }: { providers: RowProvider[]; reason: string }) {
+  const single = providers.length === 1 ? connectItem(providers[0])?.name : undefined
 
   return (
     <div className="px-4 pb-2.5 pt-3.5">
@@ -144,7 +143,7 @@ export function ConnectHeader({
 export function AgentQuote({ text }: { text: string }) {
   return (
     <blockquote className="mt-1.5 whitespace-pre-wrap border-l-2 border-line-control pl-2 text-[12.5px] leading-snug text-secondary">
-      <span className="text-tertiary">{t('Agent:')} </span>
+      <span className="text-tertiary">{t('Reason given:')} </span>
       {text}
     </blockquote>
   )

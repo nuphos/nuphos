@@ -4,7 +4,9 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import * as composioClient from '@/lib/composio'
+import { createBinderOnlyAccess } from '@/lib/byos/access'
 import { errorHandler } from '@/lib/errors'
+import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
 
 import { trelloAppRoutes } from './trello-app'
@@ -12,6 +14,9 @@ import { persistTrelloBinding, publicView, trelloIntegrationsRoutes } from './tr
 
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { TrelloIntegrationBinding } from '@/models'
+
+// A new binding's default share reads the team; these tests run without one.
+useIdentity({ getTeamMembership: async () => null })
 
 const TEAM = new ObjectId()
 const MEMBER = new ObjectId().toHexString()
@@ -33,6 +38,8 @@ let deleted: string[]
 let profileFails: boolean
 let cleanupFails: boolean
 let role: 'ADMINISTRATOR' | 'VIEWER'
+// An owner changed who may use the binding after its disconnect was allowed.
+let accessChanged: boolean
 const realFetch = globalThis.fetch
 const authConfigSpy = spyOn(composioClient, 'composioAuthConfigId').mockResolvedValue('ac_fixture')
 
@@ -70,9 +77,18 @@ useModels({
       _filter: unknown,
       update: {
         $push?: { trelloIntegrations: TrelloIntegrationBinding }
+        $pull?: { trelloIntegrations: { id: ObjectId } }
         $set?: Record<string, unknown>
       },
     ) => {
+      if (update.$pull) {
+        if (accessChanged) return { matchedCount: 0 }
+        const { id } = update.$pull.trelloIntegrations
+
+        stored = stored.filter((b) => !b.id.equals(id))
+
+        return { matchedCount: 1 }
+      }
       if (update.$push) stored.push(update.$push.trelloIntegrations)
       if (update.$set?.['trelloIntegrations.$'])
         stored = [update.$set['trelloIntegrations.$'] as TrelloIntegrationBinding]
@@ -80,6 +96,7 @@ useModels({
 
       return { matchedCount: 1 }
     },
+    countDocuments: async () => stored.length,
   }),
 })
 
@@ -93,6 +110,7 @@ beforeEach(() => {
   profileFails = false
   cleanupFails = false
   role = 'ADMINISTRATOR'
+  accessChanged = false
   Object.assign(config.byos.composio, { apiKey: 'fixture-key' })
   config.agent.publicBackendUrl = 'https://app.example'
   config.agent.backendUrl = undefined
@@ -257,13 +275,14 @@ describe('Trello managed OAuth lifecycle', () => {
       composioAccountId: 'ca_fixture',
       composioUserId: `${TEAM.toHexString()}:${MEMBER}`,
     }
-    const first = await persistTrelloBinding(TEAM, draft)
+    const first = await persistTrelloBinding(TEAM, draft, createBinderOnlyAccess(MEMBER))
 
     stored[0]!.access!.memberAllowList = ['chosen-member']
-    const second = await persistTrelloBinding(TEAM, {
-      ...draft,
-      composioAccountId: 'ca_reconnected',
-    })
+    const second = await persistTrelloBinding(
+      TEAM,
+      { ...draft, composioAccountId: 'ca_reconnected' },
+      createBinderOnlyAccess(MEMBER),
+    )
 
     expect(second.binding_id).toBe(first.binding_id)
     expect(stored).toHaveLength(1)
@@ -284,5 +303,51 @@ describe('Trello managed OAuth lifecycle', () => {
 
     expect(JSON.stringify(view)).not.toContain('ca_private')
     expect(JSON.stringify(view)).not.toContain('private-user')
+  })
+})
+
+describe('Trello disconnect', () => {
+  async function bound() {
+    const { binding_id } = await persistTrelloBinding(
+      TEAM,
+      {
+        memberId: 'member-fixture',
+        username: 'Fixture',
+        authorizedBy: MEMBER,
+        composioAccountId: 'ca_bound',
+        composioUserId: `${TEAM.toHexString()}:${MEMBER}`,
+      },
+      createBinderOnlyAccess(MEMBER),
+    )
+
+    deleted = []
+
+    return (id = binding_id) => app().request(`/trello-integrations/${id}`, { method: 'DELETE' })
+  }
+
+  test('removes the binding and then its Composio connection', async () => {
+    const disconnect = await bound()
+
+    expect((await disconnect()).status).toBe(204)
+    expect(stored).toHaveLength(0)
+    expect(deleted).toEqual(['/api/v3.1/connected_accounts/ca_bound'])
+  })
+  test('a disconnect that loses to an access change keeps the Composio connection', async () => {
+    const disconnect = await bound()
+
+    accessChanged = true
+    expect((await disconnect()).status).toBe(409)
+    expect(stored).toHaveLength(1)
+    expect(deleted).toEqual([])
+  })
+  test('a Composio failure after the binding is gone still disconnects', async () => {
+    const disconnect = await bound()
+
+    cleanupFails = true
+    const response = await disconnect()
+
+    expect(response.status).toBe(204)
+    expect(stored).toHaveLength(0)
+    expect(deleted).toHaveLength(1)
   })
 })

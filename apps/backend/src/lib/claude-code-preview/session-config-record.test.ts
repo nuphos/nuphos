@@ -1,13 +1,19 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 
 import { agentConversations } from '@/lib/agent/db/shared'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
+import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
+import { applyPendingSessionConfig, queueOwnSessionConfig } from './own-session-config'
+import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
-import { sessionConfigView } from './session-config'
+import { conversationSessionConfig, sessionConfigView } from './session-config'
 import { recordSessionConfig, settledTurn } from './session-config-record'
 import { storedPick } from './session-config-options'
+
+import type { QueuedAttachment } from './session-config-record'
 
 const TEAM = '64b000000000000000000001'
 const memory = portabilityDb()
@@ -51,13 +57,24 @@ const catalog = async () => ({
   },
 })
 
-async function conversation(sessionConfig?: unknown[]) {
+useRuntimeModels({ runtimeModelCatalog: catalog })
+useConversationChatRoute({
+  resolveConversationChatRuntime: async () =>
+    ({ endpoint: { url: 'ws://runtime', authKey: 'fixture' } }) as never,
+})
+
+async function conversation(
+  sessionConfig?: unknown[],
+  pendingSessionConfig?: { model?: string; effort?: string },
+) {
   await agentConversations().deleteMany({})
   await agentConversations().insertOne({
     sessionId: 'chat',
     userId: 'owner',
     teamId: TEAM,
+    runtimeId: 'runtime',
     title: 'Chat',
+    avatar: '07-ada',
     firstMessage: '',
     messageCount: 1,
     createdAt: new Date(),
@@ -67,6 +84,7 @@ async function conversation(sessionConfig?: unknown[]) {
       runtimeUrl: 'ws://runtime',
       runtimeDefaults: {},
       ...(sessionConfig ? { sessionConfig } : {}),
+      ...(pendingSessionConfig ? { pendingSessionConfig } : {}),
     },
   } as never)
 }
@@ -77,6 +95,14 @@ const chip = async () => {
     ({ kind, currentValue }) => [kind, currentValue],
   )
 }
+
+// A conversation's own pick, made through update_task (#3503).
+const queued = async () =>
+  (
+    (await agentConversations().findOne({ sessionId: 'chat' }))?.claudeCodePreview as
+      QueuedAttachment | undefined
+  )?.pendingSessionConfig
+const SELF_PICK = { actorId: 'owner', agentSessionId: 'chat', via: 'update_thread' } as const
 
 test('after a reply the chip shows the settings the session runs, including ones the runtime changed', async () => {
   // Fast mode was picked on; Claude Code then turned it off during the reply.
@@ -97,10 +123,14 @@ test('after a reply the chip shows the settings the session runs, including ones
   ])
 })
 
-test('a chat started on the agent defaults gets its effort and fast controls after the first reply', async () => {
+test('a chat started on the agent defaults offers effort and fast before its first reply', async () => {
   await conversation()
-  // Nothing was picked, so nothing is confirmed: no effort slider, no fast toggle.
-  expect((await chip()).map(([kind]) => kind)).toEqual(['model'])
+  // Nothing was picked, so nothing is confirmed: every control is offered, none claims a value.
+  expect(await chip()).toEqual([
+    ['model', ''],
+    ['effort', ''],
+    ['fast', ''],
+  ])
 
   await recordSessionConfig(
     { getSessionConfigOptions: async () => ({ configOptions: afterReply }) },
@@ -173,4 +203,113 @@ test('a finished Claude Code turn stores its settings before it settles', async 
 
   expect(stop).toBe('end_turn')
   expect(await chip()).toContainEqual(['fast', 'off'])
+})
+
+test('a conversation stores its own model picks on the session attachment', async () => {
+  await conversation()
+  const current = await agentConversations().findOne({ sessionId: 'chat' })
+
+  await queueOwnSessionConfig(current!, { model: 'haiku', effort: 'low' }, SELF_PICK)
+  const stored = await agentConversations().findOne({ sessionId: 'chat' })
+
+  expect((stored?.claudeCodePreview as QueuedAttachment | undefined)?.pendingSessionConfig).toEqual(
+    {
+      model: 'haiku',
+      effort: 'low',
+    },
+  )
+  expect(stored).not.toHaveProperty('pendingSessionConfig')
+  // The chip shows the pick at once, so the history records it now, as the conversation's own.
+  expect(stored?.settingsHistory?.at(-1)).toMatchObject({
+    actorId: 'owner',
+    agentSessionId: 'chat',
+    via: 'update_thread',
+  })
+})
+
+test('a manual model choice supersedes only the queued pick it replaces', async () => {
+  await conversation(undefined, { model: 'haiku', effort: 'low' })
+  let currentModel = 'opus'
+  const options = () => [{ ...afterReply[0], currentValue: currentModel }, ...afterReply.slice(1)]
+  const writes: string[][] = []
+  const client = {
+    initialize: async () => ({}),
+    close: () => {},
+    getSessionConfigOptions: async () => ({ configOptions: options() }),
+    setSessionConfigOption: async (_id: string, configId: string, value: string) => {
+      writes.push([configId, value])
+      currentModel = value
+
+      return { configOptions: options() }
+    },
+  } as unknown as OpenAbAcpClient
+  const connect = spyOn(OpenAbAcpClient, 'connect').mockResolvedValue(client)
+
+  try {
+    const current = await agentConversations().findOne({ sessionId: 'chat' })
+    const state = await conversationSessionConfig(
+      current!,
+      { configId: 'model', value: 'haiku' },
+      'owner',
+    )
+
+    expect(writes).toEqual([['model', 'haiku']])
+    expect(state.options.find((option) => option.kind === 'model')?.currentValue).toBe('haiku')
+    expect(await queued()).toEqual({ effort: 'low' })
+  } finally {
+    connect.mockRestore()
+  }
+})
+
+test('the next prompt confirms a queued model before its effort and clears both picks', async () => {
+  await conversation(undefined, { model: 'haiku', effort: 'low' })
+  const attachment = (await agentConversations().findOne({ sessionId: 'chat' }))!.claudeCodePreview!
+  let currentModel = 'opus'
+  let currentEffort = 'high'
+  const options = () => [
+    { ...afterReply[0], currentValue: currentModel },
+    { ...afterReply[1], currentValue: currentEffort },
+    afterReply[2],
+  ]
+  const writes: string[][] = []
+  const client = {
+    getSessionConfigOptions: async () => ({ configOptions: options() }),
+    setSessionConfigOption: async (_id: string, configId: string, value: string) => {
+      writes.push([configId, value])
+      if (configId === 'model') currentModel = value
+      if (configId === 'effort') currentEffort = value
+
+      return { configOptions: options() }
+    },
+  }
+
+  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment, SELF_PICK)
+
+  expect(writes).toEqual([
+    ['model', 'haiku'],
+    ['effort', 'low'],
+  ])
+  expect(applied.pendingSessionConfig).toEqual({})
+  expect(await queued()).toEqual({})
+  expect(await chip()).toEqual([
+    ['model', 'haiku'],
+    ['effort', 'low'],
+    ['fast', 'off'],
+  ])
+})
+
+test('a queued setting the agent rejects is dropped so the prompt runs on confirmed settings', async () => {
+  await conversation(undefined, { effort: 'maximum' })
+  const attachment = (await agentConversations().findOne({ sessionId: 'chat' }))!.claudeCodePreview!
+  const client = {
+    getSessionConfigOptions: async () => ({ configOptions: afterReply }),
+    setSessionConfigOption: async () => {
+      throw new Error('must not write')
+    },
+  }
+
+  const applied = await applyPendingSessionConfig(client, 'chat', TEAM, attachment, SELF_PICK)
+
+  expect(applied.pendingSessionConfig).toEqual({})
+  expect(await queued()).toEqual({})
 })

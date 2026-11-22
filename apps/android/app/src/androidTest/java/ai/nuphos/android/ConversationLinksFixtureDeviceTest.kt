@@ -14,7 +14,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -123,7 +123,6 @@ class ConversationLinksFixtureDeviceTest {
                 path.endsWith("/members") -> """{"members":[]}"""
                 path.endsWith("/connectors") -> "{}"
                 path == "/agent/plans" -> """{"plans":[],"hasMore":false}"""
-                path == "/agent/plan-approval-policy" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                 path == "/agent/auto-mode/bypass" -> """{"bypass":false}"""
                 else -> {
                     unexpected += "${request.method} $path"

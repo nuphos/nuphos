@@ -5,6 +5,8 @@
     <string name="chat_event_expand">イベントを展開</string>
     <string name="chat_channel_new_messages">#%1$s に新しいメッセージ</string>
     <string name="chat_open_channel">チャンネルを開く</string>
+    <string name="chat_channel_sent_file">ファイルを送信しました</string>
+    <string name="chat_channel_more_posts">他 %1$d 件</string>
     <string name="chat_answered_by">%1$s が回答</string>
     <string name="chat_question_collapse">質問を折りたたむ</string>
     <string name="chat_question_expand">質問を展開</string>
@@ -188,4 +190,27 @@
     <string name="chat_share_access_reply">チームが閲覧・返信可</string>
     <string name="chat_share_can_reply">返信可</string>
     <string name="chat_share_can_view">閲覧可</string>
+    <string name="chat_summary_title">タスクの概要</string>
+    <string name="chat_summary_close">概要を閉じる</string>
+    <string name="chat_summary_question">質問</string>
+    <string name="chat_summary_close_question">質問を閉じる</string>
+    <string name="chat_summary_needs_input">入力が必要です</string>
+    <string name="chat_summary_no_questions">回答待ちの質問はありません。</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">コマンド</string>
+    <string name="chat_summary_running">実行中</string>
+    <string name="chat_summary_open">エージェントの概要</string>
+    <string name="chat_summary_output_truncated">以前の出力は省略されています。</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">サブタスク</string>
+    <string name="chat_summary_files">ファイル</string>
+    <string name="chat_summary_triggers">トリガー</string>
+    <string name="chat_summary_no_triggers">このタスクの定期的な作業をエージェントに依頼できます。</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot の詳細</string>
+    <string name="chat_bot_state_waiting">%1$d 件が入力待ち</string>
+    <string name="chat_bot_state_running">%1$d 件実行中</string>
+    <string name="chat_summary_idle_since">待機中 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">定期的な作業はここで依頼してください。</string>
+    <string name="chat_summary_paused">一時停止中</string>
 </resources>

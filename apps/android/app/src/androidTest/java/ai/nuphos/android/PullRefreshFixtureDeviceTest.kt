@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -32,6 +32,7 @@ import org.junit.runner.RunWith
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.junit.Assume.assumeTrue
 
 /** Synthetic local transport only. The outer rule blocks the real Activity's reads. */
 @RunWith(AndroidJUnit4::class)
@@ -65,7 +66,6 @@ class PullRefreshFixtureDeviceTest {
 
     private val network = object : ExternalResource() {
         override fun before() {
-            check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.let { it.endsWith(".refreshfixture") || it.endsWith(".listrefresh1319") }) { "Run only in the isolated refresh fixture package" }
             // A fresh install otherwise prompts for notifications on top of the first test.
             InstrumentationRegistry.getInstrumentation().uiAutomation.grantRuntimePermission(
                 InstrumentationRegistry.getInstrumentation().targetContext.packageName, android.Manifest.permission.POST_NOTIFICATIONS)
@@ -96,7 +96,7 @@ class PullRefreshFixtureDeviceTest {
                     path == "/agent/conversations" -> {
                         val title = historyTitle
                         val order = req.url.queryParameter("sort")
-                        if ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null)) {
+                        if (isHistory(req) && ((holdHistory && req.url.queryParameter("cursor") == null) || (holdPage && req.url.queryParameter("cursor") != null))) {
                             holdHistory = false; holdPage = false; historyHeld.countDown()
                             check(historyRelease.await(15, TimeUnit.SECONDS))
                         }
@@ -216,7 +216,10 @@ class PullRefreshFixtureDeviceTest {
         }
     }
 
-    private fun historyReads() = requests.count { it.url.encodedPath == "/agent/conversations" }
+    // The history list only: chats, Bots and open questions are read from the same path.
+    private fun isHistory(request: okhttp3.Request) = request.url.encodedPath == "/agent/conversations" &&
+        request.url.queryParameterNames.none { it in setOf("kind", "bots", "pendingDecision") }
+    private fun historyReads() = requests.count(::isHistory)
     private fun pinReads() = requests.count { it.url.encodedPath == "/teams/aaaaaaaaaaaaaaaaaaaaaaaa/favorites" }
     private fun pull() {
         compose.onNodeWithTag("chat-history-refresh").performTouchInput {
@@ -283,7 +286,7 @@ class PullRefreshFixtureDeviceTest {
         compose.runOnIdle { navController.popBackStack() }
         waitText("Remote search result"); settled()
         assertEquals(reads + 1, historyReads())
-        val last = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val last = requests.last(::isHistory)
         assertEquals("activity", last.url.queryParameter("sort"))
         assertEquals("needle", last.url.queryParameter("search"))
         assertEquals("mine", last.url.queryParameter("scope"))
@@ -296,10 +299,11 @@ class PullRefreshFixtureDeviceTest {
         shot("before-light")
         if (InstrumentationRegistry.getArguments().getString("refreshVideo") == "true") Thread.sleep(5000)
         val reads = historyReads()
+        val favorites = pinReads()
         historyTitle = "Fresh history"
         pull(); waitText("Fresh history"); settled(); shot("success-light")
         assertEquals(reads + 1, historyReads())
-        assertEquals("Pins are gone, so favorites are never read", 0, pinReads())
+        assertTrue("Refreshing also reloads the restored favorites", pinReads() > favorites)
         failHistory = true
         pull(); waitText("Could not refresh tasks. Showing last loaded history."); settled()
         shot("failed-retains-light")
@@ -325,7 +329,7 @@ class PullRefreshFixtureDeviceTest {
         compose.waitUntil(5_000) { historyReads() > reads }; settled()
         shot("search-light")
         assertEquals("needle", store.search)
-        val last = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val last = requests.last(::isHistory)
         assertEquals("needle", last.url.queryParameter("search"))
         assertEquals("mine", last.url.queryParameter("scope"))
         assertEquals("exclude", last.url.queryParameter("archived"))
@@ -373,13 +377,16 @@ class PullRefreshFixtureDeviceTest {
         treeHistory = true; entries = "[]"; render()
         compose.runOnIdle { store.refresh() }
         waitText("Synthetic child"); settled()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
+        compose.onNodeWithContentDescription(app.resources.getQuantityString(R.plurals.agent_hide_sub_agents, 1, 1)).performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Unsent refresh fixture draft")
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         hideKeyboard()
+        compose.onNodeWithTag("new-task-cancel").performClick()
         pull(); settled()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         shot("fold-draft-light")
     }
@@ -426,13 +433,13 @@ class PullRefreshFixtureDeviceTest {
         compose.runOnIdle { store.refresh() }
         waitText("Older chat, recent activity"); settled()
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })
-        val reads = requests.filter { it.url.encodedPath == "/agent/conversations" }
+        val reads = requests.filter(::isHistory)
         assertTrue(reads.isNotEmpty())
         assertTrue(reads.all { it.url.queryParameter("sort") == "activity" && it.url.queryParameter("scope") == "mine" && it.url.queryParameter("archived") == "exclude" })
         shot("activity-order-light")
         compose.runOnIdle { state(store, "hasMore").value = true }
         runBlocking(Dispatchers.Main) { store.loadMore() }
-        val page = requests.last { it.url.encodedPath == "/agent/conversations" }
+        val page = requests.last(::isHistory)
         assertEquals("activity-cursor", page.url.queryParameter("cursor"))
         assertEquals("activity", page.url.queryParameter("sort"))
         assertEquals(listOf("recent", "created"), store.conversations.map { it.sessionId })

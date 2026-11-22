@@ -38,8 +38,12 @@ export type AgentCredentialSelection = {
   deviceIds: string[]
   /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
   teamIdentity?: PersonalCredentialProvider[]
-  /** The member's own GitHub / Linear credential, used where the team has no binding of it. */
-  personalCredentialIds?: ('github' | 'linear')[]
+  /** The member's own Personal Credentials this conversation may use, binding or not. */
+  personalCredentialIds?: PersonalCredentialProvider[]
+  /** Which of the member's own accounts, by connection id. Only the owner receives it. */
+  personalConnectionIds?: string[]
+  /** What everyone else receives instead of personalConnectionIds. Read-only: never sent back. */
+  personalAccountCount?: number
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {
@@ -204,9 +208,9 @@ export type AgentCredentialOptions = {
     accountId: string
     label: string
   }[]
-  /** The requesting member's own GitHub / Linear Personal Credentials. */
+  /** The requesting member's own Personal Credentials. */
   personalCredentials: {
-    provider: 'github' | 'linear'
+    provider: PersonalCredentialProvider
     login: string
   }[]
   devices: {

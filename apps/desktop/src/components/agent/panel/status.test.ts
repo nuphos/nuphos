@@ -104,20 +104,27 @@ test('a failed turn that explains itself does not also claim the session was int
       { type: 'turn-interrupted', id: 'i', reason: 'error', message: 'blocked', createdAt: '' },
     ],
   } as Message
-  const current = tab('Session interrupted', 'idle')
 
-  current.runtimeState = {
-    ...current.runtimeState!,
-    state: 'interrupted',
-    phase: 'interrupted',
-    actions: { send: true, cancel: false, steer: false },
+  // An interrupted session and a failed request both end the turn with that notice.
+  for (const [phase, label] of [
+    ['interrupted', 'Session interrupted'],
+    ['failed', 'Request failed'],
+  ]) {
+    const current = tab(label, 'idle')
+
+    current.runtimeState = {
+      ...current.runtimeState!,
+      state: phase === 'failed' ? 'idle' : 'interrupted',
+      phase,
+      actions: { send: true, cancel: false, steer: false },
+    }
+    current.messages = [failed]
+    assert.equal(computeStatus(current, failed), null, phase)
+    assert.equal(computeStatus(current, message)?.label, label)
+
+    current.runtimeState.actions = { send: false, cancel: false, steer: false }
+    assert.equal(computeStatus(current, failed)?.label, label)
   }
-  current.messages = [failed]
-  assert.equal(computeStatus(current, failed), null)
-  assert.equal(computeStatus(current, message)?.label, 'Session interrupted')
-
-  current.runtimeState.actions = { send: false, cancel: false, steer: false }
-  assert.equal(computeStatus(current, failed)?.label, 'Session interrupted')
 })
 test('a stop asked for here says so before the runtime does, until the turn ends', () => {
   const current = { ...tab('Running a command…'), phase: 'stopping' } as Tab

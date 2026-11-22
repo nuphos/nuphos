@@ -73,7 +73,7 @@ export function SleepPreventionSettings({
       </p>
       <p className="text-[12px] text-tertiary">
         {t(
-          'Saved on this Mac only. Nuphos must stay open. Keeping your Mac awake uses more energy. Task mode includes pending agent turns (including approval waits), remote commands, Computer Use calls and open remote terminals.',
+          'Saved on this Mac only. Nuphos must stay open. Keeping your Mac awake uses more energy. Task mode includes pending turns (including approval waits), remote commands, Computer Use calls and open remote terminals.',
         )}
       </p>
     </div>

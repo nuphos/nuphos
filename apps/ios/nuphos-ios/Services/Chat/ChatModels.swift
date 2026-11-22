@@ -99,6 +99,35 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         /// Set when this is a channel's wake-up notice (`channel-wake.ts`): its body is
         /// the agent's input, so only the channel is shown, as on the desktop.
         var channelId: String? = nil
+        /// The newest post a channel's wake-up brought (`channel-newest-post.ts`); nil
+        /// for a notice from before posts were carried, which keeps today's line.
+        var post: Post? = nil
+
+        struct Post: Equatable, Sendable {
+            let id: String
+            let sender: Sender
+            /// Set for an agent's post: its avatar is the agent's face.
+            let agentId: String?
+            let runtime: String?
+            /// Its first line, or its file's name; empty for an agent's files.
+            let text: String
+            /// How many other posts came with it.
+            let more: Int
+
+            init?(_ value: JSONValue?) {
+                guard let id = value?["id"]?.stringValue, !id.isEmpty, let text = value?["text"]?.stringValue,
+                      let more = value?["more"]?.numberValue,
+                      let name = value?["sender"]?["displayName"]?.stringValue,
+                      let senderId = value?["sender"]?["id"]?.stringValue else { return nil }
+                self.id = id
+                sender = Sender(name: name, avatarURL: value?["sender"]?["avatarURL"]?.stringValue ?? "")
+                let agent = value?["sender"]?["type"]?.stringValue == "agent"
+                agentId = agent ? senderId : nil
+                runtime = agent ? value?["sender"]?["agentRuntime"]?.stringValue : nil
+                self.text = text
+                self.more = max(0, Int(more))
+            }
+        }
     }
 
     /// The sender id prefix of a channel's wake-up notice (`CHANNEL_SENDER_PREFIX`).
@@ -119,7 +148,8 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         return Event(name: name, logo: logo, text: text.trimmingCharacters(in: .whitespacesAndNewlines),
                      agentId: source == "agent.thread" ? (metadata?["sourceSessionId"]?.stringValue ?? metadata?["sender"]?["id"]?.stringValue) : nil,
                      runtime: runtime?.rawValue,
-                     channelId: channelId.isEmpty ? nil : channelId)
+                     channelId: channelId.isEmpty ? nil : channelId,
+                     post: channelId.isEmpty ? nil : Event.Post(metadata?["channelPost"]))
     }
 
     var text: String {
@@ -167,7 +197,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
     /// `approvalResponded` counts as mid-flight too: the user let the call
     /// through but its result never arrived, so the row would otherwise spin
     /// — and never show a time — for the rest of the conversation.
-    mutating func finalizeIncompleteTools(errorText: String = "Interrupted before the tool finished.") {
+    mutating func finalizeIncompleteTools(errorText: String = String(localized: "Interrupted before the tool finished.")) {
         for i in parts.indices {
             if case .tool(var t) = parts[i],
                t.state == .inputStreaming || t.state == .inputAvailable || t.state == .approvalResponded {
@@ -298,19 +328,78 @@ enum ChatPart: Equatable, Sendable {
             case terminal, read, write, edit, search, fetch, todos, question, task, plan, skill, memory, chart, generic
         }
 
+        /// One input of a secure card that asks for several: its file name and what the person reads.
+        struct SecretField: Equatable {
+            let name: String
+            let label: String
+        }
+
         /// A `request_user_decision` asking for a secret (category
-        /// `credential` with a `secretName`): the secure input card.
-        var secretRequest: (name: String, reason: String)? {
+        /// `credential` with a `secretName`): the secure input card. With
+        /// `fields` and a `site` it asks for a website form's details
+        /// together; fields it cannot read leave the one input for `secretName`.
+        var secretRequest: (name: String, reason: String, fields: [SecretField]?, site: String?)? {
             guard input?["category"]?.stringValue == "credential",
-                  let name = input?["secretName"]?.stringValue,
-                  name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil else { return nil }
-            return (name, input?["question"]?.stringValue ?? "")
+                  let name = input?["secretName"]?.stringValue, Self.isSecretName(name) else { return nil }
+            let fields = Self.secretFields(input?["fields"], site: input?["site"])
+            return (name, input?["question"]?.stringValue ?? "", fields, fields == nil ? nil : input?["site"]?.stringValue)
+        }
+
+        private static func isSecretName(_ name: String) -> Bool {
+            name.range(of: #"^[A-Za-z][A-Za-z0-9_]{0,63}$"#, options: .regularExpression) != nil
+        }
+
+        /// A site as the backend accepts it: a lowercase host name and, if not the default, a port.
+        static func isSiteHost(_ site: String) -> Bool {
+            guard site.count <= 253, site.range(of: #"^[a-z0-9.-]+(:[1-9][0-9]{0,4})?$"#, options: .regularExpression) != nil else { return false }
+            let host = site.split(separator: ":", omittingEmptySubsequences: false)[0]
+            let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+            return host == "localhost" || (labels.count > 1 && labels.allSatisfy {
+                $0.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$"#, options: .regularExpression) != nil
+            })
+        }
+
+        /// The card's `fields`, only when they and its `site` are what the backend accepts.
+        private static func secretFields(_ value: JSONValue?, site: JSONValue?) -> [SecretField]? {
+            guard let items = value?.arrayValue, (1...6).contains(items.count),
+                  let site = site?.stringValue, isSiteHost(site) else { return nil }
+            let fields = items.compactMap { item -> SecretField? in
+                guard let name = item["name"]?.stringValue, isSecretName(name),
+                      let label = item["label"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines), !label.isEmpty else { return nil }
+                return SecretField(name: name, label: label)
+            }
+            guard fields.count == items.count, Set(fields.map { $0.name.lowercased() }).count == items.count else { return nil }
+            return fields
+        }
+
+        /// The reply that answers a secret request, before the file's path; the desktop's text.
+        static func secretSavedReply(_ name: String) -> String { "🔒 \(name) saved to " }
+
+        /// The reply a card with several fields sends: it opens as a single secret's
+        /// does, so every client reads it as saved, then names one file per field.
+        static func secretFieldsSavedReply(_ name: String, saved: [(name: String, path: String)]) -> String {
+            ([secretSavedReply(name) + "these files, one per field:"] + saved.map { "\($0.name): \($0.path)" }).joined(separator: "\n")
         }
 
         /// Native runtimes may name the call with its display label, so recognize the decision input.
         var isProviderIntegrationRequest: Bool {
             input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
                 && input?["credentials"] == nil
+        }
+
+        /// A question Desktop draws as its question card, never as a tool row. The app answers
+        /// it from the Inbox and the summary panel and shows the answer as its answered line, so
+        /// the transcript draws nothing for the call. A secret keeps its card, an integration its
+        /// connect actions, and a call that really failed its row.
+        var isQuestionCard: Bool {
+            toolName == "request_user_decision" && secretRequest == nil && input?["category"]?.stringValue != "integration"
+                && !(input?["question"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && !(state == .outputError && errorText != String(localized: "Interrupted before the tool finished."))
+        }
+
+        /// The providers an integration question asks for.
+        var integrationProviders: [String]? {
+            input?["providers"]?.arrayValue?.compactMap(\.stringValue)
         }
 
         /// The request id the decision's result names; the call id otherwise.
@@ -344,20 +433,20 @@ enum ChatPart: Equatable, Sendable {
 
         var kindLabel: String {
             switch kind {
-            case .terminal: "Terminal"
-            case .read: "Read file"
-            case .write: "Write file"
-            case .edit: "Edit file"
-            case .search: "Search"
-            case .fetch: "Fetch"
-            case .todos: "To-dos"
-            case .question: "Question"
-            case .task: "Subtask"
-            case .plan: "Plan"
-            case .skill: "Skill"
-            case .memory: "Memory"
-            case .chart: "Chart"
-            case .generic: toolName.count > 40 ? "Tool" : toolName
+            case .terminal: String(localized: "Terminal")
+            case .read: String(localized: "Read file")
+            case .write: String(localized: "Write file")
+            case .edit: String(localized: "Edit file")
+            case .search: String(localized: "Search")
+            case .fetch: String(localized: "Fetch")
+            case .todos: String(localized: "To-dos")
+            case .question: String(localized: "Question")
+            case .task: String(localized: "Subtask")
+            case .plan: String(localized: "Plan")
+            case .skill: String(localized: "Skill")
+            case .memory: String(localized: "Memory")
+            case .chart: String(localized: "Chart")
+            case .generic: toolName.count > 40 ? String(localized: "Tool") : toolName
             }
         }
 

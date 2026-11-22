@@ -72,6 +72,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     openInChat,
     openConversationInNewTab,
     openSettingsSection,
+    setSettingsOpen,
     teams,
   } = a
   const pane = useWorkspacePane()
@@ -114,20 +115,19 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // A Settings page opens in the link's own team, never the one on screen.
       if (settingsTarget === null) return false
       if (settingsTarget) {
-        if (settingsTarget.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(settingsTarget.teamId)
-        }
+        workspaceActions.enterTeam(settingsTarget.teamId)
         openSettingsSection(settingsTarget.section, settingsTarget.filter)
 
         return true
       }
+      // Everything else opens in the workspace, which Settings covers while it is open:
+      // a computer's Open desktop there would otherwise open out of sight.
+      setSettingsOpen(false)
 
       // Connectors opens as a dialog over the page, in a team this account is in.
       if (isConnectorsPage(navigation.scope, navigation.active)) {
         if (!teams.some((team) => team.id === navigation.scope.teamId)) return false
-        if (navigation.scope.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(navigation.scope.teamId)
-        }
+        workspaceActions.enterTeam(navigation.scope.teamId)
         workspaceActions.setConnectorsDialog(connectorsDialogOf(navigation))
 
         return true
@@ -164,6 +164,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
         return true
       }
 
+      workspaceActions.enterTeam(navigation.scope.teamId)
       const hydratedNavigation = hydrateNavigationCredentialState(navigation, accountsByTeam)
       const targetHref = pageLocationForNavigation(hydratedNavigation).href
       const state = workspaceStore.getState()
@@ -192,6 +193,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       openConversationInNewTab,
       openSessionBeside,
       openSettingsSection,
+      setSettingsOpen,
       teams,
       updateTab,
       workspaceActions,
@@ -207,8 +209,8 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
   const openAppOpenDeepLink = useCallback(
     (payload: AppOpenDeepLinkPayload) => {
-      // A bare team link keeps its historical "activate the team's tab"
-      // semantics instead of resolving to a fresh team-home tab.
+      // A bare team link goes to the team, as the team switcher does, instead of opening its
+      // home page.
       const [pathnameOnly] = payload.path.split(/[?#]/, 1)
       const isBareTeamPath = /^\/teams\/[^/]+\/?$/.test(pathnameOnly)
 
@@ -217,7 +219,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       const teamId = teamIdFromAppPath(payload.path)
 
       if (teamId) {
-        workspaceActions.openTeamTab(teamId)
+        workspaceActions.enterTeam(teamId)
 
         return
       }

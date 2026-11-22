@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -91,12 +91,11 @@ class WorkspaceSetupFixtureDeviceTest {
                 val history = request.method == "GET" && path == "/agent/conversations" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
-                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 // Background reads the home composer makes. Writes stay unexpected.
                 val backgroundRead = request.method == "GET" && (path == "/agent/credential-options" || path == "/agent/devices" || path.endsWith("/agent-runtimes/quota"))
                 // What the pages read to know whether the workspace has a runtime yet.
                 val runtimes = request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes"))
-                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead && !runtimes) unexpected += request
+                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !backgroundRead && !runtimes) unexpected += request
                 var code = 200
                 val body = when {
                     create || join -> {
@@ -116,7 +115,6 @@ class WorkspaceSetupFixtureDeviceTest {
                     history -> """{"conversations":[],"nextCursor":null}"""
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
-                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     runtimes -> """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                     else -> { code = 500; "{}" }
                 }
@@ -149,7 +147,8 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.runOnIdle {
             val expected = sourceGeneration
             setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { sourceGeneration == expected },
-                { _, team -> if (team != null) selected = team; true }, { expired++ })
+                { _, team -> if (team != null) selected = team; true }, { expired++ },
+                strings = compose.activity.resources)
             compose.activity.setContent {
                 var visible by remember { mutableStateOf(true) }
                 NuphosTheme { if (visible) WorkspaceSetupSheet(setup) { visible = false } }
@@ -205,7 +204,8 @@ class WorkspaceSetupFixtureDeviceTest {
     @Test fun discoveryForbiddenDoesNotInventJoinOrExpire() {
         discovered = emptyList(); discoveryStatus = 403
         compose.runOnIdle {
-            setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { true }, { _, _ -> true }, { expired++ })
+            setup = WorkspaceSetupStore(WorkspaceApi(token), scope, { true }, { _, _ -> true }, { expired++ },
+                strings = compose.activity.resources)
             compose.activity.setContent { NuphosTheme { WorkspaceSetupSheet(setup) {} } }
         }
         waitText("We could not load workspaces to join", true)
@@ -238,7 +238,7 @@ class WorkspaceSetupFixtureDeviceTest {
     }
     /** The workspace list is in the profile sheet. */
     private fun openWorkspaces() {
-        compose.onNodeWithContentDescription("Profile").performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
         waitText("Workspace")
         compose.onNodeWithText("Workspace").performScrollTo().performClick()
     }

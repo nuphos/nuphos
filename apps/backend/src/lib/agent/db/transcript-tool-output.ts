@@ -1,6 +1,7 @@
 /**
  * Tools whose result a client reads back out of a stored transcript, to draw
- * the card for a Plan or a chart.
+ * the card for a Plan, a chart, or a thread (its id and the agent it ran on),
+ * or to tell which request a question's card asked, so its answer finds it.
  *
  * Every other result is only a record of what the agent saw while it worked.
  * The runtime keeps its own copy for the model, so ours served nothing but a
@@ -10,8 +11,11 @@
 const STORED_OUTPUT_TOOLS = new Set([
   'plan',
   'plan_create',
+  'request_user_decision',
   'database_change_propose',
   'render_chart',
+  'create_thread',
+  'send_message_to_thread',
 ])
 
 function toolNameOf(part: Record<string, unknown>): string | null {

@@ -1,15 +1,16 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { BindingAccess } from '../types/k8s-core.ts'
 import type { AliyunSite, TencentSite } from '../types/provider-accounts.ts'
 
 export const integrationsApi = {
   atlasListLinodeAccounts: (teamId: string) => window.api.atlasListLinodeAccounts(teamId),
-  atlasBindLinodeAccount: (teamId: string, label: string, token: string) =>
-    window.api.atlasBindLinodeAccount(teamId, label, token),
+  atlasBindLinodeAccount: (teamId: string, label: string, token: string, share?: BindingShare) =>
+    window.api.atlasBindLinodeAccount(teamId, label, token, share),
   atlasUnbindLinodeAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindLinodeAccount(teamId, accountId),
   atlasListHetznerAccounts: (teamId: string) => window.api.atlasListHetznerAccounts(teamId),
-  atlasBindHetznerAccount: (teamId: string, label: string, token: string) =>
-    window.api.atlasBindHetznerAccount(teamId, label, token),
+  atlasBindHetznerAccount: (teamId: string, label: string, token: string, share?: BindingShare) =>
+    window.api.atlasBindHetznerAccount(teamId, label, token, share),
   atlasUnbindHetznerAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindHetznerAccount(teamId, accountId),
   atlasListHetznerServers: (teamId: string, accountId: string) =>
@@ -20,7 +21,8 @@ export const integrationsApi = {
     label: string,
     clientId: string,
     clientSecret: string,
-  ) => window.api.atlasBindVantaIntegration(teamId, label, clientId, clientSecret),
+    share?: BindingShare,
+  ) => window.api.atlasBindVantaIntegration(teamId, label, clientId, clientSecret, share),
   atlasUnbindVantaIntegration: (teamId: string, integrationId: string) =>
     window.api.atlasUnbindVantaIntegration(teamId, integrationId),
   atlasListSecureframeIntegrations: (teamId: string) =>
@@ -31,7 +33,8 @@ export const integrationsApi = {
     region: 'us' | 'uk',
     apiKey: string,
     apiSecret: string,
-  ) => window.api.atlasBindSecureframeIntegration(teamId, label, region, apiKey, apiSecret),
+    share?: BindingShare,
+  ) => window.api.atlasBindSecureframeIntegration(teamId, label, region, apiKey, apiSecret, share),
   atlasUnbindSecureframeIntegration: (teamId: string, integrationId: string) =>
     window.api.atlasUnbindSecureframeIntegration(teamId, integrationId),
   atlasListSonarqubeIntegrations: (teamId: string) =>
@@ -49,13 +52,22 @@ export const integrationsApi = {
   atlasListSecureframeTests: (teamId: string, integrationId: string, failingOnly?: boolean) =>
     window.api.atlasListSecureframeTests(teamId, integrationId, failingOnly),
   atlasListNotionIntegrations: (teamId: string) => window.api.atlasListNotionIntegrations(teamId),
-  atlasBindNotionIntegration: (teamId: string, label: string, token: string) =>
-    window.api.atlasBindNotionIntegration(teamId, label, token),
+  atlasBindNotionIntegration: (
+    teamId: string,
+    label: string,
+    token: string,
+    share?: BindingShare,
+  ) => window.api.atlasBindNotionIntegration(teamId, label, token, share),
   atlasUnbindNotionIntegration: (teamId: string, integrationId: string) =>
     window.api.atlasUnbindNotionIntegration(teamId, integrationId),
   atlasListUpstashAccounts: (teamId: string) => window.api.atlasListUpstashAccounts(teamId),
-  atlasBindUpstashAccount: (teamId: string, label: string, email: string, apiKey: string) =>
-    window.api.atlasBindUpstashAccount(teamId, label, email, apiKey),
+  atlasBindUpstashAccount: (
+    teamId: string,
+    label: string,
+    email: string,
+    apiKey: string,
+    share?: BindingShare,
+  ) => window.api.atlasBindUpstashAccount(teamId, label, email, apiKey, share),
   atlasUnbindUpstashAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindUpstashAccount(teamId, accountId),
   atlasGetUpstashAccountAccess: (teamId: string, accountId: string) =>
@@ -108,8 +120,12 @@ export const integrationsApi = {
   ) => window.api.atlasUpdateTrelloAccess(teamId, id, input),
   atlasListResendIntegrations: (teamId: string) => window.api.atlasListResendIntegrations(teamId),
   atlasListTrelloIntegrations: (teamId: string) => window.api.atlasListTrelloIntegrations(teamId),
-  atlasBindResendIntegration: (teamId: string, label: string, apiKey: string) =>
-    window.api.atlasBindResendIntegration(teamId, label, apiKey),
+  atlasBindResendIntegration: (
+    teamId: string,
+    label: string,
+    apiKey: string,
+    share?: BindingShare,
+  ) => window.api.atlasBindResendIntegration(teamId, label, apiKey, share),
   atlasUnbindResendIntegration: (teamId: string, integrationId: string) =>
     window.api.atlasUnbindResendIntegration(teamId, integrationId),
   atlasUnbindTrelloIntegration: (teamId: string, integrationId: string) =>
@@ -127,7 +143,8 @@ export const integrationsApi = {
     site: TencentSite,
     roleArn: string,
     providerId: string,
-  ) => window.api.atlasBindTencentAccount(teamId, label, site, roleArn, providerId),
+    share?: BindingShare,
+  ) => window.api.atlasBindTencentAccount(teamId, label, site, roleArn, providerId, share),
   atlasUnbindTencentAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindTencentAccount(teamId, accountId),
   atlasListTencentClusters: (teamId: string, accountId: string) =>
@@ -142,7 +159,8 @@ export const integrationsApi = {
     site: AliyunSite,
     roleArn: string,
     oidcProviderArn: string,
-  ) => window.api.atlasBindAliyunAccount(teamId, label, site, roleArn, oidcProviderArn),
+    share?: BindingShare,
+  ) => window.api.atlasBindAliyunAccount(teamId, label, site, roleArn, oidcProviderArn, share),
   atlasUnbindAliyunAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindAliyunAccount(teamId, accountId),
   atlasListAliyunClusters: (teamId: string, accountId: string) =>
@@ -153,8 +171,12 @@ export const integrationsApi = {
     window.api.atlasListAliyunSwasInstances(teamId, accountId),
   atlasListVolcengineAccounts: (teamId: string) => window.api.atlasListVolcengineAccounts(teamId),
   atlasGetVolcengineOidcInfo: (teamId: string) => window.api.atlasGetVolcengineOidcInfo(teamId),
-  atlasBindVolcengineAccount: (teamId: string, label: string, roleTrn: string) =>
-    window.api.atlasBindVolcengineAccount(teamId, label, roleTrn),
+  atlasBindVolcengineAccount: (
+    teamId: string,
+    label: string,
+    roleTrn: string,
+    share?: BindingShare,
+  ) => window.api.atlasBindVolcengineAccount(teamId, label, roleTrn, share),
   atlasUnbindVolcengineAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindVolcengineAccount(teamId, accountId),
   atlasListHuaweiAccounts: (teamId: string) => window.api.atlasListHuaweiAccounts(teamId),
@@ -165,7 +187,8 @@ export const integrationsApi = {
     domainId: string,
     idpId: string,
     agencyName: string,
-  ) => window.api.atlasBindHuaweiAccount(teamId, label, domainId, idpId, agencyName),
+    share?: BindingShare,
+  ) => window.api.atlasBindHuaweiAccount(teamId, label, domainId, idpId, agencyName, share),
   atlasUnbindHuaweiAccount: (teamId: string, accountId: string) =>
     window.api.atlasUnbindHuaweiAccount(teamId, accountId),
   atlasListVolcengineClusters: (teamId: string, accountId: string) =>
@@ -208,7 +231,8 @@ export const integrationsApi = {
     clientId: string,
     clientSecret: string | null,
     federated?: boolean,
-  ) => window.api.atlasBindTailscaleClient(teamId, label, clientId, clientSecret, federated),
+    share?: BindingShare,
+  ) => window.api.atlasBindTailscaleClient(teamId, label, clientId, clientSecret, federated, share),
   atlasUnbindTailscaleClient: (teamId: string, clientId: string) =>
     window.api.atlasUnbindTailscaleClient(teamId, clientId),
   atlasListTailscaleDevices: (teamId: string, clientId: string) =>

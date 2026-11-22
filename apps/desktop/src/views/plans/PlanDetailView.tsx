@@ -1,19 +1,11 @@
 import { MessageSquare } from 'lucide-react'
-import { useCallback, useMemo } from 'react'
+import { useMemo } from 'react'
 
-import { api } from '../../api'
-import {
-  isPlanReadyForApproval,
-  planToPayload,
-  planToProgress,
-} from '../../components/agent/plan-tool/planData'
+import { planToPayload, planToProgress } from '../../components/agent/plan-tool/planData'
 import { PlanTool } from '../../components/agent/PlanTool'
-import { emitPlanUpdated, usePlan } from '../../components/agent/planUpdates'
+import { usePlan } from '../../components/agent/planUpdates'
 import { Button } from '../../components/ui/button'
-import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-
-import type { Plan } from '../../api'
 
 type Props = {
   teamId: string
@@ -26,50 +18,6 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
   const payload = useMemo(() => (plan ? planToPayload(plan) : null), [plan])
   const progress = useMemo(() => (plan ? planToProgress(plan) : []), [plan])
 
-  const approvePlan = useCallback(async (): Promise<Plan | void> => {
-    if (!plan) return
-    const previousApprovalCount = plan.approvals.length
-
-    try {
-      const updated = await api.agentUpdatePlan(plan.id, { status: 'approved' }, teamId)
-
-      emitPlanUpdated(updated)
-
-      if (updated.status === 'approved') {
-        toast.success(t('Plan approved'), t('The approval gate is complete.'))
-      } else if (updated.approvals.length === previousApprovalCount) {
-        toast.success(
-          t('Approval already recorded'),
-          t('Your vote is already included in this plan.'),
-        )
-      } else {
-        const remaining = Math.max(
-          0,
-          Number(
-            updated.approvalProgress.requesterApprovalRequired &&
-              !updated.approvalProgress.requesterApproved,
-          ) +
-            updated.approvalProgress.minimumOtherApprovals -
-            updated.approvalProgress.otherApprovals,
-        )
-
-        toast.success(
-          t('Approval recorded'),
-          remaining === 1
-            ? t('{count} required approval remaining.', { count: '1' })
-            : t('{count} required approvals remaining.', { count: String(remaining) }),
-        )
-      }
-
-      return updated
-    } catch (err) {
-      toast.apiError(t('Could not approve plan'), err, {
-        fallback: t('The plan was not approved. Please try again.'),
-      })
-      throw err
-    }
-  }, [plan, teamId])
-
   const openChatAction =
     plan && onOpenInChat && (plan.status === 'proposed' || plan.status === 'approved') ? (
       <Button
@@ -78,7 +26,7 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
         className="h-7 gap-1.5 px-2 text-[12.5px]"
       >
         <MessageSquare className="h-3.5 w-3.5" strokeWidth={2} />
-        {plan.status === 'proposed' ? t('Continue in agent') : t('Open in agent')}
+        {plan.status === 'proposed' ? t('Continue in the task') : t('Open in a task')}
       </Button>
     ) : undefined
 
@@ -90,12 +38,8 @@ export function PlanDetailView({ teamId, planId, onOpenInChat }: Props) {
             key={plan.id}
             payload={payload}
             progress={progress}
-            updatedAt={plan.updatedAt}
             status={plan.status}
-            approvalProgress={plan.approvalProgress}
             executionError={plan.executionError}
-            canApprove={plan.status === 'proposed' && isPlanReadyForApproval(plan)}
-            onApprove={approvePlan}
             embedded
             headerAction={openChatAction}
           />

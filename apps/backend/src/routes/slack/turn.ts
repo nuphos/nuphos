@@ -8,20 +8,18 @@ import { postAgentSlackMessage } from '@/lib/slack/agent-message'
 import { SlackAgentRunSink } from '@/lib/slack/stream-sink'
 import { slackAgentErrorNotice } from '@/routes/slack/agent-error-notice'
 import { postAgentProducedFiles } from '@/routes/slack/attachments'
-import { postPlanApprovalCards } from '@/routes/slack/plan-cards'
 import { createSlackReplyToolContext } from '@/routes/slack/reply-tools'
 import { addReactionSafe, RECEIPT_REACTION } from '@/routes/slack/shared'
 import { setAssistantStatusSafe } from '@/routes/slack/status'
 import { postToolApprovalCard } from '@/routes/slack/tool-approval-cards'
 
-import type { PostedPlanCard } from '@/routes/slack/plan-cards'
 import type { SlackRuntime, SlackThreadKey } from '@/routes/slack/types'
 import type { UIMessage } from 'ai'
 
 type SlackAgentTurnArgs = {
   runtime: SlackRuntime
-  // Slack event this turn answers; null for synthetic turns (plan approval).
-  eventId: string | null
+  // Slack event this turn answers.
+  eventId: string
   sessionId: string
   // The original owner is used only for the durable conversation/session.
   agentUserId: string
@@ -53,19 +51,14 @@ type SlackAgentTurnArgs = {
 }
 
 /**
- * The reply tail + any approval cards, recorded into the thread's rolling
- * transcript AFTER the reply is delivered, so the window mirrors what the
- * thread actually shows: the answer, then the card asking for approval.
- * Without the card line the addressing judge sees a bare "approve" with
- * nothing to attach it to and reads it as chatter. Deterministic ts, so a
- * re-posted card records once. Shared with the Nuphos-typed mirror turn
- * (routes/slack/nuphos-turn.ts).
+ * The reply tail, recorded into the thread's rolling transcript AFTER the
+ * reply is delivered, so the window mirrors what the thread actually shows.
+ * Shared with the Nuphos-typed mirror turn (routes/slack/nuphos-turn.ts).
  */
 export async function recordSlackTurnTranscript(
   transcriptThreadKey: SlackThreadKey,
   botTs: string,
   sink: SlackAgentRunSink,
-  postedPlanCards: PostedPlanCard[],
 ): Promise<void> {
   await appendSlackThreadMessage(transcriptThreadKey, {
     ts: botTs,
@@ -73,20 +66,12 @@ export async function recordSlackTurnTranscript(
     text: sink.replyTail() || '(no visible reply)',
     fromBot: true,
   }).catch(() => {})
-  for (const card of postedPlanCards) {
-    await appendSlackThreadMessage(transcriptThreadKey, {
-      ts: `bot:plan-card:${card.planId}`,
-      authorName: 'Nuphos',
-      text: `Posted the plan "${card.title}" for review and is waiting for it to be approved.`,
-      fromBot: true,
-    }).catch(() => {})
-  }
 }
 
 // The shared Slack turn pipeline: the agent run's frame stream becomes plain
 // thread replies paced like a person's — each thing the agent says posts when
 // it heads into its next tool call, not in one burst when the turn ends —
-// then plan review cards, produced-file attachments, and finalization.
+// then produced-file attachments and finalization.
 // Callers hold the per-session run claim. Never throws: Slack delivery is
 // best-effort and failures are logged + surfaced into the thread where
 // possible.
@@ -170,10 +155,6 @@ export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<v
     actionToken: args.actionToken,
     sender: args.sender,
   })
-  // Recorded into the thread transcript in the finally below, AFTER the reply
-  // tail, so the rolling window mirrors what the thread actually shows: the
-  // answer, then the card asking for approval.
-  let postedPlanCards: PostedPlanCard[] = []
 
   try {
     // 👀 on the user's own message marks WHICH message was picked up — useful
@@ -221,26 +202,15 @@ export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<v
         'Nuphos hit an error while handling this request. The team has enough trace metadata to investigate.',
       )
     }
-    postedPlanCards = await postPlanApprovalCards({
-      runtime: args.runtime,
-      channel: args.channel,
-      threadTs: args.threadTs,
-      teamId: args.teamId,
-      agentUserId: args.actorUserId ?? args.agentUserId,
-      sessionId: args.sessionId,
-      plans: slackReply.getCreatedPlans(),
-    })
-    if (args.eventId) await markSlackEvent(args.eventId, 'completed')
+    await markSlackEvent(args.eventId, 'completed')
   } catch (err) {
     logError('slack.agent.event.error', err, {
-      event_id: args.eventId ?? undefined,
+      event_id: args.eventId,
       slack_channel_id: args.channel,
       slack_thread_ts: args.threadTs,
       session_id: args.sessionId,
     })
-    if (args.eventId) {
-      await markSlackEvent(args.eventId, 'failed', err instanceof Error ? err.message : String(err))
-    }
+    await markSlackEvent(args.eventId, 'failed', err instanceof Error ? err.message : String(err))
     // Deliver whatever the run did produce, then the error notice. Do NOT
     // rethrow: a Slack delivery failure past this point has nowhere better to
     // go.
@@ -262,7 +232,6 @@ export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<v
           args.transcriptThreadKey,
           `bot:${String(args.reactionMessageTs ?? Date.now())}`,
           sink,
-          postedPlanCards,
         )
       }
       try {

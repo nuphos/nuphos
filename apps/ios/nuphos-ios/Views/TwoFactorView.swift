@@ -9,6 +9,14 @@ struct TwoFactorView: View {
     /// Signs out so the user can sign back in, when turning it on needs a fresh sign-in.
     let onSignOut: () -> Void
 
+    /// The next sign-in opens this screen again, once.
+    private static let resumeKey = "resumeTwoFactor"
+    static func resumeAfterSignIn() { UserDefaults.standard.set(true, forKey: resumeKey) }
+    static func takeResume() -> Bool {
+        defer { UserDefaults.standard.removeObject(forKey: resumeKey) }
+        return UserDefaults.standard.bool(forKey: resumeKey)
+    }
+
     private enum Load: Equatable {
         case loading
         case ready(AccountAPI.MfaStatus)
@@ -126,7 +134,7 @@ struct TwoFactorView: View {
                 if let passkeys = status.passkeys {
                     ForEach(passkeys) { passkey in
                         HStack {
-                            Label(passkey.name, systemImage: "person.badge.key")
+                            Label(passkey.name, image: "lucide-key-round")
                             Spacer()
                             Button("Remove", role: .destructive) { confirming = .removePasskey(passkey) }
                                 .buttonStyle(.borderless)
@@ -195,8 +203,9 @@ struct TwoFactorView: View {
             load = .ready(try await AccountAPI.mfaStatus(token: token))
         } catch NuphosAPI.Failure.sessionRequired {
             load = .signInAgain
-        } catch is CancellationError {
         } catch {
+            // A cancelled request throws URLError(.cancelled), not CancellationError (#3620).
+            guard !Task.isCancelled else { return }
             load = .failed(error.localizedDescription)
         }
     }

@@ -1,6 +1,7 @@
 import { resolveConversationAccessList } from '@/lib/agent/devices/conversation-computer'
 import { buildConversationOwnerMap, serializeConversationForViewer } from './conversation-view'
 import { answeringIds } from './decision-reply'
+import { listRow } from './list-row'
 import { getLocalActiveAgentRun } from './run-registry'
 
 import type { ConversationAccessFields } from '@/lib/agent/devices/conversation-computer'
@@ -9,11 +10,13 @@ import type { SessionThreadResource } from '@/lib/agent/session-thread-resources
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import type { SlackAgentThreadSummary } from '@/lib/slack/agent-bot'
 
+import { botPresence, botRuntimes } from '@/lib/agent/bot-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
-import { liveAttachment } from '@/lib/agent/db/shared'
+import { attentionInputRequests } from '@/lib/agent/db/pending-decision'
+import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
 import { lastMessage } from '@/lib/agent/last-message'
 import { runChannels } from '@/lib/agent/run-admission'
-import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { getActiveAgentRunsForSessions } from '@/lib/agent/run-store'
 import { sessionThreadResources } from '@/lib/agent/session-thread-resources'
 import { withRunChannels } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 import { readRuntimeStates } from '@/lib/claude-code-preview/runtime-state-store'
@@ -38,37 +41,95 @@ const RUN_IN_PROGRESS: SessionExecutionState = {
  * A session's state when its runtime is not asked or cannot be reached: what the
  * runtime last pushed, else what a live run implies. The list and the detail
  * both answer with this, so two readers of one session never disagree.
+ *
+ * A turn runs while its run holds the session, which is also where its channels
+ * come from. A push can still say active just after the run ended; read alone,
+ * it would be a turn that answers no channel.
  */
 export function restingRuntimeState(
   stored: SessionExecutionState | null | undefined,
   liveRun: boolean,
 ): SessionExecutionState {
+  if (stored?.state === 'active' && !liveRun) return READY_FOR_NEXT_MESSAGE
+
   return stored ?? (liveRun ? RUN_IN_PROGRESS : READY_FOR_NEXT_MESSAGE)
 }
 
-/**
- * A reply can be running on another client (desktop, Slack, a scheduled
- * wake-up), so list rows carry the live run the way the detail does: the
- * local registry first, then the shared store.
- */
-async function activeRunFor(
+/** A live run on this replica as a list row shows it, with the channels it answers. */
+async function withChannels(
   conversation: ListedConversation,
-): Promise<(ConversationActiveRun & { channelIds: string[] }) | null> {
-  try {
-    const run =
-      getLocalActiveAgentRun(conversation.userId, conversation.sessionId) ??
-      (await getActiveAgentRunForSession(conversation.userId, conversation.sessionId))
-
-    if (!run) return null
-
-    return {
-      streamId: run.streamId,
-      startedAt: run.startedAt ?? null,
-      channelIds: await runChannels({ ...conversation, streamId: run.streamId }),
-    }
-  } catch {
-    return null
+  run: ConversationActiveRun & { channelIds: string[] },
+): Promise<ConversationActiveRun & { channelIds: string[] }> {
+  return {
+    streamId: run.streamId,
+    startedAt: run.startedAt ?? null,
+    // A post steered in on another replica is only in the shared store; without it, the run's own.
+    channelIds: await runChannels({ ...conversation, streamId: run.streamId }).catch(
+      () => run.channelIds,
+    ),
   }
+}
+
+/**
+ * A reply can be running on another client (desktop, Slack, a scheduled wake-up),
+ * so list rows carry the live run the way the detail does: the local registry first,
+ * then the shared store, asked once for the whole page.
+ */
+async function activeRunsFor(conversations: ListedConversation[]) {
+  const local = conversations.map((c) => getLocalActiveAgentRun(c.userId, c.sessionId))
+  const shared = await getActiveAgentRunsForSessions(
+    conversations.filter((_, i) => !local[i]),
+  ).catch(() => [])
+  let next = 0
+
+  return Promise.all(
+    conversations.map(async (conversation, i) => {
+      if (local[i]) return withChannels(conversation, local[i])
+      const run = shared[next++]
+
+      // The shared store's runs come with their channels, read for the whole page.
+      return run
+        ? { streamId: run.streamId, startedAt: run.startedAt, channelIds: run.channelIds }
+        : null
+    }),
+  )
+}
+
+const TASK_WINDOW_MS = 24 * 60 * 60 * 1000
+
+/**
+ * How many of each Bot's own Tasks run or wait on someone, as counts anyone who can see
+ * the Bot may read (#4270): the Tasks belong to the Bot's owner, so another member's
+ * list never carries them, and their titles stay the owner's.
+ */
+async function botTaskCounts(teamId: string, bots: ListedConversation[]) {
+  const counts = new Map(bots.map((bot) => [bot.sessionId, { running: 0, waiting: 0 }]))
+  const kids = (await agentConversations()
+    .find({
+      // Keyed like the { teamId, userId, parentSessionId, lastActiveAt } index: a Bot's Tasks are its owner's.
+      teamId,
+      userId: { $in: [...new Set(bots.map((bot) => bot.userId))] },
+      parentSessionId: { $in: [...counts.keys()] },
+      archivedAt: { $exists: false },
+      lastActiveAt: { $gt: new Date(Date.now() - TASK_WINDOW_MS) },
+    })
+    .limit(200)
+    .toArray()) as unknown as (ListedConversation & AgentConversation)[]
+  const states = await readRuntimeStates(
+    teamId,
+    kids.map((kid) => liveAttachment(kid)?.openabSessionId),
+  )
+  const runs = await activeRunsFor(kids)
+
+  kids.forEach((kid, i) => {
+    const count = counts.get(String(kid.parentSessionId))
+
+    if (!count) return
+    if (attentionInputRequests(kid).length > 0) count.waiting += 1
+    else if (restingRuntimeState(states[i], Boolean(runs[i])).state === 'active') count.running += 1
+  })
+
+  return counts
 }
 
 /** Owner, Slack thread and live-run enrichment for one page of `GET /agent/conversations`. */
@@ -100,15 +161,16 @@ export async function serializeConversationList<T extends ListedConversation>(
       )
     : Promise.resolve(conversations.map(() => null))
   // A stored idle or dormant snapshot already says no run is live.
-  const activeRunsPromise = runtimeStatesPromise.then((states) =>
-    Promise.all(
-      conversations.map(async (conversation, index) => {
-        const state = states[index]
+  const activeRunsPromise = runtimeStatesPromise.then(async (states) => {
+    const asked = conversations.filter((_, i) => {
+      const state = states[i]
 
-        return !state || state.state === 'active' ? activeRunFor(conversation) : null
-      }),
-    ),
-  )
+      return !state || state.state === 'active'
+    })
+    const runs = await activeRunsFor(asked)
+
+    return conversations.map((conversation) => runs[asked.indexOf(conversation)] ?? null)
+  })
   const [ownerById, slackThreads, activeRuns, runtimeStates, threadResources, accesses] =
     await Promise.all([
       buildConversationOwnerMap(
@@ -133,7 +195,10 @@ export async function serializeConversationList<T extends ListedConversation>(
   const slackThreadBySessionId = new Map(slackThreads.map((thread) => [thread.sessionId, thread]))
 
   // A conversation's desktops on its Box come from the device's presence, not the snapshot.
-  const [desktops, faces, answering, lastMessages] = await Promise.all([
+  const bots = conversations.filter(
+    (conversation) => conversation.avatar && conversation.kind !== 'channel',
+  )
+  const [desktops, faces, answering, lastMessages, runtimes, taskCounts] = await Promise.all([
     Promise.all(conversations.map((conversation) => sessionDesktops(conversation))),
     Promise.all(
       conversations.map((conversation) =>
@@ -149,6 +214,22 @@ export async function serializeConversationList<T extends ListedConversation>(
     Promise.all(
       conversations.map((conversation) => lastMessage(conversation, viewer.id).catch(() => null)),
     ),
+    teamId && bots.length
+      ? botRuntimes(teamId, bots as { userId: string; runtimeId?: string }[]).catch(
+          (err: unknown) => {
+            logError('agent.conversations.bot_presence.error', err, { team_id: teamId })
+
+            return undefined
+          },
+        )
+      : undefined,
+    teamId && bots.length
+      ? botTaskCounts(teamId, bots).catch((err: unknown) => {
+          logError('agent.conversations.bot_tasks.error', err, { team_id: teamId })
+
+          return undefined
+        })
+      : undefined,
   ])
 
   return conversations.map((conversation, index) => {
@@ -160,6 +241,7 @@ export async function serializeConversationList<T extends ListedConversation>(
       ),
       run,
     )
+    const bot = runtimes ? bots.indexOf(conversation) : -1
 
     return {
       ...listRow(
@@ -183,32 +265,18 @@ export async function serializeConversationList<T extends ListedConversation>(
       runtimeState,
       ...faces[index],
       ...(lastMessages[index] ? { lastMessage: lastMessages[index] } : {}),
+      ...(runtimes && bot >= 0
+        ? {
+            presence: botPresence({
+              ownerRemoved: Boolean(ownerById.get(conversation.userId)?.deactivated),
+              runtime: runtimes[bot] ?? null,
+              busy: runtimeState.state === 'active' && Boolean(run),
+            }),
+          }
+        : {}),
+      ...(taskCounts?.has(conversation.sessionId)
+        ? { tasks: taskCounts.get(conversation.sessionId) }
+        : {}),
     }
   })
-}
-
-/**
- * A list row without what only the open conversation or the server reads.
- * Clients poll the whole list every few seconds, and the runtime attachment
- * and the per-model token breakdown were a third of each row. Lists show only
- * the cost. The credential selection stays: the desktop chat summary counts
- * it from the polled row.
- */
-function listRow(row: Record<string, unknown>): Record<string, unknown> {
-  const {
-    claudeCodePreview: _claudeCodePreview,
-    claudeCodePreviewContext: _claudeCodePreviewContext,
-    claudeCodePreviewWorkLost: _claudeCodePreviewWorkLost,
-    initialSessionConfig: _initialSessionConfig,
-    compactionSummary: _compactionSummary,
-    compactionMessageCount: _compactionMessageCount,
-    conversationTraceParent: _conversationTraceParent,
-    runtimeMigration: _runtimeMigration,
-    modelFallback: _modelFallback,
-    tokenUsage,
-    ...rest
-  } = row
-  const costUsd = (tokenUsage as { costUsd?: unknown } | undefined)?.costUsd
-
-  return typeof costUsd === 'number' ? { ...rest, tokenUsage: { costUsd } } : rest
 }

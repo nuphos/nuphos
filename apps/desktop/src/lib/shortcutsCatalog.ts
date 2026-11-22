@@ -28,7 +28,10 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('New tab'), combos: ['mod+t'] },
       { label: t('Close tab'), combos: ['mod+w'] },
       { label: t('Reopen closed tab'), combos: ['mod+shift+t'] },
-      { label: t('Previous / next tab'), combos: ['mod+shift+[', 'mod+shift+]'] },
+      {
+        label: t('Previous / next tab'),
+        combos: ['mod+shift+[', 'mod+shift+]'],
+      },
       { label: t('Go to tab 1–8'), combos: ['mod+1'] },
       { label: t('Go to last tab'), combos: ['mod+9'] },
     ],
@@ -38,24 +41,35 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
     entries: [
       { label: t('Search Bots, tasks and people'), combos: ['mod+k'] },
       { label: t('Switch Bot or task'), combos: ['alt+up', 'alt+down'] },
-      { label: t('Agent needing you'), combos: ['alt+shift+up', 'alt+shift+down'] },
+      {
+        label: t('Bot or task needing you'),
+        combos: ['alt+shift+up', 'alt+shift+down'],
+      },
       {
         label: t('Back / forward'),
         combos: isMac ? ['mod+[', 'mod+]'] : ['alt+left', 'alt+right'],
       },
       { label: t('User settings'), combos: ['mod+,'] },
       { label: t('Team settings'), combos: ['mod+shift+,'] },
+      {
+        label: `${t('Bots')} / ${t('Tasks')} / ${t('Inbox')}`,
+        combos: isMac ? ['ctrl+1', 'ctrl+2', 'ctrl+3'] : ['alt+1', 'alt+2', 'alt+3'],
+      },
+      { label: t('Computers & runtimes'), combos: ['mod+shift+e'] },
       { label: t('Toggle sidebar'), combos: ['mod+b'] },
       { label: t('Toggle workspace panel'), combos: ['mod+j'] },
       { label: t('Next / previous area'), combos: ['F6', 'shift+F6'] },
-      { label: t('Expand / restore workspace panel'), combos: ['mod+shift+enter'] },
+      {
+        label: t('Expand / restore workspace panel'),
+        combos: ['mod+shift+enter'],
+      },
       { label: t('Keyboard shortcuts'), combos: ['mod+/'] },
       { label: t('Zoom in / out'), combos: ['mod+plus', 'mod+minus'] },
       { label: t('Reset zoom'), combos: ['mod+0'] },
     ],
   },
   {
-    title: t('Agent'),
+    title: t('Chat'),
     entries: [
       { label: t('Send message'), combos: ['enter'] },
       { label: t('New line'), combos: ['shift+enter'] },
@@ -70,7 +84,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { label: t('Copy last reply'), combos: ['mod+alt+c'] },
       { label: t('Find in conversation'), combos: ['mod+f'] },
       { label: t('Scroll conversation'), combos: ['pageup', 'pagedown'] },
-      { label: t('Toggle task summary'), combos: ['mod+i'] },
+      { label: t('Toggle task summary or Bot details'), combos: ['mod+i'] },
     ],
   },
   {

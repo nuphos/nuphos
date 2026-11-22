@@ -32,7 +32,7 @@ struct TurnCardRows: View {
                 Link(destination: SessionLink.url(teamId: session.teamId, sessionId: session.id) ?? SessionLink.conversations) {
                     HStack(spacing: 8) {
                         TurnPhaseIcon(phase: session.phase)
-                        Text(session.title.isEmpty ? "Untitled" : session.title).font(.headline).lineLimit(1)
+                        Text(session.title.isEmpty ? String(localized: "Untitled") : session.title).font(.headline).lineLimit(1)
                         Spacer(minLength: 8)
                         Text(session.phase.title)
                             .font(.subheadline.weight(.medium))

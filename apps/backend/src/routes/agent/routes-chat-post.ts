@@ -7,6 +7,7 @@ import { conversationExecutionState } from '@/lib/claude-code-preview/session-ex
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logEvent } from '@/lib/observability'
+import { requestClient } from '@/lib/request-origin'
 
 import { resolveChatConversation } from './chat-conversation'
 import { shouldInitializePermissionMode } from './chat-permission-mode'
@@ -124,13 +125,18 @@ agent.post('/chat', async (c) => {
   const runtimeOwnsAdmission = runtimeSnapshot?.schemaVersion === 2
 
   if (!readOnlyResume) {
-    const previewWait = await resolvePreviewWaitFromChat({
-      userId,
-      sessionId: id,
-      streamId,
-      body,
-      snapshot: runtimeSnapshot,
-    })
+    // A runtime that does not answer cannot say what it waits for: a new message queues for it.
+    // The queue holds on the same state (queued-turn.ts `ready`); keep the two in step.
+    const previewWait =
+      runtimeSnapshot?.state === 'disconnected' && !body.resumeReason
+        ? null
+        : await resolvePreviewWaitFromChat({
+            userId,
+            sessionId: id,
+            streamId,
+            body,
+            snapshot: runtimeSnapshot,
+          })
 
     if (previewWait) {
       const adopted = await awaitAdoptedPreviewRun(runOwnerUserId, streamId)
@@ -218,22 +224,22 @@ agent.post('/chat', async (c) => {
       },
     })
 
+    const header = (name: string) => c.req.header(name)
     const chatCtx: InternalChatCtx = {
       requestId,
       streamId,
       userId,
-      // The runtime gets its own short-lived token, never this sign-in session.
-      // A CLI token is passed on as is so an agent token keeps its team limit.
+      // Never this sign-in: the runtime gets its own token; a CLI token passes as is (team limit).
       nuphosToken: c.get('cliToken') ? c.get('authToken') : signNuphosToken(userId, 8 * 60 * 60),
       locale,
-      currentUrl:
-        c.req.header('X-Atlas-Url') ?? c.req.header('referer') ?? c.req.header('origin') ?? null,
+      currentUrl: header('X-Atlas-Url') ?? header('referer') ?? header('origin') ?? null,
       localToolsEnabled,
       secretCardEnabled: body.clientCapabilities?.secretCard === true,
       kubeContext,
       diagramId: c.req.header('X-Atlas-Diagram-Id')?.trim() || undefined,
       isInApp: true,
       agentOrigin: 'user',
+      client: requestClient(header),
     }
 
     logEvent('info', 'agent.chat.start', {

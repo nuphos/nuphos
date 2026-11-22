@@ -54,7 +54,7 @@ export function SessionInputQueue({
             <span className="block truncate text-[12px] font-medium text-main">
               {request.title || t('Untitled task')}
             </span>
-            <span className="mt-0.5 line-clamp-2 block text-[12px] leading-5 text-secondary">
+            <span className="mt-0.5 block truncate text-[12px] leading-5 text-secondary">
               {request.inputRequest.question}
             </span>
           </span>
@@ -131,7 +131,7 @@ export function SessionInputReply({
         </span>
         <button
           type="button"
-          aria-label={t('Open task')}
+          aria-label={t('Open Task')}
           onClick={() => onOpenSession(request.sessionId, questionTarget)}
           className="rounded p-1 text-secondary hover:text-main"
         >
@@ -180,7 +180,6 @@ export function SessionInputReply({
           teamId={teamId}
           sessionId={request.sessionId}
           sessionReadOnly={(request.readOnly ?? false) || !stillPending || dismissed}
-          decisionReplyTo={request.inputRequest.id}
           openQuestions={conversationQuestions(request)}
           composerDraftId={`input:${inputRequestKey(request)}`}
           focusComposerOnOpen={false}

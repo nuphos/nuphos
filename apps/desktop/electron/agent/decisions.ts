@@ -1,15 +1,30 @@
-import { callJsonForRenderer, teamQuery } from './http.ts'
+import { callJson, teamQuery } from './http.ts'
 
 export function resolveDecision(
   sessionId: string,
   toolCallId: string,
   teamId?: string,
   resolution: 'answered' | 'dismissed' = 'answered',
+  reason?: string,
 ): Promise<{ ok: boolean; resolved: boolean }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(toolCallId)}/resolve${teamQuery(teamId)}`,
-    { resolution },
+    { resolution, ...(reason ? { reason } : {}) },
+  )
+}
+
+/** The owner sets an open question aside until `until` (ISO), or brings it back with null. */
+export function snoozeDecision(
+  sessionId: string,
+  requestId: string,
+  teamId: string | undefined,
+  until: string | null,
+): Promise<{ ok: boolean; snoozedUntil: string | null }> {
+  return callJson(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(requestId)}/snooze${teamQuery(teamId)}`,
+    { until },
   )
 }
 
@@ -18,6 +33,8 @@ export type DecisionAnswer = {
   choices?: string[]
   text?: string
   questions?: { choices?: string[]; text?: string }[]
+  /** Given in the Inbox: its record in the chat says so. */
+  answeredIn?: 'inbox'
 }
 
 export function answerDecision(
@@ -26,7 +43,7 @@ export function answerDecision(
   teamId: string | undefined,
   answer: DecisionAnswer,
 ): Promise<{ ok: boolean }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(requestId)}/answer${teamQuery(teamId)}`,
     answer,

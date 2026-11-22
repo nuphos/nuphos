@@ -6,39 +6,10 @@ import {
   cardReplyId,
   conversationQuestions,
   matchInputRequest,
-  replyChoice,
 } from './replyTarget.ts'
 
 const older = { id: 'q1', question: 'Red or blue?', options: ['red', 'blue'] }
 const newer = { id: 'q2', question: 'Cat or dog?' }
-
-test('the chip defaults to the newest open question', () => {
-  assert.equal(replyChoice('s', [], null), null)
-  assert.equal(replyChoice('s', [older, newer], null), 'q2')
-})
-
-test('a picked older question stays chosen until it closes', () => {
-  const pick = { sessionId: 's', id: 'q1', seen: ['q1', 'q2'] }
-
-  assert.equal(replyChoice('s', [older, newer], pick), 'q1')
-  assert.equal(replyChoice('s', [newer], pick), 'q2')
-  assert.equal(replyChoice('other', [older, newer], pick), 'q2')
-})
-
-test('clearing sends ordinary messages until a new question arrives', () => {
-  const cleared = ['q1', 'q2']
-
-  assert.equal(replyChoice('s', [older, newer], null, cleared), null)
-  assert.equal(replyChoice('s', [older], null, cleared), null)
-  assert.equal(
-    replyChoice('s', [older, newer, { id: 'q3', question: 'Tea?' }], null, cleared),
-    'q3',
-  )
-  // A pick made before clearing does not outlive the clear's question set.
-  const pick = { sessionId: 's', id: 'q1', seen: ['q1'] }
-
-  assert.equal(replyChoice('s', [older, newer], pick, cleared), null)
-})
 
 test('a card with the request id answers that request', () => {
   assert.equal(cardReplyId({ toolCallId: 'q2', question: 'Red or blue?' }, [older, newer]), 'q2')

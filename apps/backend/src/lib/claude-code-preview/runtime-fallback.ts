@@ -13,6 +13,7 @@ import { teamRuntimeFallbacks } from '@/models'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { turnFailureCause } from './openab-acp-errors'
+import { userSetupFailure } from './plain-failure'
 import { listRuntimeInstances, listRuntimeQuotas } from './runtime-catalog'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -37,20 +38,22 @@ const CONVERSATION_REFUSALS = new Set([
 
 type Conversation = AgentConversation & { teamId: string; runtimeId: string }
 
-/** The turn failed because of the agent: out of usage, signed out, or unreachable. */
+/** The turn failed because of the agent: out of usage, signed out, unreachable, or not serving its model. */
 export function runtimeFailed(error: unknown): boolean {
-  return turnFailureCause(error) !== 'other'
+  return turnFailureCause(error) !== 'other' || userSetupFailure(error) === 'model_unavailable'
 }
 
 /**
- * Where a turn sent by `actorId` may run. Only the owner runs on their own
- * computers; anyone else's turn resolves as them, so it needs a hosted agent.
- * A teammate's shared computer is never chosen without a person choosing it.
+ * Where a turn sent by `actorId` may run, among the agents they may use. Only the owner
+ * runs on their own computers; anyone may run on a Box or a team agent. A teammate's shared
+ * computer is never chosen without a person choosing it.
  */
 function usableBy(instance: RuntimeInstance, conversation: Conversation, actorId: string) {
-  if (instance.kind === 'local') return actorId === conversation.userId && !instance.local?.shared
+  if (instance.kind !== 'local') return true
 
-  return actorId === conversation.userId || instance.kind === 'managed'
+  return (
+    !instance.local?.shared && (actorId === conversation.userId || Boolean(instance.local?.box))
+  )
 }
 
 /** A Box asleep is woken by the turn; moving away would strand its files. */
@@ -110,7 +113,7 @@ async function fallBack(
   options: { actorId: string; claimed: boolean },
 ): Promise<AgentConversation | null> {
   const { teamId, userId, runtimeId } = conversation
-  const instances = await listRuntimeInstances(teamId, userId)
+  const instances = await listRuntimeInstances(teamId, options.actorId)
   const listed = list.flatMap((id) =>
     instances.filter(
       (instance) => instance.id === id && usableBy(instance, conversation, options.actorId),

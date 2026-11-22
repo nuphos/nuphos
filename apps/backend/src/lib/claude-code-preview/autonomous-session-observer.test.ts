@@ -534,7 +534,7 @@ test('each closed autonomous segment logs the frame that closed it', async () =>
     })
     harness.emit({ kind: 'text', text: 'Still checking.' })
     // Giving up on reattaching closes it; a dropped transport alone does not.
-    endAutonomousTranscriptAfterLoss(harness.session)
+    void endAutonomousTranscriptAfterLoss(harness.session)
     await Bun.sleep(0)
 
     expect(

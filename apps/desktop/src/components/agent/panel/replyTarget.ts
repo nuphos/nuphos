@@ -16,6 +16,9 @@ export type ReplyQuestion = {
   questions?: AgentInputRequest['questions']
   secret?: true
   secretName?: string
+  /** The details a secure card asks for together, and the site they are entered on. */
+  fields?: AgentInputRequest['fields']
+  site?: string
   /** The providers an `integration` request asks to connect. */
   providers?: string[]
   /** The member's own credential an `integration` request asks for. */
@@ -43,6 +46,8 @@ export function requestQuestion({
   questions,
   category,
   secretName,
+  fields,
+  site,
   providers,
   credentials,
 }: Pick<
@@ -55,6 +60,8 @@ export function requestQuestion({
   | 'questions'
   | 'category'
   | 'secretName'
+  | 'fields'
+  | 'site'
   | 'providers'
   | 'credentials'
 >): ReplyQuestion {
@@ -67,6 +74,7 @@ export function requestQuestion({
     ...(questions?.length && { questions }),
     ...(category === 'credential' && { secret: true as const }),
     ...(secretName && { secretName }),
+    ...(secretName && fields?.length && site && { fields, site }),
     ...(category === 'integration' && providers?.length && { providers }),
     ...(category === 'integration' && credentials?.length && { credentials }),
   }
@@ -77,45 +85,6 @@ export function conversationQuestions(
   conversation: Pick<AgentConversation, 'inputRequests'>,
 ): ReplyQuestion[] {
   return openInputRequests(conversation).map(requestQuestion)
-}
-
-/** The main chat's "Replying to" choice for the open conversation. */
-export type ComposerReplyTarget = {
-  sessionId: string
-  /** Open questions of this conversation, oldest first. */
-  questions: ReplyQuestion[]
-  /** The question the next message answers; null sends an ordinary message. */
-  chosen: string | null
-  onChoose: (id: string | null) => void
-}
-
-/** The question the user picked, and which questions were open when they did. */
-export type ReplyPick = { sessionId: string; id: string; seen: string[] }
-
-/**
- * The question the next main-chat message answers: the one the user picked
- * while it is open, else the newest. Once every open question is one the user
- * cleared, none; a question arriving after a pick or a clear brings the default back.
- */
-export function replyChoice(
-  sessionId: string,
-  questions: readonly ReplyQuestion[],
-  pick: ReplyPick | null,
-  cleared: readonly string[] = [],
-): string | null {
-  const newest = questions.at(-1)?.id
-  const arrivedSince = (seen: readonly string[]) =>
-    questions.some((question) => !seen.includes(question.id))
-
-  if (!newest) return null
-  if (
-    pick?.sessionId === sessionId &&
-    !arrivedSince(pick.seen) &&
-    questions.some((question) => question.id === pick.id)
-  )
-    return pick.id
-
-  return arrivedSince(cleared) ? newest : null
 }
 
 const sameOptions = (a?: readonly string[], b?: readonly string[]) =>

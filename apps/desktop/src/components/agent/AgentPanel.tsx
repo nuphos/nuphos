@@ -37,7 +37,7 @@ import type { JournalChatTarget } from './JournalPanel'
 import type { AgentProvider } from '../../types/runtime'
 import type { PanelViewCtx } from './panel/ctx'
 import type { AgentPromptSeed, Tab } from './panel/model'
-import type { ComposerReplyTarget, ReplyQuestion } from './panel/replyTarget'
+import type { ReplyQuestion } from './panel/replyTarget'
 import type { MutableRefObject } from 'react'
 
 export { AgentHistoryPage } from './panel/AgentHistoryPage'
@@ -110,11 +110,8 @@ type Props = {
   composerDraftId?: string
   /** The pane or tab this panel lives in, so its new-chat draft is its own; see newChatDraftKey. */
   newChatDraftId?: string
-  decisionReplyTo?: string
   /** Keep the conversation but show only its composer; the Inbox puts the question above it. */
   hideTranscript?: boolean
-  /** The main chat's "Replying to" chip; it also sets `decisionReplyTo`. */
-  replyTarget?: ComposerReplyTarget
   /** Open questions, so a choice card answers its own one whatever id the transcript keeps. */
   openQuestions?: ReplyQuestion[]
   /**
@@ -160,9 +157,7 @@ export const AgentPanel = memo(function AgentPanel({
   focusComposerOnOpen = true,
   composerDraftId,
   newChatDraftId,
-  decisionReplyTo,
   hideTranscript = false,
-  replyTarget,
   openQuestions,
   kubeContext,
   runtimeKubeContextRef,
@@ -200,9 +195,7 @@ export const AgentPanel = memo(function AgentPanel({
     focusComposerOnOpen,
     composerDraftId,
     newChatDraftId: newChatDraftId ?? ownNewChatDraftId,
-    decisionReplyTo,
     hideTranscript,
-    replyTarget,
     openQuestions,
     kubeContext,
     runtimeKubeContextRef,

@@ -1,6 +1,6 @@
 ---
 name: loki
-description: Onboard customer VMs (GCP GCE, Tencent CVM, Aliyun ECS/SWAS, Volcengine ECS, anything SSH-able) and Kubernetes clusters into Loki log collection (Grafana Alloy collectors, Loki in the customer's environment) and retrieve logs by time range + keyword through a bound Grafana. Fully agent-driven — inventory, deploy Loki/Grafana when missing, install the collector per target, bind, verify.
+description: Onboard VMs and Kubernetes clusters into Loki log collection (Grafana Alloy), deploying Loki/Grafana when missing, and query logs by time range and keyword.
 ---
 
 # Loki — VM & cluster log collection & retrieval

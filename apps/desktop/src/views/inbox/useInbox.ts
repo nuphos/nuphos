@@ -1,13 +1,13 @@
-import { queryOptions, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
+import { parseAtlasError } from '../../api/errors.ts'
 import { api } from '../../api.ts'
 import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
-import { onInputRequestsRefresh, refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
-import { queryClient } from '../../lib/query/client.ts'
-import { queryKeys } from '../../lib/query/keys.ts'
+import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 
 import { answeredIn, inboxCount } from './inboxItems.ts'
+import { inboxListingQuery } from './inboxListing.ts'
 
 import type { DecisionAnswer } from '../../api/agent-chat-types'
 import type { AgentConversation } from '../../api/agent-types'
@@ -66,7 +66,8 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
     },
     (error: unknown) => {
       answered.delete(requestId)
-      failures.set(requestId, error instanceof Error ? error.message : String(error))
+      // The server's own words, not the IPC wrapper and sentinel around them.
+      failures.set(requestId, parseAtlasError(error).message)
       emit()
     },
   )
@@ -139,50 +140,53 @@ export function answerDecision(
   )
 }
 
-/** How long an Inbox answer waits, its question already gone, before it is sent: its Undo window. */
-export const ANSWER_UNDO_MS = 5_000
-
-// The one Inbox answer waiting out its Undo window: sent with true, undone with false.
-let held: ((send: boolean) => boolean) | undefined
-
-/** Sends the Inbox answer waiting out its Undo window now, if there is one. */
-export function sendHeldAnswer() {
-  held?.(true)
+/**
+ * Dismisses an open question: the server closes it and tells the agent that
+ * asked who dismissed it, and why when `reason` is given. Hidden like an
+ * answer, and back with why if refused.
+ */
+export function dismissDecision(
+  teamId: string | undefined,
+  sessionId: string,
+  requestId: string,
+  reason?: string,
+): Promise<boolean> {
+  return answeringInbox(
+    requestId,
+    api.agentResolveDecision(sessionId, requestId, teamId, 'dismissed', reason).then(() => {
+      refreshInputRequests()
+    }),
+  ).then(
+    () => true,
+    () => false,
+  )
 }
 
-// Closing the window must not lose an answer the viewer already gave.
-if (typeof window !== 'undefined') window.addEventListener('pagehide', sendHeldAnswer)
+/** An Inbox question's reply: an answer, or its dismissal. */
+export type InboxReply = DecisionAnswer | { dismissed: true; reason?: string }
 
 /**
- * Answers an Inbox question after {@link ANSWER_UNDO_MS}: it leaves at once, and
- * the returned undo brings it back unsent until then, and says whether it did. The answer still waiting
- * goes at once when another is given, or with {@link sendHeldAnswer}.
+ * Sends an Inbox reply at once. The viewer has moved on to the next question by
+ * the time it is refused, so `onFailed` hears why.
  */
-export function holdAnswer(
+export function replyInInbox(
   teamId: string,
   sessionId: string,
   requestId: string,
-  answer: DecisionAnswer,
-): () => boolean {
-  sendHeldAnswer()
-  answered.set(requestId, Infinity)
-  failures.delete(requestId)
-  emit()
-  const finish = (send: boolean): boolean => {
-    clearTimeout(timer)
-    if (held !== finish) return false
-    held = undefined
-    if (send) void answerDecision(teamId, sessionId, requestId, answer)
-    else if (answered.delete(requestId)) emit()
-
-    return true
-  }
-  const timer = setTimeout(() => finish(true), ANSWER_UNDO_MS)
-
-  held = finish
-
-  return () => finish(false)
+  reply: InboxReply,
+  onFailed: (reason: string | undefined) => void,
+) {
+  void (
+    'dismissed' in reply
+      ? dismissDecision(teamId, sessionId, requestId, reply.reason)
+      : answerDecision(teamId, sessionId, requestId, { ...reply, answeredIn: 'inbox' })
+  ).then((ok) => {
+    if (!ok) onFailed(failures.get(requestId))
+  })
 }
+
+/** Why the last reply to this question failed, if it did. */
+export const answerFailure = (requestId: string) => failures.get(requestId)
 
 /** A conversation's cards answered through the server, each naming the open request it shows. */
 export function cardAnswers(
@@ -199,58 +203,16 @@ export function useAnswerFailure(requestId: string): string | undefined {
   return useSyncExternalStore(subscribe, () => failures.get(requestId))
 }
 
-// Bounded, as the other listings are: a cursor never repeats a page.
-const MAX_PAGES = 10
-
-/** Every page of the team's readable conversations with an open question. */
-async function listPending(teamId: string): Promise<AgentConversation[]> {
-  const conversations: AgentConversation[] = []
-  let cursor: string | undefined
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const listed = await api.agentListConversations(teamId, {
-      scope: 'team',
-      pendingDecision: true,
-      archived: 'exclude',
-      limit: 100,
-      cursor,
-    })
-
-    conversations.push(...listed.conversations)
-    const next = listed.nextCursor ?? undefined
-
-    if (!next || next === cursor) break
-    cursor = next
-  }
-
-  return conversations
-}
-
-export const inboxListingQuery = (teamId: string) =>
-  queryOptions({
-    queryKey: queryKeys.inbox(teamId),
-    queryFn: () => listPending(teamId),
-    staleTime: 0,
-  })
-
-// The moments a question may have been asked, answered or dismissed reload the listing shown.
-const reloadListings = () =>
-  void queryClient.invalidateQueries(
-    { predicate: (query) => query.queryKey[0] === 'team' && query.queryKey[2] === 'inbox' },
-    { cancelRefetch: false },
-  )
-
-onInputRequestsRefresh(reloadListings)
-
 /**
  * The team's waiting conversations: the one listing the badge counts and the Inbox lists,
  * polled also in the background. A new `reloadKey` reloads it at once.
  */
-export function useInboxListing(teamId: string, reloadKey?: unknown) {
+export function useInboxListing(teamId: string, reloadKey?: unknown, includeOnboarding = false) {
   const listing = useQuery({
-    ...inboxListingQuery(teamId),
-    enabled: Boolean(teamId),
+    ...inboxListingQuery(teamId, includeOnboarding),
     refetchInterval: INBOX_POLL_MS,
+    // A retry would pause until the window is focused; the next poll is the retry.
+    retry: false,
     refetchIntervalInBackground: true,
   })
   const { refetch } = listing
@@ -259,15 +221,15 @@ export function useInboxListing(teamId: string, reloadKey?: unknown) {
   useEffect(() => {
     if (Object.is(shownKey.current, reloadKey)) return
     shownKey.current = reloadKey
-    if (teamId) void refetch()
-  }, [reloadKey, teamId, refetch])
+    void refetch()
+  }, [reloadKey, refetch])
 
   return listing
 }
 
 /** How many questions wait on the viewer in this team, settling this device's answers. */
 export function useInboxCount(teamId: string): number {
-  const { data: listing, dataUpdatedAt } = useInboxListing(teamId)
+  const { data: listing, dataUpdatedAt } = useInboxListing(teamId, undefined, true)
   const onDevice = useAnsweredOnDevice()
 
   // On every read, not only a changed one: an answer's hold can expire under the same listing.

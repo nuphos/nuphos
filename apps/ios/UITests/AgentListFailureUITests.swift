@@ -138,23 +138,18 @@ final class AgentListFailureUITests: XCTestCase {
         responses[watch] = ["status": 500, "body": ["error": ["message": "Too late"]], "delayMs": 15000]
         launch()
         try unwatch()
-        let names = list.compactMap { $0["name"] as? String }
-        for _ in 0..<switches { switchWorkspace(among: names) }
+        for _ in 0..<switches { switchWorkspace() }
         XCTAssertFalse(app.alerts["Couldn't update task"].waitForExistence(timeout: 22), "A failure from the last workspace showed")
     }
 
-    private func switchWorkspace(among names: [String]) {
-        app.buttons["Account"].firstMatch.tap()
-        let picker = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Workspace")).firstMatch
-        XCTAssertTrue(picker.waitForExistence(timeout: 5), "No workspace picker")
-        let shown = picker.label + ((picker.value as? String) ?? "")
-        picker.tap()
-        let next = app.buttons[names.first { !shown.contains($0) } ?? names[0]].firstMatch
-        XCTAssertTrue(next.waitForExistence(timeout: 5), "No other workspace")
+    private func switchWorkspace() {
+        // The toolbar's Switch team opens the team switcher (#3343); picking a team closes it.
+        app.buttons["Switch team"].firstMatch.tap()
+        let options = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'team-option-'"))
+        XCTAssertTrue(options.firstMatch.waitForExistence(timeout: 5), "No team switcher")
+        let next = options.matching(NSPredicate(format: "selected == false")).firstMatch
+        XCTAssertTrue(next.exists, "No other workspace")
         next.tap()
-        sleep(1)
-        let done = app.buttons["Done"].firstMatch
-        if done.exists { done.tap() } else { app.swipeDown(velocity: .fast) }
         sleep(1)
     }
 
@@ -172,16 +167,19 @@ final class AgentListFailureUITests: XCTestCase {
         app.staticTexts[title].firstMatch
     }
 
+    // Since #3343 a row's swipe only archives; its other actions are in the long press menu.
     private func unwatch() throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         let item = app.buttons["Unwatch"].firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 3), "No Unwatch on the row")
         item.tap()
     }
 
     private func assertMenu(shows title: String) throws {
-        row("Release ops").swipeLeft()
+        row("Release ops").press(forDuration: 1)
         XCTAssertTrue(app.buttons[title].firstMatch.waitForExistence(timeout: 5), "The row does not offer \(title)")
+        // Away from the menu, which closes it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7)).tap()
     }
 
     private func originalList() throws -> [String: Any] {

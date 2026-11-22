@@ -1,5 +1,6 @@
 package ai.nuphos.android.session
 
+import kotlinx.coroutines.CancellationException
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -33,6 +34,7 @@ class PlansStore(private val token: String) {
         try {
             apply(AgentChatApi.updatePlan(token, team, plan.id, "cancelled"))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             actionError = e.message
             apply(plan)
         }

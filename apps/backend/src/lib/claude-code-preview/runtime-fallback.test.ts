@@ -24,6 +24,7 @@ let refusals: Record<string, string>
 let moves: { to: string; reason?: string; claimed?: boolean }[]
 let updates: Record<string, unknown>[]
 let instances: RuntimeInstance[]
+let listedFor: (string | undefined)[]
 let continued: { actor?: string; sender?: string; source: string }[]
 
 const instance = (id: string, extra: Partial<RuntimeInstance> = {}): RuntimeInstance => ({
@@ -31,7 +32,7 @@ const instance = (id: string, extra: Partial<RuntimeInstance> = {}): RuntimeInst
   provider: 'claude-code',
   label: `Agent ${id}`,
   status: 'active',
-  kind: 'managed',
+  kind: 'external',
   createdAt: '',
   ...extra,
 })
@@ -62,7 +63,7 @@ useModels({
 })
 useAgentDb({
   getConversationBySessionId: async () => conversation,
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   agentConversations: () => ({
     updateOne: async (_filter: unknown, update: Record<string, unknown>) => {
       updates.push(update)
@@ -70,7 +71,11 @@ useAgentDb({
   }),
 })
 useRuntimeCatalog({
-  listRuntimeInstances: async () => instances,
+  listRuntimeInstances: async (_teamId: string, userId?: string) => {
+    listedFor.push(userId)
+
+    return instances
+  },
   listRuntimeQuotas: async (_teamId: string, instances: RuntimeInstance[]) =>
     instances.map((entry) => quota(entry.id, usedPercent[entry.id] ?? 0)),
 })
@@ -96,7 +101,9 @@ useConversationRuntimeMove({
   },
 })
 
-const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage } = await import('./runtime-fallback')
+const { fallBackAfterFailure, fallBackBeforeTurn, lowOnUsage, runtimeFailed } =
+  await import('./runtime-fallback')
+const { OpenAbRpcError } = await import('./openab-acp-errors')
 
 beforeEach(() => {
   list = ['b', 'c']
@@ -105,6 +112,7 @@ beforeEach(() => {
   offlineCode = 'runtime_offline'
   instances = ['a', 'b', 'c'].map((id) => instance(id))
   refusals = {}
+  listedFor = []
   moves = []
   updates = []
   continued = []
@@ -257,13 +265,38 @@ test('a failure that is not the agent’s does not move the conversation', async
   expect(updates).toEqual([])
 })
 
-test('a teammate’s turn only falls back to hosted agents, never the owner’s computer', async () => {
-  offline = true
-  instances = [instance('a'), computer('b'), instance('c', { kind: 'external' }), instance('d')]
+test('a model its endpoint does not serve moves the conversation on down the list', async () => {
+  await fallBackAfterFailure(
+    'session',
+    new Error('Error code: 404 - model_not_found: The model `gpt-9` does not exist'),
+    'owner',
+  )
+
+  expect(moves).toEqual([{ to: 'b', reason: 'failure', claimed: true }])
+})
+
+test('a teammate’s turn falls back to a Box or team agent they may use, never a computer', async () => {
+  usedPercent = { a: 95 }
+  instances = [
+    instance('a', { kind: 'external' }),
+    computer('b'),
+    computer('c', { shared: { level: 'full' } }),
+    computer('d', { box: { provider: 'instabox' } as never }),
+  ]
   list = ['b', 'c', 'd']
 
   expect((await fallBackBeforeTurn(conversation, 'teammate'))?.runtimeId).toBe('d')
   expect(moves.map((move) => move.to)).toEqual(['d'])
+  // The agents the teammate may use, not the owner's.
+  expect(listedFor).toContain('teammate')
+})
+
+test('a teammate’s turn falls back to a team runtime when theirs is out of usage', async () => {
+  usedPercent = { a: 95 }
+  instances = [instance('a', { kind: 'external' }), instance('b', { kind: 'external' })]
+  list = ['b']
+
+  expect((await fallBackBeforeTurn(conversation, 'teammate'))?.runtimeId).toBe('b')
 })
 
 test('the owner falls back to their own computer, but not to a teammate’s shared one', async () => {
@@ -299,4 +332,16 @@ test('two agents that are each other’s fallback hand the conversation back and
   expect(moved?.runtimeId).toBe('b')
   expect((await fallBackBeforeTurn(moved, 'owner'))?.runtimeId).toBe('a')
   expect(moves.map((move) => move.to)).toEqual(['b', 'a'])
+})
+
+test('a Codex usage limit counts as the agent failing, so the turn can fall back', () => {
+  expect(
+    runtimeFailed(
+      new OpenAbRpcError(
+        '**Internal Error** (code: -32603)\nInternal error\n> You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 5:12 PM.',
+        -32603,
+        { code: -32603, message: 'Internal error' },
+      ),
+    ),
+  ).toBe(true)
 })

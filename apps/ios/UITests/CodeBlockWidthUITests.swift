@@ -23,16 +23,18 @@ final class CodeBlockWidthUITests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: live) }
 
         XCUIDevice.shared.orientation = .landscapeLeft
+        // The orientation outlives the test, so the suites after this one would run in landscape.
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         let app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-open-links", "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/dock-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"].firstMatch
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         let transcript = app.collectionViews["chat.transcript"]
         XCTAssertTrue(transcript.cells.firstMatch.waitForExistence(timeout: 10), "The chat did not load")
-        // The code block's copy button sits at its right edge.
-        let copy = app.buttons["copy"]
+        // The code block's Copy button sits at its right edge. MarkdownView labels it "Copy" since 4.8.
+        let copy = app.buttons["Copy"]
         XCTAssertTrue(copy.waitForExistence(timeout: 5), "The code block never showed")
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = "code-block"

@@ -15,3 +15,16 @@ export function openInputRequests(
 export function openQuestionCount(open: number): string | null {
   return open > 1 ? t('{count} questions', { count: open }) : null
 }
+
+export function botIsOnboarding(conversation: Pick<AgentConversation, 'botOnboarding'>): boolean {
+  return conversation.botOnboarding === 'pending' || conversation.botOnboarding === 'active'
+}
+
+/** Chat keeps all questions; work surfaces exclude initial setup preferences. */
+export function attentionInputRequests(
+  conversation: Pick<AgentConversation, 'inputRequests' | 'botOnboarding'>,
+): AgentInputRequest[] {
+  return openInputRequests(conversation).filter(
+    (request) => !botIsOnboarding(conversation) || request.category !== 'preference',
+  )
+}

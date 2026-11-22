@@ -26,8 +26,10 @@ export type TeamPreviewClient = Pick<
   | 'createSession'
   | 'loadSession'
   | 'getSessionConfigOptions'
+  | 'setSessionConfigOption'
   | 'prompt'
   | 'cancel'
+  | 'closeSession'
   | 'close'
   | 'onClosed'
   | 'onRetired'
@@ -157,6 +159,8 @@ export function cancelActiveTeamTurn(session: TeamSession) {
 
 export function createTeamRuntimeRegistry<Client extends TeamPreviewClient>(
   connect: (endpoint: TeamRuntimeEndpoint) => Promise<Client>,
+  /** Each time a connection to a runtime is up: the moment it is reachable again. */
+  onConnected?: (teamId: string, endpoint: TeamRuntimeEndpoint) => void,
 ) {
   const runtimes = new Map<string, Promise<Client>>()
   const connectedAt = new Map<string, number>()
@@ -209,6 +213,7 @@ export function createTeamRuntimeRegistry<Client extends TeamPreviewClient>(
           adapter_version: buildInfo.adapterVersion ?? null,
         })
         connectedAt.set(key, Date.now())
+        onConnected?.(teamId, endpoint)
         const evict = () => {
           if (runtimes.get(key) === connecting) {
             runtimes.delete(key)

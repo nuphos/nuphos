@@ -1,11 +1,18 @@
 import { upgradeWebSocket } from 'hono/bun'
+import { z } from 'zod'
 
+import { requestBoxCacheClear } from '@/lib/claude-code-preview/box-clear-caches'
+import {
+  requestComputerAppUpdate,
+  setComputerAutoInstall,
+} from '@/lib/claude-code-preview/computer-app-update'
 import {
   openRuntimeDesktop,
   runtimeDesktopEvents,
   runtimeDesktopTarget,
 } from '@/lib/claude-code-preview/runtime-desktop'
 import { AppError } from '@/lib/errors'
+import { zv } from '@/lib/validate'
 
 import type { DesktopOwner } from '@/lib/claude-code-preview/runtime-desktop'
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -37,6 +44,36 @@ export function registerRuntimeDesktopRoutes(teamScoped: Hono<{ Variables: TeamA
   )
   teamScoped.get('/runtime-desktop/runtime/:runtimeId/:display', (c) =>
     streamDesktop(c, { runtimeId: c.req.param('runtimeId') }, c.req.param('display')),
+  )
+
+  // The caller's other computer restarts its Nuphos Desktop into the update it downloaded.
+  teamScoped.post('/computers/:deviceId/app-update', async (c) =>
+    c.json(
+      await requestComputerAppUpdate(c.get('teamId'), c.get('userId'), c.req.param('deviceId')),
+    ),
+  )
+
+  // Whoever manages a computer turns its automatic updates on or off.
+  teamScoped.put(
+    '/computers/:deviceId/auto-install',
+    zv('json', z.object({ enabled: z.boolean() }).strict()),
+    async (c) =>
+      c.json(
+        await setComputerAutoInstall(
+          c.get('teamId'),
+          c.get('userId'),
+          c.req.param('deviceId'),
+          c.req.valid('json').enabled,
+        ),
+      ),
+  )
+
+  // Whoever manages a Box frees its disk of the caches its tools rebuild.
+  teamScoped.post('/computers/:deviceId/clear-caches', async (c) =>
+    c.json(
+      await requestBoxCacheClear(c.get('teamId'), c.req.param('deviceId'), c.get('userId')),
+      202,
+    ),
   )
 
   teamScoped.post('/runtime-desktop/:sessionId', async (c) =>

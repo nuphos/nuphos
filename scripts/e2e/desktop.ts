@@ -1,36 +1,65 @@
 // The Desktop app under test: the real Electron main process and renderer, started the
 // way `bun run dev` starts them so they keep a profile of their own, and driven over the
 // DevTools port the main process opens for ATLAS_DEV_CDP_PORT.
+import { once } from 'node:events'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
-import { artifacts, freePorts, logPath, spawn, until } from './processes.ts'
+import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 import type { Page } from 'playwright-core'
 
 const DESKTOP_DIR = resolve(import.meta.dirname, '../../apps/desktop')
 
-/** `profile` is the app's own data directory; delete it once the app has exited. */
-export type Desktop = { page: Page; profile: string; close: () => Promise<void> }
+/** `profile` is the app's own data directory; delete it once the app has exited.
+ * `traceNextScenario` traces the next scenario, dropping the last one's trace;
+ * `close(true)` keeps the failing one as trace.zip (`npx playwright show-trace`). */
+export type Desktop = {
+  page: Page
+  profile: string
+  vitePort: number
+  traceNextScenario: () => Promise<void>
+  close: (failed?: boolean) => Promise<void>
+  /** Hands `url` to the app as the system does on Linux: a second app, which passes it on and quits. */
+  openDeepLink: (url: string) => Promise<void>
+  /** Quits the app, for one started beside the suite's own. */
+  stop: () => Promise<void>
+}
 
-export async function startDesktop(apiUrl: string): Promise<Desktop> {
-  const [vitePort, cdpPort] = await freePorts(2)
-  const signIn = join(artifacts, 'sign-in')
+/** `name` keeps another app's logs and sign-in apart from the suite's; `env` adds a system proxy, say. */
+export async function startDesktop(
+  apiUrl: string,
+  {
+    name = 'desktop',
+    env = {},
+    suffix,
+    vitePort: fixedVitePort,
+  }: { name?: string; env?: Record<string, string>; suffix?: string; vitePort?: number } = {},
+): Promise<Desktop> {
+  const [availableVitePort, cdpPort] = await freePorts(2)
+  const vitePort = fixedVitePort ?? availableVitePort
+  const signIn = join(artifacts, name === 'desktop' ? 'sign-in' : `sign-in-${name}`)
 
   mkdirSync(signIn, { recursive: true })
 
-  spawn('desktop', ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
+  const profileEnv = {
+    ...env,
+    NUPHOS_API_URL: apiUrl,
+    // Lets the window keep the modules it fetched, so a scenario's reload costs no
+    // requests instead of ~2,100 at once (apps/desktop/vite.config.ts).
+    NUPHOS_E2E: '1',
+    // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
+    NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
+    // A name of its own gives the app a profile of its own, away from any installed app's.
+    ATLAS_DEV_SUFFIX: suffix ?? `e2e-${String(cdpPort)}`,
+    // Adding an agent installs fixture-claude.mjs, never a vendor's CLI.
+    NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+  }
+  const child = spawn(name, ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
     cwd: DESKTOP_DIR,
-    env: {
-      NUPHOS_API_URL: apiUrl,
-      // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
-      NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
-      // A name of its own gives the app a profile of its own, away from any installed app's.
-      ATLAS_DEV_SUFFIX: `e2e-${String(cdpPort)}`,
-      ATLAS_DEV_CDP_PORT: String(cdpPort),
-    },
+    env: { ...profileEnv, ATLAS_DEV_CDP_PORT: String(cdpPort) },
   })
   const cdp = `http://127.0.0.1:${String(cdpPort)}`
 
@@ -39,7 +68,7 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
     async () => (await fetch(`${cdp}/json/version`)).ok,
     180_000,
   )
-  const profile = /^\[user-data\] using (.+)$/m.exec(readFileSync(logPath('desktop'), 'utf8'))?.[1]
+  const profile = /^\[user-data\] using (.+)$/m.exec(readFileSync(logPath(name), 'utf8'))?.[1]
 
   if (!profile) throw new Error('The app did not report its data directory')
   const browser = await chromium.connectOverCDP(cdp)
@@ -54,12 +83,43 @@ export async function startDesktop(apiUrl: string): Promise<Desktop> {
     return page
   })
 
+  const tracing = page!.context().tracing
+  let started = false
+
   return {
     page: page!,
     profile,
-    close: async () => {
+    vitePort,
+    traceNextScenario: async () => {
+      if (started) await tracing.stopChunk()
+      else await tracing.start({ screenshots: true, snapshots: true })
+      started = true
+      await tracing.startChunk()
+    },
+    close: async (failed) => {
+      if (failed && started)
+        await tracing.stopChunk({ path: join(artifacts, 'trace.zip') }).catch(() => {})
       await page!.screenshot({ path: join(artifacts, 'last-window.png') }).catch(() => {})
+      // Not browser.close(): Electron ignores it, so it waited its full 30 s; stopAll ends the app.
+    },
+    openDeepLink: async (url) => {
+      // The same profile takes the app's single-instance lock, so this one hands `url` over.
+      const second = spawn(
+        `${name}-deep-link`,
+        ['pnpm', 'exec', 'electron', '.', '--no-sandbox', url],
+        // vite gives the first one VITE_DEV_SERVER_URL, without which it takes the installed app's profile.
+        {
+          cwd: DESKTOP_DIR,
+          env: { ...profileEnv, VITE_DEV_SERVER_URL: `http://localhost:${String(vitePort)}/` },
+        },
+      )
+      const [code] = await once(second, 'exit', { signal: AbortSignal.timeout(60_000) })
+
+      if (code !== 0) throw new Error(`The second app exited with ${String(code)}`)
+    },
+    stop: async () => {
       await browser.close().catch(() => {})
+      await stop(child)
     },
   }
 }

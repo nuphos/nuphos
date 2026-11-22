@@ -64,6 +64,10 @@ export function PaneAgentPage({
         dockOpen
         onOpenSession={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
         onOpenNuphosLink={onOpenNuphosLink}
+        fixes={{
+          isTeamAdmin,
+          onOpenAgentSettings: () => onOpenSettingsSection('workspace.computers'),
+        }}
       />
     )
 
@@ -85,7 +89,7 @@ export function PaneAgentPage({
           sessionId={tab.agentSessionId}
           onSessionChange={(sid) => updateTab(tabId, (cur) => ({ ...cur, agentSessionId: sid }))}
           onOpenNuphosLink={onOpenNuphosLink}
-          onOpenAgentSettings={() => onOpenSettingsSection('workspace.agent')}
+          onOpenAgentSettings={() => onOpenSettingsSection('workspace.computers')}
           autoFocusComposer={active}
           pendingImport={pendingPageImport?.tabId === tabId ? pendingPageImport.snapshot : null}
           onImportConsumed={onPagePendingImportConsumed}
@@ -101,7 +105,7 @@ export function PaneAgentPage({
             }
             setPageMeta({
               pageKey: 'team.agent',
-              title: title || t('Agent'),
+              title: title || t('Task'),
               iconKey: `${reportedSessionId ?? 'new'}:${agentRuntime ?? 'claude-code'}`,
               icon: reportedSessionId ? (
                 <AgentAvatar agentId={reportedSessionId} provider={agentRuntime} size={16} />

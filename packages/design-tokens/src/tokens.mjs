@@ -45,6 +45,16 @@ export const themes = {
 
     // Data series and heatmaps: one muted blue, intensity by opacity.
     'data.1': '#2F4F7F',
+
+    // A Bot's character may sit on one of these: light tints behind colourful art.
+    'avatar.sand': '#F2E7D3',
+    'avatar.peach': '#F8DCCB',
+    'avatar.rose': '#F6D5DE',
+    'avatar.lilac': '#E5DCF5',
+    'avatar.sky': '#D6E6F7',
+    'avatar.mint': '#D3EEDF',
+    'avatar.sage': '#E1E9D1',
+    'avatar.slate': '#E1E4EA',
   },
   dark: {
     // As warm as the light theme, no warmer: it reads as black.
@@ -73,6 +83,16 @@ export const themes = {
     'status.attention': '#F47A3F',
 
     'data.1': '#7C9CCB',
+
+    // The characters are drawn for light discs, so the tints stay light in the dark.
+    'avatar.sand': '#F2E7D3',
+    'avatar.peach': '#F8DCCB',
+    'avatar.rose': '#F6D5DE',
+    'avatar.lilac': '#E5DCF5',
+    'avatar.sky': '#D6E6F7',
+    'avatar.mint': '#D3EEDF',
+    'avatar.sage': '#E1E9D1',
+    'avatar.slate': '#E1E4EA',
   },
 }
 

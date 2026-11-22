@@ -90,9 +90,10 @@ export function createAgentRun(
 }
 
 /** Register a new run, rejecting if the process is draining for shutdown so the
- *  drainer can't miss a freshly created run. Shared by every run-creation path. */
+ *  drainer can't miss a freshly created run. Shared by every run-creation path.
+ *  Output the runtime carries on by itself still lands here and nowhere else (#3796). */
 export function registerAgentRun(run: AgentRun): void {
-  if (isShuttingDown()) {
+  if (isShuttingDown() && !run.runtimeOwned) {
     // The run already allocated an ownership lease (heartbeat timer + Redis owner
     // keys) in createAgentRun. Release it before rejecting, otherwise an unregistered
     // run leaks its setInterval and lingering owner keys. Covers every call site.

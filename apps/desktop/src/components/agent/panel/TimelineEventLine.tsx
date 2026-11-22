@@ -1,54 +1,14 @@
-import { Fragment } from 'react'
-
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { t } from '../../../i18n'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
-import { Avatar } from '../../Avatar'
 import { PlanRevealSection } from '../plan-tool/reveal'
 
-import { AgentProviderIcon } from './icons'
 import { LoadingText } from './partChrome'
+import { Picks, SettingsRule } from './settingsLine'
+import { fill } from './timelineFill'
+import { Person, Rule, Runtime } from './timelineParts'
 
-import type {
-  AgentTimelineEvent,
-  AgentTimelinePerson,
-  AgentTimelineRuntime,
-} from '../../../api/agent-types'
-import type { ReactNode } from 'react'
-
-function Person({ person }: { person: AgentTimelinePerson }) {
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1 text-secondary">
-      <Avatar
-        src={person.avatarURL}
-        name={person.name}
-        size={14}
-        className="shrink-0 rounded-full"
-      />
-      <span className="truncate font-medium">{person.name}</span>
-    </span>
-  )
-}
-
-function Runtime({ runtime }: { runtime: AgentTimelineRuntime }) {
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1 text-secondary">
-      <AgentProviderIcon provider={runtime.provider} className="h-3 w-3 shrink-0" />
-      <span className="truncate font-medium">{runtime.label}</span>
-    </span>
-  )
-}
-
-export function Rule({ children, title }: { children: ReactNode; title?: string }) {
-  return (
-    <div
-      className="flex min-w-0 items-center gap-1 text-[11.5px] whitespace-nowrap text-tertiary"
-      title={title}
-    >
-      {children}
-    </div>
-  )
-}
+import type { AgentTimelineEvent } from '../../../api/agent-types'
 
 /** One membership or runtime change, between the messages it happened among.
  *  `reveal` rises it in (texts reveal) — only for a change that happened while
@@ -81,6 +41,7 @@ function EventLine({
   const title = new Date(event.at).toLocaleString()
   const { actor, target, from, to } = event
 
+  if (event.kind === 'settings_changed') return <SettingsRule event={event} time={title} />
   // An event from an older backend carries only its sentence.
   if (!actor) return <Rule title={title}>{event.text}</Rule>
   if (event.kind === 'message_edited' || event.kind === 'conversation_forked')
@@ -95,7 +56,7 @@ function EventLine({
   if (event.kind === 'runtime_fallback_stopped')
     return (
       <Rule title={event.text}>
-        {t('No fallback agent could take over')}
+        {t('No fallback runtime could take over')}
         {event.skipped?.length ? (
           <span className="truncate">
             ({event.skipped.map((entry) => `${entry.label}: ${entry.reason}`).join(', ')})
@@ -110,6 +71,7 @@ function EventLine({
       return (
         <Rule title={title}>
           {fill(FALLBACK_LINE[event.reason], { ...people, from: <Runtime runtime={from} /> })}
+          <Picks picks={event.picks} />
         </Rule>
       )
 
@@ -121,6 +83,13 @@ function EventLine({
               from: <Runtime runtime={from} />,
             })
           : fill(t('{actor} moved this task to {to}'), people)}
+        <Picks picks={event.picks} />
+        {event.retrying ? (
+          <>
+            <span aria-hidden>·</span>
+            {fill(t('Retrying on {to}'), people)}
+          </>
+        ) : null}
       </Rule>
     )
   }
@@ -139,16 +108,6 @@ const FALLBACK_LINE = {
   quota: t('{from} was low on usage, so this task moved to {to}'),
   offline: t('{from} was unreachable, so this task moved to {to}'),
   failure: t('{from} failed a turn, so this task moved to {to}'),
-}
-
-/** Puts the people and runtimes into a translated sentence where its
- *  `{placeholders}` are, so each language keeps its own word order. */
-function fill(text: string, nodes: Record<string, ReactNode>) {
-  return text.split(/(\{\w+\})/).map((part, i) => {
-    const node = nodes[part.slice(1, -1)]
-
-    return <Fragment key={i}>{part.startsWith('{') && node ? node : part}</Fragment>
-  })
 }
 
 /** The move in flight: rises in, then shimmers (thinking state) until the move's
