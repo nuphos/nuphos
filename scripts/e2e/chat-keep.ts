@@ -109,4 +109,14 @@ export async function backHome(page: Page) {
     async () => (await composer(page).innerText()).trim() === HOME_DRAFT,
     5_000,
   )
+  // It stays as it came back, not hiding to play its entrance again (#4584).
+  for (let ms = 0; ms <= 700; ms += 50) {
+    if (
+      !(await composer(page).evaluate((element) =>
+        element.checkVisibility({ opacityProperty: true }),
+      ))
+    )
+      throw new Error(`The New Task page hid its composer ${String(ms)} ms after coming back`)
+    await page.waitForTimeout(50)
+  }
 }
