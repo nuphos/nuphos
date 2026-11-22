@@ -7,7 +7,7 @@ import { cancelRuntimeLogin, performRuntimeLogin } from './runtime-login'
 
 import type { RuntimeLoginDeps } from './runtime-login'
 import { loginFrameReader } from './runtime-login-frames'
-import { resetBeforeSignIn } from './runtime-login-signer'
+import { resetBeforeSignIn, unstarted } from './runtime-login-signer'
 import {
   claimRuntimeLogin,
   publicLogin,
@@ -17,7 +17,7 @@ import {
 } from './runtime-login-store'
 
 import type { RuntimeLoginDoc } from './runtime-login-store'
-import type { RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
+import type { LocalRuntimeStatus, RemovableAgent } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentResetResult } from '@/lib/agent/devices/pending-resets'
 
 type Query = Record<string, unknown>
@@ -591,6 +591,34 @@ test('an added agent that has not run yet signs in without a reset', async () =>
   // A default agent is the computer's own: it resets whatever the host reports.
   await resetBeforeSignIn('team', 'local_host_box_codex', 'lead', done.reset, fresh, fresh)
   expect(done.asked).toHaveLength(1)
+})
+
+// An added agent whose CLI went missing after it ran reports installing too, but its home may
+// still hold an account, so only one the computer never registered or saw signed in skips it.
+test('only an added agent never registered or signed in counts as not started', async () => {
+  const id = '3f8b2a8e-6a55-4b8e-9f0e-0c6f3a1d2b4c'
+  const ref = { userId: 'host', deviceId: 'box', provider: 'codex' as const, instanceId: id }
+  const reporting = (installing: boolean) => async () =>
+    ({
+      instances: [{ instanceId: id, provider: 'codex', cli: { installing } }],
+    }) as unknown as LocalRuntimeStatus
+  const known = (records: object) => ({ status: reporting(true), device: async () => records })
+
+  expect(await unstarted(ref, known({}))).toBe(true)
+  expect(
+    await unstarted(ref, {
+      status: async () => ({}) as LocalRuntimeStatus,
+      device: async () => ({}),
+    }),
+  ).toBe(true)
+  expect(await unstarted(ref, known({ agents: [{ provider: 'codex', instanceId: id }] }))).toBe(
+    false,
+  )
+  expect(await unstarted(ref, known({ signIns: [{ agent: id }] }))).toBe(false)
+  expect(await unstarted(ref, { status: reporting(false), device: async () => ({}) })).toBe(false)
+  expect(await unstarted(ref, { status: async () => undefined, device: async () => ({}) })).toBe(
+    false,
+  )
 })
 
 test('a sign-in does not start while its computer cannot reset the agent', async () => {

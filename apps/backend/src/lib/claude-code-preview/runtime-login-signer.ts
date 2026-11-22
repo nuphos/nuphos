@@ -1,3 +1,4 @@
+import { registryKey } from '@/lib/agent/devices/agent-registry'
 import { endAgentSignIn, recordAgentSignIn } from '@/lib/agent/devices/agent-sign-ins'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
@@ -9,7 +10,9 @@ import { AppError } from '@/lib/errors'
 import { reportedLocalAgent } from './local-runtime-catalog'
 
 import type { RuntimeLoginDoc } from './runtime-login-store'
+import type { DeviceAgentRecords } from '@/lib/agent/devices/agent-registry'
 import type { LocalAgentRef } from '@/lib/agent/devices/local-runtime/address'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 export type SignerDeps = {
   /** Whether the signer still manages the computer once their sign-in is recorded. */
@@ -22,15 +25,37 @@ export type SignerDeps = {
 const isBox = async ({ userId, deviceId }: { userId: string; deviceId: string }) =>
   Boolean((await agentDevices().findOne({ userId, deviceId }, { projection: { box: 1 } }))?.box)
 
+export type UnstartedDeps = {
+  status?: (ref: LocalAgentRef) => Promise<LocalRuntimeStatus | undefined>
+  device?: (ref: LocalAgentRef) => Promise<DeviceAgentRecords | null>
+}
+
+const unstartedDeps: Required<UnstartedDeps> = {
+  status: async (ref) => (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status,
+  device: ({ userId, deviceId }) =>
+    agentDevices().findOne({ userId, deviceId }, { projection: { agents: 1, signIns: 1 } }),
+}
+
 /**
- * An added agent its online computer is still installing, or does not list yet, has never run,
- * so its own home holds no account. Its reset would wait out the install, past the call's deadline.
+ * An added agent its online computer is still installing, or does not list yet, has never run
+ * if the computer never reported its CLI installed and no one signed it in: its own home holds
+ * no account. Its reset would wait out the install, past the call's deadline. One whose CLI went
+ * missing later is registered, so it still resets.
  */
-async function unstarted(ref: LocalAgentRef): Promise<boolean> {
-  const status = (await runtimePresenceStore().get(ref.userId, ref.deviceId))?.status
+export async function unstarted(ref: LocalAgentRef, deps: UnstartedDeps = {}): Promise<boolean> {
+  const { status: readStatus, device: readDevice } = { ...unstartedDeps, ...deps }
+  const status = await readStatus(ref)
   const agent = status && reportedLocalAgent(status, ref)
 
-  return Boolean(status && (!agent || agent.cli.installing))
+  if (!status || (agent && !agent.cli.installing)) return false
+  const device = await readDevice(ref)
+  const key = registryKey(ref)
+
+  return Boolean(
+    device &&
+    !device.agents?.some((known) => registryKey(known) === key) &&
+    !device.signIns?.some((entry) => entry.agent === key),
+  )
 }
 
 /**
