@@ -182,3 +182,24 @@ test("a link to another team goes to that team on a new chat, not in the chat's 
     assert.deepEqual(selectBucket(state, sessionKeyOf(sessionId)).tabs, [])
   })
 })
+
+// #4558: only a bare team link stops at the team; a page of the team on screen still opens.
+test('a link to a page of the team on screen opens that page beside the open chat', async () => {
+  const { pageLocationForTab } = await import('../../app/workspaceTabFactory')
+  const { selectBucket, selectScope, sessionKeyOf } = await import('./store/workspaceState')
+  const sessionId = '11111111-2222-4333-8444-555555555555'
+
+  await paneUnderSettings(({ store, hook }) => {
+    store.actions.selectSession(sessionId, { teamId: TEAM })
+    hook.current?.openAppOpenDeepLink({ path: `/teams/${TEAM}/dashboards`, url: '' } as never)
+    const state = store.getState()
+    const bucket = selectBucket(state, sessionKeyOf(sessionId))
+
+    assert.equal(state.sessionId, sessionId)
+    assert.equal(selectScope(state)?.teamId, TEAM)
+    assert.deepEqual(
+      bucket.tabs.map((tab) => [tab.id === bucket.activeTabId, pageLocationForTab(tab).pathname]),
+      [[true, `/teams/${TEAM}/dashboards`]],
+    )
+  })
+})

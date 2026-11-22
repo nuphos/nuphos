@@ -136,3 +136,18 @@ test("a chat deep link into another team goes there on a new chat, not in the ch
     assert.deepEqual(selectBucket(state, sessionKeyOf(sessionId)).tabs, [])
   })
 })
+
+// #4558: a chat link into the team on screen still opens its new chat with the prompt there.
+test('a chat deep link into the team on screen opens its new chat there', async () => {
+  const { selectScope } = await import('./store/workspaceState')
+
+  await withDeepLink(async ({ deepLink, store, queue }) => {
+    await deepLink({ prompt: 'Look.', teamId: TEAM } as AgentChatDeepLinkPayload)
+
+    assert.equal(selectScope(store.getState())?.teamId, TEAM)
+    assert.deepEqual(
+      queue.map((seed) => [seed.text, seed.newChat]),
+      [['Look.', true]],
+    )
+  })
+})
