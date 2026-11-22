@@ -52,8 +52,6 @@ export type LocalRuntimeSummary = {
   online: boolean
   /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
   signedIn: boolean | null
-  /** Why the CLI is unusable, as reported by its existing probe. */
-  probeError?: string
   /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
   everSignedIn?: true
   /** Provider usage the computer reported, raw; normalized in runtime-quota. */
@@ -103,6 +101,7 @@ export function reportedLocalAgent(
       )
     : status?.agents[ref.provider]
 }
+
 /**
  * The agents this person may place a conversation on, in a team they belong to:
  * their own computers, the Boxes shared with them, and teammates' computers shared with them.
@@ -165,7 +164,6 @@ export async function listOwnLocalRuntimes(
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
-              ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
               ...(reported?.usage !== undefined
@@ -222,7 +220,8 @@ export async function resolveLocalRuntimeEndpoint(
 
   // Removed from its computer: no report will bring it back, so it is gone, not offline.
   if (!agent && !kept && purpose !== 'login') throw runtimeGone()
-  // Sign-in goes through the host, so it can retry while an unreported agent starts.
+  // Signing in needs only the computer: an agent added a moment ago may not be in its last
+  // report yet, and the host's own sign-in answers for it (the login retries while it starts).
   if (!presence || (!agent && purpose !== 'login'))
     throw new AppError(
       409,
@@ -275,6 +274,7 @@ export async function localRuntimeModels(
 
   return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
 }
+
 /** A local runtime's status comes from its computer's tunnel, not a probe. */
 export async function localRuntimeStatus(
   runtimeId: string,
