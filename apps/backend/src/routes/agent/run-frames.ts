@@ -41,20 +41,6 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   run.frames.push(kept)
   mirrorAgentRunFrame(run.userId, run.streamId, kept)
 
-  if (
-    frameType === 'error' ||
-    frameType === AGENT_STREAM_DONE_EVENT ||
-    frameType === AGENT_TURN_COMPLETE_EVENT ||
-    frameType === AGENT_TURN_PAUSED_EVENT
-  ) {
-    traceAgentChatEvent('info', 'agent.chat.run.terminal_frame_appended', run.trace, {
-      frame_type: frameType,
-      frame_count: run.frames.length,
-      frame_bytes: frame.length,
-      last_finish_reason: run.lastFinishReason,
-      run_age_ms: Date.now() - run.createdAt,
-    })
-  }
   // A turn a channel woke answers in the channel; its own conversation has nothing
   // new for its owner. A pause can still need the owner, so it counts.
   if (

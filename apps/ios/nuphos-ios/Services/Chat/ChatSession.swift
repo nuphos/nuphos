@@ -1706,7 +1706,6 @@ final class ChatSession {
         case "preparing-tools": "Preparing tools…"
         case "building-prompt": "Building prompt…"
         case "recalling-memory": "Recalling memory…"
-        case "loading-compaction": "Loading history…"
         case "preparing-model": "Preparing model…"
         case "connecting-model": "Connecting…"
         case "thinking": "Thinking…"

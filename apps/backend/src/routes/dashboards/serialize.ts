@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 
+import { redactPersonalAccounts } from '@/lib/personal-credentials/redact'
 import { normalizeCredentialSelection } from '@/routes/agent/team-scope'
 
 import type {
@@ -103,6 +104,7 @@ export function serializePanel(
   dashboard: Pick<NuphosDashboard, 'cadence'>,
   currentSnapshot: DashboardPanelSnapshot | null,
   lastSuccessfulSnapshot: DashboardPanelSnapshot | null = null,
+  viewerId?: string,
 ) {
   const head = doc.versions.find((v) => v.version === doc.scriptVersion) ?? doc.versions.at(-1)
 
@@ -123,7 +125,10 @@ export function serializePanel(
     // Mirrors the dashboard's schedule for desktops that still edit it per panel.
     cadence: dashboard.cadence ?? null,
     credentialAccess: doc.credentialAccess
-      ? normalizeCredentialSelection(doc.credentialAccess)
+      ? redactPersonalAccounts(
+          { credentialAccess: normalizeCredentialSelection(doc.credentialAccess) },
+          doc.createdBy === viewerId,
+        ).credentialAccess
       : null,
     currentSnapshot: currentSnapshot ? serializeSnapshot(currentSnapshot) : null,
     lastSuccessfulSnapshot: lastSuccessfulSnapshot

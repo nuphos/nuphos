@@ -8,6 +8,7 @@ import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
+import { redactPersonalAccounts } from '@/lib/personal-credentials/redact'
 
 import { serializeConversationDoc } from './transcript'
 
@@ -143,20 +144,6 @@ export async function buildConversationOwnerMap(
   }
 
   return ownerById
-}
-
-/**
- * Whose personal accounts a selection names is the owner's business: anyone else sees only how
- * many are allowed, never an id that could be looked up or replayed.
- */
-function redactPersonalAccounts(conversation: Record<string, unknown>, isOwner: boolean) {
-  const access = conversation.credentialAccess as Record<string, unknown> | undefined
-
-  if (isOwner || !access || !('personalConnectionIds' in access)) return conversation
-  const { personalConnectionIds, ...rest } = access
-  const count = Array.isArray(personalConnectionIds) ? personalConnectionIds.length : 0
-
-  return { ...conversation, credentialAccess: { ...rest, personalAccountCount: count } }
 }
 
 export function serializeConversationForViewer(

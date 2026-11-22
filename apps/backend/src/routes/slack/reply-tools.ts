@@ -9,7 +9,6 @@ import { normalizeEmojiName } from '@/routes/slack/shared'
 
 import type { InboundFile } from '@/lib/agent/inbound-files'
 import type {
-  SlackCreatedPlan,
   SlackReactToolInput,
   SlackReactToolResult,
   SlackReplyToolContext,
@@ -41,11 +40,7 @@ export function createSlackReplyToolContext(args: {
   // Puts fetched files where the agent can open them and returns their paths.
   // Without it, slack_channel_history cannot hand over a message's files.
   placeFiles?: (files: InboundFile[]) => Promise<string[]>
-}): SlackReplyToolContext & {
-  getCreatedPlans: () => SlackCreatedPlan[]
-} {
-  const createdPlans: SlackCreatedPlan[] = []
-
+}): SlackReplyToolContext {
   const messageTs = args.messageTs
   const react = messageTs
     ? async (input: SlackReactToolInput): Promise<SlackReactToolResult> => {
@@ -165,9 +160,5 @@ export function createSlackReplyToolContext(args: {
     react,
     search: SLACK_SEARCH_ENABLED ? search : undefined,
     sender: args.sender,
-    notePlanCreated: (plan) => {
-      createdPlans.push(plan)
-    },
-    getCreatedPlans: () => [...createdPlans],
   }
 }

@@ -1,12 +1,14 @@
 // What a person does in the app that most scenarios repeat.
 import { until } from './processes.ts'
 
+import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
-  run: (page: Page, stack: Stack) => Promise<void>
+  /** `desktop` is given by the main suite (run.ts) alone. */
+  run: (page: Page, stack: Stack, desktop?: Desktop) => Promise<void>
   /** A backend failure this scenario alone is known to cause. */
   expected?: RegExp
 }
@@ -28,13 +30,9 @@ export async function pickAgent(page: Page, label: string, provider = 'Claude Co
   await pickInRow(page, label, new RegExp(`^${label}.*${provider}`))
 }
 
-/** Opens the submenu the open menu's `row` holds, and gives back its list. The row opens on
- *  hover, so Base UI ignores a press on it and only a key opens it; the list is portalled
- *  away from the menu, and `aria-controls` on the row is what names it. */
-export async function openSubmenu(page: Page, row: string) {
-  // A computer the app has not heard from is an ordinary row with no submenu to open, so the
-  // row is taken only once it says it has one: that wait is also how a scenario waits for a
-  // computer it has just brought back.
+/** Hovers a computer's row, then takes the runtime by key without pressing its action chips. */
+export async function pickInRow(page: Page, row: string, item: RegExp) {
+  // Offline rows have no submenu until their computer comes back.
   const trigger = page
     .getByRole('menu')
     .getByRole('menuitem')
@@ -42,20 +40,16 @@ export async function openSubmenu(page: Page, row: string) {
     .and(page.locator('[aria-haspopup="menu"]'))
     .first()
 
-  await pickInSubmenu(page, trigger)
-  // The open row and the id are not set together: the id waits for the list to exist.
-  await trigger.and(page.locator('[aria-controls]')).waitFor()
+  await trigger.hover()
+  const runtime = page
+    .locator('[role="menu"][data-nested][data-open]')
+    .getByRole('menuitem', { name: item })
+    .last()
+    .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
-  return page.locator(`#${String(await trigger.getAttribute('aria-controls'))}`)
-}
-
-/** Takes a runtime out of the open menu: `row` names the submenu to open and `item` the entry
- *  in it. The entry is looked for in that submenu alone, so a row of the menu behind it, or a
- *  submenu left open elsewhere, cannot be taken by mistake. */
-export async function pickInRow(page: Page, row: string, item: RegExp) {
-  const rows = await openSubmenu(page, row)
-
-  await pickInSubmenu(page, rows.getByRole('menuitem', { name: item }).last())
+  await runtime.waitFor({ timeout: 60_000 })
+  await runtime.focus()
+  await page.keyboard.press('Enter')
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
@@ -80,7 +74,7 @@ export async function setBotDetails(page: Page, open: boolean) {
   const toggle = botDetailsToggle(page)
 
   if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click()
-  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]`).waitFor()
+  await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]:visible`).waitFor()
 }
 
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */

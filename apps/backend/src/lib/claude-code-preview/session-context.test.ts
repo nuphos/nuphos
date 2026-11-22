@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 
 import { parseSessionConfigOptions } from './session-config-options'
-import { turnDefaults, workspaceDirectory } from './session-context'
+import { previewSessionPrincipalChanged, turnDefaults, workspaceDirectory } from './session-context'
 
 test('a turn sends the settings stored now, not those the session opened with', () => {
   const session = { runtime: { defaults: { model: 'sol', effort: 'low' } } }
@@ -34,4 +34,13 @@ test("a task's folder applies only on the runtime it was picked on", () => {
   // Moved to another computer, or never in a project: the runtime's own folder.
   expect(workspaceDirectory(conversation, 'pod')).toBeUndefined()
   expect(workspaceDirectory({}, 'mac')).toBeUndefined()
+})
+
+test('restoring into a new home generation refreshes the runtime context', () => {
+  const session = { userId: 'owner', runtime: { env: { NUPHOS_SESSION_HOME_EPOCH: '0' } } }
+
+  expect(
+    previewSessionPrincipalChanged(session, 'owner', { env: { NUPHOS_SESSION_HOME_EPOCH: '1' } }),
+  ).toBe(true)
+  expect(previewSessionPrincipalChanged(session, 'owner', { env: {} })).toBe(false)
 })

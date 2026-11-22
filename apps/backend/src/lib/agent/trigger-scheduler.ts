@@ -1,7 +1,8 @@
-import { Queue, Worker } from 'bullmq'
+import { Queue, UnrecoverableError, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
 import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
+import { AppError } from '@/lib/errors'
 import { serving } from '@/lib/event-loop-stall'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
@@ -21,6 +22,7 @@ import { expireTriggers } from './trigger-service/read'
 export { buildBullMQConnection } from './trigger-scheduler-setup'
 
 const EXPIRY_SWEEP_JOB = 'expire-triggers'
+const HELD_FLUSH_JOB = 'flush-held-deliveries'
 
 let _queue: Queue | undefined
 let _worker: Worker | undefined
@@ -71,6 +73,14 @@ export async function initTriggerScheduler(): Promise<boolean> {
 
           return
         }
+        if (job.name === HELD_FLUSH_JOB) {
+          const { flushHeldDeliveries } = await import('./trigger-held-flush')
+          const { triggerId } = job.data as { triggerId: string }
+
+          await flushHeldDeliveries(triggerId, (delayMs) => enqueueHeldFlush(triggerId, delayMs))
+
+          return
+        }
         if (job.name === EXPIRY_SWEEP_JOB) {
           const expired = await expireTriggers()
 
@@ -93,13 +103,18 @@ export async function initTriggerScheduler(): Promise<boolean> {
           runKind: 'scheduled',
           ...(job.id ? { fireId: job.id } : {}),
         })
-      }),
+      }).catch(failForGoodIfGone),
     { connection, concurrency: 3 },
   )
 
   _worker.on('failed', (job, err) => {
     void whoseJob(job?.data).then((owner) =>
-      logError('agent.trigger_scheduler.job_failed', err, { job_id: job?.id, ...owner }),
+      logError('agent.trigger_scheduler.job_failed', err, {
+        job_id: job?.id,
+        job_name: job?.name,
+        attempt: job?.attemptsMade,
+        ...owner,
+      }),
     )
     if (job?.name === 'task-report') {
       void import('./task-reports')
@@ -223,9 +238,31 @@ export async function scheduleCronTrigger(
   await _upsertJobScheduler(triggerId, cronExpression, timeZone)
 }
 
+/** A delayed flush for a Trigger's held deliveries; the caller keeps one pending per batch. */
+export async function enqueueHeldFlush(triggerId: string, delayMs: number): Promise<boolean> {
+  if (!_queue) return false
+  await _queue.add(
+    HELD_FLUSH_JOB,
+    { triggerId },
+    { delay: delayMs, removeOnComplete: true, removeOnFail: 50 },
+  )
+
+  return true
+}
+
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
   if (!_queue) return
   await _queue.removeJobScheduler(`trigger:${triggerId}`)
+}
+
+/**
+ * A job whose runtime is gone fails now: retrying cannot bring the runtime back,
+ * so a job with attempts left would only fail the same way again.
+ */
+export function failForGoodIfGone(error: unknown): never {
+  if (error instanceof AppError && error.code === 'runtime_not_found')
+    throw Object.assign(new UnrecoverableError(error.message), { cause: error })
+  throw error
 }
 
 /** The Trigger a failed fire belongs to, so its log line says whose it is (#3718). */

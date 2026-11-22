@@ -29,7 +29,7 @@ try {
 
   await newTask(page)
   await send(page, 'Show the plan E2E_PLAN_REFERENCE E2E_WAIT_RELEASE E2E_DELIVERY:plan')
-  await page.getByText('E2E plan reference').first().waitFor()
+  await page.getByText('E2E plan reference').filter({ visible: true }).first().waitFor()
   await page.screenshot({ path: join(artifacts, 'plan-live.png') })
   await page.waitForTimeout(1800)
   const requests = readFileSync(join(artifacts, 'backend.log'), 'utf8').slice(before)
@@ -38,7 +38,7 @@ try {
   writeFileSync(join(artifacts, 'release'), 'go')
   await page.getByText('ACK E2E_DELIVERY:plan').waitFor()
   await page.reload()
-  await page.getByText('E2E plan reference').first().waitFor()
+  await page.getByText('E2E plan reference').filter({ visible: true }).first().waitFor()
   await page.screenshot({ path: join(artifacts, 'plan-history.png') })
   console.log('PASS Plan card appears live and after reload (seeded legacy Plan and fixture agent)')
 } catch (e) {

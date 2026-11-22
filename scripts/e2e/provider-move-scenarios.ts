@@ -71,7 +71,10 @@ export const providerMoveScenarios: Scenario[] = [
 
         // Claude Code → Codex: the Codex agent's own effort, named, never a blank "Default".
         await pickAgent(page, 'E2E Codex agent', 'Codex')
-        await page.getByText('moved this task from E2E fixture agent to E2E Codex agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E Codex agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-codex', /Low/)
         // A model picked there is saved with that effort, not alone.
         await chip(page).click()
@@ -96,7 +99,10 @@ export const providerMoveScenarios: Scenario[] = [
 
         // Codex → Claude Code: Claude Code's effort, named, and stored for its next session.
         await pickAgent(page, 'E2E fixture agent')
-        await page.getByText('moved this task from E2E Codex agent to E2E fixture agent').waitFor()
+        await page
+          .getByText('moved this task from E2E Codex agent to E2E fixture agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-back', /Low/)
         await send(page, 'Back on Claude Code E2E_DELIVERY:provider-back')
         await page.getByText('ACK E2E_DELIVERY:provider-back').waitFor()

@@ -1,10 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { runtimeAllows } from '../../../lib/runtimeExecution'
+import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { findLatestPlanReference } from '../planReference'
 import { usePlan } from '../planUpdates'
 
-import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
 import { locateChatTarget } from './chatTarget'
 import { credentialSelectionSignature } from './credentialAccess'
 import { serverHasConversation, sessionActionGates } from './sessionActions'
@@ -126,21 +126,12 @@ export function usePanelPlanPane(acc: Acc) {
     setJournalPaneOpen(false)
   }
 
-  // Approve is shown only while the plan is still `proposed` and the tab is
-  // not streaming (sendInActive would early-return otherwise). Chat (=
-  // interrupt) is shown whenever the plan is still active. These gate the
-  // latest plan's inline actions.
+  // The latest plan's card keeps polling while its tab streams.
   const activePlanCanAct = useMemo(() => {
     if (!activePlan || !activeTab) return null
 
     return {
       toolCallId: activePlan.toolCallId,
-      canApprove:
-        activePlan.plan.status === 'proposed' &&
-        (runtimeAllows(activeTab.runtimeState, 'send') ||
-          runtimeAllows(activeTab.runtimeState, 'reply')) &&
-        !activeTab.readOnly,
-      canChat: ACTIVE_LIFECYCLE_STATUSES.has(activePlan.plan.status) && !activeTab.readOnly,
       keepPolling: activeTab.streaming,
     }
   }, [activePlan, activeTab])
@@ -152,6 +143,13 @@ export function usePanelPlanPane(acc: Acc) {
   }, [onTitleChange])
   // Re-reported when the server comes to have the chat, not on every streamed delta.
   const stored = activeTab ? serverHasConversation(activeTab) : false
+  // The name the sidebar lists the chat by, so a rename made anywhere reaches the titlebar too.
+  // Read from what the sidebar already listed; it asks the backend nothing.
+  const { data: listedTitle } = useQuery({
+    ...agentSessionsQuery(teamId ?? ''),
+    enabled: false,
+    select: (rows) => rows.find((row) => row.sessionId === activeTab?.sessionId)?.title,
+  })
 
   useEffect(() => {
     // Also fires on sessionIdProp change so the parent's pageHref closure is
@@ -168,7 +166,7 @@ export function usePanelPlanPane(acc: Acc) {
     const gates = sessionActionGates(shown)
 
     onTitleChangeRef.current?.(
-      shown?.title?.trim() || '',
+      (unavailable ? '' : listedTitle || shown?.title)?.trim() || '',
       shown?.sessionId ?? null,
       shown?.agentRuntime,
       gates.canRename,
@@ -182,6 +180,7 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.readOnly,
     activeTab?.foreign,
     activeTab?.title,
+    listedTitle,
     activeTab?.sessionId,
     activeTab?.agentRuntime,
     activeTab?.runtimeId,

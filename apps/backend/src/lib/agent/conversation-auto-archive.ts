@@ -1,5 +1,6 @@
 import { config } from '@/config'
-import { withdrawQuestionsAbout } from '@/lib/agent/db/archive'
+import { retryArchivedHomes, retryArchivedTaskTriggers } from '@/lib/agent/archive-cleanup'
+import { archiveUpdate, withdrawQuestionsAbout } from '@/lib/agent/db/archive'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
@@ -32,9 +33,10 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
-  const result = await agentConversations().updateMany(idleConversationFilter(now, idleDays), {
-    $set: { archivedAt: now },
-  })
+  const result = await agentConversations().updateMany(
+    idleConversationFilter(now, idleDays),
+    archiveUpdate(now),
+  )
 
   if (result.modifiedCount > 0) {
     const archived = await agentConversations()
@@ -68,6 +70,12 @@ export async function sweepOnOneReplica(): Promise<void> {
     return
   await archiveIdleConversations().catch((err: unknown) => {
     logError('agent.conversation_auto_archive.failed', err)
+  })
+  await retryArchivedTaskTriggers().catch((err: unknown) => {
+    logError('agent.archive_trigger_cleanup.failed', err)
+  })
+  await retryArchivedHomes().catch((err: unknown) => {
+    logError('agent.session_home_reclaim.failed', err)
   })
   await reclaimSessionHomes().catch((err: unknown) => {
     logError('agent.session_home_reclaim.failed', err)

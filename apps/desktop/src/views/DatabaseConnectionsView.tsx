@@ -231,6 +231,10 @@ function DatabaseDetail({
               setRemoveName('')
               setRemoveOpen(true)
             }}
+            onConnectionChange={(next) => {
+              setConnection(next)
+              onChanged()
+            }}
           />
         )}
       </div>

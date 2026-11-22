@@ -14,6 +14,7 @@ import { openVideoWindow } from './browser-video-window.ts'
 import { failed } from './cua-host.ts'
 import { closeDockTab, dockMirrorOf, focusDockTab, openDockTab } from './dock-mirror.ts'
 import { proxyFetch } from './dock-proxy.ts'
+import { showDownloadNotice } from './download-notice.ts'
 
 import type { BrowserCall } from './browser-stream.ts'
 import type { CuaToolResult } from './cua-host.ts'
@@ -69,17 +70,17 @@ function track(window: BrowserWindow, conversation: string, opener?: WebContents
   const contents = window.webContents
 
   tabs.set(contents, { conversation, window, opener })
-  // Its downloads are saved with no save dialog, which the agent could not answer.
-  saveDownloadsOf(contents, conversation, () => path.join(app.getPath('downloads'), 'Nuphos'))
-  // Shown once, unseen, the page paints and can be captured; hidden again, it sleeps
-  // like a background tab, so an idle tab costs no battery.
-  window.once('ready-to-show', () => {
-    if (!window.isVisible()) {
-      window.showInactive()
-      window.hide()
-    }
-    window.setOpacity(1)
-  })
+  // Its downloads are saved with no save dialog, which the agent could not answer, where the
+  // person looks for downloads, and a notice in the window tells them.
+  saveDownloadsOf(
+    contents,
+    conversation,
+    () => app.getPath('downloads'),
+    (file, state) => showDownloadNotice(window, file, state),
+  )
+  // Never shown just to hide again: a window flashed this way may never paint, so its page can
+  // never be captured (#4305).
+  window.once('ready-to-show', () => window.setOpacity(1))
   extensionHost()?.extensions.addTab(contents, window)
   window.on('closed', () => tabs.delete(contents))
   contents.on('did-create-window', (popup) => track(popup, conversation, contents))

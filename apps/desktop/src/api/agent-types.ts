@@ -65,11 +65,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
   agent?: AgentFace
 }
 
-export type ConversationAccessState = {
-  generalAccess: GeneralAccess
-  participants: AgentConversationParticipant[]
-}
-
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
