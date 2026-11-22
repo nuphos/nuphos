@@ -23,8 +23,10 @@ describe('readablePlanStages', () => {
               $elemMatch: {
                 $or: [
                   { userId: 'viewer' },
-                  { generalAccess: { $ne: 'none' } },
-                  { participantIds: 'viewer' },
+                  {
+                    $nor: [{ kind: { $ne: 'channel' }, avatar: { $exists: true } }],
+                    $or: [{ generalAccess: { $ne: 'none' } }, { participantIds: 'viewer' }],
+                  },
                 ],
               },
             },

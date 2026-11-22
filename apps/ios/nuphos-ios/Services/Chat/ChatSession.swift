@@ -72,6 +72,8 @@ final class ChatSession {
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
     private(set) var isBot = false
+    /// Offered Share: a Task a person opened, as the server decides it.
+    private(set) var shareable = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -372,6 +374,7 @@ final class ChatSession {
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
             isBot = detail.avatar != nil && !detail.isChannel
+            shareable = detail.shareable ?? !isBot
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true

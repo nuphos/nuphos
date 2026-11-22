@@ -256,10 +256,7 @@ class HomeNavigationFixtureDeviceTest {
         else { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick() }
         compose.waitForIdle()
     }
-    // The Tasks list's reads. The Bots listing reads mine and shared, as the chats do (#3852).
-    private fun assertFixedListSelectors() = assertTrue(requests.filter {
-        it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("bots") != "true"
-    }.all {
+    private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
     private fun noWrites() = assertTrue(requests.none { it.method != "GET" })
