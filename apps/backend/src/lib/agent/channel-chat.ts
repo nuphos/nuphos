@@ -136,15 +136,9 @@ export async function postAsAgent(
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
   const quote = await replyQuote(channel, replyTo)
-  // Answering the newest post needs no quote: the reply lands right under it.
-  // A Slack channel keeps it, as its threads follow the quotes.
-  const shown =
-    quote &&
-    (channel.external === 'slack' ||
-      (await agentMessages().findOne(
-        { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } },
-        { projection: { _id: 1 } },
-      )))
+  // Under the newest post a quote only repeats it. Slack threads by the quote, so keeps it.
+  const later = { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } }
+  const shown = quote && (channel.external === 'slack' || (await agentMessages().findOne(later)))
   // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
   const id =
     channel.external === 'slack'
