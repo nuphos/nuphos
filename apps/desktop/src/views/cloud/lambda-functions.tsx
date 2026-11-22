@@ -1,5 +1,5 @@
 import { Copy, Globe } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
@@ -72,6 +72,9 @@ export function LambdaFunctionsView({
   const setDetailSel = setDetail ?? setLocalDetail
   const { pollTick } = useWorkspaceTab()
   const inDetail = !!detailSel && !!detailLoader
+  const ownScope = useId()
+  // A list without a cache key (its role is unresolved) keeps its functions' reads to itself.
+  const scope = loader.cacheKey ?? ownScope
   const { items, loading, error } = useResourceList(loader, refreshKey, onLoading, {
     enabled: !inDetail,
     pollTick,
@@ -132,6 +135,7 @@ export function LambdaFunctionsView({
   if (detailFn && detailLoader) {
     return (
       <LambdaFunctionDetailView
+        scope={scope}
         fn={detailFn}
         detailLoader={detailLoader}
         metricsLoader={metricsLoader}

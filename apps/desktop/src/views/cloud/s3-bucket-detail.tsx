@@ -1,12 +1,14 @@
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { Copy, Globe } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { ContextMenu } from '../../components/ContextMenu'
-import { useReportLoading } from '../../components/useReportLoading'
+import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 import { useRowLinkActions } from '../../lib/workspaceRowLink'
-import { useResetOnKey } from '../useResetOnKey'
 
 import { ErrorBlock } from './ErrorBlock'
 import { buildRowMenu } from './s3-bucket-rows'
@@ -19,6 +21,7 @@ import type { BucketRow } from './s3-bucket-rows'
 import type { AwsS3Bucket, AwsS3Object, AwsS3ObjectListing, AwsS3ObjectPreview } from '../../types'
 
 export function S3BucketDetailView({
+  scope,
   bucketName,
   region,
   prefix,
@@ -32,6 +35,8 @@ export function S3BucketDetailView({
   onCount,
   onLoading,
 }: {
+  /** Names the team, account and role the bucket is read through. */
+  scope: string
   bucketName: string
   region: string
   prefix: string
@@ -46,23 +51,31 @@ export function S3BucketDetailView({
   onLoading?: (loading: boolean) => void
 }) {
   const bucket: AwsS3Bucket = { name: bucketName, region, createdAt: null }
-  const [prefixes, setPrefixes] = useState<string[]>([])
-  const [objects, setObjects] = useState<AwsS3Object[]>([])
-  const [nextToken, setNextToken] = useState<string | null>(null)
-  const [isTruncated, setIsTruncated] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [paging, setPaging] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ row: BucketRow; x: number; y: number } | null>(null)
   const [selectedObject, setSelectedObject] = useState<AwsS3Object | null>(null)
-  // Monotonic counter incremented on every prefix/refreshKey change. Both the
-  // initial-load effect and loadMore capture the current value; if it changes
-  // while a request is in-flight (e.g. user navigates into a different folder
-  // mid-page), the stale response is discarded so it can't pollute the new
-  // listing or leave `paging` stuck true.
-  const requestGenRef = useRef(0)
+  // The loader is an inline closure recreated on every parent render; the key names the listing.
+  const loaderRef = useRef(loader)
 
-  useReportLoading(loading || paging, onLoading)
+  useEffect(() => {
+    loaderRef.current = loader
+  })
+
+  const listing = useInfiniteQuery({
+    queryKey: queryKeys.s3Objects(scope, bucketName, prefix),
+    queryFn: ({ pageParam }) => loaderRef.current(prefix, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) =>
+      page.isTruncated ? (page.nextContinuationToken ?? undefined) : undefined,
+  })
+  const pages = listing.data?.pages ?? []
+  const loading = listing.isPending
+  const error = listing.error?.message ?? null
+
+  useRefreshKey(
+    { isPending: loading || listing.isFetchingNextPage, refetch: listing.refetch },
+    refreshKey,
+    onLoading,
+  )
 
   async function downloadObject(key: string) {
     if (!getDownloadUrl) return
@@ -71,73 +84,28 @@ export function S3BucketDetailView({
 
       await api.appOpenExternal(url)
     } catch (e) {
-      setError(String(e instanceof Error ? e.message : e))
+      // A failed download says so and leaves the listing on screen.
+      toast.apiError(t('Failed to download object'), e)
     }
   }
 
-  useResetOnKey(`${prefix}|${String(refreshKey)}`, () => {
-    setLoading(true)
-    setPaging(false)
-    setError(null)
-    setPrefixes([])
-    setObjects([])
-    setNextToken(null)
-    setIsTruncated(false)
-  })
-  useEffect(() => {
-    const gen = ++requestGenRef.current
-
-    loader(prefix, null)
-      .then((res) => {
-        if (requestGenRef.current !== gen) return
-        setPrefixes(res.prefixes)
-        setObjects(res.objects)
-        setNextToken(res.nextContinuationToken)
-        setIsTruncated(res.isTruncated)
-        setLoading(false)
-      })
-      .catch((e: unknown) => {
-        if (requestGenRef.current !== gen) return
-        setError(String(e instanceof Error ? e.message : e))
-        setLoading(false)
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefix, refreshKey])
-
-  const loadMore = useCallback(() => {
-    if (!nextToken || paging) return
-    const gen = requestGenRef.current
-
-    setPaging(true)
-    loader(prefix, nextToken)
-      .then((res) => {
-        if (requestGenRef.current !== gen) return
-        setPrefixes((prev) => [...prev, ...res.prefixes])
-        setObjects((prev) => [...prev, ...res.objects])
-        setNextToken(res.nextContinuationToken)
-        setIsTruncated(res.isTruncated)
-        setPaging(false)
-      })
-      .catch((e: unknown) => {
-        if (requestGenRef.current !== gen) return
-        setError(String(e instanceof Error ? e.message : e))
-        setPaging(false)
-      })
-  }, [nextToken, paging, loader, prefix])
-
   const rows: BucketRow[] = [
-    ...prefixes.map<BucketRow>((p) => ({
-      kind: 'prefix',
-      key: `p:${p}`,
-      name: `${basename(p)}/`,
-      prefix: p,
-    })),
-    ...objects.map<BucketRow>((o) => ({
-      kind: 'object',
-      key: `o:${o.key}`,
-      name: o.key.startsWith(prefix) ? o.key.slice(prefix.length) : o.key,
-      object: o,
-    })),
+    ...pages
+      .flatMap((page) => page.prefixes)
+      .map<BucketRow>((p) => ({
+        kind: 'prefix',
+        key: `p:${p}`,
+        name: `${basename(p)}/`,
+        prefix: p,
+      })),
+    ...pages
+      .flatMap((page) => page.objects)
+      .map<BucketRow>((o) => ({
+        kind: 'object',
+        key: `o:${o.key}`,
+        name: o.key.startsWith(prefix) ? o.key.slice(prefix.length) : o.key,
+        object: o,
+      })),
   ]
 
   const filtered = applyFilter(rows, filter, (r) => r.name)
@@ -220,15 +188,15 @@ export function S3BucketDetailView({
               onRowContextMenu={(r, e) => setMenu({ row: r, x: e.clientX, y: e.clientY })}
             />
 
-            {isTruncated && (
+            {listing.hasNextPage && (
               <div className="px-4 py-2 border-t border-line-control flex items-center justify-center">
                 <button
                   type="button"
-                  onClick={loadMore}
-                  disabled={paging || !nextToken}
+                  onClick={() => void listing.fetchNextPage()}
+                  disabled={listing.isFetchingNextPage}
                   className="text-[12px] text-link hover:underline disabled:opacity-50 disabled:no-underline"
                 >
-                  {paging ? t('Loading…') : t('Load more')}
+                  {listing.isFetchingNextPage ? t('Loading…') : t('Load more')}
                 </button>
               </div>
             )}
@@ -236,6 +204,7 @@ export function S3BucketDetailView({
           {selectedObject && (
             <S3ObjectPreviewPanel
               key={selectedObject.key}
+              scope={scope}
               bucket={bucket}
               object={selectedObject}
               onClose={() => setSelectedObject(null)}
