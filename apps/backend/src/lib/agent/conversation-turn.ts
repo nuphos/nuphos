@@ -271,7 +271,7 @@ export async function reportUndelivered(
       )
         continue
       const excerpt = message.renderedText.slice(0, 200)
-      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
+      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_task runtimeId) first.`
       // Not awaited: this turn still holds its own target, and the sender may be busy.
       const { run } = await startConversationTurn(
         {
