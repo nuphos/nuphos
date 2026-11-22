@@ -2,6 +2,7 @@
 // The person sees it too: a notice in the tab's window says it started and where it went.
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { homedir } from 'node:os'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { basename, dirname, join } from 'node:path'
@@ -36,10 +37,20 @@ async function noticeOf(page: Page, name: string): Promise<Page> {
 
 /** The screen as the person sees it, notice over the shown tab; skipped without ImageMagick. */
 function screen(file: string): void {
-  try {
-    execFileSync('import', ['-window', 'root', join(artifacts, file)], { stdio: 'ignore' })
-  } catch {
-    // Not every runner has `import`; the notice's own capture still shows it.
+  const out = join(artifacts, file)
+  const grabs: [string, string[]][] = [
+    ['import', ['-window', 'root', out]],
+    ['ffmpeg', ['-y', '-f', 'x11grab', '-i', process.env.DISPLAY ?? ':99', '-frames:v', '1', out]],
+  ]
+
+  for (const [command, args] of grabs) {
+    try {
+      execFileSync(command, args, { stdio: 'ignore', timeout: 10_000 })
+
+      return
+    } catch {
+      // Not every runner has it; the notice's own capture still shows it.
+    }
   }
 }
 
@@ -124,13 +135,18 @@ export const browserDownloadScenarios: Scenario[] = [
         })
         const [, path = '', bytes] = saved!
 
+        // The Downloads folder itself, which on a Linux runner with none set up is the home folder.
+        const folder = dirname(path)
+        const home = homedir()
+        const shown = folder.startsWith(home) ? `~${folder.slice(home.length)}` : folder
+
         await notice.getByText(`Downloaded ${name}`).waitFor()
-        await notice.getByText(/^Saved to .*Downloads$/).waitFor()
+        await notice.getByText(`Saved to ${shown}`, { exact: true }).waitFor()
         await notice.getByText(/Show in (Finder|folder)/).waitFor()
         await notice.screenshot({ path: join(artifacts, 'download-notice-completed.png') })
         screen('download-screen-completed.png')
         await page.screenshot({ path: join(artifacts, 'agent-download.png') })
-        if (basename(path) !== name || basename(dirname(path)) !== 'Downloads')
+        if (basename(path) !== name || basename(folder) === 'Nuphos')
           throw new Error(`The file was saved to ${path}`)
         if (!existsSync(path) || readFileSync(path, 'utf8') !== content)
           throw new Error(`${path} does not hold the served file`)
