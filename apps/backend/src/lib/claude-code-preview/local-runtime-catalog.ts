@@ -124,6 +124,7 @@ export async function listOwnLocalRuntimes(
       // added agent appears once signed in; until then only its sign-in reaches it).
       const known = new Map<string, RegisteredAgent>()
       const registered = new Set((device.agents ?? []).map(registryKey))
+      // One removed while the computer was offline stays gone until the computer deletes it.
       const seen = [...(device.agents ?? []), ...reportedAgents(presence?.status)].filter(
         (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
       )
@@ -162,6 +163,7 @@ export async function listOwnLocalRuntimes(
               ...(shared ? { shared: { level: 'full' as const } } : {}),
               ...(instanceId ? { instanceId } : {}),
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
+              // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
               signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
               ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
@@ -204,7 +206,6 @@ export async function resolveLocalRuntimeEndpoint(
   try {
     const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
     const device = await access(userId, teamId, ref.deviceId, deps.access)
-
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
       throw runtimeGone()
@@ -272,7 +273,6 @@ export async function localRuntimeModels(
   const controls = catalog.controls[modelId] ?? (split ? catalog.controls.default : undefined)
 
   if (!controls) return { models: catalog.models }
-
   return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
 }
 
@@ -286,7 +286,6 @@ export async function localRuntimeStatus(
   const agent = ref ? reportedLocalAgent(presence?.status, ref) : undefined
   const online = agent !== undefined
   const signedIn = agent?.cli.loggedIn
-
   return {
     configured: true,
     selected: true,
