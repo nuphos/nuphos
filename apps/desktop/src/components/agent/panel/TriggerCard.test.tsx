@@ -83,6 +83,11 @@ async function footer(to: string) {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
   assert.ok(container.textContent?.includes('Hourly report'), 'the trigger loaded')
 
+  if (!trigger.enabled) {
+    assert.match(container.textContent ?? '', /Paused · /)
+    assert.doesNotMatch(container.textContent ?? '', /Scheduled:|Next runs, your time/)
+  }
+
   return container.querySelector('footer')?.textContent ?? null
 }
 
@@ -93,4 +98,10 @@ test('a Trigger that runs in a Task links to Open Task', async () => {
 
 test('a Trigger that runs in a Bot links to Open Bot', async () => {
   assert.equal(await footer('bot-1'), 'Open Bot')
+})
+
+test('a paused card does not advertise future executions', async () => {
+  trigger.enabled = false
+  assert.equal(await footer('bot-1'), 'Open Bot')
+  trigger.enabled = true
 })

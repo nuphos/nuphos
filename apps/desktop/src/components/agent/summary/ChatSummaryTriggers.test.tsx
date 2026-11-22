@@ -104,3 +104,17 @@ test('a Trigger row opens its details, and its switch does not', async () => {
   assert.deepEqual(updates, [{ id: 'trg-1', patch: { enabled: false } }])
   assert.equal(row.getAttribute('aria-expanded'), 'false', 'the switch leaves the row closed')
 })
+
+test('paused sidebar rows show their rule without upcoming dates', async () => {
+  trigger.enabled = false
+  const container = await mount()
+
+  assert.match(container.textContent ?? '', /Paused · /)
+  assert.doesNotMatch(container.textContent ?? '', /Scheduled:/)
+  const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
+
+  assert.ok(row)
+  await act(async () => row.click())
+  assert.doesNotMatch(container.textContent ?? '', /Next runs, your time|Scheduled:/)
+  trigger.enabled = true
+})

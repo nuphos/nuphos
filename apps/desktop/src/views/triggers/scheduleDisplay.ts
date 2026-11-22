@@ -9,16 +9,19 @@ export type DisplaySchedule = {
   triggerType?: 'cron' | 'webhook'
   cronExpression?: string
   timeZone?: string
+  /** Undefined denotes an unsaved schedule preview, not a paused trigger. */
+  enabled?: boolean
 }
 
 /** The actual local calendar date and offset at this instant, including DST. */
 export function formatViewerRun(instant: Date, timeZone = viewerTimeZone()): string {
-  return `${instant.toLocaleString(locale, { timeZone })} (${zoneLabel(timeZone, instant)})`
+  return `${instant.toLocaleString(locale, { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (${zoneLabel(timeZone, instant)})`
 }
 
 /** Bounded expansion uses the same cron-parser and source timezone as scheduling. */
 export function upcomingScheduleTimes(trigger: DisplaySchedule, now: Date): Date[] {
-  if (trigger.triggerType !== 'cron' || !trigger.cronExpression) return []
+  if (trigger.enabled === false || trigger.triggerType !== 'cron' || !trigger.cronExpression)
+    return []
   try {
     const interval = cronParser.parseExpression(trigger.cronExpression, {
       currentDate: now,
@@ -44,6 +47,8 @@ export function userScheduleSummary(
   now = new Date(),
 ): string {
   const rule = scheduleSummary(trigger, 'UTC', now)
+
+  if (trigger.enabled === false) return `${t('Paused')} · ${rule}`
   const runs = upcomingScheduleTimes(trigger, now)
 
   if (runs.length === 0) return rule
