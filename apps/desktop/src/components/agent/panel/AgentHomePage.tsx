@@ -10,7 +10,6 @@ import { StarStrip } from './hero'
 import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
 import { HomeGithubButton } from './HomeGithubButton'
 import { homeGreeting } from './textUtils'
-import { useEntranceCount } from './useEntranceCount'
 
 import type { ComposerSend } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
@@ -102,7 +101,6 @@ export function AgentHomePage({
     if (shown && scrollRef.current) scrollRef.current.scrollTop = 0
   }, [shown, newChatRequest])
 
-  const entranceKey = useEntranceCount(shown)
   // Asked once the agent has finished a few turns cleanly. Starring and
   // "not now" both retire it for good.
   const [starDismissed, dismissStar] = useStickyDismiss('nuphos.agent.starStrip.dismissed')
@@ -121,14 +119,14 @@ export function AgentHomePage({
             below it and scrolls. */}
         <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end">
           <AgentHomeAnimation
-            key={`${entranceKey}:${project ?? ''}`}
+            key={project ?? ''}
             title={
               project
                 ? t('New task in {name}', { name: projectName(project) })
                 : homeGreeting(userName)
             }
           />
-          <DelayedPanelReveal replayKey={entranceKey}>
+          <DelayedPanelReveal>
             {/* The composer is untouched — the tray is a sibling painted
                 behind it, same width, with its square top tucked under the
                 composer's bottom so only the part below shows. */}
@@ -173,7 +171,7 @@ export function AgentHomePage({
           </DelayedPanelReveal>
         </div>
         <div className="mx-auto w-full max-w-[820px] pb-3">
-          <DelayedPanelReveal replayKey={entranceKey}>
+          <DelayedPanelReveal>
             {teamId && isTeamAdmin && !onConnectAgent && !runtimeControl?.loading && (
               <HomeGithubButton teamId={teamId} />
             )}
