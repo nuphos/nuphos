@@ -112,40 +112,39 @@ async function promptTurn(args: {
   if (currentAttachment && !sameRuntimeUrl(currentAttachment.runtimeUrl, args.endpoint.url))
     throw new Error('Conversation runtime changed. Retry this message.')
   let fresh = false
-  const session = await openConversationSession(
-    args.teamId,
-    args.conversationId,
-    args.userId,
-    args.locale,
-    args.endpoint,
-    args.mcpServers ?? [],
-    args.systemPrompt,
-    args.runtime,
-    () => {
-      fresh = true
-    },
-    args.conversationOwnerUserId ?? args.userId,
-  )
-
-  // Query runtime admission without attaching a replacement prompt socket.
+  const open = () =>
+    openConversationSession(
+      args.teamId,
+      args.conversationId,
+      args.userId,
+      args.locale,
+      args.endpoint,
+      args.mcpServers ?? [],
+      args.systemPrompt,
+      args.runtime,
+      () => {
+        fresh = true
+      },
+      args.conversationOwnerUserId ?? args.userId,
+    )
+  // Ask admission before resuming the session here: its output goes to the last replica
+  // to resume it, so a refused message must not take a running turn away (#4540).
   const observe = () =>
     probeExecutionState({
-      teamId: session.teamId,
-      sessionId: session.conversationId,
-      userId: session.conversationOwnerUserId ?? session.userId,
-      agentRuntime: session.endpoint.provider ?? 'claude-code',
-      runtimeId: session.endpoint.runtimeId,
-      claudeCodePreview: {
-        runtimeUrl: session.endpoint.url,
-        openabSessionId: session.openabSessionId,
-      },
+      teamId: args.teamId,
+      sessionId: args.conversationId,
+      userId: args.conversationOwnerUserId ?? args.userId,
+      agentRuntime: args.endpoint.provider ?? 'claude-code',
+      runtimeId: args.endpoint.runtimeId,
+      claudeCodePreview: { runtimeUrl: args.endpoint.url, openabSessionId },
     }).catch(async (cause: unknown) => {
-      throw await probeFailure(cause, session.conversationId, session.endpoint)
+      throw await probeFailure(cause, args.conversationId, args.endpoint)
     })
+  const openabSessionId = currentAttachment?.openabSessionId ?? (await open()).openabSessionId
   const observed = await observe()
 
   if (observed.schemaVersion === 2 && observed.phase === 'resume_disconnected') {
-    await resumeSessionOn(session, await registry.acquire(session.teamId, session.endpoint))
+    await resumeSessionOn(await open(), await registry.acquire(args.teamId, args.endpoint))
     const reattached = await observe()
 
     // Still parked: the next prompt would only land here again. Fail this one.
@@ -164,6 +163,7 @@ async function promptTurn(args: {
   if (!observed.actions?.send)
     throw refusal(observed.label ?? 'The agent cannot accept a message yet')
 
+  const session = await open()
   const principalChanged = previewSessionPrincipalChanged(session, args.userId, args.runtime)
 
   const nextContext = {
