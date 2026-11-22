@@ -7,7 +7,6 @@ pub mod session_credentials;
 pub mod session_state;
 mod startup;
 mod steering;
-pub mod terminal;
 
 pub use connection::ContentBlock;
 pub use pool::SessionPool;
