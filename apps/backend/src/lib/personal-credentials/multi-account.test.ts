@@ -5,7 +5,12 @@ import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
 import { usePersonalCredentialsGithub } from '@/lib/test/doubles/personal-credentials-github'
 
-import { personalGithubToken, personalLinearToken, personalOwnToken } from './handout'
+import {
+  googleCredentialFor,
+  personalGithubToken,
+  personalLinearToken,
+  personalOwnToken,
+} from './handout'
 
 import type { EncryptedSecret } from '@/lib/byos/secrets'
 import type { PersonalCredential } from '@/models'
@@ -86,13 +91,13 @@ describe('several GitHub accounts', () => {
     expect(await personalGithubToken('user-1', 7, ids(home))).toMatchObject({ login: 'home' })
   })
 
-  test('a legacy selection never reaches a second account', async () => {
+  test('a provider-only selection covers every account, and still asks which', async () => {
     rows = [account('github', 'work'), account('github', 'home')]
     visible = { 'token-work': [7], 'token-home': [7] }
 
     await expect(personalGithubToken('user-1', 7)).rejects.toMatchObject({
-      status: 403,
-      code: 'personal_credential_account_not_authorized',
+      status: 409,
+      code: 'personal_credential_account_required',
     })
     rows = [account('github', 'work')]
     expect(await personalGithubToken('user-1', 7)).toMatchObject({ login: 'work' })
@@ -136,12 +141,49 @@ describe('several Linear workspaces', () => {
     expect(await personalLinearToken('user-1', 'org-2', ids(one))).toBeNull()
   })
 
-  test('a legacy selection with two workspaces reaches neither', async () => {
+  test('a provider-only selection reaches each workspace', async () => {
     rows = [
       account('linear', 'one', { workspaceId: 'org-1' }),
       account('linear', 'two', { workspaceId: 'org-2' }),
     ]
 
-    await expect(personalLinearToken('user-1', 'org-1')).rejects.toMatchObject({ status: 403 })
+    expect(await personalLinearToken('user-1', 'org-1')).toMatchObject({ login: 'one' })
+    expect(await personalLinearToken('user-1', 'org-2')).toMatchObject({ login: 'two' })
+  })
+})
+
+describe('a selection that ticks only the provider', () => {
+  const gmail = (login: string) => account('github', login, { teamId: 'team-1' }) as PersonalCredential
+
+  test('names an account: either of the member\'s two Google accounts is reachable', async () => {
+    const one = { ...gmail('a@x.com'), provider: 'gmail' as never }
+    const two = { ...gmail('b@x.com'), provider: 'gmail' as never }
+
+    rows = [one, two]
+
+    expect(await googleCredentialFor('user-1', 'gmail', 'team-1', ids(one)[0])).toMatchObject({
+      login: 'a@x.com',
+    })
+    expect(await googleCredentialFor('user-1', 'gmail', 'team-1', ids(two)[0])).toMatchObject({
+      login: 'b@x.com',
+    })
+  })
+
+  test('names none: the agent is told to ask, with both accounts listed', async () => {
+    rows = [
+      { ...gmail('a@x.com'), provider: 'gmail' as never },
+      { ...gmail('b@x.com'), provider: 'gmail' as never },
+    ]
+
+    await expect(googleCredentialFor('user-1', 'gmail', 'team-1')).rejects.toMatchObject({
+      status: 409,
+      code: 'personal_credential_account_required',
+    })
+  })
+
+  test('one account still works with none named', async () => {
+    rows = [{ ...gmail('a@x.com'), provider: 'gmail' as never }]
+
+    expect(await googleCredentialFor('user-1', 'gmail', 'team-1')).toMatchObject({ login: 'a@x.com' })
   })
 })

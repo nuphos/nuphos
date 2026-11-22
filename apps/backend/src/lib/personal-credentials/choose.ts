@@ -3,17 +3,14 @@ import { AppError } from '@/lib/errors'
 import type { PersonalCredential } from '@/models'
 
 /**
- * Which of a member's accounts a call may use. The conversation's own list (`authorized`)
- * decides; without one only a lone account is usable, so an account connected later is never
- * reached by a selection made before it existed.
+ * Which of a member's accounts a call may use: those the conversation lists, or all of them when
+ * it lists none, because ticking a provider means every account of that provider.
  */
 export function allowedAccounts(
   docs: PersonalCredential[],
   authorized?: string[],
 ): PersonalCredential[] {
-  if (authorized) return docs.filter((doc) => authorized.includes(doc._id.toHexString()))
-
-  return docs.length === 1 ? docs : []
+  return authorized ? docs.filter((doc) => authorized.includes(doc._id.toHexString())) : docs
 }
 
 export const notAuthorized = () =>
