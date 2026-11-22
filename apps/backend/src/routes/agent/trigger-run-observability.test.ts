@@ -81,9 +81,9 @@ test('a usage limit the queue waits out is a warning, not a failed turn', () => 
   // #4164: a channel's wake out of usage logged an error, and an error line, on every try.
   const limit = () => notice("You've hit your session limit · resets 4pm (UTC)")
 
-  expect(recordTriggerRunFailure(limit(), trace, 'agent.resource', {}, { waitsOutUsage: true })).toBe(
-    false,
-  )
+  expect(
+    recordTriggerRunFailure(limit(), trace, 'agent.resource', {}, { waitsOutUsage: true }),
+  ).toBe(false)
   // Sent once, it is a failed turn that says so.
   expect(recordTriggerRunFailure(limit(), trace, 'agent.resource')).toBe(true)
   expect(captured).toHaveLength(0)
