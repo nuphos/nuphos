@@ -141,8 +141,11 @@ test(
   },
 )
 
-/** The host's display lookup, as it ships, run against a display that is asleep for `asleep` lookups. */
-function findDisplay(asleep) {
+/**
+ * The host's display lookup, as it ships, run against a display that is asleep for `asleep` lookups,
+ * each taking `lookupMs`.
+ */
+function findDisplay(asleep, lookupMs = 0) {
   const dir = mkdtempSync(path.join(tmpdir(), 'mac-screen-host-'))
   const program = path.join(dir, 'main.swift')
 
@@ -153,7 +156,7 @@ function findDisplay(asleep) {
       source.slice(source.indexOf('// MARK: - Display'), source.indexOf('// MARK: - Main')),
       'nonisolated(unsafe) var lookups = 0',
       'nonisolated(unsafe) var wakes = 0',
-      `let found = try await awakeDisplay(wake: { wakes += 1 }, find: { lookups += 1; return lookups > ${String(asleep)} ? "display" : nil })`,
+      `let found = try await awakeDisplay(wake: { wakes += 1 }, find: { lookups += 1; try await Task.sleep(nanoseconds: ${String(lookupMs)} * 1_000_000); return lookups > ${String(asleep)} ? "display" : nil })`,
       'print("\\(found ?? "none") \\(wakes) \\(lookups)")',
     ].join('\n'),
   )
@@ -170,7 +173,11 @@ test(
     assert.equal(findDisplay(2), 'display 1 3')
     // Awake: shown at once, and nothing wakes a display that is on.
     assert.equal(findDisplay(0), 'display 0 1')
-    // A Mac with no display at all gives up after five seconds.
-    assert.equal(findDisplay(1000), 'none 1 21')
+    // A Mac with no display at all gives up after five seconds by the clock, however slow each
+    // lookup is: at 750 ms a round that is seven or eight lookups, where counting rounds made 21.
+    const [found, wakes, lookups] = findDisplay(1000, 500).split(' ')
+
+    assert.deepEqual([found, wakes], ['none', '1'])
+    assert.ok(Number(lookups) >= 5 && Number(lookups) <= 10, `${lookups} lookups`)
   },
 )

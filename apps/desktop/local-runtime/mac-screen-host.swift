@@ -726,7 +726,9 @@ nonisolated final class Viewer: NSObject, SCStreamOutput, @unchecked Sendable {
 func awakeDisplay<Display>(wake: () -> Void, find: () async throws -> Display?) async throws -> Display? {
     if let display = try await find() { return display }
     wake()
-    for _ in 0..<20 {
+    // By the clock, not by the count: a lookup takes its own time.
+    let deadline = Date().addingTimeInterval(5)
+    while Date() < deadline {
         try await Task.sleep(nanoseconds: 250_000_000)
         if let display = try await find() { return display }
     }
