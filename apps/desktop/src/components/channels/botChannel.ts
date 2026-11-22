@@ -76,6 +76,8 @@ const opening = new Map<string, Promise<BotChat>>()
  * The Bot's chat, made only when it never had one, so opening a Bot never piles
  * up empty chats. An archived one is only found, never brought back: every chat
  * of a Bot is archived only when the Bot was archived with them (#4203).
+ * Only its owner may bring a Bot into a chat, so someone else's Bot with no chat
+ * yet opens as its own conversation, which is shared with the viewer (#4526).
  */
 function findBotChannel(teamId: string, botId: string): Promise<BotChat> {
   const found =
@@ -83,7 +85,10 @@ function findBotChannel(teamId: string, botId: string): Promise<BotChat> {
     listBotChats(teamId, botId).then(
       async (chats) =>
         chooseBotChat(chats) ?? {
-          chatId: await createBotChannel(teamId, botId),
+          chatId:
+            listedConversation(teamId, botId)?.isOwner === false
+              ? botId
+              : await createBotChannel(teamId, botId),
           archived: false,
         },
     )

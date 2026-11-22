@@ -184,7 +184,14 @@ struct AgentPage: View {
 
     /// A Bot opens in its 1:1 chat, made the first time. A failure is
     /// reported over the list, and trying again opens the chat (#1738).
+    /// Only its owner may bring a Bot into a chat, so someone else's Bot with no
+    /// chat yet opens as its own conversation, which is shared with the viewer (#4526).
     private func openBotChat(_ botId: String) async {
+        if !store.channels.contains(where: { $0.botId == botId }),
+           let bot = store.bots.first(where: { $0.sessionId == botId }), bot.isOwner != true {
+            openChat = OpenChat(session: store.session(for: bot))
+            return
+        }
         do {
             if let channel = try await store.botChannel(botId: botId) { openChat = OpenChat(channel: channel) }
         } catch {

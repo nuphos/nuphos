@@ -31,11 +31,44 @@ final class SharedBotsUITests: XCTestCase {
         responses["GET /agent/conversations?kind=channel"] = page([])
         responses["GET /agent/conversations?scope=shared"] = page([bot("bot-shared", "Shared Bot", at: "09:10", owner: false)])
         responses["GET /agent/conversations?pendingDecision=true"] = page([])
+        // Only its owner may bring a Bot into a chat, as on the server (#4526).
+        responses["POST /agent/channels"] = ["status": 200, "body": ["sessionId": "chat-new"]]
+        responses["POST /agent/conversations/chat-new/agents"] = [
+            "status": 403, "body": ["error": ["code": "forbidden", "message": "Only its owner can add this agent"]],
+        ]
+        responses["GET /agent/conversations/bot-shared"] = ["status": 200, "body": bot("bot-shared", "Shared Bot", at: "09:10", owner: false)]
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
     }
 
     override func tearDown() {
         try? FileManager.default.removeItem(at: live)
+    }
+
+    /// A Bot shared with you that you have no chat with opens as the Bot's own
+    /// conversation. Only its owner may bring it into a new chat, so trying to
+    /// make one failed every time and left an empty chat behind (#4526).
+    func testABotSharedWithYouOpensWithoutAChat() throws {
+        let sent = live.deletingLastPathComponent().appending(path: "shared-bots-sent-\(UUID().uuidString).jsonl")
+        defer { try? FileManager.default.removeItem(at: sent) }
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path, "NUPHOS_PREVIEW_REQUESTS": sent.path]
+        app.launch()
+        let shared = app.staticTexts["Shared Bot"].firstMatch
+        XCTAssertTrue(shared.waitForExistence(timeout: 10), "A Bot shared with you is not in Bots")
+        shared.tap()
+        let own = app.staticTexts["Own Bot"].firstMatch
+        let left = NSPredicate(format: "exists == false")
+        let opened = XCTWaiter().wait(for: [expectation(for: left, evaluatedWith: own)], timeout: 10) == .completed
+        let failure = app.alerts.firstMatch
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "shared-bot-opened"
+        shot.lifetime = .keepAlways
+        add(shot)
+        XCTAssertFalse(failure.exists, "Opening a Bot shared with you failed: \(failure.label)")
+        XCTAssertTrue(opened, "A Bot shared with you did not open")
+        let requests = (try? String(contentsOf: sent, encoding: .utf8)) ?? ""
+        XCTAssertFalse(requests.contains("POST /agent/channels"), "Opening a Bot shared with you made a chat it cannot join")
     }
 
     func testABotSharedWithYouIsListedLikeYourOwn() throws {

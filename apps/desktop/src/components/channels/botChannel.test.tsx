@@ -74,3 +74,19 @@ test('making it a Bot again brings back the chat it had and opens it', async () 
   assert.equal(opened.length, 1)
   assert.match(opened[0] ?? '', /chat/)
 })
+
+test('#4526: a Bot shared with you and no chat yet opens as its own conversation, making no chat', async () => {
+  const { queryClient } = await import('../../lib/query/client.ts')
+  const { queryKeys } = await import('../../lib/query/keys.ts')
+  const keys: string[] = []
+
+  chats = []
+  queryClient.setQueryData(queryKeys.agentSessions('team'), [
+    { sessionId: 'shared-bot', isOwner: false, avatar: '07-ada' },
+  ])
+  openBotChannel('team', 'shared-bot', (key) => keys.push(key))
+  await settle()
+
+  assert.deepEqual(failures, [])
+  assert.deepEqual(keys, ['agent-session:shared-bot'])
+})
