@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
+import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
@@ -12,6 +13,8 @@ import { VaultDevices, vaultCard } from './VaultDevices'
 import { VaultItems } from './VaultItems'
 
 import type { VaultDevice } from '../../types/vault'
+
+const VAULT_DOCS_URL = 'https://docs.nuphos.ai/security/vault'
 
 /** Vault: secrets encrypted on the user's own devices. Keys stay in the main process. */
 export function VaultSection({ userId }: { userId: string }) {
@@ -27,6 +30,21 @@ export function VaultSection({ userId }: { userId: string }) {
           'Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.',
         )}
       />
+      <div className={`${vaultCard} mb-6`}>
+        <p className="text-[13px] text-main">{t('How does Nuphos keep your secrets safe?')}</p>
+        <p className="mt-1 text-[12.5px] text-tertiary">
+          {t(
+            'Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.',
+          )}{' '}
+          <button
+            type="button"
+            className={INLINE_LINK}
+            onClick={() => void api.appOpenExternal(VAULT_DOCS_URL)}
+          >
+            {t('Learn more')}
+          </button>
+        </p>
+      </div>
       {status.isPending && <p className="text-[12.5px] text-tertiary">{t('Loading…')}</p>}
       {status.isError && (
         <p className="text-[12.5px] text-tertiary">
