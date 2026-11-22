@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// Teams and the conversation list for the Agent page. One per signed-in
-/// session; owns pagination, search and the selected team.
+/// session; owns the listing, search and the selected team.
 @Observable
 final class AgentStore {
     /// What failed, and how to try it again.
@@ -16,7 +16,6 @@ final class AgentStore {
         case idle, loading, loaded, failed(String)
     }
 
-    static let pageSize = 30
     private var lastTeamKey: String { "nuphos.workspace.lastTeamId.\(LaunchCache.accountKey(token))" }
 
     private(set) var teams: [Team] = []
@@ -34,9 +33,6 @@ final class AgentStore {
     private var workspaceScope = 0
     /// Conversations with a Watch or Unwatch on its way.
     private(set) var watchChanges: Set<String> = []
-    private(set) var isLoadingMore = false
-    private(set) var hasMore = false
-    private var nextCursor: String?
 
     // MARK: - Chats (channels)
 
@@ -229,11 +225,9 @@ final class AgentStore {
         }
     }
 
-    /// Drops a chat that was archived. The poller
-    /// keeps rows its first page misses, so it would not drop it; reads
-    /// already in flight are discarded so they cannot bring it back. Before
-    /// the list has loaded, the discarded read is the load itself, so start
-    /// it again.
+    /// Drops a chat that was archived. Reads already in flight are
+    /// discarded so they cannot bring it back. Before the list has loaded,
+    /// the discarded read is the load itself, so start it again.
     func removeFromList(_ sessionId: String) {
         conversations.removeAll { $0.sessionId == sessionId }
         if phase == .loaded { loadGeneration += 1 } else { Task { await reload() } }
@@ -580,8 +574,6 @@ final class AgentStore {
 
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
-    private var loadedPageCursors: [String] = []
-    private var refreshPageIndex = 0
 
     /// What a conversation is doing, as its row and a Bot's details show it.
     func indicator(for row: AgentConversation, team: String) -> ConversationIndicator {
@@ -754,7 +746,7 @@ final class AgentStore {
 
     // MARK: - Conversations
 
-    /// First page, replacing whatever is shown. Keeps the old rows visible
+    /// The whole list, replacing whatever is shown. Keeps the old rows visible
     /// while loading so a refresh does not flash empty.
     /// A failure keeps a list already on screen and reports it instead.
     /// `afterChange`: the read follows a change that was saved.
@@ -770,8 +762,6 @@ final class AgentStore {
             return
         }
         loadGeneration += 1
-        loadedPageCursors = []
-        refreshPageIndex = 0
         let generation = loadGeneration
         let shown = phase
         if conversations.isEmpty { phase = .loading }
@@ -780,17 +770,13 @@ final class AgentStore {
         async let pinsLoad: () = loadFavorites()
 
         do {
-            let page = try await NuphosAPI.conversations(
-                token: token, teamId: team.id, limit: Self.pageSize, search: search
-            )
+            let rows = try await listConversations(teamId: team.id)
             _ = await (runtimesLoad, channelsLoad, pinsLoad)
             guard generation == loadGeneration else { return }
-            conversations = page.rows
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
+            conversations = rows
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, accountKey: LaunchCache.accountKey(token)))
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: rows, accountKey: LaunchCache.accountKey(token)))
             }
         } catch {
             guard generation == loadGeneration else { return }
@@ -812,28 +798,26 @@ final class AgentStore {
         if case .failed = phase { true } else { false }
     }
 
-    /// Next page, appended. Rows can repeat across pages because the cursor
-    /// is a timestamp, so dedupe by session id.
-    func loadMore() async {
-        guard loadsHistory else { return }
-        guard hasMore, !isLoadingMore, let team = selectedTeam, let cursor = nextCursor else { return }
-        isLoadingMore = true
-        defer { isLoadingMore = false }
-        let generation = loadGeneration
-
-        do {
-            let page = try await NuphosAPI.conversations(
-                token: token, teamId: team.id, cursor: cursor, limit: Self.pageSize, search: search
-            )
-            guard generation == loadGeneration else { return }
-            if !loadedPageCursors.contains(cursor) { loadedPageCursors.append(cursor) }
-            let seen = Set(conversations.map(\.sessionId))
-            conversations.append(contentsOf: page.rows.filter { !seen.contains($0.sessionId) })
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
-        } catch {
-            // Leave what we have; the sentinel row offers a retry.
+    /// Every page of the agents the viewer owns or was invited to, newest
+    /// activity first, as the Desktop sidebar lists them (#4601). A page is a
+    /// transport bound, never a limit on the list: Tasks leaves Bots and their
+    /// work out afterwards, which can leave a page with nothing to show.
+    /// Rows can repeat across pages because the cursor is a timestamp.
+    private func listConversations(teamId: String) async throws -> [AgentConversation] {
+        var rows: [String: AgentConversation] = [:]
+        for scope in ["mine", "shared"] {
+            var cursor: String?
+            var cursors: Set<String> = []
+            repeat {
+                let page = try await NuphosAPI.conversations(
+                    token: token, teamId: teamId, cursor: cursor, limit: 100, search: search, scope: scope
+                )
+                for row in page.rows where rows[row.sessionId] == nil { rows[row.sessionId] = row }
+                cursor = page.nextCursor
+                if let cursor, !cursors.insert(cursor).inserted { throw NuphosAPI.Failure.invalidResponse }
+            } while cursor != nil
         }
+        return rows.values.sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     /// A live session for an existing conversation, already loading. The
@@ -881,7 +865,7 @@ final class AgentStore {
 
     private var poller: Task<Void, Never>?
 
-    /// Keeps the first page fresh for as long as the store lives — also while
+    /// Keeps the list fresh for as long as the store lives — also while
     /// a chat sits on top of the list — so replies running elsewhere (desktop,
     /// Slack, wake-ups) show up and clear, and coming back from a chat never
     /// shows a stale row. A view's `.task` would stop whenever a chat is
@@ -900,34 +884,14 @@ final class AgentStore {
 
     private func pollOnce() async {
         // A failed list keeps polling too, so it comes back on its own.
-        guard phase == .loaded || isFailed, !isLoadingMore else { return }
+        guard phase == .loaded || isFailed, let team = selectedTeam else { return }
         async let chats: () = loadChannels()
-        await refreshFirstPage()
-        await chats
-    }
-
-    /// At most two requests per tick: page one and one rotating loaded page.
-    /// Scrolling increases the rotation interval, never the request burst size.
-    private func refreshFirstPage() async {
-        guard let team = selectedTeam else { return }
         let generation = loadGeneration
-        guard let page = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, limit: Self.pageSize, search: search
-        ), generation == loadGeneration, !Task.isCancelled else { return }
-        conversations = conversations.refreshed(firstPage: page.rows)
-        if isFailed { phase = .loaded }
-        if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= page.rows.count {
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
+        if let rows = try? await listConversations(teamId: team.id), generation == loadGeneration, !Task.isCancelled {
+            conversations = rows
+            if isFailed { phase = .loaded }
         }
-        guard !loadedPageCursors.isEmpty else { return }
-        let cursor = loadedPageCursors[refreshPageIndex % loadedPageCursors.count]
-        refreshPageIndex = (refreshPageIndex + 1) % loadedPageCursors.count
-        guard let background = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, cursor: cursor, limit: Self.pageSize, search: search
-        ), generation == loadGeneration, !Task.isCancelled else { return }
-        let fresh = Dictionary(background.rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
-        conversations = conversations.map { fresh[$0.sessionId] ?? $0 }
+        await chats
     }
 
     /// Search is server-backed; debounce like the desktop (250 ms).
