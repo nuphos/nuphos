@@ -109,11 +109,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         let id: String
     }
 
-    struct TaskCounts: Codable, Equatable, Hashable, Sendable {
-        let running: Int
-        let waiting: Int
-    }
-
     let sessionId: String
     let teamId: String?
     let title: String
@@ -164,8 +159,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
     var botOnboarding: String?
-    /// A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270).
-    var tasks: TaskCounts?
 
     var id: String { sessionId }
 
@@ -242,7 +235,6 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
-        tasks = try? c.decodeIfPresent(TaskCounts.self, forKey: .tasks)
     }
 
     init(
