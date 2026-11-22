@@ -180,3 +180,17 @@ test('a saved opt-out keeps uploads and analytics off from launch', async () => 
   assert.equal(analytics.at(-1), false)
   assert.equal(syncValue(), false)
 })
+
+test('finds only the Crashpad handlers left running for this crash dumps folder', async () => {
+  const { leftoverCrashHandlers } = await launch()
+  const dumps = '/Users/me/Library/Application Support/Nuphos/Crashpad'
+  const ps = [
+    `  501 /Applications/Nuphos.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --database=${dumps} --url=https://api.nuphos.ai/desktop/crash-reports --annotation=_version=0.132.0`,
+    ` 1204 /Applications/Nuphos.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --monitor-self --database=${dumps}`,
+    `  733 /Applications/Other.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --database=${dumps}-other --url=x`,
+    `  801 /usr/bin/vim --database=${dumps} notes.txt`,
+    '',
+  ].join('\n')
+
+  assert.deepEqual(leftoverCrashHandlers(ps, dumps), [501, 1204])
+})

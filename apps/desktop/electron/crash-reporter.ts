@@ -12,6 +12,7 @@
 // Electron itself adds ver, _version, platform and
 // process_type; we add arch, a hashed device id (rate limiting only) and the
 // heap / uptime numbers that tell a slow leak from a sudden spike.
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -66,6 +67,34 @@ export function setSendDiagnostics(value: unknown): boolean {
   return value
 }
 
+/**
+ * The Crashpad handlers a quit Nuphos left running for these crash dumps. A process Nuphos
+ * started that outlives it (a dev server, an agent's tool) inherits its Crashpad connection,
+ * which keeps the handler alive, one more after every update (#4708).
+ */
+export function leftoverCrashHandlers(ps: string, dumps: string): number[] {
+  return ps
+    .split('\n')
+    .filter(
+      (line) =>
+        line.includes('chrome_crashpad_handler') && `${line} `.includes(`--database=${dumps} `),
+    )
+    .map((line) => Number.parseInt(line, 10))
+    .filter((pid) => pid > 0)
+}
+
+/** Ends them before this launch starts its own; the instance lock means no running Nuphos uses them. */
+function stopLeftoverCrashHandlers(): void {
+  if (process.platform === 'win32') return
+  try {
+    const ps = execFileSync('/bin/ps', ['-A', '-ww', '-o', 'pid=,command='], { encoding: 'utf8' })
+
+    for (const pid of leftoverCrashHandlers(ps, app.getPath('crashDumps'))) process.kill(pid)
+  } catch (error) {
+    console.error('[crash-reporter] leftover handlers', error)
+  }
+}
+
 export function watchCrashes(): void {
   applySendDiagnostics(readSendDiagnostics())
   // Synchronous so the renderer knows before its analytics starts.
@@ -88,6 +117,7 @@ export function watchCrashes(): void {
     captureMainException(reason, { kind: 'unhandled_rejection' })
   })
   if (isDev) return
+  stopLeftoverCrashHandlers()
   crashReporter.start({
     submitURL: `${apiUrl()}/desktop/crash-reports`,
     uploadToServer: sendDiagnostics,
