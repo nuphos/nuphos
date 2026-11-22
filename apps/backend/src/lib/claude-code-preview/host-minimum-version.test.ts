@@ -105,7 +105,7 @@ test('an update hint names the host and preserves the known sentence without raw
   const hint = await hostUpdateHint({ client: 'nuphos-desktop/0.123.0' }, 'Build Mac')
 
   expect(hint).toBe(
-    'Nuphos Desktop on Build Mac is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.',
+    'Nuphos Desktop on Build Mac is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it stays in the Dock, quit it again.',
   )
   expect(withOutdatedHint(undefined, new Error(`private diagnostic\n\n${hint}`))).toBe(hint)
 })
