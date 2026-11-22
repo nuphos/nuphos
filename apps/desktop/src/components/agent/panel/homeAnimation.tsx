@@ -4,18 +4,11 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 
 import { t } from '../../../i18n'
-import { toGraphemes } from '../../../lib/graphemes'
 
 import { PRESETS } from './stall'
-import { getAgentLocale } from './textUtils'
+import { getAgentLocale, splitForAnimation } from './textUtils'
 
 import type { ReactNode } from 'react'
-
-// Whole words, so the title wraps only at its spaces and an email stays in one piece;
-// CJK has no spaces and wraps between characters.
-function splitForAnimation(text: string, lang: string): string[] {
-  return /^(zh|ja|ko)/i.test(lang) ? toGraphemes(text) : text.split(/(\s+)/)
-}
 
 export function AgentHomeAnimation({ title = t('What should we work on?') }: { title?: string }) {
   const segments = splitForAnimation(title, getAgentLocale() ?? navigator.language ?? 'en')
