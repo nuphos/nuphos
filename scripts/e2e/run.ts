@@ -70,6 +70,7 @@ import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
@@ -184,6 +185,8 @@ const scenarios: Scenario[] = [
   // Right after the one above, whose last Task 404s in another team: its new Task leaves it.
   // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
+  // Makes its own Task and Bot, so it can sit here while the main window is still in use.
+  ...triggerLinkScenarios,
 ]
 
 // CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
