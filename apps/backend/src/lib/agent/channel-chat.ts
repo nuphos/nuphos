@@ -135,14 +135,16 @@ export async function postAsAgent(
   const channel = await getConversationBySessionId(channelId)
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
+  const quote = await replyQuote(channel, replyTo)
   // Answering the newest post needs no quote: the reply lands right under it.
-  const newer =
-    replyTo !== undefined &&
-    (await agentMessages().findOne(
-      { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } },
-      { projection: { _id: 1 } },
-    ))
-  const quote = newer ? await replyQuote(channel, replyTo) : undefined
+  // A Slack channel keeps it, as its threads follow the quotes.
+  const shown =
+    quote &&
+    (channel.external === 'slack' ||
+      (await agentMessages().findOne(
+        { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } },
+        { projection: { _id: 1 } },
+      )))
   // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
   const id =
     channel.external === 'slack'
@@ -165,7 +167,7 @@ export async function postAsAgent(
         source: 'agent.thread',
         sourceSessionId: agent.sessionId,
         sentAt: new Date().toISOString(),
-        ...(quote ? { replyTo: quote } : {}),
+        ...(shown ? { replyTo: quote } : {}),
       },
       files,
     },
