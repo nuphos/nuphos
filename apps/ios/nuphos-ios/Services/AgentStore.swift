@@ -113,14 +113,17 @@ final class AgentStore {
     private var openedChannels: [String: ChannelSession] = [:]
 
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
-        if let opened = openedChannels[sessionId] { return opened }
-        let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+        let channel = openedChannels[sessionId] ?? {
+            let fresh = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+            // The list row's icon shows at once; the chat's own load keeps it current.
+            let row = channels.first { $0.sessionId == sessionId }
+            fresh.faces = row?.faces ?? []
+            fresh.botId = row?.botId
+            return fresh
+        }()
+        // Who is signed in may have loaded since the chat was first opened.
         channel.viewerId = userId
         channel.me = me
-        // The list row's icon shows at once; the chat's own load keeps it current.
-        let row = channels.first { $0.sessionId == sessionId }
-        channel.faces = row?.faces ?? []
-        channel.botId = row?.botId
         openedChannels[sessionId] = channel
         return channel
     }
