@@ -12,6 +12,10 @@ Object.defineProperty(globalThis, 'window', {
   value: Object.assign(new EventTarget(), {
     setInterval: () => 0,
     clearInterval: () => {},
+    // The first read waits for a frame and then a task; here both come at once.
+    requestAnimationFrame: (run: () => void) => (run(), 0),
+    cancelAnimationFrame: () => {},
+    setTimeout: (run: () => void) => (run(), 0),
   }),
 })
 // Mock React's scheduling and the API only; run the real poll.
