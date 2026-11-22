@@ -39,6 +39,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
       row('bot', { avatar: '07-ada' }),
       row('bot-chat', { kind: 'channel', avatar: '07-ada', agentSessionIds: [`${TEAM}-bot`] }),
       row('my-task'),
+      row('former-bot', { avatar: null }),
       archivedRow('bot-task', below('bot')),
       archivedRow('bot-task-thread', below('bot-task')),
       archivedRow('my-task-thread', below('my-task')),
@@ -47,6 +48,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
       archivedRow('archived-bot-task', below('archived-bot')),
       archivedRow('bot-below-bot', { avatar: '03-grace', ...below('bot') }),
       archivedRow('oldest'),
+      archivedRow('below-former-bot', below('former-bot')),
     ] as never)
   })
   afterAll(async () => {
@@ -63,6 +65,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
       'archived-bot',
       'bot-below-bot',
       'oldest',
+      'below-former-bot',
     ])
     expect(hasMore).toBe(false)
     expect(conversations[0]).not.toHaveProperty('ancestors')
@@ -75,6 +78,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
     expect(first.hasMore).toBe(true)
     const second = await archive(10, first.nextCursor ?? undefined)
 
-    expect(names(second.conversations)).toEqual(['archived-bot', 'bot-below-bot', 'oldest'])
+    expect(names(second.conversations)).toEqual([
+      'archived-bot',
+      'bot-below-bot',
+      'oldest',
+      'below-former-bot',
+    ])
   })
 })

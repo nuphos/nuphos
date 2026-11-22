@@ -3,7 +3,8 @@ import { agentConversations } from './shared'
 /**
  * The archive lists what Tasks would have: a Task below a Bot, through any of its
  * parents, is that Bot's work, as the sidebar decides (withChatSections), and stays
- * with the Bot. A Bot itself still lists.
+ * with the Bot. A Bot itself still lists. A Bot is what isBot (read-state.ts) says: a
+ * face (`avatar` not null) on anything but a chat.
  */
 export function withoutBotWork(teamId: string): Record<string, unknown>[] {
   return [
@@ -22,10 +23,10 @@ export function withoutBotWork(teamId: string): Record<string, unknown>[] {
     {
       $match: {
         $or: [
-          { avatar: { $exists: true } },
+          { avatar: { $ne: null } },
           {
             ancestors: {
-              $not: { $elemMatch: { avatar: { $exists: true }, kind: { $ne: 'channel' } } },
+              $not: { $elemMatch: { avatar: { $ne: null }, kind: { $ne: 'channel' } } },
             },
           },
         ],
