@@ -29,8 +29,7 @@ export function refuse(text, outOfUsage) {
     )
   // #3160: a conversation too long for the model, on any agent.
   // #3401: Claude Code unable to reach its API, through a proxy or VPN in the way.
-  // #4037: an endpoint that does not serve the model, worded as Anthropic answers it. The
-  // first agent only, as out of usage, so the turn goes on on the agent it falls back to.
+  // #4037: a model the endpoint lacks, on the first agent only so the turn goes on after fallback.
   const reason = text.includes('E2E_TOO_LONG')
     ? 'Prompt is too long'
     : text.includes('E2E_API_UNREACHABLE')
