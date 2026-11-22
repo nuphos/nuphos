@@ -213,7 +213,7 @@ final class ChatSession {
         var selection = picked
         // An existing conversation's selection is stored even when it has none: only what changed is sent.
         if !isNew, selection.stored == nil { selection.stored = [] }
-        credentialAccess = selection.isBlank ? nil : selection
+        credentialAccess = isNew && selection.isBlank ? nil : selection
         guard !isNew, isOwner else { return }
         let previous = credentialSave
         credentialSave = Task {
@@ -385,10 +385,8 @@ final class ChatSession {
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
             followsBot = detail.followsBot
-            if let stored = detail.credentialAccess {
-                let selection = CredentialSelection(json: stored)
-                credentialAccess = selection.isBlank ? nil : selection
-            }
+            // Nothing stored is stored too: the server reads every kind left unset as team-wide (#4034).
+            credentialAccess = CredentialSelection(json: detail.credentialAccess ?? .object([:]))
             Task { [weak self] in
                 guard let self, canManage, let bypass = try? await AgentChatAPI.bypass(token: token, sessionId: sessionId) else { return }
                 permissionMode = bypass ? .bypass : .auto

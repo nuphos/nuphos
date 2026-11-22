@@ -4,6 +4,20 @@ import XCTest
 /// installation (#4034). Synthetic accounts only.
 final class TeamWideCredentialsUITests: XCTestCase {
     func testAnUnsetGitHubKeyShowsEveryInstallationSelected() throws {
+        try assertGitHubShownSelected(stored: ["awsRoleIds": ["preview-aws"]], name: "unset GitHub")
+    }
+
+    /// Only empty lists stored: GitHub is still unset, so still every installation.
+    func testAnUnsetGitHubKeyBesideEmptyListsShowsSelected() throws {
+        try assertGitHubShownSelected(stored: ["awsRoleIds": []], name: "unset GitHub, empty AWS")
+    }
+
+    /// Nothing stored at all: the server reads every team-wide kind as unset.
+    func testNoStoredSelectionShowsGitHubSelected() throws {
+        try assertGitHubShownSelected(stored: nil, name: "nothing stored")
+    }
+
+    private func assertGitHubShownSelected(stored: [String: Any]?, name: String) throws {
         continueAfterFailure = false
         let fixture = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
@@ -13,12 +27,11 @@ final class TeamWideCredentialsUITests: XCTestCase {
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
         var conversation = try XCTUnwrap(responses["GET /agent/conversations/push-a"] as? [String: Any])
         var body = try XCTUnwrap(conversation["body"] as? [String: Any])
-        body["credentialAccess"] = ["awsRoleIds": ["preview-aws"]]
+        body["credentialAccess"] = stored
         conversation["body"] = body
         responses["GET /agent/conversations/push-a"] = conversation
         responses["GET /agent/conversations?kind=channel"] = ["status": 200, "body": ["conversations": []]]
         responses["GET /agent/credential-options"] = ["status": 200, "body": ["options": [
-            "awsRoles": [["roleId": "preview-aws", "accountId": "123456789012", "accountAlias": "preview-aws-account"]],
             "githubInstallations": [["installationId": "preview-github", "accountLogin": "preview-org"]],
         ]]]
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
@@ -37,10 +50,10 @@ final class TeamWideCredentialsUITests: XCTestCase {
         choose.tap()
         XCTAssertTrue(app.staticTexts["preview-org"].waitForExistence(timeout: 5))
         let picker = XCTAttachment(screenshot: app.screenshot())
-        picker.name = "Credentials · unset GitHub · fixture · light"
+        picker.name = "Credentials · \(name) · fixture · light"
         picker.lifetime = .keepAlways
         add(picker)
-        // Every row ticked: the stored AWS role and, unset, the GitHub installation.
+        // The only row, the unset GitHub installation, is ticked.
         XCTAssertTrue(app.buttons["Clear all"].waitForExistence(timeout: 5), "An unset GitHub key must show as selected")
     }
 }
