@@ -220,9 +220,9 @@ final class HomeTabsUITests: XCTestCase {
         shot("new-task-submitted")
     }
 
-    /// #3433: on iPhone Duo's folded cover screen the three actions left the navigation bar and
-    /// Account hung past the screen's edge. On every device they sit in a navigation bar, on screen.
-    func testHomeActionsStayInNavigationBar() throws {
+    /// #3433: on iPhone Duo's folded cover screen Account hung past the screen's edge. On every
+    /// device the three actions sit in the header at the top of the screen, whole and tappable.
+    func testHomeActionsStayInTopHeader() throws {
         let app = XCUIApplication()
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
@@ -232,14 +232,14 @@ final class HomeTabsUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 10))
         let window = app.windows.firstMatch.frame
-        let bars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
+        let team = app.buttons["Switch team"].firstMatch.frame
         for name in ["Create", "Computers & runtimes", "Account"] {
             let button = app.buttons[name].firstMatch
             XCTAssertTrue(button.isHittable, "\(name) must be tappable")
             XCTAssertTrue(window.contains(button.frame), "\(name) at \(button.frame) must be inside \(window)")
-            XCTAssertTrue(bars.contains { $0.contains(button.frame) }, "\(name) at \(button.frame) must be in a navigation bar \(bars)")
+            XCTAssertLessThan(abs(button.frame.midY - team.midY), 8, "\(name) at \(button.frame) must sit in the header beside the team at \(team)")
         }
-        shot("home-actions-in-navigation-bar")
+        shot("home-actions-in-top-header")
     }
 
     private func shot(_ name: String) {
