@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { resolveNewConversationRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
 import { defaultCredentialAccess } from '@/routes/agent/credential-access'
 
 import { initializeSessionBypass } from './auto-mode/store'
@@ -52,9 +53,7 @@ export async function createBot(
   // Stored on its runtime before its first turn, so every list shows the right mark.
   const { agentRuntime, runtimeId, runtimeLabel } = bot.agentRuntime
     ? bot
-    : await (
-        await import('@/lib/claude-code-preview/conversation-chat-route')
-      ).resolveNewConversationRuntime(teamId, userId, bot.runtimeId)
+    : await resolveNewConversationRuntime(teamId, userId, bot.runtimeId)
   const background = bot.background === 'none' ? undefined : bot.background
   const credentialAccess =
     bot.credentialAccess === undefined
