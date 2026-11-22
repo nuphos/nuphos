@@ -380,6 +380,8 @@ fun HomeScreen(
                 if (!current()) false else {
                     val accepted = store.acceptMemberships(saved, selected?.id)
                     if (accepted) workspaceRevision = store.workspaceRevision
+                    // A verified workspace is now selected, so the sheet has done its job.
+                    if (accepted && selected != null) showSetup = false
                     accepted
                 }
             }, { if (current()) auth.signOut(NuphosApi.Failure.Unauthorized.message) }, auth.workspaceWriteReview, setupStrings)
