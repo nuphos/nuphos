@@ -64,12 +64,14 @@ chat_sources=(
   nuphos-ios/Views/Theme.swift \
   nuphos-ios/Services/Passkeys.swift \
   nuphos-ios/Services/Chat/SSEClient.swift \
+  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Services/Chat/ChannelSession.swift)
-for chat_test in CancelledLoadTests ChannelPushTests HeldFilesTests; do
+for chat_test in CancelledLoadTests ChannelPushTests HeldFilesTests ChannelColdOpenTests; do
   swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
     -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
     "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"
-  "$test_dir/$chat_test"
+  # Each keeps the chats it reads in a home of its own, not the Mac's caches (#3525).
+  CFFIXED_USER_HOME=$(mktemp -d "$test_dir/home.XXXXXX") "$test_dir/$chat_test"
 done
 
 swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
@@ -80,7 +82,6 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
   "${chat_sources[@]}" \
   nuphos-ios/Services/AgentStore.swift \
-  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Services/Chat/ChatSession.swift \
   nuphos-ios/Services/Chat/UIStreamReducer.swift \
   nuphos-ios/Services/Chat/RuntimeTranscript.swift \
@@ -100,4 +101,4 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   ShareSupport/SubmissionAdmission.swift \
   ShareSupport/SharedShareSession.swift \
   tests/ChatReopenTests.swift -o "$test_dir/ChatReopenTests"
-"$test_dir/ChatReopenTests"
+CFFIXED_USER_HOME=$(mktemp -d "$test_dir/home.XXXXXX") "$test_dir/ChatReopenTests"
