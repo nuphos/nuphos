@@ -62,6 +62,7 @@ import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
+import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
@@ -199,6 +200,8 @@ const later: Scenario[] = [
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,
+  // Makes 450 group chats and archives them again.
+  ...sidebarPollScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // A computer of its own, which it stops and forgets again.
