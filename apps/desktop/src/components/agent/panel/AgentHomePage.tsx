@@ -4,6 +4,7 @@ import { t } from '../../../i18n'
 import { projectName } from '../../../lib/taskProjects'
 
 import { Composer } from './Composer'
+import { useComposerOverlay } from './composerOverlay'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
 import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
@@ -93,6 +94,9 @@ export function AgentHomePage({
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
+  // The hero already clears 20px; reserve only the notice reaching above that gap.
+  const noticeRoom = useComposerOverlay(composer)
 
   useLayoutEffect(() => {
     if (shown && scrollRef.current) scrollRef.current.scrollTop = 0
@@ -128,7 +132,7 @@ export function AgentHomePage({
             {/* The composer is untouched — the tray is a sibling painted
                 behind it, same width, with its square top tucked under the
                 composer's bottom so only the part below shows. */}
-            <div className="relative">
+            <div ref={setComposer} className="relative" style={{ marginTop: noticeRoom }}>
               <div className="relative z-10">
                 {/* Strip backing: an opaque fill in the composer's exact
                     shape, so the composer composites over page colour

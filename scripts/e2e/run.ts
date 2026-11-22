@@ -46,6 +46,7 @@ import { formScenario } from './form-scenario.ts'
 import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
+import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalAccountScenarios } from './personal-accounts-scenarios.ts'
@@ -215,6 +216,7 @@ const later: Scenario[] = [
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
+  newTaskGreetingScenario,
   ...offlineScenarios,
   ...mcpNotificationScenarios,
   ...webhookScenarios,
