@@ -37,6 +37,7 @@ import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
+import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -209,6 +210,8 @@ const later: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
+  // A computer of its own, which it stops and forgets again.
+  ...modelRecoveryScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
