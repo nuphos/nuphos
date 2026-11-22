@@ -4,7 +4,7 @@ import { attentionInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { sidebarTaskState } from '../../lib/sidebarTaskState'
-import { rowDot } from '../../lib/subAgentState'
+import { rowDot, rowIndicator } from '../../lib/subAgentState'
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
 
@@ -113,7 +113,8 @@ export function chatSidebarItem({
     // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of
     // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
     note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
-    foldedStatus: status,
+    // Only a status that shows: a folded parent shows the first one.
+    foldedStatus: rowIndicator(runtimeState, dot) === 'none' ? undefined : status,
     dot,
     taskState:
       isBot || conversation.kind === 'channel'
