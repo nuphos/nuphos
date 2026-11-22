@@ -14,7 +14,7 @@ const triggerWrites: unknown[] = []
 useDb({
   db: () => ({
     collection: (name: string) => ({
-      // Logging a failure never writes: a lasting failure is kept by recordFailedFire.
+      // Logging a failure only reads; it never writes to the Trigger.
       findOneAndUpdate: async (_filter: unknown, update: unknown) => triggerWrites.push(update),
       updateOne: async (_filter: unknown, update: unknown) => triggerWrites.push(update),
       findOne: async () =>

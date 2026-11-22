@@ -131,7 +131,7 @@ test('a fire that runs once the computer is back records the run and ends the ou
   expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
   expect(writes[0]?.update).toEqual({
     $set: { lastRunAt: expect.any(Date) },
-    $unset: { missedRunAt: '', failedRunCount: '', lastRunError: '' },
+    $unset: { missedRunAt: '', failedRunCount: '' },
   })
 })
 
@@ -144,10 +144,7 @@ test('a fire whose turn fails for a lasting reason counts toward pausing its Tri
   expect(writes[0]?.op).toBe('findOneAndUpdate')
   expect(writes[0]?.filter).toEqual({ _id: expect.anything(), enabled: true })
   expect(String(writes[0]?.filter._id)).toBe(TRIGGER_ID)
-  expect(writes[0]?.update).toEqual({
-    $inc: { failedRunCount: 1 },
-    $set: { lastRunError: { message: expect.stringContaining('too long'), at: expect.any(Date) } },
-  })
+  expect(writes[0]?.update).toEqual({ $inc: { failedRunCount: 1 } })
 })
 
 test('a fire whose agent is out of usage waits in the queue and writes nothing to its Trigger', async () => {
@@ -187,11 +184,6 @@ test('a fire on a Box its plan will not start fails, and counts toward pausing i
   expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID, other])
   for (const { op, update } of writes) {
     expect(op).toBe('findOneAndUpdate')
-    expect(update).toEqual({
-      $inc: { failedRunCount: 1 },
-      $set: {
-        lastRunError: { message: expect.stringContaining('50 hours'), at: expect.any(Date) },
-      },
-    })
+    expect(update).toEqual({ $inc: { failedRunCount: 1 } })
   }
 })
