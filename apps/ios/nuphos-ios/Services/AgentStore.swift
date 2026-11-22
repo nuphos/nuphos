@@ -108,7 +108,12 @@ final class AgentStore {
         if conversationPoll?.session === session { follow(nil) }
     }
 
+    /// Chats opened since sign-in: one opened again shows what it last read at once,
+    /// and its poll's probe reads it again only if it changed (#3525).
+    private var openedChannels: [String: ChannelSession] = [:]
+
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
+        if let opened = openedChannels[sessionId] { return opened }
         let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
         channel.viewerId = userId
         channel.me = me
@@ -116,6 +121,7 @@ final class AgentStore {
         let row = channels.first { $0.sessionId == sessionId }
         channel.faces = row?.faces ?? []
         channel.botId = row?.botId
+        openedChannels[sessionId] = channel
         return channel
     }
 
