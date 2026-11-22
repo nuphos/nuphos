@@ -174,7 +174,7 @@ export async function getConversations(
     conversations.sort(
       (a, b) =>
         Number(sortedBy(b)) - Number(sortedBy(a)) ||
-        b._id.toHexString().localeCompare(a._id.toHexString()),
+        (b._id.toHexString() > a._id.toHexString() ? 1 : -1),
     )
     conversations.splice(limit + 1)
   }
