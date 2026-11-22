@@ -21,12 +21,13 @@ export function TypingPreview() {
   )
 }
 
-/** A Bot's preview line while it is in setup or has failed; a question stays in the Inbox. */
+/**
+ * A Bot's preview line while it is in setup. A question stays in the Inbox, and
+ * a failed run keeps the chat's newest post: the row's alert mark says it failed.
+ */
 export function BotStatusLine({ activity }: { activity: Activity }) {
   if (activity.kind === 'onboarding')
     return <span className="truncate text-tertiary">{t('Getting started')}</span>
-  if (activity.kind === 'error')
-    return <span className="truncate text-status-danger">{t('Failed')}</span>
 
   return null
 }
