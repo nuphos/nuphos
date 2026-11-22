@@ -6,8 +6,7 @@ import type { PersonalCredential } from '../../types'
 // The login is styled, so split one sentence around it.
 const CONNECTED_AS = t('Connected as {login}').split('{login}')
 
-/** The accounts connected for one provider. One account reads as before, with its Disconnect
- *  beside the provider; several each get a Disconnect of their own. */
+/** The accounts connected for one provider, each with a Disconnect of its own. */
 export function PersonalAccountLines({
   accounts,
   busy,
@@ -35,18 +34,16 @@ export function PersonalAccountLines({
               {CONNECTED_AS[1]}
               {account.workspaceName && ` · ${account.workspaceName}`}
             </p>
-            {accounts.length > 1 && (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={busy}
-                aria-label={t('Disconnect {name}', { name: account.login })}
-                onClick={() => onDisconnect(account)}
-              >
-                {t('Disconnect')}
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              aria-label={t('Disconnect {name}', { name: account.login })}
+              onClick={() => onDisconnect(account)}
+            >
+              {t('Disconnect')}
+            </Button>
           </div>
         ))}
         {canAddMore && accounts.length > 0 && (

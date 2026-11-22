@@ -27,8 +27,6 @@ export function nameOf(provider: PersonalCredentialProvider): string {
   return NAMES[provider]
 }
 
-export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
-
 /** Starts signing in to the member's own account in the browser; a failure says why. */
 export async function connectPersonalCredential(
   provider: PersonalCredentialProvider,
