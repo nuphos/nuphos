@@ -52,7 +52,7 @@ async function recordFailedFire(
   const _id = new ObjectId(triggerId)
   const trigger = await deps.triggers.findOneAndUpdate(
     { _id, enabled: true },
-    { $inc: { failedRunCount: 1 } },
+    { $inc: { failedRunCount: 1 }, $set: { lastRunError: { message: reason, at: new Date() } } },
     { returnDocument: 'after' },
   )
 

@@ -163,7 +163,7 @@ export const runDeps = (): TriggerRunDeps => ({ triggers: agentTriggers(), notif
 export async function recordTriggerRan(triggerId: string, deps = runDeps()): Promise<void> {
   await deps.triggers.updateOne(
     { _id: new ObjectId(triggerId) },
-    { $set: { lastRunAt: new Date() }, $unset: { missedRunAt: '', failedRunCount: '' } },
+    { $set: { lastRunAt: new Date() }, $unset: { missedRunAt: '', failedRunCount: '', lastRunError: '' } },
   )
 }
 

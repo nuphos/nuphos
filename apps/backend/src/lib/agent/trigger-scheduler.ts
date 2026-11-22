@@ -1,12 +1,16 @@
 import { Queue, UnrecoverableError, Worker } from 'bullmq'
 import { ObjectId } from 'mongodb'
 
+import type { Job } from 'bullmq'
+
 import { CRON_TIME_ZONE, spreadWithinMinute } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { serving } from '@/lib/event-loop-stall'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
+import { getConversationBySessionId } from './db'
+import { taskReports } from './task-reports'
 import { closeThreadQueue } from './thread-queue'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
@@ -108,7 +112,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
   )
 
   _worker.on('failed', (job, err) => {
-    void whoseJob(job?.data).then((owner) =>
+    void whoseJob(job, err).then((owner) =>
       logError('agent.trigger_scheduler.job_failed', err, {
         job_id: job?.id,
         job_name: job?.name,
@@ -117,17 +121,15 @@ export async function initTriggerScheduler(): Promise<boolean> {
       }),
     )
     if (job?.name === 'task-report') {
-      void import('./task-reports')
-        .then(({ taskReports }) =>
-          taskReports().updateOne(
-            { _id: job.data.reportId },
-            {
-              $set: {
-                deliveryError:
-                  'Report notification failed; inspect the parent conversation and queue before retrying.',
-              },
+      void taskReports()
+        .updateOne(
+          { _id: job.data.reportId },
+          {
+            $set: {
+              deliveryError:
+                'Report notification failed; inspect the parent conversation and queue before retrying.',
             },
-          ),
+          },
         )
         .catch((error: unknown) => {
           logError('agent.task_report.failure_record_failed', error)
@@ -265,14 +267,43 @@ export function failForGoodIfGone(error: unknown): never {
   throw error
 }
 
-/** The Trigger a failed fire belongs to, so its log line says whose it is (#3718). */
-async function whoseJob(data: unknown): Promise<Record<string, string | undefined>> {
-  const triggerId = (data as { triggerId?: unknown } | undefined)?.triggerId
+/**
+ * Whose a failed job is and when it was due, so its log line says which team and
+ * conversation missed a run (#3718, #4475). A Trigger's fire also keeps the error.
+ */
+export async function whoseJob(
+  job: Pick<Job, 'name' | 'data' | 'timestamp' | 'opts'> | undefined,
+  error: Error,
+): Promise<Record<string, string | undefined>> {
+  if (!job) return {}
+  // A cron fire carries its slot; any other job was due once its delay passed.
+  const due = { scheduled_at: new Date(job.opts.prevMillis ?? job.timestamp + (job.opts.delay ?? 0)).toISOString() }
+  const { triggerId, reportId, sessionId } = (job.data ?? {}) as Record<string, unknown>
 
-  if (typeof triggerId !== 'string' || !ObjectId.isValid(triggerId)) return {}
-  const trigger = await agentTriggers()
-    .findOne({ _id: new ObjectId(triggerId) }, { projection: { teamId: 1, targetSessionId: 1 } })
-    .catch(() => null)
+  if (typeof triggerId === 'string' && ObjectId.isValid(triggerId)) {
+    const trigger = await agentTriggers()
+      .findOneAndUpdate(
+        { _id: new ObjectId(triggerId) },
+        { $set: { lastRunError: { message: error.message, at: new Date() } } },
+        { projection: { teamId: 1, targetSessionId: 1 } },
+      )
+      .catch(() => null)
 
-  return { trigger_id: triggerId, team_id: trigger?.teamId, session_id: trigger?.targetSessionId }
+    return { ...due, trigger_id: triggerId, team_id: trigger?.teamId, session_id: trigger?.targetSessionId }
+  }
+  if (typeof reportId === 'string') {
+    const report = await taskReports()
+      .findOne({ _id: reportId }, { projection: { teamId: 1, parentSessionId: 1 } })
+      .catch(() => null)
+
+    // The report is delivered to the parent conversation.
+    return { ...due, team_id: report?.teamId, session_id: report?.parentSessionId }
+  }
+  if (typeof sessionId === 'string') {
+    const conversation = await getConversationBySessionId(sessionId).catch(() => null)
+
+    return { ...due, team_id: conversation?.teamId, session_id: sessionId }
+  }
+
+  return due
 }

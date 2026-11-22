@@ -88,6 +88,8 @@ export type AgentTrigger = {
    * Unset by a turn that runs and by the pause it leads to.
    */
   failedRunCount?: number
+  /** Why the latest failed fire failed, and when; unset by a turn that runs. */
+  lastRunError?: { message: string; at: Date }
   createdAt: Date
   updatedAt: Date
 }
