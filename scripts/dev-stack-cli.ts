@@ -21,7 +21,6 @@ import {
   readInstances,
   removeInstance,
 } from './dev-instance.ts'
-import { cleanupManagedAgents } from './dev-managed-cleanup.ts'
 import { acquireResetLock, resetMessage, runReset } from './dev-reset.ts'
 
 function compose(args: string[]): number {
@@ -36,7 +35,7 @@ async function confirmReset(): Promise<boolean> {
 
   try {
     const answer = await rl.question(
-      'Delete the local dev database, buckets, runtime data and local managed agents? [y/N] ',
+      'Delete the local dev database, buckets, and runtime data? [y/N] ',
     )
 
     return answer.trim().toLowerCase() === 'y'
@@ -86,21 +85,14 @@ if (command.kind === 'instances') {
 }
 
 if (command.kind === 'run') {
-  const code = compose(command.args)
-
-  if (command.args[0] === 'stop') await cleanupManagedAgents('stop', print)
-  process.exit(code)
+  process.exit(compose(command.args))
 }
 const result = await runReset({
   confirm: () => (command.confirmed ? Promise.resolve(true) : confirmReset()),
   acquire: () => acquireResetLock(),
   otherLaunchers,
   wipe: async () => {
-    const wiped = compose(RESET_ARGS) === 0
-
-    await cleanupManagedAgents('down', print)
-
-    return wiped
+    return compose(RESET_ARGS) === 0
   },
 })
 

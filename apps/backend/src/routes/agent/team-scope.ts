@@ -1,10 +1,11 @@
-import { getConversationBySessionId, getConversationWithMessages } from '@/lib/agent/db'
+import { getConversationBySessionId, getReadableConversation } from '@/lib/agent/db'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { parseUrlContext } from '@/lib/agent/url-context'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { tokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isTeamIdShape } from '@/lib/team-id'
+import { PERSONAL_CREDENTIAL_PROVIDERS as PERSONAL_PROVIDERS } from '@/models/personal-credentials'
 
 import type { AgentCredentialSelection } from './types'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -123,13 +124,13 @@ export async function resolveReadableConversationForResume(
   userId: string,
   teamId: string | undefined,
 ): Promise<AgentConversation> {
-  const result = await getConversationWithMessages(sessionId, userId, teamId)
+  const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (!result) {
+  if (!conversation) {
     throw new AppError(404, 'not_found', 'Conversation not found')
   }
 
-  return result.conversation
+  return conversation
 }
 
 export function readTeamIdCandidate(c: Context, bodyTeamId?: unknown): string | undefined {
@@ -241,19 +242,23 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       'cloudflareAccountIds',
     ),
     instaboxAccountIds: normalizeOptionalObjectIdList(raw.instaboxAccountIds, 'instaboxAccountIds'),
-    teamIdentity: normalizeProviders(raw.teamIdentity, 'teamIdentity'),
-    personalCredentialIds: normalizeProviders(raw.personalCredentialIds, 'personalCredentialIds'),
+    teamIdentity: normalizeProviders(raw, 'teamIdentity', ['github', 'linear'] as const),
+    personalCredentialIds: normalizeProviders(raw, 'personalCredentialIds', PERSONAL_PROVIDERS),
+    personalConnectionIds: normalizeOptionalObjectIdList(
+      raw.personalConnectionIds,
+      'personalConnectionIds',
+    ),
   }
 }
 
-const PERSONAL_PROVIDERS = new Set(['github', 'linear'])
+function normalizeProviders<P extends string>(
+  raw: Record<string, unknown>,
+  field: string,
+  known: readonly P[],
+) {
+  if (raw[field] == null) return undefined
 
-function normalizeProviders(value: unknown, field: string): ('github' | 'linear')[] | undefined {
-  if (value == null) return undefined
-
-  return normalizeStringList(value, field).filter((provider): provider is 'github' | 'linear' =>
-    PERSONAL_PROVIDERS.has(provider),
-  )
+  return normalizeStringList(raw[field], field).filter((id): id is P => known.includes(id as P))
 }
 
 function normalizeOptionalObjectIdList(value: unknown, field: string): string[] | undefined {
@@ -265,20 +270,13 @@ function normalizeOptionalStringList(value: unknown, field: string): string[] | 
 }
 
 function normalizeObjectIdList(value: unknown, field: string): string[] {
-  if (value == null) return []
-  if (!Array.isArray(value)) {
-    throw new AppError(400, 'invalid_request', `${field} must be an array`)
-  }
-  const ids = new Set<string>()
+  const ids = normalizeStringList(value, field)
 
-  for (const item of value) {
-    if (typeof item !== 'string' || !/^[a-f0-9]{24}$/i.test(item)) {
-      throw new AppError(400, 'invalid_request', `${field} contains an invalid ObjectId`)
-    }
-    ids.add(item)
+  if (!ids.every((id) => /^[a-f0-9]{24}$/i.test(id))) {
+    throw new AppError(400, 'invalid_request', `${field} contains an invalid ObjectId`)
   }
 
-  return [...ids]
+  return ids
 }
 
 function normalizeStringList(value: unknown, field: string): string[] {

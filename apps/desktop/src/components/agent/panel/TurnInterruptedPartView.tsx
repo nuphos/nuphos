@@ -3,6 +3,8 @@ import { useContext } from 'react'
 
 import { t } from '../../../i18n'
 
+import { InstallButton } from '../../../views/settings/LocalAgentCard'
+
 import { FailureRow } from './FailureRow'
 import { CopyMessageButton } from './messageActions'
 import { normalizeAgentError } from './stall'
@@ -26,18 +28,26 @@ export function TurnInterruptedPartView({ part }: { part: TurnInterruptedPart })
   const turnSwitch = useContext(TurnSwitchAgentContext)
 
   // The agent itself could not run the turn: the row a Bot chat shows, with Switch runtime.
-  if (part.cause)
+  if (part.cause) {
+    const actions = turnSwitch?.partId === part.id ? turnSwitch : undefined
+
     return (
-      <FailureRow
-        onSwitchAgent={turnSwitch?.partId === part.id ? turnSwitch.switchAgent : undefined}
-        onRetry={retry}
-        copyText={copyText}
-      >
-        <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
-        {detail && <> {detail}</>}
-        {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
-      </FailureRow>
+      <>
+        <FailureRow
+          fix={actions?.reinstall && <InstallButton provider={actions.reinstall} />}
+          onSwitchAgent={actions?.switchAgent}
+          onSetUpFallback={actions?.setUpFallback}
+          onRetry={retry}
+          copyText={copyText}
+        >
+          <span className="font-medium text-secondary">{HEADLINE[part.reason]}</span>
+          {detail && <> {detail}</>}
+          {part.repeats && <span className="tabular-nums"> ×{part.repeats}</span>}
+        </FailureRow>
+        {actions?.fallbackDialog}
+      </>
     )
+  }
 
   return (
     <div className="group/interrupted flex items-start gap-1.5 text-[12.5px] text-tertiary">

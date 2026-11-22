@@ -58,7 +58,7 @@ enum ConversationNesting {
 
     /// The Bot each row works for: the nearest Bot up its parents (Desktop's
     /// `botOwner`, #2341). A Bot works for none. Such rows leave Tasks and
-    /// follow their Bot under Bots.
+    /// open from their Bot's page.
     static func botOwners(_ rows: [AgentConversation]) -> [String: String] {
         let byId = Dictionary(rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
         var owners: [String: String] = [:]
@@ -71,19 +71,5 @@ enum ConversationNesting {
             }
         }
         return owners
-    }
-
-    /// What Bots lists, in `list` order: each chat or Bot, and under a Bot's
-    /// 1:1 chat (or the Bot, while it has no chat) what the Bot dispatched,
-    /// as Desktop's `botChatRows` does. Only the Bot's direct threads move
-    /// under its chat; deeper ones keep their parents.
-    static func botRows(_ list: [AgentConversation], threads: [AgentConversation], owners: [String: String]) -> [AgentConversation] {
-        let chats = Dictionary(list.compactMap { row in row.botId.map { ($0, row.sessionId) } }, uniquingKeysWith: { first, _ in first })
-        let moved = threads.filter { owners[$0.sessionId] != nil }.map { row -> AgentConversation in
-            var row = row
-            if let bot = row.parentSessionId, let chat = chats[bot] { row.parentSessionId = chat }
-            return row
-        }
-        return list + moved
     }
 }

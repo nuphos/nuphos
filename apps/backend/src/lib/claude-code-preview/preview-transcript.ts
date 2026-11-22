@@ -5,12 +5,9 @@
 import { getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
-import {
-  OpenAbConnectionLostError,
-  claudeNotice,
-  runtimeProductStateMessage,
-  turnFailureCause,
-} from './openab-acp-errors'
+import { outdatedHint } from './host-minimum-version'
+import { OpenAbConnectionLostError, claudeNotice, turnFailureCause } from './openab-acp-errors'
+import { plainTurnFailure, userSetupFailure } from './plain-failure'
 import { runtimeFailure } from './runtime-failure'
 import { RuntimeStateProbeError } from './turn-diagnostics'
 
@@ -40,8 +37,11 @@ export type PreviewToolStep = {
 export type PreviewTurnInterruption = {
   reason: 'cancelled' | 'timeout' | 'error'
   message: string
-  /** Set when the agent itself was the cause, so a client can offer Switch agent. */
-  cause?: Exclude<TurnFailureCause, 'other'>
+  /**
+   * Set when the agent itself was the cause, so a client can offer Switch agent; `cli` when
+   * its CLI could not start, so this computer's own agent also offers its installer.
+   */
+  cause?: Exclude<TurnFailureCause, 'other'> | 'cli'
 }
 
 export const INTERRUPTED_TOOL_ERROR = 'Interrupted before the tool finished.'
@@ -57,22 +57,29 @@ export function classifyPreviewInterruption(
   error: unknown,
   aborted: boolean,
 ): PreviewTurnInterruption {
-  const interruption = interruptionOf(error, aborted)
-  const cause = aborted ? 'other' : turnFailureCause(error)
+  const found = interruptionOf(error, aborted)
+  // The line noteOutdated added to the error is the one part of it the summary keeps.
+  const hint = outdatedHint(error)
+  const interruption = hint ? { ...found, message: `${found.message} ${hint}` } : found
+  const cause = aborted
+    ? 'other'
+    : userSetupFailure(error) === 'agent_cli_unstartable'
+      ? 'cli'
+      : turnFailureCause(error)
 
   return cause === 'other' ? interruption : { ...interruption, cause }
 }
 
 function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterruption {
+  // A product state names the action, whichever agent hit it, as the stream error does.
+  const productState = aborted ? undefined : plainTurnFailure(error)
+
+  if (productState) return { reason: 'error', message: productState }
   if (
     !aborted &&
     (error instanceof CodexTurnFailedError || error instanceof OpenAbConnectionLostError)
   )
     return { reason: 'error', message: error.userMessage }
-  // A signed-out or out-of-usage runtime is a product state: the transcript names the action.
-  const productState = aborted ? undefined : runtimeProductStateMessage(error)
-
-  if (productState) return { reason: 'error', message: productState }
   const failure = aborted ? undefined : runtimeFailure(error)
 
   if (failure) return { reason: 'error', message: failure.message }

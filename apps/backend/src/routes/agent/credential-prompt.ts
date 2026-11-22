@@ -62,7 +62,6 @@ export function renderAgentCredentialPrompt(
     'For Plaud, use the exact setupCommand shown below to load a short-lived access token, then use the plaud skill to read recordings, transcripts and summaries from the Plaud API directly. Recordings are private conversations: read only what the request needs. Do not print or paste the access token into chat.',
     'For GitHub, GitLab, Notion, Upstash, and Cloudflare, use the exact setupCommand shown below to configure credentials. The ids are already listed here, so do not curl a Nuphos collection endpoint to discover them first.',
     'For Grafana and SonarQube there is no setup script: call the Nuphos endpoints shown below, which proxy the request with server-side credentials. Do not ask for or paste Grafana or SonarQube tokens into chat.',
-    'For Nuphos GUI markdown links, use the guiLinks/template hints shown below whenever you mention a concrete discovered resource and have the required ids. GUI links are not credential API URLs.',
     'Do not describe or guess where the credential selector appears in the Nuphos UI.',
   ]
 
@@ -83,7 +82,7 @@ export function renderAgentCredentialPrompt(
   appendVolcengineAccountLines(lines, selected.volcengineAccounts, teamId)
   appendAzureAccountLines(lines, selected.azureAccounts, teamId)
   appendHuaweiAccountLines(lines, selected.huaweiAccounts, teamId)
-  appendOnpremClusterLines(lines, selected.onpremClusters, teamId)
+  appendOnpremClusterLines(lines, selected.onpremClusters)
   appendBetterStackIntegrationLines(lines, selected.betterStackIntegrations, teamId)
   appendUptimeKumaInstanceLines(lines, selected.uptimeKumaInstances, teamId)
   appendLinearWorkspaceLines(lines, selected.linearWorkspaces, teamId)

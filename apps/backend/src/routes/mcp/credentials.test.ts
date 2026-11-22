@@ -34,9 +34,12 @@ const options = {
   vantaIntegrations: [],
   secureframeIntegrations: [],
   resendIntegrations: [],
-  personalCredentials: [],
+  personalCredentials: [{ id: 'c1', provider: 'github', login: 'me' }],
   devices: [{ deviceId: 'mac', label: 'Mac', platform: 'darwin', available: false }],
   ...emptyConnectorCredentialOptions(),
+  githubInstallations: [
+    { installationId: '123', accountLogin: 'example', accountType: 'Organization' },
+  ],
 } as AgentCredentialOptions
 
 // The stored conversation. The tool reads a snapshot; the picker can edit the
@@ -110,3 +113,77 @@ describe('nuphos_update_credentials', () => {
     expect(stored.credentialAccess.awsRoleIds).toEqual([])
   })
 })
+
+test('updates GitHub selection and identity through the shared credential resolver', async () => {
+  const result = await nuphosUpdateCredentials(
+    {
+      team_id: 't1',
+      session_id: 's1',
+      github_installation_ids: ['123', 'unavailable'],
+      personal_credential_ids: ['github', 'linear'],
+      team_identity: ['github'],
+    },
+    { userId: 'u1' } as never,
+  )
+
+  expect(result.isError).not.toBe(true)
+  expect(stored.credentialAccess).toMatchObject({
+    githubInstallationIds: ['123'],
+    personalCredentialIds: ['github'],
+    teamIdentity: ['github'],
+  })
+  expect(result.structuredContent).toMatchObject({
+    enabled_for_session: {
+      github_installation_ids: ['123'],
+      personal_credential_ids: ['github'],
+      team_identity: ['github'],
+    },
+  })
+})
+
+test('omitted GitHub fields preserve the selection and explicit empty lists clear it', async () => {
+  Object.assign(stored.credentialAccess, {
+    githubInstallationIds: ['123'],
+    personalCredentialIds: ['github'],
+    teamIdentity: ['github'],
+  })
+  await run()
+  expect(stored.credentialAccess).toMatchObject({
+    githubInstallationIds: ['123'],
+    personalCredentialIds: ['github'],
+    teamIdentity: ['github'],
+  })
+  await nuphosUpdateCredentials(
+    {
+      team_id: 't1',
+      session_id: 's1',
+      github_installation_ids: [],
+      personal_credential_ids: [],
+      team_identity: [],
+    },
+    { userId: 'u1' } as never,
+  )
+  expect(stored.credentialAccess).toMatchObject({
+    githubInstallationIds: [],
+    personalCredentialIds: [],
+    teamIdentity: [],
+  })
+})
+
+test.each(['github_installation_ids', 'personal_credential_ids', 'team_identity'])(
+  'malformed %s is rejected by the existing validator without writing',
+  async (field) => {
+    const before = structuredClone(stored.credentialAccess)
+    const result = await nuphosUpdateCredentials(
+      {
+        team_id: 't1',
+        session_id: 's1',
+        [field]: 'not-an-array',
+      },
+      { userId: 'u1' } as never,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(stored.credentialAccess).toEqual(before)
+  },
+)

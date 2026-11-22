@@ -3,6 +3,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { logError, logEvent } from '@/lib/observability'
 
 import { sessionReleased } from './session-released'
+import { deliverWaitingAnswersOn } from './deliver-waiting-answers'
 
 export type SettleDeps = {
   /** The conversations asking for a sign-in to this runtime. */
@@ -48,6 +49,8 @@ export async function settleSignInRequests(
       deps.released(userId, sessionId)
       settled++
     }
+    // Answers that waited for this agent's sign-in go to it now.
+    void deliverWaitingAnswersOn({ teamId, runtimeId })
     if (settled)
       logEvent('info', 'agent.sign_in_request.settled', {
         team_id: teamId,

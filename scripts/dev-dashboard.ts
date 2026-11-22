@@ -4,7 +4,6 @@
 import { join } from 'node:path'
 
 import { events, TTY } from './dev-event-log.ts'
-import { DEV_OPTIONS } from './dev-options.ts'
 import { QUIT_OPTIONS, quitMenuView } from './dev-quit.ts'
 import { services } from './dev-services.ts'
 import { isQuitting } from './dev-shutdown.ts'
@@ -62,7 +61,7 @@ function quitMenuRows(): string[] {
     i === menu.index ? `  ${BOLD}❯ ${label}${RESET}` : `    ${DIM}${label}${RESET}`,
   )
   const hint = menu.confirming
-    ? '\x1b[31mDeletes the local database, buckets and managed agents. Enter or y to confirm, Esc to go back.\x1b[0m'
+    ? '\x1b[31mDeletes the local database and buckets. Enter or y to confirm, Esc to go back.\x1b[0m'
     : `${DIM}↑/↓ move · Enter choose · Esc or q cancel${RESET}`
 
   return ['', `  ${BOLD}Quit nuphos dev${RESET}`, ...rows, `  ${hint}`]
@@ -97,11 +96,10 @@ export function render() {
   const rows = termRows()
   const cols = termCols()
   const out: string[] = []
-  const mode = DEV_OPTIONS.managed ? ' --managed' : ''
 
   out.push(
     '',
-    `  ${BOLD}▲ nuphos dev${mode}${RESET}   ${DIM}${INSTANCE}  ·  r restart   q quit${RESET}`,
+    `  ${BOLD}▲ nuphos dev${RESET}   ${DIM}${INSTANCE}  ·  r restart   q quit${RESET}`,
     `  ${rule(cols)}`,
   )
   for (const s of services) out.push(...serviceRow(s))

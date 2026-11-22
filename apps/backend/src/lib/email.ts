@@ -15,6 +15,9 @@ export type SendEmailInput = {
   text: string
 }
 
+/** The provider refused the address itself: no retry can deliver to it. */
+export class InvalidRecipientError extends Error {}
+
 export function isEmailConfigured(): boolean {
   return Boolean(config.email.resendApiKey && config.email.from)
 }
@@ -46,6 +49,12 @@ export async function sendEmail(input: SendEmailInput): Promise<void> {
     const body = await res.text().catch(() => '')
     const detail = body ? ` — ${body.slice(0, 200)}` : ''
 
+    // Resend answers 422 "Invalid `to` field" for an address it won't accept.
+    // Matched on that wording: if it changes, the send fails as a retryable 503
+    // instead, as before.
+    if (res.status === 422 && body.includes('`to`')) {
+      throw new InvalidRecipientError(`Resend refused the recipient${detail}`)
+    }
     throw new Error(`Resend send failed: HTTP ${String(res.status)}${detail}`)
   }
 }

@@ -68,6 +68,8 @@ const UNFILTERABLE_PAGE_KEYS = new Set([
   'cloudflare.iam',
   // Connectors owns a catalog search below its title and copy.
   'team.integrations',
+  // The Inbox's search sits in the sidebar, above the list it filters.
+  'team.inbox',
 ])
 
 /**
@@ -140,10 +142,8 @@ export function useToolbarSlots() {
   // casing which pages carry their own controls.
   const [toolbarLeftEl, setToolbarLeftEl] = useState<HTMLElement | null>(null)
   const [toolbarRightEl, setToolbarRightEl] = useState<HTMLElement | null>(null)
-  const [toolbarHeaderRightEl, setToolbarHeaderRightEl] = useState<HTMLElement | null>(null)
   const [toolbarLeftOccupied, setToolbarLeftOccupied] = useState(false)
   const [toolbarRightOccupied, setToolbarRightOccupied] = useState(false)
-  const [toolbarHeaderRightOccupied, setToolbarHeaderRightOccupied] = useState(false)
   const setToolbarSlotOccupied = useCallback((side: 'left' | 'right', occupied: boolean) => {
     ;(side === 'left' ? setToolbarLeftOccupied : setToolbarRightOccupied)(occupied)
   }, [])
@@ -151,11 +151,9 @@ export function useToolbarSlots() {
     () => ({
       left: toolbarLeftEl,
       right: toolbarRightEl,
-      headerRight: toolbarHeaderRightEl,
       setOccupied: setToolbarSlotOccupied,
-      setHeaderRightOccupied: setToolbarHeaderRightOccupied,
     }),
-    [toolbarLeftEl, toolbarRightEl, toolbarHeaderRightEl, setToolbarSlotOccupied],
+    [toolbarLeftEl, toolbarRightEl, setToolbarSlotOccupied],
   )
 
   return {
@@ -163,8 +161,6 @@ export function useToolbarSlots() {
     setToolbarPrimaryAction,
     setToolbarLeftEl,
     setToolbarRightEl,
-    setToolbarHeaderRightEl,
-    toolbarHeaderRightOccupied,
     toolbarLeftOccupied,
     toolbarRightOccupied,
     toolbarSlots,

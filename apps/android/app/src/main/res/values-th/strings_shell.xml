@@ -57,9 +57,6 @@
     <string name="shell_request_code_in">คุณขอรหัสใหม่ได้อีกครั้งใน %1$d วินาที</string>
     <string name="shell_use_email_code">ใช้รหัสทางอีเมลแทน</string>
     <string name="shell_use_password">ใช้รหัสผ่าน</string>
-    <string name="shell_terms_agreement">เมื่อดำเนินการต่อ แสดงว่าคุณยอมรับ%1$sและ%2$sของเรา</string>
-    <string name="shell_terms_of_service">ข้อกำหนดในการให้บริการ</string>
-    <string name="shell_privacy_policy">นโยบายความเป็นส่วนตัว</string>
     <string name="shell_email_code_field">รหัสอีเมล 6 หลัก</string>
     <string name="shell_auth_cleanup_failed">ล้างฉบับร่างที่บันทึกไว้ไม่สำเร็จ ตรวจสอบพื้นที่จัดเก็บแล้วลองอีกครั้ง</string>
     <string name="shell_auth_signed_out_cleanup_failed">ออกจากระบบแล้ว แต่ล้างฉบับร่างที่บันทึกไว้ไม่สำเร็จ ตรวจสอบพื้นที่จัดเก็บก่อนปิดแอป</string>
@@ -141,6 +138,7 @@
     <string name="shell_notification_open_history">เปิดประวัติงาน</string>
     <string name="shell_notification_open_update">เปิด Nuphos เพื่อดูการอัปเดต</string>
     <string name="shell_notification_reply">ตอบกลับ</string>
+    <string name="shell_notification_you">คุณ</string>
     <string name="shell_notification_message">ข้อความ</string>
     <string name="shell_notification_reply_not_sent">ส่งการตอบกลับไม่สำเร็จ</string>
     <string name="shell_voice_input">การป้อนด้วยเสียง</string>
@@ -153,7 +151,6 @@
     <string name="shell_voice_prompt_save_failed">บันทึกพรอมต์ไม่ได้</string>
     <string name="shell_voice_prompt">พรอมต์การถอดความ</string>
     <string name="shell_voice_reset_prompt">รีเซ็ตพรอมต์</string>
-    <string name="shell_voice_prompt_help">พรอมต์ช่วยกำหนดการสะกดและสไตล์การเขียน การบันทึกเสียงจะถอดความโดย OpenAI ผ่าน Nuphos</string>
     <string name="shell_desktop">เดสก์ท็อป</string>
     <string name="shell_desktop_decode_failed">ถอดรหัสเดสก์ท็อปนี้ไม่ได้ ลองอีกครั้งเพื่อเริ่มการเชื่อมต่อใหม่</string>
     <string name="shell_desktop_connecting">กำลังเชื่อมต่อ…</string>
@@ -172,4 +169,6 @@
     <string name="shell_desktop_type_on">พิมพ์บนเดสก์ท็อป</string>
     <string name="shell_desktop_typing">กำลังพิมพ์…</string>
     <string name="shell_desktop_type">พิมพ์</string>
+    <string name="shell_inbox_snoozed">เลื่อนไว้</string>
+    <string name="shell_inbox_unsnooze">ยกเลิกการเลื่อน</string>
 </resources>

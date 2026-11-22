@@ -7,7 +7,7 @@ import {
   databaseConnectionHealthIsStorable,
 } from '@/lib/database-connections'
 import { decryptDatabaseCredential } from '@/lib/database-credentials'
-import { resolveDatabaseNetwork } from '@/lib/database-network'
+import { resolveDatabaseNetwork, savedNetwork } from '@/lib/database-network'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { databaseConnections } from '@/models'
@@ -149,7 +149,12 @@ export function tailscaleSelection(input: { tailscale?: { bindingId: string; tag
 export async function connectionNetwork(connection: DatabaseConnection) {
   assertSupportedNetworkEngine(connection.engine, connection.networkMode)
 
-  return resolveDatabaseNetwork(connection.teamId, connection.networkMode, connection.tailscale)
+  return resolveDatabaseNetwork(
+    connection.teamId,
+    connection.networkMode,
+    connection.tailscale,
+    savedNetwork,
+  )
 }
 
 export function assertHealthyConnection(health: DatabaseConnectionHealth): void {

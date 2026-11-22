@@ -1,6 +1,6 @@
 ---
 name: gcloud
-description: Run Google Cloud SDK (gcloud) commands from the sandbox to inspect or change GCP resources (GKE, Compute Engine, IAM, networking). Includes scripts to install the SDK and to load a short-lived access token for an Nuphos-bound project.
+description: Run gcloud to inspect or change GCP resources (GKE, Compute Engine, IAM, networking). Includes scripts to install the SDK and load a token for a Nuphos-bound project.
 ---
 
 # gcloud (Google Cloud SDK)
@@ -78,12 +78,20 @@ the binding's Access allow list in Settings -> Integrations, or choose another
 service account already enabled for this session. Retry the setup command after
 the allow list changes.
 
-### Impersonation / getAccessToken denied
+### Connector service account missing (`gcp_connector_missing`)
 
-If `setup-credentials.sh` returns `cloud_api_error` with
-`PERMISSION_DENIED: unable to impersonate` or
-`iam.serviceAccounts.getAccessToken`, the platform cannot mint a token for the
-bound connector service account. Do not create a plan for local execution.
+If `setup-credentials.sh` fails with HTTP 409 `gcp_connector_missing`, the bound
+connector service account no longer exists. Do not retry the setup command or the
+GCP operation: it fails the same way until the connector is fixed. Tell the user
+that a team admin must reconnect the GCP connector for this project, then stop.
+
+### Impersonation / getAccessToken denied (`gcp_connector_permission_missing`)
+
+If `setup-credentials.sh` fails with HTTP 409 `gcp_connector_permission_missing`,
+the platform cannot mint a token for the bound connector service account. Do not
+retry the setup command: it fails the same way until the grant exists. If the
+user just granted it, IAM can take a couple of minutes to propagate: wait, then
+try once more. Do not create a plan for local execution.
 Tell the user to use their locally authenticated `gcloud` to grant Token Creator
 on the bound service account to the team-scoped workload identity principal
 shown by the GCP binding wizard, then retry after IAM propagation.

@@ -2,19 +2,9 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
-export type TunnelPurpose =
-  | 'transport'
-  | 'control'
-  | 'exec'
-  | 'upload'
-  | 'file'
-  | 'attachments'
-  | 'terminal'
-  | 'cua'
-  | 'browser'
-  | 'browserView'
-  | 'vnc'
-  | 'instances'
+import type { TunnelPurpose } from './tunnel-purpose'
+
+export type { TunnelPurpose }
 
 export const LOCAL_AGENT_PROVIDERS = [
   'claude-code',
@@ -76,6 +66,9 @@ export const localModelCatalogSchema = z.object({
   controls: z.record(z.string().max(500), modelControlsSchema),
   /** The runtime offered settings but no model list; its controls sit under `default`. */
   controlsOnly: z.literal(true).optional(),
+  /** The computer read this agent's models and the read failed, so this emptiness is
+   *  not a list still on its way and nobody should be told to wait for one. */
+  failed: z.literal(true).optional(),
 })
 
 /** One usage window as Anthropic or ChatGPT reports it. A window that does not
@@ -113,6 +106,10 @@ const localAgentStatusSchema = z.object({
     loggedIn: z.boolean().nullable(),
     /** Signed in with an API key rather than an account; never the key itself. */
     apiKey: z.boolean().optional().catch(undefined),
+    /** An added agent's CLI being installed by the computer, or why that failed. */
+    installing: z.boolean().optional().catch(undefined),
+    installError: z.string().max(500).optional().catch(undefined),
+    probeError: z.string().max(500).optional().catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
@@ -128,6 +125,8 @@ const localAgentStatusSchema = z.object({
   /** When that computer read it. Codex reports its windows as offsets from the
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
+  /** The account whose quota it spends, as a hash only that computer can make. */
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{20}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -158,6 +157,7 @@ export const localRuntimeStatusSchema = z.object({
   fileImport: z.boolean().optional(),
   localExec: z.boolean().optional(),
   localUpload: z.boolean().optional(),
+  localDownload: z.boolean().optional(),
   localMetrics: z.boolean().optional(),
   localTerminal: z.boolean().optional(),
   localCua: z.boolean().optional(),
@@ -169,6 +169,17 @@ export const localRuntimeStatusSchema = z.object({
   desktopOpen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
+  /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
+   *  the restart its owner may ask for from another computer (`method: 'update'`). Never fatal. */
+  app: z
+    .object({
+      version: z.string().max(50),
+      update: z.object({ version: z.string().max(50), ready: z.boolean() }).optional(),
+    })
+    .optional()
+    .catch(undefined),
+  /** Whether this computer installs updates by itself when idle; `method: 'autoInstall'` sets it. */
+  autoInstall: z.boolean().optional().catch(undefined),
   /** Desktops this computer runs for conversations (a Box: one X display per session; a Mac: its screen, :0). */
   desktops: z
     .array(
@@ -249,7 +260,8 @@ export type HolderMessage =
       provider?: LocalAgentProvider
       instanceId?: string
     }
-  | { t: 'data'; s: string; d: string }
+  /** `conn` names the tunnel the stream opened on; a replica from before it was added sends none. */
+  | { t: 'data'; s: string; d: string; conn?: string }
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }

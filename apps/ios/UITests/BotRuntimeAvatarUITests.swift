@@ -19,6 +19,7 @@ final class BotRuntimeAvatarUITests: XCTestCase {
     func testFrontBotAndHuman() throws { try captureCase("front-bot", faces: [bot("bot-plain", "codex"), person]) }
     func testTwoBotsHaveTheirOwnProviders() throws { try captureCase("two-bots", faces: [bot("bot-plain", "codex"), bot("second-bot", "grok")]) }
     func testAllHumanGroup() throws { try captureCase("all-human", faces: [person, ["id": "other-human", "name": "Other"]]) }
+    func testThreeMembersCluster() throws { try captureCase("three-members", faces: [bot("bot-plain", "codex"), person, bot("second-bot", "grok")]) }
     func testBotWithMissingRuntime() throws { try captureCase("missing-runtime", faces: [bot("bot-plain", nil)]) }
 
     func testTypingUsesTheActualBotProvider() throws { try captureCase("typing-codex", faces: [bot("bot-plain", "codex")], typing: true) }
@@ -75,6 +76,8 @@ final class BotRuntimeAvatarUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10))
+        // The list row types exactly while its chat does (#3522).
+        XCTAssertEqual(app.descendants(matching: .any)["Release notes is thinking"].firstMatch.waitForExistence(timeout: typing ? 10 : 1), typing)
         shot(name + "-list-36")
         row.tap()
         XCTAssertTrue(app.collectionViews["chat.transcript"].waitForExistence(timeout: 10))

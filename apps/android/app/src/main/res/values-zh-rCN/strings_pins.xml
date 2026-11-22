@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">置顶 Bot</string>
+    <string name="pins_unpin_bot">取消置顶 Bot</string>
+    <string name="pins_pin">置顶</string>
+    <string name="pins_unpin">取消置顶</string>
+    <string name="pins_no_messages">还没有消息</string>
+    <string name="pins_needs_input">需要你的回复</string>
+    <string name="pins_running">运行中</string>
+    <string name="pins_unread">未读帖子</string>
+</resources>

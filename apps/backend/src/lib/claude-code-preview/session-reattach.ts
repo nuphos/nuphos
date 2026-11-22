@@ -4,6 +4,7 @@ import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel, parseJson } from '@/lib/agent/devices/local-runtime/protocol'
+import { trackAgentProducer } from '@/lib/agent/producer-drain'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { errorTelemetryProperties, logError, logEvent } from '@/lib/observability'
 import { notifyLiveActivities } from '@/lib/push/live-activities'
@@ -63,11 +64,11 @@ export async function untilOnline(url: string): Promise<void> {
  * back on. A drop the session recovers from never ends it: the same native turn
  * carries on over the reattached transport (#704).
  */
-export function endAutonomousTranscriptAfterLoss(session: TeamSession): void {
+export async function endAutonomousTranscriptAfterLoss(session: TeamSession): Promise<void> {
   const update = { kind: 'interrupted', reason: 'runtime_connection_lost' } as const
 
   if (!closeAutonomousTranscript(session, update)) return
-  invokeUpdateHandler(session, update).catch((error: unknown) => {
+  await invokeUpdateHandler(session, update).catch((error: unknown) => {
     logError('agent.chat.preview_autonomous_handler.error', error, {
       team_id: session.teamId,
       session_id: session.conversationId,
@@ -101,14 +102,15 @@ export function observeSession(session: TeamSession): void {
     session.reattached = reattachAfterTransportLoss(session, transport)
     // A turn in flight continues once the session is back. Giving up ends it,
     // and so does a reattach that found the agent gone: no frame will come.
-    session.reattached.then(
-      (back) => {
-        if (!back || session.innerSessionLost) endAutonomousTranscriptAfterLoss(session)
+    const ended = session.reattached.then(
+      async (back) => {
+        if (!back || session.innerSessionLost) await endAutonomousTranscriptAfterLoss(session)
       },
-      () => {
-        endAutonomousTranscriptAfterLoss(session)
-      },
+      () => endAutonomousTranscriptAfterLoss(session),
     )
+
+    // A draining replica gives up at once; shutdown waits until the ended turn is saved.
+    if (isShuttingDown()) void trackAgentProducer(() => ended)
   }
   const stopClosed = transport.onClosed(onLost)
   const stopRetired = transport.onRetired(onLost)
@@ -208,21 +210,6 @@ export async function reattachAfterTransportLoss(
   wait: Sleep = (ms) => sleep(ms).then(() => untilOnline(session.endpoint.url)),
 ): Promise<boolean> {
   if (session.reattaching) return false
-  // A draining replica hands the session on; winning it back would strand it.
-  if (isShuttingDown()) {
-    if ((await owned(session, transport, 0)) === 'no') return false
-    try {
-      await publishLostSessionHandoff(session)
-    } catch (error) {
-      logError('agent.runtime_handoff.publish_failed', error, {
-        team_id: session.teamId,
-        session_id: session.conversationId,
-      })
-      await markBackgroundWorkLost(session, 'unreachable')
-    }
-
-    return false
-  }
   session.reattaching = transport
   // Set only by a failure against the runtime itself, never by a bookkeeping
   // read that happened to throw: a Mongo hiccup is no evidence about the
@@ -238,6 +225,19 @@ export async function reattachAfterTransportLoss(
       // Superseded, perhaps long after a wait for the computer: whoever holds
       // the session now owns its story, so this attempt writes nothing.
       if (ownership === 'no') return false
+      // A draining replica hands the session on, even in a loop that began before
+      // the drain: winning it back would strand its output here when this one exits.
+      if (isShuttingDown()) {
+        await publishLostSessionHandoff(session).catch(async (error: unknown) => {
+          logError('agent.runtime_handoff.publish_failed', error, {
+            team_id: session.teamId,
+            session_id: session.conversationId,
+          })
+          await markBackgroundWorkLost(session, 'unreachable')
+        })
+
+        return false
+      }
       try {
         const client = await registry.acquire(session.teamId, session.endpoint)
 

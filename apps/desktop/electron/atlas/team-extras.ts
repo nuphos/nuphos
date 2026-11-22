@@ -75,6 +75,12 @@ export async function dashboardsList(teamId: string): Promise<unknown> {
 
   return data.dashboards ?? []
 }
+/** Personal dashboards whose creators are no longer in the team, sent only to an Administrator. */
+export async function dashboardsFormerMembers(teamId: string): Promise<unknown> {
+  const data = await call<{ formerMembers?: unknown[] }>('GET', `/teams/${teamId}/dashboards`)
+
+  return data.formerMembers ?? []
+}
 export async function dashboardsCreate(teamId: string, input: unknown): Promise<unknown> {
   return call('POST', `/teams/${teamId}/dashboards`, input, { retry: false })
 }

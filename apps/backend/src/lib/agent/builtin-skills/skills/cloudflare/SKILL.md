@@ -62,3 +62,4 @@ ac /teams/$TEAM/cloudflare-accounts | python3 -m json.tool
 - Treat the returned key as sensitive. Do not print it, commit it, or paste it into final answers.
 - Confirm with the user before mutations such as changing DNS records, zones, workers, rules, WAF, access policies, or account settings.
 - If a Cloudflare call returns 401/403, re-run the setup script first. If it still fails, explain the missing Cloudflare permission or account mismatch.
+- Zone GraphQL Analytics (`httpRequestsAdaptiveGroups` and similar) needs the `analytics.read` scope. Grants connected before Nuphos requested it fail with a missing `com.cloudflare.api.account.zone.analytics.read` permission: ask the user to reconnect the account with Update scopes on its Cloudflare permissions page instead of retrying.

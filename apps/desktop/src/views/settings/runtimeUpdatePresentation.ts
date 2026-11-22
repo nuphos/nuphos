@@ -23,7 +23,7 @@ export function runtimeUpdatePresentation(
 
   if (update.state === 'waiting')
     detail = enabled
-      ? t('The update will start when agents finish replying.')
+      ? t('The update will start when Bots and tasks finish replying.')
       : t('Enable this runtime to finish the update.')
   if (update.state === 'updating') detail = t('Waiting for the updated runtime to come online.')
   if (update.state === 'failed')
@@ -32,7 +32,7 @@ export function runtimeUpdatePresentation(
     detail = t('Update the runtime on its host to get the latest models and fixes.')
     if (managed)
       detail = canUpdate
-        ? t('Updates wait for agents to finish replying.')
+        ? t('Updates wait for Bots and tasks to finish replying.')
         : t('Ask a workspace administrator to update this runtime.')
   }
   let button = t('Update')

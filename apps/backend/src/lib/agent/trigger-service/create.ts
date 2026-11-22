@@ -1,9 +1,16 @@
+import { randomUUID } from 'node:crypto'
+
+import { ObjectId } from 'mongodb'
+
 import { isValidCronExpression } from '@/lib/cron'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
+import { agentConversations } from '../db/shared'
 import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
+import { changedBy, writeTrigger } from '../trigger-history'
+import { parsePayloadFilters } from '../trigger-payload-filter'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
 import { validateCreateTriggerShape } from './create-validation'
@@ -12,12 +19,12 @@ import {
   assertBindableSession,
   serializeTrigger,
   isDuplicateKeyError,
+  validateExpiresAt,
   validateMinInterval,
 } from './shared'
 
 import type { AgentTrigger } from '../trigger-db'
 import type { CreateTriggerInput, SerializedTrigger, TriggerCallerContext } from './shared'
-import type { ObjectId } from 'mongodb'
 
 /**
  * Create a trigger and (for cron) register it with the scheduler. Returns the
@@ -57,18 +64,14 @@ export async function createTrigger(
     cronExpression = input.cronExpression.trim()
   }
 
-  if (
-    input.expiresAt !== undefined &&
-    !(input.expiresAt instanceof Date && !Number.isNaN(input.expiresAt.getTime()))
-  ) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be a valid date')
-  }
-  if (input.expiresAt && input.expiresAt.getTime() <= Date.now()) {
-    throw new AppError(400, 'invalid_request', 'expiresAt must be in the future')
-  }
+  if (input.expiresAt !== undefined) validateExpiresAt(input.expiresAt)
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
 
+  const payloadFilters =
+    input.payloadFilters === undefined
+      ? []
+      : parsePayloadFilters(input.triggerType, input.payloadFilters)
   const { dedupeKey } = input
 
   // Idempotency: a dedupeKey that already exists returns the existing trigger
@@ -85,7 +88,8 @@ export async function createTrigger(
   const webhookSecret = input.triggerType === 'webhook' ? generateWebhookSecret() : undefined
   const credentials = await resolveTriggerCredentialSelection(ctx)
 
-  const doc: Omit<AgentTrigger, '_id'> = {
+  const doc: AgentTrigger & { _id: ObjectId } = {
+    _id: new ObjectId(),
     // Keep userId for backwards compatibility while making ownership and
     // execution identity explicit for all newly-created rows.
     userId: ctx.userId,
@@ -107,17 +111,56 @@ export async function createTrigger(
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
+    ...(payloadFilters.length > 0 ? { payloadFilters } : {}),
     configRevision: 1,
     createdAt: now,
     updatedAt: now,
   }
 
-  let insertedId: ObjectId
+  const insertedId = doc._id
 
   try {
-    const result = await agentTriggers().insertOne(doc)
+    await writeTrigger({ after: doc, by: changedBy(ctx) }, async (session) => {
+      const filter = {
+        sessionId: input.targetSessionId,
+        userId: ctx.userId,
+        teamId: ctx.teamId,
+        archivedAt: { $exists: false },
+        archiveTriggersPendingAt: { $exists: false },
+      }
+      // This write shares Mongo's transaction with the Trigger insert. Archive
+      // writes the same conversation, so either the Trigger lands before archive
+      // or creation retries and sees the archived/pending state.
+      const target = await agentConversations().findOne(filter, {
+        session,
+        projection: { triggerArchiveEpoch: 1 },
+      })
 
-    insertedId = result.insertedId
+      if (!target)
+        throw new AppError(
+          409,
+          'invalid_target_session',
+          'The Task is archived or its Trigger cleanup is pending.',
+        )
+      const fence = await agentConversations().updateOne(
+        filter,
+        {
+          $set: { triggerBindingFence: randomUUID() },
+        },
+        { session },
+      )
+
+      if (fence.matchedCount !== 1)
+        throw new AppError(
+          409,
+          'invalid_target_session',
+          'The Task is archived or its Trigger cleanup is pending.',
+        )
+      doc.archiveEpoch = target.triggerArchiveEpoch ?? 0
+      await agentTriggers().insertOne(doc, { session })
+
+      return true
+    })
   } catch (err) {
     // Lost the dedupe race to a concurrent creator — return theirs.
     if (dedupeKey && isDuplicateKeyError(err)) {
@@ -135,16 +178,22 @@ export async function createTrigger(
     } catch (err) {
       // Roll back the insert so a scheduler failure doesn't leave an enabled
       // trigger in MongoDB that the cron worker never picks up.
-      await agentTriggers()
-        .deleteOne({ _id: insertedId })
-        .catch((deleteErr: unknown) => {
-          logError('agent.trigger.rollback_delete_failed', deleteErr, { trigger_id: triggerId })
-        })
+      await writeTrigger(
+        {
+          before: doc,
+          by: { actorId: 'system', via: 'rollback' },
+          reason: 'Its schedule could not be registered',
+        },
+        async (session) =>
+          (await agentTriggers().deleteOne({ _id: insertedId }, { session })).deletedCount > 0,
+      ).catch((deleteErr: unknown) => {
+        logError('agent.trigger.rollback_delete_failed', deleteErr, { trigger_id: triggerId })
+      })
       throw err
     }
   }
 
-  return serializeTrigger({ ...doc, _id: insertedId }, true)
+  return serializeTrigger(doc, true)
 }
 
 /**

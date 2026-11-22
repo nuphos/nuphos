@@ -37,8 +37,16 @@ describe('Box vCPU limit', () => {
     )
   })
 
-  test('a limit of 0 means no Boxes', () => {
-    expect(() => assertWithinLimit('t1', 0, 0, 4)).toThrow(/no Box plan/)
+  test('past the limit says, in the words the app uses, what is in use and what to do', () => {
+    expect(() => assertWithinLimit('t1', 12, 10, 4)).toThrow(
+      "This computer needs 4 vCPU, and your team's running computers already use 10 of the 12 in its plan. Pause a computer or choose a bigger plan.",
+    )
+  })
+
+  test('a limit of 0 says, in the words the app uses, that the plan has no computers and what to do', () => {
+    expect(() => assertWithinLimit('t1', 0, 0, 4)).toThrow(
+      "Your team's plan doesn't include computers from Nuphos. Choose a computer plan to start one.",
+    )
   })
 
   test('a refusal is logged at warn with the team, so it shows up per team', () => {

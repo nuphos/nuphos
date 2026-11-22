@@ -1,5 +1,4 @@
 import { beforeEach, expect, test } from 'bun:test'
-
 import { ObjectId } from 'mongodb'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -11,6 +10,7 @@ import { createTrigger } from './create'
 
 const scheduled: unknown[][] = []
 const documents: Record<string, unknown>[] = []
+const history: Record<string, unknown>[] = []
 const userId = 'fixture-owner'
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 
@@ -22,20 +22,25 @@ useTriggerScheduler({
   },
 })
 useDb({
+  withTransaction: (body: (session: never) => Promise<void>) => body({} as never),
   db: () => ({
-    collection: () => ({
+    collection: (name: string) => ({
       insertOne: async (doc: Record<string, unknown>) => {
-        documents.push(doc)
+        if (name === 'agent_triggers') documents.push(doc)
+        else history.push(doc)
 
         return { insertedId: new ObjectId() }
       },
       countDocuments: async () => 0,
+      findOne: async () => (name === 'agent_conversations' ? { userId, teamId } : null),
+      updateOne: async () => ({ matchedCount: 1 }),
     }),
   }),
 })
 beforeEach(() => {
   scheduled.length = 0
   documents.length = 0
+  history.length = 0
 })
 
 test('an imported disabled Trigger is stored without registering any cron job', async () => {
@@ -56,6 +61,15 @@ test('an imported disabled Trigger is stored without registering any cron job', 
   expect(created.timeZone).toBe('Europe/Warsaw')
   expect(documents).toHaveLength(1)
   expect(scheduled).toEqual([])
+  // #3755: who created it, and what it runs with.
+  expect(history).toMatchObject([
+    {
+      action: 'created',
+      actorId: userId,
+      via: 'request',
+      after: { name: 'Imported digest', enabled: false, timeZone: 'Europe/Warsaw' },
+    },
+  ])
 })
 
 test('invalid imported time zones fail before writing a Trigger', async () => {

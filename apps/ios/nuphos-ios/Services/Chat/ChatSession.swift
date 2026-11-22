@@ -28,6 +28,9 @@ final class ChatSession {
     /// agent, change credentials, and archive.
     private(set) var manages = false
     var canManage: Bool { loaded && manages && !readOnly }
+    private(set) var archives = false
+    /// The owner archives it for everyone; someone else in a Task, for themselves.
+    var canArchive: Bool { loaded && archives }
     /// Renaming, model settings and feedback stay with the owner.
     var ownsChat: Bool { loaded && isOwner && !readOnly }
     private(set) var readOnly = false
@@ -41,6 +44,9 @@ final class ChatSession {
     /// Not a transcript row: one at the end is off screen to a reader of
     /// older messages, so the tap looked like it did nothing.
     var stopRefusal: String?
+    /// Set when the runtime never heard the Stop and the server stopped the
+    /// turn on its side, so the tap is answered rather than looking ignored.
+    var stopNotice: String?
     /// New conversation: sent on the first POST. Existing: mirrors the
     /// server's bypass flag — change it with `setPermissionMode`.
     private(set) var permissionMode: PermissionMode = .auto
@@ -55,16 +61,17 @@ final class ChatSession {
     private(set) var agentRuntime: String?
     private(set) var runtimeId: String?
     private(set) var runtimeLabel: String?
-    /// On a teammate's computer that asks its owner first: this conversation waits, or was declined.
-    private(set) var shareApproval: ShareApprovalWait?
-    /// Counts sends the server queued, so a waiting conversation is asked about at once.
+    /// Counts sends the server queued.
     private(set) var queuedSends = 0
     /// Pull requests and issues the agent linked to this conversation.
     private(set) var resources: [SessionResource] = []
     /// Invites, removals and runtime moves, refreshed with every detail read.
     private(set) var timelineEvents: [AgentConversationDetail.TimelineEvent] = []
+    /// What each answered question still waits for, by request id, already phrased by the backend.
+    private(set) var waitingAnswers: [String: String] = [:]
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
+    private(set) var isBot = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -142,9 +149,9 @@ final class ChatSession {
         DesktopSession(teamId: teamId, sessionId: sessionId, token: token, browserTab: (id, size))
     }
     var runtimeStatus: String? {
-        if submitting || awaitingAdmission { return "Sending…" }
+        if submitting || awaitingAdmission { return String(localized: "Sending…") }
         guard isNativeRuntime, !isNew else { return nil }
-        guard let runtimeObservation else { return "Connection lost — runtime status unavailable" }
+        guard let runtimeObservation else { return String(localized: "Connection lost — runtime status unavailable") }
         return runtimeObservation.status
     }
     /// What the user just sent, shown as their bubble until the request is
@@ -238,15 +245,6 @@ final class ChatSession {
         try await WorkspaceAPI.request("teams/\(teamId)/file-transfers/\(groupId)/download", token: token)
     }
 
-    /// Reads where this conversation stands with the owner of the teammate's computer it
-    /// runs on; false once it is no longer pending, when there is nothing more to watch.
-    func refreshShareApproval() async -> Bool {
-        guard let answer = try? await NuphosAPI.ownShareApproval(token: token, sessionId: sessionId) else { return true }
-        shareApproval = ShareApprovalWait(status: answer.status)
-
-        return ShareApprovalWait.keepsWatching(status: answer.status)
-    }
-
     private var transferPath: String { "agent-sessions/\(sessionId)/teams/\(teamId)/file-transfers" }
 
     // MARK: - Private
@@ -331,7 +329,7 @@ final class ChatSession {
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
-        title: String = "New task",
+        title: String = String(localized: "New task"),
         agentRuntime: String? = nil,
         runtimeLabel: String? = nil
     ) {
@@ -350,6 +348,7 @@ final class ChatSession {
         s.loaded = true
         s.isOwner = true
         s.manages = true
+        s.archives = true
         return s
     }
 
@@ -372,11 +371,13 @@ final class ChatSession {
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
+            isBot = detail.avatar != nil && !detail.isChannel
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
             isOwner = detail.isOwner ?? false
             manages = detail.canManage ?? isOwner
+            archives = detail.canArchive ?? manages
             adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
@@ -420,9 +421,6 @@ final class ChatSession {
 
     // MARK: - Sending
 
-    /// The open question the next message answers, quoted above the composer: the Inbox's "Other…".
-    var answering: BotQuestion?
-
     /// Sends `text`, or queues it while a reply is streaming.
     func send(_ text: String) {
         send(ComposerSubmission(text: text, attachments: []))
@@ -431,15 +429,20 @@ final class ChatSession {
     /// The secure input card's answer, as on the desktop: the value goes
     /// straight to a file on the agent's runtime, and the reply names only
     /// the file's path. The value is never kept, logged or put in the transcript.
-    func provideSecret(_ value: String, for part: ChatPart.ToolPart) async throws {
-        guard let name = part.secretRequest?.name else { return }
-        let path = try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)
+    /// A card with several fields saves one file each, in order, and names them all in one reply.
+    func provideSecret(_ values: [String], for part: ChatPart.ToolPart) async throws {
+        guard let request = part.secretRequest else { return }
+        let names = request.fields?.map(\.name) ?? [request.name]
+        guard values.count == names.count else { return }
+        var saved: [(name: String, path: String)] = []
+        for (name, value) in zip(names, values) {
+            saved.append((name, try await AgentChatAPI.saveSecret(token: token, teamId: teamId, sessionId: sessionId, name: name, value: value)))
+        }
+        let reply = request.fields == nil
+            ? ChatPart.ToolPart.secretSavedReply(request.name) + saved[0].path
+            : ChatPart.ToolPart.secretFieldsSavedReply(request.name, saved: saved)
         try? await AgentChatAPI.resolveDecision(token: token, teamId: teamId, sessionId: sessionId, requestId: part.decisionRequestId)
-        // The saved path answers the secret's own request, never a question quoted for "Other…".
-        let quoted = answering
-        answering = nil
-        send(SecretCard.savedReply(name) + path)
-        answering = quoted
+        send(reply)
     }
 
     /// The first reply after the message that asked, if anyone replied yet.
@@ -471,9 +474,6 @@ final class ChatSession {
             }
             return
         }
-        // Words for the quoted question answer it, as its options do; with files, a message answering nothing.
-        let answers = attachments.isEmpty ? answering?.request.id : nil
-        answering = nil
         var parts: [ChatPart] = []
         if !trimmed.isEmpty { parts.append(.text(.init(text: trimmed, state: .done))) }
         let uploads = isNativeRuntime ? attachments : attachments.filter { !$0.isImage }
@@ -499,7 +499,7 @@ final class ChatSession {
                 sending = nil
                 let message = ChatMessage(role: .user, parts: parts)
                 await dispatch(message, title: trimmed.isEmpty ? (attachments.first?.name ?? "Attachment") : trimmed,
-                               submission: submission, decisionReplyTo: answers)
+                               submission: submission)
             } catch {
                 sending = nil
                 if !Task.isCancelled { self.error = error.localizedDescription }
@@ -641,7 +641,8 @@ final class ChatSession {
     // MARK: - Model settings
 
     func refreshSessionConfig() async {
-        guard isOwner, !readOnly, !isNew, isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        // Reading model settings is allowed for conversation participants; writes remain owner-only.
+        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
         let request = UUID()
         sessionConfigRequest = request
         sessionConfigReading = true
@@ -652,7 +653,7 @@ final class ChatSession {
             sessionConfig = incoming.retainingOptions(from: sessionConfig)
             sessionConfigError = nil
         } catch {
-            guard sessionConfigRequest == request else { return }
+            guard sessionConfigRequest == request, !Task.isCancelled else { return }
             sessionConfigError = error.localizedDescription
         }
         await applyPendingModelSettings()
@@ -678,6 +679,8 @@ final class ChatSession {
             sessionConfig = try await AgentChatAPI.setSessionConfig(token: token, teamId: teamId, sessionId: sessionId, configId: configId, value: value)
             sessionConfigError = nil
         } catch {
+            // Cancelled with the sheet that asked: not a failure, and nothing more to send.
+            if Task.isCancelled { sessionConfigSaving = false; return }
             pendingModelSettings.removeAll()
             sessionConfigError = error.localizedDescription
         }
@@ -749,7 +752,7 @@ final class ChatSession {
     }
 
     func setArchived(_ archived: Bool) async throws {
-        guard canManage else { throw NuphosAPI.Failure.http(403, message: "Only the task owner can archive it.") }
+        guard canArchive else { throw NuphosAPI.Failure.http(403, message: "Only someone in the task can archive it.") }
         try await AgentChatAPI.setArchived(token: token, teamId: teamId, sessionId: sessionId, archived: archived)
         isArchived = archived
     }
@@ -768,8 +771,7 @@ final class ChatSession {
     var me: ChatMessage.Sender?
     private(set) var sentHere: Set<String> = []
 
-    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil,
-                          decisionReplyTo: String? = nil) async {
+    private func dispatch(_ message: ChatMessage, title text: String, submission: ComposerSubmission? = nil) async {
         sentHere.insert(message.id)
         let wasEmpty = messages.isEmpty
         // Send intent, matching Desktop; this is not a successful agent outcome.
@@ -798,8 +800,7 @@ final class ChatSession {
             permissionMode: wasEmpty ? permissionMode.rawValue : nil,
             agentRuntime: wasEmpty ? runtime?.provider.rawValue : nil,
             runtimeId: wasEmpty ? runtime?.id : nil,
-            initialSessionConfig: wasEmpty ? initialSessionConfig : nil,
-            decisionReplyTo: decisionReplyTo
+            initialSessionConfig: wasEmpty ? initialSessionConfig : nil
         ))
     }
 
@@ -870,7 +871,9 @@ final class ChatSession {
             Task {
                 defer { isStopping = false }
                 do {
-                    try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId)
+                    if try await AgentChatAPI.cancelRuntime(token: token, teamId: teamId, sessionId: sessionId) == "runtime_unreachable" {
+                        stopNotice = String(localized: "The runtime didn't respond; the turn was stopped here.")
+                    }
                     // Show the stopped turn now, not at the next idle poll.
                     let observedAt = ProcessInfo.processInfo.systemUptime
                     if let detail = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1) {
@@ -933,8 +936,6 @@ final class ChatSession {
         var agentRuntime: String?
         var runtimeId: String?
         var initialSessionConfig: [String: String]?
-        /// The open question the message answers.
-        var decisionReplyTo: String?
     }
 
     private enum TurnResult {
@@ -1128,6 +1129,7 @@ final class ChatSession {
         if let id = detail.runtimeId { runtimeId = id }
         if let l = detail.runtimeLabel { runtimeLabel = l }
         timelineEvents = detail.timelineEvents
+        waitingAnswers = Dictionary(detail.waitingAnswers.map { ($0.requestId, $0.note) }, uniquingKeysWith: { first, _ in first })
         isArchived = detail.archivedAt != nil
         isWatching = detail.watching
     }
@@ -1224,8 +1226,7 @@ final class ChatSession {
                 agentRuntime: firstPost ? options.agentRuntime : nil,
                 runtimeId: firstPost ? options.runtimeId : nil,
                 initialSessionConfig: firstPost ? options.initialSessionConfig : nil,
-                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true],
-                decisionReplyTo: firstPost ? options.decisionReplyTo : nil
+                clientCapabilities: ["localTools": false, "serverQueue": true, "secretCard": true]
             )
 
             var needsFreshRetry = false
@@ -1252,10 +1253,10 @@ final class ChatSession {
                         let code = frame["errorCode"]?.stringValue
                         if code == "stream_unresumable", sawTurnComplete { continue }
                         lastErrorText = frame["errorText"]?.stringValue ?? "The agent hit an error."
-                        // A signed-out agent runtime is not transient: every fresh
-                        // retry re-hits the same missing credential, so fail with the
-                        // sign-in guidance the backend already wrote.
-                        if code == "runtime_auth_required" {
+                        // A signed-out or out-of-usage agent runtime is not transient:
+                        // every fresh retry re-hits the same refusal, so fail with the
+                        // guidance the backend already wrote.
+                        if code == "runtime_auth_required" || code == "runtime_usage_exhausted" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
                         // Another turn took the runtime after admission; the server
@@ -1684,7 +1685,6 @@ final class ChatSession {
         case "preparing-tools": "Preparing tools…"
         case "building-prompt": "Building prompt…"
         case "recalling-memory": "Recalling memory…"
-        case "loading-compaction": "Loading history…"
         case "preparing-model": "Preparing model…"
         case "connecting-model": "Connecting…"
         case "thinking": "Thinking…"

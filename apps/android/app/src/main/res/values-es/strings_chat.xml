@@ -5,6 +5,8 @@
     <string name="chat_event_expand">Expandir evento</string>
     <string name="chat_channel_new_messages">Mensajes nuevos en #%1$s</string>
     <string name="chat_open_channel">Abrir canal</string>
+    <string name="chat_channel_sent_file">Envió un archivo</string>
+    <string name="chat_channel_more_posts">+%1$d más</string>
     <string name="chat_answered_by">%1$s respondió</string>
     <string name="chat_question_collapse">Contraer pregunta</string>
     <string name="chat_question_expand">Expandir pregunta</string>
@@ -195,4 +197,27 @@
     <string name="chat_share_access_reply">El equipo puede ver y responder</string>
     <string name="chat_share_can_reply">Puede responder</string>
     <string name="chat_share_can_view">Puede ver</string>
+    <string name="chat_summary_title">Resumen de la tarea</string>
+    <string name="chat_summary_close">Cerrar resumen</string>
+    <string name="chat_summary_question">Pregunta</string>
+    <string name="chat_summary_close_question">Cerrar pregunta</string>
+    <string name="chat_summary_needs_input">Necesita tu respuesta</string>
+    <string name="chat_summary_no_questions">No hay preguntas esperando tu respuesta.</string>
+    <string name="chat_summary_background">Background work</string>
+    <string name="chat_summary_command">Comando</string>
+    <string name="chat_summary_running">En curso</string>
+    <string name="chat_summary_open">Resumen del agente</string>
+    <string name="chat_summary_output_truncated">Se ha ocultado la salida anterior.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">Subtareas</string>
+    <string name="chat_summary_files">Archivos</string>
+    <string name="chat_summary_triggers">Disparadores</string>
+    <string name="chat_summary_no_triggers">Pide al agente que programe trabajo periódico en esta tarea.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Detalles del bot</string>
+    <string name="chat_bot_state_waiting">%1$d necesita tu respuesta</string>
+    <string name="chat_bot_state_running">%1$d en ejecución</string>
+    <string name="chat_summary_idle_since">Inactivo · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Pide aquí que se programen trabajos recurrentes.</string>
+    <string name="chat_summary_paused">En pausa</string>
 </resources>

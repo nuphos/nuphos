@@ -1,4 +1,4 @@
-import { openInputRequests } from '../../lib/agentInputRequests.ts'
+import { attentionInputRequests } from '../../lib/agentInputRequests.ts'
 import { nearestBot } from '../../lib/nearestBot.ts'
 
 import type { AgentConversation, AgentInputRequest } from '../../api/agent-types'
@@ -32,25 +32,31 @@ export function botAbove(
 /** Who a row is listed under: its Bot, else the conversation that asked. */
 export const inboxSource = (row: InboxQuestion): AgentConversation => row.bot ?? row.conversation
 
+/** Its owner set it aside until a time still to come. */
+export const isSnoozed = (request: AgentInputRequest, now: number) =>
+  Boolean(request.snoozedUntil && Date.parse(request.snoozedUntil) > now)
+
 /**
  * The Inbox's rows: every open question waiting on the viewer as its
  * conversation's owner, once those answered on this device are set aside,
  * grouped by the Bot that asked or whose task did, else by the Task that asked.
  * The newest question leads, and brings the rest of its group with it. The badge counts these.
+ * A snoozed question is not among them until its time; with `snoozed`, only those are.
  */
 export function inboxQuestions(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
   botOf?: (conversation: AgentConversation) => AgentConversation | undefined,
+  { snoozed = false, now = Date.now() }: { snoozed?: boolean; now?: number } = {},
 ): InboxQuestion[] {
   const newest = conversations
     .filter((conversation) => conversation.isOwner)
     .flatMap((conversation) => {
       const bot = botOf?.(conversation)
 
-      return openInputRequests(conversation).map((request) => ({ conversation, request, bot }))
+      return attentionInputRequests(conversation).map((request) => ({ conversation, request, bot }))
     })
-    .filter(({ request }) => !answered.has(request.id))
+    .filter(({ request }) => !answered.has(request.id) && isSnoozed(request, now) === snoozed)
     .sort((a, b) => b.request.askedAt.localeCompare(a.request.askedAt))
   const order = [...new Set(newest.map((row) => inboxSource(row).sessionId))]
 
@@ -75,8 +81,9 @@ export function inboxGroups(rows: readonly InboxQuestion[]): InboxQuestion[][] {
 export function inboxCount(
   conversations: readonly AgentConversation[],
   answered: ReadonlyMap<string, number>,
+  now?: number,
 ): number {
-  return inboxQuestions(conversations, answered).length
+  return inboxQuestions(conversations, answered, undefined, { now }).length
 }
 
 /**
@@ -89,23 +96,29 @@ export function answeredIn(
   now: number,
 ): string[] {
   const open = new Set(
-    conversations.flatMap((conversation) => openInputRequests(conversation).map((r) => r.id)),
+    conversations.flatMap((conversation) => attentionInputRequests(conversation).map((r) => r.id)),
   )
 
   return [...answered].filter(([id, until]) => !open.has(id) || until < now).map(([id]) => id)
 }
 
-/**
- * The row the Inbox opens: the selected one while it is listed. Once answered,
- * the row that took its place opens, the way a mail reader moves on.
- */
+/** The rows the Inbox shows for a search: those whose question, details or conversation title has it. */
+export function shownQuestions(rows: readonly InboxQuestion[], query: string): InboxQuestion[] {
+  const needle = query.trim().toLowerCase()
+
+  return rows.filter(
+    ({ conversation, request }) =>
+      !needle ||
+      [request.question, request.body, conversation.title].some((text) =>
+        text?.toLowerCase().includes(needle),
+      ),
+  )
+}
+
+/** The row the Inbox opens: the selected one while it is listed, else the first. */
 export function openQuestion(
   rows: readonly InboxQuestion[],
-  selected: { id: string; index: number } | null,
+  selected: string | null,
 ): InboxQuestion | undefined {
-  const kept = selected && rows.find((row) => row.request.id === selected.id)
-
-  if (kept) return kept
-
-  return rows[Math.max(0, Math.min(selected?.index ?? 0, rows.length - 1))]
+  return rows.find((row) => row.request.id === selected) ?? rows[0]
 }

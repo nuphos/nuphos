@@ -6,9 +6,10 @@ import { createHash } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { patchRuntimeDefaults } from '../runtime-defaults.mjs'
+import { patchRuntimeDefaults, patchSkillsRefresh } from '../runtime-defaults.mjs'
 
 import { patchCodexUserInput } from './ask-user-input.mjs'
+import { patchCodexTurnUsage } from './turn-usage.mjs'
 import { patchCodexUltrafast } from './ultrafast.mjs'
 
 export function patchAdapter(source, helper) {
@@ -149,7 +150,7 @@ export function patchAdapter(source, helper) {
       '    if (event.message.startsWith("Codex couldn\'t save diagnostic logs")) return null;\n',
   )
   // request_user_input asks through Nuphos; see native-question.mjs.
-  const asking = patchCodexUltrafast(patchCodexUserInput(quiet))
+  const asking = patchCodexTurnUsage(patchCodexUltrafast(patchCodexUserInput(quiet)))
   const nativeQuestion = readFileSync(
     new URL('../native-question.mjs', import.meta.url),
     'utf8',
@@ -157,16 +158,18 @@ export function patchAdapter(source, helper) {
 
   // The upstream adapter hardcodes a speed multiplier that newer models do
   // not share. Preserve the usage tradeoff without claiming a fixed speed.
-  return patchRuntimeDefaults(
-    asking
-      .replace(
-        'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
-        'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
-      )
-      .replace(
-        '// src/index.ts',
-        `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n${nativeQuestion}\n// src/index.ts`,
-      ),
+  return patchSkillsRefresh(
+    patchRuntimeDefaults(
+      asking
+        .replace(
+          'var FAST_MODE_DESCRIPTION = "1.5x speed, increased usage";',
+          'var FAST_MODE_DESCRIPTION = "Faster responses, increased usage";',
+        )
+        .replace(
+          '// src/index.ts',
+          `${restoreHistory}\n${sessionHome}\n${processDeath}\n${codexDeath}\n${helper}\n${steering}\n${mcpBridge}\n${nativeQuestion}\n// src/index.ts`,
+        ),
+    ),
   )
 }
 

@@ -40,9 +40,6 @@ function MessageList({
   hasEarlier,
   captureEarlierAnchor,
   onLoadEarlier,
-  onStop,
-  onApprovePlan,
-  onRejectPlan,
   activePlanCanAct,
   onOpenNuphosLink,
   onOpenAgentSettings,
@@ -55,9 +52,6 @@ function MessageList({
   | 'teamId'
   | 'currentUrl'
   | 'onLoadEarlier'
-  | 'onStop'
-  | 'onApprovePlan'
-  | 'onRejectPlan'
   | 'activePlanCanAct'
   | 'onOpenNuphosLink'
   | 'onOpenAgentSettings'
@@ -123,9 +117,6 @@ function MessageList({
         downloadGroups={downloadsByMessage.get(m.id)}
         prevCreatedAt={m.turnOrigin === 'autonomous' ? undefined : prevCreatedAt}
         isLatestReply={isLast}
-        onStop={onStop}
-        onApprovePlan={onApprovePlan}
-        onRejectPlan={onRejectPlan}
         activePlanCanAct={activePlanCanAct ?? null}
         canReplyToQuestions={!tab.readOnly}
         canActOnPlans={
@@ -200,13 +191,6 @@ function MessageList({
                 <UserMessage
                   message={m}
                   teamId={teamId}
-                  onApprovePlan={onApprovePlan}
-                  onRejectPlan={onRejectPlan}
-                  canActOnPlans={
-                    (runtimeAllows(tab.runtimeState, 'send') ||
-                      runtimeAllows(tab.runtimeState, 'reply')) &&
-                    !tab.readOnly
-                  }
                   onOpenNuphosLink={onOpenNuphosLink}
                   onEdit={onEditMessage?.allowed(m) ? onEditMessage.edit : undefined}
                 />
@@ -291,7 +275,7 @@ function MessageList({
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
   return (
-    <DecisionCardsProvider messages={props.tab.messages}>
+    <DecisionCardsProvider messages={props.tab.messages} waiting={props.tab.waitingAnswers}>
       <MessageList {...props} />
     </DecisionCardsProvider>
   )

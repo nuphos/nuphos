@@ -1,6 +1,7 @@
 import { callJson, callJsonForRenderer, teamQuery } from './http'
 
-import type { ConversationAccessState, GeneralAccess } from '../../src/api/agent-types'
+import type { GeneralAccess } from '../../src/api/agent-types'
+import type { ConversationAccessState } from '../../src/api/window-session-access'
 
 type ParticipantsResponse = ConversationAccessState
 

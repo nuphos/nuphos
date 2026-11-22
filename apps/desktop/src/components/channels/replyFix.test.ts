@@ -28,3 +28,11 @@ test('a usage limit or another failure offers no repair of its own', () => {
   assert.equal(replyFix('other', 'cli', admin), null)
   assert.equal(replyFix(undefined, 'cli', admin), null)
 })
+
+test('a CLI that would not start is installed again on the computer that runs it', () => {
+  const mine = { personalAgent: true, canOpenSettings: false, onThisComputer: true }
+
+  assert.equal(replyFix('cli', 'cli', mine), 'install')
+  // Another computer's agent is repaired there, not from this one.
+  assert.equal(replyFix('cli', 'none', { ...mine, onThisComputer: false }), null)
+})

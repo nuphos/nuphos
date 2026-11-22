@@ -19,18 +19,27 @@ import { Table } from '../components/Table'
 import { Breadcrumb } from '../components/toolbar-breadcrumb'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
-import { useRuntimeFiles } from '../hooks/useRuntimeFiles'
 import { t } from '../i18n'
 import { copyLinkWithFeedback } from '../lib/copyLink'
 import { filePreviewKind } from '../lib/filePreviews'
 
 import { RuntimeContentPreview, RuntimeMediaPreview } from './runtimeFilePreviews'
+import { RuntimeFilesError } from './RuntimeFilesError'
 
 import type { ArtifactViewMode } from '../components/agent/artifacts/ArtifactToolbar'
 
-export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePath?: string }) {
+export function RuntimeFilesView({
+  teamId,
+  filePath,
+  onOpenConversation,
+}: {
+  teamId: string
+  filePath?: string
+  onOpenConversation: (sessionId: string) => void
+}) {
   const { conversationId, refreshKey, isActive } = useWorkspaceTab()
   const {
     source,
@@ -40,6 +49,8 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
     media,
     tooLarge,
     overLimit,
+    error,
+    errorCode,
     fileName,
     loading,
     navigate,
@@ -50,13 +61,10 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
   } = useRuntimeFiles(teamId, conversationId, isActive, refreshKey, filePath)
   const [downloading, setDownloading] = useState(false)
   const [opening, setOpening] = useState(false)
-  // An HTML file is drawn in the locked file frame and Markdown as a document;
-  // the source is one switch away.
   const [docView, setDocView] = useState<ArtifactViewMode>('preview')
   const docKind = fileName && preview && 'text' in preview ? filePreviewKind(fileName) : null
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
-
   const filePathShown = `${path}/${fileName}`
   const entries = directory?.entries ?? []
   const folders = path.split('/').filter(Boolean)
@@ -171,7 +179,17 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
           </div>,
           runtimeSlot,
         )}
-      {!source ? (
+      {error ? (
+        <RuntimeFilesError
+          teamId={teamId}
+          error={error}
+          errorCode={errorCode}
+          filePath={filePathShown}
+          source={source}
+          onRetry={refresh}
+          onOpenConversation={onOpenConversation}
+        />
+      ) : !source ? (
         <EmptyState
           icon={FolderOpen}
           title={conversationId && loading ? t('Opening workspace…') : t('Runtime files')}
@@ -180,7 +198,7 @@ export function RuntimeFilesView({ teamId, filePath }: { teamId: string; filePat
               ? loading
                 ? undefined
                 : t('Select a runtime for this task, then refresh Files.')
-              : t('Select an agent to browse its workspace.')
+              : t('Select a runtime to browse its workspace.')
           }
         />
       ) : fileName ? (

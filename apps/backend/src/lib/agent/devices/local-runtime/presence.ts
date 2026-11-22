@@ -23,11 +23,19 @@ export type LocalRuntimePresence = {
   seenAt: number
   metrics?: BoxMetrics
   metricsReceivedAt?: number
+  /** When data last moved on one of its streams other than `control`, or its tunnel opened. */
+  usedAt?: number
 }
 
 export type LocalRuntimePresenceStore = {
   get(userId: string, deviceId: string): Promise<LocalRuntimePresence | null>
-  claim(userId: string, deviceId: string, conn: string): Promise<string | null>
+  /** Takes the computer for `conn`, as `presence` when given, and names the tunnel it replaced. */
+  claim(
+    userId: string,
+    deviceId: string,
+    conn: string,
+    presence?: LocalRuntimePresence,
+  ): Promise<string | null>
   put(userId: string, deviceId: string, presence: LocalRuntimePresence): Promise<boolean>
   /** Clears only while `conn` still holds the device, so a newer tunnel is never erased. */
   clear(userId: string, deviceId: string, conn: string): Promise<void>
@@ -73,7 +81,7 @@ export function createRedisPresenceStore(): LocalRuntimePresenceStore {
 
       return presence?.seenAt ? presence : null
     },
-    async claim(userId, deviceId, conn) {
+    async claim(userId, deviceId, conn, presence) {
       const previous = await withRedis((c) =>
         c.eval(
           `local old = redis.call('GET', KEYS[1])
@@ -81,7 +89,7 @@ export function createRedisPresenceStore(): LocalRuntimePresenceStore {
          return old or ''`,
           1,
           presenceKey(userId, deviceId),
-          JSON.stringify({ conn, seenAt: 0 }),
+          JSON.stringify({ ...presence, conn, seenAt: presence?.seenAt ?? 0 }),
           RUNTIME_PRESENCE_TTL_SEC,
         ),
       )
@@ -96,7 +104,7 @@ export function createRedisPresenceStore(): LocalRuntimePresenceStore {
       const updated = await withRedis((c) =>
         c.eval(
           `local raw = redis.call('GET', KEYS[1])
-         if not raw or cjson.decode(raw).conn ~= ARGV[1] then return 0 end
+         if raw and cjson.decode(raw).conn ~= ARGV[1] then return 0 end
          redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3])
          return 1`,
           1,
@@ -130,12 +138,12 @@ export function createMemoryPresenceStore(now = () => Date.now()): LocalRuntimeP
         entry && entry.expiresAt > now() && entry.presence.seenAt ? entry.presence : null,
       )
     },
-    claim(userId, deviceId, conn) {
+    claim(userId, deviceId, conn, presence) {
       const key = presenceKey(userId, deviceId)
       const old = entries.get(key)
 
       entries.set(key, {
-        presence: { conn, seenAt: 0 },
+        presence: { ...presence, conn, seenAt: presence?.seenAt ?? 0 },
         expiresAt: now() + RUNTIME_PRESENCE_TTL_SEC * 1000,
       })
 
@@ -144,7 +152,7 @@ export function createMemoryPresenceStore(now = () => Date.now()): LocalRuntimeP
     put(userId, deviceId, presence) {
       const old = entries.get(presenceKey(userId, deviceId))
 
-      if (!old || old.expiresAt <= now() || old.presence.conn !== presence.conn)
+      if (old && old.expiresAt > now() && old.presence.conn !== presence.conn)
         return Promise.resolve(false)
       entries.set(presenceKey(userId, deviceId), {
         presence,

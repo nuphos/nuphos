@@ -14,7 +14,7 @@ import {
   runtimeDesktopSessionId,
   runtimeDesktopTarget,
 } from './runtime-desktop'
-import { computerDesktopRuntimeId } from './session-desktops'
+import { ownComputer } from './session-desktops'
 
 import type { HolderMessage, LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { WSContext, WSEvents } from 'hono/ws'
@@ -24,12 +24,14 @@ import type { WSContext, WSEvents } from 'hono/ws'
 const runtimeId = localRuntimeId({ userId: 'owner', deviceId: 'box', provider: 'claude-code' })
 let conversation: Record<string, unknown> | null
 // The owner's registered computers: `box` and `mac`, which has no agent.
-let box: { teamId: string } | undefined
+let box: { teamId: string; createdBy?: string } | undefined
+// The computer's grants in a team: who uses it, and who manages it.
+let access: { teamId: string; everyone: boolean; userIds: string[]; managerIds: string[] }[] = []
 
 useAgentDeviceStore({
   getAgentDevice: (async (userId: string, deviceId: string) =>
     userId === 'owner' && (deviceId === 'box' || deviceId === 'mac')
-      ? { userId, deviceId, ...(box ? { box } : {}) }
+      ? { userId, deviceId, access, ...(box ? { box } : {}) }
       : null) as never,
 })
 
@@ -63,6 +65,7 @@ const status = {
 beforeEach(async () => {
   conversation = { userId: 'owner', teamId: 'team', runtimeId }
   box = undefined
+  access = []
   await presence.claim('owner', 'box', 'conn')
   await presence.put('owner', 'box', { conn: 'conn', status, seenAt: Date.now() })
 })
@@ -92,19 +95,20 @@ test('only the owner reaches a display the Box reports as this conversation’s'
   )
 })
 
-test('opening by hand asks the Box once, and only for a session holding no desktop', async () => {
+test('opening by hand always asks the Box, which answers the display it holds or claims one', async () => {
   const opened: unknown[] = []
   const open = async (target: unknown, sessionId: string) => {
     opened.push([target, sessionId])
 
-    return 3
+    return opened.length === 1 ? 2 : 3
   }
+  const asked = [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat']
 
-  // Already holds :2 — answered from presence, no claim.
+  // #2954: it reports :2 held, but the desktop behind it may have exited; asking brings it back.
   expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
     display: 2,
   })
-  expect(opened).toEqual([])
+  expect(opened).toEqual([asked])
   await presence.put('owner', 'box', {
     conn: 'conn',
     status: { ...status, desktops: [] },
@@ -113,9 +117,7 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   expect(await openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).toEqual({
     display: 3,
   })
-  expect(opened).toEqual([
-    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, 'chat'],
-  ])
+  expect(opened).toEqual([asked, asked])
   // A Box on an older bundle has a pool but cannot open one on request.
   await presence.put('owner', 'box', {
     conn: 'conn',
@@ -137,7 +139,7 @@ test('opening by hand asks the Box once, and only for a session holding no deskt
   await expect(openRuntimeDesktop('team', 'owner', 'chat', { presence, open })).rejects.toThrow(
     'not found',
   )
-  expect(opened).toHaveLength(1)
+  expect(opened).toHaveLength(2)
 })
 
 test('a computer’s own desktop opens from its runtime, for its owner alone', async () => {
@@ -168,7 +170,7 @@ test('a computer’s own desktop opens from its runtime, for its owner alone', a
     status: { ...status, desktops: [...(status.desktops ?? []), { display: 3, sessionId: lock }] },
     seenAt: Date.now(),
   })
-  // Every agent on the computer shares its one desktop.
+  // Every agent on the computer shares its one desktop: the computer is asked again under its lock.
   expect(await openRuntimeDesktop('team', 'owner', codex, { presence, open })).toEqual({
     display: 3,
   })
@@ -192,7 +194,10 @@ test('a computer’s own desktop opens from its runtime, for its owner alone', a
   await expect(
     runtimeDesktopTarget('team', 'owner', { runtimeId: 'managed-1' }, '3', presence),
   ).rejects.toThrow('not found')
-  expect(opened).toHaveLength(1)
+  expect(opened).toEqual([
+    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, lock],
+    [{ userId: 'owner', actorId: 'owner', deviceId: 'box', teamId: 'team' }, lock],
+  ])
 })
 
 test('a computer with no agent still opens its own desktop, for its owner in its team', async () => {
@@ -218,21 +223,28 @@ test('a computer with no agent still opens its own desktop, for its owner in its
   }
 
   // Offline: no address and nothing opens.
-  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBeUndefined()
+  expect((await ownComputer(mac, 'owner', presence)).desktopRuntimeId).toBeUndefined()
   await refused('owner')
   // Online, but its host does not say it opens its screen (an older bundle, or not a Mac).
   await presence.claim('owner', 'mac', 'conn')
   await report({})
-  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBeUndefined()
+  expect((await ownComputer(mac, 'owner', presence)).desktopRuntimeId).toBeUndefined()
   await refused('owner')
   expect(opened).toEqual([])
 
-  await report({ desktopOpen: true })
-  expect(await computerDesktopRuntimeId(mac, 'owner', presence)).toBe(own.runtimeId)
+  const app = { version: '0.120.0', update: { version: '0.121.0', ready: true } }
+
+  await report({ desktopOpen: true, app })
+  // 0.120.0 is older than the oldest supported Desktop, which everyone who sees it is told.
+  expect(await ownComputer(mac, 'owner', presence)).toEqual({
+    desktopRuntimeId: own.runtimeId,
+    app,
+    outdated: 'desktop',
+  })
   expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
   expect(opened).toEqual(['owner'])
   // Only its own person: not a teammate it is shared with, nor anyone naming it as theirs.
-  expect(await computerDesktopRuntimeId(mac, 'mate', presence)).toBeUndefined()
+  expect(await ownComputer(mac, 'mate', presence)).toEqual({ outdated: 'desktop' })
   await refused('mate')
   await refused('mate', { runtimeId: 'local_mate_mac' })
   await expect(runtimeDesktopTarget('team', 'mate', own, '0', presence)).rejects.toThrow(
@@ -246,13 +258,59 @@ test('a computer with no agent still opens its own desktop, for its owner in its
     seenAt: Date.now(),
   })
   await refused('owner', { runtimeId: 'local_owner_gone' })
-  // A Box gets no address in the device list, and opens by its runtime only inside its own team.
+  // A Box's owner opens it by its runtime like any computer of theirs, only inside its own team.
   box = { teamId: 'team' }
-  expect(await computerDesktopRuntimeId({ ...mac, box }, 'owner', presence)).toBeUndefined()
+  const boxed = { ...mac, box }
+
+  expect(await ownComputer(boxed, 'owner', presence)).toEqual({
+    desktopRuntimeId: own.runtimeId,
+    app,
+    outdated: 'desktop',
+  })
   expect(await openRuntimeDesktop('team', 'owner', own, { presence, open })).toEqual({ display: 0 })
   box = { teamId: 'other' }
   await refused('owner')
   expect(opened).toEqual(['owner', 'owner'])
+})
+
+test("a team Box's own desktop opens for whoever manages it there; anyone's own computer only for them", async () => {
+  const mac = { runtimeId: 'local_owner_mac' }
+  const opened: string[] = []
+  const open = async (target: { actorId: string }) => {
+    opened.push(target.actorId)
+
+    return 2
+  }
+  const refused = async (user: string, team = 'team') => {
+    await expect(openRuntimeDesktop(team, user, mac, { presence, open })).rejects.toThrow(
+      'not found',
+    )
+  }
+
+  await presence.claim('owner', 'mac', 'conn')
+  await presence.put('owner', 'mac', {
+    conn: 'conn',
+    status: { agents: {}, desktopOpen: true } as unknown as LocalRuntimeStatus,
+    seenAt: Date.now(),
+  })
+  access = [{ teamId: 'team', everyone: false, userIds: ['member'], managerIds: ['boss'] }]
+  // Someone's own computer: only them, not whoever manages or uses its share.
+  await refused('boss')
+  await refused('member')
+  expect(await openRuntimeDesktop('team', 'owner', mac, { presence, open })).toEqual({ display: 2 })
+  // A team Box: also whoever manages it, never someone who only uses it, nor in another team.
+  box = { teamId: 'team', createdBy: 'owner' }
+  expect(await openRuntimeDesktop('team', 'boss', mac, { presence, open })).toEqual({ display: 2 })
+  await refused('member')
+  await refused('boss', 'other')
+  expect(opened).toEqual(['owner', 'boss'])
+  // The device list offers its runtime id to whoever it opens for.
+  const device = { userId: 'owner', deviceId: 'mac', box }
+
+  expect(
+    (await ownComputer({ ...device, managesBox: true }, 'boss', presence)).desktopRuntimeId,
+  ).toBe(mac.runtimeId)
+  expect((await ownComputer(device, 'member', presence)).desktopRuntimeId).toBeUndefined()
 })
 
 const b64 = (bytes: number[] | Buffer) => Buffer.from(bytes).toString('base64')

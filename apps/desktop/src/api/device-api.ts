@@ -59,7 +59,11 @@ export const deviceApi = {
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),
   boxDelete: (deviceId: string, teamId: string) => window.api.boxDelete(deviceId, teamId),
   deviceRemove: (deviceId: string, teamId: string) => window.api.deviceRemove(deviceId, teamId),
-  boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
+  deviceAppUpdate: (deviceId: string, teamId: string) =>
+    window.api.deviceAppUpdate(deviceId, teamId),
+  boxClearCaches: (deviceId: string, teamId: string) => window.api.boxClearCaches(deviceId, teamId),
+  deviceSetAutoInstall: (deviceId: string, teamId: string, enabled: boolean) =>
+    window.api.deviceSetAutoInstall(deviceId, teamId, enabled),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),
   sshJoin: (id: string, target: string) => window.api.sshJoin(id, target),
@@ -84,6 +88,8 @@ export const deviceApi = {
   boxSetTerminalAccess: (deviceId: string, teamId: string, useTerminal: boolean) =>
     window.api.boxSetTerminalAccess(deviceId, teamId, useTerminal),
   localShareGet: (deviceId: string, teamId: string) => window.api.localShareGet(deviceId, teamId),
+  deviceAccessHistory: (deviceId: string, teamId: string, before?: string) =>
+    window.api.deviceAccessHistory(deviceId, teamId, before),
   localShareSet: (deviceId: string, teamId: string, input: LocalShareInput) =>
     window.api.localShareSet(deviceId, teamId, input),
   localShareApprovals: (teamId: string) => window.api.localShareApprovals(teamId),
@@ -96,6 +102,8 @@ export const deviceApi = {
     window.api.localShareUntrust(deviceId, teamId, actorId),
   localShareNotify: (approvalId: string, teamId: string, title: string, body: string) =>
     window.api.localShareNotify(approvalId, teamId, title, body),
+  computerNotifyShared: (key: string, teamId: string, title: string, body: string) =>
+    window.api.computerNotifyShared(key, teamId, title, body),
   runtimeSignInAsk: (teamId: string, runtimeId: string, sessionId: string) =>
     window.api.runtimeSignInAsk(teamId, runtimeId, sessionId),
   runtimeSignInSettle: (teamId: string, runtimeId: string) =>

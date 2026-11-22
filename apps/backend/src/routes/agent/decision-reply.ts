@@ -40,7 +40,7 @@ export async function assertDecisionUnanswered(
 ): Promise<void> {
   const request = conversation.inputRequests?.find((entry) => entry.id === decisionId)
   const waiting = request
-    ? (await queuedAnswers(conversation.userId, conversation.sessionId)).get(decisionId)
+    ? (await queuedAnswers(conversation.userId, conversation.sessionId)).get(decisionId)?.id
     : undefined
 
   if (waiting && waiting !== messageId)

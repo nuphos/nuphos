@@ -8,8 +8,14 @@ struct ChannelView: View {
 
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
+    var openTask: (String, String) -> Void = { _, _ in }
+    @State private var canOpenTask = false
+    /// The Bot's details, opened from its name (#2983).
+    @State private var detailsOpen = false
+    @State private var botSession: ChatSession?
     @State private var draft = ""
-    @State private var showTriggers = false
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
     /// Raises the keyboard when a reply is chosen.
@@ -25,7 +31,8 @@ struct ChannelView: View {
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
-        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+        guard let viewerId = channel.viewerId else { return false }
+        return channel.agents.contains { $0.sessionId == agentId && $0.ownerId == viewerId }
     }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
@@ -34,6 +41,28 @@ struct ChannelView: View {
               store.conversations.first(where: { $0.sessionId == bot })?.ownsChat == true,
               store.observations.value(team: channel.teamId, session: bot)?.canOpenDesktop == true else { return nil }
         return bot
+    }
+
+    /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    private var state: (text: String, waiting: Bool)? {
+        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+    }
+
+    private func openDetails() { detailsOpen = botSession != nil }
+
+    /// The Bot's details: its card, then what its own Task's summary lists.
+    private func details(of bot: ChatSession) -> some View {
+        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
+            open(task.sessionId, title: task.displayTitle)
+        }
+        .environment(store)
+    }
+
+    /// Opens a Task over this chat, so Back returns here.
+    private func open(_ task: String, title: String) {
+        detailsOpen = false
+        openTask(task, title)
     }
 
     private var rows: [ChatRow] {
@@ -58,12 +87,20 @@ struct ChannelView: View {
     }
 
     var body: some View {
-        transcript
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.chatCanvas)
-            .sheet(isPresented: $showTriggers) {
-                if let bot = channel.botId {
-                    ConversationTriggers(teamId: channel.teamId, sessionId: bot, token: store.token).presentationDetents([.large])
+        // Wide, the Bot's details sit beside the live chat, closed by their ✕;
+        // compact, they come up as a sheet.
+        HStack(spacing: 0) {
+            transcript
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.chatCanvas)
+            if sizeClass == .regular, detailsOpen, let botSession {
+                Divider()
+                details(of: botSession).frame(width: 340)
+            }
+        }
+            .sheet(isPresented: Binding(get: { sizeClass != .regular && detailsOpen }, set: { detailsOpen = $0 })) {
+                if let botSession {
+                    details(of: botSession).presentationDetents([.large]).presentationDragIndicator(.visible)
                 }
             }
             .navigationTitle(channel.title)
@@ -73,29 +110,65 @@ struct ChannelView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Button { showTriggers = true } label: {
+                    Button(action: openDetails) {
                         HStack(spacing: 8) {
                             ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                            Text(channel.title)
-                                .font(Theme.Text.label.weight(.semibold))
-                                .foregroundStyle(Theme.heading)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(channel.title)
+                                    .font(Theme.Text.label.weight(.semibold))
+                                    .foregroundStyle(Theme.heading)
+                                    .lineLimit(1)
+                                if let state {
+                                    Text(state.text)
+                                        .font(.caption2)
+                                        .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                     }
                     .buttonStyle(.plain)
                     .disabled(channel.botId == nil)
-                    .accessibilityIdentifier("bot-trigger-entry")
+                    .accessibilityIdentifier("bot-details-entry")
+                }
+                // One tap to the Bot's own Task, where its runtime and model are switched.
+                if let bot = channel.botId, canOpenTask {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            open(bot, title: channel.title)
+                        } label: {
+                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
+                        }
+                        .accessibilityIdentifier("chat.botTask")
+                    }
                 }
                 if let bot = desktopBot {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
                             desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
                         } label: {
-                            Image(systemName: "display")
+                            LucideIcon("monitor")
                         }
                         .accessibilityLabel("Desktop")
                         .accessibilityIdentifier("chat.desktop")
                     }
+                }
+            }
+            .task(id: channel.botId) {
+                canOpenTask = false
+                // Made before the details open: a sheet shown in the same update that
+                // sets what its content reads comes up empty.
+                botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
+                guard let bot = channel.botId else { return }
+                await botSession?.load()
+                guard !Task.isCancelled, channel.botId == bot else { return }
+                if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
+                    canOpenTask = true
+                } else {
+                    // Channel membership alone does not grant session access.
+                    let detail = try? await NuphosAPI.conversationDetail(token: store.token, teamId: channel.teamId, sessionId: bot, tail: 1, displayed: false)
+                    guard !Task.isCancelled, channel.botId == bot else { return }
+                    canOpenTask = detail != nil
                 }
             }
             .desktop($desktop)
@@ -127,6 +200,7 @@ struct ChannelView: View {
                     typing = inTurn
                 }
             }
+            .onChange(of: channel.loaded ? channel.posts.count : -1, initial: true) { showPendingPost() }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -150,7 +224,7 @@ struct ChannelView: View {
         if !channel.loaded {
             ProgressView().tint(Theme.muted)
         } else if let error = channel.loadError {
-            ContentUnavailableView("Couldn't load this chat", systemImage: "exclamationmark.bubble", description: Text(error))
+            ContentUnavailableView("Couldn't load this chat", image: "lucide-message-circle-warning", description: Text(error))
         } else if channel.posts.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 ChatIcon(faces: channel.faces, title: channel.title, size: 44)
@@ -175,14 +249,32 @@ struct ChannelView: View {
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
                 // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
-                mentions: MentionSource(teamId: channel.teamId, search: { query in
-                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
-                }),
+                mentions: MentionSource(
+                    teamId: channel.teamId,
+                    sessions: store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId),
+                    refresh: { await store.loadMentionableSessions(teamId: channel.teamId) }
+                ),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                alwaysShowControls: channel.botId != nil,
+                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: { EmptyView() }
+                controls: {
+                    if let botSession, botSession.loaded {
+                        ComposerControls(
+                            selection: Binding(
+                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
+                                set: { botSession.setCredentials($0) }
+                            ),
+                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
+                            session: botSession,
+                            switchRuntime: { switchingBot = botSession },
+                            botChat: true,
+                            locked: !botSession.isOwner
+                        )
+                    }
+                }
             )
         }
     }
@@ -194,7 +286,18 @@ struct ChannelView: View {
 
     /// Scrolls to a quoted post, if it is loaded, and flashes it.
     private func show(_ reply: ChannelReply) {
-        guard let id = reply.id, channel.posts.contains(where: { $0.id == id }) else { return }
+        if let id = reply.id { show(post: id) }
+    }
+
+    /// Opened from a wake-up's line: once the chat has loaded, it goes to the post that
+    /// line named. A post no longer loaded leaves it at its latest post.
+    private func showPendingPost() {
+        guard channel.loaded, let id = ChannelPostJump.pending.removeValue(forKey: channel.channelId) else { return }
+        show(post: id)
+    }
+
+    private func show(post id: String) {
+        guard channel.posts.contains(where: { $0.id == id }) else { return }
         jump = TranscriptJump(rowID: "post.\(id)")
         flashed = id
         Task {
@@ -240,13 +343,27 @@ struct ChannelView: View {
                 TimestampLabel(date: date)
             case .post(let post, let first):
                 ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], files: channel.files,
-                               resolve: channel.transferGroup, onLink: open(link:),
+                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                               onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .answeredInInbox(let post):
+                let mine = post.isMine(viewerId: channel.viewerId)
+                HStack(spacing: 4) {
+                    LucideIcon("inbox", size: 10)
+                    Text("Answered in Inbox")
+                }
+                .font(.caption2)
+                .foregroundStyle(Theme.faint)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+                // Tucked under the answer it follows, inside that row's bottom spacing.
+                .padding(.top, -8)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("channel.answeredInInbox")
             case .record(let text):
                 Text(text)
                     .font(Theme.Text.caption)
@@ -257,6 +374,7 @@ struct ChannelView: View {
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
+                    onVerify: actionable && owns(event.agentId) ? event.verifyUrl.map { url in { openURL(url) } } : nil,
                     onSwitch: actionable && owns(event.agentId) && ["usage_limit", "auth", "offline"].contains(event.cause ?? "")
                         ? { if let id = event.agentId { switchingBot = store.session(sessionId: id, title: channel.title, teamId: channel.teamId) } }
                         : nil,
@@ -269,10 +387,11 @@ struct ChannelView: View {
                     // The Bot's own questions are this chat's; only an agent under it is named.
                     showsFrom: question.sessionId != channel.botId,
                     onOpen: { open(link: question.link(team: channel.teamId)) },
+                    teamId: channel.teamId,
+                    questions: channel.questions,
                     onAnswer: { channel.answer(question, with: $0) },
-                    onSkip: { channel.skip(question) },
-                    onLink: open(link:),
-                    failure: channel.questions.failures[question.id])
+                    onDismiss: { channel.dismiss(question) },
+                    onLink: open(link:))
             }
         }
     }
@@ -284,16 +403,25 @@ struct ChannelView: View {
 }
 
 /// A row to bring to the middle of the transcript, once per request.
+/// The post a channel opens at, by channel: set just before a wake-up's line opens it.
+@MainActor
+enum ChannelPostJump {
+    static var pending: [String: String] = [:]
+}
+
 struct TranscriptJump: Equatable {
     let rowID: String
     var nonce = UUID()
 }
 
-/// A chat's icon, as iMessage draws one: the one other member's face, or two
-/// overlapping, whoever spoke last in front. A chat with nobody else shows
-/// its title's initials.
+/// A chat's icon: the one other member's face, or up to three members
+/// clustered as in the design system. A chat with nobody else shows its
+/// title's initials.
 struct ChatIcon: View {
-    @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var avatarsEnabled = true
+    /// Where a group's faces sit in a 36pt box, whoever spoke last largest:
+    /// left, top and size.
+    static let cluster: [(x: CGFloat, y: CGFloat, size: CGFloat)] = [(0, 0, 24), (18, 12, 18), (5, 22, 14)]
+
     let faces: [ChatFace]
     let title: String
     var size: CGFloat = 22
@@ -301,22 +429,24 @@ struct ChatIcon: View {
     var body: some View {
         Group {
             if faces.count >= 2 {
-                let small = (size * 0.72).rounded()
-                ZStack {
-                    face(faces[1], size: small, showBadge: false).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    face(faces[0], size: small, showBadge: false)
-                        .padding(1.5)
-                        .background(Theme.chatCanvas, in: Circle())
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    badge(faces[1], badgeSize: small <= 24 ? 9 : 12)
-                        .frame(width: small, height: small, alignment: .bottomTrailing)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    badge(faces[0], badgeSize: small <= 24 ? 9 : 12)
-                        .frame(width: small, height: small, alignment: .bottomTrailing)
-                        .padding(1.5)
-                        .offset(x: badgeSeparation(small), y: badgeSeparation(small))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                let scale = size / 36
+                ZStack(alignment: .topLeading) {
+                    ForEach(Array(faces.prefix(Self.cluster.count).enumerated()), id: \.element.id) { index, member in
+                        let slot = Self.cluster[index]
+                        // Each face is ringed by whatever lies behind the icon: its ring
+                        // cuts the faces beneath it out rather than painting a color.
+                        Circle()
+                            .frame(width: (slot.size + 4) * scale, height: (slot.size + 4) * scale)
+                            .offset(x: (slot.x - 2) * scale, y: (slot.y - 2) * scale)
+                            .blendMode(.destinationOut)
+                        face(member, size: slot.size * scale, showBadge: false)
+                            .background(Theme.sunken, in: Circle())
+                            .clipShape(Circle())
+                            .offset(x: slot.x * scale, y: slot.y * scale)
+                    }
                 }
+                .frame(width: size, height: size, alignment: .topLeading)
+                .compositingGroup()
             } else if let only = faces.first {
                 face(only, size: size)
             } else {
@@ -336,18 +466,6 @@ struct ChatIcon: View {
         }
     }
 
-    private func badgeSeparation(_ small: CGFloat) -> CGFloat {
-        guard faces[0].agent != nil, faces[1].agent != nil else { return 0 }
-        return max(0, (small <= 24 ? 9 : 12) - (size - small - 1.5))
-    }
-
-    @ViewBuilder
-    private func badge(_ face: ChatFace, badgeSize: CGFloat) -> some View {
-        if face.agent != nil, avatarsEnabled, BotFaces.shared.face(for: face.id) != nil {
-            AgentRuntimeBadge(runtime: face.agent?.provider, size: badgeSize)
-        }
-    }
-
     private func person(id: String, name: String, avatarURL: String?, size: CGFloat) -> some View {
         AvatarView(user: NuphosUser(id: id, email: "", name: name, username: "", avatarURL: avatarURL ?? ""), size: size)
     }
@@ -362,9 +480,9 @@ private struct ChannelPostRow: View {
     let first: Bool
     let mine: Bool
     let attachments: [ComposerAttachment]
-    /// The chat's file groups, already read.
-    let files: [String: [TransferDownloadGroup.File]]
-    let resolve: (String) async throws -> TransferDownloadGroup
+    /// The chat: its file groups read so far, and fresh links for them. Read
+    /// here, not passed in, so a group read after the row was drawn shows.
+    let channel: ChannelSession
     let onLink: (URL) -> Void
     /// Briefly highlighted: a quote of it was tapped.
     var flashed = false
@@ -378,8 +496,13 @@ private struct ChannelPostRow: View {
 
     /// The groups' files when the chat has read them all; else the card reads them.
     private func read(_ groupIds: [String]) -> [TransferDownloadGroup.File]? {
-        let groups = groupIds.compactMap { files[$0] }
+        let groups = groupIds.compactMap { channel.files[$0] }
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
+    }
+
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
     }
 
     var body: some View {
@@ -387,27 +510,26 @@ private struct ChannelPostRow: View {
             if mine { Spacer(minLength: 48) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if first, !mine { header }
-                if let reply = post.replyTo { quote(reply) }
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
-                                 files: read(post.uploads.map(\.groupId)), resolve: resolve)
+                                 files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
-                if !post.text.isEmpty { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: resolve)
+                if !post.text.isEmpty || post.replyTo != nil { bubble }
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
             .contextMenu {
                 if let onReply {
-                    Button("Reply", systemImage: "arrowshape.turn.up.left", action: onReply)
+                    DesignButton("Reply", image: "lucide-undo-2", action: onReply)
                 }
                 #if canImport(UIKit)
                 if !post.text.isEmpty {
-                    Button("Select Text", systemImage: "text.cursor") { selectionRequest += 1 }
-                    Button("Copy", systemImage: "doc.on.doc") { UIPasteboard.general.string = post.text }
+                    DesignButton("Select Text", image: "lucide-text-cursor") { selectionRequest += 1 }
+                    DesignButton("Copy", image: "lucide-copy") { UIPasteboard.general.string = post.text }
                 }
                 #endif
             }
@@ -421,20 +543,25 @@ private struct ChannelPostRow: View {
         }
     }
 
-    /// The post this one answers; tapping it goes there.
+    /// The post this one answers, at the top of its bubble; tapping it goes there.
     private func quote(_ reply: ChannelReply) -> some View {
         Button { onQuote(reply) } label: {
-            (Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
-                + Text(" " + reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .padding(.leading, 8)
-                .overlay(alignment: .leading) { Capsule().fill(Theme.hairline).frame(width: 2) }
-                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: 240, alignment: .leading)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, -4)
         .accessibilityLabel("Replying to \(reply.authorName): \(reply.text)")
+        .accessibilityIdentifier("channel.quote")
     }
 
     private var header: some View {
@@ -459,13 +586,20 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+        VStack(alignment: .leading, spacing: 6) {
+            if let reply = post.replyTo { quote(reply) }
+            if !post.text.isEmpty {
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
+            }
+        }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.chatSurface,
+            .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.sunken,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("channel.bubble")
     }
 
     /// The photos and files of a post still on its way, from the device.
@@ -486,7 +620,7 @@ private struct PausedLine: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "pause.fill").font(.system(size: 9)).foregroundStyle(Theme.warning)
+            LucideIcon("pause").font(.system(size: 9)).foregroundStyle(Theme.warning)
             Text(text).font(Theme.Text.caption).foregroundStyle(Theme.body)
         }
         .padding(.horizontal, 12)
@@ -496,32 +630,42 @@ private struct PausedLine: View {
     }
 }
 
-/// An agent could not reply: what happened and why, when its usage returns, and the fix.
+/// An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry.
 private struct ReplyFailedLine: View {
     let event: AgentConversationDetail.TimelineEvent
+    var onVerify: (() -> Void)?
     var onSwitch: (() -> Void)?
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
+    }
+
+    @ViewBuilder private var fixes: some View {
+        if let onVerify {
+            Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
+        }
+        if let onSwitch {
+            Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+        }
+        if let onRetry {
+            Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+        }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Image(systemName: "exclamationmark.circle").font(.system(size: 11)).foregroundStyle(Theme.warning)
+                LucideIcon("circle-alert").font(.system(size: 11)).foregroundStyle(Theme.warning)
                 Text([event.text, resets].compactMap(\.self).joined(separator: " "))
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
-            if onSwitch != nil || onRetry != nil {
-                HStack(spacing: 8) {
-                    if let onSwitch {
-                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
-                    }
-                    if let onRetry {
-                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
-                    }
+            if onVerify != nil || onSwitch != nil || onRetry != nil {
+                // In one line when they fit, else one under another.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { fixes }
+                    VStack(alignment: .leading, spacing: 8) { fixes }
                 }
                 .font(Theme.Text.caption)
                 .padding(.leading, 17)
@@ -549,7 +693,7 @@ private struct TypingRow: View {
                     TypingDots()
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
-                        .background(Theme.chatSurface, in: UnevenRoundedRectangle(cornerRadii: .init(
+                        .background(Theme.sunken, in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: 18, bottomLeading: 6, bottomTrailing: 18, topTrailing: 18), style: .continuous))
                         .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
@@ -586,21 +730,26 @@ struct TypingDots: View {
     }
 }
 
-/// What the next message answers, above the composer; × cancels.
+/// What the next message answers, above the composer: who, then the quote on up
+/// to two lines, as the sent reply will show it; × cancels.
 struct ReplyChip: View {
     let reply: ChannelReply
     let onCancel: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "arrowshape.turn.up.left.fill").font(.system(size: 12)).foregroundStyle(Theme.muted)
-            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
-                + Text(reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            LucideIcon("undo-2").font(.system(size: 12)).foregroundStyle(Theme.muted)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Replying to \(reply.authorName)").foregroundStyle(Theme.body).fontWeight(.medium)
+                    .lineLimit(1)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("channel.replyChip.text")
+            }
+            .font(Theme.Text.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onCancel) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 17)).foregroundStyle(Theme.muted)
+                LucideIcon("circle-x").font(.system(size: 17)).foregroundStyle(Theme.muted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Cancel reply")
@@ -608,7 +757,7 @@ struct ReplyChip: View {
         .padding(.leading, 12)
         .padding(.trailing, 8)
         .padding(.vertical, 8)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.sunken, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
     }
 }

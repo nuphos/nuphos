@@ -22,3 +22,15 @@ export function panelDisplay(panel: DashboardPanel, range?: NuphosDashboard['tim
       : null,
   }
 }
+
+// The failures a card states itself, by the first line of their message.
+const STATED = new Set(['not_connected', 'no_runtime'])
+
+/** "Not connected: <integration>" when the panel's last run found an integration gone, or why
+ *  no agent could run it; the error log keeps the full diagnostic, and every other failure
+ *  stays behind the log. */
+export function panelNotice(snapshot: DashboardPanel['currentSnapshot']): string | null {
+  if (snapshot?.status !== 'failed' || !STATED.has(snapshot.error?.kind ?? '')) return null
+
+  return snapshot.error?.message.split('\n', 1)[0] || null
+}

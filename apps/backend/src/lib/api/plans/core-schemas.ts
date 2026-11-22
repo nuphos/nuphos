@@ -22,16 +22,6 @@ export const PLAN_LIMITS = {
   stepTitle: 80,
   stepDescription: 300,
   jobsPerStep: 12,
-  commandsPerJob: 20,
-  title: 120,
-  overview: 400,
-  decisions: 12,
-  steps: 10,
-  costSummary: 200,
-  costDetail: 120,
-  riskWorstCase: 400,
-  riskMitigations: 8,
-  riskMitigation: 200,
 } as const
 
 export const planDecisionSchema = z.object({
@@ -146,14 +136,6 @@ const mongoDatabasePlanActionSchema = z.object({
   ),
 })
 
-const planCreateCommandSchema = planCommandSchema.omit({ status: true })
-const planCreateJobSchema = planJobSchema.extend({
-  commands: z.array(planCreateCommandSchema).max(PLAN_LIMITS.commandsPerJob).optional(),
-})
-const planCreateStepSchema = planStepSchema.extend({
-  jobs: z.array(planCreateJobSchema).min(1).max(PLAN_LIMITS.jobsPerStep),
-})
-
 export const planSchema = z.object({
   id: z.string().describe('Public plan id. This is the per-scope plan number as a string.'),
   teamId: z.string().optional(),
@@ -185,22 +167,3 @@ export const planSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 })
-
-export const createPlanBodySchema = z.object({
-  teamId: z.string().min(1).optional(),
-  title: z.string().min(1).max(PLAN_LIMITS.title),
-  overview: z.string().max(PLAN_LIMITS.overview).optional(),
-  decisions: z.array(planDecisionSchema).max(PLAN_LIMITS.decisions).optional(),
-  steps: z.array(planCreateStepSchema).min(1).max(PLAN_LIMITS.steps),
-  costSummary: z.string().min(1).max(PLAN_LIMITS.costSummary),
-  costOneTime: z.string().max(PLAN_LIMITS.costDetail).optional(),
-  costMonthly: z.string().max(PLAN_LIMITS.costDetail).optional(),
-  costSavings: z.string().max(PLAN_LIMITS.costDetail).optional(),
-  riskWorstCase: z.string().min(1).max(PLAN_LIMITS.riskWorstCase),
-  riskMitigations: z
-    .array(z.string().min(1).max(PLAN_LIMITS.riskMitigation))
-    .min(1)
-    .max(PLAN_LIMITS.riskMitigations),
-})
-
-export type CreatePlanBody = z.infer<typeof createPlanBodySchema>

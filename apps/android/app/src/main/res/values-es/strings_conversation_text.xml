@@ -20,6 +20,7 @@
     <string name="convtext_stopped_by_user">Detenido por el usuario.</string>
     <string name="convtext_empty_reply">El agente devolvió una respuesta vacía.</string>
     <string name="convtext_steering_rejected">Se rechazó la redirección. Reintenta cuando el entorno de ejecución lo permita.</string>
+    <string name="convtext_stop_runtime_unreachable">El entorno de ejecución no respondió; el turno se detuvo aquí.</string>
     <string name="convtext_steering_unconfirmed">No se confirmó la entrega de la redirección. Revisa la tarea antes de reintentar.</string>
     <string name="convtext_delivery_unconfirmed">No se confirmó la entrega del mensaje. Reanuda la conexión original.</string>
     <string name="convtext_task_reloaded">Esta tarea cambió en otro lugar y se volvió a cargar. Reintenta enviar tu mensaje.</string>
@@ -35,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">Preparando herramientas…</string>
     <string name="convtext_phase_building_prompt">Preparando el prompt…</string>
     <string name="convtext_phase_recalling_memory">Recordando la memoria…</string>
-    <string name="convtext_phase_loading_history">Cargando historial…</string>
     <string name="convtext_phase_preparing_model">Preparando el modelo…</string>
     <string name="convtext_phase_connecting">Conectando…</string>
     <string name="convtext_phase_thinking">Pensando…</string>
@@ -58,6 +58,8 @@
     <string name="convtext_runtime_disabled">El entorno de ejecución de esta tarea está desactivado. Cambia a otro entorno de ejecución para continuar.</string>
     <string name="convtext_runtime_not_found">Este entorno de ejecución ya no está disponible en este espacio de trabajo. Cambia a otro entorno de ejecución para continuar.</string>
     <string name="convtext_runtime_offline">El ordenador que ejecuta este entorno de ejecución está sin conexión. Abre Nuphos en él o cambia a otro entorno de ejecución.</string>
+    <string name="convtext_runtime_paused">%1$s está en pausa. Se reanudará cuando envíes un mensaje.</string>
+    <string name="convtext_runtime_starting">%1$s se está iniciando. Estará listo en unos segundos.</string>
     <string name="convtext_ask_owner">Pregunta al propietario</string>
     <string name="convtext_ask_admin">Pregunta a un administrador</string>
     <string name="convtext_server_status">Nuphos devolvió el estado %1$d.</string>

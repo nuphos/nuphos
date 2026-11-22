@@ -1,6 +1,4 @@
-import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Cloud, HeartPulse } from 'lucide-react'
+import { TriangleAlert as TriangleAlertIcon, Cloud, HeartPulse } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -8,6 +6,7 @@ import { ContextMenu } from '../components/ContextMenu'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { TableSkeleton } from '../components/TableSkeleton'
+import { UiIcon } from '../components/ui/ui-icon'
 import { VisibleErrorReporter } from '../components/VisibleErrorReporter'
 import { useToolbarSlot } from '../hooks/useToolbarControls'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
@@ -46,7 +45,7 @@ type Props = {
   refreshKey?: number
   onCount?: (count: number) => void
   onLoading?: (loading: boolean) => void
-  // Prefill (not send) the agent composer — the "Watch with Agent" shortcut.
+  // Prefill (not send) the agent composer — the "Watch in a task" shortcut.
   onOpenAgentChat?: (prompt: string, options?: { send?: boolean }) => void
   /** Navigate to the Connectors page — the empty state's "Go to Connectors". */
   onOpenConnectors?: () => void
@@ -133,7 +132,7 @@ export function MonitoringView({
               title={e.message}
             >
               <VisibleErrorReporter message={e.message} surface="monitoring_provider_error" />
-              <FontAwesomeIcon icon={faTriangleExclamation} className="h-3 w-3" />
+              <UiIcon size={14} icon={TriangleAlertIcon} className="h-3.5 w-3.5" />
               {t('{provider} · {integration}: unreachable', {
                 provider: PROVIDER_LABEL[e.provider],
                 integration: e.integrationLabel,

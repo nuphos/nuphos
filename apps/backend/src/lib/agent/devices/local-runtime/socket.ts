@@ -8,7 +8,7 @@ import { runtimePresenceStore } from './presence'
 import { holderChannel, parseJson, streamChannel } from './protocol'
 
 import type { TunnelBus } from './bus'
-import type { LocalRuntimePresenceStore } from './presence'
+import type { LocalRuntimePresence, LocalRuntimePresenceStore } from './presence'
 import type {
   HolderMessage,
   LocalAgentProvider,
@@ -48,10 +48,14 @@ const DEFAULT_LIVENESS_MS = 10_000
 const CLOSE_RETRY_MS = 1_000
 const CLOSE_RETRIES = 30
 const OFFLINE_REASON = 'The computer running this agent is offline'
+
+/** Closes a stream the computer is online for but cannot take, such as a terminal on a Box. */
+export const UNSUPPORTED_CLOSE_CODE = 4400
 const CAPABILITY: Partial<Record<TunnelPurpose, keyof LocalRuntimeStatus>> = {
   attachments: 'localAttachments',
   exec: 'localExec',
   upload: 'localUpload',
+  download: 'localDownload',
   terminal: 'localTerminal',
   cua: 'localCua',
   browser: 'localBrowser',
@@ -106,7 +110,7 @@ export class DeviceRuntimeSocket {
 
   send(data: string): void {
     if (this.readyState !== OPEN) throw new Error('Local runtime stream is not open')
-    void this.toHolder({ t: 'data', s: this.streamId, d: data })
+    void this.toHolder({ t: 'data', s: this.streamId, d: data, conn: this.conn })
   }
 
   close(): void {
@@ -117,11 +121,12 @@ export class DeviceRuntimeSocket {
 
   /** Logs which check found the computer unreachable, since the person only sees "offline". */
   private fail(stage: 'connect' | 'liveness' | 'send', cause: string, error?: unknown): void {
-    const { userId, deviceId, purpose, provider, instanceId } = this.target
+    const { userId, deviceId, teamId, purpose, provider, instanceId } = this.target
 
     logEvent('warn', 'agent.local_runtime.stream_failed', {
       user_id: userId,
       device_id: deviceId,
+      team_id: teamId,
       purpose,
       provider,
       instance_id: instanceId,
@@ -129,7 +134,10 @@ export class DeviceRuntimeSocket {
       cause,
       ...(error === undefined ? {} : errorTelemetryProperties(error)),
     })
-    this.finish(1006, error instanceof Error ? error.message : OFFLINE_REASON)
+    this.finish(
+      cause === 'capability_missing' ? UNSUPPORTED_CLOSE_CODE : 1006,
+      error instanceof Error ? error.message : OFFLINE_REASON,
+    )
   }
 
   private emit(type: string, event: SocketEvent): void {
@@ -177,11 +185,52 @@ export class DeviceRuntimeSocket {
       this.readyState = OPEN
       this.emit('open', {})
     } else if (message.t === 'data') this.emit('message', { data: message.d })
-    else if (message.t === 'close') this.finish(message.code ?? 1006, message.reason ?? '')
+    else if (message.t === 'close') void this.closed(message.code ?? 1006, message.reason ?? '')
+  }
+
+  private async closed(code: number, reason: string): Promise<void> {
+    if (this.readyState === CONNECTING && this.moved(await this.presence())) return
+    this.finish(code, reason)
+  }
+
+  private presence(): Promise<LocalRuntimePresence | null> {
+    return this.deps.presence.get(this.target.userId, this.target.deviceId).catch(() => null)
+  }
+
+  /**
+   * A stream the computer has not opened yet lost nothing, so when another tunnel took the
+   * computer over it opens there instead of failing (#3648).
+   */
+  private moved(presence: LocalRuntimePresence | null): boolean {
+    if (!presence || presence.conn === this.conn || this.readyState !== CONNECTING) return false
+    this.openOn(presence.conn).catch((error: unknown) => {
+      this.fail('send', 'error', error)
+    })
+
+    return true
+  }
+
+  private async openOn(conn: string): Promise<void> {
+    const { userId, actorId, deviceId, teamId, purpose, provider, instanceId } = this.target
+
+    this.conn = conn
+    await this.deps.bus.publish(
+      holderChannel(userId, deviceId),
+      JSON.stringify({
+        t: 'open',
+        s: this.streamId,
+        conn,
+        teamId,
+        actorId,
+        purpose,
+        provider,
+        ...(instanceId ? { instanceId } : {}),
+      } satisfies HolderMessage),
+    )
   }
 
   async connect(): Promise<void> {
-    const { userId, actorId, deviceId, teamId, purpose, provider, instanceId } = this.target
+    const { userId, deviceId } = this.target
 
     try {
       const presence = await this.deps.presence.get(userId, deviceId)
@@ -192,26 +241,13 @@ export class DeviceRuntimeSocket {
 
         return
       }
-      this.conn = presence.conn
       this.unsubscribe = await this.deps.bus.subscribe(streamChannel(this.streamId), this.onStream)
       if (this.readyState === CLOSED) {
         this.unsubscribe()
 
         return
       }
-      await this.deps.bus.publish(
-        holderChannel(userId, deviceId),
-        JSON.stringify({
-          t: 'open',
-          s: this.streamId,
-          conn: presence.conn,
-          teamId,
-          actorId,
-          purpose,
-          provider,
-          ...(instanceId ? { instanceId } : {}),
-        } satisfies HolderMessage),
-      )
+      await this.openOn(presence.conn)
       if (this.readyState === CLOSED) return
       this.liveness = setInterval(
         () => void this.checkLiveness(),
@@ -223,11 +259,9 @@ export class DeviceRuntimeSocket {
   }
 
   private async checkLiveness(): Promise<void> {
-    const presence = await this.deps.presence
-      .get(this.target.userId, this.target.deviceId)
-      .catch(() => null)
+    const presence = await this.presence()
 
-    if (presence?.conn === this.conn || this.readyState === CLOSED) return
+    if (presence?.conn === this.conn || this.readyState === CLOSED || this.moved(presence)) return
     this.fail('liveness', presence ? 'tunnel_replaced' : 'no_presence')
     void this.closeOnHolder()
   }

@@ -18,6 +18,8 @@ import { ObjectId } from 'mongodb'
 import { admitFileTransfer } from './admission'
 import { groupStatusFrom, loadGroup, objectKey, validateInputs, view } from './service-shared'
 
+export { releaseTransfer } from './release'
+
 import type {
   CreatedItemView,
   CreatedTransferView,
@@ -49,7 +51,7 @@ export async function createTransfer(
   validateInputs(files)
   const provider = getStorageProvider(scope.teamId.toHexString())
 
-  await admitFileTransfer(
+  const admission = await admitFileTransfer(
     scope.teamId.toHexString(),
     files.reduce((sum, file) => sum + file.size, 0),
   )
@@ -70,6 +72,7 @@ export async function createTransfer(
     status: 'pending',
     storageProvider: provider.id,
     ...(label ? { label } : {}),
+    admission,
     createdAt: now,
     expiresAt,
   }
@@ -134,8 +137,12 @@ export async function finalizeTransfer(
   const provider = getStorageProvider(scope.teamId.toHexString())
   const items = await fileTransferItems().find({ groupId: group._id }).toArray()
 
-  for (const item of items) {
-    if (item.status === 'ready') continue
+  // A group whose slot was given back (release.ts) stays as it was released:
+  // a file that lands afterwards was never paid for, so it is not delivered.
+  if (group.admission?.releasedAt) return view(group, items)
+  const checked = items.filter((item) => item.status !== 'ready')
+
+  for (const item of checked) {
     const head = await provider.headObject({
       bucket: item.bucket,
       region: item.region,
@@ -145,24 +152,34 @@ export async function finalizeTransfer(
     if (head && head.size !== item.declaredSize) {
       await provider.deleteObject({ bucket: item.bucket, region: item.region, key: item.objectKey })
     }
-    if (head && head.size === item.declaredSize) {
-      item.status = 'ready'
-      item.actualSize = head.size
+    item.status = head && head.size === item.declaredSize ? 'ready' : 'failed'
+  }
+
+  const status = groupStatusFrom(items)
+  // The items are written only after the group, and only as ready if this
+  // write matched: a group released after it was loaded above matches nothing
+  // and its files stay undelivered, while release.ts never claims a group that
+  // is ready. matchedCount, since a status that did not change modifies nothing.
+  const written = await fileTransferGroups().updateOne(
+    { _id: group._id, 'admission.releasedAt': { $exists: false } },
+    { $set: { status } },
+  )
+  const delivered = written.matchedCount === 1
+
+  for (const item of checked) {
+    if (delivered && item.status === 'ready') {
+      item.actualSize = item.declaredSize
       item.finalizedAt = new Date()
       await fileTransferItems().updateOne(
         { _id: item._id },
-        { $set: { status: 'ready', actualSize: head.size, finalizedAt: item.finalizedAt } },
+        { $set: { status: 'ready', actualSize: item.actualSize, finalizedAt: item.finalizedAt } },
       )
     } else {
       item.status = 'failed'
       await fileTransferItems().updateOne({ _id: item._id }, { $set: { status: 'failed' } })
     }
   }
-
-  const status = groupStatusFrom(items)
-
-  await fileTransferGroups().updateOne({ _id: group._id }, { $set: { status } })
-  group.status = status
+  group.status = delivered ? status : groupStatusFrom(items)
 
   return view(group, items)
 }
@@ -232,16 +249,20 @@ export async function listSessionDownloadsSince(args: {
   teamId: ObjectId
   sessionId: string
   since: Date
+  /** Bounded on-demand listings show the newest groups first. Omission keeps chronological delivery. */
+  limit?: number
 }): Promise<TransferGroupView[]> {
   const groups = await fileTransferGroups()
     .find({
       teamId: args.teamId,
       sessionId: args.sessionId,
       direction: 'download',
+      ...(args.limit ? { status: { $in: ['ready', 'partial'] } } : {}),
       createdAt: { $gte: args.since },
       expiresAt: { $gt: new Date() },
     })
-    .sort({ createdAt: 1 })
+    .sort({ createdAt: args.limit ? -1 : 1 })
+    .limit(args.limit ?? 0)
     .toArray()
 
   if (groups.length === 0) return []

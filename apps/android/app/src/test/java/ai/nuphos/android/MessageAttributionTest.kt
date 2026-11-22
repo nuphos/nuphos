@@ -54,6 +54,22 @@ class MessageAttributionTest {
         assertNull(sender("agent.resource", "system", "channel:")?.channelId)
         assertNull(sender("agent.thread", "agent", "channel:channel-1")?.channelId)
         assertNull(sender("nuphos", "user", "channel:channel-1")?.channelId)
+        // A Slack channel's wake line names the channel and opens nothing: its record stays hidden (#3925).
+        val slack = sender("agent.resource", "system", "slack-channel:r1")
+        assertTrue(slack?.isEvent == true)
+        assertNull(slack?.channelId)
+    }
+
+    @Test fun aChannelWakeCarriesItsNewestPostForTheLine() {
+        fun wake(post: String, source: String = "agent.resource") = MessageAttribution.parse(JsonValue.parse(
+            """{"version":1,"source":"$source","sentAt":"2026-10-22T00:00:00Z","sender":{"id":"channel:c1","type":"system","displayName":"ops"},"channelPost":$post}"""))
+        val agentPost = """{"id":"p7","text":"deploy failed","more":2,"sender":{"type":"agent","id":"s9","displayName":"Reviewer","agentRuntime":"codex"}}"""
+        assertEquals(ChannelPostPreview("p7", "Reviewer", null, "s9", "codex", "deploy failed", 2), wake(agentPost)?.channelPost)
+        val person = wake("""{"id":"p8","text":"","more":0,"sender":{"type":"user","id":"u1","displayName":"Mei"}}""")?.channelPost
+        assertEquals(ChannelPostPreview("p8", "Mei", null, null, null, "", 0), person)
+        // Without a count, or from no channel, there is no post: today's line.
+        assertNull(wake("""{"id":"p7","text":"x","sender":{"type":"user","id":"u1","displayName":"Mei"}}""")?.channelPost)
+        assertNull(MessageAttribution.parse(metadata(source = "agent.resource", type = "system"))?.channelPost)
     }
 
     @Test fun viaMustHaveAnIdentityAndOnlyAppliesToNuphos() {

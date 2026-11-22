@@ -22,6 +22,17 @@ export type SlackChannelMapping = {
     botInChannel: boolean
     archived: boolean
   } | null
+  /** The Bot that answers in this channel (#3702), one at most; `mine` if the viewer may remove it. */
+  bots?: SlackChannelBot[]
+}
+
+export type SlackChannelBot = {
+  sessionId: string
+  title?: string
+  avatar: string
+  mine?: boolean
+  /** Whose Bot it is, on the one a channel holds. */
+  ownerName?: string
 }
 
 export type DiscordConnection = {

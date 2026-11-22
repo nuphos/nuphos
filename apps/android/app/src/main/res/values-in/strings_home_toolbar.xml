@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_toolbar_runtimes">Komputer &amp; runtime</string>
+    <string name="home_toolbar_switch_team">Ganti tim</string>
+    <string name="home_toolbar_choose_team">Pilih tim</string>
+    <string name="home_toolbar_create">Buat</string>
+    <string name="home_toolbar_new_bot">Bot baru</string>
+    <string name="home_toolbar_new_task">Tugas baru</string>
+    <string name="home_toolbar_account">Akun</string>
+    <string name="home_toolbar_close_workspace">Tutup halaman ruang kerja</string>
+</resources>

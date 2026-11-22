@@ -8,6 +8,7 @@ import {
   listLocalRuntimeActivity,
 } from '@/lib/agent/devices/local-runtime/activity'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
+import { noteBoxEviction } from '@/lib/agent/devices/box-instabox-state'
 import { noteBoxPresence } from '@/lib/agent/devices/box-usage-history'
 import { attachRuntimeTunnel } from '@/lib/agent/devices/local-runtime/holder'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
@@ -15,6 +16,8 @@ import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
 import { settlePendingRemovals } from '@/lib/agent/devices/pending-removals'
 import { presenceChanged } from '@/lib/agent/devices/presence-alerts'
+import { wakeMissedPosts } from '@/lib/agent/channel-missed-posts'
+import { deliverWaitingAnswersOn, onDevice } from '@/lib/agent/deliver-waiting-answers'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
 import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
@@ -60,6 +63,11 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       connectionChanged: (userId, deviceId, online) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
         void presenceChanged(userId, deviceId, online).catch(() => undefined)
+        // A computer reconnected: every agent on it can run again.
+        if (online) {
+          void deliverWaitingAnswersOn(onDevice(userId, deviceId))
+          void wakeMissedPosts(onDevice(userId, deviceId))
+        } else void noteBoxEviction(userId, deviceId, getAgentDevice)
       },
       recordMetrics: recordDeviceMetricSample,
     },
@@ -90,16 +98,21 @@ export function runtimeTunnelEvents(
 
   return {
     onOpen: (_event: Event, ws: WSContext) => {
+      const raw = ws.raw as { getBufferedAmount?: () => number } | undefined
+      let backlog = 0
+
       tunnel = attachRuntimeTunnel(
         userId,
         deviceId,
         {
           send: (frame) => {
+            backlog = Math.max(backlog, raw?.getBufferedAmount?.() ?? 0)
             ws.send(JSON.stringify(frame))
           },
           close: (code, reason) => {
             ws.close(code, reason)
           },
+          backlog: () => backlog,
         },
         deps,
         client,

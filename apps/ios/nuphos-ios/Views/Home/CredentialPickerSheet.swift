@@ -6,17 +6,19 @@ struct CredentialPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selection: CredentialSelection
     var scope: CredentialScope = .credentials
+    /// An integration question's providers: only the credentials that answer it are offered.
+    var providers: [String]? = nil
 
-    private var title: String { scope == .devices ? "Computers" : "Credentials" }
+    private var title: String { scope == .devices ? String(localized: "Computers") : String(localized: "Credentials") }
     private var symbol: String { scope == .devices ? "laptopcomputer" : "key" }
-    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope) }
+    private var catalog: CredentialCatalog? { store.credentialCatalog?.scoped(to: scope).answering(providers) }
 
     var body: some View {
         NavigationStack {
             Group {
                 if let catalog {
                     if catalog.isEmpty {
-                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No \(title) connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
+                        ContentUnavailableView(scope == .devices ? "No computers connected" : "No credentials connected", systemImage: symbol, description: Text(scope == .devices ? "Connect a computer to your team in Nuphos to use it here." : "Connect cloud accounts and integrations in Nuphos to use them here."))
                     } else {
                         List {
                             ForEach(catalog.sections, id: \.provider.id) { section in
@@ -33,7 +35,7 @@ struct CredentialPickerSheet: View {
                                                     }
                                                 }
                                                 Spacer()
-                                                Image(systemName: selection.contains(item) ? "checkmark.circle.fill" : "circle")
+                                                LucideIcon(systemName: selection.contains(item) ? "checkmark.circle.fill" : "circle")
                                                     .font(.system(size: 20))
                                                     .foregroundStyle(selection.contains(item) ? Theme.heading : Theme.muted)
                                             }
@@ -43,7 +45,7 @@ struct CredentialPickerSheet: View {
                                 } header: {
                                     HStack(spacing: 8) {
                                         if let symbol = section.provider.symbol {
-                                            Image(systemName: symbol).font(.system(size: 13))
+                                            LucideIcon(systemName: symbol).font(.system(size: 13))
                                         } else {
                                             BrandLogo(name: section.provider.logo, size: 16)
                                         }
@@ -57,7 +59,7 @@ struct CredentialPickerSheet: View {
                     }
                 } else if let error = store.credentialCatalogError {
                     ContentUnavailableView {
-                        Label("Couldn't load \(title)", systemImage: "wifi.exclamationmark")
+                        Label("Couldn't load \(title)", image: "lucide-wifi-off")
                     } description: {
                         Text(error)
                     } actions: {
@@ -105,52 +107,62 @@ struct ComposerControls: View {
     var session: ChatSession?
     /// Opens the open conversation's runtime switcher; nil leaves its runtime chip out.
     var switchRuntime: (() -> Void)? = nil
+    /// A Bot's chat exposes only its runtime and model, not its credentials or mode.
+    var botChat = false
+    var locked = false
     @State private var showDevices = false
     @State private var showPicker = false
     @State private var showModes = false
     @State private var showRuntimes = false
     @State private var showModel = false
+    @State private var showLockedHint = false
 
-    // Desktop's order: Credentials, then how it runs (mode, runtime, model).
+    // Runtime and model first, so a phone shows them without scrolling the row.
     var body: some View {
-        // A Task under a Bot uses the Bot's and has none of its own to change.
-        if session?.followsBot != true { ownSelection }
+        Group {
+            runtimeChip
 
-        runtimeChip
-
-        if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
-            Button { showModel = true } label: {
-                ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session).presentationDetents([.medium, .large]) }
-            .task(id: session.sessionId) {
-                while !Task.isCancelled {
-                    await session.refreshSessionConfig()
-                    do { try await Task.sleep(for: .seconds(10)) } catch { return }
+            if let session, (botChat || !session.isNew), session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
+                Button { if locked { showLockedHint = true } else { showModel = true } } label: {
+                    ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
+                        .opacity(locked ? 0.5 : 1)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Model settings")
+                .accessibilityIdentifier(botChat ? "bot-composer.model" : "composer.model")
+                .sheet(isPresented: $showModel) { ModelSettingsSheet(session: session).presentationDetents([.medium, .large]) }
+                .task(id: session.sessionId) {
+                    while !Task.isCancelled {
+                        await session.refreshSessionConfig()
+                        do { try await Task.sleep(for: .seconds(10)) } catch { return }
+                    }
+                }
+                .onChange(of: session.isStreaming) { _, streaming in
+                    if !streaming { Task { await session.refreshSessionConfig() } }
+                }
+            } else if !botChat && (session == nil || session?.isNew == true), store.canConfigureNewModel {
+                Button { showModel = true } label: {
+                    ComposerChip(title: store.newModelTitle, isActive: false)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Model settings")
+                .sheet(isPresented: $showModel) { ModelSettingsSheet().presentationDetents([.medium, .large]) }
+                .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
+                    await store.loadNewModelConfig()
                 }
             }
-            .onChange(of: session.isStreaming) { _, streaming in
-                if !streaming { Task { await session.refreshSessionConfig() } }
-            }
-        } else if session == nil || session?.isNew == true, store.canConfigureNewModel {
-            Button { showModel = true } label: {
-                ComposerChip(title: store.newModelTitle, isActive: false)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Model settings")
-            .sheet(isPresented: $showModel) { ModelSettingsSheet().presentationDetents([.medium, .large]) }
-            .task(id: "\(store.selectedTeam?.id ?? "")/\(store.newConversationRuntime?.id ?? "")") {
-                await store.loadNewModelConfig()
-            }
+            // A Task under a Bot uses the Bot's and has none of its own to change.
+            if !botChat && session?.followsBot != true { ownSelection }
+        }
+        .alert("Only the owner can change model settings.", isPresented: $showLockedHint) {
+            Button("OK") { }
         }
     }
 
     /// Credentials, computers and permission mode: what a conversation with no Bot above it picks.
     @ViewBuilder private var ownSelection: some View {
         Button { showPicker = true } label: {
-            ComposerChip(systemImage: "key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
+            ComposerChip(systemImage: "person.badge.key", title: credentialsTitle, isActive: selection.count(in: .credentials) > 0)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Choose Credentials")
@@ -181,14 +193,16 @@ struct ComposerControls: View {
     /// where the composer's other controls are, rather than from a menu.
     @ViewBuilder
     private var runtimeChip: some View {
-        if let session, !session.isNew {
+        if let session, botChat || !session.isNew {
             if let switchRuntime, let name = runtimeName(session) {
-                Button(action: switchRuntime) {
+                Button(action: { if locked { showLockedHint = true } else { switchRuntime() } }) {
                     ComposerChip(logo: RuntimeInstance.Provider.logo(session.agentRuntime), title: name, isActive: true)
+                        .opacity(locked ? 0.5 : 1)
                 }
                 .buttonStyle(.plain)
-                .disabled(session.isStreaming)
+                .disabled(session.isStreaming && !locked)
                 .accessibilityLabel("Switch runtime, \(name)")
+                .accessibilityIdentifier(botChat ? "bot-composer.runtime" : "composer.runtime")
                 .task { await store.loadRuntimes() }
             }
         } else {
@@ -207,8 +221,8 @@ struct ComposerControls: View {
 
     private var runtimeTitle: String {
         guard let runtime = store.newConversationRuntime else {
-            if store.selectedRuntimeUnavailable { return "Choose runtime" }
-            return store.runtimesLoaded ? "Runtime" : "Runtime…"
+            if store.selectedRuntimeUnavailable { return String(localized: "Choose runtime") }
+            return store.runtimesLoaded ? String(localized: "Runtime") : String(localized: "Runtime…")
         }
         return SelectorBox.agentName(runtime)
     }
@@ -220,7 +234,7 @@ struct ComposerControls: View {
             return SelectorBox.agentName(runtime)
         }
         // Gone from the list: the chip still opens the picker, which is how the conversation moves.
-        return session.runtimeDisplayName ?? "Choose runtime"
+        return session.runtimeDisplayName ?? String(localized: "Choose runtime")
     }
 
     private func modelTitle(_ session: ChatSession) -> String {
@@ -229,12 +243,12 @@ struct ComposerControls: View {
 
     private var deviceTitle: String {
         let n = selection.count(in: .devices)
-        return n == 0 ? "Computers" : "Computers · \(n)"
+        return n == 0 ? String(localized: "Computers") : String(localized: "Computers · \(n)")
     }
 
     private var credentialsTitle: String {
         let n = selection.count(in: .credentials)
-        return n == 0 ? "Credentials" : "Credentials · \(n)"
+        return n == 0 ? String(localized: "Credentials") : String(localized: "Credentials · \(n)")
     }
 }
 
@@ -257,7 +271,7 @@ struct PermissionModeSheet: View {
                             }
                             Spacer()
                             if option == mode {
-                                Image(systemName: "checkmark").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
+                                LucideIcon("check").font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.heading)
                             }
                         }
                         .padding(.vertical, 4)

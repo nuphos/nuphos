@@ -1,15 +1,13 @@
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { announceChatArchived } from '../../lib/chatArchiveEvents'
+import { forgetSessionVisits } from '../../lib/sessionHistory'
 import { ownAgents } from '../channels/channelShared'
 
 import { announceTimelineChange } from './panel/timelineEvents'
 
-import type {
-  AgentConversationParticipant,
-  ChannelAgent,
-  ConversationAccessState,
-} from '../../api/agent-types'
+import type { AgentConversationParticipant, ChannelAgent } from '../../api/agent-types'
+import type { ConversationAccessState } from '../../api/window-session-access'
 import type { Pickable } from './PersonFace'
 
 /** A channel's agents as the Share card's people; the viewer may take out their own, or any if they own the channel. */
@@ -26,7 +24,9 @@ export function agentPeople(
     role: 'reply',
     agent: {
       avatar: agent.avatar,
+      avatarBackground: agent.avatarBackground,
       removable: agent.ownerId === viewerId || channelOwnerId === viewerId,
+      ...(agent.presence ? { presence: agent.presence } : {}),
     },
   }))
 }
@@ -46,7 +46,11 @@ export function addableAgents(
       id: agent.sessionId,
       name: agent.title || t('Untitled task'),
       email: '',
-      agent: { avatar: agent.avatar, provider: agent.agentRuntime },
+      agent: {
+        avatar: agent.avatar,
+        avatarBackground: agent.avatarBackground,
+        provider: agent.agentRuntime,
+      },
     }))
 }
 
@@ -72,5 +76,6 @@ export async function removePeople(
 /** The viewer takes themselves out; the session leaves their lists and tabs as an archived one does. */
 export async function leaveSession(sessionId: string, teamId: string, viewerId: string) {
   await api.agentRemoveConversationParticipant(sessionId, teamId, viewerId)
+  forgetSessionVisits(viewerId, teamId, [sessionId])
   announceChatArchived({ sessionId, teamId })
 }

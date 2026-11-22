@@ -55,6 +55,8 @@ private struct DesktopPresentation: ViewModifier {
             if besides, let desktop {
                 if let band { Color.clear.frame(width: band.width) }
                 desktop.screen { self.desktop = nil }
+                    // Its black stays in its frame, out from under the conversation's navigation bar.
+                    .clipped()
                     .id(ObjectIdentifier(desktop))
                     .containerRelativeFrame(.horizontal) { width, _ in band.map { width - $0.maxX } ?? (width * 0.6).rounded() }
             }

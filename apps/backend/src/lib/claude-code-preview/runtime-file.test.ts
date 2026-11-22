@@ -36,6 +36,7 @@ beforeEach(() => {
         workspace: '/workspace',
         action: 'read',
         sessionId: 's',
+        sessionHomeEpoch: conversation?.sessionHomeEpoch ?? 0,
       })
 
       return { stdout: JSON.stringify({ name: 'report.md', data: 'aGk=', size: 2 }) }
