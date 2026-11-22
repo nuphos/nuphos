@@ -70,7 +70,8 @@ export function SortableSummarySection({
 
   return (
     <Reorder.Item
-      as="div"
+      as="section"
+      aria-label={title}
       value={id}
       layout="position"
       layoutDependency={layoutKey}

@@ -41,7 +41,11 @@ export function SummarySection({
     )
 
   return (
-    <section ref={ref} className={layoutTitle === null ? sectionClass : ''} aria-label={title}>
+    <section
+      ref={ref}
+      className={layoutTitle === null ? sectionClass : ''}
+      aria-label={layoutTitle === title ? undefined : title}
+    >
       {titleRow}
       {header}
       <div className="flex flex-col gap-0.5 pt-2">{children}</div>

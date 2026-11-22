@@ -172,6 +172,11 @@ test('header actions share the handle row and preserve drafts through collapse a
     (button) => button.textContent === 'Edit fixture',
   )!
 
+  const regions = container.querySelectorAll('section[aria-label="Instructions"]')
+
+  assert.equal(regions.length, 1)
+  assert.ok(regions[0].contains(edit), 'the named region must contain its header action')
+  assert.ok(regions[0].contains(handle), 'the named region must contain its drag handle')
   assert.ok(handle.parentElement?.contains(edit))
   assert.equal(edit.closest('button'), edit)
   await act(() => toggle.click())
