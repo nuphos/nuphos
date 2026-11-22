@@ -29,10 +29,7 @@ beforeEach(() => {
   staged = []
 })
 
-async function accessFor(input: {
-  share?: { mode: 'team'; memberIds: [] }
-  provider?: string
-}) {
+async function accessFor(input: { share?: { mode: 'team'; memberIds: [] }; provider?: string }) {
   let access: BindingAccess | undefined
 
   await finishConnectorOAuth({
