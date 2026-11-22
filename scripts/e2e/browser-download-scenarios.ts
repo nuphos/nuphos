@@ -15,18 +15,20 @@ import type { AddressInfo } from 'node:net'
 import type { Page } from 'playwright-core'
 import type { Scenario } from './ui.ts'
 
-/** The window's notice for `name`, a page of its own in the app. */
-async function noticeOf(page: Page, name: string): Promise<Page> {
+/** The window's notice saying `title`, a page of its own in the app: each notice is a new one. */
+async function noticeOf(page: Page, title: string): Promise<Page> {
   let notice: Page | undefined
 
-  await until(`the download notice for ${name}`, async () => {
+  await until(`the notice "${title}"`, async () => {
     notice = page
       .context()
       .browser()
       ?.contexts()
       .flatMap((context) => context.pages())
       .find(
-        (p) => p.url().startsWith('data:text/html') && decodeURIComponent(p.url()).includes(name),
+        (p) =>
+          p.url().startsWith('data:text/html') &&
+          decodeURIComponent(p.url()).includes(`<b>${title}</b>`),
       )
 
     return notice
@@ -35,7 +37,7 @@ async function noticeOf(page: Page, name: string): Promise<Page> {
   return notice!
 }
 
-/** The screen as the person sees it, notice over the shown tab; skipped without ImageMagick. */
+/** The screen as the person sees it, notice over the shown tab, when the runner can grab it. */
 function screen(file: string): void {
   const out = join(artifacts, file)
   const grabs: [string, string[]][] = [
@@ -115,11 +117,10 @@ export const browserDownloadScenarios: Scenario[] = [
         })
 
         if (clicked.includes('isError')) throw new Error(`The click failed: ${clicked}`)
-        const notice = await noticeOf(page, name)
+        const started = await noticeOf(page, `Downloading ${name}…`)
 
-        await notice.getByText(`Downloading ${name}…`).waitFor()
-        await notice.getByText('Saving to').waitFor()
-        await notice.screenshot({ path: join(artifacts, 'download-notice-started.png') })
+        await started.getByText('Saving to').waitFor()
+        await started.screenshot({ path: join(artifacts, 'download-notice-started.png') })
         screen('download-screen-started.png')
         // A save dialog would hold the download, so it never completes and this times out.
         let saved: RegExpExecArray | null = /Downloaded: (.+?) \(completed, (\d+) bytes\)/.exec(
@@ -140,7 +141,8 @@ export const browserDownloadScenarios: Scenario[] = [
         const home = homedir()
         const shown = folder.startsWith(home) ? `~${folder.slice(home.length)}` : folder
 
-        await notice.getByText(`Downloaded ${name}`).waitFor()
+        const notice = await noticeOf(page, `Downloaded ${name}`)
+
         await notice.getByText(`Saved to ${shown}`, { exact: true }).waitFor()
         await notice.getByText(/Show in (Finder|folder)/).waitFor()
         await notice.screenshot({ path: join(artifacts, 'download-notice-completed.png') })
