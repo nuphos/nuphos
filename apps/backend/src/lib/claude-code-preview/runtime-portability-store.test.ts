@@ -40,3 +40,15 @@ test('a channel never runs a turn, whichever path asks', async () => {
   })
   await assertConversationRuntimeAvailable('agent')
 })
+
+test('a restored Task may run while an older home generation awaits cleanup', async () => {
+  memory.rows('agent_conversations').push({
+    sessionId: 'restored',
+    teamId: 'team',
+    archiveHomePendingEpochs: [
+      { epoch: 0, runtimeId: 'local_owner_device', provider: 'claude-code' },
+    ],
+    sessionHomeEpoch: 1,
+  })
+  await expect(assertConversationRuntimeAvailable('restored')).resolves.toBeUndefined()
+})

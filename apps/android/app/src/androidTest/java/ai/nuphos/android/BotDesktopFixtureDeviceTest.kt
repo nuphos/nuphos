@@ -50,8 +50,12 @@ class BotDesktopFixtureDeviceTest {
     private var savedAccess: Any? = null
     private var historicalPosts = false
     @Volatile private var denyBotTask = false
+    @Volatile private var composerFixture = false
+    @Volatile private var nonOwner = false
     /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
     @Volatile private var dispatched = false
+    /** Release notes is someone else's Bot: the viewer lists none of its Tasks, only its row's count (#4278). */
+    @Volatile private var sharedRunning = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -86,7 +90,8 @@ class BotDesktopFixtureDeviceTest {
     }
     private fun bot(bot: Bot): String {
         val desktop = if (bot.desktop) ""","canOpenDesktop":true""" else ""
-        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":true,"canManage":true,"readOnly":false,"messages":[
+        val native = if (composerFixture) ""","agentRuntime":"claude-code","runtimeId":"fixture-runtime","runtimeLabel":"Fixture Box"""" else ""
+        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":${!nonOwner},"canManage":${!nonOwner},"readOnly":$nonOwner$native,"messages":[
             {"id":"task-prompt","role":"user","parts":[{"type":"text","text":"Draft the 0.26 release notes."}]},
             {"id":"task-answer","role":"assistant","parts":[{"type":"text","text":"Release notes draft: Shared Bot Tasks keep the conversation and working context together."}]}],
             "runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle","actions":{"send":true}$desktop}}"""
@@ -111,16 +116,18 @@ class BotDesktopFixtureDeviceTest {
                     .code(403).message("fixture").body("""{"error":{"message":"Session access denied"}}""".toResponseBody(Http.jsonMedia)).build()
             }
             val body = when {
+                path.endsWith("/model-config") && composerFixture -> """{"status":"ready","options":[{"id":"model","name":"Model","kind":"model","currentValue":"sonnet","options":[{"value":"sonnet","name":"Sonnet"},{"value":"opus","name":"Opus"}]}]}"""
                 chatId != null -> chat(chatId, bots.getValue(chatId))
                 ofBot != null -> bot(ofBot)
                 ofTask != null -> """{"sessionId":"${ofTask.first}","title":"${ofTask.second}","isOwner":true,"canManage":true,"readOnly":false,"parentSessionId":"bot-plain",
                     "messages":[{"id":"m","role":"assistant","parts":[{"type":"text","text":"Working on: ${ofTask.second}."}]}]}"""
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
-                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
+                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","ownerId":"${if (denyBotTask || nonOwner) "another-viewer" else "viewer"}"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
-                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":true,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"}""" }}],"hasMore":false}"""
+                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":${!sharedRunning},"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"${
+                        if (sharedRunning) ""","tasks":{"running":1,"waiting":1}""" else ""}}""" }}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
@@ -283,6 +290,15 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
     }
 
+    @Test fun aSharedBotSaysItsTasksRunFromItsRow() {
+        sharedRunning = true; nonOwner = true
+        render("chat-plain", listBots = true)
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("bot-state", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        // What waits is its owner's to answer, not the viewer's.
+        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertTextEquals("1 running")
+        capture("8b-shared-bot-state")
+    }
+
     @Test fun aBotWithADesktopOpensItFromTheHeader() {
         render("chat-box")
         compose.waitUntil(5_000) { compose.onAllNodes(button).fetchSemanticsNodes().isNotEmpty() }
@@ -291,6 +307,43 @@ class BotDesktopFixtureDeviceTest {
         // The Task screen's own viewer, for the Bot's session.
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Close").fetchSemanticsNodes().isNotEmpty() }
         capture("4-desktop-viewer")
+    }
+
+    @Test fun ownerCanOpenBotModelFromChat() {
+        composerFixture = true
+        render("chat-plain")
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-composer.runtime").assertExists()
+        captureComposer("bot-composer-android-owner")
+        compose.onNodeWithTag("bot-composer.model").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Opus").fetchSemanticsNodes().isNotEmpty() }
+        captureComposer("bot-composer-android-model")
+    }
+
+    @Test fun nonOwnerCanSeeButNotChangeBotSettings() {
+        composerFixture = true
+        nonOwner = true
+        render("chat-plain")
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
+        captureComposer("bot-composer-android-locked-before")
+        compose.onNodeWithTag("bot-composer.runtime").performClick()
+        captureComposer("bot-composer-android-locked-after")
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Only the owner can change model settings.").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onNodeWithText("Only the owner can change model settings.").isDisplayed()
+        }
+        compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
+        captureComposer("bot-composer-android-locked")
+    }
+
+    private fun captureComposer(name: String) {
+        compose.waitForIdle()
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: inst.targetContext.getExternalFilesDir(null) ?: error("No screenshot directory")
+        output.mkdirs()
+        val bitmap = inst.uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
+        File(output, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 
     /** Screenshots for review, only with `-e botDesktopShots true`. */

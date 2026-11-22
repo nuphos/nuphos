@@ -56,6 +56,8 @@ const pending = new Proxy(
 )
 
 Object.assign(dom, { api: pending })
+// happy-dom lays nothing out: the chat is wide enough for its details beside it.
+Object.defineProperty(dom.HTMLElement.prototype, 'offsetWidth', { get: () => 1200 })
 // The app's modules read browser globals as they load: every one the window has, once.
 const browser: Record<string, unknown> = {
   window: dom,

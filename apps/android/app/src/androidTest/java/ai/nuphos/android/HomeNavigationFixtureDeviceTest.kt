@@ -74,6 +74,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var runtimeCatalogFailure = false
     @Volatile private var runtimeRemoved = false
     @Volatile private var runtimeReplaced = false
+    @Volatile private var signedInAgain = false
     private lateinit var plansStore: PlansStore
     private lateinit var app: NuphosApplication
     private lateinit var agent: AgentStore
@@ -121,7 +122,10 @@ class HomeNavigationFixtureDeviceTest {
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${b.id}/monitoring/overview")
                 val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
-                if (!runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
+                val mfa = request.method == "GET" && path == "/auth/mfa"
+                val mfaSetup = request.method == "POST" && path == "/auth/mfa/totp/setup"
+                val endSession = request.method == "DELETE" && path == "/auth/sessions/current"
+                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -162,6 +166,11 @@ class HomeNavigationFixtureDeviceTest {
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
                     policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
+                    mfa -> """{"enabled":false}"""
+                    // A sign-in older than ten minutes may not start setup (the backend's rule for accounts without 2FA).
+                    mfaSetup -> if (signedInAgain) """{"secret":"JBSWY3DPEHPK3PXP","otpauthUrl":"otpauth://totp/Nuphos:fixture?secret=JBSWY3DPEHPK3PXP"}"""
+                        else { code = 403; """{"error":{"code":"reauth_required","message":"Sign in again","details":{"method":"sign_in"}}}""" }
+                    endSession -> "{}"
                     else -> { code = 500; "{}" }
                 }
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
@@ -182,6 +191,7 @@ class HomeNavigationFixtureDeviceTest {
                 state(AiAccess, "state", false).value = savedAccess
                 app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit().apply {
                     if (savedLastTeam == null) remove("nuphos.workspace.lastTeamId") else putString("nuphos.workspace.lastTeamId", savedLastTeam)
+                    remove("nuphos.resumeTwoFactor") // A failed two-factor test must not open the next test's account sheet.
                 }.commit()
             }
             originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
@@ -215,6 +225,8 @@ class HomeNavigationFixtureDeviceTest {
                     LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plansStore, LocalConnectorsStore provides connectors) {
                     NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
+                        // As in the app, home leaves on sign-out and comes back fresh on the next sign-in.
+                        if (auth.state !is AuthSession.State.SignedIn) return@Box
                         val nav = rememberNavController()
                         if (newTask) NavHost(nav, startDestination = "fixture-home") {
                             composable("fixture-home") {
@@ -623,4 +635,45 @@ class HomeNavigationFixtureDeviceTest {
         assertEquals(2, requests.count { it.method == "PATCH" })
     }
 
+    /** Saved where CI collects it (the android-device-tests artifact), unlike [shot]. */
+    private fun evidence(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(250) // Wait for the platform popup window to draw before capturing its pixels.
+        val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: return
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        try { File(dir, "two-factor-resume-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
+    }
+
+    private fun signIn() = compose.runOnIdle {
+        AiAccess.activate(token); AiAccess.grant(token)
+        AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
+        state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview)
+    }
+
+    @Test fun signingInAgainToTurnOnTwoFactorComesBackToIt() {
+        render()
+        compose.onNodeWithContentDescription("Account").performClick()
+        compose.onNodeWithText("Two-factor authentication").performScrollTo().performClick()
+        waitText("Turn on")
+        compose.onNodeWithText("Turn on").performClick()
+        waitText("Sign in again to turn on two-factor authentication.")
+        evidence("two-factor-sign-in-again")
+        compose.onNodeWithText("Sign out and sign in again").performClick()
+        compose.waitUntil(8_000) { auth.state is AuthSession.State.SignedOut }
+
+        signedInAgain = true
+        signIn()
+        // Captured either way: the screen this sign-in lands on is the change under review.
+        try { waitText("Turn on") } finally { evidence("two-factor-after-sign-in") }
+        compose.onNodeWithText("Turn on").performClick()
+        waitText("JBSW Y3DP EHPK 3PXP")
+
+        // Only that one sign-in comes back; the next one opens home as usual.
+        compose.runOnIdle { auth.signOut() }
+        compose.waitUntil(8_000) { auth.state is AuthSession.State.SignedOut }
+        signIn()
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("home-page-switcher").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("account-sheet-title").assertDoesNotExist()
+        compose.onNodeWithText("Turn on").assertDoesNotExist()
+    }
 }

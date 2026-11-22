@@ -10,12 +10,6 @@ export type PlanReferenceMessage = {
   parts: ({ type: string } | PlanReferenceToolPart)[]
 }
 
-export type ConversationPlanReference = {
-  id: string
-  sourceConversationId?: string
-  createdAt: string
-}
-
 const PLAN_PROPOSAL_TOOL_NAMES = new Set(['plan_create', 'database_change_propose'])
 
 export function isPlanProposalToolName(toolName: string): boolean {
@@ -66,24 +60,4 @@ export function findLatestPlanReference(
   }
 
   return null
-}
-
-/**
- * Native runtime skills can create a Plan through the conversation-scoped
- * REST surface. The live tool frame is best-effort, while the Plan document is
- * durable; use the latter as a fallback so a dropped frame cannot leave the
- * card invisible.
- */
-export function findLatestConversationPlanId(
-  plans: ConversationPlanReference[],
-  sessionId: string,
-): string | null {
-  let latest: ConversationPlanReference | null = null
-
-  for (const plan of plans) {
-    if (plan.sourceConversationId !== sessionId) continue
-    if (!latest || plan.createdAt > latest.createdAt) latest = plan
-  }
-
-  return latest?.id ?? null
 }

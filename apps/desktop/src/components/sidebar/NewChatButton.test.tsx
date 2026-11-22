@@ -33,6 +33,7 @@ mock.module('../../api', () => ({
 
       return Promise.resolve({ sessionId: 'made-bot' })
     },
+    atlasListTeamMembers: () => Promise.resolve([]),
     agentCreateChannel: (team: string, group?: boolean) => {
       groups.push([team, group])
 
@@ -56,6 +57,8 @@ mock.module('../channels/botChannel', () => ({
   createBotChannel: () => Promise.resolve('made-chat'),
 }))
 mock.module('../channels/BotImportDialog', () => ({ BotImportDialog: () => null }))
+mock.module('../../hooks/useCurrentUser', () => ({ useCurrentUser: () => ({ id: 'me' }) }))
+mock.module('../agent/TeammatePicker', () => ({ TeammatePicker: () => null }))
 mock.module('../Modal', () => ({
   Modal: ({ children, title }: { children: ReactNode; title: string }) =>
     createElement('div', { 'data-modal': title }, children),
@@ -170,11 +173,12 @@ test('connect before creating, preserving the name and avatar when returning to 
       },
     ])
     assert.deepEqual(opened, ['made-chat'])
-    // New Group Chat makes an empty chat marked as a group and opens it.
+    // New Group Chat only opens its dialog: nothing exists until Create.
     await pick('New Group Chat')
     await act(async () => {})
-    assert.deepEqual(groups, [['team', true]])
-    assert.deepEqual(opened, ['made-chat', 'made-group'])
+    assert.deepEqual(groups, [])
+    assert.ok(container.querySelector('[data-modal="New Group Chat"]'))
+    assert.deepEqual(opened, ['made-chat'])
     assert.deepEqual(introductions, ['made-bot'])
   } finally {
     await act(() => root.unmount())

@@ -14,7 +14,6 @@ import type {
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
-import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
@@ -92,8 +91,6 @@ export const agentApi = {
       /** 'shared' lists team sessions the viewer joined but does not own. */
       scope?: 'mine' | 'team' | 'shared'
       ownerId?: string
-      /** A Trigger's runs. Omitted lists Chats, which excludes them. */
-      triggerIds?: string[]
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
@@ -246,11 +243,6 @@ export const agentApi = {
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),
-  agentUpdatePlan: (planId: string, patch: PlanUpdatePatch, teamId?: string) =>
-    window.api.agentUpdatePlan(planId, patch, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     window.api.agentListTriggers(teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>

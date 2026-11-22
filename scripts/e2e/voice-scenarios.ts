@@ -37,8 +37,16 @@ export const voiceScenarios: Scenario[] = [
       await page.getByRole('group', { name: 'Recording voice input' }).waitFor()
       await page.waitForTimeout(1500)
       await page.getByRole('button', { name: 'Stop and insert text' }).click()
-      await page.getByText('Voice input needs a subscription').first().waitFor()
-      await page.getByText("Your team doesn't have a subscription yet.").first().waitFor()
+      await page
+        .getByText('Voice input needs a subscription')
+        .filter({ visible: true })
+        .first()
+        .waitFor()
+      await page
+        .getByText("Your team doesn't have a subscription yet.")
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       if ((await page.getByText('Voice input failed').count()) > 0)
         throw new Error('The refusal still reads as a failure')
       await page.screenshot({ path: `${artifacts}/voice-subscription-toast.png` })

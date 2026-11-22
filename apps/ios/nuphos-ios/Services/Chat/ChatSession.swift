@@ -641,7 +641,8 @@ final class ChatSession {
     // MARK: - Model settings
 
     func refreshSessionConfig() async {
-        guard isOwner, !readOnly, !isNew, isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        // Reading model settings is allowed for conversation participants; writes remain owner-only.
+        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
         let request = UUID()
         sessionConfigRequest = request
         sessionConfigReading = true
@@ -1252,10 +1253,10 @@ final class ChatSession {
                         let code = frame["errorCode"]?.stringValue
                         if code == "stream_unresumable", sawTurnComplete { continue }
                         lastErrorText = frame["errorText"]?.stringValue ?? "The agent hit an error."
-                        // A signed-out agent runtime is not transient: every fresh
-                        // retry re-hits the same missing credential, so fail with the
-                        // sign-in guidance the backend already wrote.
-                        if code == "runtime_auth_required" {
+                        // A signed-out or out-of-usage agent runtime is not transient:
+                        // every fresh retry re-hits the same refusal, so fail with the
+                        // guidance the backend already wrote.
+                        if code == "runtime_auth_required" || code == "runtime_usage_exhausted" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
                         // Another turn took the runtime after admission; the server

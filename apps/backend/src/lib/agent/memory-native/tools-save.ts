@@ -9,7 +9,6 @@ import { label, playbookInput, requireEditorAccess } from './tools-shared'
 import type { MemoryListItem } from './records-api'
 import type { MemorySavedItemObserver, MemorySupersededObserver } from './tools-shared'
 import type { AgentTeamMemory, EmbeddedCase } from './types'
-import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 // Resolve a team supersede target pool-scoped to a supersedable status.
 // getTeamMemory only returns visible active/needs_review records;
@@ -38,20 +37,12 @@ export function createSaveMemoryTool(deps: {
   userId: string
   teamId: string | null | undefined
   conversationId: string
-  origin: AgentSessionOrigin
   onMemorySavedItem?: MemorySavedItemObserver
   onMemorySuperseded?: MemorySupersededObserver
   getActivePlanId?: () => Promise<string | null>
 }) {
-  const {
-    userId,
-    teamId,
-    conversationId,
-    origin,
-    onMemorySavedItem,
-    onMemorySuperseded,
-    getActivePlanId,
-  } = deps
+  const { userId, teamId, conversationId, onMemorySavedItem, onMemorySuperseded, getActivePlanId } =
+    deps
 
   return tool({
     description:
@@ -136,7 +127,7 @@ export function createSaveMemoryTool(deps: {
         if (!teamId) {
           return { ok: false, error: 'no team in this conversation — use scope "personal"' }
         }
-        const access = await requireEditorAccess(userId, teamId, origin)
+        const access = await requireEditorAccess(userId, teamId)
 
         if (!access.ok) return access
         if (input.gene) {
@@ -228,9 +219,6 @@ export function createSaveMemoryTool(deps: {
       }
 
       // Flat record: personal preference/context, or a shared team fact/change.
-      if (origin !== 'user') {
-        return { ok: false, error: `forbidden: ${origin}-origin turns cannot save memories` }
-      }
       if (!input.text) {
         return {
           ok: false,
