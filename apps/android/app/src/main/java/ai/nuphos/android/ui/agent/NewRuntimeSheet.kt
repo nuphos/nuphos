@@ -59,7 +59,6 @@ internal fun NewRuntimeSheet(store: NewRuntimeStore, setup: RuntimeSetupStore) {
             }
             if (store.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             store.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            TextButton(onClick = store::cancel, enabled = !store.busy) { Text(stringResource(R.string.cancel)) }
         }
     }
 }
