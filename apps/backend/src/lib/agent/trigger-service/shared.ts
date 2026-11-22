@@ -54,7 +54,13 @@ export async function assertBindableSession(
 ): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!teamId || !target || target.teamId !== teamId || target.userId !== ownerUserId) {
+  if (
+    !teamId ||
+    !target ||
+    target.archivedAt ||
+    target.teamId !== teamId ||
+    target.userId !== ownerUserId
+  ) {
     throw new AppError(
       400,
       'invalid_target_session',
@@ -117,6 +123,7 @@ export function serializeTrigger(trigger: AgentTrigger, exposeSecret = false) {
     _id,
     webhookSecret,
     dedupeKey: _dedupeKey,
+    archiveEpoch: _archiveEpoch,
     executionCredentialAccess: _executionCredentialAccess,
     ...rest
   } = trigger

@@ -51,12 +51,14 @@ useConversationChatRoute({
 })
 useBoxWake({ wakeOfflineBox: () => wake() })
 useDb({
-  db: (() => ({
+  db: () => ({
     collection: () => ({
+      // The fired Trigger still exists.
+      findOne: async () => ({ _id: TRIGGER_ID }),
       updateOne: write('updateOne'),
       findOneAndUpdate: write('findOneAndUpdate'),
     }),
-  })) as unknown as typeof dbActual.db,
+  }),
 })
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
