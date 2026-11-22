@@ -107,9 +107,10 @@ export async function startDesktop(
       const second = spawn(
         `${name}-deep-link`,
         ['pnpm', 'exec', 'electron', '.', '--no-sandbox', url],
+        // vite gives the first one VITE_DEV_SERVER_URL, without which it takes the installed app's profile.
         {
           cwd: DESKTOP_DIR,
-          env: profileEnv,
+          env: { ...profileEnv, VITE_DEV_SERVER_URL: `http://localhost:${String(vitePort)}/` },
         },
       )
       const [code] = await once(second, 'exit', { signal: AbortSignal.timeout(60_000) })
