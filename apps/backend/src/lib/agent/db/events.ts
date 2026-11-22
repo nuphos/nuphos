@@ -18,16 +18,24 @@ export async function setupAgentIndexes(): Promise<void> {
     // Admin activation metrics find each user's first-ever conversation.
     await c.createIndex({ userId: 1, createdAt: 1 }, { background: true })
     await c.createIndex({ userId: 1, teamId: 1, lastActiveAt: -1, _id: -1 }, { background: true })
-    // The compact Chats sidebar is stable by creation time, so continuing an
-    // older conversation cannot move it above a newer one.
+    // The Chats sidebar: the viewer's unarchived chats by recent activity.
+    // archivedAt sits before the sort so a page reads only live rows; without
+    // it, the last page reads every archived chat the viewer owns (#4709).
     await c.createIndex(
-      { teamId: 1, userId: 1, 'metadata.trigger.id': 1, createdAt: -1, _id: -1 },
+      { teamId: 1, userId: 1, 'metadata.trigger.id': 1, archivedAt: 1, lastActiveAt: -1, _id: -1 },
       { background: true },
     )
     // The sidebar's Shared section: same question as the Chats index above,
     // asked of the participant list instead of the owner.
     await c.createIndex(
-      { teamId: 1, participantIds: 1, 'metadata.trigger.id': 1, createdAt: -1, _id: -1 },
+      {
+        teamId: 1,
+        participantIds: 1,
+        'metadata.trigger.id': 1,
+        archivedAt: 1,
+        lastActiveAt: -1,
+        _id: -1,
+      },
       { background: true },
     )
     await c.createIndex({ teamId: 1, lastActiveAt: -1, _id: -1 }, { background: true })
