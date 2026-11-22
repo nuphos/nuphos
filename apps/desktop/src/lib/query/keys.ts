@@ -51,6 +51,14 @@ export const queryKeys = {
   /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
   cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
     [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
+  teamGoogleClient: (teamId: string) => [...queryKeys.team(teamId), 'google-client'] as const,
+  /** The signed-in member's own data. Leaving an account reloads every window, so it is not
+   *  keyed by member. */
+  me: () => ['me'] as const,
+  personalCredentials: () => [...queryKeys.me(), 'personal-credentials'] as const,
+  signInSessions: () => [...queryKeys.me(), 'sign-in-sessions'] as const,
+  /** What agents ran on this computer. */
+  deviceAudit: () => ['device', 'audit'] as const,
   /** A cloud resource list, by its `withResourceListCache` key. */
   resourceList: (cacheKey: string) => ['resource-list', cacheKey] as const,
 }
