@@ -367,9 +367,15 @@ final class ChatSession {
     /// Loads the tail of an existing conversation; if a reply is still
     /// running on the server, attaches to it.
     func load() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        // A reread that lands after this chat sent or changed is stale.
+        let shown = loaded ? signature() : nil
         do {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
+            if let shown, streaming || signature() != shown { return }
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
@@ -415,9 +421,24 @@ final class ChatSession {
             Task { await refreshResourcesAndDownloads() }
             if isNativeRuntime, !transportStreaming { Task { await refreshSessionConfig() } }
         } catch {
+            // A failed reread keeps the transcript already shown.
+            guard !loaded else { return }
             loadError = error.localizedDescription
             loaded = true
         }
+    }
+
+    /// One read at a time: a second one would replay the same run again.
+    private var loading = false
+
+    /// A turn this device started is still streaming into this session.
+    var streaming: Bool { streamTask != nil || submitting }
+
+    /// A reopened chat keeps showing what it has while this reads it again,
+    /// unless its own turn is still streaming into it.
+    func revalidate() async {
+        guard !streaming else { return }
+        await load()
     }
 
     // MARK: - Sending
@@ -956,9 +977,9 @@ final class ChatSession {
         var autoResumable: Bool { reason == "model-silence" || reason == "tool-execution-timeout" }
     }
 
-    /// The chat left the screen. Each open builds a new session, so a stream
-    /// left following a run here is never read again; the next open replays
-    /// the run. A turn this device started keeps its stream until it ends.
+    /// The chat left the screen. A stream left following a run here is not
+    /// read off screen; the next open reads the conversation again and
+    /// replays the run. A turn this device started keeps its stream until it ends.
     func leave() {
         guard following else { return }
         streamTask?.cancel()
