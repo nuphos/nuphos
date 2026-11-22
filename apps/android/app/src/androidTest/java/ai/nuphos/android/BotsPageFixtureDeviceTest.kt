@@ -247,6 +247,11 @@ class BotsPageFixtureDeviceTest {
         compose.onNodeWithText(long, useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals("The preview takes two lines", 2, layouts.single().lineCount)
         assertTrue("and is cut after them", layouts.single().hasVisualOverflow)
+        // As on iOS, the chevron sits in the middle of the two-line row, not at its top.
+        val bounds = row("chat-bot").fetchSemanticsNode().boundsInRoot
+        val chevron = compose.onNode(hasTestTag("chat-chevron") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals("The chevron is centred on the row", bounds.center.y, chevron.center.y, 2f)
     }
 
     @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
