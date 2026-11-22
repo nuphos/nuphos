@@ -204,11 +204,25 @@ export const fallbackScenarios: Scenario[] = [
       }
     },
   },
-  {
+  movesDown(
     // #4037. Fails without the fix: a model the endpoint does not serve was not the agent
     // failing, so the conversation stayed on E2E fixture agent and the wait for the move times out.
-    name: 'a turn on a model its endpoint does not serve moves down the fallback list and goes on',
-    expected: /model: claude-e2e-retired/,
+    'a turn on a model its endpoint does not serve moves down the fallback list and goes on',
+    'Retired model E2E_MODEL_NOT_FOUND E2E_DELIVERY:model-not-found',
+    /model: claude-e2e-retired/,
+  ),
+  // A session limit hit after the answer began: Claude Code's adapter used to leave such a turn
+  // open until the 30-minute inactivity timeout, so the wait for the move times out without it.
+  movesDown(
+    'a session limit hit mid-turn ends the turn at once and moves down the fallback list',
+    'Mid-turn limit E2E_SESSION_LIMIT E2E_DELIVERY:session-limit',
+  ),
+]
+
+function movesDown(name: string, prompt: string, expected?: RegExp): Scenario {
+  return {
+    name,
+    ...(expected && { expected }),
     run: async (_page, stack) => {
       const owner = rest(stack, stack.token)
       const team = `/teams/${stack.teamId}`
@@ -225,10 +239,7 @@ export const fallbackScenarios: Scenario[] = [
 
       await fallBackTo(second)
       try {
-        await say(stack.token, 'Retired model E2E_MODEL_NOT_FOUND E2E_DELIVERY:model-not-found', {
-          runtimeId: first,
-          agentRuntime: 'claude-code',
-        })
+        await say(stack.token, prompt, { runtimeId: first, agentRuntime: 'claude-code' })
         await until('the conversation to fall back to E2E second agent', async () => {
           const detail = await read()
 
@@ -244,5 +255,5 @@ export const fallbackScenarios: Scenario[] = [
         await fallBackTo(null)
       }
     },
-  },
-]
+  }
+}
