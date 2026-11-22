@@ -40,7 +40,11 @@ async function openRow(page: Page, chat: Chat) {
 /** Marks the details panel on screen as `mark`, to know it again by its element. */
 async function markPanel(page: Page, mark: string) {
   try {
-    await until('one details panel on screen', async () => (await visiblePanels(page)) === 1, 10_000)
+    await until(
+      'one details panel on screen',
+      async () => (await visiblePanels(page)) === 1,
+      10_000,
+    )
   } catch (error) {
     await page.screenshot({ path: `${artifacts}/details-${mark}.png` })
     const seen = await panels(page).evaluateAll((all) =>
@@ -64,34 +68,6 @@ async function markPanel(page: Page, mark: string) {
 
 const visiblePanels = (page: Page) => panels(page).filter({ visible: true }).count()
 
-/** Presses `key`; frames and ms until the element marked `mark` is on screen, or null. */
-async function pressUntilShown(page: Page, key: string, mark: string) {
-  await page.evaluate((value) => {
-    const started = performance.now()
-    let frames = 0
-
-    ;(window as unknown as { e2eShown: Promise<unknown> }).e2eShown = new Promise((resolve) => {
-      const tick = () => {
-        frames++
-        const element = document.querySelector<HTMLElement>(`[data-e2e-mark="${value}"]`)
-
-        if (element?.checkVisibility())
-          resolve({ frames, ms: Math.round(performance.now() - started) })
-        else if (frames > 300) resolve(null)
-        else requestAnimationFrame(tick)
-      }
-
-      requestAnimationFrame(tick)
-    })
-  }, mark)
-  await page.keyboard.press(key)
-
-  return page.evaluate(
-    () =>
-      (window as unknown as { e2eShown: Promise<{ frames: number; ms: number } | null> }).e2eShown,
-  )
-}
-
 /** Toggles the details by key, from no field: a composer could take Ctrl+I for itself. */
 async function toggleDetails(page: Page) {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
@@ -103,53 +79,48 @@ function note(line: string, failure?: string) {
   if (failure) overlayFailed.push(`${line}: ${failure}`)
 }
 
-/** Narrow, the details float at the page's root: each chat's hides with it and shows with it. */
+/** Narrow, the details float at the page's root: a hidden chat's never shows over another, and
+ *  a chat switched to starts with its panel closed. */
 async function floatingDetails(page: Page, a: Chat, b: Chat) {
   const cdp = await page.context().newCDPSession(page)
+  // Checked once the chat shows, without waiting: a panel left over it would show for frames.
+  const closed = async () => (await visiblePanels(page)) === 0
 
   try {
     await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-    await openRow(page, a)
     await openRow(page, b)
+    await openRow(page, a)
+    await toggleDetails(page)
+    await markPanel(page, 'a')
+    // By key: the pointer stays put, so nothing presses outside the popover.
+    await page.keyboard.press(BACK)
+    await until(`${b.title} on screen`, async () => (await onScreen(page, b)) > 0, 10_000)
+    const toB = await closed()
+
+    note(
+      `floating details open in ${a.title}, Back to ${b.title}: no panel on screen ${String(toB)}`,
+      toB ? undefined : `a panel shows over ${b.title}`,
+    )
     await toggleDetails(page)
     await markPanel(page, 'b')
-    // Back to A by key: the pointer stays put, so nothing presses outside the popover.
-    await page.keyboard.press(BACK)
+    await page.keyboard.press(FORWARD)
     await until(`${a.title} on screen`, async () => (await onScreen(page, a)) > 0, 10_000)
-    const bHidden = !(await page.locator('[data-e2e-mark="b"]').isVisible())
+    const toA = await closed()
 
-    await markPanel(page, 'a')
     note(
-      `floating details, ${b.title} → ${a.title}: ${b.title}'s panel hidden ${String(bHidden)}, one panel on screen`,
-      bHidden ? undefined : `${b.title}'s panel still shows over ${a.title}`,
+      `floating details open in ${b.title}, Forward to ${a.title}: no panel on screen ${String(toA)}`,
+      toA ? undefined : `a panel shows over ${a.title}`,
     )
-    const shown = await pressUntilShown(page, FORWARD, 'b')
-    const aHidden = !(await page.locator('[data-e2e-mark="a"]').isVisible())
-    const count = await visiblePanels(page)
-
-    const when = shown
-      ? `on frame ${String(shown.frames)}, ${String(shown.ms)} ms after the key`
-      : 'never'
-
-    let failure: string | undefined
-
-    if (!shown) failure = 'its panel never showed again'
-    else if (!aHidden || count !== 1) failure = `${String(count)} panels on screen`
-    note(
-      `floating details, back to ${b.title}: its own panel shown again ${when}, ${a.title}'s hidden ${String(aHidden)}, ${String(count)} on screen`,
-      failure,
-    )
-    await toggleDetails(page)
-    await until('the panel closed', async () => (await visiblePanels(page)) === 0, 10_000)
   } finally {
     await cdp.send('Emulation.clearDeviceMetricsOverride')
     await cdp.detach()
   }
 }
 
-/** A menu open in a chat: switching away leaves no menu over the next chat, and the chat is
- *  as it was left on the way back. By key, then by the sidebar. */
-async function openMenu(page: Page, a: Chat, b: Chat, by: 'key' | 'row') {
+/** A menu open in a chat: Back leaves no menu over the next chat, and the chat is as it was left
+ *  on the way back. Only by key: the menu makes the rest of the page inert, so a press on the
+ *  sidebar closes it first. */
+async function openMenu(page: Page, a: Chat, b: Chat) {
   await openRow(page, b)
   await openRow(page, a)
   await page
@@ -157,30 +128,31 @@ async function openMenu(page: Page, a: Chat, b: Chat, by: 'key' | 'row') {
     .filter({ visible: true })
     .click()
   await until('the menu open', async () => (await visibleMenus(page)) > 0, 10_000)
-  if (by === 'key') await page.keyboard.press(BACK)
-  else
-    await page
-      .getByRole('tabpanel', { name: b.tab })
-      .locator('[data-sidebar-row]')
-      .filter({ hasText: b.title })
-      .first()
-      .click()
-  await page.waitForTimeout(500)
-  const switched = (await onScreen(page, b)) > 0
+  await page.keyboard.press(BACK)
+  const switched = await until(
+    `${b.title} on screen`,
+    async () => (await onScreen(page, b)) > 0,
+    5_000,
+  ).then(
+    () => true,
+    () => false,
+  )
   const menus = await visibleMenus(page)
 
-  const press = by === 'key' ? 'Back key' : `${b.title}'s row`
-
   note(
-    `menu open in ${a.title}, ${press}: switched ${String(switched)}, ${String(menus)} menus on screen`,
-    switched && menus > 0 ? `the menu stayed over ${b.title}` : undefined,
+    `menu open in ${a.title}, Back key: switched ${String(switched)}, ${String(menus)} menus on screen`,
+    !switched
+      ? `the Back key did not open ${b.title}`
+      : menus > 0
+        ? `the menu stayed over ${b.title}`
+        : undefined,
   )
-  // Whatever the press did, end with the menu closed and A left for B.
-  if (!switched) {
+  // A failure is recorded above; end with the menu closed and A left for B either way.
+  if (menus > 0) {
     await page.keyboard.press('Escape')
     await until('the menu closed', async () => (await visibleMenus(page)) === 0, 10_000)
-    await openRow(page, b)
   }
+  if (!switched) await openRow(page, b)
   await openRow(page, a)
   const back = await visibleMenus(page)
 
@@ -188,11 +160,10 @@ async function openMenu(page: Page, a: Chat, b: Chat, by: 'key' | 'row') {
     `menu open in ${a.title}, back to it: ${String(back)} menus on screen`,
     back > 0 ? 'the menu came back open' : undefined,
   )
-  await kept(page, `menu open in ${a.title} (${by}), back to it`, a.title, a.text)
+  await kept(page, `menu open in ${a.title}, back to it`, a.title, a.text)
 }
 
 export async function overlayScenarios(page: Page, a: Chat, b: Chat) {
   await floatingDetails(page, a, b)
-  await openMenu(page, a, b, 'key')
-  await openMenu(page, a, b, 'row')
+  await openMenu(page, a, b)
 }
