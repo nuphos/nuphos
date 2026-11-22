@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
@@ -48,7 +49,9 @@ async function mount(node: ReturnType<typeof createElement>) {
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
 
-  await act(() => root.render(node))
+  await act(() =>
+    root.render(createElement(QueryClientProvider, { client: new QueryClient() }, node)),
+  )
 
   return { container, unmount: () => act(() => root.unmount()) }
 }
