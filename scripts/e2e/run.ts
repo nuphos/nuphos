@@ -57,6 +57,7 @@ import { proxyScenarios } from './proxy-scenarios.ts'
 import { questionScenarios } from './question-scenarios.ts'
 import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { replyDiskScenario } from './reply-disk-scenario.ts'
+import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
@@ -199,6 +200,8 @@ const scenarios: Scenario[] = [
   ...splitPaneScenarios,
   // Makes its own Task and Bot, so it can sit here while the main window is still in use.
   ...triggerLinkScenarios,
+  // After every turn of this half: it reads what the backend logged for them.
+  runEndTraceScenario,
 ]
 
 // CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
