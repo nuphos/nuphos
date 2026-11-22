@@ -73,6 +73,7 @@ import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -178,6 +179,8 @@ const scenarios: Scenario[] = [
   ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
+  ...usageQueueScenarios,
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,

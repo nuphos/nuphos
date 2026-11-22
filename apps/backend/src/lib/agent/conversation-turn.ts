@@ -119,11 +119,9 @@ export async function runTurn(
   let unmarkRead: (() => Promise<void>) | undefined
 
   try {
-    // A queued Trigger may have been deleted while waiting for this claim.
     pending = await liveTriggerMessages(data.targetSessionId, pending)
     taken = pending
     if (pending.length === 0) return
-    // Read after taking the claim so a just-finished turn cannot be overwritten.
     const history = await readTurnHistory(data, pending, source)
 
     if (!history) throw new Error('Target conversation no longer exists.')
@@ -167,17 +165,13 @@ export async function runTurn(
         // The channels this turn answers, where a question was answered too: they show it typing.
         channelIds: fresh.flatMap((m) => channelIdOf(m) ?? m.answers?.channelId ?? []),
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
-        // Not recorded as interrupted: the messages go back on the queue below.
         clientResendsRefusal: true,
         // An answer keeps its own wait, with its question (#3055).
         ...(fresh.some((message) => message.answers) ? {} : { waitsOutUsage: true }),
         ...(data.trigger ? { trigger: data.trigger } : {}),
       })
       .catch(async (error: unknown) => {
-        // The runtime took another turn after the check, its computer is reconnecting, its
-        // account is out of usage, or this replica is draining. Back to the front, retried
-        // after a wait rather than on the release that follows; a draining replica starts
-        // nothing, so another one does. A move to another agent releases the session.
+        // Requeue transient refusals after a delay. Another replica handles draining.
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
         const limited = outOfUsageUntilReset(error) && !fresh.some((message) => message.answers)
@@ -204,12 +198,10 @@ export async function runTurn(
       throw new Error('Thread run failed; inspect the target conversation.')
     await recordFiresRan(fresh)
     // Not awaited: it waits for the computer to come back, which may be never,
-    // and this turn's claim must not wait with it.
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
   } catch (error) {
-    // Not run, or failed: a later notice shows the same posts again.
     await unmarkRead?.()
     await reportUndelivered(
       data,
@@ -252,7 +244,6 @@ async function reportIfRestarted(
  * recorded on the Trigger, which has no sender to tell.
  */
 export async function reportUndelivered(
-  // No team when the target conversation is gone: the sender's own is the one it sent from.
   data: Omit<DeliveredTo, 'teamId'> & { teamId?: string },
   messages: readonly PendingUserMessage[],
   reason: string,
