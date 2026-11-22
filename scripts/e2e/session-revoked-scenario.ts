@@ -28,17 +28,23 @@ export const sessionRevokedScenario: Scenario = {
   run: async (page, stack) => {
     revokeSessions(stack.mongoUri, stack.email)
     // What a Chats list refresh sees. Across IPC the refusal must still read as `unauthorized`,
-    // the code the app signs out on; it used to arrive as a bare message.
-    const message = await page.evaluate(
-      (teamId) =>
-        window.api.agentListConversations(teamId).then(
-          () => 'answered',
-          (error: Error) => error.message,
-        ),
-      stack.teamId,
-    )
+    // the code the app signs out on; it used to arrive as a bare message. The app's own refresh
+    // may get there first and sign out mid-call, which is the same outcome.
+    const message = await page
+      .evaluate(
+        (teamId) =>
+          window.api.agentListConversations(teamId).then(
+            () => 'answered',
+            (error: Error) => error.message,
+          ),
+        stack.teamId,
+      )
+      .catch((error: Error) => {
+        if (error.message.includes('Execution context was destroyed')) return null
+        throw error
+      })
 
-    if (!message.includes('"code":"unauthorized"'))
+    if (message !== null && !message.includes('"code":"unauthorized"'))
       throw new Error(`The refused agent route did not read as unauthorized: ${message}`)
     await page.getByRole('button', { name: 'Continue with email' }).waitFor()
   },
