@@ -229,9 +229,9 @@ test('a message queued behind a turn a failed move stopped runs as soon as the m
   onStop = () => {
     target.status = 'disabled'
   }
-  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject(
-    { code: 'runtime_unavailable' },
-  )
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
+    code: 'runtime_unavailable',
+  })
   expect(await claimed).toBe('claimed')
   expect(conversation.runtimeId).toBe('old')
 })
