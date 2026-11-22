@@ -238,7 +238,6 @@ export async function preparePreviewTurn(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
       )
-
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
