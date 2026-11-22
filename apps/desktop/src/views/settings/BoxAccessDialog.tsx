@@ -6,10 +6,7 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { accessSaveSteps } from './boxAccessPresentation'
 import { BoxAccessFields } from './BoxAccessFields'
-import { isOwner } from './boxPresentation'
-import { BoxTerminalAccess } from './BoxTerminalAccess'
 import { SharedComputerNotice } from './SharedComputerNotice'
 import { useBoxAccessChoice } from './useBoxAccessChoice'
 
@@ -28,30 +25,15 @@ export function BoxAccessDialog({
   onSaved: () => void
 }) {
   const choice = useBoxAccessChoice(device.box?.access ?? { everyone: false, userIds: [] })
-  const owner = isOwner(device)
-  const savedTerminal = device.box?.useTerminal === true
-  const [useTerminal, setUseTerminal] = useState(savedTerminal)
   const [saving, setSaving] = useState(false)
   const save = async () => {
     setSaving(true)
-    let failed = ''
-
     try {
-      for (const step of accessSaveSteps(
-        owner && useTerminal !== savedTerminal ? useTerminal : undefined,
-      )) {
-        if (step === 'access') {
-          failed = t('Could not change who can use this computer')
-          await api.boxSetAccess(device.deviceId, teamId, choice.payload())
-        } else {
-          failed = t('Could not change who can open a terminal')
-          await api.boxSetTerminalAccess(device.deviceId, teamId, useTerminal)
-        }
-      }
+      await api.boxSetAccess(device.deviceId, teamId, choice.payload())
       onSaved()
       onClose()
     } catch (error) {
-      toast.apiError(failed, error)
+      toast.apiError(t('Could not change who can use this computer'), error)
     } finally {
       setSaving(false)
     }
@@ -77,9 +59,6 @@ export function BoxAccessDialog({
     >
       <div className="space-y-4 p-5">
         <BoxAccessFields teamId={teamId} ownerUserId={device.ownerUserId} choice={choice} />
-        {owner && (
-          <BoxTerminalAccess checked={useTerminal} disabled={saving} onChange={setUseTerminal} />
-        )}
         <SharedComputerNotice />
       </div>
     </Modal>
