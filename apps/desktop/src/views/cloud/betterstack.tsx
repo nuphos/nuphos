@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 import { api, parseAtlasError } from '../../api'
 import { Age } from '../../components/Age'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { t } from '../../i18n'
-import { useResetOnKey } from '../useResetOnKey'
+import { queryKeys } from '../../lib/query/keys'
+import { useRefreshKey } from '../../lib/query/tabQuery'
 
 import { buildBetterStackRows } from './betterstack-rows'
 import { ErrorBlock } from './ErrorBlock'
@@ -13,15 +15,7 @@ import { applyFilter } from './shared'
 
 import type { BetterStackPage, BetterStackRow } from './betterstack-rows'
 import type { CommonProps } from './shared'
-import type {
-  BetterStackCollector,
-  BetterStackDashboard,
-  BetterStackHeartbeat,
-  BetterStackIncident,
-  BetterStackIntegration,
-  BetterStackMonitor,
-  BetterStackSource,
-} from '../../types'
+import type { BetterStackIntegration } from '../../types'
 
 export type { BetterStackPage } from './betterstack-rows'
 
@@ -52,7 +46,56 @@ const EMPTY_TEXT: Record<BetterStackPage, [string, string, string, string]> = {
   ],
 }
 
+type BetterStackData = Parameters<typeof buildBetterStackRows>[1]
+
+/** What one page lists, each part read only when the integration holds the token it needs. */
+async function readBetterStackPage(
+  teamId: string,
+  integration: BetterStackIntegration,
+  page: BetterStackPage,
+): Promise<Partial<BetterStackData>> {
+  const { id, hasUptimeApiToken: uptime, hasTelemetryApiToken: telemetry } = integration
+
+  if (page === 'monitors') {
+    if (!uptime) return {}
+    const [monitors, heartbeats] = await Promise.all([
+      api.atlasListBetterStackMonitors(teamId, id),
+      api.atlasListBetterStackHeartbeats(teamId, id),
+    ])
+
+    return { monitors, heartbeats }
+  }
+  if (page === 'incidents') {
+    return uptime ? { incidents: await api.atlasListBetterStackIncidents(teamId, id) } : {}
+  }
+  if (page === 'dashboards') {
+    return telemetry ? { dashboards: await api.atlasListBetterStackDashboards(teamId, id) } : {}
+  }
+  if (!telemetry) return {}
+  const [sources, collectors] = await Promise.all([
+    api.atlasListBetterStackSources(teamId, id),
+    api.atlasListBetterStackCollectors(teamId, id),
+  ])
+
+  return { sources, collectors }
+}
+
 export function BetterStackIntegrationView({
+  integration,
+  ...props
+}: CommonProps & {
+  teamId: string
+  integration: BetterStackIntegration | undefined
+  page: BetterStackPage
+}) {
+  if (!integration) {
+    return <ErrorBlock message={t('Better Stack integration not found.')} />
+  }
+
+  return <BetterStackPageView integration={integration} {...props} />
+}
+
+function BetterStackPageView({
   teamId,
   integration,
   page,
@@ -62,104 +105,33 @@ export function BetterStackIntegrationView({
   onLoading,
 }: CommonProps & {
   teamId: string
-  integration: BetterStackIntegration | undefined
+  integration: BetterStackIntegration
   page: BetterStackPage
 }) {
-  const [monitors, setMonitors] = useState<BetterStackMonitor[]>([])
-  const [heartbeats, setHeartbeats] = useState<BetterStackHeartbeat[]>([])
-  const [incidents, setIncidents] = useState<BetterStackIncident[]>([])
-  const [sources, setSources] = useState<BetterStackSource[]>([])
-  const [collectors, setCollectors] = useState<BetterStackCollector[]>([])
-  const [dashboards, setDashboards] = useState<BetterStackDashboard[]>([])
-  const [error, setError] = useState<string | null>(null)
-  // The mount fetch is already in flight, so seed `loading` the way the reset
-  // below would have; it only runs for later integration/page/refresh changes.
-  const [loading, setLoading] = useState(!!integration)
-
-  useResetOnKey(`${teamId}|${integration?.id ?? ''}|${page}|${String(refreshKey)}`, () => {
-    setMonitors([])
-    setHeartbeats([])
-    setIncidents([])
-    setSources([])
-    setCollectors([])
-    setDashboards([])
-    setError(null)
-    setLoading(!!integration)
+  const query = useQuery({
+    // Adding or removing a token changes what the page can read.
+    queryKey: queryKeys.betterStack(
+      teamId,
+      integration.id,
+      page,
+      `uptime:${String(integration.hasUptimeApiToken)}`,
+      `telemetry:${String(integration.hasTelemetryApiToken)}`,
+    ),
+    queryFn: () => readBetterStackPage(teamId, integration, page),
   })
-  useEffect(() => {
-    if (!integration) {
-      onLoading?.(false)
+  const loading = query.isPending
+  const error = query.error ? parseAtlasError(query.error).message : null
 
-      return
-    }
-    let cancelled = false
-
-    onLoading?.(true)
-    const load = async () => {
-      if (page === 'monitors') {
-        const [nextMonitors, nextHeartbeats] = await Promise.all([
-          integration.hasUptimeApiToken
-            ? api.atlasListBetterStackMonitors(teamId, integration.id)
-            : Promise.resolve([] as BetterStackMonitor[]),
-          integration.hasUptimeApiToken
-            ? api.atlasListBetterStackHeartbeats(teamId, integration.id)
-            : Promise.resolve([] as BetterStackHeartbeat[]),
-        ])
-
-        if (cancelled) return
-        setMonitors(nextMonitors)
-        setHeartbeats(nextHeartbeats)
-      } else if (page === 'incidents') {
-        const next = integration.hasUptimeApiToken
-          ? await api.atlasListBetterStackIncidents(teamId, integration.id)
-          : []
-
-        if (!cancelled) setIncidents(next)
-      } else if (page === 'dashboards') {
-        const next = integration.hasTelemetryApiToken
-          ? await api.atlasListBetterStackDashboards(teamId, integration.id)
-          : []
-
-        if (!cancelled) setDashboards(next)
-      } else {
-        const [nextSources, nextCollectors] = await Promise.all([
-          integration.hasTelemetryApiToken
-            ? api.atlasListBetterStackSources(teamId, integration.id)
-            : Promise.resolve([] as BetterStackSource[]),
-          integration.hasTelemetryApiToken
-            ? api.atlasListBetterStackCollectors(teamId, integration.id)
-            : Promise.resolve([] as BetterStackCollector[]),
-        ])
-
-        if (cancelled) return
-        setSources(nextSources)
-        setCollectors(nextCollectors)
-      }
-    }
-
-    load()
-      .catch((err: unknown) => {
-        if (!cancelled) setError(parseAtlasError(err).message)
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-          onLoading?.(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [integration, onLoading, refreshKey, teamId, page])
+  useRefreshKey(query, refreshKey, onLoading)
 
   const rows = buildBetterStackRows(page, {
-    monitors,
-    heartbeats,
-    incidents,
-    dashboards,
-    sources,
-    collectors,
+    monitors: [],
+    heartbeats: [],
+    incidents: [],
+    dashboards: [],
+    sources: [],
+    collectors: [],
+    ...query.data,
   })
   const filtered = applyFilter(
     rows,
@@ -170,18 +142,12 @@ export function BetterStackIntegrationView({
   const requiredToken: 'uptime' | 'telemetry' =
     page === 'sources' || page === 'dashboards' ? 'telemetry' : 'uptime'
   const hasRequiredToken =
-    requiredToken === 'telemetry'
-      ? integration?.hasTelemetryApiToken
-      : integration?.hasUptimeApiToken
+    requiredToken === 'telemetry' ? integration.hasTelemetryApiToken : integration.hasUptimeApiToken
   const showKindColumn = page === 'sources' || page === 'monitors'
 
   useEffect(() => {
     onCount(filtered.length)
   }, [filtered.length, onCount])
-
-  if (!integration) {
-    return <ErrorBlock message={t('Better Stack integration not found.')} />
-  }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
