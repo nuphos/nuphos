@@ -4,6 +4,7 @@ import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
 import { scheduleSummary } from '../../../views/triggers/cron'
+import { formatLocalRun } from '../../../views/triggers/cronTime'
 import { Switch } from '../../ui/Switch'
 import { NextRuns } from '../panel/TriggerCardBody'
 import { pausedNote } from '../panel/triggerCards'
@@ -15,7 +16,7 @@ import type { AgentTrigger } from '../../../api/agent-trigger-types'
 function nextRunLabel(trigger: AgentTrigger): string {
   if (!trigger.enabled) return pausedNote(trigger)
   if (trigger.nextRunAt)
-    return t('Next: {time}', { time: new Date(trigger.nextRunAt).toLocaleString() })
+    return t('Next: {time}', { time: formatLocalRun(new Date(trigger.nextRunAt)) })
   if (trigger.triggerType === 'webhook') return t('Waiting for webhook')
 
   return t('No upcoming runs')
@@ -135,7 +136,7 @@ export function ChatSummaryTriggers({
             >
               <span className="block break-words text-[13px] text-main">{trigger.name}</span>
               <span className="mt-1 block text-xs leading-5 text-tertiary">
-                {trigger.scheduleDescription ?? scheduleSummary(trigger)}
+                {scheduleSummary(trigger)}
               </span>
               <span className="block text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</span>
             </button>

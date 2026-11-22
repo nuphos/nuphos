@@ -11,7 +11,9 @@ const trigger: AgentTrigger = {
   userId: 'u-1',
   name: 'Daily digest',
   triggerType: 'cron',
-  cronExpression: '0 9 * * *',
+  cronExpression: '0 1 1 * *',
+  scheduleDescription: 'Schedule: 0 1 1 * * (UTC)',
+  nextRunAt: '2026-12-01T01:00:00Z',
   timeZone: 'UTC',
   messageTemplate: 'Summarise yesterday’s merged pull requests.',
   enabled: true,
@@ -33,7 +35,7 @@ mock.module('../../../api', () => ({
   },
 }))
 
-mock.module('../../ui/toast', () => ({ toast: { apiError: () => undefined } }))
+mock.module('../../ui/toast', () => ({ toast: { apiError: () => {} } }))
 
 const dom = new Window()
 const browser: Record<string, unknown> = {
@@ -71,6 +73,10 @@ async function mount() {
 
 test('a Trigger row opens its details, and its switch does not', async () => {
   const container = await mount()
+
+  assert.ok(container.textContent?.includes('Runs on day 1 of each month at 01:00 UTC'))
+  assert.ok(!container.textContent?.includes('Schedule: 0 1 1 * *'))
+  assert.ok(container.textContent?.includes(Intl.DateTimeFormat().resolvedOptions().timeZone))
   const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
 
   assert.ok(row, 'the row is a disclosure button')

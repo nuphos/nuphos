@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { formatUtcAndLocal, formatUtcRun, utcTimeOfDayInZone, zoneLabel } from './cronTime.ts'
+import {
+  formatLocalRun,
+  formatUtcAndLocal,
+  formatUtcRun,
+  utcTimeOfDayInZone,
+  zoneLabel,
+} from './cronTime.ts'
 
 const at = (iso: string) => new Date(iso)
 
@@ -61,4 +67,19 @@ test('zoneLabel names the zone and its current offset', () => {
   assert.equal(zoneLabel('Asia/Taipei', at('2026-09-21T00:00:00Z')), 'Asia/Taipei, UTC+8')
   assert.equal(zoneLabel('Asia/Kolkata', at('2026-09-21T00:00:00Z')), 'Asia/Kolkata, UTC+5:30')
   assert.equal(zoneLabel('UTC', at('2026-09-21T00:00:00Z')), 'UTC')
+})
+
+test('next-run timestamps identify the viewer zone and the offset at that instant', () => {
+  assert.equal(
+    formatLocalRun(at('2026-12-01T01:00:00Z'), 'Asia/Taipei'),
+    '12/1/2026, 9:00:00 AM (Asia/Taipei, UTC+8)',
+  )
+  assert.match(
+    formatLocalRun(at('2026-07-01T09:00:00Z'), 'America/Los_Angeles'),
+    /America\/Los_Angeles, UTC-7/,
+  )
+  assert.match(
+    formatLocalRun(at('2026-12-01T09:00:00Z'), 'America/Los_Angeles'),
+    /America\/Los_Angeles, UTC-8/,
+  )
 })

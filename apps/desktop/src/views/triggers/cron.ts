@@ -1,6 +1,7 @@
 import { t } from '../../i18n/index.ts'
 
-import { utcTimeOfDayInZone, viewerTimeZone } from './cronTime.ts'
+import { commonCronSummary } from './cronSummaryExtras.ts'
+import { utcTimeOfDayInZone, viewerTimeZone, zoneLabel } from './cronTime.ts'
 
 // ────────────────────── Cron preset model ──────────────────────
 // Two friendly modes + a raw escape hatch. Both modes parse back from an
@@ -121,8 +122,9 @@ export function pad2(n: number) {
  *
  * The detail page leads with this, where the raw expression the list rows carry
  * would be the wrong altitude. Reusing parseCron means anything the builder
- * above can round-trip is described the way the builder would put it, and
- * anything it can't falls back to the expression itself — a hand-written
+ * above can round-trip, plus conservative read-only monthly/minute patterns,
+ * is described without changing the builder or stored rule. Everything else
+ * falls back to the expression itself — a hand-written
  * schedule is better shown verbatim than guessed at.
  *
  * Schedules run in UTC; the viewer's equivalent (on the date of `now`) follows
@@ -143,6 +145,11 @@ export function scheduleSummary(
   if (!expression) return t('No schedule set')
   if (trigger.timeZone && trigger.timeZone !== 'UTC')
     return t('Runs on schedule {expression} ({zone})', { expression, zone: trigger.timeZone })
+  const extra = commonCronSummary(expression, (hour, minute) =>
+    utcTimeWithLocal(hour, minute, timeZone, now),
+  )
+
+  if (extra) return extra
   const mode = parseCron(expression)
 
   if (mode.kind === 'every-n-hours') {
@@ -151,8 +158,13 @@ export function scheduleSummary(
       const minute = pad2(mode.minute)
 
       return local === minute
-        ? t('Runs every hour at minute {minute}', { minute })
-        : t('Runs every hour at minute {minute} (minute {local} your time)', { minute, local })
+        ? t('Runs every hour at minute {minute} (UTC)', { minute })
+        : t('Runs every hour at minute {minute} UTC (minute {local} in {zone} on {date})', {
+            minute,
+            local,
+            zone: zoneLabel(timeZone, referenceTime(now, 0, mode.minute)),
+            date: now.toISOString().slice(0, 10),
+          })
     }
 
     return t('Runs every {n} hours at minute {minute}, from {time}', {
@@ -180,11 +192,13 @@ export function scheduleSummary(
     }
     const localDays = weekdayList(mode.days.map((day) => (day + local.dayShift + 7) % 7))
 
-    return t('Runs {days} at {utc} UTC ({localDays} {local} your time)', {
+    return t('Runs {days} at {utc} UTC ({localDays} {local} in {zone} on {date})', {
       days,
       utc,
       localDays,
       local: local.hm,
+      zone: zoneLabel(timeZone, referenceTime(now, mode.hour, mode.minute)),
+      date: now.toISOString().slice(0, 10),
     })
   }
 
@@ -201,7 +215,22 @@ function utcTimeWithLocal(hour: number, minute: number, timeZone: string, now: D
   const utc = `${pad2(hour)}:${pad2(minute)} UTC`
   const local = utcTimeOfDayInZone(hour, minute, timeZone, now).hm
 
-  return local === utc.slice(0, 5) ? utc : t('{utc} ({local} your time)', { utc, local })
+  return local === utc.slice(0, 5)
+    ? utc
+    : t('{utc} ({local} in {zone} on {date})', {
+        utc,
+        local,
+        zone: zoneLabel(timeZone, referenceTime(now, hour, minute)),
+        date: now.toISOString().slice(0, 10),
+      })
+}
+
+function referenceTime(now: Date, hour: number, minute: number): Date {
+  const reference = new Date(now)
+
+  reference.setUTCHours(hour, minute, 0, 0)
+
+  return reference
 }
 
 export function sameMode(a: CronMode, b: CronMode): boolean {
