@@ -190,9 +190,7 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
       c.req.header('Authorization'),
       c.req.query('identity'),
     )
-    const personal = subject
-      ? await personalGithubToken(subject.userId, installationId, subject.connectionIds)
-      : null
+    const personal = subject ? await personalGithubToken(subject.userId, installationId) : null
     const { token, expiresAt } = personal ?? (await getInstallationToken(installationId))
 
     // Conversation auth sets userId to the current actor, not the runtime owner.

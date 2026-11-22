@@ -45,7 +45,7 @@ export type RuntimeControl = {
    *  conversation — the one it moves to. Absent, the list still shows each agent's
    *  state and fixes, with nothing to pick. */
   onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
-  /** Nothing can be picked right now (a turn is streaming, or a move is in flight). */
+  /** Nothing can be picked right now: a move is in flight. A running turn does not block one (#4619). */
   selectDisabled?: boolean
   /** The runtime this conversation is bound to is disabled or gone. */
   unavailable?: boolean

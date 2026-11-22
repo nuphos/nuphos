@@ -302,7 +302,9 @@ test('compaction is a step that ends, not reply text', async (t) => {
     ...fields,
   })
 
+  // Claude Code may say "compacting" more than once before the result: still one step.
   for (const outcome of ['success', 'failed']) {
+    await h.emit(status({ status: 'compacting' }))
     await h.emit(status({ status: 'compacting' }))
     await h.emit(status({ status: null, compact_result: outcome, compact_error: 'too long' }))
   }
@@ -324,4 +326,49 @@ test('compaction is a step that ends, not reply text', async (t) => {
   assert.equal(updates[0].toolCallId, updates[1].toolCallId)
   assert.notEqual(updates[0].toolCallId, updates[2].toolCallId)
   assert.equal(updates[3].rawOutput, 'too long')
+})
+
+// Claude Code folds a prompt sent while it runs a turn of its own (a background
+// task finished) into that turn. The result keeps the task-notification origin
+// but names the prompt, so it is the prompt's answer: settle or fail it there.
+const usageLimit = {
+  type: 'assistant',
+  uuid: randomUUID(),
+  parent_tool_use_id: null,
+  error: 'rate_limit',
+  message: {
+    role: 'assistant',
+    model: '<synthetic>',
+    usage: result().usage,
+    content: [{ type: 'text', text: "You've hit your session limit · resets 11:10am (UTC)" }],
+    stop_reason: 'stop_sequence',
+  },
+}
+
+test('a prompt folded into a task-notification turn fails there on a usage limit', async (t) => {
+  const h = harness(t)
+
+  await h.emit(usageLimit)
+  await h.emit(
+    result('original', {
+      origin: { kind: 'task-notification' },
+      is_error: true,
+      result: usageLimit.message.content[0].text,
+      user_message_uuids: ['original'],
+    }),
+  )
+  await h.emit(idle)
+  await until(() => h.settled.length === 1)
+  // The backend reads this -32603 notice as a usage limit and falls back.
+  assert.equal(h.settled[0].code, -32603)
+  assert.equal(h.settled[0].message, `Internal error: ${usageLimit.message.content[0].text}`)
+})
+
+test('a prompt folded into a task-notification turn completes with its result', async (t) => {
+  const h = harness(t)
+
+  await h.emit(result('original', { origin: { kind: 'task-notification' } }))
+  await h.emit(idle)
+  await until(() => h.settled.length === 1)
+  assert.equal(h.settled[0].stopReason, 'end_turn')
 })

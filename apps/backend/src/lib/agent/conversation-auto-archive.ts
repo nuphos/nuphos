@@ -10,7 +10,8 @@ import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { Filter } from 'mongodb'
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000
-const WARMUP_DELAY_MS = 60 * 1000
+// After a start, and after a tick another replica's claim refused.
+const RETRY_DELAY_MS = 60 * 1000
 
 /** Unarchived Tasks whose last activity — and last manual restore, if any —
  *  both fall before the idle cutoff. A Bot (a conversation with an `avatar`)
@@ -57,17 +58,15 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   return result.modifiedCount
 }
 
-let warmupTimer: ReturnType<typeof setTimeout> | undefined
-let sweepTimer: ReturnType<typeof setInterval> | undefined
-
-let sweeping = false
+let timer: ReturnType<typeof setTimeout> | undefined
+let stopped = false
 
 /** The hourly sweep, on one replica: every replica ticks, the first to claim
  *  the hour archives and reclaims. Manual archives are reclaimed even when idle
- *  archiving is off. */
-export async function sweepOnOneReplica(): Promise<void> {
+ *  archiving is off. False when another replica holds the hour. */
+export async function sweepOnOneReplica(): Promise<boolean> {
   if (!(await claimRun('agent:conversation-auto-archive', SWEEP_INTERVAL_MS - 5 * 60 * 1000)))
-    return
+    return false
   await archiveIdleConversations().catch((err: unknown) => {
     logError('agent.conversation_auto_archive.failed', err)
   })
@@ -80,27 +79,40 @@ export async function sweepOnOneReplica(): Promise<void> {
   await reclaimSessionHomes().catch((err: unknown) => {
     logError('agent.session_home_reclaim.failed', err)
   })
+
+  return true
 }
 
-function runSweep() {
-  // A slow reclaim must not overlap the next interval.
-  if (sweeping) return
-  sweeping = true
-  void sweepOnOneReplica().finally(() => {
-    sweeping = false
-  })
+/** How long after a tick the next one comes. A refused claim may be one a replica
+ *  that is gone took just before a deploy, so it is asked again soon: waiting the
+ *  full interval leaves almost two hours between sweeps. */
+export const nextSweepDelay = (swept: boolean) => (swept ? SWEEP_INTERVAL_MS : RETRY_DELAY_MS)
+
+// One timer, set again only when a tick ends: a slow reclaim cannot overlap the next.
+function schedule(delayMs: number) {
+  timer = setTimeout(() => {
+    void sweepOnOneReplica()
+      .catch((err: unknown) => {
+        logError('agent.conversation_auto_archive.failed', err)
+
+        return false
+      })
+      .then((swept) => {
+        if (!stopped) schedule(nextSweepDelay(swept))
+      })
+  }, delayMs)
 }
 
 export const conversationAutoArchive = {
   init(): void {
-    warmupTimer = setTimeout(runSweep, WARMUP_DELAY_MS)
-    sweepTimer = setInterval(runSweep, SWEEP_INTERVAL_MS)
+    stopped = false
+    schedule(RETRY_DELAY_MS)
     logEvent('info', 'backend.conversation_auto_archive.ready', {
       idle_days: config.agent.autoArchiveIdleDays,
     })
   },
   shutdown(): void {
-    if (warmupTimer) clearTimeout(warmupTimer)
-    if (sweepTimer) clearInterval(sweepTimer)
+    stopped = true
+    if (timer) clearTimeout(timer)
   },
 }

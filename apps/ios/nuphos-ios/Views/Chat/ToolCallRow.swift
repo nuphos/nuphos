@@ -354,10 +354,10 @@ struct WorkGroup: View {
         }
     }
 
+    /// The desktop's label: `Worked for 2m 37s`, or `Worked` with no duration.
     private var title: String {
-        let steps = rows.reduce(0) { $0 + ChatRow.workSteps($1) }
-        if let duration, duration >= 1 { return String(localized: "Worked for \(Self.formatWorkDuration(duration)) · \(steps) steps") }
-        return String(localized: "Worked through \(steps) steps")
+        guard let duration, duration >= 1 else { return String(localized: "Worked") }
+        return String(localized: "Worked for \(Self.formatWorkDuration(duration))")
     }
 
     /// `12s`, `3m 5s`, `1h 20m` — the desktop's `formatWorkDuration`.

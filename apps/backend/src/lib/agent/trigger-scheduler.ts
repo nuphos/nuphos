@@ -7,7 +7,9 @@ import { serving } from '@/lib/event-loop-stall'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled } from '@/lib/redis'
 
+import { taskReports } from './task-reports'
 import { closeThreadQueue } from './thread-queue'
+import { whoseJob } from './trigger-job-owner'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
 import { startMissedRunDetector, stopMissedRunDetector } from './trigger-missed-runs'
@@ -108,7 +110,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
   )
 
   _worker.on('failed', (job, err) => {
-    void whoseJob(job?.data).then((owner) =>
+    void whoseJob(job).then((owner) =>
       logError('agent.trigger_scheduler.job_failed', err, {
         job_id: job?.id,
         job_name: job?.name,
@@ -117,17 +119,15 @@ export async function initTriggerScheduler(): Promise<boolean> {
       }),
     )
     if (job?.name === 'task-report') {
-      void import('./task-reports')
-        .then(({ taskReports }) =>
-          taskReports().updateOne(
-            { _id: job.data.reportId },
-            {
-              $set: {
-                deliveryError:
-                  'Report notification failed; inspect the parent conversation and queue before retrying.',
-              },
+      void taskReports()
+        .updateOne(
+          { _id: job.data.reportId },
+          {
+            $set: {
+              deliveryError:
+                'Report notification failed; inspect the parent conversation and queue before retrying.',
             },
-          ),
+          },
         )
         .catch((error: unknown) => {
           logError('agent.task_report.failure_record_failed', error)
@@ -263,16 +263,4 @@ export function failForGoodIfGone(error: unknown): never {
   if (error instanceof AppError && error.code === 'runtime_not_found')
     throw Object.assign(new UnrecoverableError(error.message), { cause: error })
   throw error
-}
-
-/** The Trigger a failed fire belongs to, so its log line says whose it is (#3718). */
-async function whoseJob(data: unknown): Promise<Record<string, string | undefined>> {
-  const triggerId = (data as { triggerId?: unknown } | undefined)?.triggerId
-
-  if (typeof triggerId !== 'string' || !ObjectId.isValid(triggerId)) return {}
-  const trigger = await agentTriggers()
-    .findOne({ _id: new ObjectId(triggerId) }, { projection: { teamId: 1, targetSessionId: 1 } })
-    .catch(() => null)
-
-  return { trigger_id: triggerId, team_id: trigger?.teamId, session_id: trigger?.targetSessionId }
 }

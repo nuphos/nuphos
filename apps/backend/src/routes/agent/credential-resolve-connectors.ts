@@ -12,7 +12,6 @@ export type ConnectorCredentialAccess = Pick<
   | 'cloudflareAccountIds'
   | 'instaboxAccountIds'
   | 'personalCredentialIds'
-  | 'personalConnectionIds'
 >
 
 /**
@@ -81,11 +80,6 @@ export function resolveConnectorCredentialAccess(
       selection.personalCredentialIds,
       options.personalCredentials,
       (credential) => credential.provider,
-    ),
-    personalConnectionIds: narrow(
-      selection.personalConnectionIds,
-      options.personalCredentials,
-      (credential) => credential.id,
     ),
   }
 }

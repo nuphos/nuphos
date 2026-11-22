@@ -138,7 +138,7 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(
-  options: { botOnboarding?: boolean; boxes?: boolean; redis?: boolean } = {},
+  options: { botOnboarding?: boolean; boxes?: boolean; freeBox?: boolean; redis?: boolean } = {},
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
@@ -221,6 +221,9 @@ export async function startStack(
       env: {
         ...backendEnv(port, url, mongoUri),
         ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
+        ...(options.freeBox
+          ? { BOX_DEFAULT_MONTHLY_HOURS: '50', BOX_DEFAULT_VCPU_LIMIT: '2' }
+          : {}),
         ...fakes,
       },
     })

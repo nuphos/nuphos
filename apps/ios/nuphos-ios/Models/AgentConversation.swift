@@ -401,6 +401,8 @@ struct AgentConversationDetail: Decodable, Sendable {
     let canManage: Bool?
     let canArchive: Bool?
     let readOnly: Bool?
+    /// Whether Share is offered: never on a Bot or a Task an agent opened. Nil from an older server.
+    let shareable: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
     let credentialAccess: JSONValue?
@@ -454,7 +456,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, shareable, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -472,6 +474,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
         canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
+        shareable = try? c.decodeIfPresent(Bool.self, forKey: .shareable)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)
         followsBot = c.contains(.credentialSource)
