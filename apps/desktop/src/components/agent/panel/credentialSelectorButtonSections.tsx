@@ -4,7 +4,7 @@ import { MenuCheckboxItem } from '../../ui/menu'
 import { CredentialSectionGroup } from './CredentialSectionGroup'
 import { GOOGLE_PROVIDERS } from '../../../types'
 
-import { ownAccountLabel } from './ownAccountLabel'
+import { OwnAccountLabel } from './OwnAccountLabel'
 import { personalIdentityRow, setPersonalIdentity, setPersonalOnly } from './personalIdentity'
 
 import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
@@ -33,7 +33,6 @@ export function CredentialSelectorSectionList({
     const own = personal ? ownCredentials.filter((c) => c.provider === provider) : []
 
     if (own.length === 0) return null
-    const { label, title } = ownAccountLabel(provider, own)
 
     return (
       <MenuCheckboxItem
@@ -43,9 +42,7 @@ export function CredentialSelectorSectionList({
       >
         <span className="flex min-w-0 items-center gap-2">
           <CloudLogo provider={provider} size={14} />
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main" title={title}>
-            {label}
-          </span>
+          <OwnAccountLabel provider={provider} accounts={own} />
         </span>
       </MenuCheckboxItem>
     )
