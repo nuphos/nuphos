@@ -110,9 +110,18 @@ test("a default the agent does not offer leaves a new session on the agent's own
     result.configOptions.map((entry) => entry.currentValue),
     ['b', 'medium'],
   )
+  // An agent that answers but keeps its own value: the session opens on that value.
+  assert.deepEqual(
+    await nuphosApplyRuntimeDefaults(
+      { setSessionConfigOption: async () => response },
+      params({ model: 'b' }),
+      response,
+    ),
+    response,
+  )
 })
 
-test('rejected and unacknowledged defaults fail before any prompt', async () => {
+test('a rejected default fails before any prompt', async () => {
   const response = { sessionId: 's', configOptions: [option('model', 'a', ['a', 'b'])] }
 
   await assert.rejects(
@@ -126,14 +135,6 @@ test('rejected and unacknowledged defaults fail before any prompt', async () => 
       response,
     ),
     /Rejected/,
-  )
-  await assert.rejects(
-    nuphosApplyRuntimeDefaults(
-      { setSessionConfigOption: async () => response },
-      params({ model: 'b' }),
-      response,
-    ),
-    /did not accept/,
   )
 })
 
@@ -173,13 +174,12 @@ class Agent {
   const kept = await agent.loadSession({ sessionId: 'e', ...params({ model: 'retired' }) })
 
   assert.equal(kept.configOptions[0].currentValue, 'a')
-  // Any other failure stops the reopen before a prompt runs on the wrong model.
+  // So does one the agent answers without taking; a rejection stops the reopen.
+  agent.setter = 'keeps the old value'
+  const unchanged = await agent.resumeSession({ sessionId: 'g', ...params({ model: 'b' }) })
+
+  assert.equal(unchanged.configOptions[0].currentValue, 'a')
   agent.setter = 'rejects'
   await assert.rejects(agent.loadSession({ sessionId: 'f', ...params({ model: 'b' }) }), /rejected/)
-  agent.setter = 'keeps the old value'
-  await assert.rejects(
-    agent.resumeSession({ sessionId: 'g', ...params({ model: 'b' }) }),
-    /did not accept/,
-  )
   assert.throws(() => patchRuntimeDefaults('unexpected adapter'), /exactly one/)
 })

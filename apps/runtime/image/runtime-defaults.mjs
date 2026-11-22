@@ -293,7 +293,8 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
     if (value === undefined) continue
     const option = options?.find((entry) => kindOf(entry) === kind)
     // A value the agent does not offer (a model that lacks the saved effort, or an older
-    // agent) leaves the session on the agent's own choice, new or reopened alike.
+    // agent) or does not take leaves the session on the agent's own choice, new or
+    // reopened alike: the session reports what it runs with.
     if (!option?.options?.some((choice) => choice.value === value)) continue
     if (option.currentValue === value) continue
     const updated = await agent.setSessionConfigOption({
@@ -302,11 +303,6 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
       value,
     })
     options = updated.configOptions
-    if (!options?.some((entry) => entry.id === option.id && entry.currentValue === value)) {
-      throw new Error(
-        `The runtime did not accept the default ${kind}. Update Settings → Agent, then start a new conversation.`,
-      )
-    }
   }
   const model = options?.find((entry) => kindOf(entry) === 'model')
   return {
