@@ -22,6 +22,10 @@ sealed interface ComputerPresence {
                 else -> Offline
             }
         }
+
+        /** The workspace's Box that is still coming up, while it has no runtime yet. */
+        fun starting(devices: List<RuntimeDevice>): Starting? =
+            devices.firstNotNullOfOrNull { of(RuntimeHost(it.id, it.label, it.online), devices) as? Starting }
     }
 }
 

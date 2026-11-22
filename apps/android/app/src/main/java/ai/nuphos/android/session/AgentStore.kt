@@ -153,12 +153,18 @@ class AgentStore(
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         storeScope.launch {
-            val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
+            val api = ai.nuphos.android.data.AgentRuntimeApi(token, team.id)
+            val catalog = try { api.catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            // An empty workspace may already have a Box on its way, as a new account's free one is.
+            val starting = if (catalog?.isEmpty() != true) null else try {
+                ai.nuphos.android.data.ComputerPresence.starting(api.devices(metrics = false))?.label
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
             if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
                 workspaceRevision == workspace && generation == runtimesGeneration) {
                 hasRuntimes = catalog.isNotEmpty()
                 creationRuntimes = catalog
+                startingBox = starting
             }
         }
     }
@@ -446,6 +452,7 @@ class AgentStore(
         runtimesListedFor = null
         hasRuntimes = null
         creationRuntimes = null
+        startingBox = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()
