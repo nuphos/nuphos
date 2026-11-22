@@ -1,4 +1,4 @@
-// #4410: a member's several GitHub accounts each get a row and a Disconnect of their own.
+// #4410: a member's several GitHub accounts each get a line and a Disconnect of their own in Connectors.
 import assert from 'node:assert/strict'
 
 import { client } from './binding-access-scenarios.ts'
@@ -54,20 +54,15 @@ export const personalAccountScenarios: Scenario[] = [
       }
 
       try {
-        await page
-          .getByRole('button', { name: /^Search/ })
-          .first()
-          .click()
-        await page.keyboard.type('User settings')
-        await page.getByRole('option', { name: 'User settings' }).first().click()
-        await page.getByRole('searchbox', { name: 'Search settings' }).fill('Personal Credentials')
-        await page.keyboard.press('Enter')
-        await page.getByText(`Connected as ${WORK}`).waitFor()
-        await page.getByText(`Connected as ${HOME}`).waitFor()
-        await page.getByRole('button', { name: 'Connect another account' }).first().waitFor()
+        await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+        const connectors = page.getByRole('dialog', { name: 'Connectors', exact: true })
+
+        await connectors.getByText(`Connected as ${WORK}`).waitFor()
+        await connectors.getByText(`Connected as ${HOME}`).waitFor()
+        await connectors.getByRole('button', { name: 'Connect another account' }).first().waitFor()
         await shoot(page, 'personal-accounts-two')
 
-        await page.getByRole('button', { name: `Disconnect ${HOME}` }).click()
+        await connectors.getByRole('button', { name: `Disconnect ${HOME}` }).click()
         const dialog = page.getByRole('alertdialog')
 
         await dialog.getByText(HOME).first().waitFor()
@@ -75,11 +70,12 @@ export const personalAccountScenarios: Scenario[] = [
         await dialog.getByRole('button', { name: 'Disconnect', exact: true }).click()
 
         await until('only the named account to be gone', async () => logins() === `["${WORK}"]`)
-        await page.getByText(`Connected as ${HOME}`).waitFor({ state: 'detached' })
-        await page.getByText(`Connected as ${WORK}`).waitFor()
+        await connectors.getByText(`Connected as ${HOME}`).waitFor({ state: 'detached' })
+        await connectors.getByText(`Connected as ${WORK}`).waitFor()
         await shoot(page, 'personal-accounts-one')
         assert.equal(logins(), `["${WORK}"]`)
-        await page.getByText('Back to app', { exact: true }).click()
+        await connectors.getByLabel('Close modal').click()
+        await connectors.waitFor({ state: 'detached' })
       } finally {
         inDatabase(
           stack,
