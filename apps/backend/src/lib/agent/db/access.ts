@@ -31,6 +31,16 @@ export const isBot = (conversation: { kind?: string; avatar?: string }) =>
   conversation.kind !== 'channel' && conversation.avatar !== undefined
 const BOT = { kind: { $ne: 'channel' }, avatar: { $exists: true } }
 
+/** Every field conversationAccess reads: a projection that drops one reads it wrong. */
+export const ACCESS_PROJECTION = {
+  userId: 1,
+  teamId: 1,
+  generalAccess: 1,
+  participantIds: 1,
+  kind: 1,
+  avatar: 1,
+} as const
+
 // Absent is every conversation from before access existed, which the whole
 // team could already open. It stays open to read, and a chat to post in.
 export function generalAccessOf(conversation: ReadGrants): GeneralAccess {
