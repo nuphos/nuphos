@@ -120,6 +120,10 @@ internal fun EmailLoginContent(
         job?.cancel(); code = ""; clearFeedback(); codeScreen = false
     }
 
+    fun submitCode() {
+        if (!waiting && !expired && code.length == 6) { clearFeedback(); onSubmit(sentEmail, code) }
+    }
+
     if (codeScreen) {
         BackHandler { leaveCodeScreen() }
         Column(modifier.fillMaxSize().systemBarsPadding().imePadding()
@@ -133,7 +137,10 @@ internal fun EmailLoginContent(
                     modifier = Modifier.semantics { contentDescription = differentEmail }) { Text(stringResource(R.string.shell_change)) }
             }
             VerificationCodeField(code, isError = shownError != null, enabled = !waiting && !expired) {
+                // The sixth digit signs in, so the keyboard never has to be dismissed to reach the button.
+                val completed = it.length == 6 && it != code
                 code = it; if (shownError != null) clearFeedback()
+                if (completed) submitCode()
             }
             shownError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -145,13 +152,7 @@ internal fun EmailLoginContent(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
-            Button(onClick = {
-                if (!waiting && !expired && code.length == 6) {
-                    val submitted = code
-                    clearFeedback()
-                    onSubmit(sentEmail, submitted)
-                }
-            }, enabled = !waiting && !expired && code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            Button(onClick = { submitCode() }, enabled = !waiting && !expired && code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text(if (waiting) stringResource(R.string.shell_please_wait) else stringResource(R.string.sign_in))
             }
         }

@@ -26,6 +26,8 @@
     <string name="chats_bots">บอท</string>
     <string name="chats_bot">บอท</string>
     <string name="chats_new_bot">บอทใหม่</string>
+    <string name="chats_first_bot_title">เริ่มต้นด้วย Bot ตัวแรกของคุณ</string>
+    <string name="chats_first_bot_body">เพื่อนร่วมงานที่คุ้นเคยสำหรับงานต่อเนื่อง ตั้งชื่อแล้วชวนทีมเข้ามาร่วมงาน</string>
     <string name="chats_archive_bot">เก็บถาวรบอท</string>
     <string name="chats_more_actions">การทำงานเพิ่มเติม</string>
     <string name="chats_is_typing">%1$s กำลังพิมพ์</string>

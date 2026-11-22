@@ -26,6 +26,8 @@
     <string name="chats_bots">Bot</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">新 Bot</string>
+    <string name="chats_first_bot_title">从第一个 Bot 开始</string>
+    <string name="chats_first_bot_body">一个熟悉的面孔，陪你处理长期的工作。取个名字，邀请团队一起加入。</string>
     <string name="chats_archive_bot">归档 Bot</string>
     <string name="chats_more_actions">更多操作</string>
     <string name="chats_is_typing">%1$s 正在输入</string>

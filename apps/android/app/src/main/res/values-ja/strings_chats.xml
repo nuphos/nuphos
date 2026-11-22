@@ -26,6 +26,8 @@
     <string name="chats_bots">ボット</string>
     <string name="chats_bot">ボット</string>
     <string name="chats_new_bot">新しいボット</string>
+    <string name="chats_first_bot_title">最初の Bot から始めましょう</string>
+    <string name="chats_first_bot_body">日々の仕事を一緒に進める仲間を。名前を付けて、チームを招待しましょう。</string>
     <string name="chats_archive_bot">ボットをアーカイブ</string>
     <string name="chats_more_actions">その他の操作</string>
     <string name="chats_is_typing">%1$s が入力中</string>

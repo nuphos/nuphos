@@ -71,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -451,8 +452,9 @@ fun EmptyState(
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+        // Centred like the icon, so copy that wraps to two lines does not fall back to start alignment.
+        Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         if (action != null && onAction != null) {
             Button(onClick = onAction, modifier = Modifier.padding(top = 16.dp)) { Text(action) }
         }

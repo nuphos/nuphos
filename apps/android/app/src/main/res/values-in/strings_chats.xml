@@ -26,6 +26,8 @@
     <string name="chats_bots">Bot</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">Bot baru</string>
+    <string name="chats_first_bot_title">Mulai dengan Bot pertama Anda</string>
+    <string name="chats_first_bot_body">Rekan yang akrab untuk pekerjaan berkelanjutan. Beri nama dan ajak tim Anda bergabung.</string>
     <string name="chats_archive_bot">Arsipkan Bot</string>
     <string name="chats_more_actions">Tindakan lainnya</string>
     <string name="chats_is_typing">%1$s sedang mengetik</string>

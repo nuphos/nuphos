@@ -26,6 +26,8 @@
     <string name="chats_bots">봇</string>
     <string name="chats_bot">봇</string>
     <string name="chats_new_bot">새 봇</string>
+    <string name="chats_first_bot_title">첫 Bot으로 시작하세요</string>
+    <string name="chats_first_bot_body">계속되는 업무를 함께할 익숙한 동료. 이름을 정하고 팀을 초대하세요.</string>
     <string name="chats_archive_bot">봇 보관</string>
     <string name="chats_more_actions">더 보기</string>
     <string name="chats_is_typing">%1$s 입력 중</string>
