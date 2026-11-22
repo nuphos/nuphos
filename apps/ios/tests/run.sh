@@ -71,3 +71,33 @@ for chat_test in CancelledLoadTests ChannelPushTests; do
     "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"
   "$test_dir/$chat_test"
 done
+
+swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
+"$test_dir/hosted-bot-avatar-tests"
+
+# The store and the session it keeps (#3525), with what they name. Analytics and AuthSession are stand-ins in the test.
+swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
+  -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
+  "${chat_sources[@]}" \
+  nuphos-ios/Services/AgentStore.swift \
+  nuphos-ios/Services/LaunchCache.swift \
+  nuphos-ios/Services/Chat/ChatSession.swift \
+  nuphos-ios/Services/Chat/UIStreamReducer.swift \
+  nuphos-ios/Services/Chat/RuntimeTranscript.swift \
+  nuphos-ios/Services/Chat/ResumeFallback.swift \
+  nuphos-ios/Services/Chat/StreamBacklog.swift \
+  nuphos-ios/Services/Chat/DockDestination.swift \
+  nuphos-ios/Services/Chat/BrowserTabs.swift \
+  nuphos-ios/Services/Chat/AnsweredQuestion.swift \
+  nuphos-ios/Services/Desktop/*.swift \
+  nuphos-ios/Services/Terminal/TerminalSession.swift \
+  nuphos-ios/Models/SelectorBox.swift \
+  nuphos-ios/Views/Chat/ChatRow.swift \
+  nuphos-ios/Views/Chat/ShareSessionSheet.swift \
+  nuphos-ios/Views/Components/AvatarView.swift \
+  nuphos-ios/Views/Home/HomePage.swift \
+  nuphos-ios/Views/Home/NewBox.swift \
+  ShareSupport/SubmissionAdmission.swift \
+  ShareSupport/SharedShareSession.swift \
+  tests/ChatReopenTests.swift -o "$test_dir/ChatReopenTests"
+"$test_dir/ChatReopenTests"

@@ -39,7 +39,6 @@ test('the Computers page shows no item count, and its search says it searches ru
       root.render(
         createElement(ComputersSection, {
           team: { id: 'team-1', role: 'ADMINISTRATOR' } as never,
-          onOpenSection: () => {},
         }),
       ),
     )

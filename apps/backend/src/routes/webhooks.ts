@@ -5,6 +5,7 @@ import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { fireTrigger } from '@/lib/agent/trigger-executor'
 import { claimWindow } from '@/lib/agent/trigger-held-claim'
 import { holdDelivery } from '@/lib/agent/trigger-held-deliveries'
+import { matchesPayloadFilters } from '@/lib/agent/trigger-payload-filter'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -122,6 +123,10 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
   }
 
+  if (!matchesPayloadFilters(payload, trigger.payloadFilters)) {
+    return c.json({ ok: true, skipped: true, reason: 'filtered' }, 200)
+  }
+
   return await deliver(c, trigger, payload)
 })
 
@@ -172,7 +177,11 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 
 const QUEUE_RETRY_SECONDS = 30
 // What resolveExecutionAuthorization pauses a Trigger with.
-const PAUSED = new Set(['trigger_target_session_invalid', 'trigger_execution_principal_invalid'])
+const PAUSED = new Set([
+  'trigger_target_session_invalid',
+  'trigger_target_session_archived',
+  'trigger_execution_principal_invalid',
+])
 
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))

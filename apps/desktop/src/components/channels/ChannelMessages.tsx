@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom'
 import { t } from '../../i18n'
 import { useAgentLinks } from '../agent/panel/useAgentLinks'
 import { renderAtlasMentionLink, renderMemberMentionLink } from '../agent/panel/messageInlineLinks'
+import { AGENT_MENTION } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { CONVERSATION_TAIL_LIMIT } from '../agent/panel/taskTranscript'
 import { ContextMenu } from '../ContextMenu'
@@ -138,7 +139,14 @@ export function ChannelMessages({
       renderAgentLink(href, children),
     [teamId, renderAgentLink, onOpenNuphosLink],
   )
-  const links = { channelId, renderLink, onLinkClick: onOpenNuphosLink }
+  const links = {
+    channelId,
+    renderLink,
+    onLinkClick: onOpenNuphosLink,
+    agentMentions: agents.flatMap((agent) =>
+      agent.title ? [{ id: AGENT_MENTION + agent.sessionId, displayName: agent.title }] : [],
+    ),
+  }
   // What was here on opening stays put; only posts that arrive later spring in.
   const owned = new Set(
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),

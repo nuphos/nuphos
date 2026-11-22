@@ -127,11 +127,7 @@ export function SidebarNavItem({
   const badgeShown = badge !== undefined && badge > 0
   // A chat-list row shows its state on the preview line instead, and its time here.
   const rest = twoLine
-    ? time && (
-        <span className="text-[11px] font-normal tabular-nums text-tertiary opacity-75">
-          {time}
-        </span>
-      )
+    ? time && <span className="text-[11px] font-normal tabular-nums text-tertiary">{time}</span>
     : trailing
   const iconBox = icon !== null && (
     <span
@@ -181,7 +177,7 @@ export function SidebarNavItem({
           overlay={twoLine}
         />
       </Fenced>
-      <Fenced>{edge}</Fenced>
+      {!twoLine && <Fenced>{edge}</Fenced>}
     </>
   )
 
@@ -229,7 +225,7 @@ export function SidebarNavItem({
       }}
       className={clsx(
         SIDEBAR_ROW_CLASS,
-        twoLine && '!h-[60px] !gap-3 !rounded-xl',
+        twoLine && '!h-[70px] !gap-3 !rounded-xl',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -247,24 +243,24 @@ export function SidebarNavItem({
       {twoLine ? (
         <>
           {iconBox}
-          <span className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+          <span className="flex-1 min-w-0 flex flex-col justify-center gap-1">
             <span className="flex items-center gap-2 text-main">
               {labelBox}
               {tail}
             </span>
-            {/* The row's state ends the preview line, as the iOS list's dot does. */}
-            <span className="flex min-h-4 items-center gap-2">
-              <span
-                className={clsx(
-                  'flex-1 min-w-0 truncate text-left text-[13px] leading-4 font-normal',
-                  preview ? 'text-secondary' : 'text-tertiary',
-                )}
-              >
+            {/* The row's state and fold chevron end the preview's first line, as
+                the iOS list's dot does, right under the time. */}
+            <span className="flex items-start gap-2">
+              <span className="flex-1 min-w-0 line-clamp-2 break-words text-left text-[13px] leading-[17px] font-normal text-tertiary">
                 {preview || t('No messages yet')}
               </span>
-              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center empty:hidden">
+              <span
+                id={`${id}-trailing`}
+                className="flex-shrink-0 flex h-[17px] items-center empty:hidden"
+              >
                 {trailing}
               </span>
+              <Fenced className="flex-shrink-0 flex h-[17px] items-center">{edge}</Fenced>
             </span>
           </span>
         </>

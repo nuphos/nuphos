@@ -119,7 +119,7 @@ const VENDED_CLOUDS = [
 
 // teamIdentity picks who GitHub/Linear act as; it is not a credential to list.
 const credentialKeys = Object.keys(agentCredentialSelectionSchema.shape).filter(
-  (key) => key !== 'teamIdentity' && key !== 'personalConnectionIds',
+  (key) => key !== 'teamIdentity',
 )
 const selectableKeys = [...new Set([...credentialKeys, ...Object.keys(CREDENTIAL_LISTERS)])]
 

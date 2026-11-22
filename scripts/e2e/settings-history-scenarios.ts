@@ -18,8 +18,10 @@ type Change = {
 const PROMPT =
   'Write the release notes for the November desktop and mobile apps E2E_RETUNE E2E_DELIVERY:retune'
 
-/** The timeline line that reads `text`. */
-const line = (page: Page, text: RegExp) => page.locator('div[title]').filter({ hasText: text })
+/** The timeline line that reads `text` in the chat on screen: one opened before stays in the
+ *  page, hidden, with its own lines. */
+const line = (page: Page, text: RegExp) =>
+  page.locator('div[title]').filter({ hasText: text, visible: true })
 
 async function openChip(page: Page) {
   await page
@@ -116,7 +118,10 @@ export const settingsHistoryScenarios: Scenario[] = [
         // The model card closes first; its menu still animates out.
         await page.waitForTimeout(1_000)
         await pickAgent(page, 'E2E second agent')
-        await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E second agent')
+          .filter({ visible: true })
+          .waitFor()
         await send(page, 'After the move E2E_DELIVERY:retune-moved')
         await page.getByText('ACK E2E_DELIVERY:retune-moved', { exact: true }).waitFor()
         await line(

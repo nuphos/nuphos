@@ -27,9 +27,7 @@ Run once per conversation, and again on a 401 (tokens last about an hour).
 Several Google accounts: `list_credentials` shows each account with its `connectionId`. When more
 than one is authorized and the request does not say which, ask the user; never pick one yourself.
 Pass the chosen id as `GOOGLE_CONNECTION_ID=<id>` before `setup-credentials.sh` or `composio.sh`.
-A 409 `personal_credential_account_required` lists the choices; a 403
-`personal_credential_account_not_authorized` means the owner has not given this conversation that
-account, so ask them to select it.
+A 409 `personal_credential_account_required` lists the choices.
 `<teamId>` is the current team id from the session context:
 
 ```bash

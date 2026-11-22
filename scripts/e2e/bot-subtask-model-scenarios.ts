@@ -81,14 +81,22 @@ export const botSubtaskModelScenarios: Scenario[] = [
         rmSync(behind, { force: true })
         rmSync(release, { force: true })
       }
-      // Back in the Bot's chat, where the channel scenarios carry on. The finished sub-Task
-      // leaves the sidebar with no count in its place, so the Bot's name has the row's width.
+      // Back in the Bot's chat, where the channel scenarios carry on. #4602: the sub-Task is
+      // finished, read and no longer open, and still stays under its Bot, past the session
+      // list's 4 s poll. The Bot's row shows no count beside it.
       await bot.click()
-      await kid.waitFor({ state: 'detached' })
       await page.mouse.move(600, 400)
-      await page.waitForTimeout(3_000)
+      await page.waitForTimeout(5_000)
+      if (!(await kid.isVisible())) throw new Error('The finished sub-Task left the Bot tree')
       await light()
       await bots.screenshot({ path: `${artifacts}/bot-row-light.png` })
+      // The tree's fold hides the finished sub-Task and brings it back.
+      await bot.locator('[aria-label="Hide sub-tasks"]').dispatchEvent('click')
+      await kid.waitFor({ state: 'detached' })
+      await light()
+      await bots.screenshot({ path: `${artifacts}/bot-row-folded-light.png` })
+      await bot.locator('[aria-label="Show sub-tasks"]').dispatchEvent('click')
+      await kid.waitFor()
       if (await bots.locator('[title$=" done"]').count())
         throw new Error("The Bot's row still shows a done count")
     },

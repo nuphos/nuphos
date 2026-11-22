@@ -83,7 +83,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
         <p className="mt-1 text-[13px] text-tertiary">
           {optional
             ? t(
-                'Members can connect Gmail, Google Drive and Google Calendar in Personal Credentials through Composio. Add your own Google Cloud OAuth client to connect through it instead.',
+                'Members can connect Gmail, Google Drive and Google Calendar in Connectors through Composio. Add your own Google Cloud OAuth client to connect through it instead.',
               )
             : t(
                 'Members connect Gmail, Google Drive and Google Calendar through your own Google Cloud OAuth client.',
@@ -156,13 +156,9 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
           {savedClientId === undefined
             ? '—'
             : savedClientId
-              ? t(
-                  'Configured. Connect Gmail, Google Drive or Google Calendar in Personal Credentials.',
-                )
+              ? t('Configured. Connect Gmail, Google Drive or Google Calendar in Connectors.')
               : composio
-                ? t(
-                    'Not required. Connect Gmail, Google Drive or Google Calendar in Personal Credentials.',
-                  )
+                ? t('Not required. Connect Gmail, Google Drive or Google Calendar in Connectors.')
                 : admin
                   ? t('Not configured. Ask {name} to add one.', { name: admin })
                   : t('Not configured. Ask a workspace administrator to add one.')}

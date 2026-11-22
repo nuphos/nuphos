@@ -12,13 +12,22 @@ const { createHash, randomUUID } = await import('node:crypto')
 // As a panel runner, argv[2] is the run directory holding params.json. As a
 // computer's own `session-homes` job, the session id arrives on stdin.
 const { text } = await import('node:stream/consumers')
-const { sessionId } = JSON.parse(
+const { sessionId, epoch } = JSON.parse(
   process.argv[2]
     ? await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8')
     : await text(process.stdin),
 )
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2)
-const id = createHash('sha256').update(sessionId).digest('hex')
+if (epoch !== undefined && (!Number.isSafeInteger(epoch) || epoch < 0)) process.exit(2)
+// Every generation up to this one (<hash>, <hash>.g-1 …), the owner's and each
+// teammate's: the Task has moved off all of them, and a computer from before
+// generations ran a restored Task's turns in the first one (#4473). A later
+// generation is a restored Task's and stays.
+const ours = new RegExp(
+  '^(' +
+    createHash('sha256').update(sessionId).digest('hex') +
+    '(?:\\.g-([1-9][0-9]*))?(?:\\.[0-9a-f]{64})?)(\\.reclaim-([0-9]+)-.*)?$',
+)
 const homes = path.join(os.homedir(), '.nuphos', 'session-homes')
 let unreadable
 const done = (result) => {
@@ -120,16 +129,16 @@ const inUse = async (dir, byHome) => {
   }
   return false
 }
-const names = await fs.readdir(homes).catch(() => [])
+const matches = (await fs.readdir(homes).catch(() => []))
+  .map((name) => ours.exec(name))
+  .filter((match) => match && Number(match[2] ?? 0) <= (epoch ?? 0))
 // A job killed during the rm, or a failed rename back, leaves a home's
 // <home>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
 // One younger than any job may still belong to a running job, so it waits.
-const leftover = new RegExp('^(' + id + '(?:\\.[0-9a-f]{64})?)\\.reclaim-([0-9]+)-')
-for (const name of names) {
-  const match = leftover.exec(name)
-  if (!match || !(Date.now() - Number(match[2]) > 10 * 60_000)) continue
+for (const [name, home, , leftover, ms] of matches) {
+  if (!leftover || !(Date.now() - Number(ms) > 10 * 60_000)) continue
   const left = path.join(homes, name)
-  if (!(await inUse(left, path.join(homes, match[1]))))
+  if (!(await inUse(left, path.join(homes, home))))
     await fs.rm(left, { recursive: true, force: true }).catch(() => {})
 }
 const reclaim = async (home) => {
@@ -151,7 +160,7 @@ const reclaim = async (home) => {
   await fs.rm(aside, { recursive: true, force: true })
   return 'removed'
 }
-const teammates = names.filter((name) => new RegExp('^' + id + '\\.[0-9a-f]{64}$').test(name))
 const results = []
-for (const name of [id, ...teammates]) results.push(await reclaim(path.join(homes, name)))
+for (const [name, , , leftover] of matches)
+  if (!leftover) results.push(await reclaim(path.join(homes, name)))
 done(results.includes('in_use') ? 'in_use' : results.includes('removed') ? 'removed' : 'absent')

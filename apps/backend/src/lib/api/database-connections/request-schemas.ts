@@ -161,6 +161,6 @@ export const databaseChangeExecuteSchema = z
   .strict()
 export const databaseChangeApprovalPolicySchema = z
   .object({
-    minimumApprovals: z.number().int().min(1).max(20),
+    minimumApprovals: z.number().int().min(0).max(20),
   })
   .strict()

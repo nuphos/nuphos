@@ -63,6 +63,8 @@
     <string name="agent_ok">OK</string>
     <string name="agent_first_runtime_title">最初のランタイムを接続</string>
     <string name="agent_first_runtime_body">コンピュータで Nuphos を開いて Box を追加するか自分のコンピュータを接続してください。または、ワークスペースの管理者に接続を依頼してください。</string>
+    <string name="agent_first_runtime_starting_title">%1$s を準備しています</string>
+    <string name="agent_first_runtime_starting_body">オンラインになるとここに表示されます。1〜2 分かかることがあります。</string>
     <string name="agent_cloud">クラウド</string>
     <plurals name="agent_runtime_count">
         <item quantity="other">%1$d 個のランタイム</item>

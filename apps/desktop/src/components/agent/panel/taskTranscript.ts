@@ -58,14 +58,27 @@ export function keepTaskSelection(
   if (detail) client.setQueryData(key, { ...detail, credentialAccess })
 }
 
-/** Reads a Task before it is opened, unless its copy is current, so the click shows it from memory. */
+/**
+ * Reads a Task into its copy; one read already on the way (a prefetch) is joined, not repeated.
+ * A copy already there is read again however recent: it is asked for only when behind (cachedTask).
+ */
+export function fetchTask(client: QueryClient, teamId: string, sessionId: string) {
+  return client.query({
+    queryKey: queryKeys.task(teamId, sessionId),
+    queryFn: () => readTask(teamId, sessionId),
+    staleTime: 0,
+    retry: false,
+  })
+}
+
+/**
+ * Reads a Task before it is opened, unless its copy is current, so the click shows it from memory.
+ * A copy with a reply in progress is skipped too: its tab streams it, and a click on it reads
+ * afresh anyway, so reading it on hover only adds a read.
+ */
 export function prefetchTask(client: QueryClient, teamId: string, sessionId: string) {
-  if (cachedTask(client, teamId, sessionId)) return
-  client
-    .query({
-      queryKey: queryKeys.task(teamId, sessionId),
-      queryFn: () => readTask(teamId, sessionId),
-      retry: false,
-    })
-    .catch(() => {})
+  const copy = client.getQueryData<AgentConversationDetail>(queryKeys.task(teamId, sessionId))
+
+  if (copy?.activeRun || cachedTask(client, teamId, sessionId)) return
+  fetchTask(client, teamId, sessionId).catch(() => {})
 }

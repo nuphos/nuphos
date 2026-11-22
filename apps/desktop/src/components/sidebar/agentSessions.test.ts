@@ -95,3 +95,26 @@ test('a cancelled Chats listing stops paging', async () => {
   list.stop()
   list.client.clear()
 })
+
+test('a poll reads each listing once; an invalidated listing reads every page', async () => {
+  const list = await shown([chat('a', '2')])
+  const cursors: (string | undefined)[] = []
+
+  respond = async (options: { kind?: string; cursor?: string }) => {
+    cursors.push(options.cursor)
+    if (options.kind) return { conversations: [], nextCursor: null }
+
+    return options.cursor
+      ? { conversations: [chat('b', '1')], nextCursor: null }
+      : { conversations: [chat('a', '2')], nextCursor: 'next' }
+  }
+  await list.client.refetchQueries({ queryKey: queryKeys.agentSessions('t') })
+  assert.equal(cursors.length, 4, 'a poll reads only the first pages')
+
+  cursors.length = 0
+  await list.client.invalidateQueries({ queryKey: queryKeys.agentSessions('t') })
+  assert.equal(cursors.filter((cursor) => cursor === 'next').length, 2, 'every later page again')
+  assert.deepEqual(list.ids(), ['a', 'b'])
+  list.stop()
+  list.client.clear()
+})

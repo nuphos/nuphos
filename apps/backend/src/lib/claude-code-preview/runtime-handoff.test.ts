@@ -19,7 +19,6 @@ import {
   adoptRuntimeHandoff,
   adoptRuntimeHandoffs,
   publishRuntimeHandoffs,
-  queueRuntimeHandoff,
 } from './runtime-handoff'
 import {
   HANDOFF_MAX_AGE_MS,
@@ -524,25 +523,29 @@ test('shutdown hands on a runtime-started turn this replica carries, even mid-tu
   expect(published()).toEqual(['team:carried'])
 })
 
-test('a session already handed off for its turn is handed off once', async () => {
-  hold(
-    'conv',
+test('shutdown hands on a force-paused turn still running here, and closes its connection', async () => {
+  // The drain let go of the turn, but the runtime keeps running it and sends
+  // its output to this replica's connection until that connection closes.
+  const closed = hold(
+    'force-paused',
     Promise.resolve({
       ...snapshot,
       state: 'active',
-      phase: 'working',
+      phase: 'running_tools',
     }),
   )
-  queueRuntimeHandoff({
-    teamId: 'team',
-    conversationId: 'conv',
-    ownerUserId: 'owner',
-    actorUserId: 'turn-actor',
-    locale: 'zh-TW',
-  })
+
+  sessionsByConversation.get('team:force-paused')!.activeTurn = { cancelled: false }
+  hold('stopped', Promise.resolve({ ...snapshot, state: 'active', phase: 'cancelling' }))
+  sessionsByConversation.get('team:stopped')!.activeTurn = { cancelled: true }
 
   expect(await publishRuntimeHandoffs()).toBe(1)
-  expect(JSON.parse(stored.get('team:conv')!)).toMatchObject({ actorUserId: 'turn-actor' })
+  expect(published()).toEqual(['team:force-paused'])
+  expect(closed).toEqual(['force-paused'])
+  expect(JSON.parse(stored.get('team:force-paused')!)).toMatchObject({
+    ownerUserId: 'owner',
+    actorUserId: 'actor',
+  })
 })
 
 test('a runtime that never answers does not hold up shutdown', async () => {
@@ -642,4 +645,27 @@ test('a handoff retained after an offline failure is refused at the age limit', 
   expect(claimed).toEqual([])
   expect(stored.has('team:conv')).toBe(false)
   expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
+})
+
+test('an offline adoption failure logs which offline condition refused it', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const logged = spyOn(console, 'error')
+
+  try {
+    for (const cause of ['no_presence', 'agent_unreported']) {
+      stored.set('team:conv', JSON.stringify(handoff(Date.now() - HANDOFF_SETTLE_MS)))
+      logged.mockClear()
+      await adoptRuntimeHandoffs(async () => {
+        throw new AppError(409, 'runtime_offline', 'offline', { cause })
+      })
+      const failure = logged.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((entry) => entry.event === 'agent.runtime_handoff.adopt_failed')
+
+      expect(failure).toMatchObject({ offline_cause: cause, retry: true })
+      stored.delete('team:conv')
+    }
+  } finally {
+    logged.mockRestore()
+  }
 })

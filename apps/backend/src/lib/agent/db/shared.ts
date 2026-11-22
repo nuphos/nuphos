@@ -218,7 +218,6 @@ export type AgentCredentialAccess = {
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
-  personalConnectionIds?: string[] // which of the owner's own connections, by id
   updatedAt: Date
   updatedBy: string
 }

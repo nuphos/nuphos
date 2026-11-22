@@ -1,11 +1,5 @@
-import {
-  latestCliRelease,
-  newerRuntimeVersion,
-  runtimeVersionAtLeast,
-  stableRuntimeVersion,
-} from './runtime-release'
+import { newerRuntimeVersion, runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
 
-import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 
 /**
@@ -45,44 +39,23 @@ export function hostOutdated(
   })
 }
 
-/**
- * Whether a newer Nuphos than the one on a computer is out: for a Desktop, the update its own
- * updater found; for a CLI host, the newest CLI release. A Desktop whose updater has not found
- * one yet counts as current.
- */
-export async function updateAvailable(
-  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
-  latestCli: () => Promise<RuntimeRelease | null> = latestCliRelease,
-): Promise<boolean> {
-  const app = presence?.status?.app
-
-  if (app) return Boolean(app.update && newerRuntimeVersion(app.update.version, app.version))
-  const [name, connectedAs] = presence?.client?.split('/') ?? []
-  const cli = presence?.status?.cliVersion ?? (name === 'nuphos-cli' ? connectedAs : undefined)
-
-  if (!stableRuntimeVersion(cli)) return false
-  const latest = await latestCli()
-
-  return Boolean(latest && newerRuntimeVersion(latest.version, cli))
-}
-
 /** What a failed turn adds when the computer that ran it is out of date. */
 export const OUTDATED_HOST_HINT =
   'Nuphos on this computer is out of date. Update it there, then try again.'
 
 export const DESKTOP_UPDATE_READY_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+  "Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it. If it doesn't close, quit it again."
 export const DESKTOP_OUTDATED_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
+  "Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again."
 
 const HOST_LABEL_MAX = 80
 
 /** Only claim a download is ready when the Desktop has reported it staged. */
-export async function hostUpdateHint(
+export function hostUpdateHint(
   presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
   label?: string,
-): Promise<string | undefined> {
-  if (!hostOutdated(presence) && !(await updateAvailable(presence))) return
+): string | undefined {
+  if (!hostOutdated(presence)) return
   const app = presence?.status?.app
 
   if (!app && !presence?.client?.startsWith('nuphos-desktop/')) return OUTDATED_HOST_HINT

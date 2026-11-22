@@ -23,6 +23,7 @@ const { createQueryClient } = await import('../../lib/query/client.ts')
 const { queryKeys } = await import('../../lib/query/keys.ts')
 const { channelRetryMs, loadChannel, prefetchChannel, refreshChannel } =
   await import('./useChannel.ts')
+const { applyChange } = await import('./agentChanges.ts')
 
 test('a refresh from any pane of the channel fetches it all, even with nothing changed', async () => {
   const client = createQueryClient()
@@ -40,7 +41,19 @@ test('a refresh from any pane of the channel fetches it all, even with nothing c
   // Another pane posted: its refresh must reach the load every pane shares.
   await refreshChannel(client, 't', 'c')
   await load()
-  assert.deepEqual(calls.splice(0), ['probe', 'full'])
+  assert.deepEqual(calls.splice(0), ['full'], 'known to be behind: no probe first')
+  client.clear()
+})
+
+test('a pushed change reads the chat in one round trip, not a probe and then the rest', async () => {
+  const client = createQueryClient()
+  const key = queryKeys.channel('t', 'pushed')
+
+  await client.fetchQuery({ queryKey: key, queryFn: () => loadChannel(client, 't', 'pushed') })
+  calls.splice(0)
+  applyChange(client, { teamId: 't', sessionId: 'pushed' })
+  await client.fetchQuery({ queryKey: key, queryFn: () => loadChannel(client, 't', 'pushed') })
+  assert.deepEqual(calls.splice(0), ['full'])
   client.clear()
 })
 

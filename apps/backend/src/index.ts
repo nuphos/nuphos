@@ -18,7 +18,7 @@ import {
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
 import { cancelOpenAgentPlans } from '@/lib/agent/plans'
-import { drainAgentProducers, drainHttpAndAgentProducers } from '@/lib/agent/producer-drain'
+import { drainAgentProducers, stopHttpWithDeadline } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -106,8 +106,7 @@ const removedTencent = await migrateLegacyTencentBindings()
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
-// Plans were replaced by approval decisions (#2316): an agent Plan still open
-// would wait forever. Idempotent — a no-op once none remain.
+// Plans gave way to approval decisions (#2316). Idempotent.
 const cancelledPlans = await cancelOpenAgentPlans()
 
 if (cancelledPlans > 0) {
@@ -241,26 +240,8 @@ async function shutdown(sig: string) {
     })
   }
 
-  // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
-  closeTunnelsForRestart()
-  const forceTimer = setTimeout(() => {
-    logEvent('warn', 'backend.shutdown.drain_deadline_exceeded', {
-      drain_deadline_ms: shutdownBudget.httpDrainMs,
-    })
-    void server.stop(true)
-    void devHttpServer?.stop(true)
-  }, shutdownBudget.httpDrainMs)
-
-  try {
-    await drainHttpAndAgentProducers(
-      () => Promise.all([server.stop(false), devHttpServer?.stop(false)]),
-      shutdownBudget.httpDrainMs,
-      workersStopped,
-    )
-  } catch (err) {
-    logError('backend.shutdown.server_stop_failed', err)
-  }
-  clearTimeout(forceTimer)
+  // 3. A force-paused turn keeps running, and its output comes here until this connection
+  // closes. Hand it and other carried work to a ready replica now, not after the HTTP drain.
   stopRuntimeHandoffAdoption()
   try {
     await publishRuntimeHandoffs()
@@ -268,7 +249,11 @@ async function shutdown(sig: string) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
 
-  // 4. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
+  // 4. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
+  closeTunnelsForRestart()
+  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
+
+  // 5. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
       logError('backend.shutdown.guard_flush_failed', err, {
@@ -281,7 +266,7 @@ async function shutdown(sig: string) {
   ])
   await closeAgentWorkerQueues()
 
-  // 5. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
+  // 6. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
   await Promise.allSettled([
     shutdownPostHog(),
     shutdownTelemetry().catch((err: unknown) => {
@@ -289,7 +274,7 @@ async function shutdown(sig: string) {
     }),
   ])
 
-  // 6. Let transcript writes started by closed tunnels land, then close storage and exit at once.
+  // 7. Let transcript writes started by closed tunnels land, then close storage and exit at once.
   await drainAgentProducers(shutdownBudget.guardFlushMs)
   await Promise.allSettled([closeRedis(), closeDb()])
   process.exit(0)
