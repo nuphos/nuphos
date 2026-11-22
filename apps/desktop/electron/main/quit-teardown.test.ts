@@ -4,13 +4,19 @@ import { test } from 'node:test'
 
 import { teardownOnQuit } from './quit-teardown.ts'
 
-/** Electron's quit as far as the teardown sees it: before-quit, then will-quit once every window closed. */
+/** Electron's quit as far as the teardown sees it: before-quit, then will-quit once every
+ *  window closed. A quit after a held will-quit does nothing, as Electron 44 does on Linux. */
 class FakeApp extends EventEmitter {
   exited = false
   windowRefusesToClose = false
+  private held = false
   quit(): void {
-    if (this.prevented('before-quit') || this.windowRefusesToClose) return
-    if (!this.prevented('will-quit')) this.exited = true
+    if (this.held || this.prevented('before-quit') || this.windowRefusesToClose) return
+    if (this.prevented('will-quit')) this.held = true
+    else this.exited = true
+  }
+  exit(): void {
+    this.exited = true
   }
   private prevented(name: string): boolean {
     let prevented = false
