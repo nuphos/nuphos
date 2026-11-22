@@ -183,7 +183,7 @@ struct ChannelView: View {
             }
             .desktop($desktop)
             .sheet(isPresented: $botsOpen) {
-                ChannelBotsList(agents: channel.agents).presentationDetents([.medium, .large]).presentationDragIndicator(.visible)
+                ChannelBotsList(agents: channel.agents)
             }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in

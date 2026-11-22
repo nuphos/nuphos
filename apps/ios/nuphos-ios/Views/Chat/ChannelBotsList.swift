@@ -7,12 +7,15 @@ struct ChannelBotsList: View {
     var body: some View {
         NavigationStack {
             List(agents) { agent in
-                HStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    AgentAvatar(agentId: agent.sessionId, runtime: agent.provider, size: 28)
                     Text(agent.title).foregroundStyle(Theme.heading).lineLimit(1)
                     Spacer()
                     if let tag = agent.presence?.tag {
-                        Circle().fill(tag.tone.color).frame(width: 8, height: 8)
-                        Text(tag.word).font(.caption).foregroundStyle(Theme.muted)
+                        HStack(spacing: 6) {
+                            Circle().fill(tag.tone.color).frame(width: 6, height: 6)
+                            Text(tag.word).font(.caption).foregroundStyle(Theme.muted)
+                        }
                     }
                 }
                 .accessibilityElement(children: .combine)
@@ -23,6 +26,9 @@ struct ChannelBotsList: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
         }
+        // As tall as its rows; a long list can still be pulled up.
+        .presentationDetents([.height(CGFloat(120 + 52 * agents.count)), .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
