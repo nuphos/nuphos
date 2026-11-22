@@ -47,7 +47,11 @@ const scenario: Scenario = {
     // Stored behind the app's back: a reload reads them as a later visit would.
     await page.reload()
     await openBotChat(page)
-    await page.getByText('Great, ping me when it lands.').first().waitFor()
+    await page
+      .getByText('Great, ping me when it lands.')
+      .filter({ visible: true })
+      .first()
+      .waitFor()
 
     const themed = await page.evaluate(() => document.documentElement.className)
     // Window widths by emulation, cleared after: the scenarios after this one see the window as it was.

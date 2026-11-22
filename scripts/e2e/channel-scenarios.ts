@@ -107,7 +107,7 @@ export const channelScenarios: Scenario[] = [
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
-      const posts = page.locator('[data-post-id]')
+      const posts = page.locator('[data-post-id]:visible')
 
       await posts.first().waitFor()
       await page.evaluate(() => {
@@ -198,7 +198,11 @@ export const channelScenarios: Scenario[] = [
         await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
         await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
         await page.getByText('Message E2E Scout', { exact: true }).waitFor()
-        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page
+          .locator('[data-post-id]:visible')
+          .filter({ hasText: 'E2E Scout' })
+          .first()
+          .waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
@@ -242,7 +246,7 @@ export const channelScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
       // #4065: a link in the Bot's question card opens in the dock, as in a Task's
       // chat, never in the system browser.
-      await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
+      await page.locator('[data-open-question]:visible a[href$="/health/ready"]').last().click()
       const address = page.getByRole('textbox', { name: 'Search or enter URL' })
 
       await address.waitFor({ timeout: 10_000 })

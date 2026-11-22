@@ -19,7 +19,7 @@ export const botTurnScenarios: Scenario[] = [
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
       await openBotTask(page)
-      const task = page.locator('.t-bot-task-mode')
+      const task = page.locator('.t-bot-task-mode:visible')
 
       await task.getByRole('button', { name: 'Toggle task summary' }).waitFor()
       // The Task slides in from the right; its header is measured once it has arrived.

@@ -46,14 +46,14 @@ export const decisionTitleScenarios: Scenario[] = [
         'Delete the staging cluster that has been idle for thirty days, costs forty dollars a day and has no deploys since then?'
 
       await ask(question, 'E2E_DELIVERY:one-line')
-      const card = page.locator(`[data-decision-question="${question}"] h3`)
+      const card = page.locator(`[data-decision-question="${question}"]:visible h3`)
 
       await card.waitFor()
       must(
         (await lines(card)) === 1,
         `the card's question to be one line, got ${String(await lines(card))}`,
       )
-      await page.getByText('Idle since the migration.').last().waitFor()
+      await page.getByText('Idle since the migration.').filter({ visible: true }).last().waitFor()
       await page.screenshot({ path: `${artifacts}/decision-one-line-card.png` })
 
       await page.getByRole('tab', { name: 'Inbox' }).click()
