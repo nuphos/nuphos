@@ -56,7 +56,6 @@ import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
-import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { newTask, send } from './ui.ts'
@@ -147,8 +146,6 @@ const scenarios: Scenario[] = [
   ...stepUpScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
-  // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
-  ...usageQueueScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   ...computerScenarios,
