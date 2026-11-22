@@ -87,6 +87,18 @@ export function useWorkspaceLinkOpeners(a: Args) {
     workspaceActions.openTab(createWorkspaceTab(teamId), { openDock: true })
   }, [workspaceActions, workspaceStore])
 
+  // A page of another team opens in that team the way the team switcher goes there, on a new
+  // chat. Opened in the chat on screen, it would stay in that chat's dock, and reopening the
+  // chat from its own team would take the app back to the page's team (#4505).
+  const enterTeam = useCallback(
+    (teamId: string) => {
+      if (teamId !== selectScope(workspaceStore.getState())?.teamId) {
+        workspaceActions.switchTeam(teamId)
+      }
+    },
+    [workspaceActions, workspaceStore],
+  )
+
   const openNuphosLinkInNewTab = useCallback(
     (href: string, beside = false): boolean => {
       const trimmed = href.trim()
@@ -115,9 +127,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // A Settings page opens in the link's own team, never the one on screen.
       if (settingsTarget === null) return false
       if (settingsTarget) {
-        if (settingsTarget.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(settingsTarget.teamId)
-        }
+        enterTeam(settingsTarget.teamId)
         openSettingsSection(settingsTarget.section, settingsTarget.filter)
 
         return true
@@ -129,9 +139,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // Connectors opens as a dialog over the page, in a team this account is in.
       if (isConnectorsPage(navigation.scope, navigation.active)) {
         if (!teams.some((team) => team.id === navigation.scope.teamId)) return false
-        if (navigation.scope.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(navigation.scope.teamId)
-        }
+        enterTeam(navigation.scope.teamId)
         workspaceActions.setConnectorsDialog(connectorsDialogOf(navigation))
 
         return true
@@ -168,6 +176,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
         return true
       }
 
+      enterTeam(navigation.scope.teamId)
       const hydratedNavigation = hydrateNavigationCredentialState(navigation, accountsByTeam)
       const targetHref = pageLocationForNavigation(hydratedNavigation).href
       const state = workspaceStore.getState()
@@ -193,6 +202,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
     },
     [
       accountsByTeam,
+      enterTeam,
       openConversationInNewTab,
       openSessionBeside,
       openSettingsSection,
