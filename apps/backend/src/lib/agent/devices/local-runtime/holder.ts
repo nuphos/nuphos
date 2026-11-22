@@ -6,7 +6,6 @@ import { reportedAgentsKey } from '../agent-registry'
 
 import { heldTunnels } from './held-tunnels'
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
-import { stagedUpdateRestarter } from './restart-into-update'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
 import { streamRelay } from './stream-relay'
 
@@ -146,8 +145,6 @@ export async function attachRuntimeTunnel(
     })
   }
 
-  const restartIntoStagedUpdate = stagedUpdateRestarter(userId, deviceId, connection, deps, usedAt)
-
   const onHolderMessage = (raw: string) => {
     const message = parseJson<HolderMessage>(raw)
 
@@ -214,7 +211,6 @@ export async function attachRuntimeTunnel(
       return shut(TUNNEL_CLOSE_IDLE, 'Device channel unavailable')
     }
     connection.send({ t: 'ping' })
-    restartIntoStagedUpdate(status)
     void deps.bus
       .publish(channel, JSON.stringify({ t: 'ping', conn } satisfies HolderMessage))
       .catch(() => {})

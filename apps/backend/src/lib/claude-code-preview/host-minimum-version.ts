@@ -7,7 +7,6 @@ import {
 
 import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
-import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 /**
  * The oldest Nuphos a computer should run. Below it, its card and chats say it is out of date
@@ -47,21 +46,6 @@ export function hostOutdated(
 }
 
 /**
- * The update a Desktop below the floor has staged, which it installs only on a restart. Below
- * 0.124.0 a Desktop reports no `app` and cannot be asked to restart, so it has none here.
- */
-export function stagedUpdateToRestart(status: Pick<LocalRuntimeStatus, 'app'>): string | undefined {
-  const app = status.app
-
-  return app?.update?.ready &&
-    stableRuntimeVersion(app.version) &&
-    !runtimeVersionAtLeast(app.version, MINIMUM_HOST_VERSION.desktop) &&
-    newerRuntimeVersion(app.update.version, app.version)
-    ? app.update.version
-    : undefined
-}
-
-/**
  * Whether a newer Nuphos than the one on a computer is out: for a Desktop, the update its own
  * updater found; for a CLI host, the newest CLI release. A Desktop whose updater has not found
  * one yet counts as current.
@@ -87,9 +71,9 @@ export const OUTDATED_HOST_HINT =
   'Nuphos on this computer is out of date. Update it there, then try again.'
 
 export const DESKTOP_UPDATE_READY_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it.'
+  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it. If it stays in the Dock, quit it again.'
 export const DESKTOP_OUTDATED_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it.'
+  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it stays in the Dock, quit it again.'
 
 const HOST_LABEL_MAX = 80
 
