@@ -172,8 +172,11 @@ struct SelectorBoxHeader: View {
                     Text(box.label).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading).lineLimit(1)
                     if current { Text("Current").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.muted) }
                 }
-                Text(offline ? String(localized: "Offline · open Nuphos on that computer") : "\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
-                    .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                Group {
+                    if offline { Text("Offline · open Nuphos on that computer") }
+                    else { Text("\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")") }
+                }
+                .font(.system(size: 12)).foregroundStyle(Theme.muted)
                 if let metrics {
                     // A split view's sidebar, such as iPhone Duo's inner display,
                     // is too narrow for three side by side: stack them instead.
