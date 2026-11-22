@@ -13,12 +13,6 @@ export type ListConversationsOptions = {
   scope?: ConversationsScope
   /** Narrow team scope to one member's conversations. */
   ownerId?: string
-  /**
-   * A Trigger's run history. Omitted lists Chats, which excludes trigger runs entirely — the two
-   * are opposite listings, so this is never a refinement of the default. Several ids list a
-   * Watch group's partition triggers together.
-   */
-  triggerIds?: string[]
   search?: string
   // Omitted = archived conversations list too (history); 'exclude' = sidebar.
   archived?: ConversationsArchivedFilter
@@ -44,9 +38,6 @@ export async function listConversations(
   if (options?.limit) params.set('limit', String(options.limit))
   if (options?.scope) params.set('scope', options.scope)
   if (options?.ownerId) params.set('ownerId', options.ownerId)
-  // Sent even when empty: an empty list is a Watch group with no partitions
-  // yet, and dropping the parameter would answer with Chats instead.
-  if (options?.triggerIds) params.set('triggerId', options.triggerIds.join(','))
   if (options?.search) params.set('search', options.search)
   if (options?.archived) params.set('archived', options.archived)
   if (options?.sort) params.set('sort', options.sort)

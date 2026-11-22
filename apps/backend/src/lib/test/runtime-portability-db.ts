@@ -45,7 +45,36 @@ function matches(doc: Doc, query: Doc): boolean {
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
   })
 }
+// The aggregation operators the backend's pipeline updates use.
+function evaluate(doc: Doc, expr: any): any {
+  if (typeof expr === 'string' && expr.startsWith('$')) return doc[expr.slice(1)]
+  if (Array.isArray(expr)) return expr.map((one) => evaluate(doc, one))
+  if (!expr || typeof expr !== 'object' || expr instanceof Date) return expr
+  if ('$ifNull' in expr) return evaluate(doc, expr.$ifNull[0]) ?? evaluate(doc, expr.$ifNull[1])
+  if ('$add' in expr)
+    return expr.$add.reduce((sum: number, one: any) => sum + Number(evaluate(doc, one)), 0)
+  if ('$setUnion' in expr) {
+    const all = expr.$setUnion.flatMap((one: any) => evaluate(doc, one))
+
+    return all.filter(
+      (one: any, i: number) =>
+        all.findIndex((other: any) => JSON.stringify(other) === JSON.stringify(one)) === i,
+    )
+  }
+
+  return Object.fromEntries(Object.entries(expr).map(([k, v]) => [k, evaluate(doc, v)]))
+}
+
 function update(doc: Doc, query: Doc, mutation: Doc) {
+  if (Array.isArray(mutation)) {
+    for (const stage of mutation)
+      Object.assign(
+        doc,
+        Object.fromEntries(Object.entries(stage.$set ?? {}).map(([k, v]) => [k, evaluate(doc, v)])),
+      )
+
+    return
+  }
   // Like Mongo, `$` names the element the query matched, before any $set changes it.
   const positional = new Map<string, Doc>()
 

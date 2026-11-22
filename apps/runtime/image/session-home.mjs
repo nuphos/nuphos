@@ -30,7 +30,12 @@ export function nuphosSessionHomeEnv(sessionEnv = {}, runtimeEnv = process.env) 
   // <conversation> for the owner, <conversation>.<actor> for a teammate, so
   // reclaiming a conversation finds every home it left from its ID alone.
   const actor = sessionEnv.NUPHOS_SESSION_ACTOR
-  const name = typeof actor === 'string' && actor ? `${hash(id)}.${hash(actor)}` : hash(id)
+  const epoch = sessionEnv.NUPHOS_SESSION_HOME_EPOCH
+  if (epoch !== undefined && !/^(0|[1-9][0-9]{0,14})$/.test(epoch))
+    throw new Error('Invalid NUPHOS_SESSION_HOME_EPOCH')
+  const generation = epoch && epoch !== '0' ? `.g-${epoch}` : ''
+  const base = `${hash(id)}${generation}`
+  const name = typeof actor === 'string' && actor ? `${base}.${hash(actor)}` : base
   const home = nuphosJoin(root, name)
   for (const dir of [root, home]) {
     nuphosMkdir(dir, { recursive: true, mode: 0o700 })

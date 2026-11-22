@@ -5,8 +5,8 @@ import '@/routes/agent'
 import { describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useTriggerRunExecute } from '@/lib/test/doubles/trigger-run-execute'
@@ -88,12 +88,14 @@ useDb({
         Promise.resolve(
           name === 'agent_conversations'
             ? conversation
-            : name === 'agent_messages' &&
-                channelPosts.some((post) =>
-                  post.messages.some((message) => message.id === filter.messageId),
-                )
+            : name === 'agent_triggers'
               ? {}
-              : null,
+              : name === 'agent_messages' &&
+                  channelPosts.some((post) =>
+                    post.messages.some((message) => message.id === filter.messageId),
+                  )
+                ? {}
+                : null,
         ),
       // The turn reads its recent window: sorted newest first and limited. Its
       // fires, read by id, are not stored yet.
@@ -244,7 +246,7 @@ describe('a Trigger bound to an existing session', () => {
   test('distinct webhook alerts during a running turn are accepted at once and run next, in order', async () => {
     runs.length = 0
     conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1' }
-    const alert = { ...bound, messageTemplate: 'alert {{payload.status}}' } as AgentTrigger
+    const alert = { ...bound, messageTemplate: 'alert {{payload.status}}' }
     let finish!: () => void
 
     heldTurn = new Promise<void>((resolve) => {
@@ -291,16 +293,17 @@ describe('a Trigger bound to an existing session', () => {
     expect(lastRunWrite?.$set).not.toHaveProperty('updatedAt')
   })
 
-  test('wakes an archived session, whose turn then restores it', async () => {
+  test('does not wake or restore an archived session', async () => {
     runs.length = 0
     conversation = { sessionId, userId: PRINCIPAL_ID, teamId: 'team-1', archivedAt: new Date() }
     try {
-      await executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'archived' })
+      await expect(
+        executeTrigger(bound, undefined, { runKind: 'scheduled', fireId: 'archived' }),
+      ).rejects.toMatchObject({ code: 'trigger_target_session_archived' })
     } finally {
       conversation = null
     }
-    expect(runs).toHaveLength(1)
-    expect(runs[0]?.sessionId).toBe(sessionId)
+    expect(runs).toHaveLength(0)
   })
 
   test('pauses instead of firing when the session is gone', async () => {

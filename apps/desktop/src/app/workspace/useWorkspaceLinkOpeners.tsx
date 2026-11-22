@@ -89,6 +89,12 @@ export function useWorkspaceLinkOpeners(a: Args) {
 
   const openNuphosLinkInNewTab = useCallback(
     (href: string, beside = false): boolean => {
+      // A page of another team opens on a new chat in that team, as the team switcher does. In the
+      // chat on screen it would stay in its dock and take the app back there later (#4505).
+      const enterTeam = (teamId: string) => {
+        if (teamId !== selectScope(workspaceStore.getState())?.teamId)
+          workspaceActions.switchTeam(teamId)
+      }
       const trimmed = href.trim()
       let url: URL
 
@@ -115,9 +121,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // A Settings page opens in the link's own team, never the one on screen.
       if (settingsTarget === null) return false
       if (settingsTarget) {
-        if (settingsTarget.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(settingsTarget.teamId)
-        }
+        enterTeam(settingsTarget.teamId)
         openSettingsSection(settingsTarget.section, settingsTarget.filter)
 
         return true
@@ -129,9 +133,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
       // Connectors opens as a dialog over the page, in a team this account is in.
       if (isConnectorsPage(navigation.scope, navigation.active)) {
         if (!teams.some((team) => team.id === navigation.scope.teamId)) return false
-        if (navigation.scope.teamId !== selectScope(workspaceStore.getState())?.teamId) {
-          workspaceActions.openTeamTab(navigation.scope.teamId)
-        }
+        enterTeam(navigation.scope.teamId)
         workspaceActions.setConnectorsDialog(connectorsDialogOf(navigation))
 
         return true
@@ -168,6 +170,7 @@ export function useWorkspaceLinkOpeners(a: Args) {
         return true
       }
 
+      enterTeam(navigation.scope.teamId)
       const hydratedNavigation = hydrateNavigationCredentialState(navigation, accountsByTeam)
       const targetHref = pageLocationForNavigation(hydratedNavigation).href
       const state = workspaceStore.getState()

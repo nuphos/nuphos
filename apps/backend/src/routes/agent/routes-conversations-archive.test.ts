@@ -4,6 +4,7 @@ import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
@@ -23,6 +24,13 @@ const memberCalls: [string, string, boolean][] = []
 useIdentity({
   authenticateToken: async () => ({ user: { id: caller } }),
   getTeamMembership: async () => ({ role: 'MEMBER' }),
+})
+const cleaned: string[][] = []
+
+useArchiveCleanup({
+  cleanUpArchived: async (sessionIds) => {
+    cleaned.push(sessionIds)
+  },
 })
 useAgentDb({
   getReadableConversation: async (sessionId, _user, team) =>
@@ -50,6 +58,7 @@ beforeEach(() => {
   moved = { sessionIds: [] }
   calls.length = 0
   memberCalls.length = 0
+  cleaned.length = 0
 })
 const archive = (sessionId: string, archived: unknown) =>
   app.request(`/agent/conversations/${sessionId}/archive?teamId=${teamId}`, {
@@ -70,6 +79,7 @@ test('says what moved with the conversation: a Bot and its chat', async () => {
     botSessionId: 'bot',
   })
   expect(calls).toEqual([['bot', true]])
+  expect(cleaned).toEqual([['bot', 'bot-chat']])
 })
 
 test('a chat archived on its own names only itself', async () => {
