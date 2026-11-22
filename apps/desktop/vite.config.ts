@@ -35,6 +35,9 @@ const keepModulesCached: Plugin = {
 
 export default defineConfig({
   base: './',
+  // The XLSX worker loads this on demand; prebundle it before opening a preview
+  // so dependency discovery does not reload the page and discard its dock source.
+  optimizeDeps: { include: ['fflate'] },
   plugins: [
     react(),
     { name: 'sidebar-native-gestures', buildStart: buildSidebarGestures },
