@@ -111,8 +111,10 @@ sealed class ChatRow {
             sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
-            val cited = messages.filter { it.role == ChatMessage.Role.Assistant }.flatMap { it.parts }
-                .filterIsInstance<ChatPart.Text>().flatMapTo(mutableSetOf()) { ReplyFiles.cited(it.text) }
+            // Only a citation a row actually shows hides the card: a part still streaming stays Markdown.
+            val cited = messages.withIndex().filter { it.value.role == ChatMessage.Role.Assistant }.flatMap { (index, message) ->
+                message.parts.filterIsInstance<ChatPart.Text>().filterNot { streaming(isStreaming && index == messages.lastIndex, it) }
+            }.flatMapTo(mutableSetOf()) { ReplyFiles.cited(it.text) }
             val anchoredDownloads = AgentDownloads.anchor(downloads.filter { it.groupId !in cited }, messages)
             val groups = downloads.associateBy { it.groupId }
             val events = timeline.distinctBy { it.at to it.text }.sortedBy { it.at }.groupBy { event ->
@@ -189,12 +191,14 @@ sealed class ChatRow {
             return rows
         }
 
+        private fun streaming(live: Boolean, part: ChatPart.Text) = live && part.state == ChatPart.StreamState.Streaming
+
         private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>, groups: Map<String, ai.nuphos.android.data.TransferDownloadGroup>): List<ChatRow> {
             val body = mutableListOf<ChatRow>()
             message.parts.forEachIndexed { pi, part ->
                 when (part) {
                     is ChatPart.Text -> {
-                        val streaming = live && part.state == ChatPart.StreamState.Streaming
+                        val streaming = streaming(live, part)
                         val segments = if (streaming) listOf(ReplyFiles.Segment.Text(part.text)) else ReplyFiles.segments(part.text)
                         segments.forEachIndexed { si, segment ->
                             val id = if (segments.size == 1) "text.${message.id}.$pi" else "text.${message.id}.$pi.$si"

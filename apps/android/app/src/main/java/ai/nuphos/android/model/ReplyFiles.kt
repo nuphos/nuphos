@@ -11,7 +11,16 @@ object ReplyFiles {
         data class Files(val groupId: String) : Segment
     }
 
-    private val citation = Regex("""!\[[^\]\n]*]\(https://nuphos\.ai/_reply-images/([0-9a-fA-F]{24})\)""")
+    // Lowercase hex only, as Desktop's `MessageResponse` matches it.
+    private val citation = Regex("""!\[[^\]\n]*]\(https://nuphos\.ai/_reply-images/([0-9a-f]{24})\)""")
+    private val fenceRun = Regex("""^(`{3,}|~{3,})""")
+
+    /** Leading columns, a tab reaching the next multiple of four as in CommonMark. Four or more is a code block. */
+    private fun indent(line: String): Int {
+        var column = 0
+        for (c in line) column = when (c) { ' ' -> column + 1; '\t' -> column / 4 * 4 + 4; else -> return column }
+        return column
+    }
 
     fun segments(text: String): List<Segment> {
         if (!text.contains("_reply-images/")) return listOf(Segment.Text(text))
@@ -24,13 +33,16 @@ object ReplyFiles {
             lines.clear()
         }
         for (line in text.split("\n")) {
-            val trimmed = line.trimStart(' ')
+            val trimmed = line.trim()
+            val shallow = indent(line) < 4
+            val run = if (shallow) fenceRun.find(trimmed)?.value else null
             val open = fence
             if (open != null) {
-                if (trimmed.startsWith(open)) fence = null
-            } else if (trimmed.startsWith("```") || trimmed.startsWith("~~~")) {
-                fence = trimmed.take(3)
-            } else if (line.length - trimmed.length < 4 && citation.containsMatchIn(trimmed) && citation.replace(trimmed, "").isBlank()) {
+                // A fence closes only on a bare run of its own character at least as long as the one that opened it.
+                if (run != null && run[0] == open[0] && run.length >= open.length && trimmed.length == run.length) fence = null
+            } else if (run != null && !(run[0] == '`' && trimmed.drop(run.length).contains('`'))) {
+                fence = run
+            } else if (shallow && citation.containsMatchIn(trimmed) && citation.replace(trimmed, "").isBlank()) {
                 flush()
                 segments += citation.findAll(trimmed).map { Segment.Files(it.groupValues[1]) }
                 continue

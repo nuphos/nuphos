@@ -25,7 +25,34 @@ class ReplyFilesTest {
             "See ![x](https://nuphos.ai/_reply-images/$id) here",
             "```\n![x](https://nuphos.ai/_reply-images/$id)\n```",
             "    ![x](https://nuphos.ai/_reply-images/$id)",
+            "\t![x](https://nuphos.ai/_reply-images/$id)",
+            "![x](https://nuphos.ai/_reply-images/${id.uppercase()})",
+            // A shorter run, or a run followed by text, does not close a fence.
+            "````\n```\n![x](https://nuphos.ai/_reply-images/$id)\n````",
+            "```\n``` not a close\n![x](https://nuphos.ai/_reply-images/$id)\n```",
+            "~~~\n```\n![x](https://nuphos.ai/_reply-images/$id)\n~~~",
+            // An unterminated fence runs to the end.
+            "```kotlin\n![x](https://nuphos.ai/_reply-images/$id)",
         ).forEach { assertEquals(it, listOf(Segment.Text(it)), ReplyFiles.segments(it)) }
+    }
+
+    @Test fun aClosedFenceCrlfTrailingSpaceAndEmptyCaptionStillCite() {
+        assertEquals(listOf(Segment.Text("```\r\ncode\r\n``` \r"), Segment.Files(id)),
+            ReplyFiles.segments("```\r\ncode\r\n``` \r\n![](https://nuphos.ai/_reply-images/$id) \t\r"))
+        assertEquals(listOf(Segment.Files(id)), ReplyFiles.segments("   ![](https://nuphos.ai/_reply-images/$id)"))
+    }
+
+    @Test fun aStreamingCitationKeepsTheCardBelowUntilItsRowShows() {
+        val start = Instant.parse("2026-10-26T00:00:00Z")
+        val group = TransferDownloadGroup(id, "2030-01-01T00:00:00Z", listOf(TransferDownloadFile("f", "shot.png", "ready")), start.toString())
+        fun reply(state: ChatPart.StreamState?) = ChatMessage(id = "one", role = ChatMessage.Role.Assistant, createdAt = start,
+            parts = listOf(ChatPart.Text(text = "![shot](https://nuphos.ai/_reply-images/$id)", state = state)))
+        val streaming = ChatRow.rows(listOf(reply(ChatPart.StreamState.Streaming)), isStreaming = true, downloads = listOf(group))
+        assertEquals(listOf(group), streaming.filterIsInstance<ChatRow.Downloads>().map { it.group })
+        assertTrue(streaming.filterIsInstance<ChatRow.AssistantText>().single().text.contains("_reply-images"))
+        val done = ChatRow.rows(listOf(reply(ChatPart.StreamState.Done)), downloads = listOf(group))
+        assertEquals(listOf(group), done.filterIsInstance<ChatRow.Downloads>().map { it.group })
+        assertTrue(done.none { it is ChatRow.AssistantText })
     }
 
     @Test fun aCitedGroupShowsWhereItIsCitedAndNotAgainBelow() {
