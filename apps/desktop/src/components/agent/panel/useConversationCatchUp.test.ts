@@ -6,9 +6,8 @@ let reads = 0
 let settleRead: () => void = () => {}
 let listed = false
 const asked: unknown[] = []
-// Frame and task callbacks wait until the test runs them.
+// Frame callbacks wait until the test draws a frame.
 const frames: (() => void)[] = []
-const tasks: (() => void)[] = []
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
@@ -16,7 +15,6 @@ Object.defineProperty(globalThis, 'window', {
     setInterval: () => 0,
     clearInterval: () => {},
     requestAnimationFrame: (run: () => void) => frames.push(run),
-    setTimeout: (run: () => void) => tasks.push(run),
   }),
 })
 // Mock React's scheduling and the API only; run the real poll.
@@ -56,7 +54,6 @@ const { useConversationCatchUp } = await import('./useConversationCatchUp.ts')
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 const drawFrame = () => frames.splice(0).forEach((run) => run())
-const runTasks = () => tasks.splice(0).forEach((run) => run())
 
 function render(sessionId = 's1') {
   cleanup?.()
@@ -74,11 +71,11 @@ function render(sessionId = 's1') {
   } as never)
 }
 
-/** Shows the chat and lets its first frame and the task after it run. */
+/** Shows the chat and draws its first frame and the one after it. */
 function show(sessionId?: string) {
   render(sessionId)
   drawFrame()
-  runTasks()
+  drawFrame()
 }
 
 test('a re-run waits for the catch-up read already in flight', async () => {
@@ -113,14 +110,14 @@ test('the probe asks for the runtime state only of a session the list does not p
   cleanup?.()
 })
 
-test('a shown chat sends its first read after its first frame, not before', () => {
+test('a shown chat sends its first read after its first frame, not with it', () => {
   const before = reads
 
   render('s4')
   assert.equal(reads, before)
   drawFrame()
   assert.equal(reads, before)
-  runTasks()
+  drawFrame()
   assert.equal(reads, before + 1)
   settleRead()
   cleanup?.()
@@ -133,12 +130,12 @@ test('a chat left before its first read sends none', () => {
   render('s5')
   cleanup?.()
   drawFrame()
-  runTasks()
-  // Left between its first frame and the task after it.
+  drawFrame()
+  // Left between its first frame and the next.
   render('s6')
   drawFrame()
   cleanup?.()
-  runTasks()
+  drawFrame()
   cleanup = undefined
   assert.equal(reads, before)
 })
