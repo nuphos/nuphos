@@ -30,53 +30,46 @@ a{color:#0a66d8;text-decoration:none;white-space:nowrap}.x{color:#888;font-size:
 </style><div class="n"><div class="t"><b>${escape(title)}</b><span>${escape(detail)}</span></div>${reveal}<a class="x" href="nuphos-notice:close" title="${escape(t('Close'))}">×</a></div>`
 }
 
-const notices = new WeakMap<
-  BrowserWindow,
-  { view: WebContentsView; file: string; timer?: NodeJS.Timeout }
->()
+/** How to take down each window's notice. */
+const notices = new WeakMap<BrowserWindow, () => void>()
 
-function close(window: BrowserWindow): void {
-  const notice = notices.get(window)
-
-  if (!notice) return
-  notices.delete(window)
-  clearTimeout(notice.timer)
-  if (!window.isDestroyed()) window.contentView.removeChildView(notice.view)
-  notice.view.webContents.close()
-}
-
-/** Shows, at the top of `window`, where `file` stands; a finished one goes away on its own. */
+/**
+ * Shows, at the top of `window`, where `file` stands, in place of any notice already there; a
+ * finished one goes away on its own. Each notice is a view of its own, so its Show in Finder
+ * reveals its own file, and it goes with the window.
+ */
 export function showDownloadNotice(
   window: BrowserWindow,
   file: string,
   state: DownloadState,
 ): void {
+  notices.get(window)?.()
   if (window.isDestroyed()) return
-  let notice = notices.get(window)
-
-  if (!notice) {
-    const view = new WebContentsView({ webPreferences: { sandbox: true, javascript: false } })
-
-    view.setBackgroundColor('#00000000')
-    view.webContents.on('will-navigate', (event, url) => {
-      event.preventDefault()
-      const shown = notices.get(window)
-
-      if (url === 'nuphos-notice:show' && shown) shell.showItemInFolder(shown.file)
-      else close(window)
-    })
-    view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
-    window.contentView.addChildView(view)
-    notice = { view, file }
-    notices.set(window, notice)
-  }
+  const view = new WebContentsView({ webPreferences: { sandbox: true, javascript: false } })
   const [width = 0] = window.getContentSize()
+  let timer: NodeJS.Timeout | undefined
+  const close = () => {
+    if (notices.get(window) !== close) return
+    notices.delete(window)
+    clearTimeout(timer)
+    window.off('closed', close)
+    if (!window.isDestroyed()) window.contentView.removeChildView(view)
+    view.webContents.close()
+  }
 
-  clearTimeout(notice.timer)
-  notice.file = file
-  notice.view.setBounds({ x: Math.round((width - WIDTH) / 2), y: 12, width: WIDTH, height: HEIGHT })
-  void notice.view.webContents.loadURL(
+  view.setBackgroundColor('#00000000')
+  view.webContents.on('will-navigate', (event, url) => {
+    event.preventDefault()
+    if (url === 'nuphos-notice:show') shell.showItemInFolder(file)
+    else close()
+  })
+  view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  view.setBounds({ x: Math.round((width - WIDTH) / 2), y: 12, width: WIDTH, height: HEIGHT })
+  window.contentView.addChildView(view)
+  window.once('closed', close)
+  notices.set(window, close)
+  void view.webContents.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(noticeHtml(file, state))}`,
   )
-  if (state !== 'progressing') notice.timer = setTimeout(() => close(window), SHOWN_MS)
+  if (state !== 'progressing') timer = setTimeout(close, SHOWN_MS)
 }
