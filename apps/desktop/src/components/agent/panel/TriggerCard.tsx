@@ -17,14 +17,9 @@ import { useTrigger } from './useTrigger'
 
 import type { OpenLink } from './LocalUrlChip'
 import type { ToolPart } from './parts'
-import type { AgentTrigger } from '../../../api/agent-trigger-types'
 
 const CARD =
   't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-state-selected'
-
-function scheduleLine(trigger: AgentTrigger): string {
-  return userScheduleSummary(trigger)
-}
 
 function Placeholder({ missing }: { missing: boolean }) {
   return (
@@ -109,7 +104,7 @@ export function TriggerCard({
             className="mt-0.5 text-[12.5px] leading-snug text-secondary"
             title={sourceScheduleRule(trigger)}
           >
-            {scheduleLine(trigger)}
+            {userScheduleSummary(trigger)}
           </p>
         </div>
         <Switch

@@ -1,9 +1,8 @@
-import cronParser from 'cron-parser'
-
 import { locale, t } from '../../i18n/index.ts'
 
+import { nextOccurrencesAfter } from './calendar/occurrences.ts'
 import { scheduleSummary } from './cron.ts'
-import { viewerTimeZone, zoneLabel } from './cronTime.ts'
+import { utcOffsetLabel, viewerTimeZone, zoneLabel } from './cronTime.ts'
 
 export type DisplaySchedule = {
   triggerType?: 'cron' | 'webhook'
@@ -14,24 +13,12 @@ export type DisplaySchedule = {
 }
 
 /** The actual local calendar date and offset at this instant, including DST. */
-export function formatViewerRun(instant: Date, timeZone = viewerTimeZone()): string {
-  return `${instant.toLocaleString(locale, { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (${zoneLabel(timeZone, instant)})`
-}
-
-/** Bounded expansion uses the same cron-parser and source timezone as scheduling. */
-export function upcomingScheduleTimes(trigger: DisplaySchedule, now: Date): Date[] {
-  if (trigger.enabled === false || trigger.triggerType !== 'cron' || !trigger.cronExpression)
-    return []
-  try {
-    const interval = cronParser.parseExpression(trigger.cronExpression, {
-      currentDate: now,
-      tz: trigger.timeZone || 'UTC',
-    })
-
-    return Array.from({ length: 3 }, () => interval.next().toDate())
-  } catch {
-    return []
-  }
+export function formatViewerRun(
+  instant: Date,
+  timeZone = viewerTimeZone(),
+  includeZone = true,
+): string {
+  return `${instant.toLocaleString(locale, { timeZone, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })} (${includeZone ? zoneLabel(timeZone, instant) : utcOffsetLabel(instant, timeZone)})`
 }
 
 /**
@@ -49,11 +36,25 @@ export function userScheduleSummary(
   const rule = scheduleSummary(trigger, 'UTC', now)
 
   if (trigger.enabled === false) return `${t('Paused')} · ${rule}`
-  const runs = upcomingScheduleTimes(trigger, now)
+  if (trigger.triggerType !== 'cron' || !trigger.cronExpression) return rule
+  const runs = nextOccurrencesAfter(trigger.cronExpression, now, 1, trigger.timeZone || 'UTC')
 
   if (runs.length === 0) return rule
 
-  return t('Scheduled: {time}', { time: formatViewerRun(runs[0], timeZone) })
+  const next = t('Scheduled: {time}', { time: formatViewerRun(runs[0], timeZone) })
+  const expression = trigger.cronExpression.trim()
+  const [minute, hour] = expression.split(/\s+/)
+
+  // Keep sub-daily rules visible on touch screens too. Do not derive a local
+  // recurrence from offsets; the source rule and next exact instant stay separate.
+  if (expression === '* * * * *') return `${t('Every minute')} · ${next}`
+  const step = /^\*\/(\d+) \* \* \* \*$/.exec(expression)
+  const n = Number(step?.[1])
+
+  if (n > 0 && n < 60 && 60 % n === 0) return `${t('Every {n} minutes', { n })} · ${next}`
+  if (!/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return `${rule} · ${next}`
+
+  return next
 }
 
 export function sourceScheduleRule(trigger: DisplaySchedule): string {
