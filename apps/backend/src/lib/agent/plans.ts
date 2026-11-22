@@ -16,7 +16,6 @@ export {
   getPlan,
   getPlanDocument,
   listActivePlansForConversation,
-  listPlansCreatedForConversation,
   listMongoDatabasePlanDocuments,
   listPlans,
 } from './plans/queries'
