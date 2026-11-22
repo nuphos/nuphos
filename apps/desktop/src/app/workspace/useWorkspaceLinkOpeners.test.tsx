@@ -46,8 +46,9 @@ async function mountPane(container: HTMLElement) {
   const store = createWorkspaceStore({ ...createWorkspaceState(), teamsKnown: true })
   const state = { settingsOpen: true, sections: [] as string[], conversations: [] as string[] }
   const openers = new Map<string, (href: string) => unknown>()
+  const hook: { current?: ReturnType<typeof useWorkspaceLinkOpeners> } = {}
   const Pane = () => {
-    useWorkspaceLinkOpeners({
+    hook.current = useWorkspaceLinkOpeners({
       accountsByTeam: {},
       workspaceStore: store,
       workspaceActions: store.actions,
@@ -89,6 +90,7 @@ async function mountPane(container: HTMLElement) {
   return {
     state,
     store,
+    hook,
     tabs: (page: string) =>
       selectAllResidentTabs(store.getState()).filter((tab) => tab.active === page),
     unmount: async () => {
@@ -156,6 +158,23 @@ test("a page of another team opens on a new chat in that team, not in the chat's
     store.actions.selectSession(sessionId, { teamId: TEAM })
     openInApp(`/teams/${other}/dashboards`)
 
+    const state = store.getState()
+
+    assert.equal(state.sessionId, null)
+    assert.equal(selectScope(state)?.teamId, other)
+    assert.deepEqual(selectBucket(state, sessionKeyOf(sessionId)).tabs, [])
+  })
+})
+
+// #4558: a nuphos://open link to a team, as a web page opens the app with.
+test("a link to another team goes to that team on a new chat, not in the chat's dock", async () => {
+  const { selectBucket, selectScope, sessionKeyOf } = await import('./store/workspaceState')
+  const other = '0123456789abcdef01234568'
+  const sessionId = '11111111-2222-4333-8444-555555555555'
+
+  await paneUnderSettings(({ store, hook }) => {
+    store.actions.selectSession(sessionId, { teamId: TEAM })
+    hook.current?.openAppOpenDeepLink({ path: `/teams/${other}`, url: '' } as never)
     const state = store.getState()
 
     assert.equal(state.sessionId, null)
