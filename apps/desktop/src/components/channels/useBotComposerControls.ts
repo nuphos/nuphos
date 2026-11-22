@@ -9,7 +9,7 @@ import { useBotRuntimeControl } from './useBotRuntimeControl'
  * use is in Bot details.
  */
 export function useBotComposerControls(...args: Parameters<typeof useBotRuntimeControl>) {
-  const [teamId, bot, owned, , , , chat] = args
+  const [teamId, bot, owned, , , chat] = args
   const ownRuntime = useBotRuntimeControl(...args)
   // A group chat has no runtime: its strip names a member Bot whose computer is offline.
   const offlineAgent = bot ? undefined : offlineMember(chat?.agents ?? [])

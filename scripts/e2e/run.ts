@@ -39,6 +39,7 @@ import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
+import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -152,6 +153,7 @@ const scenarios: Scenario[] = [
   ...runtimeScenarios,
   // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
   ...usageQueueScenarios,
+  ...moveMidTurnScenarios,
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
