@@ -2,12 +2,11 @@ import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
-import { logError, logEvent } from '@/lib/observability'
+import { logEvent, normalizeError } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { OpenAbAcpClient } from './openab-acp-client'
-import { OpenAbConnectError } from './openab-acp-connect'
-import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
 import { catalogState, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
@@ -212,13 +211,15 @@ function prewarmSession(
     ),
   )
     .catch((error: unknown) => {
-      // An unavailable runtime is not a failure here: the next prompt reports it.
-      if (error instanceof AppError) return
-      // Nor is a host that did not answer, or hung up mid-call, as while it
-      // restarts: a warning, if it never does.
-      if (error instanceof OpenAbConnectError || error instanceof OpenAbConnectionLostError)
-        logEvent('warn', 'agent.session.prewarm_offline', { session_id: conversation.sessionId })
-      else logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
+      // A prewarm is only a head start: the next prompt restores the session
+      // itself and reports what fails then. An unavailable runtime says nothing
+      // more; any other miss, as while the runtime is busy with a turn or
+      // restarting, is a warning.
+      if (!(error instanceof AppError))
+        logEvent('warn', 'agent.session.prewarm_failed', {
+          ...normalizeError(error),
+          session_id: conversation.sessionId,
+        })
     })
     .finally(() => prewarming.delete(id))
 }
