@@ -2374,7 +2374,7 @@
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "แชทนี้อาจเป็นแบบส่วนตัว หรืออาจถูกลบไปแล้ว หากมีคนแชร์ให้คุณ โปรดขอให้เขาเชิญคุณ",
   "It starts once Bots and tasks on this runtime finish replying.": "จะเริ่มเมื่อบอทและงานบนรันไทม์นี้ตอบกลับเสร็จ",
   "It works for the invited address only.": "ใช้ได้เฉพาะที่อยู่ที่ได้รับเชิญเท่านั้น",
-  "Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.": "ค่าของรายการจะถูกเข้ารหัสบนอุปกรณ์ที่ลงทะเบียนไว้ของคุณก่อนอัปโหลด เซิร์ฟเวอร์ Nuphos เก็บค่าเหล่านั้นในรูปแบบที่เข้ารหัสและไม่มีคีย์ที่ถอดรหัสได้เลย ชื่อรายการไม่ได้ถูกเข้ารหัส",
+  "Item values are encrypted on your enrolled devices, and the Nuphos server never holds a key that can decrypt them. Item names are not encrypted.": "ค่าของรายการจะถูกเข้ารหัสบนอุปกรณ์ที่ลงทะเบียนไว้ของคุณ และเซิร์ฟเวอร์ Nuphos ไม่มีคีย์ที่ถอดรหัสได้เลย ชื่อรายการไม่ได้ถูกเข้ารหัส",
   "Items": "รายการ",
   "Items are not re-encrypted: a copy that device already kept stays readable to it.": "รายการจะไม่ถูกเข้ารหัสใหม่ สำเนาที่อุปกรณ์นั้นเก็บไว้แล้วยังคงอ่านได้",
   "Its chat is archived with it. Unarchive either one to bring both back.": "แชทของบอทจะถูกเก็บถาวรไปด้วย ยกเลิกการเก็บถาวรอันใดอันหนึ่งเพื่อนำทั้งสองกลับมา",

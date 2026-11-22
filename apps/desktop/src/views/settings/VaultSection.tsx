@@ -29,7 +29,7 @@ export function VaultSection({ userId }: { userId: string }) {
         <p className="text-[13px] text-main">{t('How does Nuphos keep your secrets safe?')}</p>
         <p className="mt-1 text-[12.5px] text-tertiary">
           {t(
-            'Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.',
+            'Item values are encrypted on your enrolled devices, and the Nuphos server never holds a key that can decrypt them. Item names are not encrypted.',
           )}{' '}
           <button
             type="button"

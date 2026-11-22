@@ -2374,7 +2374,7 @@
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "此对话可能是私人的，也可能已被删除。如果是别人分享给你的，请让对方邀请你。",
   "It starts once Bots and tasks on this runtime finish replying.": "此运行环境上的 Bot 和任务完成回复后即会开始。",
   "It works for the invited address only.": "仅对受邀地址有效。",
-  "Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.": "条目的值会先在你已加入的设备上加密，然后才上传。Nuphos 服务器以加密形式存储，从不持有能解密它们的密钥。条目名称不加密。",
+  "Item values are encrypted on your enrolled devices, and the Nuphos server never holds a key that can decrypt them. Item names are not encrypted.": "条目的值会在你已加入的设备上加密，Nuphos 服务器从不持有能解密它们的密钥。条目名称不加密。",
   "Items": "条目",
   "Items are not re-encrypted: a copy that device already kept stays readable to it.": "条目不会重新加密：该设备之前保留的副本仍可读取。",
   "Its chat is archived with it. Unarchive either one to bring both back.": "它的聊天会一起归档。取消归档任意一个，两者都会恢复。",

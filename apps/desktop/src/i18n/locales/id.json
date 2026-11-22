@@ -2374,7 +2374,7 @@
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "Obrolan ini mungkin privat, atau mungkin sudah dihapus. Jika seseorang membagikannya kepada Anda, minta mereka mengundang Anda.",
   "It starts once Bots and tasks on this runtime finish replying.": "Dimulai setelah Bot dan tugas di runtime ini selesai membalas.",
   "It works for the invited address only.": "Hanya berlaku untuk alamat yang diundang.",
-  "Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.": "Nilai item dienkripsi di perangkat terdaftar Anda sebelum diunggah. Server Nuphos menyimpannya dalam bentuk terenkripsi dan tidak pernah memegang kunci yang dapat mendekripsinya. Nama item tidak dienkripsi.",
+  "Item values are encrypted on your enrolled devices, and the Nuphos server never holds a key that can decrypt them. Item names are not encrypted.": "Nilai item dienkripsi di perangkat terdaftar Anda, dan server Nuphos tidak pernah memegang kunci yang dapat mendekripsinya. Nama item tidak dienkripsi.",
   "Items": "Item",
   "Items are not re-encrypted: a copy that device already kept stays readable to it.": "Item tidak dienkripsi ulang: salinan yang sudah disimpan perangkat itu tetap dapat dibacanya.",
   "Its chat is archived with it. Unarchive either one to bring both back.": "Chat-nya ikut diarsipkan. Batalkan arsip salah satunya untuk mengembalikan keduanya.",

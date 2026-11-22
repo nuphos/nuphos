@@ -2374,7 +2374,7 @@
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "비공개이거나 삭제되었을 수 있습니다. 누군가 공유했다면 그 사람에게 초대를 요청하세요.",
   "It starts once Bots and tasks on this runtime finish replying.": "이 런타임의 봇과 작업이 답장을 마치면 시작됩니다.",
   "It works for the invited address only.": "초대된 주소에서만 사용할 수 있습니다.",
-  "Item values are encrypted on your enrolled devices before they are uploaded. The Nuphos server stores them encrypted and never holds a key that can decrypt them. Item names are not encrypted.": "항목 값은 업로드되기 전에 등록된 기기에서 암호화됩니다. Nuphos 서버는 암호화된 상태로 저장하며 이를 복호화할 수 있는 키를 갖지 않습니다. 항목 이름은 암호화되지 않습니다.",
+  "Item values are encrypted on your enrolled devices, and the Nuphos server never holds a key that can decrypt them. Item names are not encrypted.": "항목 값은 등록된 기기에서 암호화되며, Nuphos 서버는 이를 복호화할 수 있는 키를 갖지 않습니다. 항목 이름은 암호화되지 않습니다.",
   "Items": "항목",
   "Items are not re-encrypted: a copy that device already kept stays readable to it.": "항목은 다시 암호화되지 않습니다. 해당 기기가 이미 보관한 사본은 계속 읽을 수 있습니다.",
   "Its chat is archived with it. Unarchive either one to bring both back.": "채팅도 함께 보관됩니다. 어느 쪽이든 보관을 해제하면 둘 다 돌아옵니다.",
