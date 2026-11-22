@@ -11,6 +11,8 @@ import { agentConversations } from './shared'
 
 const TEAM = new ObjectId().toHexString()
 const ME = new ObjectId().toHexString()
+// A second team for one archive batch, so its tied times stay out of the list above.
+const TIED = new ObjectId().toHexString()
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000)
 let archived = 0
 
@@ -52,7 +54,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
     ] as never)
   })
   afterAll(async () => {
-    await agentConversations().deleteMany({ teamId: TEAM })
+    await agentConversations().deleteMany({ teamId: { $in: [TEAM, TIED] } })
     await closeDb()
   })
 
@@ -84,5 +86,34 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("the archive leaves a Bot's work 
       'oldest',
       'below-former-bot',
     ])
+  })
+
+  test("one archive batch, a Bot's work among my Tasks, pages without a gap or repeat", async () => {
+    const batch = minutesAgo(1000)
+    const tied = (name: string, extra: Record<string, unknown> = {}) =>
+      row(name, { teamId: TIED, sessionId: `${TIED}-${name}`, archivedAt: batch, ...extra })
+    const mine = Array.from({ length: 6 }, (_, i) => `mine-${String(i)}`)
+
+    // Interleaved, so every page boundary falls inside the batch and next to Bot work.
+    await agentConversations().insertMany([
+      row('bot', { teamId: TIED, sessionId: `${TIED}-bot`, avatar: '07-ada' }),
+      ...mine.flatMap((name, i) => [
+        tied(name),
+        tied(`bot-task-${String(i)}`, { parentSessionId: `${TIED}-bot` }),
+      ]),
+    ] as never)
+    const seen: string[] = []
+    let cursor: string | undefined
+
+    for (let pages = 0; pages < 10; pages++) {
+      const page = await getConversations(ME, { teamId: TIED, sort: 'archived', limit: 2, cursor })
+
+      seen.push(...page.conversations.map((c) => c.sessionId.slice(TIED.length + 1)))
+      if (!page.hasMore) break
+      cursor = page.nextCursor ?? undefined
+    }
+
+    // Same archivedAt, so newest _id first: the reverse of insertion.
+    expect(seen).toEqual(mine.toReversed())
   })
 })
