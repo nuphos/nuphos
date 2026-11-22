@@ -71,9 +71,9 @@ describe('several GitHub accounts', () => {
     rows = [work, home]
     visible = { 'token-work': [7], 'token-home': [8] }
 
-    expect(await personalGithubToken('user-1', 7, ids(work, home))).toMatchObject({ login: 'work' })
-    expect(await personalGithubToken('user-1', 8, ids(work, home))).toMatchObject({ login: 'home' })
-    expect(await personalGithubToken('user-1', 9, ids(work, home))).toBeNull()
+    expect(await personalGithubToken('user-1', 7)).toMatchObject({ login: 'work' })
+    expect(await personalGithubToken('user-1', 8)).toMatchObject({ login: 'home' })
+    expect(await personalGithubToken('user-1', 9)).toBeNull()
   })
 
   test('two accounts that can see it, and none named, is a 409 that lists them', async () => {
@@ -83,12 +83,10 @@ describe('several GitHub accounts', () => {
     rows = [work, home]
     visible = { 'token-work': [7], 'token-home': [7] }
 
-    await expect(personalGithubToken('user-1', 7, ids(work, home))).rejects.toMatchObject({
+    await expect(personalGithubToken('user-1', 7)).rejects.toMatchObject({
       status: 409,
       code: 'personal_credential_account_required',
     })
-    // Allowing only one of them makes it the answer.
-    expect(await personalGithubToken('user-1', 7, ids(home))).toMatchObject({ login: 'home' })
   })
 
   test('a provider-only selection covers every account, and still asks which', async () => {
@@ -103,24 +101,15 @@ describe('several GitHub accounts', () => {
     expect(await personalGithubToken('user-1', 7)).toMatchObject({ login: 'work' })
   })
 
-  test('a named account outside the selection is refused, and own-token calls name one', async () => {
+  test('own-token calls name the account', async () => {
     const work = account('github', 'work')
     const home = account('github', 'home')
 
     rows = [work, home]
-    await expect(
-      personalOwnToken('user-1', 'github', ids(home)[0], ids(work)),
-    ).rejects.toMatchObject({
-      status: 403,
+    await expect(personalOwnToken('user-1', 'github')).rejects.toMatchObject({ status: 409 })
+    expect(await personalOwnToken('user-1', 'github', ids(home)[0])).toMatchObject({
+      login: 'home',
     })
-    await expect(
-      personalOwnToken('user-1', 'github', undefined, ids(work, home)),
-    ).rejects.toMatchObject({
-      status: 409,
-    })
-    expect(await personalOwnToken('user-1', 'github', ids(home)[0], ids(work, home))).toMatchObject(
-      { login: 'home' },
-    )
   })
 })
 
@@ -131,14 +120,12 @@ describe('several Linear workspaces', () => {
 
     rows = [one, two]
 
-    expect(await personalLinearToken('user-1', 'org-1', ids(one, two))).toMatchObject({
+    expect(await personalLinearToken('user-1', 'org-1')).toMatchObject({
       login: 'one',
     })
-    expect(await personalLinearToken('user-1', 'org-2', ids(one, two))).toMatchObject({
+    expect(await personalLinearToken('user-1', 'org-2')).toMatchObject({
       login: 'two',
     })
-    // Allowing only workspace 1 leaves workspace 2 to the team token.
-    expect(await personalLinearToken('user-1', 'org-2', ids(one))).toBeNull()
   })
 
   test('a provider-only selection reaches each workspace', async () => {
@@ -179,18 +166,6 @@ describe('a selection that ticks only the provider', () => {
     await expect(googleCredentialFor('user-1', 'gmail', 'team-1')).rejects.toMatchObject({
       status: 409,
       code: 'personal_credential_account_required',
-    })
-  })
-
-  test('an explicit empty list allows nothing, unlike an absent one', async () => {
-    const one = { ...gmail('a@x.com'), provider: 'gmail' as never }
-
-    rows = [one]
-
-    await expect(
-      googleCredentialFor('user-1', 'gmail', 'team-1', undefined, []),
-    ).rejects.toMatchObject({
-      status: 403,
     })
   })
 

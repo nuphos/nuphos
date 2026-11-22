@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 import { useLocalRuntimeCatalog } from '@/lib/test/doubles/local-runtime-catalog'
+import { real, useObservability } from '@/lib/test/doubles/observability'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
@@ -389,6 +390,15 @@ describe('reclaimSessionHomes', () => {
   let instances: { id: string; provider: string }[] = []
   let endpoints: { runtimeId: string; url: string }[] = []
 
+  // Why each queued home was left for the next sweep.
+  let waits: unknown[] = []
+
+  useObservability({
+    logEvent: (level, event, fields) => {
+      if (event === 'agent.session_home_reclaim.waiting') waits.push(fields)
+      else real.logEvent(level, event, fields)
+    },
+  })
   useDb({ db: () => memory })
   useSessionExecutionState({
     conversationExecutionState: async () => {
@@ -438,6 +448,7 @@ describe('reclaimSessionHomes', () => {
 
   beforeEach(() => {
     memory = portabilityDb()
+    waits = []
     state = 'dormant'
     onProbe = () => {}
     instances = []
@@ -489,6 +500,47 @@ describe('reclaimSessionHomes', () => {
       { epoch: 0, runtimeId: LOCAL, provider: 'claude-code' },
     ])
     expect(jobs).toHaveLength(0)
+  })
+
+  test('a generation whose computer is off does not hold back one on another computer', async () => {
+    const off = 'local_owner_off'
+
+    offline = [off]
+    instances = [{ id: off, provider: 'claude-code' }]
+    offered = ['session-homes', 'session-homes-v2']
+    const row = conversation({
+      archiveHomePendingEpochs: [
+        { epoch: 0, runtimeId: off, provider: 'claude-code' },
+        { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
+      ],
+    })
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
+    expect(jobs.map((job) => [job.runtimeId, JSON.parse(job.stdin).epoch])).toEqual([[LOCAL, 1]])
+    expect(row.archiveHomePendingEpochs).toEqual([
+      { epoch: 0, runtimeId: off, provider: 'claude-code' },
+    ])
+  })
+
+  test('a queued home that waits says why', async () => {
+    const off = 'local_owner_off'
+
+    offline = [off]
+    instances = [{ id: off, provider: 'claude-code' }]
+    offered = ['session-homes', 'session-homes-v2']
+    report = '{"result":"in_use"}'
+    const queued = [
+      { epoch: 0, runtimeId: off, provider: 'claude-code' },
+      { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
+    ]
+    const row = conversation({ archiveHomePendingEpochs: queued })
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
+    expect(row.archiveHomePendingEpochs).toEqual(queued)
+    expect(waits).toEqual([
+      { session_id: 'conversation', runtime_id: off, epoch: 0, reason: 'runtime_unreachable' },
+      { session_id: 'conversation', runtime_id: LOCAL, epoch: 1, reason: 'in_use' },
+    ])
   })
 
   test('after moving, an old generation is reclaimed on its original runtime', async () => {

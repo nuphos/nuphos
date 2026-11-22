@@ -302,7 +302,9 @@ test('compaction is a step that ends, not reply text', async (t) => {
     ...fields,
   })
 
+  // Claude Code may say "compacting" more than once before the result: still one step.
   for (const outcome of ['success', 'failed']) {
+    await h.emit(status({ status: 'compacting' }))
     await h.emit(status({ status: 'compacting' }))
     await h.emit(status({ status: null, compact_result: outcome, compact_error: 'too long' }))
   }

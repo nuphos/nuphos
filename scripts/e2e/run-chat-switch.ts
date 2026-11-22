@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { join } from 'node:path'
 
 import { backendLog } from './backend-log.ts'
-import { kept, leave, notKept } from './chat-keep.ts'
+import { backHome, focused, kept, leave, leaveHome, notKept } from './chat-keep.ts'
 import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
 import { overlayFailed, overlayLines, overlayScenarios } from './chat-switch-overlays.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
@@ -137,7 +137,8 @@ async function restart(page: Page) {
   // On a new Task, so the reloaded window restores no chat.
   await newTask(page)
   await page.reload()
-  await page.getByRole('tab', { name: 'Tasks' }).waitFor()
+  // Back on it, if the window restored a chat: the first open switches from it on screen (#4584).
+  await leaveHome(page)
 }
 
 const lastPost = (chat: Chat, posts = POSTS) => ({ history: `${chat.title} post ${String(posts)}` })
@@ -160,6 +161,7 @@ async function scenario(page: Page, stack: Stack) {
 
   await restart(page)
   await open(page, 'task, first open', taskA, { history: ACK_A })
+  await focused(page, 'task, first open')
   await leave(page, taskA.title, ACK_A)
   await open(page, 'task, first open, reply in progress', long, {
     history: 'Long E2E_LONG',
@@ -189,6 +191,9 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'bot chat, first open, 200 posts', longChat, lastPost(longChat, LONG_POSTS))
   await loadEarlier(page, longChat.title)
   await overlayScenarios(page, { ...taskA, text: ACK_A }, { ...taskB, text: ACK_B })
+  await backHome(page)
+  await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
+  await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
 }
 
 /** What fails the run. */

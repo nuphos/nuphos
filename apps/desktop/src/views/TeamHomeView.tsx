@@ -46,7 +46,6 @@ export function TeamHomeView({
           teamId={teamId}
           isTeamAdmin={isTeamAdmin}
           revealAt={0}
-          replayKey={0}
           onOpenConversation={onOpenConversation}
           onOpenNuphosLink={(href) => {
             onOpenLink(href)
