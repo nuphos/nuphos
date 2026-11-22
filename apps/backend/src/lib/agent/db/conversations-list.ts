@@ -1,4 +1,5 @@
 import { readableByFilter } from './access'
+import { withoutBotWork } from './bot-work'
 import { attentionInputRequests, OPEN_INPUT_REQUEST_FILTER } from './pending-decision'
 import { agentConversations, escapeRegExp } from './shared'
 
@@ -145,22 +146,33 @@ export async function getConversations(
       options.includeOnboarding,
     )
 
-  const page = (filter: Record<string, unknown>, field: string) =>
-    agentConversations()
-      .find(
-        options.cursor
-          ? {
-              ...filter,
-              [field]: {
-                ...(filter[field] as Record<string, unknown> | undefined),
-                $lt: new Date(options.cursor),
-              },
-            }
-          : filter,
-      )
-      .sort({ [field]: -1 })
-      .limit(limit + 1)
+  const page = (filter: Record<string, unknown>, field: string) => {
+    const match = options.cursor
+      ? {
+          ...filter,
+          [field]: {
+            ...(filter[field] as Record<string, unknown> | undefined),
+            $lt: new Date(options.cursor),
+          },
+        }
+      : filter
+
+    if (options.sort !== 'archived')
+      return agentConversations()
+        .find(match)
+        .sort({ [field]: -1 })
+        .limit(limit + 1)
+        .toArray()
+
+    return agentConversations()
+      .aggregate<AgentConversation>([
+        { $match: match },
+        { $sort: { [field]: -1 } },
+        ...withoutBotWork(options.teamId),
+        { $limit: limit + 1 },
+      ])
       .toArray()
+  }
   // My Archived also lists the shared Tasks I archived for myself, by when I did.
   const sharedArchived = options.sort === 'archived' && scope === 'mine'
   const sortedBy = (row: AgentConversation) =>
