@@ -90,7 +90,9 @@ export function AgentAvatar({
               />
             </>
           )}
-          {showBadge && provider && <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />}
+          {showBadge && provider && (
+            <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />
+          )}
         </>
       ) : (
         <span className="inline-flex size-4">{runtime}</span>
