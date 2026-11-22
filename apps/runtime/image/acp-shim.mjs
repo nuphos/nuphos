@@ -526,12 +526,7 @@ export function runShim({
       }
       return {
         ...reply,
-        result: await nuphosApplyRuntimeDefaults(
-          agentApi,
-          { ...params, sessionId },
-          reply.result,
-          message.method !== 'session/new',
-        ),
+        result: await nuphosApplyRuntimeDefaults(agentApi, { ...params, sessionId }, reply.result),
       }
     })
     send({ ...message, params })

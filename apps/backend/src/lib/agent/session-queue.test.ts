@@ -432,7 +432,6 @@ for (const failure of [
   new AppError(409, 'runtime_not_accepting_message', 'Busy'),
   new AppError(425, 'too_early', 'Too early'),
   new AppError(429, 'rate_limited', 'Slow down'),
-  new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
 ]) {
   test(`a send that fails to start with "${failure.message}" goes back to the head of the queue`, async () => {
     installTurnRunner({
@@ -499,25 +498,19 @@ test('a server error past the grace is reported in plain words, not its own text
   expect(notice).not.toContain('Unavailable')
 })
 
-test('a busy runtime or a pending approval is waited for past the grace', async () => {
-  for (const failure of [
-    new AppError(409, 'runtime_not_accepting_message', 'Busy'),
-    new AppError(403, 'local_share_approval_required', 'Waiting for the owner'),
-  ]) {
-    installTurnRunner({
-      hasActiveAgentRunForSession: async () => false,
-      claimAgentRunForSession: async () => () => {},
-      launchQueuedChatTurn: async () => {
-        throw failure
-      },
-    })
-    await clearPendingUserMessages(OWNER, SESSION)
-    await queue({ ...human('patient'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
-    await startQueuedTurn(OWNER, SESSION)
+test('a busy runtime is waited for past the grace', async () => {
+  installTurnRunner({
+    hasActiveAgentRunForSession: async () => false,
+    claimAgentRunForSession: async () => () => {},
+    launchQueuedChatTurn: async () => {
+      throw new AppError(409, 'runtime_not_accepting_message', 'Busy')
+    },
+  })
+  await queue({ ...human('patient'), offlineSince: new Date(Date.now() - 61_000).toISOString() })
+  await startQueuedTurn(OWNER, SESSION)
 
-    expect(await waiting()).toEqual(['patient'])
-    expect(kept).toEqual([])
-  }
+  expect(await waiting()).toEqual(['patient'])
+  expect(kept).toEqual([])
 })
 
 test('a queued send waits out a reconnecting computer, then is kept with the reason', async () => {

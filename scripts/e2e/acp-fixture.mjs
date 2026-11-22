@@ -224,7 +224,7 @@ async function answer(request) {
       )
 
       // The settings the conversation was created with, applied by the runtime's own code,
-      // which refuses to open a session on a value this agent does not offer.
+      // which leaves a value this agent does not offer to the agent's own choice.
       const defaults = request.params._meta?.['ai.nuphos/runtimeDefaults'] ?? {}
       const agent = {
         setSessionConfigOption: async ({ configId, value }) => ({
