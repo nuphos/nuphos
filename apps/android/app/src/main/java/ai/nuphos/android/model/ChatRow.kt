@@ -111,7 +111,10 @@ sealed class ChatRow {
             sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
-            val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
+            val cited = messages.filter { it.role == ChatMessage.Role.Assistant }.flatMap { it.parts }
+                .filterIsInstance<ChatPart.Text>().flatMapTo(mutableSetOf()) { ReplyFiles.cited(it.text) }
+            val anchoredDownloads = AgentDownloads.anchor(downloads.filter { it.groupId !in cited }, messages)
+            val groups = downloads.associateBy { it.groupId }
             val events = timeline.distinctBy { it.at to it.text }.sortedBy { it.at }.groupBy { event ->
                 messages.indexOfFirst { it.createdAt?.isAfter(event.at) == true }
             }
@@ -152,7 +155,7 @@ sealed class ChatRow {
                     }
                     ChatMessage.Role.Assistant -> {
                         val isLive = isStreaming && index == messages.lastIndex
-                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders)
+                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders, groups)
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive && message.parts.none { interruption(it)?.reason == "cancelled" }) {
                             val calls = message.parts.count { it is ChatPart.Tool }
@@ -186,13 +189,21 @@ sealed class ChatRow {
             return rows
         }
 
-        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>): List<ChatRow> {
+        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>, groups: Map<String, ai.nuphos.android.data.TransferDownloadGroup>): List<ChatRow> {
             val body = mutableListOf<ChatRow>()
             message.parts.forEachIndexed { pi, part ->
                 when (part) {
                     is ChatPart.Text -> {
-                        if (part.text.isNotBlank()) {
-                            body += AssistantText("text.${message.id}.$pi", message.id, part.text, live && part.state == ChatPart.StreamState.Streaming)
+                        val streaming = live && part.state == ChatPart.StreamState.Streaming
+                        val segments = if (streaming) listOf(ReplyFiles.Segment.Text(part.text)) else ReplyFiles.segments(part.text)
+                        segments.forEachIndexed { si, segment ->
+                            val id = if (segments.size == 1) "text.${message.id}.$pi" else "text.${message.id}.$pi.$si"
+                            when (segment) {
+                                is ReplyFiles.Segment.Text -> if (segment.text.isNotBlank()) body += AssistantText(id, message.id, segment.text, streaming)
+                                // A group no longer listed (expired) still gets its card, which says so.
+                                is ReplyFiles.Segment.Files -> body += Downloads(id, groups[segment.groupId]
+                                    ?: ai.nuphos.android.data.TransferDownloadGroup(segment.groupId, "", emptyList()))
+                            }
                         }
                     }
                     is ChatPart.Reasoning -> {
