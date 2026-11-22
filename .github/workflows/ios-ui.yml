@@ -159,6 +159,19 @@ jobs:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
           retention-days: 7
+      # The Bot composer fixture captures fictional light-theme screens for visual review.
+      - name: Export Bot composer screenshots
+        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/bot-composer-attachments"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ui.xcresult" --output-path "$RUNNER_TEMP/bot-composer-attachments"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
+        with:
+          name: bot-composer-ios-screenshots
+          path: ${{ runner.temp }}/bot-composer-attachments/**/*.png
+          if-no-files-found: warn
+          retention-days: 7
       # The full result bundle, with screen recordings, only when something failed.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()

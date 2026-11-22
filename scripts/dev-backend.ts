@@ -173,16 +173,17 @@ export async function startBackend(local: LocalStack) {
   const probeFrom = backendRetries > 0 && backend.port ? backend.port + 1 : BASE_BACKEND_PORT
 
   if (backend.port) releasePort(backend.port) // give up the port that was taken
-  assignBackendPort(await findFreePort(probeFrom))
+  const port = await findFreePort(probeFrom)
+
+  assignBackendPort(port)
   const baseEnv = backendEnv()
   // Runtimes and Boxes need a public URL for *this* backend, never PROD. A restart on the
   // same port keeps a live quick tunnel, since Boxes were already handed its URL.
   const alive = tunnel.proc?.exitCode === null && tunnel.proc.signalCode === null
-  const keep =
-    alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === backend.port
-  const tunnelUrl = keep ? tunnel.url : await setupTunnel(backend.port)
+  const keep = alive && tunnel.kind === 'quick' && tunnel.url !== null && tunnelPort === port
+  const tunnelUrl = keep ? tunnel.url : await setupTunnel(port)
 
-  tunnelPort = backend.port
+  tunnelPort = port
   // Boxes upload and fetch skills through presigned URLs, so they must not name 127.0.0.1.
   const storageUrl = await storageTunnelUrl(local.rustfsPort)
   const child = spawn('bun', ['run', 'dev'], {

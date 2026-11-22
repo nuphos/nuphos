@@ -103,7 +103,7 @@ extension ChatRow {
                 guard !(live && pi == message.parts.count - 1) else { continue }
                 body.append(.reasoning(id: "reasoning.\(message.id).\(pi)", part: p))
             case .tool(let t):
-                guard !ToolRuns.hiddenTools.contains(t.toolName) else { continue }
+                guard !ToolRuns.isHidden(t) else { continue }
                 body.append(.tool(id: "tool.\(message.id).\(t.toolCallId)", messageId: message.id, part: t, canDecide: t.toolCallId == lastApprovalCallId))
             case .other(let v) where v["type"]?.stringValue == "memory-provenance":
                 let labels = v["labels"]?.objectValue ?? [:]

@@ -53,8 +53,8 @@ export async function executeConversationTurn(...args: TurnArgs): Promise<void> 
 /**
  * Hands the message to the target: 'started' when it took the run (`run` settles
  * with the turn's finish reason), 'queued' when it waits behind the turns ahead
- * of it. Messages one sender left waiting run together in one turn, never folded into another
- * sender's.
+ * of it. Waiting messages run together in one turn, whoever sent them; an app
+ * send still runs alone.
  */
 export async function startConversationTurn(
   ...[data, target, renderedText, source, metadata]: TurnArgs
@@ -271,7 +271,7 @@ export async function reportUndelivered(
       )
         continue
       const excerpt = message.renderedText.slice(0, 200)
-      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_thread runtimeId) first.`
+      const notice = `Your message to thread ${data.targetSessionId} ${reason} It began: "${excerpt}". Check that thread before resending anything, since work may be partly done. If its agent is unavailable, move it to a running agent (update_task runtimeId) first.`
       // Not awaited: this turn still holds its own target, and the sender may be busy.
       const { run } = await startConversationTurn(
         {

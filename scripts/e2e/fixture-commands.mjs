@@ -62,9 +62,30 @@ function longReply({ send, sessionId }) {
 
   chunk('LONG_START ')
   for (let n = 0; n < 30; n++) {
-    const words = Array.from({ length: 100 }, (_, word) => 'w' + String(n * 100 + word))
+    const words = Array.from({ length: 100 }, (_, word) => `w${String(n * 100 + word)}`)
 
-    chunk(words.join(' ') + ' ')
+    chunk(`${words.join(' ')} `)
   }
   chunk('LONG_END')
+}
+
+export function scriptedPlan({ send, sessionId, text }) {
+  if (!text.includes('E2E_PLAN_REFERENCE')) return
+  const toolCallId = randomUUID()
+  const update = (fields) =>
+    send({ method: 'session/update', params: { sessionId, update: fields } })
+
+  update({
+    sessionUpdate: 'tool_call',
+    toolCallId,
+    title: 'plan_create',
+    status: 'in_progress',
+    rawInput: { title: 'E2E plan reference' },
+  })
+  update({
+    sessionUpdate: 'tool_call_update',
+    toolCallId,
+    status: 'completed',
+    rawOutput: { planId: '900' },
+  })
 }

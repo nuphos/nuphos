@@ -20,6 +20,8 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computerUpdateScenarios } from './computer-update-scenarios.ts'
+import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -43,6 +45,7 @@ import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
+import { personalConnectScenarios } from './personal-connect-scenarios.ts'
 import { personalCredentialScenarios } from './personal-credential-scenarios.ts'
 import { artifacts, stopAll, until } from './processes.ts'
 import { providerUnreachableScenarios } from './provider-unreachable-scenarios.ts'
@@ -65,10 +68,12 @@ import { teammateBotScenarios } from './teammate-bot-scenarios.ts'
 import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
+import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
+import { webhookScenarios } from './webhook-scenarios.ts'
 import { newTask, send } from './ui.ts'
 import { usageScenarios } from './usage-scenarios.ts'
 import { webhookSecretScenarios } from './webhook-secret-scenarios.ts'
@@ -148,6 +153,7 @@ const scenarios: Scenario[] = [
   ...linkChipScenarios,
   ...voiceScenarios,
   ...personalCredentialScenarios,
+  ...personalConnectScenarios,
   ...mentionScenarios,
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
@@ -157,6 +163,7 @@ const scenarios: Scenario[] = [
   ...turnScenarios,
   ...questionScenarios,
   ...triggerScenarios,
+  ...instructionScenarios,
   ...botTriggerRowScenarios,
   ...webhookSecretScenarios,
   ...triggerHistoryScenarios,
@@ -167,9 +174,23 @@ const scenarios: Scenario[] = [
   ...twoFactorResumeScenarios,
   ...accessScenarios,
   ...runtimeScenarios,
+  ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It removes a member from the team.
+  ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
+  // Right after the one above, whose last Task 404s in another team: its new Task leaves it.
+  // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
+]
+
+// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's half.
+const later: Scenario[] = [
   ...computerScenarios,
+  ...computerUpdateScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
@@ -178,6 +199,7 @@ const scenarios: Scenario[] = [
   ...settingsHistoryScenarios,
   ...offlineScenarios,
   ...mcpNotificationScenarios,
+  ...webhookScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,
@@ -187,12 +209,6 @@ const scenarios: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
-  // It removes a member from the team.
-  ...dashboardScenarios,
-  // Right after the one above: it opens the dashboards that scenario leaves behind.
-  ...dashboardUiScenarios,
-  // It leaves the window split, then closes a pane.
-  ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
@@ -201,7 +217,15 @@ const scenarios: Scenario[] = [
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
+  formScenario,
 ]
+const shard = process.env.E2E_SHARD
+const selected =
+  shard === '1'
+    ? scenarios
+    : shard === '2'
+      ? [...signInScenarios, ...later]
+      : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
@@ -212,7 +236,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+  for (const [index, scenario] of selected.entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 

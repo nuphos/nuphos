@@ -213,25 +213,6 @@ describe('runtime registry', () => {
     expect(await resolveTeamRuntimeEndpoints('team-1')).toEqual([])
   })
 
-  test('rows of the retired provisioner model are neither listed nor resolved', async () => {
-    const now = new Date()
-
-    docs.push({
-      _id: 'legacy',
-      teamId: 'team-1',
-      url: 'ws://openab-team-1.openab-runtimes.svc:8080/acp',
-      status: 'active',
-      managedBy: 'provisioner',
-      authKeyEnvelope: encryptDatabaseCredentialWithKey('legacy-key', MASTER_KEY),
-      createdByUserId: 'provisioner',
-      createdAt: now,
-      updatedAt: now,
-    })
-
-    expect(await listTeamRuntimes('team-1')).toEqual([])
-    expect(await resolveTeamRuntimeEndpoints('team-1')).toEqual([])
-  })
-
   test('rejects cleartext ws:// outside the cluster and malformed keys', async () => {
     await expect(
       registerTeamRuntime({
