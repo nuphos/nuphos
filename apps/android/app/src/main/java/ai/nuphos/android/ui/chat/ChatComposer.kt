@@ -633,7 +633,7 @@ fun ChatComposer(
         }
     }
     Surface(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().testTag("chat-composer-surface")
             .graphicsLayer { translationY = handleDrag },
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceContainerHigh,

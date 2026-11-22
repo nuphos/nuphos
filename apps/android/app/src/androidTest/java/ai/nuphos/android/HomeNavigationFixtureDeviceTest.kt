@@ -1,6 +1,10 @@
 package ai.nuphos.android
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.res.Configuration
+import android.graphics.Rect
+import android.os.ParcelFileDescriptor
+import android.view.accessibility.AccessibilityWindowInfo
 import android.util.DisplayMetrics
 import android.content.Context
 import androidx.activity.compose.setContent
@@ -268,6 +272,68 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
+    @Test fun newTaskComposerMeetsKeyboardAndGreetingFits() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        val registry = InstrumentationRegistry.getInstrumentation()
+        val automation = registry.uiAutomation
+        val serviceInfo = automation.serviceInfo
+        val originalFlags = serviceInfo.flags
+        serviceInfo.flags = originalFlags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        automation.serviceInfo = serviceInfo
+
+        fun keyboard() = automation.windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD }
+        fun shell(command: String) =
+            ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+        val previousImeSetting = shell("settings get secure show_ime_with_hard_keyboard")
+
+        try {
+            shell("settings put secure show_ime_with_hard_keyboard 1")
+            render(newTask = true)
+            compose.onNodeWithTag("new-task-open").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.waitUntil(8_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNode(hasSetTextAction()).performClick()
+            compose.waitUntil(8_000) { keyboard() != null }
+
+            val ime = Rect().also { requireNotNull(keyboard()).getBoundsInScreen(it) }
+            val composer = compose.onNodeWithTag("chat-composer-surface").fetchSemanticsNode().boundsInWindow
+            assertEquals("Composer bottom should meet the IME", ime.top.toFloat(), composer.bottom, 2f)
+            compose.onNodeWithContentDescription(app.getString(R.string.send)).assertIsDisplayed()
+
+            val greetingText = app.getString(R.string.new_task_welcome_name, NuphosUser.preview.name.orEmpty().substringBefore(' '))
+            val greeting = compose.onNodeWithText(greetingText)
+            val shortScreen = InstrumentationRegistry.getArguments().getString("newTaskShortScreen") == "true"
+            if (shortScreen) {
+                greeting.assertIsNotDisplayed()
+                val exposed = automation.rootInActiveWindow?.findAccessibilityNodeInfosByText(greetingText).orEmpty()
+                assertTrue("Hidden greeting should not be exposed to accessibility", exposed.none { it.isVisibleToUser })
+            } else {
+                greeting.assertIsDisplayed()
+            }
+            shot("3799-keyboard-open")
+
+            compose.onNode(hasSetTextAction()).performTextInput("Synthetic keyboard draft")
+            pressSystemBack()
+            compose.waitUntil(8_000) { keyboard() == null }
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.onNodeWithText("Synthetic keyboard draft").assertIsDisplayed()
+            greeting.assertIsDisplayed()
+            shot("3799-keyboard-closed")
+            compose.onNodeWithTag("new-task-cancel").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+            noWrites()
+        } finally {
+            if (previousImeSetting in setOf("0", "1")) {
+                shell("settings put secure show_ime_with_hard_keyboard $previousImeSetting")
+            } else {
+                shell("settings delete secure show_ime_with_hard_keyboard")
+            }
+            serviceInfo.flags = originalFlags
+            automation.serviceInfo = serviceInfo
+        }
+    }
+
     @Test fun newTaskSheetCancelAndReopenPreservesDraft() {
         app.incomingShares.identityReset()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
