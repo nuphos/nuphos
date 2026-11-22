@@ -324,7 +324,11 @@ function retargetable(keys: string[]) {
   const render = (listKey: string, refreshKey = 0) =>
     act(async () => {
       root.render(
-        createElement(QueryClientProvider, { client }, createElement(List, { listKey, refreshKey })),
+        createElement(
+          QueryClientProvider,
+          { client },
+          createElement(List, { listKey, refreshKey }),
+        ),
       )
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
