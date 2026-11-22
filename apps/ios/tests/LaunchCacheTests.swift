@@ -4,6 +4,9 @@ enum LaunchCacheTests {
     static func run() {
         keepsTheListThroughARoundTrip()
         keepsTheUserThroughARoundTrip()
+        keepsAChatForItsAccountOnly()
+        keepsOnlyTheTwentyChatsReadLast()
+        signingOutForgetsTheChats()
         print("Launch cache passed")
     }
 
@@ -37,5 +40,37 @@ enum LaunchCacheTests {
         let decoded = try! JSONDecoder().decode(LaunchCache.User.self, from: JSONEncoder().encode(cached))
         precondition(decoded.user == cached.user)
         precondition(decoded.aiConsentVersion == cached.aiConsentVersion)
+    }
+
+    // Run with a home of its own (run.sh), so these files are not the Mac's.
+    private static func keepsAChatForItsAccountOnly() {
+        LaunchCache.keepTranscript(Data("kept".utf8), of: "chat", token: "ada")
+        precondition(LaunchCache.transcript(of: "chat", token: "ada") == Data("kept".utf8))
+        precondition(LaunchCache.transcript(of: "chat", token: "grace") == nil)
+        LaunchCache.clear()
+    }
+
+    // Dated in the order read, so the oldest is known without relying on the clock.
+    private static func keepsOnlyTheTwentyChatsReadLast() {
+        for i in 0...20 {
+            LaunchCache.keepTranscript(Data("{}".utf8), of: "chat-\(i)", token: i.isMultiple(of: 2) ? "ada" : "grace")
+            try! FileManager.default.setAttributes(
+                [.modificationDate: Date(timeIntervalSince1970: 1_000_000 + Double(i))],
+                ofItemAtPath: LaunchCache.transcriptURL(of: "chat-\(i)", token: i.isMultiple(of: 2) ? "ada" : "grace").path
+            )
+        }
+        // Writing one more drops the oldest, whichever account it was read in.
+        LaunchCache.keepTranscript(Data("{}".utf8), of: "chat-21", token: "grace")
+        precondition(LaunchCache.transcript(of: "chat-0", token: "ada") == nil)
+        precondition(LaunchCache.transcript(of: "chat-1", token: "grace") == nil)
+        precondition(LaunchCache.transcript(of: "chat-2", token: "ada") != nil)
+        precondition(LaunchCache.transcript(of: "chat-21", token: "grace") != nil)
+        LaunchCache.clear()
+    }
+
+    private static func signingOutForgetsTheChats() {
+        LaunchCache.keepTranscript(Data("{}".utf8), of: "chat", token: "ada")
+        LaunchCache.clear()
+        precondition(LaunchCache.transcript(of: "chat", token: "ada") == nil)
     }
 }

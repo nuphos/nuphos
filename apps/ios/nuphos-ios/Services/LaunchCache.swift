@@ -37,25 +37,28 @@ enum LaunchCache {
     }
 
     /// A chat's last full read, so opening it after a launch shows it at once while
-    /// it reads again (#3525). Only the chats read last are kept, under their account.
+    /// it reads again (#3525). Only the 20 chats read last are kept, across accounts.
     static func transcript(of channelId: String, token: String) -> Data? {
         if isPreview { return nil }
-        return try? Data(contentsOf: transcripts(token).appending(path: "\(channelId).json"))
+        return try? Data(contentsOf: transcriptURL(of: channelId, token: token))
     }
 
     static func keepTranscript(_ data: Data, of channelId: String, token: String) {
         if isPreview { return }
-        let folder = transcripts(token)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try? data.write(to: folder.appending(path: "\(channelId).json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        let kept = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
+        let url = transcriptURL(of: channelId, token: token)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         let modified = { (url: URL) in (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
+        let kept = FileManager.default.enumerator(at: transcripts, includingPropertiesForKeys: [.contentModificationDateKey])?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "json" } ?? []
         for old in kept.sorted(by: { modified($0) > modified($1) }).dropFirst(20) { try? FileManager.default.removeItem(at: old) }
     }
 
-    private static func transcripts(_ token: String) -> URL {
-        directory.appending(path: "transcripts/\(accountKey(token))", directoryHint: .isDirectory)
+    static func transcriptURL(of channelId: String, token: String) -> URL {
+        transcripts.appending(path: "\(accountKey(token))/\(channelId).json")
     }
+
+    private static var transcripts: URL { directory.appending(path: "transcripts", directoryHint: .isDirectory) }
 
     static func clear() {
         try? FileManager.default.removeItem(at: directory)
