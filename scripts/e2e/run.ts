@@ -204,13 +204,13 @@ const scenarios: Scenario[] = [
   ...dashboardUiScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
+  ...triggerLinkScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
   ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
-  ...triggerLinkScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
 ]
