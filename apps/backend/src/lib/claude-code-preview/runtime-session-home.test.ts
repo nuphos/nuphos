@@ -141,17 +141,27 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     }
   })
 
-  test('a delayed old-generation job removes only its generation, not a restored home or legacy home', () => {
+  test('a delayed old-generation job removes its generation and older ones, not a restored home', () => {
     const oldGeneration = `${home('archived')}.g-1`
     const restoredGeneration = `${home('archived')}.g-2`
 
     mkdirSync(oldGeneration)
+    mkdirSync(`${oldGeneration}.${hash('teammate')}`)
     mkdirSync(restoredGeneration)
     writeFileSync(join(restoredGeneration, 'new-data'), 'fixture')
     expect(reclaimAsJob('archived', 1)).toBe('removed')
     expect(existsSync(oldGeneration)).toBe(false)
+    expect(existsSync(`${oldGeneration}.${hash('teammate')}`)).toBe(false)
+    expect(existsSync(home('archived'))).toBe(false)
     expect(existsSync(join(restoredGeneration, 'new-data'))).toBe(true)
-    expect(existsSync(home('archived'))).toBe(true)
+    expect(existsSync(home('other'))).toBe(true)
+  })
+
+  // A computer from before generations ran the restored Task's turn in the first home;
+  // archived again, only the later generation is queued (#4473).
+  test('a generation job removes an older home it was not queued for', () => {
+    expect(reclaimAsJob('archived', 1)).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
     expect(existsSync(home('other'))).toBe(true)
   })
 
