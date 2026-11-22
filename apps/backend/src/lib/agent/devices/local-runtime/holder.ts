@@ -5,7 +5,7 @@ import { logEvent } from '@/lib/observability'
 import { reportedAgentsKey } from '../agent-registry'
 
 import { heldTunnels } from './held-tunnels'
-import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
+import { RUNTIME_PRESENCE_HEARTBEAT_MS, modelCatalogRecovered } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
 import { streamRelay } from './stream-relay'
 
@@ -248,21 +248,7 @@ export async function attachRuntimeTunnel(
         case 'status': {
           const reported = frame.status
 
-          const recoveredModels =
-            Object.entries(reported.agents).some(
-              ([provider, agent]) =>
-                agent?.models?.models.length &&
-                !agent.models.failed &&
-                status?.agents[provider as keyof LocalRuntimeStatus['agents']]?.models?.failed,
-            ) ||
-            reported.instances?.some(
-              (agent) =>
-                agent.models?.models.length &&
-                !agent.models.failed &&
-                status?.instances?.some(
-                  (previous) => previous.instanceId === agent.instanceId && previous.models?.failed,
-                ),
-            )
+          const recoveredModels = modelCatalogRecovered(status, reported)
 
           status = reported
           // Publish a recovered catalog before the picker reads it back.
