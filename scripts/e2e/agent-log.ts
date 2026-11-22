@@ -27,6 +27,8 @@ type AgentEntry = {
   sections?: string[]
   /** The response language a turn's prompt names. */
   language?: string
+  /** `start`: the model the turn received. */
+  model?: string
   isError?: boolean
   detail?: string
   /** How long a permission request took to be answered. */

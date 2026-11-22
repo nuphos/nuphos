@@ -209,8 +209,10 @@ export async function startStack(
       fetch(`http://127.0.0.1:${String(runtimePort)}/`),
     )
   }
+  // The newest CLI release is fixed: GitHub rate-limits its unauthenticated lookup.
+  const stub = resolve(import.meta.dirname, 'cli-release-stub.ts')
   const startBackend = () =>
-    spawn('backend', ['bun', 'run', 'src/index.ts'], {
+    spawn('backend', ['bun', 'run', '--preload', stub, 'src/index.ts'], {
       cwd: BACKEND_DIR,
       env: {
         ...backendEnv(backendPort, apiUrl, mongoUri),
