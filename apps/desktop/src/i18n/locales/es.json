@@ -4211,7 +4211,7 @@
   "Secret type": "Tipo de Secret",
   "Secret values are hidden by default. Text values can be decoded and edited; binary values stay base64 encoded so opening this view cannot corrupt their bytes.": "Los valores del Secret están ocultos de forma predeterminada. Los valores de texto se pueden decodificar y editar; los binarios se mantienen en base64 para que abrir esta vista no dañe sus bytes.",
   "Secrets": "Secrets",
-  "Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.": "Secretos cifrados en tus propios dispositivos. Nuphos solo guarda el texto cifrado y no puede leerlos.",
+  "Secrets encrypted on your own devices.": "Secretos cifrados en tus propios dispositivos.",
   "Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them": "Los secretos se ocultaron en la copia registrada; una huella HMAC permite comprobar si coinciden sin almacenarlos",
   "Section": "Sección",
   "Section order reset": "Se restableció el orden de las secciones",

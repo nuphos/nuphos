@@ -4211,7 +4211,7 @@
   "Secret type": "Secret 유형",
   "Secret values are hidden by default. Text values can be decoded and edited; binary values stay base64 encoded so opening this view cannot corrupt their bytes.": "Secret 값은 기본적으로 숨겨져 있습니다. 텍스트 값은 디코딩하여 편집할 수 있으며, 바이너리 값은 base64로 인코딩된 상태로 유지되므로 이 화면을 열어도 바이트가 손상되지 않습니다.",
   "Secrets": "시크릿",
-  "Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.": "내 기기에서 암호화된 비밀 정보입니다. Nuphos는 암호문만 저장하며 내용을 읽을 수 없습니다.",
+  "Secrets encrypted on your own devices.": "내 기기에서 암호화된 비밀 정보입니다.",
   "Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them": "저널 사본에서 시크릿을 가렸습니다. 시크릿을 저장하지 않고도 HMAC 지문으로 일치 여부를 확인할 수 있습니다",
   "Section": "섹션",
   "Section order reset": "섹션 순서를 재설정했습니다",

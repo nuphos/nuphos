@@ -4211,7 +4211,7 @@
   "Secret type": "Secret 類型",
   "Secret values are hidden by default. Text values can be decoded and edited; binary values stay base64 encoded so opening this view cannot corrupt their bytes.": "Secret 值預設會隱藏。文字值可以解碼並編輯；二進位值則維持 base64 編碼，因此開啟此檢視不會損壞其位元組。",
   "Secrets": "Secrets",
-  "Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.": "在你自己的裝置上加密的機密。Nuphos 只儲存密文，無法讀取內容。",
+  "Secrets encrypted on your own devices.": "在你自己的裝置上加密的機密。",
   "Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them": "日誌副本中的機密已遮蔽；透過 HMAC 指紋即可比對是否相同，無須儲存機密本身",
   "Section": "區塊",
   "Section order reset": "已重設區塊順序",

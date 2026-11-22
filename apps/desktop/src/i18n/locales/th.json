@@ -4211,7 +4211,7 @@
   "Secret type": "ประเภท Secret",
   "Secret values are hidden by default. Text values can be decoded and edited; binary values stay base64 encoded so opening this view cannot corrupt their bytes.": "ค่าของ Secret จะถูกซ่อนไว้โดยค่าเริ่มต้น ค่าข้อความสามารถถอดรหัสและแก้ไขได้ ส่วนค่าไบนารีจะคงเป็น base64 เพื่อไม่ให้การเปิดมุมมองนี้ทำให้ไบต์เสียหาย",
   "Secrets": "Secrets",
-  "Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.": "ข้อมูลลับที่เข้ารหัสบนอุปกรณ์ของคุณเอง Nuphos เก็บเพียงข้อความที่เข้ารหัสแล้วและไม่สามารถอ่านได้",
+  "Secrets encrypted on your own devices.": "ข้อมูลลับที่เข้ารหัสบนอุปกรณ์ของคุณเอง",
   "Secrets were redacted from the journaled copy; an HMAC fingerprint allows equality checks without storing them": "ปกปิดข้อมูลลับในสำเนาที่บันทึกไว้แล้ว ลายนิ้วมือ HMAC ช่วยให้ตรวจสอบความเท่ากันได้โดยไม่ต้องจัดเก็บข้อมูลลับ",
   "Section": "ส่วน",
   "Section order reset": "รีเซ็ตลำดับส่วนแล้ว",

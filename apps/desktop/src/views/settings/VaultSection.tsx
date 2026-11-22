@@ -24,12 +24,7 @@ export function VaultSection({ userId }: { userId: string }) {
 
   return (
     <div>
-      <SectionHeader
-        title={t('Vault')}
-        description={t(
-          'Secrets encrypted on your own devices. Nuphos stores only ciphertext and cannot read them.',
-        )}
-      />
+      <SectionHeader title={t('Vault')} description={t('Secrets encrypted on your own devices.')} />
       <div className={`${vaultCard} mb-6`}>
         <p className="text-[13px] text-main">{t('How does Nuphos keep your secrets safe?')}</p>
         <p className="mt-1 text-[12.5px] text-tertiary">
