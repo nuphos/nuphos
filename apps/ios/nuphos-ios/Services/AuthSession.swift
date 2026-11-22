@@ -42,9 +42,8 @@ final class AuthSession {
     let savedAccounts: SavedAccounts = {
         #if DEBUG
         // Fixture logins and restored previews must never read or overwrite real accounts.
-        if PreviewIsolation.isPreview(arguments: CommandLine.arguments, fixture:
-            ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"]
-                ?? UserDefaults.standard.string(forKey: "previewResponses")) {
+        // The same check `PreviewIsolation.installIfPreview` makes, which runs after this.
+        if PreviewIsolation.isPreview(arguments: CommandLine.arguments, fixture: PreviewIsolation.launchFixture()) {
             return SavedAccounts(read: { nil }, write: { _ in })
         }
         #endif
