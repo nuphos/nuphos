@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { config } from '@/config'
-import { registerDiscordCommands } from '@/lib/discord/api'
+import { discordApi, registerDiscordCommands } from '@/lib/discord/api'
 import { discordGatewayLeases } from '@/lib/discord/store'
 import { logError, logEvent } from '@/lib/observability'
 import { handleDiscordGatewayInteraction } from '@/routes/discord/interactions'
@@ -86,19 +86,9 @@ function onConnectError(err: unknown): void {
 }
 
 async function connect(): Promise<void> {
-  const token = config.discord.botToken
+  if (!config.discord.botToken || stopping) return
+  const gatewayUrl = resumeUrl ?? (await discordApi<{ url: string }>('/gateway/bot')).url
 
-  if (!token || stopping) return
-  let gatewayUrl = resumeUrl
-
-  if (!gatewayUrl) {
-    const response = await fetch('https://discord.com/api/v10/gateway/bot', {
-      headers: { Authorization: `Bot ${token}` },
-    })
-
-    if (!response.ok) throw new Error(`Discord Gateway discovery failed (${response.status})`)
-    gatewayUrl = ((await response.json()) as { url: string }).url
-  }
   socket = new WebSocket(`${gatewayUrl}?v=10&encoding=json`)
   socket.addEventListener('message', (event) => {
     void handlePayload(JSON.parse(String(event.data)) as GatewayPayload).catch((err) => {
