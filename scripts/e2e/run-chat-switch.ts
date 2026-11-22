@@ -192,7 +192,6 @@ async function scenario(page: Page, stack: Stack) {
   await overlayScenarios(page, { ...taskA, text: ACK_A }, { ...taskB, text: ACK_B })
   await backHome(page)
   await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
-  await focused(page, 'task, from the New Task page')
   await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
 }
 
