@@ -1,7 +1,6 @@
 import { ObjectId } from 'mongodb'
 
 import { parseUtcCron } from '@/lib/cron'
-import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { notifyNudge } from '@/lib/push/notify'
 
@@ -158,13 +157,13 @@ export type TriggerRunDeps = {
   notify: typeof notifyNudge
 }
 
-const runDeps = (): TriggerRunDeps => ({ triggers: agentTriggers(), notify: notifyNudge })
+export const runDeps = (): TriggerRunDeps => ({ triggers: agentTriggers(), notify: notifyNudge })
 
-/** A fire's turn ran: the Trigger ran, and any outage it was in is over. */
+/** A fire's turn ran: the Trigger ran, and any outage or run of failures it was in is over. */
 export async function recordTriggerRan(triggerId: string, deps = runDeps()): Promise<void> {
   await deps.triggers.updateOne(
     { _id: new ObjectId(triggerId) },
-    { $set: { lastRunAt: new Date() }, $unset: { missedRunAt: '' } },
+    { $set: { lastRunAt: new Date() }, $unset: { missedRunAt: '', failedRunCount: '' } },
   )
 }
 
@@ -229,34 +228,12 @@ export async function sweepMissedTriggerRuns(
   return alerted
 }
 
-type Delivered = { source?: string; metadata?: MessageMetadata; receivedAt: string }
+export type Delivered = { source?: string; metadata?: MessageMetadata; receivedAt: string }
 
 /** The fires among the messages of a turn that ran. */
 export async function recordFiresRan(messages: readonly Delivered[]): Promise<void> {
   for (const id of new Set(messages.flatMap((message) => triggerIdOf(message) ?? [])))
     await recordTriggerRan(id)
-}
-
-/**
- * The fires among the messages of a turn that gave up on an offline computer.
- * A Trigger has no sender to tell, so each is a missed run. Never throws: the
- * turn is already failing with `error`.
- */
-export async function recordDroppedFires(
-  error: unknown,
-  messages: readonly Delivered[],
-): Promise<void> {
-  if (!(error instanceof AppError) || error.code !== 'runtime_offline') return
-  for (const message of messages) {
-    const triggerId = triggerIdOf(message)
-
-    if (!triggerId) continue
-    try {
-      await recordDroppedFire(triggerId, new Date(message.receivedAt))
-    } catch (err) {
-      logError('agent.trigger.dropped_fire_record_failed', err, { trigger_id: triggerId })
-    }
-  }
 }
 
 let sweepTimer: ReturnType<typeof setInterval> | undefined

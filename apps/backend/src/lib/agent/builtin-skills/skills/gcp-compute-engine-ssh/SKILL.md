@@ -1,6 +1,6 @@
 ---
 name: gcp-compute-engine-ssh
-description: Run shell commands on a bound GCP Compute Engine (GCE) VM from the sandbox over SSH, via `gcloud compute ssh --command` (with IAP tunneling for VMs without a public IP). Covers credential setup, the OS Login + IAP IAM permissions the bound service account needs, piping multi-line scripts over stdin, and troubleshooting "Permission denied (publickey)".
+description: Run shell commands on a bound GCE VM over gcloud compute ssh (IAP for private VMs). Covers OS Login/IAP permissions, piping scripts and "Permission denied (publickey)".
 ---
 
 # GCE — run commands on a bound VM over SSH

@@ -64,7 +64,7 @@ const ACP_AUTH_REQUIRED_MESSAGE = 'Authentication required'
 /** Product code every client keys on to render sign-in guidance. */
 export const RUNTIME_AUTH_REQUIRED_CODE = 'runtime_auth_required'
 export const RUNTIME_AUTH_REQUIRED_MESSAGE =
-  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.'
+  'This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message.'
 
 // Runtimes before v0.1.50 send the adapter's error only in openab-core's display wrapper,
 // `**<Label>** (code: N)\n<message>`. Delete this fallback once they are unsupported.
@@ -84,37 +84,38 @@ export function acpErrorCode(error: OpenAbRpcError): number | undefined {
 }
 
 /**
- * The provider answered the agent with HTTP 402: the account has no usage left
- * (Grok Build reports `usage balance exhausted`). Only credits or a reset fix it,
- * so it is a product state, not a transport failure.
+ * The provider answered HTTP 402: no usage left (Grok Build: `usage balance exhausted`). Only
+ * credits or a reset fix it, so it is a product state, not a transport failure.
  */
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
-/**
- * Claude Code refuses a turn it cannot bill with its own one-line notice: it streams
- * it, then fails the prompt with -32603 `Internal error: <notice>` (first line only).
- */
+/** Claude: -32603 `Internal error: <notice>`. Codex: bare `Internal error`, notice on a `> ` line. */
 const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
-/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES` that name a limit; the notice already names the reset. */
+const DETAIL_NOTICE = /(?:^|\n)Internal error\n> ([^\n]*)/u
+/** The SDK's `USAGE_LIMIT_ERROR_PREFIXES`, Codex's (curly apostrophe), Anthropic's hold, OpenCode's free tier. */
 const CLAUDE_USAGE_LIMIT =
-  /^(?:You've hit your|You've reached your|You're out of usage credits|Your org is out of usage)/u
-/** A credential the CLI holds but can no longer use, e.g. `Failed to authenticate: OAuth session expired …`. */
-const CLAUDE_AUTH_FAILED = /^(?:Failed to authenticate\b|Invalid API key\b|.*Please run \/login\b)/u
+  /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage|(?:API Error: )?Your account can['’]t receive replies from Claude|The model provider refused the request: Free usage limit reached\b)/u
+/** A credential the CLI can no longer use: Claude's `Failed to authenticate: …`, Codex's refusals and 401s. */
+const CLAUDE_AUTH_FAILED =
+  /^(?:Failed to authenticate\b|Invalid API key\b|unexpected status 401 Unauthorized\b|.*Please run \/login\b|workspace routing discovery unauthorized\b|Your access token could not be refreshed\b)/u
+const isProductStateNotice = (n: string) => CLAUDE_USAGE_LIMIT.test(n) || CLAUDE_AUTH_FAILED.test(n)
 
-/** The runtime's own reason for a failed turn: the first line after `Internal error: `. */
+/** The agent's own reason: after `Internal error: `, or a usage/sign-in notice on a `> ` line. */
 export function claudeNotice(error: unknown): string | undefined {
   const adapter = error instanceof OpenAbRpcError ? adapterError(error) : undefined
 
-  return adapter?.code === -32603 ? CLAUDE_NOTICE.exec(adapter.message)?.[1]?.trim() : undefined
+  if (adapter?.code !== -32603) return undefined
+  const notice = CLAUDE_NOTICE.exec(adapter.message)?.[1]?.trim()
+  const detail = DETAIL_NOTICE.exec((error as OpenAbRpcError).message)?.[1]?.trim()
+
+  return notice || (detail && isProductStateNotice(detail) ? detail : undefined)
 }
 
 /** Claude Code's notice when it names a usage limit or a sign-in failure, or undefined. */
 export function claudeProductStateNotice(error: unknown): string | undefined {
   const notice = claudeNotice(error)
 
-  return notice && (CLAUDE_USAGE_LIMIT.test(notice) || CLAUDE_AUTH_FAILED.test(notice))
-    ? notice
-    : undefined
+  return notice && isProductStateNotice(notice) ? notice : undefined
 }
 
 export function isRuntimeAuthRequired(error: unknown): boolean {

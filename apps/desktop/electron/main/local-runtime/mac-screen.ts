@@ -168,6 +168,21 @@ export async function openMacScreen(
   return SCREEN
 }
 
+/** The CLI's Mac screen host: the bundled binary, holding its own permissions, or e2e's stand-in. */
+export function cliMacScreenHost(
+  bundleRoot: string,
+  owner: () => string | null,
+  standIn = process.env.NUPHOS_E2E_MAC_SCREEN_HOST,
+) {
+  return {
+    binary: () => standIn || path.join(bundleRoot, 'mac-screen-host'),
+    handOver: (human: boolean) =>
+      console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
+    owner,
+    ownPermissions: true,
+  }
+}
+
 /** The tunnel's deps that show this Mac's screen: its stream, its open request, and its status. */
 export function macScreenDeps(
   pool: string,
@@ -180,13 +195,19 @@ export function macScreenDeps(
     owner: () => string | null
     /** The CLI's: the host asks for its own permissions (see startHost). */
     ownPermissions?: boolean
+    /** Asks whoever sits at this Mac for what the host needs; macOS shows no prompt the host itself asks for. */
+    ask?: () => void
   },
   instances?: (request: unknown) => Promise<unknown>,
 ) {
   return {
     instances: withDesktopRequests(
       (sessionId) =>
-        openMacScreen(pool, sessionId, () => startHost(pool, host.binary(), host.ownPermissions)),
+        openMacScreen(pool, sessionId, () => {
+          host.ask?.()
+
+          return startHost(pool, host.binary(), host.ownPermissions)
+        }),
       instances,
     ),
     connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver, host.owner),

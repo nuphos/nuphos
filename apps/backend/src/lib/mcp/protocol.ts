@@ -5,6 +5,9 @@
 // throws at import time when sandbox env vars are absent, which is why the rest
 // of the test suite avoids importing it transitively. The agent-touching tool
 // implementations live in routes/mcp.ts and are injected here as handlers.
+// lib/observability is safe to import here: it pulls in no config.
+
+import { logError } from '@/lib/observability'
 
 import {
   fail,
@@ -154,7 +157,7 @@ export async function handleMcpMessage(
     }
   } catch (err) {
     // Don't echo err.message to the client — it can carry internal details.
-    console.error('[mcp] unhandled error in JSON-RPC dispatch:', err)
+    logError('mcp.dispatch_failed', err)
     if (isNotification) return null
 
     return fail(id, -32603, 'Internal error')

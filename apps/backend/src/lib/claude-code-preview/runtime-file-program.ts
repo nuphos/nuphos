@@ -20,10 +20,13 @@ try {
   if (typeof input.path !== 'string' || input.path.length > 4096 || input.path.includes('\0')) throw Error('invalid_path');
   const workspace = input.workspace;
   if (typeof workspace !== 'string' || !path.isAbsolute(workspace)) throw Error('invalid_path');
-  if ((await fs.lstat(workspace)).isSymbolicLink()) throw Error('forbidden_path');
+  // A saved secret lives outside the workspace, so a runtime with no such directory
+  // (an agent host that is not the runtime image) can still have one read.
+  const missing = input.secret === true && !(await fs.lstat(workspace).catch(() => null));
+  if (!missing && (await fs.lstat(workspace)).isSymbolicLink()) throw Error('forbidden_path');
   // The agent runs in this workspace (openab ignores a per-conversation cwd),
   // so its paths are read here as-is.
-  const root = await fs.realpath(workspace);
+  const root = missing ? workspace : await fs.realpath(workspace);
   // Accept both the adapter's virtual /workspace path and the real local path.
   const virtual = '/workspace';
   const requested = input.path === virtual ? root : input.path.startsWith(virtual + '/') ? path.join(root, input.path.slice(virtual.length + 1)) : path.resolve(root, input.path);
@@ -36,7 +39,9 @@ try {
   // session's logins, so they stay out of reach.
   const homes = [];
   if (typeof input.sessionId === 'string') {
-    const id = (await import('node:crypto')).createHash('sha256').update(input.sessionId).digest('hex');
+    if (input.sessionHomeEpoch !== undefined && (!Number.isSafeInteger(input.sessionHomeEpoch) || input.sessionHomeEpoch < 0)) throw Error('invalid_path');
+    const hash = (await import('node:crypto')).createHash('sha256').update(input.sessionId).digest('hex');
+    const id = input.sessionHomeEpoch ? hash + '.g-' + input.sessionHomeEpoch : hash;
     const home = path.join((await import('node:os')).homedir(), '.nuphos', 'session-homes', id);
     // Like the workspace, a home that is a link is refused rather than followed.
     const stat = await fs.lstat(home).catch(() => null);
@@ -46,7 +51,12 @@ try {
     const relative = within(dir, candidate);
     return relative !== null && !relative.split(path.sep).some(part => part.startsWith('.'));
   });
-  const inside = candidate => within(root, candidate) !== null || inHome(candidate);
+  // A value the secure input card saved: a cloud runtime keeps those under /tmp
+  // (attachment-job.mjs), outside the workspace. Only a read that asks for one reaches
+  // it. /tmp is a link on macOS, so the directory it resolves to counts as well.
+  const tmp = ['/tmp', await fs.realpath('/tmp').catch(() => '/tmp')];
+  const savedSecret = candidate => input.secret === true && input.action === 'read' && tmp.some(dir => /^nuphos-secret-[^\/\\]+[\/\\]\d+[\/\\][^\/\\]+$/.test(within(dir, candidate) ?? ''));
+  const inside = candidate => within(root, candidate) !== null || inHome(candidate) || savedSecret(candidate);
   if (!inside(requested)) throw Error('forbidden_path');
   if (input.action === 'import') {
     if (typeof input.sessionId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(input.sessionId)) throw Error('invalid_path');

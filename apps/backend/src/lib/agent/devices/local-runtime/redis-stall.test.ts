@@ -23,7 +23,7 @@ class FakeRedis {
       return old
     }
     if (script.includes('SET')) {
-      if (held !== args[0]) return 0
+      if (held !== args[0] && (held !== undefined || script.includes('if not raw or'))) return 0
       this.value = args[1]
 
       return 1
@@ -78,6 +78,9 @@ describe('local runtime tunnel during a Redis stall', () => {
     )
 
     try {
+      // The tunnel holds the computer once it has spoken; the stall comes after.
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(5)
       stalled = true
       const before = frames.filter((frame) => frame.t === 'ping').length
 
@@ -86,6 +89,40 @@ describe('local runtime tunnel during a Redis stall', () => {
       expect(closed).toBeUndefined()
     } finally {
       stalled = false
+      tunnel.closed()
+    }
+  })
+
+  test('keeps the tunnel open when the presence key has expired', async () => {
+    stalled = false
+    let closed: { code: number; reason: string } | undefined
+    const presence = createRedisPresenceStore()
+    const tunnel = await attachRuntimeTunnel(
+      'u1',
+      'd1',
+      {
+        send: () => {},
+        close: (code, reason) => {
+          closed = { code, reason }
+        },
+      },
+      {
+        bus: { publish: () => Promise.resolve(1), subscribe: () => Promise.resolve(() => {}) },
+        presence,
+        isMember: async () => true,
+        heartbeatMs: 5,
+      },
+    )
+
+    try {
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
+      redis.value = undefined
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
+      expect(closed).toBeUndefined()
+      expect(redis.value).toBeDefined()
+    } finally {
       tunnel.closed()
     }
   })
@@ -107,15 +144,18 @@ describe('local runtime tunnel during a Redis stall', () => {
         bus: { publish: () => Promise.resolve(1), subscribe: () => Promise.resolve(() => {}) },
         presence,
         isMember: async () => true,
-        heartbeatMs: 60_000,
+        heartbeatMs: 5,
       },
     )
 
     try {
+      // This tunnel takes the computer with its first frame, then another connection does.
+      tunnel.receive(JSON.stringify({ t: 'pong' }))
+      await tick(10)
       await presence.claim('u1', 'd1', 'someone-else')
       tunnel.receive(JSON.stringify({ t: 'pong' }))
       await tick(10)
-      expect(closed?.reason).toBe('Device presence expired')
+      expect(closed).toEqual({ code: 4001, reason: 'Device presence expired' })
     } finally {
       tunnel.closed()
     }

@@ -5,8 +5,10 @@ import { attachRuntimeTunnel } from './holder'
 import {
   commitLocalAgentInstance,
   createLocalAgentInstance,
+  openLocalDesktop,
   removeLocalAgentInstance,
   resetLocalAgentInstance,
+  setLocalAutoInstall,
 } from './instances'
 import { createMemoryPresenceStore } from './presence'
 import { holderChannel, localRuntimeStatusSchema, streamChannel } from './protocol'
@@ -233,14 +235,14 @@ test('reset names an added agent by its instance id and a default one by its pro
 test('reset surfaces the host refusal and an unanswered reset times out', async () => {
   const { deps } = await answering(() => ({
     ok: false,
-    error: 'Only a cloud computer resets its default runtimes',
+    error: 'Only a computer from Nuphos resets its default runtimes',
   }))
 
   await expect(
     resetLocalAgentInstance(target, { provider: 'claude-code' }, { deps }),
   ).rejects.toMatchObject({
     code: 'agent_instance_failed',
-    message: 'Only a cloud computer resets its default runtimes',
+    message: 'Only a computer from Nuphos resets its default runtimes',
   })
   await expect(
     resetLocalAgentInstance(target, { provider: 'codex' }, { deps: setup().deps, timeoutMs: 5 }),
@@ -251,4 +253,33 @@ test('a host that can reset agents says so in its status', () => {
   expect(localRuntimeStatusSchema.parse({ agents: {}, agentReset: true }).agentReset).toBe(true)
   expect(localRuntimeStatusSchema.parse({ agents: {} }).agentReset).toBeUndefined()
   expect(() => localRuntimeStatusSchema.parse({ agents: {}, agentReset: 'yes' })).toThrow()
+})
+
+// #2947: a Mac that cannot be controlled refuses its screen, and the viewer is told why.
+test('opening a desktop surfaces the host refusal word for word', async () => {
+  const reason =
+    'Accessibility is not allowed for Nuphos yet. Allow it on this Mac in System Settings > Privacy & Security > Accessibility.'
+  const { deps, requests } = await answering(() => ({ ok: false, error: reason }))
+
+  await expect(openLocalDesktop(target, 'runtime:mac', { deps })).rejects.toMatchObject({
+    status: 409,
+    code: 'agent_instance_failed',
+    message: reason,
+  })
+  expect(requests).toEqual([{ method: 'desktop', sessionId: 'runtime:mac' }])
+})
+
+test('the card’s switch reaches the computer, and its answer comes back through the tunnel', async () => {
+  const { deps, requests } = await answering((request) => ({ ok: true, enabled: request.enabled }))
+
+  expect(await setLocalAutoInstall(target, false, { deps })).toEqual({ enabled: false })
+  expect(requests).toEqual([{ method: 'autoInstall', enabled: false }])
+})
+
+test('a computer that answers without the switch is an invalid answer', async () => {
+  const { deps } = await answering(() => ({ ok: true }))
+
+  await expect(setLocalAutoInstall(target, true, { deps })).rejects.toMatchObject({
+    code: 'agent_instance_invalid_response',
+  })
 })

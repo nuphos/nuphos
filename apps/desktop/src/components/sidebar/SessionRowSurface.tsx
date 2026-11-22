@@ -1,6 +1,9 @@
 import clsx from 'clsx'
 
 import { SESSION_DRAG_TYPE } from '../../app/workspace/splitLayout'
+import { queryClient } from '../../lib/query/client'
+import { prefetchTask } from '../agent/panel/taskTranscript'
+import { prefetchChannel } from '../channels/useChannel'
 
 import { MAKE_BOT_DRAG_TYPE } from './bot-drop'
 import { BOT_PIN_DRAG_TYPE } from './bot-pin-drag'
@@ -59,6 +62,12 @@ export function SessionRowSurface({
       }}
       data-bot-pin-key={item.bot || item.channel ? item.key : undefined}
       data-sidebar-row
+      // Pointing at a chat loads it, so the click shows it from memory.
+      onPointerEnter={
+        sessionId && teamId
+          ? () => (item.channel ? prefetchChannel : prefetchTask)(queryClient, teamId, sessionId)
+          : undefined
+      }
       className={clsx(
         // A row with a detail line keeps one height; the detail rises into it on hover.
         revealDetail && 'group/session relative h-9 overflow-hidden',

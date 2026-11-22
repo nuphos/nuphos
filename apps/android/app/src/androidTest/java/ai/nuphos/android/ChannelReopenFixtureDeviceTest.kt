@@ -7,7 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.Http
@@ -42,6 +42,8 @@ class ChannelReopenFixtureDeviceTest {
     private val token = "synthetic-chats-reopen"
     private val team = Team("aaaaaaaaaaaaaaaaaaaaaaaa", "Fixture A")
     private val aReads = AtomicInteger()
+    // #3526: a Bot chat's reads never ask for the runtime state.
+    private val runtimeStates = java.util.concurrent.ConcurrentLinkedQueue<String>()
     private val aStarted = CountDownLatch(1)
     private val releaseA = CountDownLatch(1)
     private lateinit var store: AgentStore
@@ -67,6 +69,8 @@ class ChannelReopenFixtureDeviceTest {
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
             val path = request.url.encodedPath
+            if (path.endsWith("/chat-a") || path.endsWith("/chat-b"))
+                runtimeStates += request.url.queryParameter("runtimeState") ?: "(asked)"
             val body = when {
                 path.endsWith("/agent/conversations/chat-a") -> {
                     // The first read of A hangs until the reader has moved on to B.
@@ -134,5 +138,22 @@ class ChannelReopenFixtureDeviceTest {
         compose.onNodeWithText("Only in chat B").assertDoesNotExist()
         compose.onNodeWithText("Try again").assertDoesNotExist()
         assertTrue("A was read again after its first read was abandoned", aReads.get() >= 2)
+        assertEquals("every read of a Bot chat leaves out the runtime", setOf("omit"), runtimeStates.toSet())
+    }
+
+    /** #3526: the most recent 20 chats stay in memory, Tasks and Bot chats each; older ones are let go. */
+    @Test fun onlyTheMostRecentChatsStayInMemory() {
+        inst.runOnMainSync {
+            val firstTask = store.session("task-0", "Task 0")
+            val firstChat = store.channelSession("chat-0", "Chat 0")
+            for (i in 1..20) { store.session("task-$i", "Task $i"); store.channelSession("chat-$i", "Chat $i") }
+            val lastTask = store.session("task-20", "Task 20")
+            val lastChat = store.channelSession("chat-20", "Chat 20")
+
+            assertNotSame("the oldest Task was let go", firstTask, store.session("task-0", "Task 0"))
+            assertNotSame("the oldest Bot chat was let go", firstChat, store.channelSession("chat-0", "Chat 0"))
+            assertSame("the most recent Task stays", lastTask, store.session("task-20", "Task 20"))
+            assertSame("the most recent Bot chat stays", lastChat, store.channelSession("chat-20", "Chat 20"))
+        }
     }
 }

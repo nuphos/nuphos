@@ -37,6 +37,20 @@ test('results a client renders a card from are stored', () => {
   const parts = [
     { type: 'tool', toolCallId: 'p', toolName: 'plan_create', output: { planId: 'plan' } },
     { type: 'tool-render_chart', toolCallId: 'c', output: { series: [] } },
+    // A question's answer is matched to its card by the request id its result names.
+    {
+      type: 'tool',
+      toolCallId: 'q',
+      toolName: 'request_user_decision',
+      output: { status: 'awaiting_user_decision', requestId: 'nuphos-1' },
+    },
+    // A thread card names the agent each message ran on, from its receipt.
+    {
+      type: 'tool',
+      toolCallId: 's',
+      toolName: 'send_message_to_thread',
+      output: { threadId: 't', runtimeLabel: "Yuanlin's Box" },
+    },
     { type: 'text', text: 'done' },
     { type: 'data-steering', output: 'not a tool' },
   ]

@@ -1,47 +1,28 @@
 // A person answers an agent's question. The answer is not a message: the
-// question is resolved, a short record is kept where it was asked, and the
-// asking agent is woken with the card and the answer, as a Trigger fire is.
+// question is resolved, the person's reply is recorded where it was asked, and
+// the asking agent is woken with the card and the answer, as a Trigger fire is.
 import { randomUUID } from 'node:crypto'
 
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import {
-  appendConversationMessages,
-  bumpConversationActivity,
-  getConversationBySessionId,
-} from './db'
+import { answered, recordInChannel } from './decision-channel-reply'
 import { reopenInputRequest, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
-import { answerInputRequest } from './plan-decision'
 import { ownBody } from './tools-skilled/decision-tools'
 
 import type { AgentConversation } from './db'
+import type { Actor, DecisionAnswer } from './decision-channel-reply'
 import type { InputRequest } from './db/pending-decision'
 
-/** What a person picked or typed: for one question, or per question of a card that asks several. */
-export type DecisionAnswer = {
-  choices?: string[]
-  text?: string
-  questions?: { choices?: string[]; text?: string }[]
-}
+export type { DecisionAnswer }
 
 const SENDER = 'nuphos:decision'
 const BODY_EXCERPT = 600
 
-function said({ choices, text }: { choices?: string[]; text?: string }): string {
-  return text?.trim() || choices?.join(', ') || '(no answer)'
-}
-
 /** "Which regions? → us-east, eu-west", one line per question. */
 export function answerLines(request: InputRequest, answer: DecisionAnswer): string[] {
-  const questions = request.questions ?? []
-
-  if (!questions.length) return [`${request.question} → ${said(answer)}`]
-
-  return questions.map(
-    (question, index) => `${question.question} → ${said(answer.questions?.[index] ?? {})}`,
-  )
+  return answered(request, answer).map((entry) => `${entry.question} → ${entry.said}`)
 }
 
 /** Who answered: the conversation's owner, whose answer it is, or another member. */
@@ -81,8 +62,8 @@ export function answerNotice(
 
   return [
     asker
-      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered from the Inbox.`
-      : `Your question (requestId ${request.id}) was answered from the Inbox.`,
+      ? `A question about this conversation (requestId ${request.id}), asked by conversation ${askedBy}, was answered.`
+      : `Your question (requestId ${request.id}) was answered.`,
     `Answered by: ${JSON.stringify(who.displayName)}, ${
       who.owner
         ? "this conversation's owner: it is their own answer."
@@ -100,14 +81,13 @@ export function answerNotice(
 
 /**
  * Resolves an open question with a person's answer and wakes the agent that
- * asked it. A plan's question decides the plan, whose own decision wakes the
- * agent. Refused once the question is no longer open.
+ * asked it. Refused once the question is no longer open.
  */
 export async function answerDecision(args: {
   conversation: AgentConversation
   requestId: string
   answer: DecisionAnswer
-  actor: { id: string; displayName: string }
+  actor: Actor
   teamId: string
 }): Promise<void> {
   const { conversation, requestId, answer, actor, teamId } = args
@@ -116,29 +96,68 @@ export async function answerDecision(args: {
   if (request?.status !== 'open')
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   // A secret is typed in its masked card and a connection is made by selecting it: never as text here.
+  // An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
   if (
-    request.category === 'integration' ||
-    (request.category === 'credential' && !credentialStatusChoice(request, answer))
+    (request.category === 'integration' &&
+      (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
+    (request.category === 'credential' && !credentialChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
-  if (request.planId) {
-    await answerInputRequest({
-      sessionId: conversation.sessionId,
-      userId: conversation.userId,
-      requestId,
-      answer: said(answer),
-      actorUserId: actor.id,
-      teamId,
-    })
-
-    return
-  }
   if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
+
+  await wakeAsker(conversation, request, teamId, answerNotice(request, answer, who))
+  if (request.channelId) await recordInChannel(conversation, request, answer, actor)
+  await tellAbout(conversation, request, answer, who, teamId)
+}
+
+/**
+ * A person dismisses an open question: it is closed and the agent that asked is woken to
+ * carry on without it, with the reason when one was given. Refused once it is no longer open.
+ */
+export async function dismissDecision(args: {
+  conversation: AgentConversation
+  requestId: string
+  actor: { id: string; displayName: string }
+  teamId: string
+  reason?: string
+}): Promise<void> {
+  const { conversation, requestId, actor, teamId, reason } = args
+  const request = conversation.inputRequests?.find((entry) => entry.id === requestId)
+
+  if (
+    !request ||
+    !(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId))
+  )
+    throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
+  const by = `${JSON.stringify(actor.displayName)}, ${actor.id === conversation.userId ? "this conversation's owner" : 'a teammate'}`
+
+  await wakeAsker(
+    conversation,
+    request,
+    teamId,
+    [
+      `Your question (requestId ${request.id}) was dismissed by ${by}: no answer is coming.`,
+      ...(reason ? [`Reason: ${JSON.stringify(reason)}`] : []),
+      `Question: ${request.question}`,
+      'Carry on without it as far as you can and say what you assumed. Do not ask it again unless something has changed.',
+    ].join('\n'),
+  )
+}
+
+/**
+ * Wakes the agent that asked with what became of its question, which is
+ * already taken: if the agent cannot be told, now or once its turn comes, the
+ * question is open again so it can be retried.
+ */
+async function wakeAsker(
+  conversation: AgentConversation,
+  request: InputRequest,
+  teamId: string,
+  notice: string,
+) {
   const { startConversationTurn } = await import('./conversation-turn')
-  // The question was taken; if the agent cannot be told, now or once its turn
-  // comes, it is open again so the answer can be retried.
   const { run } = await startConversationTurn(
     {
       userId: conversation.userId,
@@ -149,16 +168,13 @@ export async function answerDecision(args: {
       answers: request,
     },
     conversation,
-    answerNotice(request, answer, who),
+    notice,
     'agent.resource',
     systemSender(SENDER, 'Nuphos'),
   ).catch(async (error: unknown) => {
     await reopenInputRequest(conversation.sessionId, conversation.userId, request)
     throw error
   })
-
-  if (request.channelId) await recordInChannel(request, answer, actor.displayName)
-  await tellAbout(conversation, request, answer, who, teamId)
 
   run.catch((error: unknown) => {
     logError('agent.decision.answer_turn_failed', error, { session_id: conversation.sessionId })
@@ -215,38 +231,16 @@ async function tellAbout(
   }
 }
 
-/** The answer's record in the channel the question was asked in. It wakes no one. */
-async function recordInChannel(request: InputRequest, answer: DecisionAnswer, who: string) {
-  const channel = request.channelId ? await getConversationBySessionId(request.channelId) : null
+/**
+ * A credential question with options is a choice like any other: one of them, or words, as with
+ * Other… (#4029). A secret card, or one with no options, asks for a value, which never enters here.
+ */
+function credentialChoice(request: InputRequest, answer: DecisionAnswer): boolean {
+  if (request.secretName || request.questions?.length || !request.options?.length) return false
+  if (answer.questions !== undefined) return false
+  const picked = answer.choices ?? []
 
-  if (!channel?.teamId) return
-  await appendConversationMessages({
-    sessionId: channel.sessionId,
-    userId: channel.userId,
-    teamId: channel.teamId,
-    messages: [
-      {
-        id: randomUUID(),
-        role: 'user',
-        parts: answerLines(request, answer).map((line) => ({
-          type: 'text',
-          text: `${who} answered: ${line}`,
-        })),
-        metadata: systemSender(SENDER, 'Nuphos'),
-      },
-    ],
-  })
-  await bumpConversationActivity(channel.sessionId, channel.userId)
-}
+  if (answer.text !== undefined) return picked.length === 0 && answer.text.trim() !== ''
 
-/** A login-status button is ordinary text; secret values never enter this endpoint. */
-function credentialStatusChoice(request: InputRequest, answer: DecisionAnswer): boolean {
-  return (
-    !request.secretName &&
-    !request.questions?.length &&
-    answer.text === undefined &&
-    answer.questions === undefined &&
-    (answer.choices?.length ?? 0) > 0 &&
-    (answer.choices?.every((choice) => request.options?.includes(choice)) ?? false)
-  )
+  return picked.length > 0 && picked.every((choice) => request.options?.includes(choice))
 }

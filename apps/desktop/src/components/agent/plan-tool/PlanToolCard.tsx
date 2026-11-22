@@ -1,8 +1,6 @@
 import clsx from 'clsx'
 import { memo, useMemo, useState } from 'react'
 
-import { PlanActionBar } from './PlanActionBar'
-import { initiallyFolded, planCardRegions } from './planCardLayout'
 import { PlanHeader } from './PlanHeader'
 import {
   PlanCostView,
@@ -12,28 +10,13 @@ import {
 } from './planSections'
 import { PlanStepsList } from './PlanStepView'
 import { PlanBuildingView, PlanExecutionErrorView, PlanExecutionPreparingView } from './statusViews'
-import { usePlanDecision } from './usePlanDecision'
 
 import type { CommandStatus } from './planData'
-import type { Plan, PlanApprovalProgress, PlanLifecycleStatus } from '../../../api'
+import type { PlanLifecycleStatus } from '../../../api'
 import type { PlanPayload } from '../planPayload'
 
 type Props = {
   payload: PlanPayload
-  /** Whether the Approve button should be shown. Separate from `canChat` so a
-   *  plan that's mid-execution can still expose Chat (= interrupt) without
-   *  showing a no-op Approve. */
-  canApprove?: boolean
-  /** Whether the Chat button should be shown. Independent of `canApprove`. */
-  canChat?: boolean
-  /** Called when the user clicks Approve — agent should keep executing. */
-  onApprove?: () => Promise<Plan | void> | Plan | void
-  /** Decline the plan: `'revise'` (Request changes — keep it proposed, agent
-   *  revises against the reason) or `'delete'` (Reject — discard it). The reason
-   *  is optional for delete. Gated like Approve. */
-  onReject?: (reason: string, mode: 'revise' | 'delete') => void
-  /** Called when the user clicks Chat — agent should stop and let the user redirect. */
-  onChat?: () => void
   /**
    * Linear status per command, in the order they appear in the plan
    * (step → job → command). When provided the card renders a live "todo
@@ -44,11 +27,6 @@ type Props = {
   /** Lifecycle status of the persisted plan. When set, a status badge renders
    *  in the header next to the plan number. Absent for legacy plans. */
   status?: PlanLifecycleStatus
-  /** Server-computed approval quorum. Missing only on legacy transcript cards. */
-  approvalProgress?: PlanApprovalProgress
-  /** The plan's last-modified timestamp. Used to detect an in-place revision
-   *  after "Request changes" so the action bar can come back. */
-  updatedAt?: string
   executionError?: string
   /**
    * When true, drops the outer rounded card chrome (border, background,
@@ -69,7 +47,7 @@ type Props = {
   /**
    * When true, render the plan as a stack of separate rounded cards floating on
    * a transparent background — one card per block (header, decisions, steps,
-   * cost, risk, actions) — instead of one bordered card with internal dividers.
+   * cost, risk) — instead of one bordered card with internal dividers.
    * Used by the chat side pane so the plan reads as part of the conversation
    * rather than a split-off window. Implies `embedded` layout (fills its host).
    */
@@ -78,22 +56,15 @@ type Props = {
 
 export const PlanTool = memo(function PlanTool({
   payload,
-  canApprove = true,
-  onApprove,
-  onReject,
   progress,
   status,
-  approvalProgress,
-  updatedAt,
   executionError,
   embedded = false,
   headerAction,
   foldable = false,
   floating = false,
 }: Props) {
-  const decisionState = usePlanDecision({ status, updatedAt, onApprove, onReject })
-  const { decision } = decisionState
-  const [folded, setFolded] = useState(() => initiallyFolded(foldable))
+  const [folded, setFolded] = useState(foldable)
   const totalJobs = useMemo(
     () => payload.steps.reduce((sum, step) => sum + step.jobs.length, 0),
     [payload.steps],
@@ -114,22 +85,6 @@ export const PlanTool = memo(function PlanTool({
     payload.steps.length > 0 && payload.cost && payload.risk && payload.risk.mitigations.length > 0,
   )
   const showBuildingPlan = status === 'proposed' && !planComplete
-
-  const { bodyOpen, showApproveBar, showActionBar } = planCardRegions({
-    folded,
-    decision,
-    canApprove,
-  })
-
-  const actionBar = showActionBar ? (
-    <PlanActionBar
-      state={decisionState}
-      floating={floating}
-      showApproveBar={showApproveBar}
-      approvalProgress={approvalProgress}
-      onReject={onReject}
-    />
-  ) : null
 
   const stepsOl = <PlanStepsList steps={payload.steps} progress={progress} floating={floating} />
 
@@ -225,7 +180,6 @@ export const PlanTool = memo(function PlanTool({
             )}
           </div>
         </div>
-        {actionBar && <div className="flex-shrink-0 px-3 pb-3">{actionBar}</div>}
       </div>
     )
   }
@@ -242,25 +196,15 @@ export const PlanTool = memo(function PlanTool({
       {header}
 
       {/* card-resize: collapse the body to/from auto height. Always mounted so
-          the grid-rows tween has something to animate. The action bar stays
-          outside so a folded plan can still be approved. */}
+          the grid-rows tween has something to animate. */}
       {foldable ? (
-        <>
-          <div className="t-collapse" data-open={bodyOpen} inert={!bodyOpen}>
-            <div className="t-collapse-inner">{body}</div>
-          </div>
-          {actionBar}
-        </>
+        <div className="t-collapse" data-open={!folded} inert={folded}>
+          <div className="t-collapse-inner">{body}</div>
+        </div>
       ) : embedded ? (
-        <>
-          <div className="t-scroll-fade min-h-0 flex-1 overflow-auto scrollbar-thin">{body}</div>
-          {actionBar}
-        </>
+        <div className="t-scroll-fade min-h-0 flex-1 overflow-auto scrollbar-thin">{body}</div>
       ) : (
-        <>
-          {body}
-          {actionBar}
-        </>
+        body
       )}
     </div>
   )

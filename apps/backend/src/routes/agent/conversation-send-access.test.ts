@@ -112,3 +112,38 @@ test('a removed participant falls back to whatever general access still grants',
     code: 'conversation_read_only',
   })
 })
+
+test("each viewer sees the Task archived when they archived it, and never someone else's mark", () => {
+  const mine = new Date('2026-11-19T09:00:00Z')
+  const doc = {
+    userId: 'owner',
+    teamId,
+    participantIds: ['amy', 'daniel'],
+    memberArchivedAt: { amy: mine },
+  }
+  const as = (id: string) =>
+    serializeConversationForViewer(doc, { id } as NuphosUser, new Map(), null, 'reply')
+
+  expect(as('amy').archivedAt).toEqual(mine)
+  expect(as('daniel').archivedAt).toBeUndefined()
+  expect(as('owner').archivedAt).toBeUndefined()
+  expect(as('amy')).not.toHaveProperty('memberArchivedAt')
+})
+
+test('who may archive: the owner for everyone, a participant in a Task for themselves', () => {
+  const task = { userId: 'owner', teamId, participantIds: ['amy'] }
+  const as = (doc: Record<string, unknown>, id: string) =>
+    serializeConversationForViewer(
+      { ...task, ...doc } as typeof task,
+      { id } as NuphosUser,
+      new Map(),
+      null,
+      'reply',
+    ).canArchive
+
+  expect(as({}, 'owner')).toBe(true)
+  expect(as({}, 'amy')).toBe(true)
+  // A teammate who only reads it, and a member of a group chat, who leaves it instead.
+  expect(as({}, 'reader')).toBe(false)
+  expect(as({ kind: 'channel' }, 'amy')).toBe(false)
+})

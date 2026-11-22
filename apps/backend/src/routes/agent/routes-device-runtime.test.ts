@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { websocket } from 'hono/bun'
 
@@ -86,7 +86,7 @@ function waitFor<T>(register: (resolve: (value: T) => void) => void): Promise<T>
 }
 
 describe('device runtime tunnel route', () => {
-  test('a failed presence claim handles queued message and close callbacks without rejecting', async () => {
+  test('a presence claim that fails on the first frame shuts the tunnel without rejecting', async () => {
     let failClaim!: (error: Error) => void
     const closed: unknown[][] = []
     const events = runtimeTunnelEvents('owner', 'd1', {
@@ -106,14 +106,41 @@ describe('device runtime tunnel route', () => {
         closed.push(args)
       },
     } as unknown as WSContext)
+    // The computer takes the device with its first frame (#3366), so that is where a claim fails.
     events.onMessage(new MessageEvent('message', { data: JSON.stringify({ t: 'pong' }) }))
-    events.onClose(new CloseEvent('close'))
     await Bun.sleep(0)
     failClaim(new Error('Device presence unavailable'))
-    // Bun fails this test on an unhandled child rejection, even when onOpen
-    // catches the original rejected initialization promise.
+    // Bun fails this test on an unhandled child rejection.
     await Bun.sleep(10)
-    expect(closed).toEqual([[1011, 'Could not open the runtime tunnel']])
+    expect(closed).toEqual([[4001, 'Device presence unavailable']])
+    events.onClose(new CloseEvent('close'))
+  })
+
+  test('a closed tunnel logs the most it ever had waiting to go out', async () => {
+    const buffered = [0, 600_000, 2_000]
+    const events = runtimeTunnelEvents('owner', 'd1', { ...deps().holder, heartbeatMs: 10 })
+
+    events.onOpen(new Event('open'), {
+      raw: { getBufferedAmount: () => buffered.shift() ?? 0 },
+      send: () => {},
+      close: () => {},
+    } as unknown as WSContext)
+    // Each ping is sent behind whatever is still waiting.
+    while (buffered.length > 0) await Bun.sleep(10)
+    const log = spyOn(console, 'log').mockImplementation(() => {})
+
+    events.onClose(new CloseEvent('close', { code: 1006 }))
+    await Bun.sleep(0)
+    const lines = log.mock.calls.map(([line]) => JSON.parse(String(line)) as object)
+
+    log.mockRestore()
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_closed',
+        code: 1006,
+        max_buffered_bytes: 600_000,
+      }),
+    )
   })
 
   test('the owner computer holds a tunnel that carries a stream end to end', async () => {

@@ -11,15 +11,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { deriveRuntimeControlKey } from './runtime-control-key'
-import {
-  RUNTIME_AUTH_SECRET_KEY,
-  readRuntimeAuthSecret,
-  readRuntimeControlSecret,
-} from './runtime-credential-secret'
-import { runtimeAuthSecretName } from './runtime-objects'
 
-import type { KubeClient } from './kube-client'
-import type { KubeObject } from './runtime-objects'
 import type { ClaudeCodeRuntimeDoc } from './runtime-registry'
 
 const previousKey = config.claudeCodePreview.tokenEncryptionKey
@@ -36,52 +28,6 @@ const MASTER_KEY = {
 let store = portabilityDb()
 let docs = store.rows('claude_code_runtimes') as ClaudeCodeRuntimeDoc[]
 
-const secrets = new Map<string, Record<string, string>>()
-const secretMapKey = (namespace: string, name: string) => `${namespace}/${name}`
-const kube: KubeClient = {
-  createIfAbsent: (resource: KubeObject) => {
-    const mapKey = secretMapKey(resource.metadata.namespace, resource.metadata.name)
-
-    if (secrets.has(mapKey)) return Promise.resolve(false)
-    const secret = resource as KubeObject & { stringData?: Record<string, string> }
-
-    if (secret.stringData) secrets.set(mapKey, secret.stringData)
-
-    return Promise.resolve(true)
-  },
-  apply: (resource: KubeObject) => {
-    if (resource.kind === 'Secret') {
-      const secret = resource as KubeObject & { stringData?: Record<string, string> }
-
-      if (secret.stringData)
-        secrets.set(
-          secretMapKey(resource.metadata.namespace, resource.metadata.name),
-          secret.stringData,
-        )
-    }
-
-    return Promise.resolve()
-  },
-  getSecret: (namespace, name) =>
-    Promise.resolve(secrets.get(secretMapKey(namespace, name)) ?? null),
-  delete: (resource) => {
-    if (resource.kind === 'Secret')
-      secrets.delete(secretMapKey(resource.metadata.namespace, resource.metadata.name))
-
-    return Promise.resolve()
-  },
-}
-
-/** Seeds a Secret the way a provisioner or an older release left one behind. */
-function seedRuntimeSecret(
-  teamId: string,
-  runtimeId: string,
-  data: Record<string, string>,
-  namespace = config.claudeCodeRuntimeProvisioner.namespace,
-) {
-  secrets.set(secretMapKey(namespace, runtimeAuthSecretName(teamId, runtimeId)), data)
-}
-
 useDb({ db: () => ({ collection: (name: string) => store.collection(name) }) })
 
 const {
@@ -96,7 +42,6 @@ const { rotateRuntimeKeys } = await import('./runtime-registry-credentials')
 beforeEach(() => {
   store = portabilityDb()
   docs = store.rows('claude_code_runtimes') as ClaudeCodeRuntimeDoc[]
-  secrets.clear()
 })
 
 describe('runtime registry', () => {
@@ -107,13 +52,12 @@ describe('runtime registry', () => {
       url: 'ws://openab-team-1.nuphos.svc:8080/acp',
       authKey: 'transport-key-1',
       label: 'primary',
-      kube,
     })
 
     expect(runtime.url).toBe('ws://openab-team-1.nuphos.svc:8080/acp')
     expect(JSON.stringify(runtime)).not.toContain('transport-key-1')
 
-    const endpoints = await resolveTeamRuntimeEndpoints('team-1', kube)
+    const endpoints = await resolveTeamRuntimeEndpoints('team-1')
 
     expect(endpoints).toEqual([
       {
@@ -125,7 +69,6 @@ describe('runtime registry', () => {
     // Unmanaged but still in-cluster, so it keeps the Service backend URL.
     expect(endpoints[0]?.external).toBeUndefined()
     expect(docs[0]?.authKeyEnvelope).toBeDefined()
-    expect(secrets.size).toBe(0)
   })
 
   test('registers an external runtime with no Kubernetes connection at all', async () => {
@@ -192,24 +135,21 @@ describe('runtime registry', () => {
       userId: 'user-1',
       url: 'wss://openab-a.example/acp',
       authKey: 'key-a',
-      kube,
     })
     await registerTeamRuntime({
       teamId: 'team-1',
       userId: 'user-1',
       url: 'wss://openab-b.example/acp',
       authKey: 'key-b',
-      kube,
     })
     await registerTeamRuntime({
       teamId: 'team-2',
       userId: 'user-1',
       url: 'wss://openab-other.example/acp',
       authKey: 'key-c',
-      kube,
     })
 
-    const endpoints = await resolveTeamRuntimeEndpoints('team-1', kube)
+    const endpoints = await resolveTeamRuntimeEndpoints('team-1')
 
     expect(endpoints.map((endpoint) => endpoint.url)).toEqual([
       'wss://openab-a.example/acp',
@@ -223,17 +163,16 @@ describe('runtime registry', () => {
       userId: 'user-1',
       url: 'wss://openab.example/acp',
       authKey: 'key-a',
-      kube,
     })
 
     const updated = await setTeamRuntimeStatus('team-1', runtime.id, 'disabled')
 
     expect(updated?.status).toBe('disabled')
-    expect(await resolveTeamRuntimeEndpoints('team-1', kube)).toEqual([])
+    expect(await resolveTeamRuntimeEndpoints('team-1')).toEqual([])
     expect((await listTeamRuntimes('team-1')).map((item) => item.status)).toEqual(['disabled'])
   })
 
-  test('an envelope in Mongo resolves without touching Kubernetes', async () => {
+  test('an envelope in Mongo resolves', async () => {
     const now = new Date()
 
     docs.push({
@@ -258,80 +197,18 @@ describe('runtime registry', () => {
     expect(docs[0]?.authKeyEnvelope).toBeDefined()
   })
 
-  test('a runtime whose key is only in a Secret keeps working and is adopted into Mongo', async () => {
+  test('a runtime with no stored key does not resolve', async () => {
     const now = new Date()
 
     docs.push({
-      _id: 'secret-only',
+      _id: 'keyless',
       teamId: 'team-1',
-      url: 'wss://secret-only.example/acp',
+      url: 'wss://keyless.example/acp',
       status: 'active',
       createdByUserId: 'user-1',
       createdAt: now,
       updatedAt: now,
     })
-    seedRuntimeSecret('team-1', 'secret-only', { [RUNTIME_AUTH_SECRET_KEY]: 'secret-key' })
-
-    expect(await resolveTeamRuntimeEndpoints('team-1', kube)).toEqual([
-      {
-        url: 'wss://secret-only.example/acp',
-        authKey: 'secret-key',
-        runtimeId: 'secret-only',
-        external: true,
-      },
-    ])
-
-    const adopted = docs[0]?.authKeyEnvelope
-
-    expect(adopted).toBeDefined()
-    expect(decryptDatabaseCredentialWithKey(adopted!, MASTER_KEY)).toBe('secret-key')
-  })
-
-  test('rows of the retired provisioner model are neither listed nor resolved', async () => {
-    const now = new Date()
-
-    docs.push({
-      _id: 'legacy',
-      teamId: 'team-1',
-      url: 'ws://openab-team-1.openab-runtimes.svc:8080/acp',
-      status: 'active',
-      managedBy: 'provisioner',
-      authKeyEnvelope: encryptDatabaseCredentialWithKey('legacy-key', MASTER_KEY),
-      createdByUserId: 'provisioner',
-      createdAt: now,
-      updatedAt: now,
-    })
-
-    expect(await listTeamRuntimes('team-1')).toEqual([])
-    expect(await resolveTeamRuntimeEndpoints('team-1', kube)).toEqual([])
-  })
-
-  test('a runtime Nuphos hosts is retired and never resolves', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'ws://openab-codex-abc.openab-runtimes.svc:8080/acp',
-      provider: 'codex',
-      authKey: 'hosted-password',
-      hostedBy: 'nuphos',
-    })
-
-    docs[0]!.device = { userId: 'user-1', deviceId: 'pod-device' }
-
-    expect(runtime.hostedBy).toBe('nuphos')
-    expect(await resolveTeamRuntimeEndpoints('team-1', undefined, 'codex')).toEqual([])
-    expect(await resolveTeamRuntimeEndpoints('team-1', undefined, 'codex', 'control')).toEqual([])
-  })
-
-  test('a runtime being deleted stops resolving', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'wss://openab.example/acp',
-      authKey: 'key-a',
-    })
-
-    store.rows('agent_runtime_deletions').push({ _id: runtime.id, teamId: 'team-1' })
 
     expect(await resolveTeamRuntimeEndpoints('team-1')).toEqual([])
   })
@@ -343,7 +220,6 @@ describe('runtime registry', () => {
         userId: 'user-1',
         url: 'ws://openab.example/acp',
         authKey: 'key-a',
-        kube,
       }),
     ).rejects.toThrow('wss://')
     await expect(
@@ -352,26 +228,8 @@ describe('runtime registry', () => {
         userId: 'user-1',
         url: 'wss://openab.example/acp',
         authKey: 'bad key with spaces',
-        kube,
       }),
     ).rejects.toThrow('The admin password can only contain')
-  })
-
-  test('removal revokes the key even when the leftover Secret cannot be deleted', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'wss://openab.example/acp',
-      authKey: 'key-a',
-      kube,
-    })
-    const unavailableKube: KubeClient = {
-      ...kube,
-      delete: () => Promise.reject(new Error('forbidden')),
-    }
-
-    expect(await removeTeamRuntime('team-1', runtime.id, unavailableKube)).toBe(true)
-    expect(await listTeamRuntimes('team-1')).toEqual([])
   })
 
   test('remove is scoped to the owning team', async () => {
@@ -380,11 +238,10 @@ describe('runtime registry', () => {
       userId: 'user-1',
       url: 'wss://openab.example/acp',
       authKey: 'key-a',
-      kube,
     })
 
-    expect(await removeTeamRuntime('team-2', runtime.id, kube)).toBe(false)
-    expect(await removeTeamRuntime('team-1', runtime.id, kube)).toBe(true)
+    expect(await removeTeamRuntime('team-2', runtime.id)).toBe(false)
+    expect(await removeTeamRuntime('team-1', runtime.id)).toBe(true)
     expect(await listTeamRuntimes('team-1')).toEqual([])
   })
 })
@@ -397,7 +254,6 @@ test('resolves Codex and legacy Claude runtimes independently within the same wo
     userId: 'admin',
     url: 'wss://claude.example/acp',
     authKey: 'claude-key',
-    kube,
   })
   await registerTeamRuntime({
     teamId,
@@ -405,13 +261,12 @@ test('resolves Codex and legacy Claude runtimes independently within the same wo
     url: 'wss://codex.example/acp',
     authKey: 'codex-key',
     provider: 'codex',
-    kube,
   })
   delete docs[0]!.provider
-  expect((await resolveTeamRuntimeEndpoints(teamId, kube)).map((endpoint) => endpoint.url)).toEqual(
-    ['wss://claude.example/acp'],
-  )
-  expect(await resolveTeamRuntimeEndpoints(teamId, kube, 'codex')).toEqual([
+  expect((await resolveTeamRuntimeEndpoints(teamId)).map((endpoint) => endpoint.url)).toEqual([
+    'wss://claude.example/acp',
+  ])
+  expect(await resolveTeamRuntimeEndpoints(teamId, 'codex')).toEqual([
     {
       url: 'wss://codex.example/acp',
       authKey: 'codex-key',
@@ -423,38 +278,6 @@ test('resolves Codex and legacy Claude runtimes independently within the same wo
   expect((await listTeamRuntimes(teamId, 'codex')).map((runtime) => runtime.url)).toEqual([
     'wss://codex.example/acp',
   ])
-})
-
-test('chat and control endpoints use separate credentials from the same Secret', async () => {
-  const runtime = await registerTeamRuntime({
-    teamId: 'team-1',
-    userId: 'user-1',
-    url: 'wss://openab.example/acp',
-    authKey: 'transport-key',
-    kube,
-  })
-
-  seedRuntimeSecret('team-1', runtime.id, { OPENAB_ACP_CONTROL_KEY: 'independent-control-key' })
-
-  const secret = await kube.getSecret(
-    config.claudeCodeRuntimeProvisioner.namespace,
-    runtimeAuthSecretName('team-1', runtime.id),
-  )
-
-  expect(await readRuntimeAuthSecret('team-1', runtime.id, kube)).toBeNull()
-  expect(await readRuntimeControlSecret('team-1', runtime.id, kube)).toBe('independent-control-key')
-  expect((await resolveTeamRuntimeEndpoints('team-1', kube))[0]?.authKey).toBe('transport-key')
-  expect(
-    (await resolveTeamRuntimeEndpoints('team-1', kube, 'claude-code', 'control'))[0]?.authKey,
-  ).toBe('independent-control-key')
-  delete secret!.OPENAB_ACP_CONTROL_KEY
-  expect(await readRuntimeControlSecret('team-1', runtime.id, kube)).toBeNull()
-  // With no key anywhere, an external runtime is one connected with only its password,
-  // so it gets the key its image derives. The Secret above still won while it held one:
-  // an older runtime keeps the key its container was actually started with.
-  expect(
-    (await resolveTeamRuntimeEndpoints('team-1', kube, 'claude-code', 'control'))[0]?.authKey,
-  ).toBe(deriveRuntimeControlKey('transport-key'))
 })
 
 test('the derived operator key matches the runtime image, vector for vector', () => {
@@ -484,8 +307,7 @@ describe('externally registered operator credential', () => {
 
     expect((await resolveTeamRuntimeEndpoints('team-1'))[0]?.authKey).toBe('transport-key')
     expect(
-      (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
-        ?.authKey,
+      (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe('operator-key')
   })
 
@@ -507,8 +329,7 @@ describe('externally registered operator credential', () => {
     await register({ controlKey: undefined })
 
     expect(
-      (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
-        ?.authKey,
+      (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe(deriveRuntimeControlKey('transport-key'))
   })
 
@@ -519,8 +340,7 @@ describe('externally registered operator credential', () => {
 
     expect(docs.find((item) => item._id === runtime.id)?.controlKeyEnvelope).toBeUndefined()
     expect(
-      (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
-        ?.authKey,
+      (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe(deriveRuntimeControlKey('transport-key'))
   })
 
@@ -548,8 +368,7 @@ describe('externally registered operator credential', () => {
     expect(docs.find((item) => item._id === runtime.id)?._id).toBe(runtime.id)
     expect((await resolveTeamRuntimeEndpoints('team-1'))[0]?.authKey).toBe('next-transport-key')
     expect(
-      (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
-        ?.authKey,
+      (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe('next-operator-key')
   })
 
@@ -561,23 +380,8 @@ describe('externally registered operator credential', () => {
     expect(docs.find((item) => item._id === runtime.id)?.controlKeyEnvelope).toBeUndefined()
     // Derived from the new password, not the old one: the image re-derives on restart.
     expect(
-      (await resolveTeamRuntimeEndpoints('team-1', undefined, 'claude-code', 'control'))[0]
-        ?.authKey,
+      (await resolveTeamRuntimeEndpoints('team-1', 'claude-code', 'control'))[0]?.authKey,
     ).toBe(deriveRuntimeControlKey('next-transport-key'))
-  })
-
-  test('rotation refuses a runtime Nuphos hosts', async () => {
-    const runtime = await registerTeamRuntime({
-      teamId: 'team-1',
-      userId: 'user-1',
-      url: 'ws://openab-claude-abc.openab-runtimes.svc:8080/acp',
-      hostedBy: 'nuphos',
-      authKey: 'transport-key',
-    })
-
-    expect(await rotateRuntimeKeys('team-1', runtime.id, { authKey: 'next-transport-key' })).toBe(
-      false,
-    )
   })
 })
 

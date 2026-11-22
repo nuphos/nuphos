@@ -5,13 +5,18 @@ import '@/routes/agent'
 
 import { describe, expect, test } from 'bun:test'
 
+import { OpenAbConnectError } from '@/lib/claude-code-preview/openab-acp-connect'
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useChatPreviewTurn } from '@/lib/test/doubles/chat-preview-turn'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 import { usePosthog } from '@/lib/test/doubles/posthog'
 
+import type { AgentCredentialOptions } from './types'
+import type { AgentConversation, AgentCredentialAccess } from '@/lib/agent/db'
 import type { UIMessage } from 'ai'
 
 const ENDPOINT = { url: 'ws://openab-team-t1.openab-runtimes.svc:8080/acp', authKey: 'k' }
@@ -37,7 +42,33 @@ useDb({
   }),
 })
 
-useAgentDb({ getConversationBySessionId: () => Promise.resolve(null) })
+// The conversation already stored when a turn starts: none, unless a test sets one.
+let storedConversation: AgentConversation | null = null
+const credentialUpdates: { sessionId: string; access: AgentCredentialAccess }[] = []
+
+useAgentDb({
+  getConversationBySessionId: () => Promise.resolve(storedConversation),
+  getConversation: (sessionId) => Promise.resolve({ sessionId } as AgentConversation),
+  updateConversationCredentialAccess: (sessionId, _userId, _teamId, access) => {
+    credentialUpdates.push({ sessionId, access })
+
+    return Promise.resolve({ sessionId, credentialAccess: access } as AgentConversation)
+  },
+})
+// The caller can use one AWS role and one Resend integration; every other kind is empty.
+useCredentialOptions({
+  getAgentCredentialOptions: () =>
+    Promise.resolve(
+      new Proxy({} as AgentCredentialOptions, {
+        get: (_target, key) =>
+          key === 'awsRoles'
+            ? [{ roleId: 'role-1' }]
+            : key === 'resendIntegrations'
+              ? [{ integrationId: 'resend-1' }]
+              : [],
+      }),
+    ),
+})
 useAgentTranscript({
   persistAcceptedConversationTurn: () => Promise.resolve({ isNew: true }),
 })
@@ -249,6 +280,48 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
     expect(initializedModes).toEqual([])
   })
 
+  const mcpTurn = (sessionId: string, extra: Record<string, unknown> = {}) =>
+    runAgentForTrigger({
+      userId: 'caller',
+      nuphosToken: 'token',
+      teamId: 'team-1',
+      sessionId,
+      source: 'mcp',
+      firstMessage: 'hi',
+      messages: [{ id: 'm1', role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      ...extra,
+    })
+
+  test('a new MCP session starts with the default credentials, as a new chat in the app does', async () => {
+    credentialUpdates.length = 0
+    await mcpTurn('mcp-new')
+
+    expect(credentialUpdates).toHaveLength(1)
+    expect(credentialUpdates[0]).toMatchObject({
+      sessionId: 'mcp-new',
+      access: { awsRoleIds: ['role-1'], resendIntegrationIds: [], updatedBy: 'caller' },
+    })
+  })
+
+  test('a later MCP turn leaves the selection as it was set', async () => {
+    credentialUpdates.length = 0
+    storedConversation = { sessionId: 'mcp-old', userId: 'caller' } as AgentConversation
+    try {
+      await mcpTurn('mcp-old')
+    } finally {
+      storedConversation = null
+    }
+
+    expect(credentialUpdates).toEqual([])
+  })
+
+  test("a Task opened under a Bot keeps none of its own: it uses the Bot's", async () => {
+    credentialUpdates.length = 0
+    await mcpTurn('mcp-task', { parentSessionId: 'bot-1' })
+
+    expect(credentialUpdates).toEqual([])
+  })
+
   test('records a terminal preview failure in PostHog lifecycle and error tracking', async () => {
     captured.length = 0
     capturedExceptions.length = 0
@@ -286,5 +359,49 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
       error: expect.any(Error),
       source: 'agent.trigger.request',
     })
+  })
+
+  test.each([
+    [
+      'a busy runtime that refused it',
+      () => new AppError(409, 'runtime_not_accepting_message', 'Running tools…'),
+    ],
+    [
+      'an agent host that did not connect',
+      () => new OpenAbConnectError('OpenAB ACP connection timed out'),
+    ],
+  ])('%s, on a turn the queue retries, is a warning, not an error', async (_case, failure) => {
+    captured.length = 0
+    capturedExceptions.length = 0
+    seen.sinkFrames.length = 0
+    const error = failure()
+
+    previewError = error
+
+    try {
+      await expect(
+        runAgentForTrigger({
+          userId: 'actor-1',
+          nuphosToken: 'tok',
+          teamId: 'team-1',
+          sessionId: 'conv-busy',
+          messages: [
+            { id: 'm3', role: 'user', parts: [{ type: 'text', text: 'cron' }] },
+          ] as UIMessage[],
+          firstMessage: 'cron',
+          source: 'agent.resource',
+          clientResendsRefusal: true,
+        }),
+      ).rejects.toThrow(error.message)
+    } finally {
+      previewError = null
+    }
+
+    const phases = captured.map((entry) => entry.properties?.phase)
+
+    expect(phases).toContain('agent.turn.requeued')
+    expect(phases).not.toContain('agent.trigger.request.error')
+    expect(phases).not.toContain('agent.chat.run.error_frame_appended')
+    expect(capturedExceptions).toEqual([])
   })
 })

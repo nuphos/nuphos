@@ -17,7 +17,10 @@ export function patchClaudeAskUserQuestion(source) {
   let patched = replaceOnce(
     source,
     disallowed,
-    '        const disallowedTools = elicitationSupport.form || nuphosOffersDecisions(params.mcpServers) ? [] : ["AskUserQuestion"];',
+    // Workflow, ScheduleWakeup and ReportFindings serve Claude Code's own CLI (opt-in
+    // workflows, /loop pacing, the code-review panel); Nuphos renders none of them, and
+    // their schemas cost about 4.6k input tokens on every request.
+    '        const disallowedTools = [...(elicitationSupport.form || nuphosOffersDecisions(params.mcpServers) ? [] : ["AskUserQuestion"]), "Workflow", "ScheduleWakeup", "ReportFindings"];',
   )
 
   patched = replaceOnce(

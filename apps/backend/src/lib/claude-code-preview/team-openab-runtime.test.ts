@@ -327,3 +327,34 @@ test('a runtime reached through another route gets its own connection', async ()
   expect(dialed).toEqual(['ws://rt/acp', joined.tunnelUrl])
   expect(registry.connectionInfo('t', ['ws://rt/acp']).connected).toBe(true)
 })
+
+// #3284: a runtime away longer than a session's reattach window was never woken for missed posts.
+test('says once per connection that a runtime answered, and never for one that failed', async () => {
+  const connected: string[] = []
+  let relay = true
+  const registry = createTeamRuntimeRegistry(
+    async (endpoint) =>
+      OpenAbAcpClient.connect({
+        ...endpoint,
+        promptTimeoutMs: 5,
+        socketFactory: () => new HalfOpenSocket(relay),
+      }),
+    (teamId, endpoint) => connected.push(`${teamId} ${endpoint.url}`),
+  )
+  const endpoint = { url: 'wss://openab.example/acp', authKey: 'test-key' }
+  const first = await registry.acquire('team-1', endpoint)
+
+  await registry.acquire('team-1', endpoint)
+  expect(connected).toEqual(['team-1 wss://openab.example/acp'])
+
+  // The connection drops; the next acquire dials again.
+  await expect(first.prompt('session-1', 'hello', (text) => text.length)).rejects.toThrow()
+  await registry.acquire('team-1', endpoint)
+  expect(connected).toHaveLength(2)
+
+  relay = false
+  await expect(
+    registry.acquire('team-1', { url: 'wss://other.example/acp', authKey: 'test-key' }),
+  ).rejects.toThrow()
+  expect(connected).toHaveLength(2)
+})

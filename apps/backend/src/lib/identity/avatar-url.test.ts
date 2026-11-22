@@ -31,3 +31,9 @@ test('Google profile images stay trusted', () => {
   expect(trustedAvatarURL('https://lh3.googleusercontent.com.evil.example/a')).toBeUndefined()
   expect(hostedAvatarOwner('https://lh3.googleusercontent.com/a')).toBeUndefined()
 })
+
+test('a Bot character name is not an uploaded-photo owner', () => {
+  for (const value of ['07-ada', '16-athena', '', 'not a URL']) {
+    expect(hostedAvatarOwner(value)).toBeUndefined()
+  }
+})

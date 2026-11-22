@@ -17,6 +17,7 @@ enum ChatRowTests {
         foldsFinishedWorkUnderOneHeader()
         liftsThreadBadgesOutOfTheFold()
         keepsSecretRequestsOutOfTheFold()
+        drawsNoToolRowForAQuestion()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -105,6 +106,22 @@ enum ChatRowTests {
         precondition(message("agent.resource", "system", "channel:", "Launch").event?.channelId == nil)
         precondition(message("agent.resource", "system", "GitHub", "GitHub").event?.channelId == nil)
         precondition(message("agent.thread", "agent", "channel:c1", "Launch").event?.channelId == nil)
+        // A Slack channel's wake line names the channel and opens nothing: its record stays hidden (#3924).
+        let slack = message("agent.resource", "system", "slack-channel:r1", "Slack #deploys").event
+        precondition(slack?.name == "Slack #deploys" && slack?.channelId == nil)
+        // A wake-up carries its newest post for the line: who, the first line, how many more.
+        func wake(_ post: JSONValue) -> ChatMessage.Event? {
+            var m = message("agent.resource", "system", "channel:c1", "Launch")
+            if case .object(var fields) = m.metadata { fields["channelPost"] = post; m.metadata = .object(fields) }
+            return m.event
+        }
+        let post = wake(.object(["id": .string("p7"), "text": .string("deploy failed"), "more": .number(2),
+                                 "sender": .object(["type": .string("agent"), "id": .string("s9"), "displayName": .string("Reviewer"),
+                                                    "agentRuntime": .string("codex")])]))?.post
+        precondition(post?.id == "p7" && post?.text == "deploy failed" && post?.more == 2)
+        precondition(post?.sender.name == "Reviewer" && post?.agentId == "s9" && post?.runtime == "codex")
+        precondition(wake(.object(["id": .string("p7"), "text": .string("x")]))?.post == nil, "No count: today's line")
+        precondition(message("agent.resource", "system", "channel:c1", "Launch").event?.post == nil)
     }
 
     /// The notice an answer wakes the agent with is read back for people:
@@ -252,6 +269,12 @@ enum ChatRowTests {
         precondition(!shared.canManage)
         let owner = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"owned","isOwner":true,"readOnly":false}"#.utf8))
         precondition(owner.canManage)
+        // #3686: someone else in a Task archives it for themselves; an older server says only the owner may.
+        precondition(owner.canArchive && !shared.canArchive)
+        let archiving = try! decoder.decode(AgentConversation.self, from: Data(#"{"sessionId":"shared","isOwner":false,"canManage":false,"canArchive":true}"#.utf8))
+        precondition(archiving.canArchive && !archiving.canManage)
+        let archivingDetail = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[],"isOwner":false,"canArchive":true}"#.utf8))
+        precondition(archivingDetail.canArchive == true && member.canArchive == nil)
         let missing = try! decoder.decode(AgentConversationDetail.self, from: Data(#"{"messages":[]}"#.utf8))
         precondition(missing.isOwner == nil)
         // #1691: a conversation with a face is a Bot; a chat with one is still a chat.
@@ -273,7 +296,7 @@ enum ChatRowTests {
     }
 
     private static func repeatsNoFailureTheTranscriptShows() {
-        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message."
+        let signIn = "This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message."
         let failed = ChatMessage(id: "m", role: .assistant, parts: [interrupted(.error, signIn)])
         // The turn's own stream error repeats the interruption, so it is hidden…
         precondition(ChatRow.shownFailure(in: [failed]) == signIn)
@@ -432,6 +455,28 @@ enum ChatRowTests {
         ], "\(shape(rows))")
     }
 
+    /// A question is answered from the Inbox and shown as its answered line, as Desktop draws it
+    /// as its card: never a "Question" tool row of its own. A failed call keeps its row.
+    private static func drawsNoToolRowForAQuestion() {
+        func drawsRow(_ input: [String: JSONValue], state: ChatPart.ToolPart.State = .outputAvailable, error: String? = nil) -> Bool {
+            var call = ChatPart.ToolPart(toolCallId: "ask", toolName: "request_user_decision", isDynamic: true, state: state,
+                                         input: .object(input.merging(["label": .string("Ask which symptom")]) { a, _ in a }))
+            call.errorText = error
+            let message = ChatMessage(id: "m", role: .assistant, parts: [.text(.init(text: "One question first.", state: .done)), .tool(call)])
+            return ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil).contains { if case .tool = $0 { return true }; return false }
+        }
+        let choice: [String: JSONValue] = ["category": .string("preference"), "question": .string("Which symptom?"),
+                                           "options": .array([.string("Blank screen"), .string("Late content")])]
+        precondition(!drawsRow(choice))
+        precondition(!drawsRow(choice, state: .inputAvailable))
+        precondition(!drawsRow(choice, state: .outputError, error: "Interrupted before the tool finished."))
+        precondition(drawsRow(choice, state: .outputError, error: "Request failed"))
+        precondition(drawsRow(["category": .string("integration"), "question": .string("Connect GitHub?"),
+                               "providers": .array([.string("github")])]))
+        precondition(drawsRow(["category": .string("credential"), "secretName": .string("OPENAI_API_KEY"),
+                               "question": .string("Paste your key")]))
+    }
+
     /// A secret request is its secure input card, never a folded tool row,
     /// even when the runtime names the call by its display title.
     private static func keepsSecretRequestsOutOfTheFold() {
@@ -454,6 +499,43 @@ enum ChatRowTests {
         precondition(ask(["category": .string("credential"), "secretName": .string("CLÉ")]).secretRequest == nil)
         precondition(ask(["category": .string("approval"), "secretName": .string("KEY")]).secretRequest == nil)
         precondition(ask(["category": .string("credential"), "secretName": .string("KEY")]).decisionRequestId == "ask")
+
+        // A website form's details: several labeled fields and the site they are entered on.
+        func field(_ name: String, _ label: String) -> JSONValue { .object(["name": .string(name), "label": .string(label)]) }
+        func form(_ fields: [JSONValue], site: JSONValue? = .string("www.clinic.example")) -> ChatPart.ToolPart {
+            var input: [String: JSONValue] = ["category": .string("credential"), "secretName": .string("CLINIC_LOOKUP"), "fields": .array(fields)]
+            input["site"] = site
+            return ask(input)
+        }
+        let details = form([field("NATIONAL_ID", " National ID number "), field("BIRTH_DATE", "Date of birth (YYYY-MM-DD)")])
+        precondition(details.secretRequest?.name == "CLINIC_LOOKUP")
+        precondition(details.secretRequest?.fields == [
+            .init(name: "NATIONAL_ID", label: "National ID number"),
+            .init(name: "BIRTH_DATE", label: "Date of birth (YYYY-MM-DD)"),
+        ])
+        precondition(details.secretRequest?.site == "www.clinic.example")
+        precondition(details.kind == .question)
+        // Fields or a site it cannot trust leave the one masked input, never a looser card.
+        let id = field("NATIONAL_ID", "National ID number")
+        for untrusted in [
+            form([id], site: nil), form([id], site: .string("https://www.clinic.example/lookup")), form([id], site: .string("clinic")),
+            form([id], site: .string("WWW.Clinic.Example")), form([id], site: .string("www.clinic.example:0")),
+            form([]), form([field("../x", "ID")]), form([field("ID", " ")]), form([id, id]),
+            form((0..<7).map { field("F\($0)", "x") }),
+        ] {
+            precondition(untrusted.secretRequest?.name == "CLINIC_LOOKUP")
+            precondition(untrusted.secretRequest?.fields == nil && untrusted.secretRequest?.site == nil)
+        }
+        precondition(form([id], site: .string("localhost:5199")).secretRequest?.site == "localhost:5199")
+        // Every client reads a reply that opens as a single secret's does as the request's saved answer.
+        let reply = ChatPart.ToolPart.secretFieldsSavedReply("CLINIC_LOOKUP", saved: [
+            (name: "NATIONAL_ID", path: "/runtime/nuphos-secret-a/0/NATIONAL_ID"),
+            (name: "BIRTH_DATE", path: "/runtime/nuphos-secret-b/0/BIRTH_DATE"),
+        ])
+        precondition(reply.hasPrefix(ChatPart.ToolPart.secretSavedReply("CLINIC_LOOKUP")))
+        precondition(reply.split(separator: "\n").dropFirst() == [
+            "NATIONAL_ID: /runtime/nuphos-secret-a/0/NATIONAL_ID", "BIRTH_DATE: /runtime/nuphos-secret-b/0/BIRTH_DATE",
+        ])
 
         let message = ChatMessage(id: "m", role: .assistant, parts: [tool("a"), tool("b"), .tool(secret), text("Use the card below.")])
         let rows = ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil)
@@ -566,5 +648,12 @@ enum ChatRowTests {
         precondition(anchored["a2"]?.map(\.groupId) == ["late"])
         precondition(anchored["a1"]?.first?.readyFiles.first?.isImage == true)
         precondition(TransferDownloadGroup.anchor([group("x", "2026-10-06T10:00:00.000Z")], in: [ChatMessage.user("only")]).isEmpty)
+
+        // A group the reply cites shows where it is cited, not again as a card below the reply.
+        let cited = "0123456789abcdef01234567"
+        let citing = ChatMessage(id: "a3", role: .assistant,
+                                 parts: [.text(.init(text: "![shot](https://nuphos.ai/_reply-images/\(cited))", state: .done))],
+                                 createdAt: nil)
+        precondition(TransferDownloadGroup.anchor([group(cited, "2026-10-06T10:00:00.000Z")], in: [citing]).isEmpty)
     }
 }

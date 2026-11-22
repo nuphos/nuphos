@@ -1,4 +1,6 @@
+import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
+import { InstallButton } from '../../views/settings/LocalAgentCard'
 import { AgentSignInButton } from '../agent/panel/AgentSignInAction'
 import { useAgentSignInRoute } from '../agent/panel/useAgentSignInRoute'
 import { useAgentSessions } from '../sidebar/agentSessions'
@@ -34,11 +36,23 @@ export function ChannelReplyFix({
     (row) => row.sessionId === agentId,
   )?.runtimeId
   const isTeamAdmin = fixes.isTeamAdmin === true
-  const { route, personalAgent } = useAgentSignInRoute({ teamId, runtimeId, isTeamAdmin })
+  const { route, personalAgent, onThisComputer } = useAgentSignInRoute({
+    teamId,
+    runtimeId,
+    isTeamAdmin,
+  })
+  const provider = useRuntimeInstances(teamId).instances.find(
+    (instance) => instance.id === runtimeId,
+  )?.provider
   const fix = replyFix(cause, route.kind, {
     personalAgent,
     canOpenSettings: isTeamAdmin && Boolean(fixes.onOpenAgentSettings),
+    onThisComputer,
   })
+
+  // The installer Settings uses, for the two CLIs Nuphos installs and this line names.
+  if (fix === 'install' && (provider === 'claude-code' || provider === 'codex'))
+    return <InstallButton provider={provider} />
 
   if (fix === 'signIn')
     return (
@@ -53,7 +67,7 @@ export function ChannelReplyFix({
     return (
       <span className="text-[12px] text-tertiary">
         {route.name
-          ? t('Ask {name} to sign this agent in.', { name: route.name })
+          ? t('Ask {name} to sign this runtime in.', { name: route.name })
           : t('Ask a workspace administrator to reconnect this runtime.')}
       </span>
     )

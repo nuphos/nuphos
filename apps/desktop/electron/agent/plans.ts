@@ -91,27 +91,6 @@ export type PlansPage = {
   hasMore: boolean
 }
 
-export type PlanUpdatePatch = {
-  status?: PlanLifecycleStatus
-  commandStatuses?: {
-    stepIdx: number
-    jobIdx: number
-    cmdIdx: number
-    status: PlanCommandStatus
-  }[]
-  commandResults?: {
-    stepIdx: number
-    jobIdx: number
-    cmdIdx: number
-    status: PlanCommandStatus
-    stdout?: string
-    stderr?: string
-    exitCode?: number
-    executedBy?: 'agent'
-  }[]
-  executionError?: string
-}
-
 export async function listPlans(args: {
   teamId?: string
   mine?: boolean
@@ -131,34 +110,4 @@ export async function listPlans(args: {
 
 export async function getPlan(planId: string, teamId?: string): Promise<Plan> {
   return callJson<Plan>('GET', `/agent/plans/${encodeURIComponent(planId)}${teamQuery(teamId)}`)
-}
-
-export async function updatePlan(
-  planId: string,
-  patch: PlanUpdatePatch,
-  teamId?: string,
-): Promise<Plan> {
-  return callJson<Plan>(
-    'PATCH',
-    `/agent/plans/${encodeURIComponent(planId)}${teamQuery(teamId)}`,
-    patch,
-  )
-}
-
-export async function getPlanApprovalPolicy(teamId: string): Promise<PlanApprovalRequirement> {
-  return callJson<PlanApprovalRequirement>(
-    'GET',
-    `/agent/plan-approval-policy?teamId=${encodeURIComponent(teamId)}`,
-  )
-}
-
-export async function updatePlanApprovalPolicy(
-  teamId: string,
-  minimumOtherApprovals: number,
-): Promise<PlanApprovalRequirement> {
-  return callJson<PlanApprovalRequirement>('PUT', '/agent/plan-approval-policy', {
-    teamId,
-    requesterApprovalRequired: true,
-    minimumOtherApprovals,
-  })
 }

@@ -6,6 +6,31 @@ import { parseMentions } from './messageMentionText.ts'
 
 import type { AgentMessageMetadata } from '../../../api/agent-types'
 
+function parseChannelPost(value: unknown): AgentMessageMetadata['channelPost'] {
+  const p = (value ?? {}) as Partial<NonNullable<AgentMessageMetadata['channelPost']>>
+  const s = p.sender
+
+  if (typeof p.id !== 'string' || !p.id || typeof p.text !== 'string') return undefined
+  if (!Number.isInteger(p.more) || !s || typeof s.id !== 'string' || !s.id) return undefined
+  if (!['user', 'agent', 'system'].includes(s.type) || typeof s.displayName !== 'string')
+    return undefined
+  const agentRuntime = AGENT_PROVIDERS.find((provider) => provider === s.agentRuntime)
+  const avatarURL = trustedAvatarURL(s.avatarURL)
+
+  return {
+    id: p.id,
+    sender: {
+      type: s.type,
+      id: s.id,
+      displayName: s.displayName,
+      ...(agentRuntime ? { agentRuntime } : {}),
+      ...(avatarURL ? { avatarURL } : {}),
+    },
+    text: p.text,
+    more: Math.max(0, p.more!),
+  }
+}
+
 const SOURCES = new Set(['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'])
 
 function parseReplyTo(value: unknown): AgentMessageMetadata['replyTo'] {
@@ -45,6 +70,10 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
   const avatarURL = trustedAvatarURL(m.sender.avatarURL)
   const replyTo = parseReplyTo(m.replyTo)
   const mentions = m.source === 'nuphos' ? parseMentions(m.mentions) : undefined
+  const channelPost =
+    m.source === 'agent.resource' && m.sender.id.startsWith('channel:')
+      ? parseChannelPost(m.channelPost)
+      : undefined
 
   return {
     version: 1,
@@ -62,8 +91,15 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
       ? { sourceSessionId: m.sourceSessionId }
       : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(m.source === 'nuphos' && typeof m.requestId === 'string' && m.requestId
+      ? {
+          requestId: m.requestId,
+          ...(m.answeredIn === 'inbox' ? { answeredIn: m.answeredIn } : {}),
+        }
+      : {}),
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(mentions ? { mentions } : {}),
+    ...(channelPost ? { channelPost } : {}),
   }
 }
 

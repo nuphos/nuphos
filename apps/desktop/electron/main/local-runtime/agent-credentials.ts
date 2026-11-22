@@ -1,8 +1,15 @@
 import { readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import { logoutOpenCode } from './agent-cli.ts'
+import { locateAgentCli, run } from './agent-cli.ts'
+import {
+  OPENCODE_AUTH_LIST,
+  openCodeConnected,
+  openCodeCredentials,
+  openCodeLogout,
+} from './agent-cli-opencode.ts'
 import { codexOwnerHome } from './agent-home.ts'
+import { agentCliEnv } from './config.ts'
 import { LOGIN_FILE } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
@@ -15,6 +22,8 @@ export const ANTIGRAVITY_SIGN_OUT =
 const CREDENTIAL_FILES: Partial<Record<LocalAgentProvider, readonly string[]>> = {
   'claude-code': ['.credentials.json', '.nuphos-oauth-token.json'],
   codex: ['auth.json', '.nuphos-auth-revision'],
+  // OpenCode 1.x; 2.x keeps its credentials in a database, which logoutOpenCode empties.
+  opencode: ['.local/share/opencode/auth.json'],
 }
 
 /** What opencode-login.mjs saves in OpenCode's config for Bedrock; its region stays. */
@@ -96,10 +105,33 @@ const OPENCODE_UNREAD =
   'Nuphos could not read which providers OpenCode is signed in to, so it did not sign it out. Try again'
 
 /**
- * OpenCode 2.x keeps its providers' credentials in its own database, not in a file: logs each
- * out, then asks it whether any is left, so a reset fails rather than reports a sign-out it could
- * not make. Only a list it read and found empty will do; a 1.x CLI has no list, its login being
- * the files. The error to fail with, or undefined.
+ * Logs OpenCode 2.x out of every provider credential its database holds in this home, one at a
+ * time; its sessions stay. A logout that fails is left to the list read after it: OpenCode exits
+ * 1 for a credential that is already gone. Whether a provider is still connected: false also
+ * without OpenCode, undefined when the list cannot be read (a 1.x CLI has none).
+ */
+export async function logoutOpenCode(
+  env: NodeJS.ProcessEnv,
+  agentHome: string,
+): Promise<boolean | undefined> {
+  const file = await locateAgentCli('opencode', env)
+
+  if (!file) return false
+  const runtimeEnv = agentCliEnv({ provider: 'opencode', env, agentHome, cliPath: file })
+  const list = () => run(file, OPENCODE_AUTH_LIST, runtimeEnv).catch(() => '')
+
+  for (const { integration, credential } of openCodeCredentials(await list()))
+    await run(file, openCodeLogout(integration, credential), runtimeEnv).catch(() => '')
+
+  return openCodeConnected(await list())
+}
+
+/**
+ * OpenCode is always signed in, to its free models, so its CLI status cannot tell whether a
+ * credential is left: logs each out, then asks OpenCode whether any provider is still
+ * connected, so a reset fails rather than reports a sign-out it could not make. Only a list it
+ * read and found empty will do; a 1.x CLI has no list, its login being the file deleted before
+ * this. The error to fail with, or undefined.
  */
 export async function credentialsLeft(
   provider: LocalAgentProvider,
@@ -110,16 +142,14 @@ export async function credentialsLeft(
 ): Promise<Error | undefined> {
   if (provider !== 'opencode') return undefined
   const env = await deps.userEnv()
+  const connected = await (deps.logout ?? logoutOpenCode)(env, home).catch(() => undefined)
 
-  await (deps.logout ?? logoutOpenCode)(env, home).catch(() => {})
+  if (connected !== undefined) return connected ? new Error(OPENCODE_SIGNED_IN) : undefined
   const cli = await deps.probeCli(provider, env, home).catch(() => {})
 
   if (!cli) return new Error(OPENCODE_UNREAD)
   if (!cli.installed) return undefined
-  if (cli.loggedIn === true) return new Error(OPENCODE_SIGNED_IN)
   const major = Number(cli.version?.split('.')[0])
 
-  return cli.credentialsUnread && (Number.isNaN(major) || major >= 2)
-    ? new Error(OPENCODE_UNREAD)
-    : undefined
+  return Number.isNaN(major) || major >= 2 ? new Error(OPENCODE_UNREAD) : undefined
 }

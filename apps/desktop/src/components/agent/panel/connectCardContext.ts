@@ -16,7 +16,9 @@ export type ConnectCardContextValue = {
   /** Answers a card's question: the server wakes the agent that asked it; no message is sent. */
   answer?: (answer: DecisionAnswer, card: DecisionCardRef) => boolean | void | Promise<boolean>
   /** Withdraws a card's question unanswered, waking no one; false when it could not be. */
-  skip?: (card: DecisionCardRef) => Promise<boolean>
+  dismiss?: (card: DecisionCardRef) => Promise<boolean>
+  /** Sets a card's question aside until a time; given only to its owner, whose Inbox it is. */
+  snooze?: (card: DecisionCardRef, until: Date) => void
   /** Who asked, drawn first on a question card shown outside the conversation that asked. */
   source?: ReactNode
   // Writes a secret to a file on the agent's runtime and returns its path; absent when read-only.
@@ -25,8 +27,6 @@ export type ConnectCardContextValue = {
   openQuestions?: readonly ReplyQuestion[]
   // Shows a question's body in full, where the card is the page it is read on.
   fullBody?: boolean
-  // Opens a link in a question's body as the conversation's own text does.
-  onLinkClick?: (href: string, beside: boolean) => boolean
 }
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)

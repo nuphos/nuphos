@@ -1,5 +1,9 @@
-import { faDownload, faFile, faFolder, faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+  Download as DownloadIcon,
+  File as FileIcon,
+  Folder as FolderIcon,
+  Trash2 as Trash2Icon,
+} from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -8,6 +12,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LeafDetailPanel } from '../../components/LeafDetailPanel'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import { basename, formatBytes } from './shared'
@@ -71,12 +76,12 @@ export function R2ObjectsTable({
             render: (r) =>
               r.kind === 'prefix' ? (
                 <span className="flex items-center gap-2 text-secondary">
-                  <FontAwesomeIcon icon={faFolder} className="w-3.5 h-3.5 text-tertiary" />
+                  <UiIcon size={14} icon={FolderIcon} className="w-3.5 h-3.5 text-tertiary" />
                   {r.name}/
                 </span>
               ) : (
                 <span className="flex items-center gap-2 text-main">
-                  <FontAwesomeIcon icon={faFile} className="w-3.5 h-3.5 text-tertiary" />
+                  <UiIcon size={14} icon={FileIcon} className="w-3.5 h-3.5 text-tertiary" />
                   {r.name}
                 </span>
               ),
@@ -132,7 +137,7 @@ export function R2ObjectsTable({
                     className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                     title={t('Download')}
                   >
-                    <FontAwesomeIcon icon={faDownload} className="w-3.5 h-3.5" />
+                    <UiIcon size={16} icon={DownloadIcon} className="w-4 h-4" />
                   </button>
                   <button
                     onClick={(e) => {
@@ -142,7 +147,7 @@ export function R2ObjectsTable({
                     className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
                     title={t('Delete')}
                   >
-                    <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+                    <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" />
                   </button>
                 </div>
               ) : null,
@@ -162,7 +167,7 @@ export function R2ObjectsTable({
       )}
 
       <ConfirmDialog
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         title={t('Delete object?')}
         description={
           pendingDelete ? t('"{key}" will be permanently deleted.', { key: pendingDelete.key }) : ''

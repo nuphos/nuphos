@@ -5,6 +5,7 @@ import { settleSignInRequests } from '@/lib/agent/sign-in-settle'
 import { AppError } from '@/lib/errors'
 
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { forgetAuthRefusal } from './runtime-auth-refusal'
 import { requireRuntimeInstance } from './runtime-catalog'
 import { controlLoginTransport } from './runtime-login-control'
 import { acceptsAnswer } from './runtime-login-step'
@@ -67,7 +68,7 @@ export async function requireLoginInstance(
   }
   const instance = await requireRuntimeInstance(teamId, runtimeId, userId)
 
-  if (instance.kind !== 'external' && instance.kind !== 'managed' && instance.kind !== 'local')
+  if (instance.kind !== 'external' && instance.kind !== 'local')
     throw new AppError(
       400,
       'runtime_login_unavailable',
@@ -144,19 +145,21 @@ export async function performRuntimeLogin<Target>(
         else {
           // Each step replaces the one before it and takes a fresh answer.
           const update =
-            frame.type === 'step'
-              ? {
-                  $set: { state: 'awaiting_authorization' as const, step: frame.step },
-                  $unset: { codeSubmitted: '' as const },
-                }
-              : {
-                  $set: {
-                    state: 'awaiting_authorization' as const,
-                    ...(frame.type === 'authorize'
-                      ? { authorizationUrl: frame.url }
-                      : { verificationUri: frame.verificationUri, userCode: frame.userCode }),
-                  },
-                }
+            frame.type === 'installing'
+              ? { $set: { installing: true as const } }
+              : frame.type === 'step'
+                ? {
+                    $set: { state: 'awaiting_authorization' as const, step: frame.step },
+                    $unset: { codeSubmitted: '' as const },
+                  }
+                : {
+                    $set: {
+                      state: 'awaiting_authorization' as const,
+                      ...(frame.type === 'authorize'
+                        ? { authorizationUrl: frame.url }
+                        : { verificationUri: frame.verificationUri, userCode: frame.userCode }),
+                    },
+                  }
 
           updates = updates
             .then(async () => {
@@ -192,7 +195,10 @@ export async function performRuntimeLogin<Target>(
     )
 
     // Whoever asked for this sign-in gets their held message run.
-    if (connected.matchedCount && !signedOut) await settleSignInRequests(doc.teamId, doc.runtimeId)
+    if (connected.matchedCount && !signedOut) {
+      await forgetAuthRefusal(doc.teamId, doc.runtimeId)
+      await settleSignInRequests(doc.teamId, doc.runtimeId)
+    }
   } catch (error) {
     await runtimeLogins().updateOne(
       { ...filter, state: { $in: ['starting', 'awaiting_authorization'] } },

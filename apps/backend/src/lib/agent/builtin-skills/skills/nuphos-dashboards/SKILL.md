@@ -1,6 +1,6 @@
 ---
 name: nuphos-dashboards
-description: Build and update a Nuphos Dashboard (the Dashboards page; not Grafana) — a blank canvas of panels, each backed by a JavaScript script that re-runs on one of the team's agent runtimes, pulls any Nuphos API or connected-provider data, and emits a chart, number, or table. Use it for cloud spend, AI usage, infrastructure inventory, reliability, or any other metric the team wants charted.
+description: "Build and update Nuphos Dashboards (not Grafana): panels backed by JavaScript that pull Nuphos or provider data and chart spend, AI usage, inventory or any metric."
 ---
 
 # Nuphos Dashboards
@@ -102,7 +102,7 @@ substitute sample data for unavailable billing data.
 
 ## Dashboard API: call these exact endpoints
 
-All routes are team-scoped under `/teams/{teamId}/dashboards`. Bodies are validated; use the exact field names below — do not probe routes or guess. Panel writes require EDITOR/ADMIN.
+All routes are team-scoped under `/teams/{teamId}/dashboards`. Bodies are validated; use the exact field names below — do not probe routes or guess. Panel writes on a team dashboard require EDITOR/ADMIN; on a personal one, its creator.
 
 **This table is authoritative — do NOT discover the API.** Do not run `nuphos-api`'s `scripts/openapi.sh`, fetch `/openapi.json`, or read `/tmp/nuphos-openapi.json` for dashboards: that document is large and slow to pull, and these v2 routes may not be listed in it yet. Discovery here only wastes a turn. Call the endpoints directly with the user's token already exported in your environment:
 
@@ -122,19 +122,21 @@ the REST response is the single contract used by both Desktop and the agent.
 
 | Action | Call |
 |---|---|
-| Create dashboard | `POST /teams/{teamId}/dashboards` → `{ name, timeRange: { periodStart, periodEnd, granularity? } }` |
+| Create dashboard | `POST /teams/{teamId}/dashboards` → `{ name, timeRange: { periodStart, periodEnd, granularity? }, visibility: 'personal'\|'team' }` |
 | Add a panel (auto-runs) | `POST …/{dashboardId}/panels` → `{ title, kind: 'chart'\|'scalar'\|'table', code, staticParams?, credentialAccess? }` |
 | Edit a panel (code edit ⇒ new version) | `PUT …/{dashboardId}/panels/{panelId}` → `{ title?, kind?, code?, staticParams?, credentialAccess? }` |
 | Re-run one panel | `POST …/{dashboardId}/panels/{panelId}/execute?force=1` |
 | Re-run all panels | `POST …/{dashboardId}/refresh?force=1` |
 | Schedule refreshes | `PUT …/{dashboardId}` → `{ cadence: 'daily'\|'weekly'\|'monthly'\|null }` |
+| Share or make personal | `PUT …/{dashboardId}` → `{ visibility: 'team'\|'personal' }` |
 | Read dashboard + panels + snapshots | `GET …/{dashboardId}` |
 
 Key facts:
 
+- Always send `visibility` when creating a dashboard: `'personal'` (only its creator sees it) unless the user asks for a team dashboard, then `'team'`. Leaving it out creates a team dashboard, kept only for older clients. Creating a team dashboard, or sharing one later, takes EDITOR or ADMINISTRATOR; only its creator can make a dashboard personal. Tell the user which one you created.
 - `timeRange` is the single source of truth for time; **every panel inherits it**. Panels carry only `staticParams` (provider, accountId, filters) — never their own start/end.
 - Editing a panel's `code` creates a **new script version**; existing snapshots keep the version they ran against (immutable). Re-running produces a new snapshot.
-- A schedule belongs to the whole dashboard and refreshes every panel at 09:00 UTC: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
+- A schedule belongs to the whole dashboard and refreshes every panel at 00:00 UTC, when rolling ranges start their new day: daily, on Mondays (weekly) or on the 1st (monthly). Tell the user that time in both UTC and their own timezone.
 - Adding a panel runs it immediately.
 
 ## Building the initial dashboard
@@ -158,4 +160,4 @@ These apply to every panel you create or edit, not just the initial build.
 1. For spend panels, prefer the provider's native billing/usage export and mark data `actual`. Otherwise compute from official provider pricing and label it `estimated` with assumptions — never turn missing usage into zero cost. For any metric, never turn missing data into zero.
 2. A panel script must be deterministic given `params` and must not mutate infrastructure — it only reads and shapes data.
 3. Never make changes during analysis; any change needs a **Plan** the user confirms.
-4. If a panel run fails, read the snapshot's `error.kind` (`timeout` / `oversize` / `nonzero_exit` / `invalid_output`) and fix the script — usually an off-contract payload (a row missing `xKey`, a string where a number is required) or an unhandled `nuphos` response. `runtime_unavailable` (no runtime online, or it was busy/unreachable) and `runtime_outdated` (the runtime image cannot run panels) are not script bugs: report the snapshot's `error.message` to the user instead of editing the script.
+4. If a panel run fails, read the snapshot's `error.kind` (`timeout` / `oversize` / `nonzero_exit` / `invalid_output`) and fix the script — usually an off-contract payload (a row missing `xKey`, a string where a number is required) or an unhandled `nuphos` response. `runtime_unavailable` (no runtime online, or it was busy/unreachable) and `runtime_outdated` (the runtime image cannot run panels) are not script bugs: report the snapshot's `error.message` to the user instead of editing the script. Neither is `not_connected`: an integration the script reads is no longer connected to the team (the message's first line names it), so ask the user to reconnect it in Connectors.

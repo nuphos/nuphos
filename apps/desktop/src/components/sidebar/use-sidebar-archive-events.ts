@@ -7,6 +7,8 @@ import { onChatArchived, onChatUnarchived } from '../../lib/chatArchiveEvents'
 import { queryKeys } from '../../lib/query/keys'
 
 import { removeChat, restoreChat } from './agentSessions'
+import { botFoldTitle } from './chat-sections'
+import { forgetGroupFolds } from './state'
 
 import type { AgentConversation } from '../../api'
 
@@ -26,6 +28,7 @@ export function useSidebarArchiveEvents({
       onChatArchived((change) => {
         if (change.teamId !== teamId) return
         void removeChat(client, teamId, change.sessionId)
+        forgetGroupFolds(teamId, [botFoldTitle(change.sessionId)])
         onArchived?.(change.sessionId)
       }),
     [client, teamId, onArchived],

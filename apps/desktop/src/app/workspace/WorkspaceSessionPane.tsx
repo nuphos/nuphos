@@ -3,10 +3,12 @@ import { useState } from 'react'
 
 import { useIsChannel } from '../../components/channels/channelKind'
 import { ChannelPane } from '../../components/channels/ChannelPane'
+import { usePrefetchRecentChannels } from '../../components/channels/useChannel'
 import { useAgentSessions } from '../../components/sidebar/agentSessions'
 import { useSidebarMode } from '../../components/sidebar/useSidebarMode'
 
 import { CORNER_TITLEBAR_CLASS, CornerSidebarToggle } from './CornerSidebarToggle'
+import { SplitPaneCloseButton } from './PaneCloseButton'
 import { PaneGrip } from './PaneGrip'
 import { retainSessionViews } from './retainedSessionViews'
 import { WorkspaceAgentPane } from './WorkspaceAgentPane'
@@ -17,22 +19,32 @@ import type { RetainedSessionViews } from './retainedSessionViews'
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 
-/** The open session: a channel's own view, or the agent's session as before. */
-export function WorkspaceSessionPane({
-  ws,
-  user,
-  workspaceExpanded = false,
-  onOpenTask,
-}: {
+type SessionPaneProps = {
   ws: WorkspaceController
   user: UserInfo
   workspaceExpanded?: boolean
   onOpenTask?: (sessionId: string) => void
-}) {
-  const teamId = ws.scope?.teamId
-  const bots = useAgentSessions(teamId ?? '')
+}
+
+/** The open session: a channel's own view, or the agent's session as before. */
+export function WorkspaceSessionPane(props: SessionPaneProps) {
+  const teamId = props.ws.scope?.teamId
+
+  return teamId ? <TeamSessionPane {...props} teamId={teamId} /> : null
+}
+
+function TeamSessionPane({
+  ws,
+  teamId,
+  user,
+  workspaceExpanded = false,
+  onOpenTask,
+}: SessionPaneProps & { teamId: string }) {
+  const bots = useAgentSessions(teamId)
   const firstBot =
     bots.data !== undefined && !bots.data.some((row) => row.avatar && row.kind !== 'channel')
+
+  usePrefetchRecentChannels(teamId, bots.data)
   const sessionId = ws.selectedSessionId
   const channel = useIsChannel(teamId, sessionId)
   const cornerPane = useWorkspacePane()?.cornerPane ?? false
@@ -46,22 +58,21 @@ export function WorkspaceSessionPane({
   })
 
   if (views !== retained) setRetained(views)
-  const [mode] = useSidebarMode(teamId ?? '', sessionId)
-  const botsStart = Boolean(teamId && mode === 0 && !sessionId && !ws.mainPageOpen)
+  const [mode] = useSidebarMode(teamId, sessionId)
+  const botsStart = mode === 0 && !sessionId && !ws.mainPageOpen
   const agentVisible = channel === false && !botsStart
   const channelVisible = channel === true
 
   return (
     <>
-      {teamId && (
-        <WorkspaceBotsStart
-          key={teamId}
-          visible={botsStart}
-          firstBot={firstBot}
-          teamId={teamId}
-          onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
-        />
-      )}
+      <WorkspaceBotsStart
+        key={teamId}
+        visible={botsStart}
+        loaded={bots.data !== undefined}
+        firstBot={firstBot}
+        teamId={teamId}
+        onOpen={(id) => ws.workspaceActions.selectSession(id, { teamId })}
+      />
       {views.agent && (
         <WorkspaceAgentPane
           ws={{
@@ -69,12 +80,13 @@ export function WorkspaceSessionPane({
             selectedSessionId: views.agent.sessionId,
             selectedSessionReadOnly: views.agent.readOnly,
           }}
+          teamId={teamId}
           user={user}
           workspaceExpanded={workspaceExpanded}
           foreground={agentVisible}
         />
       )}
-      {teamId && views.channelId && (
+      {views.channelId && (
         <main
           data-workspace-focus-surface="session"
           inert={workspaceExpanded || !channelVisible}
@@ -92,7 +104,13 @@ export function WorkspaceSessionPane({
             visible={channelVisible && !ws.mainPageOpen && !workspaceExpanded}
             user={user}
             dockOpen={ws.dockOpen}
-            grip={<PaneGrip />}
+            grip={
+              // A Bot's chat in a split closes like a task's: the pane's close, then its grip.
+              <>
+                <SplitPaneCloseButton />
+                <PaneGrip />
+              </>
+            }
             titlebarLeading={<CornerSidebarToggle />}
             titlebarClassName={cornerPane ? CORNER_TITLEBAR_CLASS : undefined}
             onOpenTask={onOpenTask}
@@ -100,7 +118,7 @@ export function WorkspaceSessionPane({
             onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
             fixes={{
               isTeamAdmin: ws.currentTeam?.role === 'ADMINISTRATOR',
-              onOpenAgentSettings: () => ws.openSettingsSection('workspace.agent'),
+              onOpenAgentSettings: () => ws.openSettingsSection('workspace.computers'),
             }}
           />
         </main>

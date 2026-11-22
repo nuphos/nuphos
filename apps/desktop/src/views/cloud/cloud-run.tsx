@@ -113,7 +113,7 @@ export function CloudRunServicesView({
 
   // For agent-fixable errors (API disabled, IAM denied), probe the IAM page's
   // self-capability check to decide whether the agent has the elevated power
-  // to self-remediate — if it does, expose a "Fix with Agent" shortcut that
+  // to self-remediate — if it does, expose a "Fix in a task" shortcut that
   // seeds the chat prompt. The probe is gated on the error code so we don't
   // waste a call on every load.
   //

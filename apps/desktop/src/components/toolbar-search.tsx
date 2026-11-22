@@ -13,6 +13,7 @@ export function SearchBox({
   count,
   fill = false,
   label = t('Filter'),
+  placeholder = label,
   autoFocus = false,
 }: {
   filter: string
@@ -27,6 +28,8 @@ export function SearchBox({
   fill?: boolean
   /** Placeholder / aria-label, for boxes that search something specific. */
   label?: string
+  /** A shorter placeholder where the label would not fit the collapsed box. */
+  placeholder?: string
   /**
    * Take focus on mount. For a box that opens with its own surface — a picker
    * modal, where filtering is the reason the surface appeared — so typing works
@@ -92,7 +95,7 @@ export function SearchBox({
         onBlur={() => setFocused(false)}
         placeholder={
           expanded || count === undefined
-            ? label
+            ? placeholder
             : count === 1
               ? t('{n} item', { n: count })
               : t('{n} items', { n: count })

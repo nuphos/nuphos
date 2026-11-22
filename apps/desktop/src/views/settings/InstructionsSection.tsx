@@ -24,7 +24,7 @@ const GROUPS: Record<
     title: t('Team'),
     header: t('Instructions'),
     headerDescription: t(
-      'Standing guidance every new agent in this team follows, like CLAUDE.md or AGENTS.md. Applies to every agent, including Slack, Discord, and trigger runs.',
+      'Standing guidance every new Bot and task in this team follows, like CLAUDE.md or AGENTS.md. Applies to all of them, including Slack, Discord, and trigger runs.',
     ),
     description: t('Shared with everyone in this workspace. Injected first.'),
   },
@@ -32,9 +32,9 @@ const GROUPS: Record<
     title: t('Personal'),
     header: t('Personal instructions'),
     headerDescription: t(
-      'Your own standing guidance for your agents in this team. Nobody else in the team sees or receives it.',
+      'Your own standing guidance for your Bots and tasks in this team. Nobody else in the team sees or receives it.',
     ),
-    description: t('Only apply to your own agents. Injected after team instructions.'),
+    description: t('Only apply to your own Bots and tasks. Injected after team instructions.'),
   },
 }
 
@@ -128,7 +128,7 @@ export function InstructionsSection({
       <ConfirmDialog
         open={deleting !== null}
         title={t('Delete instruction')}
-        description={t('Delete “{title}”? New agents will stop receiving it.', {
+        description={t('Delete “{title}”? New tasks will stop receiving it.', {
           title: deleting?.title ?? '',
         })}
         confirmLabel={t('Delete')}

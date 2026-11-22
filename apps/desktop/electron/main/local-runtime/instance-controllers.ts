@@ -14,6 +14,7 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { DefaultAgentControl } from './default-agent.ts'
+import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
 
@@ -112,13 +113,14 @@ export class InstanceControllers {
     return instanceStatus(this.entries.values())
   }
 
-  private add(metadata: AgentInstanceRecord, userId: string): Entry {
+  /** `install`: set for an agent being added, whose missing CLI this computer installs. */
+  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller }
+    const entry: Entry = { metadata, controller, install }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -176,7 +178,10 @@ export class InstanceControllers {
       return true
     }
     if (final && !(entry.metadata.state === undefined && loggedIn == null))
-      await this.remove(entry.metadata.instanceId, userId)
+      await this.remove(entry.metadata.instanceId, userId).catch((error: unknown) => {
+        // The agent is gone either way; only a Keychain entry may be left behind.
+        console.warn('[local-runtime] removing an unfinished agent', error)
+      })
 
     return false
   }
@@ -193,9 +198,12 @@ export class InstanceControllers {
 
     await entry.starting?.catch(() => {})
     await entry.controller.shutdown()
-    if (entry.metadata.provider === 'claude-code')
-      await this.removeCredential(secureStorageEnv(dir, userId))
-    rmSync(dir, { recursive: true, force: true })
+    try {
+      if (entry.metadata.provider === 'claude-code')
+        await this.removeCredential(secureStorageEnv(dir, userId))
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   }
 
   /** Signs an added agent out but keeps it: its record, settings, sessions and workspace stay. */
@@ -213,9 +221,7 @@ export class InstanceControllers {
     // Removed meanwhile: starting it again would bring back an agent no one lists.
     if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
     entry.starting = entry.controller.setUser(userId).then(this.changed)
-    entry.starting.catch(() => {
-      /* The controller reports its own start failure. */
-    })
+    entry.starting.catch(() => {}) // The controller reports its own start failure.
     this.changed()
     if (left) throw left
 
@@ -230,11 +236,7 @@ export class InstanceControllers {
   ): Promise<unknown> {
     if (typeof instanceId !== 'string' || !UUID.test(instanceId))
       throw new Error('Invalid runtime instance')
-    if (method === 'remove') {
-      await this.remove(instanceId, userId)
-
-      return {}
-    }
+    if (method === 'remove') return this.remove(instanceId, userId).then(() => ({}))
     const entry = this.entries.get(instanceId)
 
     if (!entry) throw new Error('Runtime instance not found')
@@ -287,12 +289,10 @@ export class InstanceControllers {
       userDir(this.deps.dataDir(), userId),
       [...this.entries.values()].map((entry) => entry.metadata).concat(record),
     )
-    const entry = this.add(record, userId)
+    const entry = this.add(record, userId, {})
 
     entry.starting = entry.controller.setUser(userId).then(this.changed)
-    entry.starting.catch(() => {
-      /* The controller reports its own start failure. */
-    })
+    entry.starting.catch(() => {}) // The controller reports its own start failure.
     this.changed()
 
     return { instance: publicMetadata(record) }

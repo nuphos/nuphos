@@ -2,13 +2,10 @@ import { randomUUID } from 'node:crypto'
 
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
-import { logError } from '@/lib/observability'
 
 import { isValidOpenAbTransportKey } from './gate'
 import { isAllowedRemoteOpenAbUrl, isInternalRuntimeUrl } from './runtime-backend-url'
-import { deleteRuntimeAuthSecret } from './runtime-credential-secret'
 import { revokePairedBinding } from './runtime-pairing-client'
-import { runtimeDeletions } from './runtime-portability-store'
 import { runtimeProvider } from './runtime-provider'
 import {
   invalidateRuntimeSecretCache,
@@ -18,7 +15,6 @@ import {
   storedAuthKey,
 } from './runtime-registry-credentials'
 
-import type { KubeClient } from './kube-client'
 import type { RuntimePairing } from './runtime-pairing-client'
 import type { OpenAbProvider } from './runtime-provider'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
@@ -38,11 +34,7 @@ export type ClaudeCodeRuntimeDoc = {
   deploymentImage?: string
   requestedRuntimeVersion?: string
   runtimeUpdateError?: string
-  hostedBy?: 'nuphos'
-  hostedSlot?: number
-  /** A row of the retired provisioner model, which nothing resolves any more. */
-  managedBy?: 'provisioner'
-  /** Envelope-encrypted ACP transport key; a hosted pod's Kubernetes Secret derives from it. */
+  /** Envelope-encrypted ACP transport key. */
   authKeyEnvelope?: EncryptedEnvelope
   /** Envelope-encrypted operator credential, when it is not derived from the password. */
   controlKeyEnvelope?: EncryptedEnvelope
@@ -65,7 +57,6 @@ export type ClaudeCodeRuntime = {
   id: string
   url: string
   provider?: OpenAbProvider
-  hostedBy?: 'nuphos'
   connection?: 'paired' | 'password'
   label?: string
   status: ClaudeCodeRuntimeStatus
@@ -77,8 +68,6 @@ export function runtimes() {
   return db().collection<ClaudeCodeRuntimeDoc>('claude_code_runtimes')
 }
 
-const CURRENT = { managedBy: { $exists: false } } as const
-
 function toPublic(doc: ClaudeCodeRuntimeDoc): ClaudeCodeRuntime {
   return {
     id: doc._id,
@@ -89,9 +78,7 @@ function toPublic(doc: ClaudeCodeRuntimeDoc): ClaudeCodeRuntime {
     url: doc.url,
     provider: runtimeProvider(doc.provider),
     ...(doc.label ? { label: doc.label } : {}),
-    ...(doc.hostedBy
-      ? { hostedBy: doc.hostedBy }
-      : { connection: doc.pairing ? 'paired' : 'password' }),
+    connection: doc.pairing ? 'paired' : 'password',
     status: doc.status,
     createdByUserId: doc.createdByUserId,
     createdAt: doc.createdAt.toISOString(),
@@ -102,10 +89,7 @@ export async function listTeamRuntimes(
   teamId: string,
   provider: OpenAbProvider = 'claude-code',
 ): Promise<ClaudeCodeRuntime[]> {
-  const docs = await runtimes()
-    .find({ teamId, ...CURRENT })
-    .sort({ createdAt: 1, _id: 1 })
-    .toArray()
+  const docs = await runtimes().find({ teamId }).sort({ createdAt: 1, _id: 1 }).toArray()
 
   return docs.filter((doc) => runtimeProvider(doc.provider) === provider).map(toPublic)
 }
@@ -119,11 +103,8 @@ export async function registerTeamRuntime(args: {
   authKey: string
   controlKey?: string
   label?: string
-  hostedBy?: 'nuphos'
-  hostedSlot?: number
   deploymentImage?: string
   pairing?: RuntimePairing
-  kube?: KubeClient
 }): Promise<ClaudeCodeRuntime> {
   const url = args.url.trim()
   const authKey = args.authKey.trim()
@@ -144,7 +125,6 @@ export async function registerTeamRuntime(args: {
     url,
     provider: args.provider ?? 'claude-code',
     ...(args.label?.trim() ? { label: args.label.trim() } : {}),
-    ...(args.hostedBy ? { hostedBy: args.hostedBy, hostedSlot: args.hostedSlot } : {}),
     ...(args.deploymentImage ? { deploymentImage: args.deploymentImage } : {}),
     ...(args.pairing ? { pairing: args.pairing } : {}),
     status: 'active',
@@ -175,11 +155,7 @@ export async function setTeamRuntimeStatus(
   return doc ? toPublic(doc) : null
 }
 
-export async function removeTeamRuntime(
-  teamId: string,
-  id: string,
-  kube?: KubeClient,
-): Promise<boolean> {
+export async function removeTeamRuntime(teamId: string, id: string): Promise<boolean> {
   const doc = await runtimes().findOne({ _id: id, teamId })
 
   if (!doc) return false
@@ -188,35 +164,8 @@ export async function removeTeamRuntime(
 
   invalidateRuntimeSecretCache(teamId, id)
   await revokePairedBinding(doc)
-  // Removing the row revokes the key; the Secret is only a leftover artifact.
-  await deleteRuntimeAuthSecret(teamId, id, kube).catch((err: unknown) => {
-    logError('openab.runtime_credential.secret_cleanup_failed', err, {
-      team_id: teamId,
-      runtime_id: id,
-    })
-  })
 
   return result.deletedCount === 1
-}
-
-/** Every runtime Nuphos deploys, across teams, for the provisioner. */
-export async function listHostedRuntimes(
-  provider: OpenAbProvider,
-): Promise<ClaudeCodeRuntimeDoc[]> {
-  const docs = await runtimes()
-    .find({ hostedBy: 'nuphos', ...CURRENT })
-    .sort({ createdAt: 1, _id: 1 })
-    .toArray()
-
-  return docs.filter((doc) => runtimeProvider(doc.provider) === provider)
-}
-
-/** The hosted runtime a team reaches at `url`, if Nuphos deploys one there. */
-export async function findHostedRuntime(
-  teamId: string,
-  url: string,
-): Promise<ClaudeCodeRuntimeDoc | null> {
-  return runtimes().findOne({ teamId, url, hostedBy: 'nuphos', ...CURRENT })
 }
 
 export async function renameTeamRuntime(teamId: string, id: string, label: string): Promise<void> {
@@ -226,32 +175,22 @@ export async function renameTeamRuntime(teamId: string, id: string, label: strin
 /** Eligible endpoints, oldest first. Callers select an explicit instance or the first endpoint. */
 export async function resolveTeamRuntimeEndpoints(
   teamId: string,
-  kube?: KubeClient,
   provider: OpenAbProvider = 'claude-code',
   purpose: 'transport' | 'control' = 'transport',
 ): Promise<TeamRuntimeEndpoint[]> {
   const docs = await runtimes()
-    .find({ teamId, status: 'active', ...CURRENT })
+    .find({ teamId, status: 'active' })
     .sort({ createdAt: 1, _id: 1 })
     .toArray()
-  const deleting = new Set(
-    (
-      await runtimeDeletions()
-        .find({ teamId, completedAt: { $exists: false } }, { projection: { _id: 1 } })
-        .toArray()
-    ).map((job) => job._id),
-  )
   const endpoints: TeamRuntimeEndpoint[] = []
 
   for (const doc of docs) {
-    // Nuphos-hosted runtimes are retired (#2401): nothing dials them any more.
-    if (runtimeProvider(doc.provider) !== provider || deleting.has(doc._id) || doc.hostedBy)
-      continue
+    if (runtimeProvider(doc.provider) !== provider) continue
     const stored =
       purpose === 'transport'
         ? storedAuthKey(doc.authKeyEnvelope)
         : storedAuthKey(doc.controlKeyEnvelope)
-    const authKey = stored ?? (await resolvedRuntimeAuthKey(doc.teamId, doc._id, kube, purpose))
+    const authKey = stored ?? (await resolvedRuntimeAuthKey(doc.teamId, doc._id, purpose))
 
     if (authKey && isValidOpenAbTransportKey(authKey))
       endpoints.push({

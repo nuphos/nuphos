@@ -143,7 +143,7 @@ test('a create the host refuses forgets its note; one refused up front notes not
     {
       createInstance: () =>
         Promise.reject(
-          Object.assign(new Error('The Box did not answer in time.'), { status: 504 }),
+          Object.assign(new Error('The computer did not answer in time.'), { status: 504 }),
         ),
     },
   )

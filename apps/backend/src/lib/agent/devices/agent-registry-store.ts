@@ -41,6 +41,8 @@ export async function recordDeviceAgents(
       $set: {
         lastSeenAt: new Date(),
         ...(from ? { lastSeen: from } : {}),
+        // Kept so its card shows the switch while it is offline (computer-app-update).
+        ...(typeof status.autoInstall === 'boolean' ? { autoInstall: status.autoInstall } : {}),
         ...(next ? { agents: next } : {}),
       },
       ...(gone.length > 0 ? { $pull: { addedAgents: { instanceId: { $in: gone } } } } : {}),

@@ -7,14 +7,13 @@ import { AppError } from '@/lib/errors'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { abandonPendingPreviewWaits } from './decision-waiter'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { materializeRuntimeAttachments, runtimeAttachments } from './runtime-attachments'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
 import { rememberRuntimeState } from './runtime-state-store'
 import { withSessionDesktops } from './session-desktops'
-import { steerNotInjected } from './steer-refusal'
+import { steerNotInjected, steerRejected } from './steer-refusal'
 import { steeringText } from './steering-receipt'
 
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -61,12 +60,14 @@ export async function conversationExecutionState(
 
 /**
  * Prompt admission must retain probe failures rather than treating them as runtime state.
- * It also keeps the default connect timeout: a computer's tunnel can be slow to open a
- * stream, and admission failing loses the turn (a scheduled one is not retried).
+ * It also keeps the default deadlines: a computer's tunnel can be slow to open a stream and
+ * slow to answer the first call after it reconnects, and admission failing loses the turn
+ * (a scheduled one is not retried). The prompt that follows waits that long anyway. Only the
+ * polled status read, which falls back to 'disconnected', passes a short one.
  */
 export async function probeExecutionState(
   conversation: ExecutionStateConversation,
-  connectTimeoutMs?: number,
+  timeoutMs?: number,
 ): Promise<SessionExecutionState> {
   const attachment = liveAttachment(conversation)
 
@@ -88,9 +89,9 @@ export async function probeExecutionState(
     if (!endpoint || (attachment && !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl)))
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
-      ...(await reachableRuntimeEndpoint(endpoint)),
-      connectTimeoutMs,
-      callTimeoutMs: 3_000,
+      ...endpoint,
+      connectTimeoutMs: timeoutMs,
+      callTimeoutMs: timeoutMs,
     })
     await client.initialize()
     const state = parseSessionExecutionState(
@@ -132,7 +133,7 @@ export async function cancelConversationRuntime(conversation: AgentConversation)
   if (!endpoint || !sameRuntimeUrl(endpoint.url, attachment.runtimeUrl))
     throw new Error('Conversation runtime changed')
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 3_000,
   })
@@ -267,7 +268,7 @@ export async function steerConversationRuntime(
     steer.metadata ??
     (await createMessageMetadata(steer.userId, 'nuphos', steer.deviceId, steer.cliToken))
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     connectTimeoutMs: 3_000,
     callTimeoutMs: 15_000,
   })
@@ -291,7 +292,7 @@ export async function steerConversationRuntime(
   } catch (error) {
     // A refused steer has no receipt to read its sender back.
     await takeSteerSender(conversation.sessionId, messageId)
-    throw error
+    throw steerRejected(error)
   } finally {
     client.close()
   }

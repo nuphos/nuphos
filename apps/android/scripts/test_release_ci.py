@@ -25,6 +25,48 @@ def signing_script():
     return textwrap.dedent(block)
 
 
+def version_script():
+    text = WORKFLOW.read_text()
+    start = text.index('      - name: Read the release version\n')
+    block = text[start:].split('        run: |\n', 1)[1].split('\n      - ', 1)[0]
+    return textwrap.dedent(block)
+
+
+class ReleaseVersionTest(unittest.TestCase):
+    """The version step picks the Play version code, which can never go down."""
+
+    def run_step(self, version, tag):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'apps/android').mkdir(parents=True)
+            (root / 'apps/android/package.json').write_text(json.dumps({'version': version}))
+            env_file, output_file = root / 'env', root / 'output'
+            result = subprocess.run(['bash', '-c', version_script()], cwd=root, capture_output=True, text=True,
+                                    env={**os.environ, 'RELEASE_TAG': tag, 'GITHUB_ENV': str(env_file),
+                                         'GITHUB_OUTPUT': str(output_file)})
+            if result.returncode:
+                return None
+            return dict(line.split('=', 1) for line in output_file.read_text().split())
+
+    def test_tag_matching_the_package_gives_its_version_code(self):
+        for version, code in (('1.16.0', '11600'), ('1.17.0', '11700'), ('1.17.3', '11703'), ('2.0.99', '20099')):
+            with self.subTest(version=version):
+                self.assertEqual(self.run_step(version, f'android-v{version}'),
+                                 {'version_name': version, 'version_code': code})
+
+    def test_rejects_mismatched_tags_and_versions_the_code_cannot_hold(self):
+        for version, tag in (('1.17.0', 'android-v1.16.0'), ('1.17.0', 'ios-v1.17.0'), ('1.100.0', 'android-v1.100.0'),
+                             ('1.1.100', 'android-v1.1.100'), ('1.07.0', 'android-v1.07.0'), ('1.17', 'android-v1.17'),
+                             ('0.17.0', 'android-v0.17.0'), ('', 'android-v')):
+            with self.subTest(version=version, tag=tag):
+                self.assertIsNone(self.run_step(version, tag))
+
+    def test_committed_version_is_above_every_code_play_has_received(self):
+        version = json.loads((ROOT / 'apps/android/package.json').read_text())['version']
+        code = self.run_step(version, f'android-v{version}')['version_code']
+        # Play last received 1.16.0 as code 31 before this scheme; 1.16.0 itself maps to 11600.
+        self.assertGreaterEqual(int(code), 11600)
+
 class ReleaseMetadataTest(unittest.TestCase):
     def test_version_boundaries(self):
         for code in ('1', '2100000000'):
@@ -79,7 +121,7 @@ class SigningTest(unittest.TestCase):
             archive.writestr('base/dex/classes.dex', b'test payload')
         self.metadata = {'source_commit': 'a' * 40, 'repository': 'nuphos/nuphos', 'run_id': '42', 'run_attempt': '1', 'package_id': 'ai.nuphos.android', 'version_code': 2, 'version_name': '1.2.3', 'min_sdk': 33, 'target_sdk': 36, 'unsigned_sha256': hashlib.sha256(self.bundle.read_bytes()).hexdigest(), 'signed': False}
         (source / 'metadata.json').write_text(json.dumps(self.metadata))
-        self.env = {**os.environ, 'RUNNER_TEMP': str(self.directory), 'GITHUB_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'nuphos/nuphos', 'GITHUB_RUN_ID': '42', 'GITHUB_RUN_ATTEMPT': '1', 'VERSION_CODE': '2', 'VERSION_NAME': '1.2.3', 'ANDROID_UPLOAD_KEYSTORE_BASE64': base64.b64encode(self.key.read_bytes()).decode(), 'ANDROID_UPLOAD_STORE_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_ALIAS': 'upload', 'ANDROID_UPLOAD_CERT_SHA256': self.fingerprint}
+        self.env = {**os.environ, 'RUNNER_TEMP': str(self.directory), 'RELEASE_SHA': 'a' * 40, 'GITHUB_REPOSITORY': 'nuphos/nuphos', 'GITHUB_RUN_ID': '42', 'GITHUB_RUN_ATTEMPT': '1', 'VERSION_CODE': '2', 'VERSION_NAME': '1.2.3', 'ANDROID_UPLOAD_KEYSTORE_BASE64': base64.b64encode(self.key.read_bytes()).decode(), 'ANDROID_UPLOAD_STORE_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_PASSWORD': 'disposable-test-password', 'ANDROID_UPLOAD_KEY_ALIAS': 'upload', 'ANDROID_UPLOAD_CERT_SHA256': self.fingerprint}
 
     def run_sign(self):
         result = subprocess.run(['bash', '-c', signing_script()], env=self.env, capture_output=True, text=True, timeout=60)
@@ -115,7 +157,7 @@ class SigningTest(unittest.TestCase):
         self.assertNotEqual(self.run_sign().returncode, 0)
         self.assertFalse((self.directory / 'android-signed').exists())
         self.bundle.write_bytes(original)
-        for field, value in (('GITHUB_SHA', 'b' * 40), ('GITHUB_RUN_ATTEMPT', '2')):
+        for field, value in (('RELEASE_SHA', 'b' * 40), ('GITHUB_RUN_ATTEMPT', '2')):
             with self.subTest(field=field):
                 old = self.env[field]
                 self.env[field] = value
@@ -181,16 +223,18 @@ class WorkflowBoundaryTest(unittest.TestCase):
         self.assertNotIn('secrets.', build)
         self.assertNotIn('actions/checkout', sign)
         self.assertIn('environment: android-release', sign)
-        self.assertIn('needs: build', sign)
+        self.assertIn('needs: [provenance, build]', sign)
         self.assertIn('artifact-ids: ${{ needs.build.outputs.artifact_id }}', sign)
         self.assertIn('if: always()', sign)
-        self.assertIn('needs: sign', release)
+        self.assertIn('needs: [provenance, build, sign]', release)
         self.assertIn('contents: write', release)
         self.assertNotIn('contents: write', build + sign)
         for forbidden in ('secrets.', 'id-token', 'actions/checkout', 'environment:'):
             self.assertNotIn(forbidden, release)
         self.assertNotIn('packages: write', text)
         for ref in re.findall(r'uses: (\S+)', text):
+            if ref.startswith('./.github/workflows/'):
+                continue
             self.assertRegex(ref, r'@([a-f0-9]{40})$')
 
 

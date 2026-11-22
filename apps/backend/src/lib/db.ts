@@ -3,7 +3,7 @@ import { MongoClient } from 'mongodb'
 import { config } from '@/config'
 import { instrumentMongoClient } from '@/otel/instrumentation/mongo'
 
-import type { Db } from 'mongodb'
+import type { ClientSession, Db } from 'mongodb'
 
 export const mongo = new MongoClient(config.mongoUri, {
   appName: new URLSearchParams(config.mongoUri.split('?')[1]).get('appName') ?? 'nuphos-backend',
@@ -35,4 +35,17 @@ export function db(): Db {
 export async function closeDb(): Promise<void> {
   await mongo.close()
   _db = undefined
+}
+
+/** Runs `body` as one transaction: its writes, passed the session, land together or not at all. */
+export async function withTransaction(
+  body: (session: ClientSession) => Promise<void>,
+): Promise<void> {
+  const session = mongo.startSession()
+
+  try {
+    await session.withTransaction(() => body(session))
+  } finally {
+    await session.endSession()
+  }
 }

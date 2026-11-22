@@ -20,7 +20,13 @@ import type { AgentCredentialSelection } from '../../../api'
 // Only teamIdentity matters here; the access lists are untouched.
 const emptyCredentialAccess = () => ({ githubInstallationIds: ['i1'] }) as AgentCredentialSelection
 
-const github = { provider: 'github' as const, login: 'fong', workspaceName: null, connectedAt: 'x' }
+const github = {
+  id: 'g1',
+  provider: 'github' as const,
+  login: 'fong',
+  workspaceName: null,
+  connectedAt: 'x',
+}
 const linear = {
   provider: 'linear' as const,
   login: 'fong',
@@ -63,6 +69,24 @@ describe('own credential without a team binding', () => {
       githubInstallations: Array.from({ length: github }, () => ({})),
       linearWorkspaces: Array.from({ length: linear }, () => ({})),
     }) as unknown as AgentCredentialOptions
+
+  test('a Google credential is one own row, never an identity row', () => {
+    const google = {
+      personalCredentials: [{ provider: 'google-calendar' as const, login: 'fong@example.com' }],
+      githubInstallations: [{}],
+      linearWorkspaces: [{}],
+    } as unknown as AgentCredentialOptions
+    const value = { ...emptyCredentialAccess(), personalCredentialIds: ['google-calendar'] }
+
+    assert.deepEqual(personalRows(google, value as AgentCredentialSelection), [
+      { provider: 'google-calendar', identity: false, checked: true },
+    ])
+    assert.deepEqual(
+      setPersonalOnly(value as AgentCredentialSelection, 'google-calendar', false)
+        .personalCredentialIds,
+      [],
+    )
+  })
 
   test('every drawn own row is counted: the credential, and the identity under a binding', () => {
     const rows = personalRows(options(1, 0), {
@@ -136,16 +160,18 @@ describe('own credential without a team binding', () => {
     }
   })
 
-  test("a new chat's default selection never includes the member's own credential", () => {
+  // Like every connector (#3743): a new chat starts with the member's own credentials ticked.
+  test("a new chat's default selection includes the member's own credentials", () => {
     const loaded = {
       ...EMPTY_CREDENTIAL_OPTIONS,
-      githubInstallations: [
-        { installationId: 'i1', accountLogin: 'acme', accountType: 'Organization' },
-      ],
-      personalCredentials: own,
+      personalCredentials: [...own, { provider: 'gmail' as const, login: 'fong@example.com' }],
     } as AgentCredentialOptions
 
-    assert.deepEqual(defaultCredentialAccess(loaded).personalCredentialIds ?? [], [])
+    assert.deepEqual(defaultCredentialAccess(loaded).personalCredentialIds, [
+      'github',
+      'linear',
+      'gmail',
+    ])
   })
 
   test('ticking adds the provider and unticking removes only it', () => {

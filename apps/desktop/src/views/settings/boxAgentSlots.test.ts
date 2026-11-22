@@ -1,15 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { agentSlots, askToAdd, canAddAgent } from './boxAgentSlots.ts'
-
-test('an empty list never waits forever: setup for This computer, plain empty elsewhere', () => {
-  assert.equal(agentSlots(true, false, 'running', []), 'noLocalAgent')
-  assert.equal(agentSlots(false, false, 'running', []), 'agents')
-  assert.equal(agentSlots(false, true, 'running', []), 'starting')
-  assert.equal(agentSlots(true, true, 'running', []), 'starting')
-  assert.equal(agentSlots(true, false, 'paused', []), 'agents')
-})
+import { askToAdd, canAddAgent } from './boxAgentSlots.ts'
 
 test('+ shows on a running machine the viewer manages, and nowhere else', () => {
   assert.equal(canAddAgent('running', true), true)

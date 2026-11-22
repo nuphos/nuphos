@@ -17,7 +17,6 @@ import { join } from 'node:path'
 
 import { pipeLines, selectCrashDiagnostic } from './dev-child-output.ts'
 import { markDirty, pushEvent } from './dev-event-log.ts'
-import { DEV_OPTIONS } from './dev-options.ts'
 import { LOG_DIR, INSTANCE } from './dev-workspace.ts'
 
 import type { ChildProcess } from 'node:child_process'
@@ -25,7 +24,7 @@ import type { WriteStream } from 'node:fs'
 
 export type Status = 'starting' | 'ready' | 'degraded' | 'crashed' | 'stopped'
 export type Service = {
-  name: 'mongo' | 'rustfs' | 'runtime' | 'managed' | 'backend' | 'desktop' | 'agent'
+  name: 'mongo' | 'rustfs' | 'runtime' | 'backend' | 'desktop' | 'agent'
   status: Status
   port: number | null
   url: string | null
@@ -75,11 +74,8 @@ export const mongo = makeService('mongo', '\x1b[32m')
 export const rustfs = makeService('rustfs', '\x1b[32m')
 export const runtime = makeService('runtime', '\x1b[33m')
 export const localAgent = makeService('agent', '\x1b[34m')
-export const managed = makeService('managed', '\x1b[33m')
 export const frontend = desktop
-const stack = DEV_OPTIONS.managed ? [mongo, rustfs, runtime, managed] : [mongo, rustfs, runtime]
-
-export const services = [...stack, backend, desktop, localAgent]
+export const services = [mongo, rustfs, runtime, backend, desktop, localAgent]
 
 export function startTiming(svc: Service) {
   svc.startedAt = Date.now()

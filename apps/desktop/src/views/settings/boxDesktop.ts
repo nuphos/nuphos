@@ -10,8 +10,8 @@ function openDesktopPage(teamId: string, filter: string): void {
 }
 
 /**
- * Opens a running Box's desktop in an app tab, to watch and take over what its
- * agents do. The tab names only the Box; it asks for its own link each time it connects.
+ * Opens a Box's own desktop in an app tab, to watch and take over what its agents do.
+ * The tab names only the Box; its host opens the desktop each time the tab connects.
  */
 export function openBoxDesktop(deviceId: string, teamId: string): void {
   openDesktopPage(teamId, deviceId)
