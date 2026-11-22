@@ -7,6 +7,7 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -38,5 +39,7 @@ fun FirstRuntimePrompt() {
         icon = Icons.Outlined.Memory,
         title = stringResource(R.string.agent_first_runtime_starting_title, box),
         body = stringResource(R.string.agent_first_runtime_starting_body),
+        // The Box name makes this title wrap, and wrapped lines would otherwise start-align under the centred icon.
+        textAlign = TextAlign.Center,
     )
 }
