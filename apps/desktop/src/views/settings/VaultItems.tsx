@@ -109,20 +109,6 @@ export function VaultItems({ userId }: { userId: string }) {
                 type="button"
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  void api
-                    .vaultGet(item.name)
-                    .then((plain) => navigator.clipboard.writeText(plain))
-                    .then(() => toast.success(t('Copied')))
-                    .catch((err: unknown) => toast.apiError(t('Could not open the item'), err))
-                }
-              >
-                {t('Copy')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
                 onClick={() => setDeleting(item.name)}
               >
                 {t('Delete')}

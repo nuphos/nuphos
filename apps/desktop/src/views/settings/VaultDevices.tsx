@@ -31,7 +31,9 @@ export function VaultDevices({
   const [confirming, setConfirming] = useState<Action | null>(null)
   const act = useMutation({
     mutationFn: ({ device, action }: Action) =>
-      action === 'approve' ? api.vaultApprove(device.id) : api.vaultRemoveDevice(device.id),
+      action === 'approve'
+        ? api.vaultApprove(device.id, device.fingerprint)
+        : api.vaultRemoveDevice(device.id),
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.vault(userId) }),
     onError: (err) => toast.apiError(t('Could not update the device'), err),
   })

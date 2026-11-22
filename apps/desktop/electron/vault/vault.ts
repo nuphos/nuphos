@@ -34,7 +34,6 @@ type RemoteDevice = {
   name: string
   publicKey: string
   state: 'pending' | 'enrolled'
-  createdAt: string
 }
 type Device = { deviceId: string; privateKey: string }
 
@@ -141,7 +140,6 @@ export async function status(): Promise<VaultStatus> {
       id: d.id,
       name: d.name,
       state: d.state,
-      createdAt: d.createdAt,
       // This device's print comes from the key it holds, never from what
       // the backend returned, so a swapped key cannot show a matching one.
       fingerprint: fingerprint(
@@ -153,37 +151,60 @@ export async function status(): Promise<VaultStatus> {
   }
 }
 
+let enrolling: Promise<VaultStatus> | null = null
+
 /** Adds this device. The first one is trusted on first use; a later one waits for approval. */
-export async function enroll(name?: string): Promise<VaultStatus> {
+export function enroll(): Promise<VaultStatus> {
+  // A second click while the first is out joins it instead of adding a second device.
+  enrolling ??= addThisDevice().finally(() => {
+    enrolling = null
+  })
+
+  return enrolling
+}
+
+async function addThisDevice(): Promise<VaultStatus> {
   if (!(await thisDevice(await devices()))) {
     // Removed from the vault elsewhere: start over with a new key.
     await forgetDevice()
     const key = generateDeviceKey()
-    const deviceName = name?.trim() ? name.trim() : `${os.hostname()} (Desktop)`
     const { device } = await call<{ device: RemoteDevice }>(
       'POST',
       '/vault/devices',
-      { name: deviceName, publicKey: key.publicKey.toString('base64') },
+      { name: `${os.hostname()} (Desktop)`, publicKey: key.publicKey.toString('base64') },
       { retry: false },
     )
 
-    await saveDevice({ deviceId: device.id, privateKey: key.privateKey.toString('base64') })
+    // A device whose key was never kept could approve nobody: take it back out.
+    await saveDevice({
+      deviceId: device.id,
+      privateKey: key.privateKey.toString('base64'),
+    }).catch(async (err: unknown) => {
+      await removeDevice(device.id).catch(() => null)
+      throw err
+    })
   }
 
   return status()
 }
 
-/** Wraps every item's key for a pending device, after the person compared its fingerprint. */
-export async function approve(deviceId: string): Promise<void> {
+/**
+ * Wraps every item's key for a pending device. Only to the key whose
+ * fingerprint the person compared: one swapped in since then is refused.
+ */
+export async function approve(deviceId: string, confirmed: string): Promise<void> {
   const mine = await enrolledKey()
   const target = (await devices()).find((d) => d.id === deviceId)
 
   if (target?.state !== 'pending') throw fail('That device is no longer waiting for approval.')
   const to = Buffer.from(target.publicKey, 'base64')
+
+  if (fingerprint(to) !== confirmed)
+    throw fail('That device’s key changed since you compared it. Nothing was approved.')
   const keys = []
 
   for (const { name } of await items())
-    keys.push({ name, wrapped: wrap((await itemKey(name, mine)).itemKey, name, to) })
+    keys.push({ name, wrapped: wrap((await itemKey(checkName(name), mine)).itemKey, name, to) })
   await call(
     'POST',
     `/vault/devices/${encodeURIComponent(deviceId)}/approve`,

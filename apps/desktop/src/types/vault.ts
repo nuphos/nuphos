@@ -3,7 +3,6 @@ export type VaultDevice = {
   id: string
   name: string
   state: 'pending' | 'enrolled'
-  createdAt: string
   /** Compared on both screens before a device is approved. */
   fingerprint: string
 }

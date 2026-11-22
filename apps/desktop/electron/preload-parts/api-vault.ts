@@ -4,8 +4,9 @@ import type { VaultItemSummary, VaultStatus } from '../../src/types/vault'
 
 export const vaultApi = {
   vaultStatus: (): Promise<VaultStatus> => ipcRenderer.invoke('vault:status'),
-  vaultEnroll: (name?: string): Promise<VaultStatus> => ipcRenderer.invoke('vault:enroll', name),
-  vaultApprove: (deviceId: string): Promise<void> => ipcRenderer.invoke('vault:approve', deviceId),
+  vaultEnroll: (): Promise<VaultStatus> => ipcRenderer.invoke('vault:enroll'),
+  vaultApprove: (deviceId: string, fingerprint: string): Promise<void> =>
+    ipcRenderer.invoke('vault:approve', deviceId, fingerprint),
   vaultRemoveDevice: (deviceId: string): Promise<void> =>
     ipcRenderer.invoke('vault:removeDevice', deviceId),
   vaultItems: (): Promise<VaultItemSummary[]> => ipcRenderer.invoke('vault:items'),

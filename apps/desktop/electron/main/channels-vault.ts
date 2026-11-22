@@ -2,8 +2,9 @@ import * as vault from '../vault/vault'
 
 export const vaultChannels = {
   'vault:status': () => vault.status(),
-  'vault:enroll': (_e: unknown, name?: string) => vault.enroll(name),
-  'vault:approve': (_e: unknown, deviceId: string) => vault.approve(deviceId),
+  'vault:enroll': () => vault.enroll(),
+  'vault:approve': (_e: unknown, deviceId: string, fingerprint: string) =>
+    vault.approve(deviceId, fingerprint),
   'vault:removeDevice': (_e: unknown, deviceId: string) => vault.removeDevice(deviceId),
   'vault:items': () => vault.items(),
   'vault:get': (_e: unknown, name: string) => vault.getItem(name),
