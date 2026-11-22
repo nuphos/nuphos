@@ -248,8 +248,24 @@ export async function attachRuntimeTunnel(
         case 'status': {
           const reported = frame.status
 
+          const recoveredModels =
+            Object.entries(reported.agents).some(
+              ([provider, agent]) =>
+                agent?.models?.models.length &&
+                !agent.models.failed &&
+                status?.agents[provider as keyof LocalRuntimeStatus['agents']]?.models?.failed,
+            ) ||
+            reported.instances?.some(
+              (agent) =>
+                agent.models?.models.length &&
+                !agent.models.failed &&
+                status?.instances?.some(
+                  (previous) => previous.instanceId === agent.instanceId && previous.models?.failed,
+                ),
+            )
+
           status = reported
-          // Only what reportedAgentsKey names is written at once, not every status report.
+          // Publish a recovered catalog before the picker reads it back.
           const agents = reportedAgentsKey(reported)
 
           if (deps.recordAgents && agents !== recorded) {
@@ -262,7 +278,7 @@ export async function attachRuntimeTunnel(
               .catch(() => {
                 recorded = undefined
               })
-          }
+          } else if (recoveredModels) void refreshPresence()
           break
         }
         case 'pong': // Answers the heartbeat; it counts as liveness like every other frame.
