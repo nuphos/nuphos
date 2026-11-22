@@ -33,6 +33,7 @@ import {
 } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
+import { startQueuedTurn } from './queued-turn'
 import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 import { noteReplyFailed } from './reply-failed'
@@ -869,10 +870,14 @@ describe('a person posting while an agent’s turn runs', () => {
     QUEUED_NOTICE_STEER.delayMs = 2
     running.set('agent-a', 'agent-a-owner')
     steerable = false
-    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
-    await new Promise((resolve) => setTimeout(resolve, 30))
-    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
-    expect(starts).toEqual([])
+    try {
+      await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+      expect(starts).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+    }
   })
 
   test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
