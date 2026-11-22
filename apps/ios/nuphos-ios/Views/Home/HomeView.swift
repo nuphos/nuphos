@@ -83,7 +83,7 @@ struct HomeView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? 90 : Self.compactTeamNameWidth, alignment: .leading)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
                                 LucideIcon("chevron-down", size: 14)
                             }
                         }
@@ -96,10 +96,12 @@ struct HomeView: View {
                         .accessibilityLabel("Switch team")
                     }
                 }
-                // One item, not a group: iOS 27 folds a group into "More", on an iPhone
-                // and on a wide window alike, and Account and Computers went with it.
-                ToolbarItem(placement: .topBarTrailing) {
-                    HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
+                // and Account and Computers went with it.
+                if sizeClass != .regular || openChat != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                    }
                 }
             }
             #if DEBUG
@@ -191,6 +193,11 @@ struct HomeView: View {
                         .id(question.id)
                 } else {
                     Theme.canvas.ignoresSafeArea()
+                }
+            }
+            .toolbar {
+                if sizeClass == .regular, openChat == nil {
+                    ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
                 }
             }
             .navigationDestination(isPresented: $showBotTask) {
