@@ -6,6 +6,7 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
+import { startDiscordStub } from './discord-stub.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { rollBackend, startRedis } from './replicas.ts'
@@ -64,17 +65,13 @@ function findOpenab(): string {
   )
 }
 
-function onPath(command: string): boolean {
-  return spawnSync(command, ['--version'], { stdio: 'ignore' }).status === 0
-}
-
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
 export function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
   const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
 
-  if (onPath(mongod)) {
+  if (spawnSync(mongod, ['--version'], { stdio: 'ignore' }).status === 0) {
     const dbpath = join(artifacts, 'mongo')
 
     mkdirSync(dbpath, { recursive: true })
@@ -147,6 +144,7 @@ export async function startStack(
     ...(await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
+    ...(await startDiscordStub()),
     ...(await startWebhookReceiver()),
   }
 

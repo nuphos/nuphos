@@ -11,6 +11,7 @@ import type * as dbActual from '@/lib/db'
 // Archived reads the viewer's own, then the shared Tasks they archived for themselves.
 let queries: Record<string, unknown>[] = []
 let sorts: Record<string, number>[] = []
+let stages: string[][] = []
 let page: Record<string, unknown>[] = []
 let lastUpdate: { filter: unknown; update: unknown } | undefined
 
@@ -26,6 +27,20 @@ const collection = {
         return { limit: () => ({ toArray: () => Promise.resolve(rows) }) }
       },
     }
+  },
+  // The archive reads through an aggregation, to leave a Bot's work with the Bot.
+  aggregate(pipeline: Record<string, Record<string, unknown>>[]) {
+    const [{ $match: query }, { $sort: sort }, ...rest] = pipeline as [
+      { $match: Record<string, unknown> },
+      { $sort: Record<string, number> },
+      ...object[],
+    ]
+
+    queries.push(query)
+    sorts.push(sort)
+    stages.push(rest.flatMap((stage) => Object.keys(stage)))
+
+    return { toArray: () => Promise.resolve(query.userId === VIEWER ? [...page] : []) }
   },
   findOne: () => Promise.resolve(null),
   updateOne(filter: unknown, update: unknown) {
@@ -49,6 +64,7 @@ const READABLE = {
 beforeEach(() => {
   queries = []
   sorts = []
+  stages = []
   lastUpdate = undefined
   page = []
 })
@@ -81,6 +97,10 @@ describe('archived conversation listing', () => {
       { archivedAt: -1, _id: -1 },
       { [shared]: -1, _id: -1 },
     ])
+    // Both halves leave a Bot's work out before the page is cut (archive-bot-work.mongo.test.ts).
+    const botWork = ['$graphLookup', '$match', '$unset', '$limit']
+
+    expect(stages).toEqual([botWork, botWork])
   })
 
   test('the archive cursor pages on archivedAt, then _id', async () => {

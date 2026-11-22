@@ -71,8 +71,14 @@ export function fetchTask(client: QueryClient, teamId: string, sessionId: string
   })
 }
 
-/** Reads a Task before it is opened, unless its copy is current, so the click shows it from memory. */
+/**
+ * Reads a Task before it is opened, unless its copy is current, so the click shows it from memory.
+ * A copy with a reply in progress is skipped too: its tab streams it, and a click on it reads
+ * afresh anyway, so reading it on hover only adds a read.
+ */
 export function prefetchTask(client: QueryClient, teamId: string, sessionId: string) {
-  if (cachedTask(client, teamId, sessionId)) return
+  const copy = client.getQueryData<AgentConversationDetail>(queryKeys.task(teamId, sessionId))
+
+  if (copy?.activeRun || cachedTask(client, teamId, sessionId)) return
   fetchTask(client, teamId, sessionId).catch(() => {})
 }

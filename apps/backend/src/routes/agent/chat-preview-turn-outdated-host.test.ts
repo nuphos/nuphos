@@ -189,7 +189,7 @@ test('a staged Desktop update explicitly says the download is ready and to quit 
   )
 
   expect((error as Error).message).toContain(
-    'The downloaded update is ready. Quit and reopen Nuphos to install it.',
+    'The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it.',
   )
 })
 
