@@ -2,12 +2,10 @@ import { api } from '../../api'
 import { parseAtlasError } from '../../api/errors'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { personalCredentialsChanged } from '../../lib/query/account'
 import { isGoogle } from '../../types'
 
 import type { PersonalCredentialDeepLinkPayload, PersonalCredentialProvider } from '../../types'
-
-/** Fired after the main process claims an OAuth grant, so an open section refetches. */
-export const PERSONAL_CREDENTIALS_CHANGED = 'personal-credentials:changed'
 
 const NAMES: Record<PersonalCredentialProvider, string> = {
   github: 'GitHub',
@@ -94,7 +92,7 @@ export function announcePersonalCredential({
   } else {
     toast.error(t('Couldn’t connect {name}', { name }), t('Please try again.'))
   }
-  window.dispatchEvent(new Event(PERSONAL_CREDENTIALS_CHANGED))
+  void personalCredentialsChanged()
 }
 
 /** The personal entries a search keeps; every term has to match, as in the team catalog. */

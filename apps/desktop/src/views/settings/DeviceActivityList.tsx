@@ -1,13 +1,13 @@
 import { Collapsible } from '@base-ui/react/collapsible'
 import clsx from 'clsx'
 import { RotateCw as RotateCwIcon, ChevronRight as ChevronRightIcon } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
+import { useDeviceAuditQuery } from '../../lib/query/account'
 
 import {
   commandPreview,
@@ -19,7 +19,7 @@ import {
 import { LoadFailed } from './shared'
 
 import type { OutcomeTone } from './deviceActivity'
-import type { DeviceExecAuditEntry, DeviceExecAuditPage } from '../../api'
+import type { DeviceExecAuditEntry } from '../../api'
 import type { ReactNode } from 'react'
 
 const EMPTY_CLASSES =
@@ -105,52 +105,22 @@ export function DeviceActivityList({
   currentTeamId?: string
   onOpenConversation?: (sessionId: string) => void
 }) {
-  const [entries, setEntries] = useState<DeviceExecAuditEntry[] | null>(null)
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [failed, setFailed] = useState(false)
-
-  const applyPage = useCallback((page: DeviceExecAuditPage, append: boolean) => {
-    setEntries((prev) => (append && prev ? [...prev, ...page.entries] : page.entries))
-    setNextCursor(page.nextCursor)
-  }, [])
+  const audit = useDeviceAuditQuery()
+  const entries = audit.data?.pages.flatMap((page) => page.entries) ?? null
+  const loading = audit.isFetching
 
   useEffect(() => {
-    let cancelled = false
-
-    api
-      .deviceListAudit()
-      .then((page) => {
-        if (!cancelled) applyPage(page, false)
-      })
-      .catch((err: unknown) => {
-        toast.apiError(t('Could not load recent activity'), err)
-        if (!cancelled) setFailed(true)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [applyPage])
-
-  async function load(before?: string) {
-    setLoading(true)
-    try {
-      applyPage(await api.deviceListAudit(before), before !== undefined)
-      setFailed(false)
-    } catch (err) {
-      if (before === undefined) setFailed(true)
-      toast.apiError(t('Could not load recent activity'), err)
-    } finally {
-      setLoading(false)
-    }
-  }
+    if (audit.error) toast.apiError(t('Could not load recent activity'), audit.error)
+  }, [audit.error])
 
   let body: ReactNode
 
   if (entries === null) {
-    body = failed ? (
-      <LoadFailed message={t('Couldn’t load recent activity.')} onRetry={() => void load()} />
+    body = audit.isError ? (
+      <LoadFailed
+        message={t('Couldn’t load recent activity.')}
+        onRetry={() => void audit.refetch()}
+      />
     ) : (
       <p className={EMPTY_CLASSES}>{t('Loading…')}</p>
     )
@@ -169,15 +139,15 @@ export function DeviceActivityList({
             />
           ))}
         </div>
-        {nextCursor && (
+        {audit.hasNextPage && (
           <div className="mt-2 flex justify-center">
             <Button
               variant="ghost"
               size="sm"
               disabled={loading}
-              onClick={() => void load(nextCursor)}
+              onClick={() => void audit.fetchNextPage()}
             >
-              {loading ? t('Loading…') : t('Load more')}
+              {audit.isFetchingNextPage ? t('Loading…') : t('Load more')}
             </Button>
           </div>
         )}
@@ -194,7 +164,7 @@ export function DeviceActivityList({
           size="icon-sm"
           aria-label={t('Refresh recent activity')}
           disabled={loading}
-          onClick={() => void load()}
+          onClick={() => void audit.refetch()}
         >
           <UiIcon
             size={16}

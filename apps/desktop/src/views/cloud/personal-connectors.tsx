@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
@@ -8,21 +9,22 @@ import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { useTeamRole } from '../../hooks/useTeamRole'
 import { t } from '../../i18n'
+import {
+  personalCredentialsChanged,
+  usePersonalCredentialsQuery,
+  useTeamGoogleClientQuery,
+} from '../../lib/query/account'
 import { isGoogle } from '../../types'
 import { needsTeamGoogleClient } from '../settings/googleClient'
 import { GOOGLE_CLIENT_GUIDE_URL } from '../settings/GoogleOAuthClientCard'
 import { PersonalAccountLines } from '../settings/PersonalAccountLines'
 import { MULTI_ACCOUNT_PROVIDERS, credentialsFor } from '../settings/personalAccounts'
-import {
-  PERSONAL_CREDENTIALS_CHANGED,
-  connectPersonalCredential,
-  nameOf,
-} from '../settings/personalCredentials'
+import { connectPersonalCredential, nameOf } from '../settings/personalCredentials'
 import { useAdminName } from '../settings/useAdminName'
 
 import { OverflowMarquee } from './overflow-marquee'
 
-import type { PersonalCredential, PersonalCredentialProvider, TeamGoogleClient } from '../../types'
+import type { PersonalCredential, PersonalCredentialProvider } from '../../types'
 import type { PersonalConnector } from '../settings/personalCredentials'
 
 /** A Google account waits for the team's OAuth client: admins can add it, everyone else asks one. */
@@ -74,58 +76,26 @@ export function PersonalConnectors({
   items: PersonalConnector[]
   onOpenTeamSettings: () => void
 }) {
-  const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
-  // Whether Google accounts can connect here; unknown (null) leaves Connect to say why if not.
-  const [googleClient, setGoogleClient] = useState<TeamGoogleClient | null>(null)
-  const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
-  const [disconnecting, setDisconnecting] = useState<PersonalCredential | null>(null)
   // Status only decorates the rows; if it cannot be read they still offer Connect.
-  const refresh = useCallback(() => {
-    void api
-      .atlasListPersonalCredentials()
-      .then(setCredentials)
-      .catch(() => setCredentials(null))
-  }, [])
-
-  useEffect(() => {
-    void api
-      .atlasGetTeamGoogleClient(teamId)
-      .then(setGoogleClient)
-      .catch(() => setGoogleClient(null))
-  }, [teamId])
-
-  useEffect(() => {
-    refresh()
-    window.addEventListener('focus', refresh)
-    window.addEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
-
-    return () => {
-      window.removeEventListener('focus', refresh)
-      window.removeEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
-    }
-  }, [refresh])
-
-  async function connect(provider: PersonalCredentialProvider) {
-    setBusy(provider)
-    try {
-      await connectPersonalCredential(provider, teamId)
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  async function disconnect({ provider, id }: PersonalCredential) {
-    setBusy(provider)
-    try {
-      await api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? teamId : undefined, id)
-      toast.success(t('{name} disconnected', { name: nameOf(provider) }))
-    } catch (err) {
-      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err)
-    } finally {
-      setBusy(null)
-      refresh()
-    }
-  }
+  const credentials = usePersonalCredentialsQuery().data ?? null
+  // Whether Google accounts can connect here; unknown (null) leaves Connect to say why if not.
+  const googleClient = useTeamGoogleClientQuery(teamId).data ?? null
+  const [disconnecting, setDisconnecting] = useState<PersonalCredential | null>(null)
+  const connect = useMutation({
+    mutationFn: (provider: PersonalCredentialProvider) =>
+      connectPersonalCredential(provider, teamId),
+  })
+  const disconnect = useMutation({
+    mutationFn: ({ provider, id }: PersonalCredential) =>
+      api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? teamId : undefined, id),
+    onSuccess: (_result, { provider }) =>
+      toast.success(t('{name} disconnected', { name: nameOf(provider) })),
+    onError: (err, { provider }) =>
+      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err),
+    onSettled: personalCredentialsChanged,
+  })
+  const disconnectingProvider = disconnect.isPending ? disconnect.variables.provider : null
+  const busy = connect.isPending ? connect.variables : disconnectingProvider
 
   return (
     <section>
@@ -157,7 +127,7 @@ export function PersonalConnectors({
                     busy={busy === provider}
                     canAddMore={MULTI_ACCOUNT_PROVIDERS.includes(provider)}
                     onDisconnect={setDisconnecting}
-                    onConnectAnother={() => void connect(provider)}
+                    onConnectAnother={() => connect.mutate(provider)}
                   />
                 )}
                 {needsTeamClient && (
@@ -170,7 +140,7 @@ export function PersonalConnectors({
                   size="sm"
                   disabled={busy === provider || needsTeamClient}
                   aria-label={t('Add {name}', { name })}
-                  onClick={() => void connect(provider)}
+                  onClick={() => connect.mutate(provider)}
                 >
                   {t('Connect')}
                 </Button>
@@ -196,7 +166,10 @@ export function PersonalConnectors({
         }
         confirmLabel={t('Disconnect')}
         destructive
-        onConfirm={() => (disconnecting ? disconnect(disconnecting) : undefined)}
+        onConfirm={async () => {
+          // The toast says what failed, so the dialog just closes.
+          if (disconnecting) await disconnect.mutateAsync(disconnecting).catch(() => null)
+        }}
         onClose={() => setDisconnecting(null)}
       />
     </section>

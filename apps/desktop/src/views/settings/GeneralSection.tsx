@@ -164,7 +164,7 @@ export function GeneralSection({
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
           <BindingShareDefaultCard team={team} onTeamUpdated={onTeamUpdated} />
-          <GoogleOAuthClientCard team={team} />
+          <GoogleOAuthClientCard key={team.id} team={team} />
 
           <DataMigrationCard team={team} />
 
