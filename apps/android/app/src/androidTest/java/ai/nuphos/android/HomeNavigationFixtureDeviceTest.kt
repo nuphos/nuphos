@@ -121,11 +121,10 @@ class HomeNavigationFixtureDeviceTest {
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${b.id}/monitoring/overview")
-                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val mfa = request.method == "GET" && path == "/auth/mfa"
                 val mfaSetup = request.method == "POST" && path == "/auth/mfa/totp/setup"
                 val endSession = request.method == "DELETE" && path == "/auth/sessions/current"
-                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
+                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -165,7 +164,6 @@ class HomeNavigationFixtureDeviceTest {
                     browsing -> "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
-                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     mfa -> """{"enabled":false}"""
                     // A sign-in older than ten minutes may not start setup (the backend's rule for accounts without 2FA).
                     mfaSetup -> if (signedInAgain) """{"secret":"JBSWY3DPEHPK3PXP","otpauthUrl":"otpauth://totp/Nuphos:fixture?secret=JBSWY3DPEHPK3PXP"}"""
