@@ -84,7 +84,10 @@ export function ComplianceIntegrationView({
   const loading = found && query.isPending
 
   useRefreshKey(
-    { isPending: loading, refetch: () => (found ? query.refetch() : Promise.resolve()) },
+    {
+      isPending: loading,
+      refetch: () => (found ? query.refetch() : Promise.resolve({ error: null })),
+    },
     refreshKey,
     onLoading,
   )

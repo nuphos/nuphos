@@ -142,7 +142,7 @@ export function CloudWatchMetricsExplorerView({
           sweep.refetch(),
           namespace && nsSweep.refetch(),
           combos.length > 0 && seriesQuery.refetch(),
-        ]),
+        ]).then(() => ({ error: null })),
     },
     refreshKey,
     onLoading,

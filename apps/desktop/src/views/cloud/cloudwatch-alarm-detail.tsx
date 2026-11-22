@@ -70,7 +70,10 @@ export function CloudWatchAlarmDetailView({
   useRefreshKey(
     {
       isPending: metricLoading,
-      refetch: () => Promise.all([canChart && metric.refetch(), historyQuery.refetch()]),
+      refetch: () =>
+        Promise.all([canChart && metric.refetch(), historyQuery.refetch()]).then(() => ({
+          error: null,
+        })),
     },
     refreshKey,
     onLoading,
