@@ -16,9 +16,6 @@ export function setSessionConfig(
   teamId: string,
   selection: SessionConfigSelection,
 ): Promise<SessionConfigState> {
-  // The picker tells the user why a change was refused, so the backend's own
-  // message and code have to survive the IPC boundary (callJson alone keeps
-  // them as properties, which IPC strips).
   return callJson(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/model-config${teamQuery(teamId)}`,

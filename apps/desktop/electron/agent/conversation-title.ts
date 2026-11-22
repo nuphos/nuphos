@@ -37,7 +37,6 @@ export async function setBotInstructions(
   instructions: string,
   teamId?: string,
 ): Promise<{ instructions: string }> {
-  // A refusal's reason shows under the field, so its code has to survive IPC.
   return callJson(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/instructions${teamQuery(teamId)}`,
