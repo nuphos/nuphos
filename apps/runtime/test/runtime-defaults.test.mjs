@@ -82,15 +82,39 @@ test('fast off is explicitly applied and Claude effort IDs are supported', async
   )
 })
 
-test('invalid, unavailable, rejected, and unacknowledged defaults fail before any prompt', async () => {
+test("a default the agent does not offer leaves a new session on the agent's own choice", async () => {
   const response = { sessionId: 's', configOptions: [option('model', 'a', ['a', 'b'])] }
 
-  for (const defaults of [{ model: 'missing' }, { effort: 'high' }, { fast: 'on' }]) {
-    await assert.rejects(
-      nuphosApplyRuntimeDefaults({}, params(defaults), response),
-      /Settings → Agent/,
-    )
-  }
+  for (const defaults of [{ model: 'missing' }, { effort: 'high' }, { fast: 'on' }])
+    assert.deepEqual(await nuphosApplyRuntimeDefaults({}, params(defaults), response), response)
+
+  // A saved xhigh pick, on a model whose efforts stop at high: the model applies, the
+  // effort stays the model's own, and the session opens.
+  let options = [option('model', 'a', ['a', 'b'])]
+  const result = await nuphosApplyRuntimeDefaults(
+    {
+      setSessionConfigOption: async ({ value }) => {
+        options = [
+          option('model', value, ['a', 'b']),
+          option('reasoning_effort', 'medium', ['low', 'medium', 'high']),
+        ]
+
+        return { configOptions: options }
+      },
+    },
+    params({ model: 'b', effort: 'xhigh' }),
+    { sessionId: 's', configOptions: options },
+  )
+
+  assert.deepEqual(
+    result.configOptions.map((entry) => entry.currentValue),
+    ['b', 'medium'],
+  )
+})
+
+test('rejected and unacknowledged defaults fail before any prompt', async () => {
+  const response = { sessionId: 's', configOptions: [option('model', 'a', ['a', 'b'])] }
+
   await assert.rejects(
     nuphosApplyRuntimeDefaults(
       {
