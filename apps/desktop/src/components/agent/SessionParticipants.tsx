@@ -58,8 +58,9 @@ export function SessionParticipants({
   /** Opens Settings → Computers, where the chat's computer's sharing is managed. */
   onOpenComputers?: () => void
 }) {
-  const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
-  const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
+  // Null until the list loads, so a Bot never flashes a Share button. Every access call answers
+  // with the whole state, so the card never merges.
+  const [access, apply] = useState<ConversationAccessState | null>(null)
   // Removal leaves their use of the computer as it is; a notice names whoever keeps it.
   const sharing = useComputerSharing({ sessionId, teamId, apply, onOpenComputers }, channel)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
@@ -93,12 +94,6 @@ export function SessionParticipants({
       window.removeEventListener(TIMELINE_CHANGED_EVENT, reloadIfThisSession)
     }
   }, [sessionId, teamId])
-
-  // Every access call answers with the whole state, so the card never merges.
-  function apply(result: ConversationAccessState) {
-    setParticipants(result.participants)
-    setGeneralAccess(result.generalAccess)
-  }
 
   const onOpenChange = (open: boolean) => {
     if (!open) return
@@ -199,6 +194,8 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
+  if (!access || access.shareable === false) return null
+  const { participants, generalAccess } = access
   // A channel's agents count as people here, and so do the viewer's own that could join.
   const agents = channel?.agents ?? []
   const everyone = [...participants, ...agentPeople(agents, currentUserId, channel?.ownerId ?? '')]

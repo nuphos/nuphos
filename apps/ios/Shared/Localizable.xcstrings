@@ -30683,6 +30683,52 @@
         }
       }
     },
+    "This is your conversation with %@. Talk about what you want help with, and shape how you work together." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta es tu conversación con %@. Cuéntale qué ayuda necesitas y definan cómo trabajar juntos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ini percakapan Anda dengan %@. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここは %@ との会話です。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นี่คือการสนทนาของคุณกับ %@ บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里是你和 %@ 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這裡是你和 %@ 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。"
+          }
+        }
+      }
+    },
     "This passkey will no longer work for this account. Enter a code to confirm." : {
       "localizations" : {
         "es" : {
@@ -35070,100 +35116,94 @@
         }
       }
     },
-    "Worked for %@ · %lld steps" : {
+    "Worked" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Worked for %1$@ · %2$lld steps"
-          }
-        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trabajó %1$@ · %2$lld pasos"
+            "value" : "Trabajó"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bekerja %1$@ · %2$lld langkah"
+            "value" : "Selesai bekerja"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ 作業 · %2$lld ステップ"
+            "value" : "処理完了"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ 동안 작업 · %2$lld단계"
+            "value" : "작업 완료"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ทำงาน %1$@ · %2$lld ขั้นตอน"
+            "value" : "ทำงานเสร็จแล้ว"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工作了 %1$@ · %2$lld 个步骤"
+            "value" : "已处理"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工作了 %1$@ · %2$lld 個步驟"
+            "value" : "已處理"
           }
         }
       }
     },
-    "Worked through %lld steps" : {
+    "Worked for %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Completó %lld pasos"
+            "value" : "Trabajó durante %@"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Menyelesaikan %lld langkah"
+            "value" : "Bekerja selama %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld ステップを実行"
+            "value" : "%@処理しました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld단계를 진행함"
+            "value" : "%@ 동안 작업함"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ทำไป %lld ขั้นตอน"
+            "value" : "ทำงาน %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "完成了 %lld 个步骤"
+            "value" : "处理了 %@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "完成了 %lld 個步驟"
+            "value" : "處理了 %@"
           }
         }
       }
@@ -35487,6 +35527,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你已核准此指令。"
+          }
+        }
+      }
+    },
+    "You can start by telling %@ what you would like to do." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes empezar contándole a %@ qué te gustaría hacer."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda bisa mulai dengan memberi tahu %@ apa yang ingin dilakukan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まずは %@ にやりたいことを伝えてみましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 %@에게 하고 싶은 일을 알려 주세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เริ่มด้วยการบอก %@ ว่าคุณอยากทำอะไร"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告诉 %@，你想做些什么。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告訴 %@，你想做些什麼。"
           }
         }
       }

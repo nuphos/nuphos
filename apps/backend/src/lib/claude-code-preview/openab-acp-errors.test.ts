@@ -108,6 +108,18 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
   })
 
+  test('a Codex usage limit hit while compacting is the agent out of usage', () => {
+    // As production logged it from codex-acp 1.1.4.
+    const compacting = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> Error running remote compact task: You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 27th, 2026 3:22 AM.',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    )
+
+    expect(turnFailureCause(compacting)).toBe('usage_limit')
+    expect(claudeNotice(compacting)).toStartWith('You’ve hit your usage limit.')
+  })
+
   test('a provider’s 401 for the API key behind Codex is a sign-in to repair', () => {
     // As production logged it (#3926), with a stand-in key.
     const rejected = new OpenAbRpcError(

@@ -38,7 +38,6 @@ type RuntimeTab = Pick<
   | 'movingTo'
   | 'readOnly'
   | 'foreign'
-  | 'streaming'
   | 'timelineEvents'
 >
 type SessionRuntimeContext = Pick<
@@ -192,7 +191,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
             })
         },
       }),
-      selectDisabled: tab?.streaming || moving,
+      selectDisabled: moving,
       quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',
