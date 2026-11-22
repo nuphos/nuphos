@@ -23,6 +23,7 @@ export function BoxAgentForm({
   teamId,
   footer,
   onCloseGuard,
+  cancel = false,
   onBack,
   onChosen,
   onCreated,
@@ -36,6 +37,8 @@ export function BoxAgentForm({
   footer: HTMLElement | null
   /** Hands the dialog whether it may close now: not while creating, nor on an Escape meant for the plans. */
   onCloseGuard: (canClose: (() => boolean) | null) => void
+  /** Opened on this step: its secondary action cancels instead of going Back. */
+  cancel?: boolean
   onBack: () => void
   onChosen: (instance: RuntimeInstance) => void
   /** Instead of waiting here for its runtimes, once the computer is made. */
@@ -102,7 +105,7 @@ export function BoxAgentForm({
       )}
       <StepActions footer={footer} className="flex items-center justify-end gap-2">
         <button type="button" onClick={onBack} disabled={creating} className={button}>
-          {t('Back')}
+          {cancel ? t('Cancel') : t('Back')}
         </button>
         {box.phase === 'idle' && (
           <Button size="sm" type="submit" form={NEW_BOX_FORM} disabled={creating}>

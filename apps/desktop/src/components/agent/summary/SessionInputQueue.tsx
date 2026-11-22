@@ -131,7 +131,7 @@ export function SessionInputReply({
         </span>
         <button
           type="button"
-          aria-label={t('Open task')}
+          aria-label={t('Open Task')}
           onClick={() => onOpenSession(request.sessionId, questionTarget)}
           className="rounded p-1 text-secondary hover:text-main"
         >

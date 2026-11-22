@@ -13,7 +13,10 @@ useAgentDb({
   getConversationBySessionId: (sessionId: string) =>
     Promise.resolve(
       sessionId === 'conv-1'
-        ? ({ sessionId, credentialAccess: { teamIdentity } } as unknown as AgentConversation)
+        ? ({
+            sessionId,
+            credentialAccess: { teamIdentity },
+          } as unknown as AgentConversation)
         : null,
     ),
 })
@@ -34,11 +37,15 @@ beforeEach(() => {
 
 describe('personalCredentialSubjectFor', () => {
   test('uses the member’s Personal Credential unless the conversation picks the team', async () => {
-    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toBe('owner')
-    expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBe(
-      'teammate',
-    )
-    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toMatchObject({
+      userId: 'owner',
+    })
+    expect(
+      await personalCredentialSubjectFor('github', await turn('teammate', true)),
+    ).toMatchObject({ userId: 'teammate' })
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toMatchObject({
+      userId: 'owner',
+    })
   })
 
   test('the conversation’s team identity applies to member and automated turns alike', async () => {
@@ -48,7 +55,9 @@ describe('personalCredentialSubjectFor', () => {
     expect(await personalCredentialSubjectFor('github', await turn('owner', false))).toBeNull()
     expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBeNull()
     // Per provider: Linear still acts as the member.
-    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toMatchObject({
+      userId: 'owner',
+    })
   })
 
   test('the agent’s explicit team request still wins', async () => {

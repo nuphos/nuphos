@@ -11,14 +11,13 @@ import {
   requireDeviceAccess,
   revokeBoxStreams,
 } from '@/lib/agent/devices/box-access'
+import { deleteBox } from '@/lib/agent/devices/box-delete'
 import {
   boxBackendUrl,
-  boxDesktopUrl,
   boxPausedBy,
   boxState,
   boxesAvailable,
   createBox,
-  destroyBox,
   healBox,
   pauseBox,
   resumeBox,
@@ -145,8 +144,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     create: createBox,
     pause: pauseBox,
     resume: resumeBox,
-    destroy: destroyBox,
-    desktop: boxDesktopUrl,
+    delete: deleteBox,
     heal: healBox,
     available: boxesAvailable,
     state: boxState,
@@ -165,7 +163,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     const registration = c.req.valid('json')
 
     if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
-      throw new AppError(409, 'device_is_box', 'A cloud computer is not registered this way')
+      throw new AppError(409, 'device_is_box', 'A computer from Nuphos is not registered this way')
     await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
@@ -220,7 +218,8 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
-      if (device.box) throw new AppError(400, 'device_is_box', 'Use Delete for a cloud computer')
+      if (device.box)
+        throw new AppError(400, 'device_is_box', 'Use Delete for a computer from Nuphos')
       // Forgotten before the delete, so a failure here leaves the computer registered and
       // deletable again, rather than leaving these rows behind with nothing left to match.
       await deps.forgetDeviceShares(userId, deviceId)

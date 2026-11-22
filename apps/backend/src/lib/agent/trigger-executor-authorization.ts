@@ -4,6 +4,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { getConversationBySessionId } from './db'
 import { executionAuthorizationIsCurrent } from './trigger-access'
 import { agentTriggers } from './trigger-db'
+import { writeTrigger } from './trigger-history'
 
 import type { AgentTrigger } from './trigger-db'
 import type { Collection } from 'mongodb'
@@ -14,27 +15,38 @@ import type { Collection } from 'mongodb'
  * already paused.
  */
 export async function pauseTrigger(
-  trigger: Pick<AgentTrigger, '_id'>,
+  trigger: AgentTrigger,
   error: string,
   now: Date,
   triggers: Pick<Collection<AgentTrigger>, 'updateOne'> = agentTriggers(),
+  via: 'authorization' | 'failed_runs' = 'authorization',
 ): Promise<boolean> {
-  const { modifiedCount } = await triggers.updateOne(
-    { _id: trigger._id, enabled: true },
+  return writeTrigger(
     {
-      $set: {
-        enabled: false,
-        executionAuthorizationStatus: 'invalid',
-        executionAuthorizationCheckedAt: now,
-        executionAuthorizationError: error,
-        updatedAt: now,
-      },
-      $unset: { failedRunCount: '' },
-      $inc: { configRevision: 1 },
+      before: trigger,
+      after: { ...trigger, enabled: false },
+      by: { actorId: 'system', via },
+      reason: error,
     },
+    async (session) =>
+      (
+        await triggers.updateOne(
+          { _id: trigger._id, enabled: true },
+          {
+            $set: {
+              enabled: false,
+              executionAuthorizationStatus: 'invalid',
+              executionAuthorizationCheckedAt: now,
+              executionAuthorizationError: error,
+              updatedAt: now,
+            },
+            $unset: { failedRunCount: '' },
+            $inc: { configRevision: 1 },
+          },
+          { session },
+        )
+      ).modifiedCount > 0,
   )
-
-  return modifiedCount > 0
 }
 
 /**
@@ -68,6 +80,13 @@ export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
 
     await pauseTrigger(trigger, error, now)
     throw new AppError(409, 'trigger_target_session_invalid', error)
+  }
+  if (target.archivedAt) {
+    throw new AppError(
+      409,
+      'trigger_target_session_archived',
+      'The Task this Trigger belongs to is archived.',
+    )
   }
   if (!(await getTeamMembership(target.userId, target.teamId))) {
     const error =

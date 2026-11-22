@@ -278,6 +278,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // The visible area and content change without a scroll, so the button follows every layout.
+        defer { updateLatestButton() }
         // The visible area: the composer changes it through the inset alone.
         let size = collection.bounds.inset(by: collection.adjustedContentInset).size
         guard size.width > 0, size.height > 0, size != previousSize else { return }

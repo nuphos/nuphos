@@ -12,6 +12,8 @@ data class BotQuestion(
     val title: String,
     val request: InputRequest,
     val sourceBot: AgentConversation? = null,
+    /** The asking session's runtime, for the mark a Task shows in place of a face. */
+    val runtime: String? = null,
 ) {
     val sourceId: String get() = sourceBot?.sessionId ?: sessionId
     val sourceTitle: String get() = sourceBot?.displayTitle ?: title
@@ -21,10 +23,12 @@ data class BotQuestion(
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
     /**
-     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a connection.
      * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     * A credential takes words only beside its options, never as its value (#4029).
      */
-    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
+    val typed: Boolean get() = request.planId == null && !connectable &&
+        (request.category != "credential" || (request.secretName == null && !request.options.isNullOrEmpty()))
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to
@@ -154,7 +158,7 @@ object BotQuestions {
                     includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference"
                 }
                 val bot = if (requests.isEmpty()) null else sourceBot(row)
-                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot) }
+                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot, row.agentRuntime) }
             }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }

@@ -5,6 +5,7 @@ import {
   deviceDetail,
   matchDevices,
   matchMembers,
+  matchSessions,
   mentionQuery,
   sessionMentionUrl,
 } from './composerMention.ts'
@@ -82,4 +83,22 @@ test('a device only gets a detail when another one has the same label', () => {
   assert.equal(deviceDetail(devices[0], devices), 'Online · 1111')
   assert.equal(deviceDetail(devices[1], devices), 'Offline · 2222')
   assert.equal(deviceDetail(devices[0], [devices[0]]), '')
+})
+
+test('chats match by title, first message or linked PR, never a channel or the chat itself', () => {
+  const chat = (sessionId: string, title: string, extra = {}) =>
+    ({ sessionId, title, firstMessage: '', lastActiveAt: '', ...extra }) as never
+  const chats = [
+    chat('a', 'Deploy agent'),
+    chat('b', '', { firstMessage: 'deploy the docs' }),
+    chat('c', 'Review', { linkedResources: [{ title: 'Fix deploy race' }] }),
+    chat('d', 'Deploy room', { kind: 'channel' }),
+    chat('e', 'Deploy here'),
+  ]
+
+  assert.deepEqual(
+    matchSessions(chats, 'DEPLOY', 'e').map((s: { sessionId: string }) => s.sessionId),
+    ['a', 'b', 'c'],
+  )
+  assert.equal(matchSessions(chats, '', undefined, 2).length, 2)
 })

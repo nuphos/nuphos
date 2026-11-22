@@ -57,7 +57,8 @@ struct TransferDownloadGroup: Decodable, Equatable, Sendable {
         let replies = messages.filter { $0.role == .assistant }
         guard let last = replies.last else { return [:] }
         var byMessage: [String: [TransferDownloadGroup]] = [:]
-        for group in groups.sorted(by: { $0.createdAt < $1.createdAt }) {
+        for group in groups.sorted(by: { $0.createdAt < $1.createdAt })
+            where !replies.contains(where: { MarkdownImages.cites($0.text, groupId: group.groupId) }) {
             let anchor = replies.first { $0.createdAt.map { $0 >= group.createdAt } == true } ?? last
             byMessage[anchor.id, default: []].append(group)
         }

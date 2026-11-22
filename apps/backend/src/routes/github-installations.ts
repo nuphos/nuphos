@@ -19,6 +19,7 @@ import { parseObjectId } from '@/lib/objectid'
 import { personalCredentialSubjectFor, personalGithubToken } from '@/lib/personal-credentials'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
   requireCanDisconnect,
   requireGithubInstallation,
   requireGithubMemberAccess,
@@ -118,13 +119,7 @@ installationScoped.delete(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const installationId = c.get('githubInstallationId')
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $pull: { githubInstallations: { installationId } },
-        $set: { updatedAt: new Date() },
-      },
-    )
+    await disconnectBinding(c, teamId, 'githubInstallations', { installationId })
     invalidateInstallationToken(installationId)
 
     return c.body(null, 204)
@@ -195,7 +190,7 @@ installationScoped.get('/token', requireTeamRole('ADMINISTRATOR', 'EDITOR'), asy
       c.req.header('Authorization'),
       c.req.query('identity'),
     )
-    const personal = subject ? await personalGithubToken(subject, installationId) : null
+    const personal = subject ? await personalGithubToken(subject.userId, installationId) : null
     const { token, expiresAt } = personal ?? (await getInstallationToken(installationId))
 
     // Conversation auth sets userId to the current actor, not the runtime owner.

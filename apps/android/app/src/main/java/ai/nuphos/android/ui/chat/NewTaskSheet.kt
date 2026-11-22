@@ -13,7 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import ai.nuphos.android.R
@@ -21,30 +24,52 @@ import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.agent.NewTaskComposer
 
+internal val LocalNewTaskRequest = staticCompositionLocalOf<(() -> Unit)?> { null }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewTaskLauncher(nav: NavHostController) {
     val store = LocalAgentStore.current
+    val request = LocalNewTaskRequest.current
+    val latestRequest by rememberUpdatedState(request)
     val auth = LocalAuthSession.current
-    var open by rememberSaveable(auth.user?.id, store.selectedTeam?.id) { mutableStateOf(false) }
+    var openLocal by rememberSaveable(auth.user?.id, store.selectedTeam?.id) { mutableStateOf(false) }
+    fun launch() { latestRequest?.invoke() ?: run { openLocal = true } }
+    LaunchedEffect(request != null, openLocal) { if (request != null && openLocal) { request.invoke(); openLocal = false } }
     val app = LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication
     val shared by app.incomingShares.state.collectAsState()
     LaunchedEffect(shared?.id, shared?.destination) {
-        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) open = true
+        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) launch()
     }
-    FilledTonalButton(onClick = { open = true }, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("new-task-open")) {
+    FilledTonalButton(onClick = ::launch, modifier = Modifier.fillMaxWidth().padding(16.dp).testTag("new-task-open")) {
         Text(stringResource(R.string.new_task_title))
     }
-    if (open) ModalBottomSheet(
-        onDismissRequest = { open = false },
-        modifier = Modifier.fillMaxHeight(0.92f).testTag("new-task-sheet"),
+    if (openLocal && request == null) NewTaskSheet(nav) { openLocal = false }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+internal fun NewTaskSheet(nav: NavHostController, onDismiss: () -> Unit) {
+    val auth = LocalAuthSession.current
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.composed {
+            imePadding().fillMaxHeight(if (WindowInsets.isImeVisible) 1f else 0.92f)
+        }.testTag("new-task-sheet"),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.new_task_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            TextButton(onClick = { open = false }, modifier = Modifier.testTag("new-task-cancel")) { Text(stringResource(R.string.new_task_cancel)) }
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("new-task-cancel")) { Text(stringResource(R.string.new_task_cancel)) }
         }
-        Column(Modifier.fillMaxWidth().weight(1f).padding(24.dp), verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxWidth().weight(1f).layout { measurable, constraints ->
+            val greeting = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+            layout(constraints.maxWidth, constraints.maxHeight) {
+                if (greeting.height <= constraints.maxHeight) {
+                    greeting.placeRelative(0, (constraints.maxHeight - greeting.height) / 2)
+                }
+            }
+        }.padding(24.dp)) {
             val firstName = auth.user?.name.orEmpty().trim().split(' ', '\t', '\n').firstOrNull().orEmpty()
             Canvas(Modifier.size(36.dp)) {
                 val x = size.width / 24f
@@ -66,6 +91,6 @@ fun NewTaskLauncher(nav: NavHostController) {
             Text(if (firstName.isEmpty()) stringResource(R.string.new_task_welcome)
                 else stringResource(R.string.new_task_welcome_name, firstName), style = MaterialTheme.typography.headlineSmall)
         }
-        NewTaskComposer(nav, onSubmitted = { open = false })
+        NewTaskComposer(nav, bottomPadding = if (WindowInsets.isImeVisible) 0.dp else 8.dp, onSubmitted = onDismiss)
     }
 }

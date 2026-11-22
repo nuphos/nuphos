@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -465,7 +466,7 @@ fun NewChatComposer(nav: NavHostController) {
 }
 
 @Composable
-fun NewTaskComposer(nav: NavHostController, onSubmitted: () -> Unit) {
+fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -> Unit) {
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val auth = ai.nuphos.android.ui.LocalAuthSession.current
@@ -506,11 +507,12 @@ fun NewTaskComposer(nav: NavHostController, onSubmitted: () -> Unit) {
     LaunchedEffect(modelSettings) { modelSettings?.refresh() }
     ChatComposer(
         autoFocus = true,
+        bottomPadding = bottomPadding,
         modelSettings = modelSettings,
         mentions = draftTeam?.let { team ->
             remember(store, team) {
-                ai.nuphos.android.ui.chat.SessionMentionSource(team) { query ->
-                    store.mentionableSessions(team, query)
+                ai.nuphos.android.ui.chat.SessionMentionSource(team) {
+                    store.mentionableSessions(team)
                 }
             }
         },

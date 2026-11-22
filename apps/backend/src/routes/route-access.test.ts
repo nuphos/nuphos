@@ -2,9 +2,12 @@ import { readdirSync } from 'node:fs'
 
 import { describe, expect, test } from 'bun:test'
 
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import declared from './route-access.json'
+
+import type * as dbActual from '@/lib/db'
 
 /**
  * Every route the app serves is declared in route-access.json with who may call
@@ -21,6 +24,13 @@ type Access = 'public' | 'user' | 'member' | 'editor' | 'admin'
 const OUTSIDER = '64b5f1c2e4b0a1d2c3e4f5aa'
 const ID = '64b5f1c2e4b0a1d2c3e4f501'
 
+// The outsider has no two-factor authentication, so sensitive routes (step-up.ts)
+// go straight on to the team check.
+useDb({
+  db: (() => ({
+    collection: () => ({ findOne: async () => null }),
+  })) as unknown as typeof dbActual.db,
+})
 useIdentity({
   authenticateToken: async (token: string) =>
     token === 'outsider'

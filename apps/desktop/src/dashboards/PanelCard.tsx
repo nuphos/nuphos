@@ -13,7 +13,8 @@ import { memo, useState } from 'react'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../components/ui/menu'
 import { t } from '../i18n'
 
-import { panelDisplay } from './panelDisplay'
+import { NoAgentNotice } from './NoAgentNotice'
+import { panelDisplay, panelNotice } from './panelDisplay'
 import { PanelOutputView } from './PanelOutputView'
 import { ScriptErrorModal } from './ScriptErrorModal'
 
@@ -25,6 +26,8 @@ const tableStorageKey = (panelId: string) => `costPanel.${panelId}`
 
 type Props = {
   panel: DashboardPanel
+  /** The dashboard's team, where a Box would be rented. */
+  teamId: string
   viewTimeRange?: NuphosDashboard['timeRange']
   loading?: boolean
   onExecute: (panel: DashboardPanel) => void
@@ -44,20 +47,33 @@ function outputSubtitle(output: DashboardPanelOutput | null): string | null {
 
 function Body({
   panel,
+  teamId,
   lastSuccessfulOutput,
 }: {
   panel: DashboardPanel
+  teamId: string
   lastSuccessfulOutput: DashboardPanelOutput | null
 }) {
   const snap = panel.currentSnapshot
 
   if (!snap || snap.status === 'running' || snap.status === 'failed') {
-    const emptyMessage = snap ? t('No successful data yet.') : t('Not run yet.')
+    const notice = panelNotice(snap)
+    // No agent could run it: someone who may rent a computer from Nuphos gets the way to one.
+    const stated =
+      notice && snap?.error?.kind === 'no_runtime' ? (
+        <NoAgentNotice teamId={teamId} message={notice} />
+      ) : (
+        notice
+      )
+    const emptyMessage = stated || (snap ? t('No successful data yet.') : t('Not run yet.'))
 
     return lastSuccessfulOutput ? (
-      <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
+      <>
+        {stated && <div className="mb-2 text-[12px] text-status-warning">{stated}</div>}
+        <PanelOutputView output={lastSuccessfulOutput} storageKey={tableStorageKey(panel.id)} />
+      </>
     ) : (
-      <div className="flex h-40 items-center justify-center text-[12px] text-tertiary">
+      <div className="flex h-40 flex-col items-center justify-center gap-2 px-4 text-center text-[12px] text-tertiary">
         {snap?.status === 'running' ? null : emptyMessage}
       </div>
     )
@@ -78,6 +94,7 @@ function Body({
 export const PanelCard = memo(
   ({
     panel,
+    teamId,
     viewTimeRange,
     loading = false,
     onExecute,
@@ -129,7 +146,7 @@ export const PanelCard = memo(
                 icon={<Sparkles className="h-3.5 w-3.5" />}
                 onClick={() => onAskAgent(panel)}
               >
-                {t('Ask agent')}
+                {t('Ask in a task')}
               </MenuItem>
               <MenuItem
                 icon={<RefreshCw className="h-3.5 w-3.5" />}
@@ -174,7 +191,11 @@ export const PanelCard = memo(
         <div
           className={`px-3 py-2 transition-opacity duration-200 ${snapshotLoading && hasStaleOutput ? 'opacity-40' : 'opacity-100'}`}
         >
-          <Body panel={panel} lastSuccessfulOutput={lastSuccessful?.output ?? null} />
+          <Body
+            panel={panel}
+            teamId={teamId}
+            lastSuccessfulOutput={lastSuccessful?.output ?? null}
+          />
         </div>
         {panel.currentSnapshot?.status === 'failed' && (
           <ScriptErrorModal

@@ -8,7 +8,7 @@ import { controlRegistry } from './agent-chat-registry'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { resolveDefaultModel } from './runtime-default-model'
-import { localRuntimeModels } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 import { createRuntimeModelCatalog } from './runtime-model-cache'
 import { RUNTIME_MODEL_PROBE } from './runtime-model-probe'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
@@ -48,7 +48,8 @@ const runtimeModelCatalogSchema = z.object({
       defaultEffort: z.string().max(100).optional(),
     })
     .optional(),
-  message: z.string().optional(),
+  /** Why there is nothing to choose: the picker says so instead of offering nothing. */
+  reason: z.enum(['unreported', 'signed-out', 'undiscovered']).optional(),
 })
 
 export type RuntimeModelCatalog = z.infer<typeof runtimeModelCatalogSchema>
@@ -168,10 +169,8 @@ export async function discoverModels(
     ? catalog
     : {
         models: [],
-        message:
-          instance.kind === 'managed'
-            ? 'Models are unavailable. Check that the runtime is online, then retry.'
-            : 'Could not discover models. Check the agent’s sign-in and update its runtime, then retry.',
+        // A runtime that reports none needs its sign-in or an update.
+        reason: 'undiscovered',
       }
 }
 

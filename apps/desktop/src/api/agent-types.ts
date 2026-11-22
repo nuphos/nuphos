@@ -51,6 +51,8 @@ export type BotPresence =
  *  whether it can reply now. */
 export type AgentFace = {
   avatar?: string
+  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
+  avatarBackground?: string
   provider?: AgentProvider
   removable?: boolean
   presence?: BotPresence
@@ -63,11 +65,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
   agent?: AgentFace
 }
 
-export type ConversationAccessState = {
-  generalAccess: GeneralAccess
-  participants: AgentConversationParticipant[]
-}
-
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
@@ -76,10 +73,12 @@ export type ChannelFace = {
   id: string
   name: string
   avatarURL?: string
-  agent?: { avatar?: string; provider?: AgentProvider }
+  agent?: { avatar?: string; avatarBackground?: string; provider?: AgentProvider }
 }
 
 export type AgentConversation = {
+  /** A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270). */
+  tasks?: { running: number; waiting: number }
   /** Answered questions whose agent has not run the answer yet, with the line their card shows. */
   waitingAnswers?: { requestId: string; note: string }[]
   /** A channel: a place where people and agents talk. It runs no agent of its own. */
@@ -96,6 +95,8 @@ export type AgentConversation = {
   title: string
   /** Picked bot avatar, e.g. `05-rembrandt`. Absent: the one its sessionId selects. */
   avatar?: string
+  /** The tint a Bot's face sits on, e.g. `sky`. Absent: none. */
+  avatarBackground?: string
   /** A Bot's current standing instructions, in full. */
   instructions?: string
   firstMessage: string
@@ -110,6 +111,8 @@ export type AgentConversation = {
   readOnly?: boolean
   /** The owner: may change the runtime and credentials. */
   canManage?: boolean
+  /** May archive it: the owner for everyone, a participant in a Task for themselves alone. */
+  canArchive?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   /** A Task under a Bot: the conversation whose credentials and computers it uses. */
@@ -234,6 +237,9 @@ export type AgentMessageMetadata = {
   sourceSessionId?: string
   /** The message this one replies to. */
   replyTo?: AgentMessageReply
+  /** A person's answer to question card `requestId`, posted for them; `answeredIn` if in the Inbox. */
+  requestId?: string
+  answeredIn?: 'inbox'
   /** A Discord author with no verified Nuphos identity; the name is theirs to choose. */
   unattested?: true
   /** Teammates it @mentions, as the server resolved them. */

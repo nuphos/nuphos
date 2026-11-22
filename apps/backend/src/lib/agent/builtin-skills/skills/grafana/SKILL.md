@@ -1,6 +1,6 @@
 ---
 name: grafana
-description: Inspect and operate Grafana instances bound to an Nuphos team. All HTTP calls go through Nuphos backend's authenticated proxy — no SA token handling, no CORS, no extra setup. Covers dashboards, folders, datasources, queries (`/api/ds/query`), alerting, and Loki/Prometheus log + metric pulls.
+description: "Inspect and operate team-bound Grafana instances through Nuphos's authenticated proxy: dashboards, folders, datasources, /api/ds/query, alerting, Loki and Prometheus."
 ---
 
 # Grafana

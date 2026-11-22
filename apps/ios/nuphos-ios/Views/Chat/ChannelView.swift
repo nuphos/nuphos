@@ -8,10 +8,14 @@ struct ChannelView: View {
 
     @Environment(AgentStore.self) private var store
     @Environment(\.openURL) private var openURL
-    var openTask: (String) -> Void = { _ in }
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
+    var openTask: (String, String) -> Void = { _, _ in }
     @State private var canOpenTask = false
+    /// The Bot's details, opened from its name (#2983).
+    @State private var detailsOpen = false
+    @State private var botSession: ChatSession?
     @State private var draft = ""
-    @State private var showTriggers = false
     /// The agents typing: those in a turn, as of the last read of this chat. See `inTurn`.
     @State private var typing: [ChannelAgent] = []
     /// Raises the keyboard when a reply is chosen.
@@ -27,7 +31,8 @@ struct ChannelView: View {
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
-        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+        guard let viewerId = channel.viewerId else { return false }
+        return channel.agents.contains { $0.sessionId == agentId && $0.ownerId == viewerId }
     }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
@@ -36,6 +41,28 @@ struct ChannelView: View {
               store.conversations.first(where: { $0.sessionId == bot })?.ownsChat == true,
               store.observations.value(team: channel.teamId, session: bot)?.canOpenDesktop == true else { return nil }
         return bot
+    }
+
+    /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    private var state: (text: String, waiting: Bool)? {
+        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+    }
+
+    private func openDetails() { detailsOpen = botSession != nil }
+
+    /// The Bot's details: its card, then what its own Task's summary lists.
+    private func details(of bot: ChatSession) -> some View {
+        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
+            open(task.sessionId, title: task.displayTitle)
+        }
+        .environment(store)
+    }
+
+    /// Opens a Task over this chat, so Back returns here.
+    private func open(_ task: String, title: String) {
+        detailsOpen = false
+        openTask(task, title)
     }
 
     private var rows: [ChatRow] {
@@ -60,12 +87,20 @@ struct ChannelView: View {
     }
 
     var body: some View {
-        transcript
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Theme.chatCanvas)
-            .sheet(isPresented: $showTriggers) {
-                if let bot = channel.botId {
-                    ConversationTriggers(teamId: channel.teamId, sessionId: bot, token: store.token).presentationDetents([.large])
+        // Wide, the Bot's details sit beside the live chat, closed by their ✕;
+        // compact, they come up as a sheet.
+        HStack(spacing: 0) {
+            transcript
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Theme.chatCanvas)
+            if sizeClass == .regular, detailsOpen, let botSession {
+                Divider()
+                details(of: botSession).frame(width: 340)
+            }
+        }
+            .sheet(isPresented: Binding(get: { sizeClass != .regular && detailsOpen }, set: { detailsOpen = $0 })) {
+                if let botSession {
+                    details(of: botSession).presentationDetents([.large]).presentationDragIndicator(.visible)
                 }
             }
             .navigationTitle(channel.title)
@@ -75,27 +110,36 @@ struct ChannelView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Button { showTriggers = true } label: {
+                    Button(action: openDetails) {
                         HStack(spacing: 8) {
                             ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                            Text(channel.title)
-                                .font(Theme.Text.label.weight(.semibold))
-                                .foregroundStyle(Theme.heading)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(channel.title)
+                                    .font(Theme.Text.label.weight(.semibold))
+                                    .foregroundStyle(Theme.heading)
+                                    .lineLimit(1)
+                                if let state {
+                                    Text(state.text)
+                                        .font(.caption2)
+                                        .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                     }
                     .buttonStyle(.plain)
                     .disabled(channel.botId == nil)
-                    .accessibilityIdentifier("bot-trigger-entry")
+                    .accessibilityIdentifier("bot-details-entry")
                 }
+                // One tap to the Bot's own Task, where its runtime and model are switched.
                 if let bot = channel.botId, canOpenTask {
                     ToolbarItem(placement: .primaryAction) {
                         Button {
-                            openTask(bot)
+                            open(bot, title: channel.title)
                         } label: {
                             Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
                         }
-                        .accessibilityIdentifier("bot-task-entry")
+                        .accessibilityIdentifier("chat.botTask")
                     }
                 }
                 if let bot = desktopBot {
@@ -112,7 +156,12 @@ struct ChannelView: View {
             }
             .task(id: channel.botId) {
                 canOpenTask = false
+                // Made before the details open: a sheet shown in the same update that
+                // sets what its content reads comes up empty.
+                botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
                 guard let bot = channel.botId else { return }
+                await botSession?.load()
+                guard !Task.isCancelled, channel.botId == bot else { return }
                 if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
                     canOpenTask = true
                 } else {
@@ -200,14 +249,32 @@ struct ChannelView: View {
                 canSend: channel.loaded && !channel.readOnly,
                 editRequest: $channel.unsent,
                 // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
-                mentions: MentionSource(teamId: channel.teamId, search: { query in
-                    await store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId, matching: query)
-                }),
+                mentions: MentionSource(
+                    teamId: channel.teamId,
+                    sessions: store.mentionableSessions(teamId: channel.teamId, excluding: channel.botId),
+                    refresh: { await store.loadMentionableSessions(teamId: channel.teamId) }
+                ),
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                alwaysShowControls: channel.botId != nil,
+                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: { EmptyView() }
+                controls: {
+                    if let botSession, botSession.loaded {
+                        ComposerControls(
+                            selection: Binding(
+                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
+                                set: { botSession.setCredentials($0) }
+                            ),
+                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
+                            session: botSession,
+                            switchRuntime: { switchingBot = botSession },
+                            botChat: true,
+                            locked: !botSession.isOwner
+                        )
+                    }
+                }
             )
         }
     }
@@ -283,6 +350,20 @@ struct ChannelView: View {
                                onQuote: show)
             case .paused(let text):
                 PausedLine(text: text)
+            case .answeredInInbox(let post):
+                let mine = post.isMine(viewerId: channel.viewerId)
+                HStack(spacing: 4) {
+                    LucideIcon("inbox", size: 10)
+                    Text("Answered in Inbox")
+                }
+                .font(.caption2)
+                .foregroundStyle(Theme.faint)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: mine ? .trailing : .leading)
+                // Tucked under the answer it follows, inside that row's bottom spacing.
+                .padding(.top, -8)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("channel.answeredInInbox")
             case .record(let text):
                 Text(text)
                     .font(Theme.Text.caption)
@@ -293,6 +374,7 @@ struct ChannelView: View {
             case .replyFailed(let event, let actionable):
                 ReplyFailedLine(
                     event: event,
+                    onVerify: actionable && owns(event.agentId) ? event.verifyUrl.map { url in { openURL(url) } } : nil,
                     onSwitch: actionable && owns(event.agentId) && ["usage_limit", "auth", "offline"].contains(event.cause ?? "")
                         ? { if let id = event.agentId { switchingBot = store.session(sessionId: id, title: channel.title, teamId: channel.teamId) } }
                         : nil,
@@ -418,21 +500,25 @@ private struct ChannelPostRow: View {
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if mine { Spacer(minLength: 48) }
             VStack(alignment: mine ? .trailing : .leading, spacing: 4) {
                 if first, !mine { header }
-                if let reply = post.replyTo { quote(reply) }
                 if !post.uploads.isEmpty {
                     TransferCard(groupIds: post.uploads.map(\.groupId), fromUser: mine,
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
                                  files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
                 if !attachments.isEmpty { localAttachments }
-                if !post.text.isEmpty { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
+                if !post.text.isEmpty || post.replyTo != nil { bubble }
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -457,20 +543,25 @@ private struct ChannelPostRow: View {
         }
     }
 
-    /// The post this one answers; tapping it goes there.
+    /// The post this one answers, at the top of its bubble; tapping it goes there.
     private func quote(_ reply: ChannelReply) -> some View {
         Button { onQuote(reply) } label: {
-            (Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
-                + Text(" " + reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .padding(.leading, 8)
-                .overlay(alignment: .leading) { Capsule().fill(Theme.hairline).frame(width: 2) }
-                .padding(.horizontal, 4)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reply.authorName).fontWeight(.medium).foregroundStyle(Theme.body)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            .font(Theme.Text.caption)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .frame(maxWidth: 240, alignment: .leading)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
+        .padding(.horizontal, -4)
         .accessibilityLabel("Replying to \(reply.authorName): \(reply.text)")
+        .accessibilityIdentifier("channel.quote")
     }
 
     private var header: some View {
@@ -495,13 +586,20 @@ private struct ChannelPostRow: View {
     }
 
     private var bubble: some View {
-        AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+        VStack(alignment: .leading, spacing: 6) {
+            if let reply = post.replyTo { quote(reply) }
+            if !post.text.isEmpty {
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
+            }
+        }
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(flashed ? Theme.brand.opacity(0.3) : mine ? Theme.brand.opacity(0.14) : Theme.sunken,
                         in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: !mine && first ? 6 : 18, bottomLeading: 18,
                             bottomTrailing: 18, topTrailing: mine && first ? 6 : 18), style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("channel.bubble")
     }
 
     /// The photos and files of a post still on its way, from the device.
@@ -532,15 +630,28 @@ private struct PausedLine: View {
     }
 }
 
-/// An agent could not reply: what happened and why, when its usage returns, and the fix.
+/// An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry.
 private struct ReplyFailedLine: View {
     let event: AgentConversationDetail.TimelineEvent
+    var onVerify: (() -> Void)?
     var onSwitch: (() -> Void)?
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
+    }
+
+    @ViewBuilder private var fixes: some View {
+        if let onVerify {
+            Button("Verify with Anthropic", action: onVerify).buttonStyle(.bordered).accessibilityIdentifier("chat.verifyAccount")
+        }
+        if let onSwitch {
+            Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
+        }
+        if let onRetry {
+            Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
+        }
     }
 
     var body: some View {
@@ -550,14 +661,11 @@ private struct ReplyFailedLine: View {
                 Text([event.text, resets].compactMap(\.self).joined(separator: " "))
                     .font(Theme.Text.caption).foregroundStyle(Theme.body)
             }
-            if onSwitch != nil || onRetry != nil {
-                HStack(spacing: 8) {
-                    if let onSwitch {
-                        Button("Switch runtime", action: onSwitch).buttonStyle(.bordered).accessibilityIdentifier("chat.switchAgent")
-                    }
-                    if let onRetry {
-                        Button("Retry", action: onRetry).buttonStyle(.borderless).accessibilityIdentifier("chat.retryReply")
-                    }
+            if onVerify != nil || onSwitch != nil || onRetry != nil {
+                // In one line when they fit, else one under another.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { fixes }
+                    VStack(alignment: .leading, spacing: 8) { fixes }
                 }
                 .font(Theme.Text.caption)
                 .padding(.leading, 17)
@@ -622,7 +730,8 @@ struct TypingDots: View {
     }
 }
 
-/// What the next message answers, above the composer; × cancels.
+/// What the next message answers, above the composer: who, then the quote on up
+/// to two lines, as the sent reply will show it; × cancels.
 struct ReplyChip: View {
     let reply: ChannelReply
     let onCancel: () -> Void
@@ -630,11 +739,15 @@ struct ReplyChip: View {
     var body: some View {
         HStack(spacing: 8) {
             LucideIcon("undo-2").font(.system(size: 12)).foregroundStyle(Theme.muted)
-            (Text("Replying to \(reply.authorName) ").foregroundStyle(Theme.body).fontWeight(.medium)
-                + Text(reply.text).foregroundStyle(Theme.muted))
-                .font(Theme.Text.caption)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Replying to \(reply.authorName)").foregroundStyle(Theme.body).fontWeight(.medium)
+                    .lineLimit(1)
+                Text(reply.text).foregroundStyle(Theme.muted)
+                    .lineLimit(2)
+                    .accessibilityIdentifier("channel.replyChip.text")
+            }
+            .font(Theme.Text.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: onCancel) {
                 LucideIcon("circle-x").font(.system(size: 17)).foregroundStyle(Theme.muted)
             }

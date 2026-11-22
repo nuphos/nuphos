@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var autoPage = false
     @State private var showTeamPicker = false
     @State private var showProfile = false
+    @State private var resumeTwoFactor = false
     @State private var showNewBot = false
     @State private var showNewTask = false
     @State private var submittedTask: AgentPage.OpenChat?
@@ -82,7 +83,7 @@ struct HomeView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .lineLimit(1)
                                     .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : 180, alignment: .leading)
+                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
                                 LucideIcon("chevron-down", size: 14)
                             }
                         }
@@ -95,13 +96,11 @@ struct HomeView: View {
                         .accessibilityLabel("Switch team")
                     }
                 }
+                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
+                // and Account and Computers went with it.
                 if sizeClass != .regular || openChat != nil {
-                    if #available(iOS 27, *) {
-                            ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
-                        } else {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
-                            }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
@@ -140,8 +139,9 @@ struct HomeView: View {
                 .environment(store)
                 .presentationDetents([.large])
             }
-            .sheet(isPresented: $showProfile) {
-                ProfileSheet(user: user)
+            .onAppear { if TwoFactorView.takeResume() { resumeTwoFactor = true; showProfile = true } }
+            .sheet(isPresented: $showProfile, onDismiss: { resumeTwoFactor = false }) {
+                ProfileSheet(user: user, openTwoFactor: resumeTwoFactor)
             }
             .sheet(item: workspaceSheet) { destination in
                 NavigationStack {
@@ -170,9 +170,9 @@ struct HomeView: View {
             NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel) { bot in
+                    ChannelView(channel: channel) { task, title in
                         guard let store else { return }
-                        botTask = store.session(sessionId: bot, title: channel.title, teamId: channel.teamId)
+                        botTask = store.session(sessionId: task, title: title, teamId: channel.teamId)
                         showBotTask = true
                     }
                         .id(channel.channelId)
@@ -280,9 +280,6 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             openChat = nil
             inbox?.selected = nil
-            // An answer held for Undo goes once the Inbox is left.
-            let left = inbox
-            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -290,8 +287,6 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
-                let left = inbox
-                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
@@ -299,10 +294,16 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
-        // Nor does a held answer wait for an app that is put away.
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { Task { await inbox?.sendHeld() } }
+        #if DEBUG
+        // DEBUG: `-page inbox` opens a page that does not load the workspace. Only the
+        // Agent page calls `loadTeams()`, and the Inbox lists nothing until a team is
+        // selected, so the shortcut would show an Inbox that stays empty. It used to be
+        // filled by a launch cache another UI test suite had left behind.
+        .task {
+            guard Self.initialPage == .inbox, let store, store.selectedTeam == nil else { return }
+            await store.loadTeams()
         }
+        #endif
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
@@ -337,6 +338,14 @@ struct HomeView: View {
         }
     }
 
+    /// On an iPhone the team's name takes only the width the rest of the toolbar leaves, so
+    /// Create, Computers and Account never fold into "More". Measured on iOS 27: the team
+    /// pill's margin, avatar, chevron, spacing and padding (82 pt), the trailing pill with
+    /// its margin (136 pt), and a gap between them (16 pt). At most 180 pt.
+    private static var compactTeamNameWidth: CGFloat {
+        min(180, UIScreen.main.bounds.width - 234)
+    }
+
     /// DEBUG: `-page runtimes` opens that page directly, for UI checks.
     private static var initialPage: HomePage {
         #if DEBUG
@@ -352,10 +361,10 @@ struct HomeView: View {
     @ViewBuilder
     private var homeActions: some View {
             Menu {
-                Button { showNewBot = true } label: {
+                // The sheet lives on the Bots page, where the new Bot is listed (#3947).
+                Button { page = .chats; showNewBot = true } label: {
                     Label("New Bot", image: "home-tab-bots")
                 }
-                .disabled(store?.creatingBot == true || store?.selectedRuntimeUnavailable != false)
                 Button { showNewTask = true } label: {
                     Label("New Task", image: "home-tab-tasks")
                 }

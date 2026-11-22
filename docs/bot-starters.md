@@ -41,7 +41,8 @@ conversations. Work is still executed by ordinary Tasks.
   `send_message_to_thread`, rather than another delegation.
 - `report_task` records a worker's useful result or blocker and notifies its
   current parent. `report_id` is immutable: a retry must use the same payload.
-  Statuses are `working`, `waiting`, `ready`, `blocked`, `failed`, and `done`.
+  Statuses are `waiting`, `ready`, `blocked`, `failed`, and `done`; routine
+  progress is not reported, since each report wakes the parent.
   Review pending means `ready`, not `done`.
 - Originating channel IDs are retained when a Task is created from a channel
   turn and included in its report. They are context only; channel posting still

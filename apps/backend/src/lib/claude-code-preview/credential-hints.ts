@@ -1,3 +1,7 @@
+import { NAMES } from '@/lib/personal-credentials/exchange'
+
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
+
 type SetupScript = {
   /** Arguments after `$TEAM <id>`. */
   extraArgs?: string
@@ -42,4 +46,32 @@ export function vendedAccountHint(provider: string, id: string): string | undefi
   if (!script) return undefined
 
   return setupHint(provider, [id, script.extraArgs].filter(Boolean).join(' '), script)
+}
+
+function personalSetupHint(provider: PersonalCredentialProvider): string {
+  if (provider === 'github') return setupHint('github', 'personal')
+  if (provider === 'linear') {
+    return setupHint('linear', 'personal', { after: 'source ~/.linear/nuphos.env' })
+  }
+
+  return setupHint('google-workspace', provider, { after: `source ~/.google/${provider}.env` })
+}
+
+/** How the agent lists and sets up one of the member's own Personal Credentials. */
+export function personalCredentialDetails(c: {
+  id: string
+  provider: PersonalCredentialProvider
+  login: string
+}) {
+  const google = c.provider !== 'github' && c.provider !== 'linear'
+
+  return {
+    label: `${c.login} (your own ${NAMES[c.provider]})`,
+    credentialPath: `personal-credentials/${c.provider}/token`,
+    hint:
+      personalSetupHint(c.provider) +
+      (google
+        ? ` This account's connectionId is ${c.id}: pass it when several accounts are connected, and ask which one when the request does not say.`
+        : ''),
+  }
 }

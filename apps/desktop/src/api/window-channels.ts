@@ -11,7 +11,11 @@ export type WindowChannelsApi = {
     selection: BotImportSelection,
   ): Promise<BotImportPreview>
   agentSaveGrokExportSkill(): Promise<void>
-  agentCreateChannel(teamId: string, group?: boolean): Promise<{ sessionId: string }>
+  agentCreateChannel(
+    teamId: string,
+    group?: boolean,
+    title?: string,
+  ): Promise<{ sessionId: string }>
   agentCreateBot(
     teamId: string,
     bot?: {
@@ -20,11 +24,12 @@ export type WindowChannelsApi = {
       locale?: string
       title?: string
       avatar?: string
+      background?: string
       runtimeId?: string
       agentRuntime?: string
       runtimeLabel?: string
     },
-  ): Promise<{ sessionId: string; title: string; avatar: string }>
+  ): Promise<{ sessionId: string; title: string; avatar: string; avatarBackground?: string }>
   agentStartBotOnboarding(
     sessionId: string,
     teamId: string,

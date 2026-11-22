@@ -27,6 +27,12 @@ enum NewBox {
 
     static func resumePath(deviceId: String) -> String { "agent/devices/\(deviceId)/box/resume" }
 
+    /// `DELETE agent/devices/:id/box`, Desktop's `boxDelete`.
+    static func deletePath(deviceId: String) -> String { "agent/devices/\(deviceId)/box" }
+
+    /// Only its owner deletes a Box, as on Desktop (`removal`).
+    static func deletable(isBox: Bool, access: String?) -> Bool { isBox && access == "owner" }
+
     struct Failure {
         /// The plan refused it (`402 box_vcpu_limit`), Desktop's paywall.
         let plan: Bool

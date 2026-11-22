@@ -48,7 +48,7 @@ type SectionListProps = {
 function foldLabel(item: Item, folded: boolean): string {
   if (item.project) return folded ? t('Expand') : t('Collapse')
 
-  return folded ? t('Show sub-agents') : t('Hide sub-agents')
+  return folded ? t('Show sub-tasks') : t('Hide sub-tasks')
 }
 
 export function SidebarSectionList({
@@ -159,9 +159,11 @@ export function SidebarSectionList({
                                 folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
-                                'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
-                                // Always in flow so the row never reflows; shown at rest only when folded.
-                                !folded && 'invisible group-hover:visible',
+                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                                // Hidden controls take no width; folded rows keep their disclosure visible.
+                                folded
+                                  ? 'inline-flex'
+                                  : 'hidden group-hover:inline-flex group-focus-within:inline-flex',
                               )}
                             >
                               {folded ? (

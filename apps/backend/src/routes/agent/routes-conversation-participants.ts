@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { appendConversationMessages, getReadableConversation } from '@/lib/agent/db'
 import { generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
 import { isBotChat, setConversationArchived } from '@/lib/agent/db/archive'
@@ -15,6 +16,7 @@ import {
   computerUseGap,
   resolveConversationAccess,
 } from '@/lib/agent/devices/conversation-computer'
+import { computerStillSharedOrNone } from '@/lib/agent/devices/conversation-computer-use'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { inviteToConversation } from '@/lib/agent/mentions'
 import { systemSender } from '@/lib/agent/message-metadata'
@@ -216,8 +218,13 @@ conversationParticipantsRoutes.delete(
       : await removeConversationParticipant(sessionId, userId, targetId)
 
     if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
+    // The removal is done; failing to work out the notice must not report it as failed.
+    const shared = await computerStillSharedOrNone(conversation, userId, targetId)
 
-    return c.json(await serializeAccess(updated, teamId))
+    return c.json({
+      ...(await serializeAccess(updated, teamId)),
+      ...(shared ? { computerStillShared: shared } : {}),
+    })
   },
 )
 
@@ -234,6 +241,7 @@ async function leaveChannelAsOwner(
 
   if (!handed) {
     await setConversationArchived(channel.sessionId, true)
+    await cleanUpArchived([channel.sessionId])
 
     return channel
   }

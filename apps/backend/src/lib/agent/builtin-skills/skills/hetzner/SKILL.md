@@ -1,6 +1,6 @@
 ---
 name: hetzner
-description: Run hcloud CLI commands from the sandbox to inspect or change Hetzner Cloud resources — servers, volumes, networks, firewalls, load balancers, floating IPs, and images. Includes a setup script for selected Nuphos-bound Hetzner accounts.
+description: Run hcloud to inspect or change Hetzner Cloud servers, volumes, networks, firewalls, load balancers, floating IPs and images. Includes a setup script for bound accounts.
 ---
 
 # Hetzner Cloud CLI

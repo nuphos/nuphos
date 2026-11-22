@@ -6,11 +6,15 @@ import {
   filterQuery,
   formatChange,
   formatTokens,
+  formatUsd,
+  listPriceTotal,
   previousTokenUsageWindow,
   tokenUsageLines,
   tokenUsageSplit,
   tokenUsageWindow,
   toggleFilter,
+  usageGroupLabel,
+  usageCacheCutoff,
 } from './tokenUsagePresentation.ts'
 
 import type { TeamUsageRow } from '../../types/usage'
@@ -31,12 +35,12 @@ const names = {
   served: { member: { u1: 'Ada' } },
 }
 
-test('the window is whole local days and includes today', () => {
+test('the window is the last 30 whole local days and includes today', () => {
   const now = new Date(2026, 10, 18, 15, 30)
-  const { from, to } = tokenUsageWindow('7d', now)
+  const { from, to } = tokenUsageWindow(now)
 
   assert.equal(new Date(to).getTime(), new Date(2026, 10, 19).getTime())
-  assert.equal(new Date(from).getTime(), new Date(2026, 10, 12).getTime())
+  assert.equal(new Date(from).getTime(), new Date(2026, 9, 20).getTime())
 })
 
 test('lines are named where the page knows the id, most tokens first', () => {
@@ -67,8 +71,15 @@ test('runtimes are named from the team runtimes; models show as recorded', () =>
   )
 })
 
-test('the chart splits by the largest groups, the rest as Other, with every day', () => {
-  const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
+test('a model the runtime never named shows as Unknown model', () => {
+  assert.equal(
+    tokenUsageLines([row({ model: 'unknown' }, 1)], 'model', names)[0]?.label,
+    'Unknown model',
+  )
+})
+
+test('the chart splits by the largest groups, the rest as Other, with all 30 days', () => {
+  const window = tokenUsageWindow(new Date(2026, 10, 18, 9))
   const day = new Date(2026, 10, 16).toISOString()
   const rows = ['a', 'b', 'c', 'd', 'e', 'f'].map((member, index) =>
     row({ time: day, member }, (index + 1) * 100),
@@ -79,8 +90,9 @@ test('the chart splits by the largest groups, the rest as Other, with every day'
     split.series.map((series) => series.label),
     ['f', 'e', 'd', 'c', 'Other'],
   )
-  assert.equal(split.points.length, 7)
-  assert.deepEqual(split.points[4], {
+  // The axis is always the whole 30 days, even before the first day with usage.
+  assert.equal(split.points.length, 30)
+  assert.deepEqual(split.points[27], {
     at: new Date(2026, 10, 16).getTime(),
     s0: 600,
     s1: 500,
@@ -126,20 +138,20 @@ test('a drop shows as a negative change', () => {
 })
 
 test('the window before is the same number of whole days, ending where this one starts', () => {
-  const window = tokenUsageWindow('7d', new Date(2026, 10, 18, 9))
+  const window = tokenUsageWindow(new Date(2026, 10, 18, 9))
   const before = previousTokenUsageWindow(window)
 
   assert.equal(before.to, window.from)
-  assert.equal(new Date(before.from).getTime(), new Date(2026, 10, 5).getTime())
+  assert.equal(new Date(before.from).getTime(), new Date(2026, 8, 20).getTime())
 })
 
-test('a name the viewer may not see shows as a plain Conversation, never as its id', () => {
+test('a name the viewer may not see shows as a plain Task, never as its id', () => {
   const [line] = tokenUsageLines([row({ conversation: 'c1' }, 10)], 'conversation', {
     ...names,
     served: { conversation: { c1: null } },
   })
 
-  assert.equal(line?.label, 'Conversation')
+  assert.equal(line?.label, 'Task')
 })
 
 test('filters hold several values per dimension and go out as comma lists', () => {
@@ -157,8 +169,45 @@ test('filters hold several values per dimension and go out as comma lists', () =
   })
 })
 
-test('other members’ private conversations show as one row, by that name', () => {
+test('other members’ private Tasks show as one row, by that name', () => {
   const [line] = tokenUsageLines([row({ conversation: OTHERS_PRIVATE }, 5)], 'conversation', names)
 
-  assert.equal(line?.label, 'Other members’ private conversations')
+  assert.equal(line?.label, 'Other members’ private Tasks')
+})
+
+test('the cutoff for cached tokens reads as a date and time in 2026', () => {
+  assert.match(usageCacheCutoff(), /2026/)
+})
+
+test('a Bot row includes its Tasks, and usage outside every Bot says so', () => {
+  const [line] = tokenUsageLines([row({ bot: null }, 5)], 'bot', names)
+
+  assert.equal(usageGroupLabel('bot'), 'Bot and its Tasks')
+  assert.equal(line?.label, 'Not in a Bot')
+})
+
+test('the total at list prices is the same whatever the grouping: priced models, by model', () => {
+  // By model each row is one model, so an unpriced one cannot hide a priced one.
+  const byModel = [
+    row({ model: 'claude-opus-5-5' }, 100, 0.17),
+    row({ model: 'claude-haiku-5-5' }, 50, 0.05),
+    row({ model: 'gpt-6.1-terra' }, 700),
+  ]
+
+  const total = (rows: TeamUsageRow[]) => {
+    const priced = listPriceTotal(rows)
+
+    return priced && [priced.costUsd.toFixed(2), priced.complete]
+  }
+
+  assert.deepEqual(total(byModel), ['0.22', false])
+  assert.deepEqual(total(byModel.slice(0, 2)), ['0.22', true])
+  assert.equal(listPriceTotal([row({ model: 'gpt-6.1-terra' }, 700)]), undefined)
+})
+
+test('a cost groups its digits as US dollars in every language, and keeps two decimals', () => {
+  assert.equal(formatUsd(133_015.41), '$133,015.41')
+  assert.equal(formatUsd(2.5), '$2.50')
+  assert.equal(formatUsd(0), '$0.00')
+  assert.equal(formatUsd(0.004), '<$0.01')
 })

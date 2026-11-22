@@ -4,6 +4,9 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { join } from 'node:path'
 
 import { backendLog } from './backend-log.ts'
+import { backHome, focused, kept, leave, leaveHome, notKept } from './chat-keep.ts'
+import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
+import { overlayFailed, overlayLines, overlayScenarios } from './chat-switch-overlays.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
 import { artifacts, stopAll } from './processes.ts'
@@ -18,12 +21,14 @@ import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
 
 const BASELINE = join(import.meta.dirname, 'chat-switch-baseline.json')
-// A Bot chat's poll; the newest post must not wait for it.
-const POLL_MS = 4_000
+// A post said in a Bot chat while away shows this soon after it opens.
+const AWAY_MS = 300
 const POSTS = 40
 // A replay reaches the window in a few batches, so its end can come a frame or two after its
 // start; a typewriter takes hundreds of frames.
 const MAX_TYPED_FRAMES = 3
+const ACK_A = 'ACK E2E_DELIVERY:switch-a'
+const ACK_B = 'ACK E2E_DELIVERY:switch-b'
 
 type Chat = { tab: 'Tasks' | 'Bots'; title: string; sessionId: string }
 type Case = {
@@ -48,12 +53,12 @@ async function api(stack: Stack, path: string, body?: unknown, method = body ? '
 }
 
 /** A group chat with history: the same view as a Bot's chat. */
-async function chat(stack: Stack, title: string): Promise<Chat> {
+async function chat(stack: Stack, title: string, posts = POSTS): Promise<Chat> {
   const made = (await api(stack, '/agent/channels', { title, group: true })) as {
     sessionId: string
   }
 
-  for (let n = 1; n <= POSTS; n++)
+  for (let n = 1; n <= posts; n++)
     await api(stack, `/agent/conversations/${made.sessionId}/channel-messages`, {
       text: `${title} post ${String(n)}`,
     })
@@ -68,7 +73,7 @@ async function task(page: Page, stack: Stack, title: string, prompt: string, sho
   type Row = { sessionId: string; kind?: string; firstMessage?: string; title?: string }
   await newTask(page)
   await send(page, prompt)
-  await page.getByText(shows).first().waitFor({ timeout: 60_000 })
+  await page.getByText(shows).filter({ visible: true }).first().waitFor({ timeout: 60_000 })
   const { conversations } = (await api(
     stack,
     `/agent/conversations?teamId=${stack.teamId}&limit=200`,
@@ -132,28 +137,18 @@ async function restart(page: Page) {
   // On a new Task, so the reloaded window restores no chat.
   await newTask(page)
   await page.reload()
-  await page.getByRole('tab', { name: 'Tasks' }).waitFor()
+  // Back on it, if the window restored a chat: the first open switches from it on screen (#4584).
+  await leaveHome(page)
 }
 
-const lastPost = (chat: Chat) => ({ history: `${chat.title} post ${String(POSTS)}` })
+const lastPost = (chat: Chat, posts = POSTS) => ({ history: `${chat.title} post ${String(posts)}` })
 
 async function scenario(page: Page, stack: Stack) {
   const chatA = await chat(stack, 'Switch chat A')
   const chatB = await chat(stack, 'Switch chat B')
-  const taskA = await task(
-    page,
-    stack,
-    'Switch task A',
-    'First E2E_DELIVERY:switch-a',
-    'ACK E2E_DELIVERY:switch-a',
-  )
-  const taskB = await task(
-    page,
-    stack,
-    'Switch task B',
-    'Second E2E_DELIVERY:switch-b',
-    'ACK E2E_DELIVERY:switch-b',
-  )
+  const longChat = await chat(stack, 'Switch chat long', LONG_POSTS)
+  const taskA = await task(page, stack, 'Switch task A', 'First E2E_DELIVERY:switch-a', ACK_A)
+  const taskB = await task(page, stack, 'Switch task B', 'Second E2E_DELIVERY:switch-b', ACK_B)
   // Its reply stays in progress for the rest of the run.
   const long = await task(
     page,
@@ -165,7 +160,9 @@ async function scenario(page: Page, stack: Stack) {
   )
 
   await restart(page)
-  await open(page, 'task, first open', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'task, first open', taskA, { history: ACK_A })
+  await focused(page, 'task, first open')
+  await leave(page, taskA.title, ACK_A)
   await open(page, 'task, first open, reply in progress', long, {
     history: 'Long E2E_LONG',
     newest: 'LONG_END',
@@ -173,8 +170,9 @@ async function scenario(page: Page, stack: Stack) {
     typedTo: 'LONG_END',
   })
   await open(page, 'bot chat, first open', chatA, lastPost(chatA))
-  await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
-  await open(page, 'task, opened before', taskA, { history: 'ACK E2E_DELIVERY:switch-a' })
+  await open(page, 'task, first open, another', taskB, { history: ACK_B })
+  await open(page, 'task, opened before', taskA, { history: ACK_A })
+  await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
   await open(page, 'bot chat, opened before', chatA, lastPost(chatA))
   // Said in chat B while chat A is on screen.
@@ -190,14 +188,20 @@ async function scenario(page: Page, stack: Stack) {
   await open(page, 'task, opened before, reply in progress', long, { history: 'LONG_END' })
   await open(page, 'bot chat, opened before, again', chatA, lastPost(chatA))
   await open(page, 'tasks tab, back to a reply in progress', long, { history: 'LONG_END' }, 'tab')
+  await open(page, 'bot chat, first open, 200 posts', longChat, lastPost(longChat, LONG_POSTS))
+  await loadEarlier(page, longChat.title)
+  await overlayScenarios(page, { ...taskA, text: ACK_A }, { ...taskB, text: ACK_B })
+  await backHome(page)
+  await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
+  await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
 }
 
-/** What fails the run now, and what is reported until the change that meets it lands. */
+/** What fails the run. */
 function check(baseline: Record<string, number> | null) {
   const failed: string[] = []
   const lines = [
-    '| Switch | Frames to content | Reads before content | Fade frames | Wash frames | Typed frames | Newest after |',
-    '| --- | --: | --: | --: | --: | --: | --: |',
+    '| Switch | Frames to content | ms to content | Reads before content | Fade frames | Wash frames | Typed frames | Newest after |',
+    '| --- | --: | --: | --: | --: | --: | --: | --: |',
   ]
 
   for (const { name, watch, requests } of cases) {
@@ -211,31 +215,37 @@ function check(baseline: Record<string, number> | null) {
       fail(
         `${String(watch.washFrames)} frames had faded text in the pane, faintest ${String(watch.washedText)}`,
       )
+    if (watch.chipFrames > 0)
+      fail(
+        `${String(watch.chipFrames)} frames showed a composer chip before its value: ${String(watch.chipText)}`,
+      )
     if (watch.typedFrames > MAX_TYPED_FRAMES)
       fail(`a reply in progress was typed out over ${String(watch.typedFrames)} frames`)
     if (allowed !== undefined && requests > allowed)
       fail(`${String(requests)} reads before its first frame, baseline ${String(allowed)}`)
     lines.push(
-      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
+      `| ${name} | ${String(watch.framesToContent ?? 'never')} | ${watch.shownAt === null ? 'never' : String(Math.round(watch.shownAt - watch.clickedAt))} | ${String(requests)} | ${String(watch.fadeFrames)} | ${String(watch.washFrames)} | ${String(watch.typedFrames)} | ${newest} |`,
     )
   }
-  // A chat opened before shows on the first frame, with no request first. A Task does; a Bot
-  // chat is reported until it is rendered from a cache too (#3523).
-  const pending: string[] = []
+  // A chat opened before shows on the first frame, with no request first: a Task, and a Bot
+  // chat kept mounted (#3523).
 
   for (const { name, watch, requests } of cases.filter((c) => c.name.endsWith('opened before'))) {
     if (watch.framesToContent === 1 && requests === 0) continue
-    const why = `${name}: not on the first frame without a read`
-
-    if (name.startsWith('task')) failed.push(why)
-    else pending.push(why)
+    failed.push(`${name}: not on the first frame without a read`)
   }
+  // The same view as it was left, not one rebuilt on the way back.
+  for (const line of notKept) failed.push(`${line} (not kept as left)`)
+  failed.push(...overlayFailed)
   const away = cases.find(({ name }) => name === 'bot chat, new post while away')
 
-  if (away && (away.watch.newestAfterMs ?? Infinity) >= POLL_MS)
-    pending.push(`${away.name}: the newest post waited for a poll`)
+  // Heard of at once from the backend's push, not on a poll (#3523).
+  if (away && (away.watch.newestAfterMs ?? Infinity) >= AWAY_MS)
+    failed.push(
+      `${away.name}: the newest post took ${String(away.watch.newestAfterMs)} ms, budget ${String(AWAY_MS)} ms`,
+    )
 
-  return { failed, pending, table: lines.join('\n') }
+  return { failed, table: [...lines, '', '**Overlays**', '', ...overlayLines].join('\n') }
 }
 
 let desktop: Desktop | undefined
@@ -259,12 +269,9 @@ try {
     ? (JSON.parse(readFileSync(BASELINE, 'utf8')) as Record<string, number>)
     : null
   const result = check(baseline)
-  const report = [
-    result.table,
-    '',
-    ...result.pending.map((line) => `- Not yet: ${line}`),
-    ...result.failed.map((line) => `- **Failed**: ${line}`),
-  ].join('\n')
+  const report = [result.table, '', ...result.failed.map((line) => `- **Failed**: ${line}`)].join(
+    '\n',
+  )
 
   writeFileSync(
     `${artifacts}/chat-switch.json`,

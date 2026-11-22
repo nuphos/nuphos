@@ -246,7 +246,7 @@ export function useMemberActions({
         disabled: isSelf || actingRowKey === row.member.id,
         hint: isSelf ? t('you') : undefined,
         confirm: t(
-          'Remove {name} from this team? They lose its chats. Computers they share here stop being shared, so teammates’ chats on them stop working. Their cloud computers here go to the team owner, and anything they have open on teammates’ computers closes.',
+          'Remove {name} from this team? They lose its chats. Computers they share here stop being shared, so teammates’ chats on them stop working. The computers they added from Nuphos here go to the team owner, and anything they have open on teammates’ computers closes.',
           { name: row.member.name || row.member.email },
         ),
         onSelect: () => removeMember(row.member),

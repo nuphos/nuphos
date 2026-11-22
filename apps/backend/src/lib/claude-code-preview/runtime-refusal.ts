@@ -1,7 +1,10 @@
+import { getAgentDevice } from '@/lib/agent/devices/store'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
+import { hostUpdateHint } from './host-minimum-version'
 import { agentHostAway } from './openab-acp-connect'
-import { turnFailureCause } from './openab-acp-errors'
+import { claudeNotice, runtimeUsageExhaustedMessage, turnFailureCause } from './openab-acp-errors'
 
 /**
  * The runtime will not take this message now: admission saw it busy, or another
@@ -13,15 +16,29 @@ export const refusal = (label: string) => new AppError(409, 'runtime_not_accepti
 export const isRuntimeRefusal = (error: unknown) =>
   error instanceof AppError && error.code === 'runtime_not_accepting_message'
 
+/** Anthropic holds the account until its holder verifies it: no wait ends that. */
+const VERIFICATION_HOLD = /^(?:API Error: )?Your account can['’]t receive replies from Claude\b/u
+
+/** Out of usage that the allowance resetting ends, unlike an account held for verification. */
+export const outOfUsageUntilReset = (error: unknown) =>
+  Boolean(runtimeUsageExhaustedMessage(error)) && !VERIFICATION_HOLD.test(claudeNotice(error) ?? '')
+
 /**
  * Whether the queue sends this turn again, so it is not recorded: a refusal for a
- * client that resends, or an agent host away or offline that the conversation queue waits for.
+ * client that resends, an agent host away or offline that the conversation queue waits for,
+ * or an agent out of usage that a queued turn waits for. A direct send says so at once.
  */
 export const resentAfter = (
   error: unknown,
-  turn: { clientResendsRefusal?: boolean; queued?: unknown },
+  turn: {
+    clientResendsRefusal?: boolean
+    waitsOutUsage?: boolean
+    queued?: unknown
+    direct?: boolean
+  },
 ) =>
   ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
+  ((turn.waitsOutUsage || (Boolean(turn.queued) && !turn.direct)) && outOfUsageUntilReset(error)) ||
   (Boolean(turn.clientResendsRefusal) &&
     (agentHostAway(error) || turnFailureCause(error) === 'offline'))
 
@@ -34,12 +51,35 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
     ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
     : error
 
+/**
+ * A failed turn on a computer below the support floor, or with a newer Nuphos waiting, says so:
+ * the error is the one thing every client shows, old ones included. A refusal stays as it is,
+ * and so does a sign-in or usage failure, whose fix is not an update.
+ */
+export async function noteOutdated(
+  error: unknown,
+  local: { userId: string; deviceId: string } | undefined,
+): Promise<void> {
+  if (!local || !(error instanceof Error) || isRuntimeRefusal(error)) return
+  if (['auth', 'usage_limit'].includes(turnFailureCause(error))) return
+  const hint = await runtimePresenceStore()
+    .get(local.userId, local.deviceId)
+    .then(async (presence) => {
+      const device = await getAgentDevice(local.userId, local.deviceId).catch(() => null)
+
+      return hostUpdateHint(presence, device?.label)
+    })
+    .catch(() => undefined)
+
+  if (hint) error.message += `${/[.!?]$/u.test(error.message) ? '' : '.'}\n\n${hint}`
+}
+
 /** The message waits in the session queue: the expected outcome, not a failure. */
 export const isMessageQueued = (error: unknown) =>
   error instanceof AppError && error.code === 'message_queued'
 
 /**
- * The conversation's agent is not in the workspace any more, or not for this person: only
+ * The conversation's runtime is not in the workspace any more, or not for this person: only
  * moving it helps. Removal and lost access read the same, so a computer no longer shared with
  * them is not revealed to still exist.
  */
@@ -47,5 +87,5 @@ export const runtimeGone = () =>
   new AppError(
     404,
     'runtime_not_found',
-    'This agent is no longer available to you. It was removed, or the computer it runs on is no longer shared with you. Move this conversation to another agent to continue.',
+    'This runtime is no longer available to you. It was removed, or the computer it runs on is no longer shared with you. Move this conversation to another runtime to continue.',
   )

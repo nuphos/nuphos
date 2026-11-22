@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -56,6 +58,7 @@ test('concurrent sessions keep HOME state separate, resume it, and never copy th
     'PLAYWRIGHT_BROWSERS_PATH',
     'PIP_CACHE_DIR',
     'UV_CACHE_DIR',
+    'npm_config_cache',
     'pnpm_config_store_dir',
   ]) {
     assert.equal(a[key], b[key])
@@ -216,6 +219,26 @@ test('two sessions install into one pnpm store, and a session keeps a store it c
   assert.equal(dirname(path(a)), store)
 })
 
+test('two sessions share Gradle caches but keep their own gradle.properties', (t) => {
+  const host = runtime(t)
+  const a = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'a' }, host)
+  const b = nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  const shared = join(host.HOME, '.gradle', 'caches')
+  put(join(a.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'jar')
+  assert.equal(readFileSync(join(b.HOME, '.gradle', 'caches', 'modules-2', 'a.jar'), 'utf8'), 'jar')
+  assert.equal(realpathSync(join(a.HOME, '.gradle', 'caches')), realpathSync(shared))
+  // Gradle keeps repository credentials in gradle.properties, beside the caches.
+  put(join(a.HOME, '.gradle', 'gradle.properties'), 'token=a')
+  assert.throws(() => readFileSync(join(b.HOME, '.gradle', 'gradle.properties')), {
+    code: 'ENOENT',
+  })
+  // A home that already has caches of its own keeps them.
+  rmSync(join(b.HOME, '.gradle', 'caches'))
+  mkdirSync(join(b.HOME, '.gradle', 'caches'))
+  nuphosSessionHomeEnv({ NUPHOS_SESSION_ID: 'b' }, host)
+  assert.equal(lstatSync(join(b.HOME, '.gradle', 'caches')).isDirectory(), true)
+})
+
 test('a session still starts when its pnpm rc cannot be written', (t) => {
   if (process.getuid?.() === 0) return t.skip('root writes through the read-only directory')
   const host = runtime(t)
@@ -306,4 +329,24 @@ test('sessions get the long-lived token until it lapses, and an explicit one win
   // An ordinary login alone adds nothing to the environment.
   rmSync(join(configDir, '.nuphos-oauth-token.json'))
   assert.equal(nuphosClaudeSessionEnv({}, context, host, now).CLAUDE_CODE_OAUTH_TOKEN, undefined)
+})
+
+test('a restored Task gets a distinct home generation across all adapters', (t) => {
+  const host = runtime(t)
+  const old = { NUPHOS_SESSION_ID: 'fictional', NUPHOS_SESSION_HOME_EPOCH: '1' }
+  const restored = { ...old, NUPHOS_SESSION_HOME_EPOCH: '2' }
+  const first = nuphosSessionHomeEnv(old, host)
+  const next = nuphosSessionHomeEnv(restored, host)
+  put(join(first.HOME, 'fixture'), 'old data')
+  put(join(next.HOME, 'fixture'), 'restored data')
+  assert.notEqual(first.HOME, next.HOME)
+  assert.equal(readFileSync(join(first.HOME, 'fixture'), 'utf8'), 'old data')
+  assert.equal(readFileSync(join(next.HOME, 'fixture'), 'utf8'), 'restored data')
+  assert.equal(nuphosClaudeSessionEnv({ ...host, ...restored }, restored, host).HOME, next.HOME)
+  assert.equal(
+    nuphosCodexSessionConfig({}, { 'ai.nuphos/codex': { env: restored } }, host)
+      .shell_environment_policy.set.HOME,
+    next.HOME,
+  )
+  assert.equal(agentEnv('grok', { env: restored }, host).HOME, next.HOME)
 })

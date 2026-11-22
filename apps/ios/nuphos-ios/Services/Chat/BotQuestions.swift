@@ -18,10 +18,12 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
 
     var id: String { "\(sessionId):\(request.id)" }
 
-    /// Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+    /// Answered in words, "Other…": never a plan, approved or rejected, nor a connection.
     /// An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+    /// A credential takes words only beside its options, never as its value (#4029).
     var typed: Bool {
-        request.category != "credential" && !connectable && request.planId == nil
+        guard request.planId == nil, !connectable else { return false }
+        return request.category != "credential" || (request.secretName == nil && !(request.options ?? []).isEmpty)
     }
 
     /// A secret request as its tool call carries it in the transcript, so the secure input card
@@ -72,6 +74,12 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         return nil
     }
 
+    /// The questions a choice card answers, single- or multi-select alike, as `QuestionOptions`
+    /// draws them; nil for a secret, a connect question or a plan without options.
+    var choices: [AgentConversation.DecisionQuestion]? {
+        form ?? options.map { [.init(question: request.question, options: $0, multiSelect: false)] }
+    }
+
     /// The desktop's `formAnswer`: one question's picks or typed text, or one entry per question.
     static func formAnswer(_ questions: [AgentConversation.DecisionQuestion], picked: [[String]],
                            typed: [String]) -> DecisionAnswer {
@@ -103,12 +111,6 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         }
         let own = body.trimmingCharacters(in: .whitespacesAndNewlines)
         return own.isEmpty ? nil : own
-    }
-
-    /// One question's answer: what was typed, else the picked options.
-    static func answerText(picked: [String], typed: String) -> String {
-        let words = typed.trimmingCharacters(in: .whitespacesAndNewlines)
-        return words.isEmpty ? picked.joined(separator: ", ") : words
     }
 
     /// The Inbox group it is in: its Bot's, else the conversation that asked.

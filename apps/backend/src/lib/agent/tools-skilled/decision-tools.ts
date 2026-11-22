@@ -1,6 +1,8 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credentials'
+
 import { aboutField } from './decision-about'
 import {
   QUESTION_MAX_CHARS,
@@ -60,7 +62,7 @@ export type ConnectableProvider = keyof typeof CONNECTABLE_PROVIDERS
 
 /** The member's own credential, named as list_credentials names it: only its selection answers. */
 export const PERSONAL_CREDENTIAL_REF = z
-  .object({ provider: z.literal('personal'), id: z.enum(['github', 'linear']) })
+  .object({ provider: z.literal('personal'), id: z.enum(PERSONAL_CREDENTIAL_PROVIDERS) })
   .strict()
 
 export type PersonalCredentialRef = z.infer<typeof PERSONAL_CREDENTIAL_REF>
@@ -89,7 +91,7 @@ export function integrationTargetProblem(input: {
 }): string | null {
   if (input.credentials === undefined) return null
   if (!Array.isArray(input.credentials) || !input.credentials.every(isPersonalCredentialRef)) {
-    return "`credentials` names only the member's own credential, {provider: 'personal', id: 'github' | 'linear'}; ask for team access with `providers`."
+    return "`credentials` names only the member's own credential, {provider: 'personal', id} with id one of github, linear, gmail, google-drive, google-calendar; ask for team access with `providers`."
   }
   if (input.providers !== undefined) {
     return "Pass either `providers` (any access of that kind, a team binding included) or `credentials` (only the member's own), not both: ask one question per target."
@@ -250,7 +252,8 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
     userDecisionTools.update_user_decision = tool({
       description:
         'Correct a question you asked with request_user_decision that is still waiting for the user, e.g. when new findings change its context or choices. ' +
-        'Pass only the fields to change; `questions` replaces all of them. Fails once the user has answered or dismissed it.',
+        'Pass only the fields to change; `questions` replaces all of them. ' +
+        'Once the user has answered or dismissed it nothing changes: when the answer has not reached you yet, the result gives it as `notice`. Never ask a closed question again.',
       inputSchema: z.object({
         label: labelField,
         requestId: requestIdField,
@@ -264,14 +267,15 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
     userDecisionTools.withdraw_user_decision = tool({
       description:
         'Withdraw a question you asked with request_user_decision that no longer needs an answer, so it leaves the Inbox. ' +
-        'Fails once the user has answered or dismissed it.',
+        'Once the user has answered or dismissed it nothing is withdrawn: when the answer has not reached you yet, the result gives it as `notice`. Never ask a closed question again.',
       inputSchema: z.object({ label: labelField, requestId: requestIdField }),
     })
     userDecisionTools.list_user_decisions = tool({
       description:
         'List the questions you asked with request_user_decision that are still waiting for the user, oldest first, each with its `requestId`. ' +
         'Check it before asking again, and to find the requestId for update_user_decision or withdraw_user_decision. ' +
-        'A request with `snoozedUntil` was set aside by the user until then: it is still open, so do not ask it again or remind them before that time.',
+        'A request with `snoozedUntil` was set aside by the user until then: it is still open, so do not ask it again or remind them before that time. ' +
+        'A question answered while your turn runs is under `closed`, with the answer as `notice`; a question in neither list was answered, dismissed or withdrawn. Never ask either again.',
       inputSchema: z.object({ label: labelField }),
     })
   }

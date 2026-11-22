@@ -1,5 +1,7 @@
+import { updateConversationSettings } from './settings-history'
 import { agentConversations, liveAttachment } from './shared'
 
+import type { SettingsChangeBy } from './settings-history'
 import type { AgentConversation, BackgroundWorkLoss, ConversationPreviewAttachment } from './shared'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 
@@ -116,11 +118,10 @@ export async function stampConversationRuntimeInstance(
   runtimeId: string,
   runtimeLabel?: string,
 ): Promise<void> {
-  await agentConversations().updateOne(
+  await updateConversationSettings(
     { sessionId, runtimeId: { $exists: false } },
-    {
-      $set: { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) },
-    },
+    { $set: { runtimeId, ...(runtimeLabel ? { runtimeLabel } : {}) } },
+    { actorId: 'system', via: 'placement' },
   )
 }
 
@@ -141,9 +142,11 @@ export async function setConversationPreviewAttachment(
   teamId: string,
   attachment: ConversationPreviewAttachment,
 ): Promise<void> {
-  await agentConversations().updateOne(
+  // The settings the agent confirmed for a new session, its defaults included.
+  await updateConversationSettings(
     { sessionId, teamId },
     { $set: { claudeCodePreview: attachment } },
+    { actorId: 'system', via: 'session_start' },
   )
 }
 
@@ -160,9 +163,24 @@ export async function forgetConversationPreviewSession(
 ): Promise<void> {
   const pick = initialSessionConfig && Object.keys(initialSessionConfig).length > 0
 
-  await agentConversations().updateOne(
+  await updateConversationSettings(
     { sessionId, teamId, 'claudeCodePreview.openabSessionId': openabSessionId },
     { $unset: { claudeCodePreview: '' }, ...(pick ? { $set: { initialSessionConfig } } : {}) },
+    { actorId: 'system', via: 'session_lost' },
+  )
+}
+
+/** Settings picked before the conversation's first session exists; that session starts on them. */
+export async function keepFirstSessionPick(
+  sessionId: string,
+  teamId: string | undefined,
+  pick: RuntimeDefaults,
+  by: SettingsChangeBy,
+): Promise<void> {
+  await updateConversationSettings(
+    { sessionId, teamId, claudeCodePreview: { $exists: false } },
+    { $set: { initialSessionConfig: pick } },
+    by,
   )
 }
 

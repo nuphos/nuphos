@@ -130,40 +130,27 @@ export function connectionBlocks(model: SlackHomeViewModel): unknown[] {
   return blocks
 }
 
+/** Where a team picks which Bots answer in which channel (#3702): in Nuphos, not in Slack. */
+export const SLACK_SETTINGS_HINT =
+  'In Nuphos → Settings → Slack, a team admin connects channels, and each member chooses which of their Bots answer there.'
+
 export function linkedChannelBlocks(model: SlackHomeViewModel): unknown[] {
-  // Channel mappings are team-level config — the interaction handler enforces
-  // the ADMINISTRATOR gate server-side (client payloads are forgeable), and
-  // the picker is hidden here so non-admins aren't offered an action that
-  // would only be denied.
-  const canLinkChannels = model.viewer?.role === 'ADMINISTRATOR'
   const shown = model.linkedChannelIds.slice(0, MAX_LINKED_CHANNELS_SHOWN)
   const hidden = model.linkedChannelIds.length - shown.length
   const channelList =
     shown.length > 0
       ? shown.map((id) => `<#${id}>`).join('  ') + (hidden > 0 ? `  _+${String(hidden)} more_` : '')
-      : canLinkChannels
-        ? '_No channels linked yet — pick one below to get started._'
-        : '_No channels linked yet — ask a team administrator to link one._'
+      : '_No channels connected yet._'
 
   return [
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*#️⃣ Linked channels*\n${channelList}` },
+      text: { type: 'mrkdwn', text: `*#️⃣ Connected channels*\n${channelList}` },
     },
     {
       type: 'actions',
       block_id: 'nuphos_home_actions',
       elements: [
-        ...(canLinkChannels
-          ? [
-              {
-                type: 'conversations_select',
-                action_id: 'nuphos_link_channel',
-                placeholder: { type: 'plain_text', text: 'Link a channel' },
-                filter: { include: ['public', 'private'] },
-              },
-            ]
-          : []),
         {
           type: 'button',
           action_id: HOME_REFRESH_ACTION,
@@ -171,26 +158,14 @@ export function linkedChannelBlocks(model: SlackHomeViewModel): unknown[] {
         },
       ],
     },
-    ...(canLinkChannels
-      ? [
-          {
-            type: 'context',
-            elements: [
-              {
-                type: 'mrkdwn',
-                text: 'Private channels only work after you `/invite @Nuphos` there first.',
-              },
-            ],
-          },
-        ]
-      : []),
+    { type: 'context', elements: [{ type: 'mrkdwn', text: SLACK_SETTINGS_HINT }] },
   ]
 }
 
 export function howToUseBlocks(model: SlackHomeViewModel): unknown[] {
   const mention = model.botUserId ? `<@${model.botUserId}>` : '@Nuphos'
   const lines = [
-    `• Mention ${mention} in a linked channel to start working in a thread — replies in that thread don't need another mention.`,
+    `• In a connected channel, the Bots chosen for it read every message and answer there, in a thread when that reads best. ${mention} answers 1:1 below.`,
     '• Open the *Chat* tab above to talk 1:1; *History* lists your past conversations.',
     '• When a change needs sign-off, Nuphos posts a plan card — press *Approve* to let it execute.',
   ]
