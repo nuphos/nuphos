@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
@@ -77,6 +78,7 @@ afterEach(async () => {
     await clearPendingUserMessages('owner', id)
 })
 
+useArchiveCleanup({ cleanUpArchived: async () => {} })
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })

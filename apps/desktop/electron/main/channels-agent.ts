@@ -73,7 +73,6 @@ export const agentChannels = {
       limit?: number
       scope?: agent.ConversationsScope
       ownerId?: string
-      triggerIds?: string[]
       search?: string
       archived?: agent.ConversationsArchivedFilter
       sort?: agent.ConversationsSort

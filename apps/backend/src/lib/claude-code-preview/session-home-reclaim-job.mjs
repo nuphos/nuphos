@@ -12,13 +12,16 @@ const { createHash, randomUUID } = await import('node:crypto')
 // As a panel runner, argv[2] is the run directory holding params.json. As a
 // computer's own `session-homes` job, the session id arrives on stdin.
 const { text } = await import('node:stream/consumers')
-const { sessionId } = JSON.parse(
+const { sessionId, epoch } = JSON.parse(
   process.argv[2]
     ? await fs.readFile(path.join(process.argv[2], 'params.json'), 'utf8')
     : await text(process.stdin),
 )
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2)
-const id = createHash('sha256').update(sessionId).digest('hex')
+if (epoch !== undefined && (!Number.isSafeInteger(epoch) || epoch < 0)) process.exit(2)
+const generation = epoch === undefined || epoch === 0 ? '' : `.g-${epoch}`
+const id = createHash('sha256').update(sessionId).digest('hex') + generation
+const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const homes = path.join(os.homedir(), '.nuphos', 'session-homes')
 let unreadable
 const done = (result) => {
@@ -124,7 +127,7 @@ const names = await fs.readdir(homes).catch(() => [])
 // A job killed during the rm, or a failed rename back, leaves a home's
 // <home>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
 // One younger than any job may still belong to a running job, so it waits.
-const leftover = new RegExp('^(' + id + '(?:\\.[0-9a-f]{64})?)\\.reclaim-([0-9]+)-')
+const leftover = new RegExp('^(' + escapedId + '(?:\\.[0-9a-f]{64})?)\\.reclaim-([0-9]+)-')
 for (const name of names) {
   const match = leftover.exec(name)
   if (!match || !(Date.now() - Number(match[2]) > 10 * 60_000)) continue
@@ -151,7 +154,9 @@ const reclaim = async (home) => {
   await fs.rm(aside, { recursive: true, force: true })
   return 'removed'
 }
-const teammates = names.filter((name) => new RegExp('^' + id + '\\.[0-9a-f]{64}$').test(name))
+const teammates = names.filter((name) =>
+  new RegExp('^' + escapedId + '\\.[0-9a-f]{64}$').test(name),
+)
 const results = []
 for (const name of [id, ...teammates]) results.push(await reclaim(path.join(homes, name)))
 done(results.includes('in_use') ? 'in_use' : results.includes('removed') ? 'removed' : 'absent')

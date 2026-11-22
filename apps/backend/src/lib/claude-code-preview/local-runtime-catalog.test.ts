@@ -582,4 +582,27 @@ describe('a computer without a model list says why', () => {
   test('a computer that has not reported at all has not reported its list', async () => {
     expect(await reason(null)).toBe('unreported')
   })
+
+  // #4261: a list the computer tried and failed to read was offered as one still on its
+  // way, so the picker told people to try again in a moment for a list nobody was bringing.
+  test('an agent whose computer could not read its models says so, not "in a moment"', async () => {
+    const report = online(true)
+    const status = report.status!
+    const agent = status.agents['claude-code']!
+
+    expect(
+      await reason({
+        ...report,
+        status: {
+          ...status,
+          agents: {
+            'claude-code': {
+              ...agent,
+              models: { models: [], defaultModel: '', controls: {}, failed: true },
+            },
+          },
+        },
+      }),
+    ).toBe('undiscovered')
+  })
 })

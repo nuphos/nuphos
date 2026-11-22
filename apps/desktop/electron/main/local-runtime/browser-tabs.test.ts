@@ -124,6 +124,7 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
+  mock.module('./download-notice.ts', { namedExports: { showDownloadNotice: () => {} } })
   mock.module('../../agent/http.ts', {
     namedExports: {
       callJson: (_method: string, route: string, body: unknown) => {
