@@ -162,13 +162,16 @@ export function useComposerMentions(
 
   async function offerInvites(ids: string[]) {
     if (!scope?.sessionId || ids.length === 0) return
-    const { participants } = await api.agentGetConversationParticipants(
+    const { participants, shareable } = await api.agentGetConversationParticipants(
       scope.sessionId,
       scope.teamId,
     )
     const joined = new Set(participants.map((participant) => participant.id))
 
-    setUninvited(members.filter((m) => ids.includes(m.id) && !joined.has(m.id)))
+    // Only what may be shared offers to invite: never a Bot or what an agent opened.
+    setUninvited(
+      shareable === false ? [] : members.filter((m) => ids.includes(m.id) && !joined.has(m.id)),
+    )
   }
 
   /** Read the mentions before the composer clears; ask about them once sent. */

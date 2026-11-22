@@ -326,6 +326,37 @@ describe('conversation participants API', () => {
   })
 })
 
+describe('only a Task a person opened, or a group chat, is shared', () => {
+  const refused = async (shape: Partial<AgentConversation>) => {
+    Object.assign(conversation!, shape)
+    const before = participantIds()
+    const invited = await invite([INVITEE])
+    const opened = await patch('access', { generalAccess: 'view' })
+
+    expect([invited.status, opened.status]).toEqual([403, 403])
+    expect(participantIds()).toEqual(before)
+  }
+
+  test('a Bot is never shared', () => refused({ avatar: '07-ada' }))
+  test('a Task an agent opened is never shared', () => refused({ parentSessionId: 'parent' }))
+  test('a trigger’s run is never shared', async () => {
+    await refused({ metadata: { source: 'app', trigger: { id: 'tr' } } as AgentConversation['metadata'] })
+  })
+  test('a Slack, Discord or MCP Task is never shared', async () => {
+    for (const source of ['slack.agent', 'discord', 'mcp'])
+      await refused({ metadata: { source } })
+  })
+  test('a Bot’s chat is never shared', () =>
+    refused({ kind: 'channel', agentSessionIds: ['bot'], participantIds: [] }))
+
+  test('a Task opened by hand is shared, and anything may still go private', async () => {
+    conversation!.metadata = { source: 'app' }
+    expect((await invite([INVITEE])).status).toBe(200)
+    conversation!.avatar = '07-ada'
+    expect((await patch('access', { generalAccess: 'none' })).status).toBe(200)
+  })
+})
+
 describe('a conversation on someone’s computer', () => {
   const DEVICE = 'owner-mac'
 

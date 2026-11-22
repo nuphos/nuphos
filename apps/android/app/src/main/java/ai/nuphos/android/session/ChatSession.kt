@@ -495,6 +495,9 @@ class ChatSession(
         private set
     var isBot by mutableStateOf(false)
         private set
+    /** Offered Share: a Task a person opened, as the server decides it. */
+    var shareable by mutableStateOf(false)
+        private set
     private fun markChannel() {
         isChannel = true
         readOnly = true
@@ -943,6 +946,7 @@ class ChatSession(
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
         isBot = detail.avatar != null && !detail.isChannel
+        shareable = detail.shareable ?: !isBot
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }

@@ -57,8 +57,8 @@ export function SessionParticipants({
   /** A channel: its agents are listed, picked and removed here like any teammate. */
   channel?: { agents: ChannelAgent[]; ownerId: string; onAgentsChange: () => void }
 }) {
-  const [participants, setParticipants] = useState<AgentConversationParticipant[]>([])
-  const [generalAccess, setGeneralAccess] = useState<GeneralAccess>('none')
+  // Null until the list loads, so a Bot never flashes a Share button.
+  const [access, setAccess] = useState<ConversationAccessState | null>(null)
   // An invite waiting to also give its people use of the session's computer.
   const [computerUse, setComputerUse] = useState<ComputerUseRequest | null>(null)
   const [members, setMembers] = useState<TeamMember[] | null>(null)
@@ -77,7 +77,7 @@ export function SessionParticipants({
       api
         .agentGetConversationParticipants(sessionId, teamId)
         .then((result) => {
-          if (!cancelled) apply(result)
+          if (!cancelled) setAccess(result)
         })
         .catch((err: unknown) => toast.apiError(t('Failed to load participants'), err))
     const reloadIfThisSession = (event: Event) => {
@@ -94,11 +94,6 @@ export function SessionParticipants({
   }, [sessionId, teamId])
 
   // Every access call answers with the whole state, so the card never merges.
-  function apply(result: ConversationAccessState) {
-    setParticipants(result.participants)
-    setGeneralAccess(result.generalAccess)
-  }
-
   const onOpenChange = (open: boolean) => {
     if (!open) return
     setPicked([])
@@ -126,7 +121,7 @@ export function SessionParticipants({
             people.map((member) => member.id),
             grantComputerUse,
           )
-          .then(apply)
+          .then(setAccess)
       : Promise.resolve()
 
   const invited = () => {
@@ -169,7 +164,7 @@ export function SessionParticipants({
   }
 
   const removeAll = (people: { id: string; agent?: unknown }[]) =>
-    removePeople(people, { sessionId, teamId, apply, onAgentsChange: channel?.onAgentsChange })
+    removePeople(people, { sessionId, teamId, apply: setAccess, onAgentsChange: channel?.onAgentsChange })
 
   const remove = (person: AgentConversationParticipant) => {
     const { id, name } = person
@@ -184,7 +179,7 @@ export function SessionParticipants({
     setPending('access')
     api
       .agentSetConversationGeneralAccess(sessionId, teamId, value)
-      .then(apply)
+      .then(setAccess)
       .catch((err: unknown) => toast.apiError(t('Failed to change general access'), err))
       .finally(() => setPending(null))
   }
@@ -201,6 +196,8 @@ export function SessionParticipants({
       .finally(() => setPending(null))
   }
 
+  if (!access || access.shareable === false) return null
+  const { participants, generalAccess } = access
   // A channel's agents count as people here, and so do the viewer's own that could join.
   const agents = channel?.agents ?? []
   const everyone = [...participants, ...agentPeople(agents, currentUserId, channel?.ownerId ?? '')]

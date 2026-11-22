@@ -67,6 +67,8 @@ export type AgentConversationParticipant = AgentConversationPerson & {
 
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
+  /** False for a Bot, its chat, or what an agent opened: none is shared. Absent from older servers. */
+  shareable?: boolean
   participants: AgentConversationParticipant[]
 }
 

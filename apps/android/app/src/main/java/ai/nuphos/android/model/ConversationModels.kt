@@ -224,6 +224,8 @@ data class AgentConversationDetail(
     val isOwner: Boolean? = null,
     val canManage: Boolean? = null,
     val canArchive: Boolean? = null,
+    /** Whether Share is offered: never on a Bot or a Task an agent opened. Null from an older server. */
+    val shareable: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,
