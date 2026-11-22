@@ -39,7 +39,7 @@ struct RuntimesPage: View {
                 ContentUnavailableView {
                     Label("Couldn't load runtimes", image: "lucide-wifi-off")
                 } description: { Text(error) } actions: {
-                    Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
+                    Button("Try again") { Task { await store.loadRuntimes() } }.buttonStyle(.bordered)
                 }
             } else if !store.runtimesLoaded {
                 ProgressView().tint(Theme.muted)
@@ -62,7 +62,7 @@ struct RuntimesPage: View {
         .environment(\.desktopBeside, nil)
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
-            async let agents: Void = store.loadRuntimes(force: true)
+            async let agents: Void = store.loadRuntimes()
             async let quotas: Void = store.loadQuotas()
             _ = await (agents, quotas)
         }
@@ -98,10 +98,10 @@ struct RuntimesPage: View {
         } message: { Text($0) }
         // A Box's runtimes join once it is up, and leave when it pauses: read them again then.
         .onChange(of: store.agentDevices.map { $0.box?.state ?? "" }) { _, _ in
-            Task { await store.loadRuntimes(force: true) }
+            Task { await store.loadRuntimes() }
         }
         .refreshable {
-            async let agents: Void = store.loadRuntimes(force: true)
+            async let agents: Void = store.loadRuntimes()
             async let quotas: Void = store.loadQuotas()
             async let devices: Void = store.loadAgentDevices()
             _ = await (agents, quotas, devices)
@@ -115,7 +115,7 @@ struct RuntimesPage: View {
                 "DELETE", NewBox.deletePath(deviceId: device.deviceId), query: [URLQueryItem(name: "teamId", value: team.id)],
                 token: store.token, body: JSONValue?.none, timeout: 60)
             async let devices: Void = store.loadAgentDevices()
-            async let runtimes: Void = store.loadRuntimes(force: true)
+            async let runtimes: Void = store.loadRuntimes()
             _ = await (devices, runtimes)
         } catch {
             deleteFailure = error.localizedDescription

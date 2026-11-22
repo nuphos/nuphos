@@ -415,8 +415,8 @@ final class AgentStore {
         publishSharingContext()
     }
 
-    func loadRuntimes(force: Bool = false) async {
-        guard let team = selectedTeam, force || !runtimesLoaded else { return }
+    func loadRuntimes() async {
+        guard let team = selectedTeam else { return }
         do {
             let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }

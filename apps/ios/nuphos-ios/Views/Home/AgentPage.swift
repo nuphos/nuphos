@@ -3,6 +3,7 @@ import SwiftUI
 /// Conversation history for the selected team. Task creation lives in a sheet.
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var page: HomePage
     /// True once the large header has scrolled under the bar.
     @Binding var titleCollapsed: Bool
@@ -104,6 +105,8 @@ struct AgentPage: View {
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
             .onPreferenceChange(ComposerOwnsKeyboard.self) { ownsKeyboard = $0 }
             .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
+            // A runtime that joined while the app was away shows when it comes back.
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await store.loadRuntimes() } } }
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {
