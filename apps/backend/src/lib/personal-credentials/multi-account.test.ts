@@ -153,9 +153,10 @@ describe('several Linear workspaces', () => {
 })
 
 describe('a selection that ticks only the provider', () => {
-  const gmail = (login: string) => account('github', login, { teamId: 'team-1' }) as PersonalCredential
+  const gmail = (login: string) =>
+    account('github', login, { teamId: 'team-1' }) as PersonalCredential
 
-  test('names an account: either of the member\'s two Google accounts is reachable', async () => {
+  test("names an account: either of the member's two Google accounts is reachable", async () => {
     const one = { ...gmail('a@x.com'), provider: 'gmail' as never }
     const two = { ...gmail('b@x.com'), provider: 'gmail' as never }
 
@@ -181,9 +182,23 @@ describe('a selection that ticks only the provider', () => {
     })
   })
 
+  test('an explicit empty list allows nothing, unlike an absent one', async () => {
+    const one = { ...gmail('a@x.com'), provider: 'gmail' as never }
+
+    rows = [one]
+
+    await expect(
+      googleCredentialFor('user-1', 'gmail', 'team-1', undefined, []),
+    ).rejects.toMatchObject({
+      status: 403,
+    })
+  })
+
   test('one account still works with none named', async () => {
     rows = [{ ...gmail('a@x.com'), provider: 'gmail' as never }]
 
-    expect(await googleCredentialFor('user-1', 'gmail', 'team-1')).toMatchObject({ login: 'a@x.com' })
+    expect(await googleCredentialFor('user-1', 'gmail', 'team-1')).toMatchObject({
+      login: 'a@x.com',
+    })
   })
 })
