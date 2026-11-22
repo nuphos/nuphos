@@ -14,8 +14,8 @@ export const SCOPES: { value: AgentStatsScope; label: string; long: string }[] =
 ]
 
 const TITLES: Record<HomeMetricKind, string> = {
-  'agent-time': t('Agent time'),
-  sessions: t('Sessions and sub-agents'),
+  'agent-time': t('Work time'),
+  sessions: t('Tasks and sub-tasks'),
   'pull-requests': t('Pull requests shipped'),
   streak: t('Streak'),
   'longest-run': t('Longest run'),

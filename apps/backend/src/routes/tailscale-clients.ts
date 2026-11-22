@@ -2,7 +2,9 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
+import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptTailscaleClientSecret } from '@/lib/byos/secrets'
 import {
   tailscaleFederationAudience,
@@ -33,6 +35,7 @@ const bindSchema = z
     clientSecret: z.string().trim().min(1).optional(),
     federated: z.boolean().optional(),
     audience: z.string().trim().min(1).max(512).optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
   .refine((value) => Boolean(value.clientSecret) !== Boolean(value.federated), {
@@ -101,26 +104,24 @@ tailscaleClientsRoutes.post(
         ? { federation }
         : { encryptedClientSecret: encryptTailscaleClientSecret(clientSecret!) }),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now, highPrivilege: true }),
     }
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      {
-        $push: { tailscaleClients: binding },
-        $set: { updatedAt: now },
-        $setOnInsert: {
-          awsRoles: [],
-          gcpServiceAccounts: [],
-          grafanaInstances: [],
-          githubInstallations: [],
-          cloudflareAccounts: [],
-          linodeAccounts: [],
-          zeaburProviders: [],
-        },
-      },
-      { upsert: true },
+    // The uniqueness check is part of the append, so two concurrent
+    // registrations of one client can't both be stored.
+    const inserted = await appendEnvironmentBinding(
+      teamId,
+      { 'tailscaleClients.clientId': { $ne: clientId } },
+      { $push: { tailscaleClients: binding }, $set: { updatedAt: now } },
     )
+
+    if (!inserted) {
+      throw new AppError(
+        409,
+        'tailscale_client_already_bound',
+        'This Tailscale OAuth client is already bound',
+      )
+    }
 
     return c.json(publicView(binding), 201)
   },
@@ -129,6 +130,10 @@ tailscaleClientsRoutes.post(
 const clientScoped = new Hono<{ Variables: TailscaleClientVariables }>()
 
 clientScoped.use('*', requireTailscaleClient())
+registerBindingAccessRoutes(clientScoped, 'tailscaleClients', (c) => ({
+  id: c.get('tailscaleClientId'),
+  access: c.get('tailscaleAccess'),
+}))
 
 registerTailscaleClientScopedRoutes(clientScoped)
 

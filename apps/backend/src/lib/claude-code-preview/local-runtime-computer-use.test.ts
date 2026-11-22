@@ -166,6 +166,7 @@ describe('a local agent serves whoever may use its computer', () => {
       runtimeId: localId,
       deviceId: 'mac-1',
       runtimeLabel: 'Claude Code in MacBook',
+      cause: 'no_presence',
     })
   })
 

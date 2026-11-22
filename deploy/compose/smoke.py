@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import time
+import urllib.error
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
 
@@ -56,6 +57,13 @@ assert set(services) == {'mongo', 'rustfs', 'backend', 'runtime'}
 print('PASS: backend and MongoDB are ready without Redis', flush=True)
 
 email = f'compose-smoke-{time.time_ns()}@example.com'
+try:
+    api('/auth/email/request-code', {'email': email.replace('-', '..', 1)})
+    raise AssertionError('A malformed address was accepted')
+except urllib.error.HTTPError as error:
+    assert error.code == 400, error.code
+    assert json.load(error)['error']['code'] == 'invalid_email'
+print('PASS: a malformed address gets 400 invalid_email', flush=True)
 api('/auth/email/request-code', {'email': email})
 logs = compose('logs', '--no-color', 'backend')
 code = None

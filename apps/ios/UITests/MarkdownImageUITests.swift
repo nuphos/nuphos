@@ -54,7 +54,7 @@ final class MarkdownImageUITests: XCTestCase {
                                "https://nuphos.ai/teams/64b5f1c2e4b0a1d2c3e4f5a6/agent/dock-a"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"]
+        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow"].firstMatch
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         XCTAssertTrue(app.buttons["remote shot"].waitForExistence(timeout: 30), "The reply's image never showed")
         return (app, link)

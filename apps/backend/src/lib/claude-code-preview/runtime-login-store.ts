@@ -24,6 +24,8 @@ export type RuntimeLoginStatus = {
   /** What a stepped sign-in asks of the user now. */
   step?: RuntimeLoginStep
   codeSubmitted?: boolean
+  /** The computer is installing the agent's CLI first. */
+  installing?: true
   error?: string
   expiresAt: string
 }
@@ -82,10 +84,9 @@ export function openAnswer(attemptId: string, sealed: string): string {
 }
 
 export const runtimeLogins = () => db().collection<RuntimeLoginDoc>('runtime_login_attempts')
+/** Hashes in the retired hosted-runtime namespace, so a stored sign-in keeps its key. */
 export function runtimeLoginKey(teamId: string, runtimeId: string): string {
-  return createHash('sha256')
-    .update(`${teamId}|${runtimeId}|${config.claudeCodeRuntimeProvisioner.namespace}`)
-    .digest('hex')
+  return createHash('sha256').update(`${teamId}|${runtimeId}|openab-runtimes`).digest('hex')
 }
 export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
   const expired =
@@ -100,6 +101,7 @@ export function publicLogin(doc: RuntimeLoginDoc): RuntimeLoginStatus {
       ? { error: 'Sign-in expired. Start again.' }
       : {
           ...(doc.error ? { error: doc.error } : {}),
+          ...(doc.state === 'starting' && doc.installing ? { installing: true as const } : {}),
           ...(doc.state === 'awaiting_authorization'
             ? doc.step
               ? { step: doc.step, ...(doc.codeSubmitted ? { codeSubmitted: true } : {}) }

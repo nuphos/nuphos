@@ -67,8 +67,9 @@ object NuphosApi {
         channels: Boolean = false,
         bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): AgentConversationsPage {
-        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision)
+        val query = conversationQuery(teamId, cursor, limit, scope, search, includeArchived, channels, bots, pendingDecision, includeOnboarding)
         return get("agent/conversations", token, query, timeoutSeconds = 20)
     }
 
@@ -82,6 +83,7 @@ object NuphosApi {
         channels: Boolean = false,
         bots: Boolean = false,
         pendingDecision: Boolean = false,
+        includeOnboarding: Boolean = false,
     ): List<Pair<String, String>> {
         return buildList {
             add("teamId" to teamId)
@@ -98,6 +100,7 @@ object NuphosApi {
             if (bots) add("bots" to "true")
             // Only conversations with an open question, each with every parent above it.
             if (pendingDecision) add("pendingDecision" to "true")
+            if (includeOnboarding) add("includeOnboarding" to "true")
         }
     }
 
@@ -119,12 +122,14 @@ object NuphosApi {
         return id
     }
 
+    /** `runtimeState = false` for a read that never shows the runtime: with it, a read is about 10x slower. */
     suspend fun conversationDetail(
         token: String,
         teamId: String,
         sessionId: String,
         tail: Int = 100,
-    ): AgentConversationDetail = conversationDetail(Http.client, token, teamId, sessionId, tail)
+        runtimeState: Boolean = true,
+    ): AgentConversationDetail = conversationDetail(Http.client, token, teamId, sessionId, tail, runtimeState)
 
     internal suspend fun conversationDetail(
         client: OkHttpClient,
@@ -132,10 +137,11 @@ object NuphosApi {
         teamId: String,
         sessionId: String,
         tail: Int = 100,
+        runtimeState: Boolean = true,
     ): AgentConversationDetail = get(
         "agent/conversations/$sessionId",
         token,
-        listOf("teamId" to teamId, "tail" to tail.toString()),
+        listOf("teamId" to teamId, "tail" to tail.toString()) + if (runtimeState) emptyList<Pair<String, String>>() else listOf("runtimeState" to "omit"),
         timeoutSeconds = 20,
         forbiddenIsUnauthorized = false,
         transport = client,
@@ -152,13 +158,6 @@ object NuphosApi {
         val json: JsonValue = get("agent/credential-options", token, listOf("teamId" to teamId), timeoutSeconds = 20)
         return CredentialCatalog(json["options"] ?: json, CredentialCatalog.NEW_CONVERSATION_PROVIDERS)
     }
-
-    @Serializable
-    private data class ShareApprovalEnvelope(val status: String? = null)
-
-    /** Whether the caller's conversation on a teammate's shared computer waits for its owner; null when never asked. */
-    suspend fun ownShareApproval(token: String, sessionId: String): String? =
-        get<ShareApprovalEnvelope>("agent/devices/share-approvals/mine", token, listOf("sessionId" to sessionId), timeoutSeconds = 15).status
 
     @Serializable
     private data class ErrorEnvelope(val error: Inner? = null) {

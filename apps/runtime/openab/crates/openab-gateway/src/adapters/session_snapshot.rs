@@ -161,7 +161,9 @@ impl SessionSnapshots {
         } else if executing && !tools.is_empty() {
             ("running_tools", "Running tools…".to_string())
         } else if executing {
-            if provider["activity"] == "responding" {
+            if let Some(step) = provider["planStep"].as_str() {
+                ("plan", step.to_string())
+            } else if provider["activity"] == "responding" {
                 ("responding", "Responding…".to_string())
             } else if provider["activity"] == "thinking" {
                 ("thinking", "Thinking…".to_string())
@@ -173,11 +175,12 @@ impl SessionSnapshots {
                 "finishing",
                 "Waiting for the runtime to finish the request…".to_string(),
             )
-        } else if let Some(error) = provider
+        } else if provider
             .pointer("/gateway/lastOutcome/error/message")
-            .and_then(Value::as_str)
+            .is_some()
         {
-            ("failed", format!("Request failed: {error}"))
+            // Why it failed is the turn's own notice; the agent's raw error is not for people.
+            ("failed", "Request failed".to_string())
         } else if provider
             .pointer("/gateway/lastOutcome/result/stopReason")
             .and_then(Value::as_str)
@@ -312,6 +315,17 @@ mod tests {
         );
     }
     #[test]
+    fn an_active_plan_is_a_status_without_a_tool() {
+        let snapshot = SessionSnapshots::default().project(
+            "plan",
+            json!({"state":"active", "planStep":"Inspect fictional project", "tools":{}}),
+            true,
+        );
+        assert_eq!(snapshot["phase"], "plan");
+        assert_eq!(snapshot["label"], "Inspect fictional project");
+        assert_eq!(snapshot["tools"], json!([]));
+    }
+    #[test]
     fn owed_continuation_does_not_block_a_person() {
         let owed = SessionSnapshots::default().project(
             "a",
@@ -327,6 +341,25 @@ mod tests {
         );
         assert_eq!(running["actions"]["send"], false);
     }
+    #[test]
+    fn a_failed_request_is_labelled_without_the_agent_error() {
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{"error":{
+            "code":-32603,"message":"Internal error: You've hit your usage limit"}}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_eq!(snapshot["phase"], "failed");
+        assert_eq!(snapshot["label"], "Request failed");
+    }
+
+    #[test]
+    fn a_successful_request_is_not_labelled_failed() {
+        // The gateway records every finished prompt as {result, error}; a success has a null error.
+        let provider = json!({"state":"idle","gateway":{"lastOutcome":{
+            "result":{"stopReason":"end_turn"},"error":null}}});
+        let snapshot = SessionSnapshots::default().project("s", provider, false);
+        assert_ne!(snapshot["phase"], "failed");
+        assert_ne!(snapshot["label"], "Request failed");
+    }
+
     #[test]
     fn gateway_wait_is_visible_even_after_provider_idle() {
         let states = SessionSnapshots::default();

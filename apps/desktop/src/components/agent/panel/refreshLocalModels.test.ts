@@ -5,13 +5,15 @@ import { namesNoModel, REPORT_SETTLE_MS, refreshLocalModels } from './refreshLoc
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
-test('a changed list on this computer reads the picker again once it reached the backend', async () => {
+// #4261: this read the picker again only when the local list changed, so a picker with no
+// models stayed empty even once its computer could list them.
+test('an asked computer has its picker read again once its list could have reached the backend', async () => {
   mock.timers.enable({ apis: ['setTimeout'] })
   try {
     let reads = 0
 
     refreshLocalModels(
-      () => Promise.resolve(true),
+      () => Promise.resolve(),
       () => reads++,
     )
     await settle()
@@ -23,15 +25,11 @@ test('a changed list on this computer reads the picker again once it reached the
   }
 })
 
-test('an unchanged list or a failed ask reads nothing again', async () => {
+test('a failed ask reads nothing again: there was no computer to ask', async () => {
   mock.timers.enable({ apis: ['setTimeout'] })
   try {
     let reads = 0
 
-    refreshLocalModels(
-      () => Promise.resolve(false),
-      () => reads++,
-    )
     refreshLocalModels(
       () => Promise.reject(new Error('no local runtime')),
       () => reads++,

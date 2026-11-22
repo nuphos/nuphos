@@ -15,6 +15,7 @@ import type {
   TeamActivityRange,
   TeamRole,
 } from '../types/team.ts'
+import type { TeamUsageQuery } from '../types/usage.ts'
 
 export const teamApi = {
   atlasPreviewTeamImport: () => window.api.atlasPreviewTeamImport(),
@@ -95,6 +96,8 @@ export const teamApi = {
     window.api.atlasGetTeamActivity(teamId, range),
   atlasGetAgentStats: (teamId: string, query: AgentStatsQuery) =>
     window.api.atlasGetAgentStats(teamId, query),
+  atlasQueryTeamUsage: (teamId: string, query: TeamUsageQuery) =>
+    window.api.atlasQueryTeamUsage(teamId, query),
   atlasPutHomeLayout: (teamId: string, scope: 'personal' | 'team', layout: HomeLayout | null) =>
     window.api.atlasPutHomeLayout(teamId, scope, layout),
   atlasCreateTeam: (name: string) => window.api.atlasCreateTeam(name),
@@ -120,12 +123,20 @@ export const teamApi = {
   atlasUpdateTeamMemberRole: (teamId: string, memberId: string, role: TeamRole) =>
     window.api.atlasUpdateTeamMemberRole(teamId, memberId, role),
   atlasListMyInvitations: () => window.api.atlasListMyInvitations(),
-  atlasInviteTeamMember: (teamId: string, inviteeEmail: string) =>
-    window.api.atlasInviteTeamMember(teamId, inviteeEmail),
+  atlasInviteTeamMember: (teamId: string, inviteeEmail: string, role?: TeamRole) =>
+    window.api.atlasInviteTeamMember(teamId, inviteeEmail, role),
+  atlasResendTeamInvitation: (teamId: string, invitationId: string) =>
+    window.api.atlasResendTeamInvitation(teamId, invitationId),
   atlasAcceptInvitation: (invitationId: string) => window.api.atlasAcceptInvitation(invitationId),
   atlasRejectInvitation: (invitationId: string) => window.api.atlasRejectInvitation(invitationId),
   atlasListSlackChannelMappings: (teamId: string) =>
     window.api.atlasListSlackChannelMappings(teamId),
+  atlasSetSlackChannelBot: (
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ) => window.api.atlasSetSlackChannelBot(teamId, channel, botSessionId, answers),
   atlasGetSlackConnectionStatus: (teamId: string) =>
     window.api.atlasGetSlackConnectionStatus(teamId),
   atlasGetSlackInstallation: (teamId: string) => window.api.atlasGetSlackInstallation(teamId),
@@ -151,7 +162,6 @@ export const teamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ) => window.api.atlasDeleteSlackChannelMapping(teamId, slackWorkspaceId, slackChannelId),
-  atlasListSlackUserMappings: (teamId: string) => window.api.atlasListSlackUserMappings(teamId),
   atlasUpsertSlackUserMapping: (
     teamId: string,
     input: {

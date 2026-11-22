@@ -1,6 +1,6 @@
 ---
 name: azure
-description: Inspect or change Microsoft Azure resources from the sandbox via the Azure Resource Manager (ARM) REST API or the az CLI. Includes a script to load a short-lived ARM access token for an Nuphos-bound Azure subscription.
+description: Inspect or change Microsoft Azure resources with the ARM REST API or az CLI. Includes a script that loads a short-lived ARM token for a Nuphos-bound subscription.
 ---
 
 # Microsoft Azure (ARM)

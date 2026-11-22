@@ -8,12 +8,12 @@ import {
   invalidateAsanaAccessToken,
 } from '@/lib/byos/asana'
 import { encryptAsanaSecret } from '@/lib/byos/secrets'
-import { finishConnectorOAuth } from '@/lib/connector-oauth'
+import { finishConnectorOAuth, reboundAccess } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
 import { asanaPendingOAuth, teamByosBindings } from '@/models'
 
-import type { AsanaAccountBinding } from '@/models'
+import type { AsanaAccountBinding, BindingAccess } from '@/models'
 import type { Context } from 'hono'
 
 export const asanaAppRoutes = new Hono()
@@ -118,6 +118,7 @@ asanaAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
       draft,
       persist: persistAsanaBinding,
     }),
@@ -132,6 +133,7 @@ type AsanaBindingDraft = Omit<AsanaAccountBinding, 'id' | 'label' | 'createdAt' 
 export async function persistAsanaBinding(
   teamId: ObjectId,
   draft: AsanaBindingDraft,
+  access: BindingAccess,
 ): Promise<Record<string, string>> {
   const accountLabel = draft.accountName ?? draft.accountEmail ?? `Asana user ${draft.accountGid}`
   const existingDoc = await teamByosBindings().findOne(
@@ -146,7 +148,7 @@ export async function persistAsanaBinding(
     id: bindingId,
     label: existing?.label ?? accountLabel,
     createdAt: existing?.createdAt ?? new Date(),
-    ...(existing?.access ? { access: existing.access } : {}),
+    ...reboundAccess(existing, access),
   }
 
   if (existing) {

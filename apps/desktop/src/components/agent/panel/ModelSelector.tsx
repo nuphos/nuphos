@@ -1,18 +1,17 @@
-import { Popover } from '@base-ui/react/popover'
 import clsx from 'clsx'
 import { ChevronDown, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
 import { effortLabel } from '../../../lib/configLabels'
-import { effortResetValue, effortStops } from '../../../lib/effortStops'
+import { effortStops } from '../../../lib/effortStops'
 import { Kbd } from '../../ui/kbd'
-import { Menu, MenuContent } from '../../ui/menu'
+import { Menu, MenuPanel, MenuTrigger } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
 
 import { ModelChipLabel } from './ModelChipLabel'
 import { ModelEffortPanel } from './ModelEffortPanel'
-import { ModelFooter, ModelMenuFooter } from './ModelFooter'
+import { ModelMenuFooter } from './ModelFooter'
 import { ModelMenu } from './ModelMenu'
 import {
   composerOf,
@@ -41,16 +40,18 @@ export function ModelSelector({
   control,
   disabled,
   hero = false,
+  disabledHint,
 }: {
   control: ModelControl
   disabled: boolean
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
+  /** Why the picker is disabled, when it is not just waiting for the task. */
+  disabledHint?: string
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
   const failure = writeError ?? error
-  const [view, setView] = useState<'effort' | 'models'>('effort')
   const chipRef = useRef<HTMLButtonElement>(null)
   const sliderRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -74,7 +75,7 @@ export function ModelSelector({
   ].filter(Boolean)
   const blocked =
     disabled || saving || (status !== 'ready' && status !== 'dormant' && status !== 'busy')
-  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast))
+  const hint = modelHint(status, Boolean(model), busy, Boolean(effort || fast), data?.reason)
 
   const setOpen = control.setOpen
   const open = control.open
@@ -100,27 +101,20 @@ export function ModelSelector({
       }
       if (!chip?.isConnected || !ownsShortcut(chip)) return
       event.preventDefault()
-      setView(effort ? 'effort' : 'models')
       setOpen(true)
     }
 
     window.addEventListener('keydown', onKeyDown)
 
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [effort, open, setOpen])
-
-  // Effort is a popover, since a slider is not a menu item; the model list is a
-  // menu. Both hang off the chip, and one open flag shows whichever view is on.
-  const showModels = view === 'models' || !effort
-  const modelsOpen = control.open && showModels && Boolean(model)
-  const effortOpen = control.open && !modelsOpen
+  }, [open, setOpen])
 
   // A runtime that exposes no model controls gets no picker at all.
   if (status === 'unsupported') return null
   const select = (configId: string, value: string) => control.select({ configId, value })
   const pickModel = (value: string) => {
     if (!model) return
-    if (value !== model.currentValue) select(model.id, value)
+    select(model.id, value)
     control.setOpen(false)
   }
   const footer = {
@@ -134,137 +128,125 @@ export function ModelSelector({
       failure && model && t('Showing last synced settings.'),
       control.queued ? t('Selected for the next reply.') : hint,
       disabled &&
-        !busy &&
-        status === 'ready' &&
-        t('Available when this agent is ready for your next message.'),
+        (disabledHint ??
+          (!busy &&
+            status === 'ready' &&
+            t('Available when this task is ready for your next message.'))),
     ].filter((line): line is string => Boolean(line)),
     error: failure ?? undefined,
     onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }
-  // Closing returns to the message box, so typing carries on; switching views
-  // leaves focus to the view that opens.
-  const finalFocus = () =>
-    !control.open &&
-    (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+  // Closing returns to the message box, so typing carries on, unless the person
+  // already moved on: the runtime list opened while this menu closed lost focus
+  // to it and closed again (#3862).
+  const finalFocus = () => {
+    const focused = document.activeElement
+    // The chip counts as the menu's own: pressing it to close still returns to typing.
+    const movedOn =
+      focused !== null &&
+      focused !== document.body &&
+      !menuRef.current?.contains(focused) &&
+      !chipRef.current?.contains(focused)
 
+    return movedOn
+      ? false
+      : (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+  }
+
+  // Shown once the task's own settings are known, never a placeholder before them.
+  if (loading && !slow && !error && !data) return null
+
+  // One menu: the models, with effort and fast pinned under them. A runtime
+  // without effort opens straight on its models; one without a model list
+  // (Grok Build) on its effort.
   return (
-    <>
-      <Popover.Root
-        open={effortOpen}
-        onOpenChange={(next) => {
-          if (next) setView(effort ? 'effort' : 'models')
-          control.setOpen(next)
-        }}
-        // Arrow keys move the effort slider as soon as it shows.
-        onOpenChangeComplete={(shown) => {
-          if (shown) sliderRef.current?.focus()
-        }}
+    <Menu
+      open={control.open}
+      onOpenChange={control.setOpen}
+      // Start on the current model, scrolled into view and highlighted, so ↑/↓
+      // move from where the user is. Base UI's Menu offers no way to set the
+      // highlighted item and does not follow focus, but it highlights the item
+      // the pointer moves over, so the checked row is given one such move.
+      onOpenChangeComplete={(shown) => {
+        if (!shown) return
+        const checked = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')
+
+        if (!checked) {
+          if (!model) sliderRef.current?.focus()
+
+          return
+        }
+        checked.focus()
+        checked.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
+      }}
+    >
+      <Tooltip
+        content={
+          <span className="flex items-center gap-2">
+            {model ? t('Select model') : t('Select effort')} <Kbd combo={EFFORT_SHORTCUT} />
+          </span>
+        }
+        disabled={control.open}
+        triggerClassName="min-w-0"
       >
-        <Tooltip
-          content={
-            <span className="flex items-center gap-2">
-              {t('Select effort')} <Kbd combo={EFFORT_SHORTCUT} />
-            </span>
-          }
-          disabled={control.open || !effort}
-          triggerClassName="min-w-0"
+        <MenuTrigger
+          ref={chipRef}
+          data-model-chip=""
+          aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
+          // A filled pill at rest, so opening it changes nothing but the text.
+          className={clsx(
+            hero ? 'h-8' : 'h-7',
+            'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
+          )}
         >
-          <Popover.Trigger
-            ref={chipRef}
-            data-model-chip=""
-            aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
-            // A filled pill at rest, so opening it changes nothing but the text.
-            className={clsx(
-              hero ? 'h-8' : 'h-7',
-              'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
-            )}
-          >
-            {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-            <ModelChipLabel
-              name={name}
-              loading={loading && !slow && !error && !data}
-              level={level}
-              levels={effortLevels}
-              choosingEffort={effortOpen && Boolean(effort)}
-              fast={fast?.currentValue}
-            />
-            <ChevronDown
-              size={14}
-              strokeWidth={1.8}
-              className="hidden shrink-0 text-tertiary @[320px]:block"
-            />
-          </Popover.Trigger>
-        </Tooltip>
-        <Popover.Portal>
-          <Popover.Positioner side="top" align="center" sideOffset={8} className="z-[1000]">
-            <Popover.Popup
-              finalFocus={finalFocus}
-              className={(state) =>
-                clsx(
-                  't-dropdown w-72 rounded-xl border border-line-control/60 bg-main shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)] outline-none',
-                  state.open && 'is-open',
-                  state.transitionStatus === 'ending' && 'is-closing',
-                )
-              }
-              style={{ transformOrigin: 'bottom center' }}
-            >
-              {!showModels && effort && (
+          {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+          <ModelChipLabel
+            name={name}
+            level={level}
+            levels={effortLevels}
+            fast={fast?.currentValue}
+          />
+          <ChevronDown
+            size={14}
+            strokeWidth={1.8}
+            className="hidden shrink-0 text-tertiary @[320px]:block"
+          />
+        </MenuTrigger>
+      </Tooltip>
+      <MenuPanel
+        ref={menuRef}
+        finalFocus={finalFocus}
+        className="w-72"
+        footer={
+          <>
+            {(effort || fast) && (
+              <div className={clsx(model && 'border-t border-line-control/60')}>
                 <ModelEffortPanel
                   effort={effort}
                   fast={fast}
-                  // A runtime with no model list (Grok Build) names none; the chip's own
-                  // "Model settings" would be unhelpful inside the panel.
-                  modelName={model ? name : t('Reasoning')}
-                  resetValue={effortResetValue(effort.options)}
                   blocked={blocked && !saving}
                   saving={saving}
                   sliderRef={sliderRef}
                   onSelect={select}
-                  onOpenModels={model ? () => setView('models') : undefined}
                 />
-              )}
-              <ModelFooter {...footer} divided={Boolean(model)} />
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </Popover.Root>
-      <Menu
-        open={modelsOpen}
-        onOpenChange={(next, details) => {
-          // This menu has no trigger of its own. Base UI still reports trigger and
-          // sibling closes when "More models" opens or the view steps back to
-          // effort; neither is the user closing it.
-          if (details.reason === 'trigger-hover' || details.reason === 'sibling-open') return
-          // Escape from the model list steps back to effort; a second one closes.
-          if (!next && details.reason === 'escape-key' && effort) setView('effort')
-          else control.setOpen(next)
-        }}
-        // Start on the current model, so ↑/↓ move from where the user is.
-        onOpenChangeComplete={(shown) => {
-          if (shown) menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
-        }}
+              </div>
+            )}
+            {footer.lines.length > 0 && (
+              <div
+                className={clsx(
+                  'px-1 pb-1',
+                  (model || effort || fast) && 'border-t border-line-control/60 pt-1',
+                )}
+              >
+                <ModelMenuFooter {...footer} />
+              </div>
+            )}
+          </>
+        }
       >
-        <MenuContent
-          ref={menuRef}
-          anchor={chipRef}
-          side="top"
-          align="center"
-          sideOffset={8}
-          finalFocus={finalFocus}
-          className="w-72 rounded-xl"
-        >
-          {model && (
-            <ModelMenu
-              model={model}
-              blocked={blocked}
-              onSelect={pickModel}
-              onBack={effort ? () => setView('effort') : undefined}
-              footer={<ModelMenuFooter {...footer} />}
-            />
-          )}
-        </MenuContent>
-      </Menu>
-    </>
+        {model && <ModelMenu model={model} blocked={blocked} onSelect={pickModel} />}
+      </MenuPanel>
+    </Menu>
   )
 }

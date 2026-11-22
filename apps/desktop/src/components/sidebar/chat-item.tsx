@@ -1,6 +1,6 @@
 import { t } from '../../i18n'
 import { isBotRow } from '../../lib/agentAvatarChoices'
-import { openInputRequests } from '../../lib/agentInputRequests'
+import { attentionInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { sidebarTaskState } from '../../lib/sidebarTaskState'
@@ -43,7 +43,8 @@ export function chatSidebarItem({
   picked?: string | null
 }): Item {
   const isBot = isBotRow(conversation, picked)
-  const waiting = openInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
+  const waiting =
+    attentionInputRequests(conversation).length > 0 || Boolean(conversation.signInRequest)
   const dot = waiting ? 'waiting' : unread ? 'unread' : rowDot(conversation, runtimeState, unread)
   const status = <ChatRowStatus runtimeState={runtimeState} dot={dot} />
 
@@ -85,7 +86,11 @@ export function chatSidebarItem({
                 {
                   id: conversation.sessionId,
                   name: conversation.title,
-                  agent: { avatar: conversation.avatar, provider: conversation.agentRuntime },
+                  agent: {
+                    avatar: conversation.avatar,
+                    avatarBackground: conversation.avatarBackground,
+                    provider: conversation.agentRuntime,
+                  },
                 },
               ]}
               title={conversation.title}

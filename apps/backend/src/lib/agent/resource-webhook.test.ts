@@ -83,7 +83,7 @@ describe('GitHub resource routing', () => {
       config.byos.github.appSlug = previous
     }
   })
-  test('human PR comments wake, bot replies and ordinary issues do not loop', () => {
+  test('human PR and issue comments wake, bot replies do not loop', () => {
     const payload = {
       ...base,
       action: 'created',
@@ -98,7 +98,10 @@ describe('GitHub resource routing', () => {
         sender: { type: 'Bot', login: 'nuphos[bot]' },
       }),
     ).toEqual([])
-    expect(githubResourceEvents('issue_comment', { ...payload, issue: { number: 56 } })).toEqual([])
+    // An issue's comment wakes only a conversation that linked that issue, by its key.
+    expect(githubResourceEvents('issue_comment', { ...payload, issue: { number: 56 } })).toEqual([
+      expect.objectContaining({ key: githubResourceEvents('issue_comment', payload)[0]?.key }),
+    ])
   })
   test('unrelated, malformed and incomplete events cannot select a conversation', () => {
     for (const payload of [
@@ -165,8 +168,6 @@ test('pending, unattributed and own commit statuses do not route', () => {
     repositoryId: 34,
     repository: 'acme/app',
     sha: 'a'.repeat(40),
-    state: 'success',
-    context: '',
   })
   expect(githubStatusCommit('status', { ...status, state: 'pending' })).toBeNull()
   expect(githubStatusCommit('status', { ...status, sha: 'not-a-sha' })).toBeNull()
@@ -176,8 +177,10 @@ test('pending, unattributed and own commit statuses do not route', () => {
   config.byos.github.appSlug = 'nuphos'
   try {
     expect(
-      githubStatusCommit('status', { ...status, sender: { type: 'Bot', login: 'nuphos[bot]' } }),
-    ).toBeNull()
+      githubResourceEvents('status', { ...status, sender: { type: 'Bot', login: 'nuphos[bot]' } }, [
+        'github/12/34/56',
+      ]),
+    ).toEqual([])
   } finally {
     config.byos.github.appSlug = previous
   }
@@ -316,8 +319,8 @@ test('pushes, finished CI and reviews refresh a linked PR tag, our own included'
     // Our own statuses refresh health even though they never wake a session.
     const status = { ...base, sha: 'a'.repeat(40), state: 'failure', sender: own }
 
-    expect(githubStatusCommit('status', status)).toBeNull()
-    expect(githubStatusCommit('status', status, true)?.state).toBe('failure')
+    expect(githubStatusCommit('status', status)?.sha).toBe('a'.repeat(40))
+    expect(githubResourceEvents('status', status, ['github/12/34/56'])).toEqual([])
   } finally {
     config.byos.github.appSlug = previous
   }

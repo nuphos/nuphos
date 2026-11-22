@@ -4,17 +4,21 @@
 // and nothing outside those tabs is reachable.
 import { getLocalActiveAgentRun, runChannels } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
+import { toolError } from '@/lib/mcp/protocol'
 
 import { createDeviceToolHandler } from './device-tool'
+import { fillProblem, FillRefused, fillScriptFor, readSecret } from './local-browser-fill'
 
 import type { PreviewToolContext, PreviewToolModule } from '../preview-tool-context'
 import type { DeviceTool, DeviceToolDeps } from './device-tool'
+import type { FillField, ReadSecret } from './local-browser-fill'
 
 const ACTIONS = [
   'tabs',
   'open',
   'navigate',
   'eval',
+  'fill',
   'screenshot',
   'show',
   'close',
@@ -27,6 +31,8 @@ type Args = {
   tab?: number
   url?: string
   script?: string
+  fields?: FillField[]
+  video?: boolean
   device?: string
 }
 
@@ -40,7 +46,7 @@ async function turnChannels(ctx: PreviewToolContext): Promise<string[]> {
   return run ? runChannels({ userId, sessionId: ctx.sessionId, streamId: run.streamId }) : []
 }
 
-const browserTool = (channels: typeof turnChannels): DeviceTool => ({
+const browserTool = (channels: typeof turnChannels, fill?: string): DeviceTool => ({
   name: 'local_browser',
   label: 'local_browser',
   purpose: 'browser',
@@ -51,6 +57,7 @@ const browserTool = (channels: typeof turnChannels): DeviceTool => ({
     if ((args.action === 'open' || args.action === 'navigate') && !args.url)
       return 'url is required.'
     if (args.action === 'eval' && !args.script?.trim()) return 'script is required.'
+    if (args.action === 'fill' && fillProblem(args.fields)) return fillProblem(args.fields)
     const needsTab = args.action !== 'tabs' && args.action !== 'open'
 
     return needsTab && args.tab === undefined
@@ -62,6 +69,10 @@ const browserTool = (channels: typeof turnChannels): DeviceTool => ({
     // A tab opens where it was asked for: the channel that woke this turn, when exactly one did.
     const asked = args.action === 'open' ? await channels(ctx) : []
 
+    // The values travel in this page script only, after the call was shown and audited by its paths.
+    if (args.action === 'fill')
+      return { action: 'eval', team: ctx.teamId, tab: args.tab, script: fill ?? '' }
+
     return {
       action: args.action,
       ...(asked.length === 1 ? { dock: asked[0] } : {}),
@@ -69,6 +80,7 @@ const browserTool = (channels: typeof turnChannels): DeviceTool => ({
       ...(args.tab !== undefined ? { tab: args.tab } : {}),
       ...(args.url ? { url: args.url } : {}),
       ...(args.script ? { script: args.script } : {}),
+      ...(args.action === 'record_start' && args.video ? { video: true } : {}),
     }
   },
   audit: (raw) => {
@@ -76,7 +88,19 @@ const browserTool = (channels: typeof turnChannels): DeviceTool => ({
 
     const tab = args.tab === undefined ? [] : [`tab=${String(args.tab)}`]
 
-    return ['[browser]', args.action, ...tab, args.url ?? args.script ?? ''].join(' ').trim()
+    // A fill is recorded by where it wrote and which file it read, never by what.
+    if (args.action === 'fill')
+      return [
+        '[browser] fill',
+        ...tab,
+        ...(args.fields ?? []).map((field) => `${field.selector} <- ${field.path}`),
+      ].join(' ')
+
+    const video = args.action === 'record_start' && args.video ? ['video'] : []
+
+    return ['[browser]', args.action, ...tab, ...video, args.url ?? args.script ?? '']
+      .join(' ')
+      .trim()
   },
   errorReason: 'browser_error',
   noDevice:
@@ -93,10 +117,13 @@ const definition = {
     'When a task needs the user to sign in or sign up somewhere, open that login or sign-up page here yourself, sub-agents included, and say what to do on it; the user types their own password and passes human checks, never you. ' +
     "Operate this conversation's browser tabs inside the user's Nuphos Desktop (the in-app browser, not Chrome or Safari): open a page in a new tab, list the tabs this conversation opened, navigate, run JavaScript in a page, or take a screenshot. " +
     'A tab runs in the background in a hidden desktop-sized window (1440x900), so pages get their desktop layout and screenshots work while the user does other things. ' +
-    'When the user should see or use the page (they asked to open a site, or must sign in or pass a check), call show: its window comes on screen, and closing it hides it again while you keep driving it. close ends a tab you no longer need. ' +
+    'When the user should see or use the page (they asked to open a site, or must sign in or pass a check), call show: its window comes on screen. When they close it, it hides again while you keep driving it, and you are woken to continue, so after show end your turn rather than asking them to say they are done. close ends a tab you no longer need. ' +
     'Pages keep the logins the user made in the in-app browser. Start with action "open" (or "tabs"), then pass the returned tab id. ' +
     'eval runs `script` in the page as a user gesture and returns its JSON-serializable value (an awaited Promise for async code): read the DOM, click, fill inputs (dispatch input events for frameworks). ' +
+    'A download in a tab is saved to the Downloads folder on the device with no save dialog, numbered instead of replacing a file there, up to 2 GB; the next tabs or eval result says "Downloaded: <path>" or how it failed. ' +
+    "fill enters the user's own details, saved by a secure input card, into a page's inputs: pass `fields`, each with the CSS `selector` of an input and the `path` the card's answer gave for it. The values are read from those files and set on the page without passing through you or this conversation, and the result says only which selectors were filled. It enters them only on a page of the site the card named and refuses any other tab: navigate the tab to that site first. Use it for every such value instead of eval, never read the files, and do not read the filled inputs back from the page. " +
     "record_start captures the tab's network traffic (requests, responses, headers including cookies, bodies) until record_stop, which writes it as a HAR file on the device and returns its path with one line per request; read details from that file on the device. " +
+    'With `video: true`, record_start also records what the tab shows, and record_stop writes it as a WebM video beside the HAR and returns its path, length and size; it stops by itself after 2 minutes or 100 MB of frames and then says it was cut short. To hand a recording or screenshot over as evidence, publish the file with file-transfer (bring it over with local_upload first when the tab ran on another computer). ' +
     'Use this for the in-app browser; use local_cua for other apps.',
   inputSchema: {
     type: 'object',
@@ -109,6 +136,28 @@ const definition = {
       },
       url: { type: 'string', description: 'http(s) URL for open and navigate.' },
       script: { type: 'string', description: 'JavaScript expression or IIFE for eval.' },
+      video: {
+        type: 'boolean',
+        description: 'For record_start: also record what the tab shows as a WebM video.',
+      },
+      fields: {
+        type: 'array',
+        description: 'For fill: the inputs to set, each from a file a secure input card saved.',
+        minItems: 1,
+        maxItems: 12,
+        items: {
+          type: 'object',
+          properties: {
+            selector: { type: 'string', description: 'CSS selector of the input or select.' },
+            path: {
+              type: 'string',
+              description: "The file path the card's answer gave for this value, unchanged.",
+            },
+          },
+          required: ['selector', 'path'],
+          additionalProperties: false,
+        },
+      },
       device: {
         type: 'string',
         description:
@@ -124,8 +173,28 @@ export function createLocalBrowserHandler(
   ctx: PreviewToolContext,
   deps?: DeviceToolDeps,
   channels = turnChannels,
+  read: ReadSecret = readSecret,
 ) {
-  return createDeviceToolHandler(ctx, browserTool(channels), deps)
+  const plain = createDeviceToolHandler(ctx, browserTool(channels), deps)
+
+  return async (args: Record<string, unknown>) => {
+    // Anything else, and a fill its own checks refuse, takes the ordinary path.
+    if (args.action !== 'fill' || browserTool(channels).invalid(args)) return plain(args)
+    // Read first: a value that may not be filled fails the call before the device is asked for anything.
+    const script = await fillScriptFor(ctx, args.fields as FillField[], read).catch(
+      (error: unknown) => (error instanceof FillRefused ? toolError(error.message) : null),
+    )
+
+    if (typeof script !== 'string')
+      return (
+        script ??
+        toolError(
+          'Could not read a saved value from the runtime: the file may have expired or the path is not the one the card gave. Ask for the details again with request_user_decision.',
+        )
+      )
+
+    return createDeviceToolHandler(ctx, browserTool(channels, script), deps)(args)
+  }
 }
 
 export const localBrowserToolModule: PreviewToolModule = {

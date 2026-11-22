@@ -19,6 +19,7 @@
 // on the Mac.
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
@@ -91,12 +92,18 @@ async function ownedDesktopHost(
   if (typeof owner !== 'string') {
     const ref = parseLocalRuntimeId(owner.runtimeId)
 
-    // Only the computer's own person; a team Box's other members open theirs through a conversation.
-    if (ref?.userId !== userId) throw notFound()
-    // The computer itself, with or without an agent on it; a Box only in its own team.
-    const device = await getAgentDevice(userId, ref.deviceId)
+    if (!ref) throw notFound()
+    // The computer itself, with or without an agent on it.
+    const device = await getAgentDevice(ref.userId, ref.deviceId)
 
-    if (!device || (device.box && device.box.teamId !== teamId)) throw notFound()
+    // Someone's own computer opens only for them. A Box opens only in its own team, for
+    // whoever manages it there, as its desktop always did; its other members open theirs
+    // through a conversation.
+    if (
+      !device ||
+      !(device.box ? allows(deviceAccess(device, userId, teamId), 'manage') : ref.userId === userId)
+    )
+      throw notFound()
 
     return desktopHost(ref, runtimeDesktopSessionId(ref), presence)
   }
@@ -141,18 +148,18 @@ export async function openRuntimeDesktop(
   owner: DesktopOwner,
   deps: { presence?: ReturnType<typeof runtimePresenceStore>; open?: typeof openLocalDesktop } = {},
 ): Promise<{ display: number }> {
-  const {
-    ref,
-    sessionId,
-    desktops = [],
-    canOpen,
-  } = await ownedDesktopHost(teamId, userId, owner, deps.presence ?? runtimePresenceStore())
+  const { ref, sessionId, canOpen } = await ownedDesktopHost(
+    teamId,
+    userId,
+    owner,
+    deps.presence ?? runtimePresenceStore(),
+  )
 
   // Only a host whose bundle opens desktops on request says so.
   if (!canOpen) throw notFound()
-  const held = desktops.find((desktop) => desktop.sessionId === sessionId)
-
-  if (held) return { display: held.display }
+  // Always the host, even for a display it reports held: its desktop may have
+  // exited since (a Mac's screen host leaves a minute after its last viewer,
+  // while the lock stays for three), and opening brings it back.
   const target = { userId: ref.userId, actorId: userId, deviceId: ref.deviceId, teamId }
 
   return { display: await (deps.open ?? openLocalDesktop)(target, sessionId) }

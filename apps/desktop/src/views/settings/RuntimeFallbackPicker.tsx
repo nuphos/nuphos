@@ -1,14 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
-
-import { api } from '../../api'
 import { RuntimeSelector } from '../../components/agent/panel/RuntimeSelector'
-import { toast } from '../../components/ui/toast'
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
-import { runtimeFallbackQuery, useRuntimeQuotasQuery } from '../../lib/query/runtime'
+import { useRuntimeQuotasQuery } from '../../lib/query/runtime'
 
+import { fallbackCandidates } from './runtimeFallback'
 import { PanelHeading } from './RuntimePanel'
+import { useRuntimeFallback } from './useRuntimeFallback'
 
 import type { RuntimeInstance } from '../../types/runtime'
 
@@ -23,19 +20,9 @@ export function RuntimeFallbackPicker({
   canEdit: boolean
 }) {
   const { instances } = useRuntimeInstances(teamId)
-  const queryClient = useQueryClient()
-  const { queryKey } = runtimeFallbackQuery(teamId)
-  const { data: fallbacks, error } = useQuery(runtimeFallbackQuery(teamId))
-  const { mutate, isPending } = useMutation({
-    mutationFn: (next: string | null) => api.atlasPutRuntimeFallback(teamId, instance.id, next),
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
-    onError: (err) => toast.apiError(t('Could not save the fallback agent'), err),
-  })
-
-  useEffect(() => {
-    if (error) toast.apiError(t('Could not load the fallback agent'), error)
-  }, [error])
-
+  const { fallbacks, save, isPending } = useRuntimeFallback(teamId, instance.id)
+  // Its own toast says why a save failed.
+  const mutate = (next: string | null) => void save(next).catch(() => {})
   const { data: quotas } = useRuntimeQuotasQuery(teamId)
   const current = fallbacks?.[instance.id]
   const target = instances.find((other) => other.id === current)
@@ -46,13 +33,13 @@ export function RuntimeFallbackPicker({
       <PanelHeading
         title={t('Fallback')}
         hint={t(
-          'When this agent is low on usage, offline, or fails a turn, its conversations move to the agent chosen here, then on to that agent’s fallback. The conversation history always moves; files in this agent’s working directory may stay behind.',
+          'When this runtime is low on usage, offline, or fails a turn, its conversations move to the runtime chosen here, then on to that runtime’s fallback. The conversation history always moves; files in this runtime’s working directory may stay behind.',
         )}
       />
       <RuntimeSelector
         teamId={teamId}
         value={target ?? null}
-        options={instances.filter((other) => other.id !== instance.id && other.status === 'active')}
+        options={fallbackCandidates(instances, instance.id)}
         quotas={quotas}
         loading={!fallbacks}
         selectDisabled={isPending}

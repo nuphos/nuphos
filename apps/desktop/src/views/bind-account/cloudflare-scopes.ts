@@ -1,3 +1,18 @@
+import {
+  Zap as ZapIcon,
+  ChartLine as ChartLineIcon,
+  Ellipsis as EllipsisIcon,
+  Mail as MailIcon,
+  Gauge as GaugeIcon,
+  Globe as GlobeIcon,
+  Network as NetworkIcon,
+  Images as ImagesIcon,
+  Bot as BotIcon,
+  Shield as ShieldIcon,
+  SlidersHorizontal as SlidersHorizontalIcon,
+  User as UserIcon,
+  ShieldUser as ShieldUserIcon,
+} from 'lucide-react'
 /* eslint-disable max-lines -- Generated copy of Cloudflare's OAuth scope catalog; one list is easier to diff against the API than split files. */
 // Every OAuth scope Cloudflare offers, grouped by Cloudflare's own scope
 // categories. Generated from `GET https://api.cloudflare.com/client/v4/oauth/scopes`;
@@ -5,21 +20,6 @@
 // Cloudflare does not offer OAuth clients (only `workers-scripts.metadata_read`
 // is offered). The Nuphos OAuth client must be registered with every scope
 // listed here, or Cloudflare rejects the authorize request.
-import {
-  faBolt,
-  faChartLine,
-  faEllipsis,
-  faEnvelope,
-  faGauge,
-  faGlobe,
-  faNetworkWired,
-  faPhotoFilm,
-  faRobot,
-  faShieldHalved,
-  faSliders,
-  faUser,
-  faUserShield,
-} from '@fortawesome/free-solid-svg-icons'
 
 import { t } from '../../i18n/index.ts'
 
@@ -28,7 +28,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'dns_and_zones',
     label: t('DNS & zones'),
     hint: t('Zones, records, registrar'),
-    icon: faGlobe,
+    icon: GlobeIcon,
     scopes: [
       'account-dns-settings.read',
       'account-dns-settings.write',
@@ -58,7 +58,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'developer_platform',
     label: t('Developer platform'),
     hint: 'Workers, Containers, Pages, R2, D1, KV, Queues',
-    icon: faBolt,
+    icon: ZapIcon,
     scopes: [
       'agent-memory.write',
       'browser-rendering.read',
@@ -133,7 +133,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'ai_and_machine_learning',
     label: 'AI',
     hint: 'Workers AI, AI Gateway, AI Search',
-    icon: faRobot,
+    icon: BotIcon,
     scopes: [
       'aiaudit.read',
       'aiaudit.write',
@@ -165,7 +165,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'analytics_and_logs',
     label: t('Analytics & logs'),
     hint: t('Analytics, Logpush, Radar'),
-    icon: faChartLine,
+    icon: ChartLineIcon,
     scopes: [
       'account-analytics.read',
       'analytics.read',
@@ -184,7 +184,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'app_security',
     label: t('Application security'),
     hint: t('WAF, bots, DDoS, Page Shield'),
-    icon: faShieldHalved,
+    icon: ShieldIcon,
     scopes: [
       'fraud-detection-pii.read',
       'account-firewall-access-rules.read',
@@ -255,7 +255,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'cache_and_performance',
     label: t('Cache & SSL'),
     hint: t('Cache settings, purge, certificates'),
-    icon: faGauge,
+    icon: GaugeIcon,
     scopes: [
       'account-ssl-and-certificates.read',
       'account-ssl-and-certificates.write',
@@ -274,7 +274,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'cloudflare_one_and_zero_trust',
     label: 'Zero Trust',
     hint: 'Access, Gateway, Tunnels, WARP',
-    icon: faUserShield,
+    icon: ShieldUserIcon,
     scopes: [
       'access-app.read',
       'access-app.revoke',
@@ -356,7 +356,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'email_and_messaging',
     label: t('Email'),
     hint: t('Email Routing, Email Security, sending'),
-    icon: faEnvelope,
+    icon: MailIcon,
     scopes: [
       'cloud-email-security.read',
       'cloud-email-security.write',
@@ -377,7 +377,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'media',
     label: t('Media'),
     hint: 'Images, Stream, Calls',
-    icon: faPhotoFilm,
+    icon: ImagesIcon,
     scopes: [
       'calls.read',
       'calls.write',
@@ -393,7 +393,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'network_services',
     label: t('Network services'),
     hint: t('Load balancing, Magic Transit/WAN, IP prefixes'),
-    icon: faNetworkWired,
+    icon: NetworkIcon,
     scopes: [
       'account-waiting-rooms.read',
       'address-maps.read',
@@ -436,7 +436,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'rules_and_configuration',
     label: t('Rules & configuration'),
     hint: t('Rulesets, redirects, transforms, custom pages'),
-    icon: faSliders,
+    icon: SlidersHorizontalIcon,
     scopes: [
       'account-custom-error-rules.read',
       'account-custom-error-rules.write',
@@ -478,7 +478,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'account_and_billing',
     label: t('Account'),
     hint: t('Settings, members, API tokens, notifications'),
-    icon: faUser,
+    icon: UserIcon,
     scopes: [
       'account-api-gateway.write',
       'account-api-gateway.read',
@@ -502,7 +502,7 @@ export const CLOUDFLARE_SCOPE_CATEGORIES = [
     key: 'other',
     label: t('Other'),
     hint: t('Artifacts, resource sharing'),
-    icon: faEllipsis,
+    icon: EllipsisIcon,
     scopes: ['artifacts.read', 'artifacts.write', 'resource-sharing.read'],
   },
 ] as const

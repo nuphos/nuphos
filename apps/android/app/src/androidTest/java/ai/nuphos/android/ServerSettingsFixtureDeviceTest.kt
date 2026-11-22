@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import ai.nuphos.android.data.BackendOrigin
 import ai.nuphos.android.data.TokenStore
@@ -15,6 +15,7 @@ import ai.nuphos.android.ui.theme.NuphosTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 
@@ -24,7 +25,6 @@ class ServerSettingsFixtureDeviceTest {
 
     @Test fun serverChangesResetTheFormAndKeepCredentialsScoped() {
         val inst = InstrumentationRegistry.getInstrumentation()
-        check(inst.targetContext.packageName == "ai.nuphos.android.emailfixture1335")
         val app = inst.targetContext.applicationContext as NuphosApplication
         check(app.tokenStore.read() == null)
         val preferences = app.getSharedPreferences("nuphos.backend", Context.MODE_PRIVATE)

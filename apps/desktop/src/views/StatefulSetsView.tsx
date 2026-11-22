@@ -1,4 +1,4 @@
-import { faRotateLeft } from '@fortawesome/free-solid-svg-icons'
+import { RotateCcw as RotateCcwIcon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../api'
@@ -91,7 +91,7 @@ export function StatefulSetsView({
       {
         key: 'restart',
         label: t('Restart rollout'),
-        icon: faRotateLeft,
+        icon: RotateCcwIcon,
         disabled: r.update_strategy === 'OnDelete',
         hint:
           r.update_strategy === 'OnDelete'
@@ -173,7 +173,7 @@ export function StatefulSetsView({
           {
             key: 'restart',
             label: t('Restart rollout'),
-            icon: faRotateLeft,
+            icon: RotateCcwIcon,
             disabled: restartBlocked,
             onClick: () => setConfirmRestart(true),
           },

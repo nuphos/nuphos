@@ -10,6 +10,8 @@ import type { IpcMainInvokeEvent } from 'electron'
 export const agentChannels = {
   'agent:resolveDecision': (_e: unknown, ...args: Parameters<typeof agent.resolveDecision>) =>
     agent.resolveDecision(...args),
+  'agent:snoozeDecision': (_e: unknown, ...args: Parameters<typeof agent.snoozeDecision>) =>
+    agent.snoozeDecision(...args),
   'agent:getSessionConfig': (_e: unknown, sessionId: string, teamId: string) =>
     agent.getSessionConfig(sessionId, teamId),
   'agent:setSessionConfig': (
@@ -55,6 +57,7 @@ export const agentChannels = {
     args: { title: string; body: string; sessionId: string; teamId?: string },
   ) => agent.notifyAgentStopped({ ...args, parentWindow: BrowserWindow.fromWebContents(e.sender) }),
   'agent:abort': (_e: unknown, streamId: string) => agent.abortChat(streamId),
+  'agent:followChanges': (_e: unknown, teamId: string) => agent.followAgentChanges(teamId),
   'agent:reportFailure': (_e: unknown, streamId: string, payload: Record<string, unknown>) =>
     agent.reportFailure(streamId, payload),
   'agent:abortClientTools': (_e: unknown, sessionId: string) => agent.abortClientTools(sessionId),
@@ -70,7 +73,6 @@ export const agentChannels = {
       limit?: number
       scope?: agent.ConversationsScope
       ownerId?: string
-      triggerIds?: string[]
       search?: string
       archived?: agent.ConversationsArchivedFilter
       sort?: agent.ConversationsSort
@@ -238,16 +240,6 @@ export const agentChannels = {
     args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number },
   ) => agent.listPlans(args ?? {}),
   'agent:getPlan': (_e: unknown, planId: string, teamId?: string) => agent.getPlan(planId, teamId),
-  'agent:updatePlan': (
-    _e: unknown,
-    planId: string,
-    patch: agent.PlanUpdatePatch,
-    teamId?: string,
-  ) => agent.updatePlan(planId, patch, teamId),
-  'agent:getPlanApprovalPolicy': (_e: unknown, teamId: string) =>
-    agent.getPlanApprovalPolicy(teamId),
-  'agent:updatePlanApprovalPolicy': (_e: unknown, teamId: string, minimumOtherApprovals: number) =>
-    agent.updatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   ...agentTriggerChannels,
   'agent:getAutoModeBypass': (_e: unknown, sessionId: string) => agent.getAutoModeBypass(sessionId),
   'agent:setAutoModeBypass': (_e: unknown, sessionId: string, bypass: boolean) =>

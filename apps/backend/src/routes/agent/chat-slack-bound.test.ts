@@ -17,11 +17,21 @@ type StoredMessage = { messageId: string; role: string; parts: unknown[]; origin
 const state: { stored: StoredMessage[] } = { stored: [] }
 
 useAgentDb({
-  getConversationWithMessages: async () => ({ conversation: {}, messages: state.stored }),
+  // Like the store: `tail` returns only the newest messages.
+  getConversationWithMessages: async (
+    _sessionId: string,
+    _userId: string,
+    _teamId?: string,
+    options?: { tail?: number },
+  ) => ({
+    conversation: {},
+    messages: options?.tail === undefined ? state.stored : state.stored.slice(-options.tail),
+  }),
 })
 
 const { beginSlackBoundTurnDelivery, buildSlackBoundTurnPlan } = await import('./chat-slack-bound')
 const { AppError } = await import('@/lib/errors')
+const { TURN_HISTORY_TAIL } = await import('@/lib/agent/turn-history')
 
 function textMessage(id: string, role: 'user' | 'assistant', text: string): StoredMessage {
   return { messageId: id, role, parts: [{ type: 'text', text }] }
@@ -189,6 +199,22 @@ describe('buildSlackBoundTurnPlan', () => {
       { type: 'tool-bash', toolCallId: 'c1', state: 'output-available' },
       { type: 'text', text: 'done' },
     ] as never)
+  })
+
+  test('a send on a long conversation reads a bounded tail, not the whole transcript', async () => {
+    // Decoding every stored message of a session thousands long blocked the event loop.
+    state.stored = Array.from({ length: TURN_HISTORY_TAIL * 3 }, (_, index) =>
+      textMessage(
+        `m${String(index)}`,
+        index % 2 ? 'assistant' : 'user',
+        `message ${String(index)}`,
+      ),
+    )
+    const plan = await buildSlackBoundTurnPlan(planArgs([uiText('new', 'user', 'next question')]))
+
+    expect(plan.messages).toHaveLength(TURN_HISTORY_TAIL + 1)
+    expect(plan.messages.at(-2)?.id).toBe(`m${String(TURN_HISTORY_TAIL * 3 - 1)}`)
+    expect(plan.messages.at(-1)?.id).toBe('new')
   })
 
   test('rejects a merge with no user message anywhere', async () => {

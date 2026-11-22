@@ -81,7 +81,7 @@ export async function nuphosUpdateSession(
   }
 
   // A Task under a Bot runs in its Bot's permission mode. Refused before
-  // anything changes, like update_thread.
+  // anything changes, like update_task.
   const modeFrom = await modeSource(sessionId)
 
   if (fullAccess !== undefined && modeFrom !== sessionId) {
@@ -92,10 +92,19 @@ export async function nuphosUpdateSession(
   let pick: Awaited<ReturnType<typeof setThreadModel>>
 
   try {
-    pick = await setThreadModel(sessionId, ctx.userId, {
-      ...(model ? { model } : {}),
-      ...(effort ? { effort } : {}),
-    })
+    pick = await setThreadModel(
+      sessionId,
+      ctx.userId,
+      {
+        ...(model ? { model } : {}),
+        ...(effort ? { effort } : {}),
+      },
+      {
+        actorId: ctx.userId,
+        via: 'mcp_update',
+        ...(ctx.client?.name ? { client: ctx.client.name.slice(0, 80) } : {}),
+      },
+    )
   } catch (err) {
     return toolError(err instanceof Error ? err.message : String(err))
   }

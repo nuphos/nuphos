@@ -5,7 +5,7 @@ import { useDb } from '@/lib/test/doubles/db'
 import { cancelRuntimeLogin, performRuntimeLogin } from './runtime-login'
 
 import type { RuntimeLoginDeps } from './runtime-login'
-import { loginFrameReader } from './runtime-login-exec'
+import { loginFrameReader } from './runtime-login-frames'
 import {
   claimRuntimeLogin,
   publicLogin,
@@ -248,11 +248,12 @@ test('a runtime reports its sign-in without carrying the credential', () => {
   expect(frames).toHaveLength(1)
 })
 
-test('a pasted sign-in result is a Claude code or a loopback callback, nothing else', async () => {
+test('a pasted sign-in result is a Claude code, a Google code or a loopback callback, nothing else', async () => {
   const { AUTHORIZATION_CODE } = await import('./runtime-login-step')
 
   for (const ok of [
     'the-code#the-state',
+    '4/0Ab-c_d',
     'http://127.0.0.1:51881/?state=s&code=4/0Ab-c_d&scope=https://www.googleapis.com/auth/cloud-platform',
     'http://localhost:51881/?state=s&code=4%2F0Ab',
   ])
@@ -262,6 +263,8 @@ test('a pasted sign-in result is a Claude code or a loopback callback, nothing e
     'http://evil.example:51881/?code=x',
     'http://127.0.0.1:51881/?code=x y',
     'the code',
+    '4/0Ab c',
+    '4/',
   ])
     expect(AUTHORIZATION_CODE.test(bad)).toBe(false)
 })

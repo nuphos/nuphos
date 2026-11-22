@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChatFace
 import ai.nuphos.android.model.ChannelPost
@@ -20,6 +21,9 @@ import kotlinx.coroutines.launch
 import ai.nuphos.android.data.AgentChatApi
 import ai.nuphos.android.data.AttachmentTransfers
 import ai.nuphos.android.data.JsonValue
+import ai.nuphos.android.data.SseClient
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.channels.Channel
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
 
@@ -44,10 +48,16 @@ class ChannelSession(
         suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
         /** Retry after an agent could not reply: it reads again what it has not read yet. */
         suspend fun wake(agentId: String) {}
+        /**
+         * Follows which of the team's conversations change (#3906) until the stream ends or fails:
+         * [opened] once it is up, [changed] with each changed session. False when the backend has
+         * no such stream, so the chat keeps polling.
+         */
+        suspend fun changes(opened: () -> Unit, changed: (String) -> Unit): Boolean = false
     }
 
     class Api(private val token: String, private val teamId: String, private val channelId: String) : Transport {
-        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail)
+        override suspend fun detail(tail: Int) = NuphosApi.conversationDetail(token, teamId, channelId, tail, runtimeState = false)
         override suspend fun agents() = NuphosApi.channelAgents(token, teamId, channelId)
         override suspend fun attachment(groupId: String) = NuphosApi.channelAttachment(token, teamId, channelId, groupId)
         private val transfers = AttachmentTransfers()
@@ -68,10 +78,33 @@ class ChannelSession(
             AgentChatApi.send("POST", "agent/conversations/${android.net.Uri.encode(channelId)}/agents/${android.net.Uri.encode(agentId)}/wake",
                 token, query = listOf("teamId" to teamId))
         }
+        override suspend fun changes(opened: () -> Unit, changed: (String) -> Unit): Boolean {
+            val request = okhttp3.Request.Builder()
+                .url("${NuphosApi.baseUrl(token)}/teams/${android.net.Uri.encode(teamId)}/agent-changes")
+                .header("Authorization", "Bearer $token")
+                .header("Accept", "text/event-stream")
+                .header("Accept-Encoding", "identity")
+                .header("x-atlas-client", ai.nuphos.android.data.Http.clientHeader())
+                .build()
+            try {
+                // Nothing comes until the first change or 5 s heartbeat; three missed is a dead stream.
+                SseClient.events(request, firstByteTimeoutMs = 15_000, idleTimeoutMs = 15_000, onOpen = opened).collect { event ->
+                    JsonValue.parse(event.data)?.get("sessionId")?.stringValue?.let(changed)
+                }
+            } catch (e: SseClient.Failure.BadStatus) {
+                if (e.code == 404) return false
+                throw e
+            }
+            return true
+        }
         private val questions = OpenQuestions.Api(token, teamId)
         override suspend fun pending() = questions.pending()
         override suspend fun answer(sessionId: String, requestId: String, answer: JsonValue) =
             questions.answer(sessionId, requestId, answer)
+        override suspend fun dismiss(sessionId: String, requestId: String, reason: String?) =
+            questions.dismiss(sessionId, requestId, reason)
+        override suspend fun credentials(sessionId: String) = questions.credentials(sessionId)
+        override suspend fun saveCredentials(sessionId: String, access: JsonValue) = questions.saveCredentials(sessionId, access)
     }
 
     var title by mutableStateOf(title)
@@ -129,7 +162,8 @@ class ChannelSession(
 
     val posts: List<ChannelPost> get() = stored + ChannelPost.stillSending(stored, sending)
 
-    private val open = OpenQuestions(transport)
+    /** In a Bot's chat: its open questions, answered and connected on their cards as in the Inbox. */
+    val open = OpenQuestions(transport)
     /** In a Bot's chat: the open questions of the Bot and of every agent under it. */
     val questions: List<BotQuestion> get() = open.list
 
@@ -146,6 +180,9 @@ class ChannelSession(
     /** Answers a several-question or multi-select card with what its form built. */
     fun answer(question: BotQuestion, body: ai.nuphos.android.data.JsonValue, scope: kotlinx.coroutines.CoroutineScope) =
         open.answer(question, body, scope)
+
+    /** Dismisses a question in this chat at once, without a reason: the agent that asked is told. */
+    fun dismiss(question: BotQuestion, scope: kotlinx.coroutines.CoroutineScope) = open.dismiss(question, null, scope)
 
     fun retry(agentId: String, scope: kotlinx.coroutines.CoroutineScope) {
         scope.launch {
@@ -255,18 +292,56 @@ class ChannelSession(
     var returning by mutableStateOf(false)
         private set
 
-    /** Until cancelled, while the chat is on screen. */
+    /** Why the open chat is read again: the poll's tick, a pushed change, or the change stream coming up or going down. */
+    private enum class Wake { TICK, CHANGED, UP, DOWN }
+
+    /** A pushed change waits to be read: more changes before that read need no read of their own. */
+    private val changePending = AtomicBoolean(false)
+
+    /**
+     * Until cancelled, while the chat is on screen. The server pushes which conversations changed
+     * (#3906), so the chat is read the moment it does, and when that stream comes up (it may have
+     * missed some); it polls only while the stream is down. Its questions are polled either way.
+     */
     suspend fun poll() {
         try {
-            if (refresh(force = !loaded)) returning = false
-            refreshQuestions()
-            while (true) {
-                delay(POLL_MS)
-                if (refresh()) returning = false
-                refreshQuestions()
+            coroutineScope {
+                val wakes = Channel<Wake>(Channel.UNLIMITED)
+                launch { while (true) { wakes.send(Wake.TICK); delay(POLL_MS) } }
+                launch { followChanges(wakes) }
+                var pushed = false
+                // One read at a time, so an older read never lands over a newer one.
+                for (wake in wakes) when (wake) {
+                    Wake.UP -> { pushed = true; if (refresh(force = true)) returning = false }
+                    Wake.DOWN -> pushed = false
+                    Wake.CHANGED -> { changePending.set(false); if (refresh(force = true)) returning = false }
+                    Wake.TICK -> { if (!pushed && refresh(force = !loaded)) returning = false; refreshQuestions() }
+                }
             }
         } finally {
             returning = true
+        }
+    }
+
+    /** Follows the team's changes, waking the chat for its own, and reconnects with backoff. */
+    private suspend fun followChanges(wakes: Channel<Wake>) {
+        var failures = 0
+        while (true) {
+            val started = System.nanoTime()
+            val pushes = try {
+                transport.changes(opened = { wakes.trySend(Wake.UP) }) { sessionId ->
+                    if (sessionId == channelId && changePending.compareAndSet(false, true)) wakes.trySend(Wake.CHANGED)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                true
+            }
+            // A backend from before the push: the chat keeps polling.
+            if (!pushes) return
+            wakes.send(Wake.DOWN)
+            failures = if (System.nanoTime() - started > 30_000_000_000L) 1 else failures + 1
+            delay(minOf(30_000L, 500L shl minOf(failures, 6)))
         }
     }
 
@@ -291,6 +366,8 @@ class ChannelSession(
         sendingAttachments = sendingAttachments.filterKeys { id -> sending.any { it.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        listed.forEach { BotFaces.learn(it.sessionId, it.avatar, it.avatarBackground) }
         readOnly = detail.readOnly == true
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces

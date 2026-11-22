@@ -9,6 +9,8 @@ export const agentReadChannels = {
     agent.answerDecision(...args),
   'atlas:getAgentStats': (_e: unknown, teamId: string, query: atlas.AgentStatsQuery) =>
     atlas.getAgentStats(teamId, query),
+  'atlas:queryTeamUsage': (_e: unknown, teamId: string, query: Record<string, string>) =>
+    atlas.queryTeamUsage(teamId, query),
   'agent:getSessionResources': (_e: unknown, sessionId: string, teamId: string) =>
     agent.getSessionResources(sessionId, teamId),
   'agent:unlinkSessionResource': (
@@ -59,7 +61,10 @@ export const agentReadChannels = {
     sessionId: string,
     avatar: string | null,
     teamId?: string,
-  ) => agent.setConversationAvatar(sessionId, avatar, teamId),
+    background?: string,
+  ) => agent.setConversationAvatar(sessionId, avatar, teamId, background),
+  'agent:setBotInstructions': (_e: unknown, ...args: Parameters<typeof agent.setBotInstructions>) =>
+    agent.setBotInstructions(...args),
   'agent:uploadConversationAvatar': (
     _e: unknown,
     sessionId: string,

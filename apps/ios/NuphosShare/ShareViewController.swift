@@ -280,7 +280,7 @@ private struct ShareConversationView: View {
                     }
                 } else { ProgressView("Preparing conversation…") }
             }
-            .navigationTitle(model.store?.selectedTeam?.name ?? "New conversation")
+            .navigationTitle(model.store?.selectedTeam?.name ?? String(localized: "New conversation"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: cancel) } }
             .task { await model.monitorIdentity() }

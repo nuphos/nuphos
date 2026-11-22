@@ -29,8 +29,35 @@ export function conversationReadState(
   return { activitySeq, readSeq, unread: activitySeq > readSeq }
 }
 
+/** A Bot: an agent conversation with a face. A chat carries one too, and is not a Bot. */
+export const isBot = (conversation: { kind?: string; avatar?: string | null } | null) =>
+  Boolean(conversation && conversation.kind !== 'channel' && conversation.avatar != null)
+
+/** A Task a Bot started; it has no unread state of its own. */
+async function underBot(sessionId: string, userId: string): Promise<boolean> {
+  const projection = { parentSessionId: 1, kind: 1, avatar: 1 }
+  const task = await agentConversations().findOne({ sessionId, userId }, { projection })
+
+  if (!task?.parentSessionId || isBot(task)) return false
+
+  return isBot(
+    await agentConversations().findOne({ sessionId: task.parentSessionId }, { projection }),
+  )
+}
+
+/** A turn boundary. In a Task under a Bot it is read as it happens, so no surface shows it unread. */
 export async function bumpConversationActivity(sessionId: string, userId: string): Promise<void> {
-  await agentConversations().updateOne({ sessionId, userId }, { $inc: { activitySeq: 1 } })
+  const filter = { sessionId, userId }
+
+  if (!(await underBot(sessionId, userId))) {
+    await agentConversations().updateOne(filter, { $inc: { activitySeq: 1 } })
+
+    return
+  }
+  await agentConversations().updateOne(filter, [
+    { $set: { activitySeq: { $add: [{ $ifNull: ['$activitySeq', 0] }, 1] } } },
+    { $set: { readSeq: '$activitySeq' } },
+  ])
 }
 
 /**

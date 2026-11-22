@@ -77,19 +77,17 @@ async function pairingClientMetadata(args: PairRuntimeArgs, runtimeRecordId: str
 async function replacementTarget(teamId: string, runtimeId: string) {
   const doc = await runtimes().findOne({ _id: runtimeId, teamId })
 
-  if (!doc || doc.managedBy) throw new AppError(404, 'runtime_not_found', 'Agent not found')
+  if (!doc) throw new AppError(404, 'runtime_not_found', 'Agent not found')
 
   return doc
 }
 
 async function rejectDuplicate(teamId: string, url: string, runtimeInstanceId?: string) {
   const docs = await runtimes().find({ teamId }).sort({ createdAt: 1, _id: 1 }).toArray()
-  const duplicate = docs.find(
-    (doc) =>
-      !doc.managedBy &&
-      (runtimeInstanceId
-        ? doc.pairing?.runtimeInstanceId === runtimeInstanceId
-        : sameHost(doc.url, url)),
+  const duplicate = docs.find((doc) =>
+    runtimeInstanceId
+      ? doc.pairing?.runtimeInstanceId === runtimeInstanceId
+      : sameHost(doc.url, url),
   )
 
   if (duplicate) throw alreadyConnected(duplicate._id)
@@ -110,7 +108,7 @@ async function replaceInPlace(
   }
 
   await runtimes().updateOne(
-    { _id: previous._id, teamId: previous.teamId, managedBy: { $exists: false } },
+    { _id: previous._id, teamId: previous.teamId },
     {
       $set: {
         url,

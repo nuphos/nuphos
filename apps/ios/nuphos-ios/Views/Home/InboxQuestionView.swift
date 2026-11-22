@@ -2,36 +2,27 @@ import MarkdownView
 import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
-/// question and its markdown body, then its answers. On iPhone the options are
-/// full-width buttons pinned to the bottom with "Other…" and "Skip" as outlined halves
-/// below; wide, a row of capsules with an outlined "Skip" at its end. A form, an integration question
-/// and a plan keep their own controls.
+/// question and its markdown body, then its answers: `QuestionOptions`, the options,
+/// "Other…", "Snooze" and "Dismiss" one row of the same pill, pinned to the bottom on iPhone for
+/// one question; a secret or an integration question keeps its own controls, Snooze and Dismiss
+/// under them. Snooze sets it aside until one of its times; Dismiss asks for an optional reason. An integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
+/// which says the question itself.
 struct InboxQuestionView: View {
-    @Environment(AgentStore.self) private var store
     let inbox: OpenQuestions
     let question: BotQuestion
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
-
-    /// "Other…" was tapped: the text box and its send button show.
-    @State private var typing = false
-    @State private var words = ""
+    /// "Dismiss" was tapped: the reason box and its Dismiss show.
+    @State private var dismissing = false
+    @State private var reason = ""
     @FocusState private var focused: Bool
 
-    /// The integration question whose conversation's credentials are being chosen, while the picker shows.
-    @State private var connecting = false
-    /// That conversation's selection, as stored and as edited in the picker.
-    @State private var stored = CredentialSelection()
-    @State private var selection = CredentialSelection()
 
     private var wide: Bool { sizeClass == .regular }
 
-    /// The one-tap answers; nil when this question is not answered with them.
-    private var options: [String]? {
-        guard question.form == nil, !["credential", "integration"].contains(question.request.category) else { return nil }
-        let options = (question.request.options ?? []).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-        return options.isEmpty && !question.typed ? nil : options
-    }
+    /// On iPhone one question's options, single- or multi-select, sit at the bottom under the
+    /// question; several questions scroll with it, as they may not fit there.
+    private var pinned: Bool { question.choices?.count == 1 }
 
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
@@ -45,22 +36,18 @@ struct InboxQuestionView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 source
-                Text(question.request.question)
-                    .font(.system(size: 22, weight: .semibold))
-                    .tracking(-0.2)
-                    .lineSpacing(3)
-                    .foregroundStyle(Theme.heading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, 10)
+                if question.secretPart == nil {
+                    QuestionTitle(text: question.request.question, size: 22, tracking: -0.2, identifier: "inbox.title")
+                        .padding(.top, 10)
+                }
                 if let body = question.ownBody {
                     AssistantMarkdown(text: body, theme: Self.bodyTheme, onLink: open(link:))
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || options == nil { answers.padding(.top, 24) }
+                if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
-                    Label("Couldn't send the answer · \(failure)", systemImage: "exclamationmark.circle")
+                    Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
                         .foregroundStyle(.red)
                         .padding(.top, 12)
@@ -80,40 +67,23 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, options != nil {
+            if !wide, pinned {
                 answers
                     .padding(.horizontal, 20)
                     .padding(.top, 12)
                     .background(Theme.canvas)
-                    // Floats 12 above the options.
-                    .overlay(alignment: .top) { InboxToast(inbox: inbox).alignmentGuide(.top) { $0[.bottom] + 12 } }
             }
         }
-        .overlay(alignment: .bottom) {
-            // 32 from the screen's bottom edge, not the home indicator's.
-            // Centred on the question's text, inside its margins.
-            if wide {
-                InboxToast(inbox: inbox)
-                    .padding(.leading, margins.leading)
-                    .padding(.trailing, margins.trailing)
-                    .padding(.bottom, 32)
-                    .ignoresSafeArea(.container, edges: .bottom)
-            }
-        }
-        .animation(.snappy, value: inbox.toast)
-        .animation(.snappy, value: typing)
+        .animation(.snappy, value: dismissing)
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
             if !wide {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Open \(question.title)", systemImage: "arrow.up.right") { open(link: question.link(team: inbox.teamId)) }
+                    DesignButton("Open \(question.title)", image: "lucide-arrow-up-right") { open(link: question.link(team: inbox.teamId)) }
                 }
             }
-        }
-        .sheet(isPresented: $connecting, onDismiss: save) {
-            CredentialPickerSheet(selection: $selection).presentationDetents([.medium, .large])
         }
     }
 
@@ -140,121 +110,68 @@ struct InboxQuestionView: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let form = question.form {
-            DecisionForm(questions: form) { answer($0) }
-            HStack { Spacer(); skip }.padding(.top, 12)
-        } else if let options {
-            VStack(alignment: .leading, spacing: 10) {
-                if wide {
-                    HStack(spacing: 10) {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                                    InboxOption(title: option, primary: index == 0, height: 40, size: 15) {
-                                        answer(DecisionAnswer(choices: [option]))
-                                    }
-                                }
-                                if question.typed, !options.isEmpty { otherButton }
-                            }
-                        }
-                        .scrollClipDisabled()
-                        skip
-                    }
-                } else {
-                    ForEach(Array(options.enumerated()), id: \.element) { index, option in
-                        InboxOption(title: option, primary: index == 0, height: 50, size: 16, fill: true) {
-                            answer(DecisionAnswer(choices: [option]))
-                        }
-                    }
-                    // Two halves; Skip keeps the right one when there is no Other….
-                    HStack(spacing: 10) {
-                        if question.typed, !options.isEmpty { otherButton } else { Color.clear.frame(maxWidth: .infinity) }
-                        skip
-                    }
-                }
-                if typing || (options.isEmpty && question.typed) { field }
-            }
-        } else if question.connectable {
-            InboxOption(title: connectLabel, primary: true, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide) {
-                Task { await connect() }
-            }
+        if let choices = question.choices {
+            QuestionOptions(questions: choices, typed: question.typed, onSubmit: { answer($0) },
+                            closesWords: dismissing, onWords: { if $0 { dismissing = false } }) { setAside }
+            if dismissing { reasonField.padding(.top, 10) }
         } else {
-            Text("Answer it in \(question.title).")
-                .font(.system(size: 15))
-                .foregroundStyle(Theme.muted)
+            VStack(alignment: .leading, spacing: 0) {
+                if let part = question.secretPart {
+                    // Saved in the conversation that asked; the listing then drops the question.
+                    AskedSecretCard(question: question, part: part, teamId: inbox.teamId) { Task { await inbox.refresh() } }
+                } else if question.connectable {
+                    QuestionConnect(questions: inbox, question: question, height: wide ? 40 : 50, size: wide ? 15 : 16, fill: !wide)
+                }
+                FlowLayout(spacing: 8) { setAside }.padding(.top, 12)
+                if dismissing { reasonField.padding(.top, 10) }
+            }
         }
     }
 
-    /// "Other…": the text box and its send button, or put away again.
-    private func other() {
-        typing.toggle()
-        focused = typing
+    /// Snooze, a menu of its times, and Dismiss, which asks for the reason first: the same pill as the options.
+    private var setAside: some View {
+        // Side by side, wrapping as one, so the two stay a pair.
+        HStack(spacing: 8) {
+            Menu {
+                ForEach(Snooze.times(from: .now), id: \.self) { time in
+                    Button(time.label) { Task { await inbox.snooze(question, until: time.until) } }
+                }
+            } label: {
+                QuestionPillLabel(title: String(localized: "Snooze"))
+            }
+            .buttonStyle(.plain)
+            QuestionPill(title: String(localized: "Dismiss"), on: dismissing) {
+                dismissing.toggle()
+                focused = dismissing
+            }
+        }
     }
 
-    private var field: some View {
-        AnswerField(words: $words, focused: $focused, send: sendWords)
-            .padding(.horizontal, wide ? 0 : -4)
-    }
-
-    private var otherButton: some View {
-        InboxOutlineButton(title: String(localized: "Other…"), fill: !wide, toggled: typing, action: other)
-    }
-
-    private var skip: some View {
-        InboxOutlineButton(title: String(localized: "Skip"), fill: !wide) { inbox.selected = inbox.next(after: question.id) }
-            .disabled(inbox.list.count < 2 && wide)
-    }
-
-    private func sendWords() {
-        let text = words.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        answer(DecisionAnswer(text: text))
+    private var reasonField: some View {
+        AnswerField(words: $reason, focused: $focused, prompt: "Reason (optional)",
+                    sendLabel: "Dismiss question", optional: true) {
+            focused = false
+            Task { await inbox.dismiss(question, reason: Snooze.reason(reason)) }
+        }
+        .padding(.horizontal, wide ? 0 : -4)
+        // As Desktop's field, it takes no more than the server keeps.
+        .onChange(of: reason) { _, text in
+            if text.count > Snooze.reasonLimit { reason = String(text.prefix(Snooze.reasonLimit)) }
+        }
     }
 
     private func answer(_ answer: DecisionAnswer) {
         focused = false
-        Task { await inbox.hold(question, with: answer) }
+        Task { await inbox.answer(question, with: answer, inInbox: true) }
     }
 
     /// Nuphos pages open in the app, as a conversation's links do; anything else leaves.
     private func open(link url: URL) {
         if !PushNotifications.shared.open(url) { openURL(url) }
     }
-
-    /// "Use your own GitHub" for a question naming the member's own credential; otherwise the picker.
-    private var connectLabel: String {
-        guard let own = question.personalCredentials else { return String(localized: "Choose credentials") }
-        let names = own.map { $0 == "github" ? "GitHub" : $0 == "linear" ? "Linear" : $0 }
-        return String(localized: "Use your own \(names.joined(separator: " and "))")
-    }
-
-    /// Opens the picker on the asking conversation's own selection, so saving keeps what it had.
-    private func connect() async {
-        // The member's own credential: added as named, with no picker and no team connection in its place.
-        if let own = question.personalCredentials {
-            await store.loadCredentialOptions()
-            let connected = store.credentialCatalog.map { catalog in
-                Set(catalog.allItems.filter { $0.provider.selectionKey == "personalCredentialIds" }.map(\.id))
-            }
-            await inbox.useOwn(own, for: question, connected: connected)
-            return
-        }
-        guard let current = await inbox.storedSelection(for: question) else { return }
-        stored = current
-        selection = current
-        connecting = true
-    }
-
-    /// Saves the picker's selection when it changed; the server answers the question it covers.
-    private func save() {
-        guard selection != stored else { return }
-        let chosen = selection
-        let question = question
-        Task { await inbox.select(chosen, for: question) }
-    }
 }
 
-/// An answer as a capsule, in the Inbox and on a chat's question card: the first one dark, the rest light.
+/// An action as a capsule, as a connect question's: dark when `primary`, light otherwise.
 struct InboxOption: View {
     let title: String
     let primary: Bool
@@ -278,33 +195,6 @@ struct InboxOption: View {
     }
 }
 
-/// Other… and Skip: an outlined capsule, filled light instead while toggled. Half the row on
-/// iPhone at 44pt; wide, as wide as its title at 40pt.
-struct InboxOutlineButton: View {
-    let title: String
-    let fill: Bool
-    var toggled = false
-    let action: () -> Void
-    @Environment(\.isEnabled) private var enabled
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .lineLimit(1)
-                .foregroundStyle(Theme.heading)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: fill ? .infinity : nil, minHeight: fill ? 44 : 40)
-                .background(toggled ? Theme.control : .clear, in: Capsule())
-                .overlay { if !toggled { Capsule().strokeBorder(Theme.outline, lineWidth: 1) } }
-                .contentShape(Capsule())
-                .opacity(enabled ? 1 : 0.4)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(toggled ? .isSelected : [])
-    }
-}
-
 /// Who asked: the source's icon and name, which opens it, then when it asked. `prominent`, the
 /// name is dark with its own ↗.
 struct QuestionSource: View {
@@ -322,7 +212,7 @@ struct QuestionSource: View {
                         .fontWeight(prominent ? .medium : .regular)
                         .foregroundStyle(prominent ? Theme.heading : Theme.muted)
                     if prominent {
-                        Image(systemName: "arrow.up.right").font(.system(size: 11, weight: .semibold))
+                        LucideIcon("arrow-up-right").font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(Theme.heading)
                     }
                 }
@@ -339,15 +229,19 @@ struct QuestionSource: View {
     }
 }
 
-/// The answer in words, with its send button.
+/// The answer in words, with its send button; or, `optional`, words that may be left out, such as
+/// a dismissal's reason.
 struct AnswerField: View {
     @Binding var words: String
     var focused: FocusState<Bool>.Binding
+    var prompt: LocalizedStringKey = "Your answer"
+    var sendLabel: LocalizedStringKey = "Send answer"
+    var optional = false
     let send: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("Your answer", text: $words, axis: .vertical)
+            TextField(prompt, text: $words, axis: .vertical)
                 .font(.system(size: 16))
                 .lineLimit(1...5)
                 .focused(focused)
@@ -358,15 +252,15 @@ struct AnswerField: View {
                 .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
             Button(action: send) {
-                Image(systemName: "arrow.up")
+                LucideIcon("arrow-up")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.chatCanvas)
                     .frame(width: 44, height: 44)
                     .background(Theme.heading, in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Send answer")
-            .disabled(words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityLabel(sendLabel)
+            .disabled(!optional && words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
     }
 }

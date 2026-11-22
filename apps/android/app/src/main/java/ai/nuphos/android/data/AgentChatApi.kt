@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.time.Instant
 import java.util.Locale
 
 object AgentChatApi {
@@ -29,8 +30,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        /** The open question this message answers: the server resolves that request. */
-        val decisionReplyTo: String? = null,
     )
 
     fun chatRequest(token: String, body: ChatRequest): Request {
@@ -52,10 +51,10 @@ object AgentChatApi {
      * server reads the history itself, queues behind a running turn, and keeps
      * the turn going after this returns, so only the headers are awaited.
      */
-    fun reply(token: String, teamId: String, sessionId: String, text: String, decisionReplyTo: String? = null): Boolean {
+    fun reply(token: String, teamId: String, sessionId: String, text: String): Boolean {
         val body = ChatRequest(
             id = sessionId, teamId = teamId, messages = listOf(ChatMessage.user(text)),
-            streamId = java.util.UUID.randomUUID().toString(), decisionReplyTo = decisionReplyTo,
+            streamId = java.util.UUID.randomUUID().toString(),
         )
         return Http.client.newCall(chatRequest(token, body)).execute().use { it.isSuccessful }
     }
@@ -77,7 +76,6 @@ object AgentChatApi {
         val runtimeId: String? = null,
         val agentRuntime: String? = null,
         val initialSessionConfig: Map<String, String>? = null,
-        val decisionReplyTo: String? = null,
     ) {
         companion object {
             fun from(body: ChatRequest) = ChatRequestBody(
@@ -96,7 +94,6 @@ object AgentChatApi {
                 runtimeId = body.runtimeId,
                 agentRuntime = body.agentRuntime,
                 initialSessionConfig = body.initialSessionConfig,
-                decisionReplyTo = body.decisionReplyTo,
             )
         }
     }
@@ -153,6 +150,31 @@ object AgentChatApi {
         send("POST", "agent/conversations/$sessionId/decisions/$requestId/resolve", token, listOf("teamId" to teamId),
             JsonValue.obj("resolution" to JsonValue.Str("answered")))
     }
+
+    /**
+     * `POST …/decisions/:requestId/resolve` as dismissed: the question is closed, and the agent that asked
+     * is told who dismissed it, and [reason] when one is given.
+     */
+    suspend fun dismissDecision(token: String, teamId: String, sessionId: String, requestId: String, reason: String?) {
+        send("POST", "agent/conversations/$sessionId/decisions/$requestId/resolve", token,
+            listOf("teamId" to teamId), dismissBody(reason))
+    }
+
+    internal fun dismissBody(reason: String?) = JsonValue.Obj(buildMap {
+        put("resolution", JsonValue.Str("dismissed"))
+        reason?.trim()?.takeIf { it.isNotEmpty() }?.let { put("reason", JsonValue.Str(it)) }
+    })
+
+    /**
+     * `POST …/decisions/:requestId/snooze`: its owner sets the question aside until [until], at most 30 days
+     * ahead, or brings it back with null. It stays open and the agent is not told.
+     */
+    suspend fun snoozeDecision(token: String, teamId: String, sessionId: String, requestId: String, until: Instant?) {
+        send("POST", "agent/conversations/$sessionId/decisions/$requestId/snooze", token,
+            listOf("teamId" to teamId), snoozeBody(until))
+    }
+
+    internal fun snoozeBody(until: Instant?) = JsonValue.obj("until" to (until?.let { JsonValue.Str(it.toString()) } ?: JsonValue.Null))
 
     suspend fun approveForSession(token: String, sessionId: String, command: String) {
         send("POST", "agent/auto-mode/session-approvals", token, body = JsonValue.obj(

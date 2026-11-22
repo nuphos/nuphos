@@ -22,7 +22,9 @@ let stateUpdates: unknown[] = []
 type CommitPull = { number: number; state: string; head: { sha: string } }
 const openPull: CommitPull = { number: 56, state: 'open', head: { sha: 'a'.repeat(40) } }
 let commitPulls: { status: number; pulls: CommitPull[] } = { status: 200, pulls: [openPull] }
+const conversationId = new ObjectId()
 const conversation = {
+  _id: conversationId,
   sessionId: 'session',
   userId: 'owner',
   teamId: new ObjectId().toHexString(),
@@ -83,7 +85,9 @@ useThreadQueue({
 useByosGithub({ getInstallationToken: async () => ({ token: 'token', expiresAt: new Date() }) })
 useGithubHttp({
   githubFetch: async (url) => {
-    lookups.push(url)
+    // The lookups that decide who wakes; health reads are covered in resource-webhook-health.test.ts.
+    if (url.includes('/collaborators/') || /\/commits\/[0-9a-f]{40}\/pulls$/.test(url))
+      lookups.push(url)
     if (url.endsWith('/pulls'))
       return Response.json(commitPulls.pulls, { status: commitPulls.status })
 
@@ -162,7 +166,7 @@ test('a merge records when it happened on every linked tag', async () => {
     'delivery',
   )
   expect(stateUpdates[0]).toEqual([
-    { 'linkedResources.key': 'github/12/34/56' },
+    { _id: { $in: [conversationId] } },
     {
       $set: {
         'linkedResources.$[resource].state': 'merged',
@@ -187,7 +191,7 @@ test('a PR turned into a draft and back marks every linked tag, keeping its heal
       'delivery',
     )
     expect(stateUpdates[0]).toEqual([
-      { 'linkedResources.key': 'github/12/34/56' },
+      { _id: { $in: [conversationId] } },
       {
         $set: {
           'linkedResources.$[resource].state': 'open',
@@ -256,6 +260,20 @@ test('a finished commit status wakes the linked PR that holds the commit', async
   expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
   expect(queued).toHaveLength(1)
   expect(queued[0]?.summary).toContain('status.failure (openab/council)')
+})
+test("a fork PR's finished check suite, which lists no PRs, wakes it from its head commit", async () => {
+  await routeResourceWebhook(
+    'check_suite',
+    {
+      installation: { id: 12 },
+      repository: { id: 34, full_name: 'acme/app' },
+      action: 'completed',
+      check_suite: { pull_requests: [], status: 'completed', conclusion: 'failure', head_sha: sha },
+    },
+    'delivery',
+  )
+  expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
+  expect(queued.map((turn) => turn.summary)).toEqual(['GitHub check_suite.completed.'])
 })
 test('statuses ask GitHub nothing unless the repository has a linked PR', async () => {
   repoLinked = false

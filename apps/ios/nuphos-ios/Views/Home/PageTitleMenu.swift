@@ -17,7 +17,7 @@ struct PageTitleMenu: View {
         Menu {
             Picker("Page", selection: $selection) {
                 ForEach(HomePage.allCases) { page in
-                    Label(page.title, systemImage: page.systemImage)
+                    DesignLabel(page.title, systemImage: page.systemImage)
                         .badge(page == .inbox ? inboxCount : pageCounts[page] ?? 0)
                         .tag(page)
                 }
@@ -35,7 +35,7 @@ struct PageTitleMenu: View {
                         .frame(minWidth: 20, minHeight: 20)
                         .background(Theme.badge, in: Capsule())
                 }
-                Image(systemName: "chevron.down")
+                LucideIcon("chevron-down")
                     .font(.system(size: style == .large ? 16 : 12, weight: .bold))
                     .foregroundStyle(Theme.muted)
                     // Optically centre on the cap height rather than the

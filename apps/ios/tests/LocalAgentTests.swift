@@ -12,6 +12,7 @@ enum LocalAgentTests {
         namesCloudOnlyProviders()
         modelSettingsRemainAvailable()
         measuresWhatIsLeft()
+        saysWhenUsageResets()
         print("Local agents passed")
     }
 
@@ -51,6 +52,9 @@ enum LocalAgentTests {
         let config = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"dormant","options":[{"id":"model","name":"Model","kind":"model","currentValue":"default","options":[{"value":"default","name":"Default","description":"Alpha"},{"value":"a","name":"Alpha"},{"value":"b","name":"Beta"}]},{"id":"effort","name":"Effort","kind":"effort","currentValue":"high","options":[{"value":"high","name":"High"}]},{"id":"fast","name":"Fast","kind":"fast","currentValue":"on","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
         precondition(config.modelTitle == "Alpha" && config.isEditable && config.isFast)
         precondition(config.hint == nil)
+        // #3427: a started conversation offers fast before its session confirms a value; that is not fast.
+        let unconfirmed = try! JSONDecoder().decode(SessionConfigState.self, from: Data(#"{"status":"ready","options":[{"id":"fast","name":"Fast","kind":"fast","currentValue":"","options":[{"value":"on","name":"On"},{"value":"off","name":"Off"}]}]}"#.utf8))
+        precondition(!unconfirmed.isFast, "An unconfirmed fast setting is not fast")
         print("Model discovery, retained settings, and queued selection transitions passed")
     }
 
@@ -90,6 +94,20 @@ enum LocalAgentTests {
     private static func measuresWhatIsLeft() {
         let left = [-5, 0, 37.4, 99.6, 120].map { RuntimeQuota.Window(label: "5-hour", usedPercent: $0, resetsAt: nil).leftPercent }
         precondition(left == [100, 100, 62, 0, 0])
+    }
+
+    private static func saysWhenUsageResets() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        func reset(_ minutes: Double) -> String? { RuntimeQuota.resetsIn(now.addingTimeInterval(minutes * 60), now: now) }
+        precondition(reset(2 * 1440 + 5 * 60 + 59) == "resets in 2d 5h")
+        precondition(reset(1440) == "resets in 1d 0h")
+        precondition(reset(3 * 60 + 20) == "resets in 3h 20m")
+        precondition(reset(60) == "resets in 1h 0m")
+        precondition(reset(12) == "resets in 12m")
+        // Under a minute still reads as a minute away, never as "0m".
+        precondition(reset(0.25) == "resets in 1m")
+        precondition(reset(0) == nil && reset(-30) == nil)
+        precondition(RuntimeQuota.resetsIn(nil, now: now) == nil)
     }
 
     private static func agent(_ json: String) -> RuntimeInstance {

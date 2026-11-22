@@ -1,4 +1,5 @@
 import { responseErrorCode } from '@/lib/errors'
+import { trackInFlight } from '@/lib/event-loop-stall'
 import { logEvent } from '@/lib/observability'
 
 import type { MiddlewareHandler } from 'hono'
@@ -6,10 +7,12 @@ import type { MiddlewareHandler } from 'hono'
 export function requestLog(log: typeof logEvent = logEvent): MiddlewareHandler {
   return async (c, next) => {
     const startedAt = Date.now()
+    const served = trackInFlight(c.req.method, c.req.path)
 
     try {
       await next()
     } finally {
+      served()
       const requestId: unknown = c.get('requestId')
       // Set by the auth middleware inside next(); answers "who did this?" for
       // actions like pausing a Box, which leave no other record.

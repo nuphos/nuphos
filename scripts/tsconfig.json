@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "module": "esnext",
+    "types": ["bun"],
+    "skipLibCheck": true,
+
+    /* Bun runs these with .ts specifiers and never emits. */
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* The root has no mongodb package; the scripts load the backend's at run time. */
+    "paths": { "mongodb": ["../apps/backend/node_modules/mongodb"] }
+  },
+  "include": ["**/*.ts"]
+}

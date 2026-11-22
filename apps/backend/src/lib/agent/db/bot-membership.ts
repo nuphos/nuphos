@@ -1,6 +1,6 @@
 import { AppError } from '@/lib/errors'
 
-import { isBotChat } from './archive'
+import { isBotChat, withdrawQuestionsAbout } from './archive'
 import { agentConversations } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -42,6 +42,8 @@ export async function leaveChats(agentSessionId: string) {
     { sessionId: { $in: own }, archivedAt: { $exists: false } },
     { $set: { archivedAt: new Date() } },
   )
+  for (const chat of chats.filter(isBotChat))
+    await withdrawQuestionsAbout(chat.userId, [chat.sessionId])
   for (const chat of chats.filter((one) => !own.includes(one.sessionId)))
     await agentConversations().updateOne(
       { sessionId: chat.sessionId },

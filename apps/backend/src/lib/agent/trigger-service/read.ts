@@ -5,6 +5,7 @@ import { getConversationBySessionId } from '../db'
 import { readsConversation } from '../db/access'
 import { assertTeamMember, assertTriggerAccess, canManageTrigger } from '../trigger-access'
 import { agentTriggers, triggerConfigRevisionFilter } from '../trigger-db'
+import { writeTrigger } from '../trigger-history'
 import { unscheduleCronTrigger } from '../trigger-scheduler'
 
 import { triggerListFilter } from './list-filter'
@@ -32,7 +33,6 @@ export async function listTriggers(
   const rows = await agentTriggers()
     .find(triggerListFilter(scope, targetSessionId))
     .sort({ createdAt: -1 })
-    .limit(100)
     .toArray()
 
   return rows.map((trigger) => {
@@ -59,12 +59,12 @@ export async function getTrigger(
   const trigger = await findManagedTrigger(parseTriggerId(triggerId))
 
   await assertTriggerAccess(trigger, actor, 'read')
-  const exposeSecret = canManageTrigger(trigger, typeof actor === 'string' ? actor : actor.userId)
 
   return {
-    ...serializeTrigger(trigger, exposeSecret),
+    // The secret is shown on create and rotate only; a read would put it in every transcript.
+    ...serializeTrigger(trigger),
     // As in the list, so a card shows its switch only to whoever may flip it.
-    canManage: exposeSecret,
+    canManage: canManageTrigger(trigger, typeof actor === 'string' ? actor : actor.userId),
   }
 }
 
@@ -81,13 +81,25 @@ export async function expireTriggers(now = new Date()): Promise<number> {
     if (!trigger._id) continue
     const triggerId = trigger._id.toString()
 
-    await agentTriggers().updateOne(
+    await writeTrigger(
       {
-        _id: trigger._id,
-        enabled: true,
-        ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
+        before: trigger,
+        after: { ...trigger, enabled: false },
+        by: { actorId: 'system', via: 'expiry' },
+        reason: 'It expired',
       },
-      { $set: { enabled: false, updatedAt: now }, $inc: { configRevision: 1 } },
+      async (session) =>
+        (
+          await agentTriggers().updateOne(
+            {
+              _id: trigger._id,
+              enabled: true,
+              ...triggerConfigRevisionFilter(trigger.configRevision ?? 0),
+            },
+            { $set: { enabled: false, updatedAt: now }, $inc: { configRevision: 1 } },
+            { session },
+          )
+        ).modifiedCount > 0,
     )
     if (trigger.triggerType === 'cron') {
       await unscheduleCronTrigger(triggerId).catch((err: unknown) => {

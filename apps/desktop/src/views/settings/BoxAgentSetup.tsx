@@ -26,7 +26,7 @@ function pendingInstance(agent: DeviceAgentInstance, device: AgentDevice): Runti
   return {
     id: agent.runtimeId,
     provider: agent.provider,
-    label: t('{agent} on {computer}', { agent: agent.label, computer: device.label }),
+    label: t('{runtime} on {computer}', { runtime: agent.label, computer: device.label }),
     status: 'active',
     kind: 'local',
     createdAt: '',
@@ -71,8 +71,9 @@ export function BoxAgentSetup({
     instance,
     () => {
       if (!created || !instance) return
-      // An API key is not checked until a turn runs, so this names no sign-in method.
-      toast.success(t('{name} is now signed in.', { name: instance.label }))
+      // Ready rather than signed in: OpenCode's free models finish here with no sign-in, and
+      // an API key is not checked until a turn runs.
+      toast.success(t('{name} is ready.', { name: instance.label }))
       onDone(created.runtimeId)
     },
     true,
@@ -182,7 +183,7 @@ export function BoxAgentSetup({
               taken
                 ? t('Another runtime on this computer already has this name.')
                 : t(
-                    'How this runtime appears on the computer and when choosing a runtime for an agent.',
+                    'How this runtime appears on the computer and when choosing a runtime for a Bot or task.',
                   )
             }
           >

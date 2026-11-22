@@ -152,12 +152,6 @@
   --reveal-dur: 400ms;
   --reveal-blur: 2px;
   --reveal-ease: ease-in-out;
-  /* Shimmer text */
-  --shimmer-dur: 2000ms;
-  --shimmer-base: #7c7c7c;
-  --shimmer-highlight: #0d0d0d;
-  --shimmer-band: 400%;
-  --shimmer-ease: linear;
   /* Tabs sliding */
   --tabs-dur: 250ms;
   --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);

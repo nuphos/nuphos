@@ -30,9 +30,22 @@ const ignoreCount = () => {
  * close button or a click outside close it and leave the page where it was.
  */
 export function ConnectorsDialog({ ws, user }: { ws: WorkspaceController; user: UserInfo }) {
+  const teamId = ws.scope?.teamId
+
+  return teamId ? <TeamConnectorsDialog ws={ws} user={user} teamId={teamId} /> : null
+}
+
+function TeamConnectorsDialog({
+  ws,
+  user,
+  teamId,
+}: {
+  ws: WorkspaceController
+  user: UserInfo
+  teamId: string
+}) {
   const { connectorsDialog, workspaceActions, workspaceStore } = ws
-  const teamId = ws.scope?.teamId ?? ''
-  const open = connectorsDialog !== null && teamId !== ''
+  const open = connectorsDialog !== null
   // The last open state keeps the panel's content on screen while it closes.
   const [shown, setShown] = useState<ConnectorsDialogState>(
     () => connectorsDialog ?? connectorsDialogFor(),

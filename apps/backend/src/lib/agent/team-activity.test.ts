@@ -39,7 +39,8 @@ useIdentity({
     ] as never,
 })
 
-const { getTeamActivity, sessionSlots, turnIntervals } = await import('@/lib/agent/team-activity')
+const { getTeamActivity, sessionSlots, turnIntervals, withOwnTitles } =
+  await import('@/lib/agent/team-activity')
 
 const msg = (sessionId: string, role: string, min: number) => ({
   sessionId,
@@ -136,5 +137,25 @@ test('a private session shows that someone worked, never what on', async () => {
   expect(activity.sessions.map((session) => session.title)).toEqual([
     'Private session',
     'Shared fix',
+  ])
+})
+
+test("a member sees every row, but only their own sessions' titles", () => {
+  const session = (id: string) => ({ id, title: id, runtime: null })
+  const member = (id: string, slots: number[][]) => ({ id, name: id, avatarURL: '', slots })
+  const activity = {
+    range: '1d' as const,
+    slotMinutes: 30,
+    start: '2026-10-07T00:00:00.000Z',
+    sessions: [session('theirs'), session('mine-a'), session('mine-b')],
+    members: [member('them', [[0], []]), member('me', [[1], [2]])],
+  }
+  const seen = withOwnTitles(activity, 'me')
+
+  expect(seen.members).toEqual(activity.members)
+  expect(seen.sessions).toEqual([
+    { id: 'theirs', title: null, runtime: null },
+    session('mine-a'),
+    session('mine-b'),
   ])
 })

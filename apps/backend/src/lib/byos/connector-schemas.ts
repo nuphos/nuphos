@@ -41,7 +41,9 @@ export const tencentConnectorSchema = z.object({
   roleArn: z
     .string()
     .trim()
-    .regex(/^qcs::cam::uin\/\d+:role(Name)?\/.+/, 'Invalid Tencent CAM role ARN'),
+    // Only the roleName form: the role/<id> form names the same role another
+    // way, so a role could be bound twice under different spellings.
+    .regex(/^qcs::cam::uin\/\d+:roleName\/.+/, 'Use the roleName form of the CAM role ARN'),
   // The CAM OIDC identity provider name the role trusts (Tencent references the
   // provider by name, not ARN, in AssumeRoleWithWebIdentity).
   providerId: z.string().trim().min(1).max(128),

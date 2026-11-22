@@ -117,7 +117,7 @@ export function PlanDatabaseActionView({
   floating?: boolean
 }) {
   const origin = action.sourceAgentOrigin ? ` · ${action.sourceAgentOrigin}` : ''
-  const source = action.proposalSource === 'agent' ? `${t('Agent')}${origin}` : t('Human')
+  const source = action.proposalSource === 'agent' ? `${t('Task')}${origin}` : t('Human')
 
   return (
     <PlanSection

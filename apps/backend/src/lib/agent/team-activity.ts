@@ -22,7 +22,8 @@ export type TeamActivity = {
   /** ISO start of the first slot; slots follow back to back. */
   start: string
   /** The sessions the slots refer to, with the agent each ran on. */
-  sessions: { id: string; title: string; runtime: string | null }[]
+  /** `title` is null when it is not the viewer's to see. */
+  sessions: { id: string; title: string | null; runtime: string | null }[]
   /** Every current member, busiest first. */
   members: MemberActivity[]
 }
@@ -123,5 +124,18 @@ async function scanTeamActivity(
     start: new Date(start).toISOString(),
     sessions: listed,
     members,
+  }
+}
+
+/**
+ * The team's activity as a member who is not an administrator sees it: every
+ * row, but only their own sessions keep a title.
+ */
+export function withOwnTitles(activity: TeamActivity, userId: string): TeamActivity {
+  const own = new Set(activity.members.find((m) => m.id === userId)?.slots.flat())
+
+  return {
+    ...activity,
+    sessions: activity.sessions.map((s, i) => (own.has(i) ? s : { ...s, title: null })),
   }
 }

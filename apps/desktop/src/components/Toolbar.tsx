@@ -23,8 +23,6 @@ type Props = {
   count: number
   filterControls?: ReactNode
   extraActions?: ReactNode
-  headerRightActions?: ReactNode
-  hasHeaderRightActions?: boolean
   // Whether the controls row has anything worth showing. `filterControls` /
   // `extraActions` can't drive this: they always carry the (usually empty)
   // portal-slot mounts, so the caller computes real content presence instead.
@@ -49,7 +47,7 @@ type Props = {
    * The workspace's agent chat dock. It rides the toolbar rather than the tab
    * strip because the strip has no stable trailing edge: tabs grow into it, and
    * on Windows and Linux the native caption buttons own that corner (see
-   * `.titlebar-caption-pad`). Passing a handler keeps the header row alive even
+   * `--caption-reserve`). Passing a handler keeps the header row alive even
    * on a page with no breadcrumb of its own — otherwise the dock would have no
    * entry point there at all.
    */
@@ -67,8 +65,6 @@ export function Toolbar({
   count,
   filterControls,
   extraActions,
-  headerRightActions,
-  hasHeaderRightActions = false,
   hasControls = false,
   showFilter = true,
   onRefresh,
@@ -128,11 +124,7 @@ export function Toolbar({
           {/* flex-shrink-0: an uncapped trailing crumb shrinks the drag spacer
               to nothing before it truncates, and these must not be next. */}
           <div className="titlebar-no-drag flex flex-shrink-0 items-center gap-1">
-            {hasHeaderRightActions ? (
-              headerRightActions
-            ) : (
-              <RefreshButton onRefresh={onRefresh} loading={loading} />
-            )}
+            <RefreshButton onRefresh={onRefresh} loading={loading} />
             <button
               onClick={() => void copyCurrentPageUrl()}
               disabled={!currentPageUrl}
@@ -156,8 +148,8 @@ export function Toolbar({
                     ? 'bg-state-selected text-main'
                     : 'text-secondary hover:text-main hover:bg-state-hover',
                 )}
-                title={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
-                aria-label={agentSidebarOpen ? t('Close agent chat') : t('Open agent chat')}
+                title={agentSidebarOpen ? t('Hide Nuphos') : t('Ask Nuphos')}
+                aria-label={agentSidebarOpen ? t('Hide Nuphos') : t('Ask Nuphos')}
                 aria-pressed={agentSidebarOpen}
               >
                 {/* The sidebar toggle beside the traffic lights, mirrored:
@@ -173,7 +165,8 @@ export function Toolbar({
         // The first row sits on the traffic lights' line; a second row keeps its height.
         <div
           className={clsx(
-            showHeaderRow ? 'h-[42px]' : 'sheet-titlebar-row',
+            // With no header row this is the top one, so it keeps clear of what floats there.
+            showHeaderRow ? 'h-[42px]' : ['sheet-titlebar-row', headerClassName],
             'flex items-center px-3 gap-2',
           )}
         >
