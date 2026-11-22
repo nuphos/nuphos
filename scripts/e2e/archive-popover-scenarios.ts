@@ -22,6 +22,7 @@ export async function archivedTask(stack: Stack, title: string, parentSessionId?
   await api('PUT', `/agent/conversations/${sessionId}/transcript`, {
     teamId: stack.teamId,
     title,
+    agentRuntime: 'claude-code',
     messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
   })
   if (parentSessionId)
