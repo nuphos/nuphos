@@ -11,7 +11,7 @@ import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
-import { noteReplyFailed } from './reply-failed'
+import { noteReplyFailed, usageResetsAtOf } from './reply-failed'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
 import { liveTriggerMessages } from './trigger-pending'
@@ -175,15 +175,15 @@ export async function runTurn(
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
         const limited = outOfUsageUntilReset(error) && !fresh.some((message) => message.answers)
+        // Only an unbroken run of offline tries counts; out of usage waits for its reset.
+        const offlineSince = offline ? (head.offlineSince ?? new Date().toISOString()) : undefined
+        const requeued = { ...head, offlineSince }
+        const until = limited ? await usageResetsAtOf(target).catch(() => undefined) : undefined
 
         if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
-          ...head,
-          // Only an unbroken run of offline tries counts toward the grace.
-          offlineSince: offline ? (head.offlineSince ?? new Date().toISOString()) : undefined,
-        })
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, until)
         // A channel that woke it says why, once per post, however often it retries.
         if (limited)
           for (const channelId of new Set(fresh.flatMap((m) => channelIdOf(m) ?? [])))
