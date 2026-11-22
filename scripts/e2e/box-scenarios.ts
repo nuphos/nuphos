@@ -119,7 +119,7 @@ export const boxScenarios: Scenario[] = [
           .click()
         await page.keyboard.type('Computers')
         await page.getByRole('option', { name: 'Computers' }).first().click()
-        await page.getByText(label).first().waitFor()
+        await page.getByText(label).filter({ visible: true }).first().waitFor()
         await page.getByRole('status').filter({ hasText: NOTICE }).waitFor()
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
@@ -238,7 +238,7 @@ export const boxScenarios: Scenario[] = [
 
         await send(page, text)
         // It waits in the conversation for the Box instead of being refused.
-        await page.getByText(text).first().waitFor({ timeout: 30_000 })
+        await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout: 30_000 })
         if (await page.getByText('Its computer is offline').count())
           throw new Error('the send to a Box that is away was refused as offline')
         await page.screenshot({ path: join(artifacts, 'box-paused-queued.png') })
