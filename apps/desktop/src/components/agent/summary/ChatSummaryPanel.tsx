@@ -1,26 +1,25 @@
-import { File, Image as ImageIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
-import { api } from '../../../api'
 import { usePaneId } from '../../../app/workspace/WorkspacePaneContext'
 import { t } from '../../../i18n'
 import { useAgentRuntimeStates } from '../../../lib/agentRuntimeStates'
 import { setChatSummaryOpen, useChatSummaryDocked } from '../../../lib/chatSummaryPanel'
-import { toast } from '../../ui/toast'
 import { shellsFromRuntimeState } from '../panel/shells'
 
 import { BotInstructionsSection } from './BotInstructionsSection'
 import { BackgroundTasksSection } from './ChatSummaryBackgroundTasks'
 import { ChangesSection } from './ChatSummaryChanges'
-import { changesOf, splitFileName, subAgentsOf } from './chatSummaryModel'
-import { SummaryEmpty, SummaryRow, SummarySection } from './ChatSummaryRows'
+import { changesOf, subAgentsOf } from './chatSummaryModel'
+import { SummaryEmpty } from './ChatSummaryRows'
 import { SubAgentsSection } from './ChatSummarySubAgents'
 import { ChatSummaryTaskActions } from './ChatSummaryTaskActions'
 import { summaryTriggerHome } from './chatSummaryTriggerHome'
 import { ChatSummaryTriggers } from './ChatSummaryTriggers'
 import { SessionInputQueue, SessionInputReply } from './SessionInputQueue'
 import { inputRequestKey } from './sessionInputRequests'
+import { SummaryLayout } from './SummaryLayout'
+import { OutputsSection } from './SummaryOutputs'
 import {
   PANE,
   TOGGLE,
@@ -33,7 +32,6 @@ import {
 } from './summaryPlacement'
 import { useChatSummary } from './useChatSummary'
 
-import type { OutputFile } from './chatSummaryModel'
 import type { SessionInputRequest } from './sessionInputRequests'
 import type { Motion } from './summaryPlacement'
 import type { JournalChatTarget } from '../../../lib/journalEvent'
@@ -94,54 +92,6 @@ function Skeleton() {
         />
       ))}
     </div>
-  )
-}
-
-/** Files the agent handed over; a click saves one, as the card in the transcript does. */
-function OutputsSection({
-  files,
-  teamId,
-  sessionId,
-}: {
-  files: OutputFile[]
-  teamId: string
-  sessionId: string
-}) {
-  async function download(file: OutputFile) {
-    const { groupId, fileId, fileName } = file
-
-    try {
-      const saved = await api.fileTransferDownloadOne({
-        teamId,
-        sessionId,
-        groupId,
-        fileId,
-        fileName,
-      })
-
-      if (saved.saved) toast.success(t('Saved'), fileName)
-    } catch (error) {
-      toast.apiError(t('Download failed'), error)
-    }
-  }
-
-  return (
-    <SummarySection title={t('Outputs')}>
-      {files.map((file) => {
-        const [name, extension] = splitFileName(file.fileName)
-
-        return (
-          <SummaryRow
-            key={file.fileId}
-            icon={file.image ? <ImageIcon className="size-3.5" /> : <File className="size-3.5" />}
-            label={name}
-            labelEnd={extension}
-            title={t('Download {name}', { name: file.fileName })}
-            onClick={() => void download(file)}
-          />
-        )
-      })}
-    </SummarySection>
   )
 }
 
@@ -233,26 +183,54 @@ function SummaryBody({
             onSelect={select}
           />
           {conversation && <ChatSummaryTaskActions conversation={conversation} teamId={teamId} />}
-          <BotInstructionsSection conversation={conversation} teamId={teamId} />
-          {access}
-          {background.length > 0 && <BackgroundTasksSection shells={background} />}
-          <ChatSummaryTriggers
-            key={`${teamId}:${triggerHome}`}
-            teamId={teamId}
-            sessionId={triggerHome}
-            onEdit={onEditTrigger}
-          />
           {!loaded && <Skeleton />}
-          {/* A Bot's details leave out a Task's pull requests and issues. */}
-          {changes.length > 0 && !lead && (
-            <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
-          )}
-          {subAgents.length > 0 && (
-            <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />
-          )}
-          {outputs.length > 0 && (
-            <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />
-          )}
+          <SummaryLayout
+            key={teamId}
+            teamId={teamId}
+            sections={[
+              conversation?.avatar && {
+                id: 'instructions',
+                title: t('Bot instructions'),
+                content: <BotInstructionsSection conversation={conversation} teamId={teamId} />,
+              },
+              Boolean(access) && { id: 'access', title: t('Access'), content: access },
+              background.length > 0 && {
+                id: 'background',
+                title: t('Background tasks'),
+                content: <BackgroundTasksSection shells={background} />,
+              },
+              {
+                id: 'triggers',
+                title: t('Triggers'),
+                content: (
+                  <ChatSummaryTriggers
+                    key={`${teamId}:${triggerHome}`}
+                    teamId={teamId}
+                    sessionId={triggerHome}
+                    onEdit={onEditTrigger}
+                  />
+                ),
+              },
+              changes.length > 0 &&
+                !lead && {
+                  id: 'changes',
+                  title: t('Changes'),
+                  content: (
+                    <ChangesSection sessionId={sessionId} changes={changes} onOpen={onOpenLink} />
+                  ),
+                },
+              subAgents.length > 0 && {
+                id: 'sub-agents',
+                title: t('Sub-tasks'),
+                content: <SubAgentsSection subAgents={subAgents} onOpen={onOpenSession} />,
+              },
+              outputs.length > 0 && {
+                id: 'outputs',
+                title: t('Outputs'),
+                content: <OutputsSection files={outputs} teamId={teamId} sessionId={sessionId} />,
+              },
+            ]}
+          />
           {/* A Task's first reply fills it; a Bot's card already stands in. */}
           {loaded && !conversation && !lead && <SummaryEmpty />}
         </>

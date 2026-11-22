@@ -1675,6 +1675,7 @@
   "Downloading…": "다운로드 중…",
   "Draft": "초안",
   "Draft pull requests cannot be merged until they are marked ready for review.": "초안 풀 리퀘스트는 리뷰 준비 완료로 표시하기 전에는 병합할 수 없습니다.",
+  "Drag the handle or use the arrow keys to reorder sections.": "핸들을 드래그하거나 방향키로 섹션 순서를 변경하세요.",
   "Drag to move this pane": "드래그하여 이 창 이동",
   "Drag to move, click for options": "드래그하여 이동, 클릭하여 옵션 보기",
   "Drag to reorder": "드래그하여 순서 변경",

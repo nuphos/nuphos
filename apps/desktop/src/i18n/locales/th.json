@@ -1675,6 +1675,7 @@
   "Downloading…": "กำลังดาวน์โหลด…",
   "Draft": "ฉบับร่าง",
   "Draft pull requests cannot be merged until they are marked ready for review.": "pull request แบบร่างจะ merge ไม่ได้จนกว่าจะทำเครื่องหมายว่าพร้อมรีวิว",
+  "Drag the handle or use the arrow keys to reorder sections.": "ลากที่จับหรือใช้ปุ่มลูกศรเพื่อจัดลำดับส่วนต่าง ๆ ใหม่",
   "Drag to move this pane": "ลากเพื่อย้ายแผงนี้",
   "Drag to move, click for options": "ลากเพื่อย้าย คลิกเพื่อดูตัวเลือก",
   "Drag to reorder": "ลากเพื่อจัดลำดับใหม่",

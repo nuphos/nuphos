@@ -1675,6 +1675,7 @@
   "Downloading…": "正在下載…",
   "Draft": "草稿",
   "Draft pull requests cannot be merged until they are marked ready for review.": "草稿 Pull Request 在標示為可供審查之前無法合併。",
+  "Drag the handle or use the arrow keys to reorder sections.": "拖曳把手或使用方向鍵調整區塊順序。",
   "Drag to move this pane": "拖曳以移動此窗格",
   "Drag to move, click for options": "拖曳以移動，按一下以顯示選項",
   "Drag to reorder": "拖曳以重新排序",

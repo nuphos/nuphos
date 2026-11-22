@@ -296,6 +296,22 @@
        inside one button. Disabled controls fall back to their own cursor. */
     cursor: pointer !important;
   }
+
+  button.summary-drag-handle:not(:disabled),
+  button.summary-drag-handle:not(:disabled) * {
+    cursor: grab !important;
+  }
+
+  button.summary-drag-handle:not(:focus-visible),
+  html.summary-dragging button.summary-drag-handle {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  html.summary-dragging.summary-dragging,
+  html.summary-dragging.summary-dragging * {
+    cursor: grabbing !important;
+  }
 }
 
 @layer components {
