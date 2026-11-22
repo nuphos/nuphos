@@ -91,6 +91,7 @@ const defaultDeps: LocalRuntimeCatalogDeps = {
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
 }
+
 /** Explicit instances never fall back to a provider's legacy default. */
 export function reportedLocalAgent(
   status: LocalRuntimeStatus | undefined,
@@ -221,8 +222,7 @@ export async function resolveLocalRuntimeEndpoint(
 
   // Removed from its computer: no report will bring it back, so it is gone, not offline.
   if (!agent && !kept && purpose !== 'login') throw runtimeGone()
-  // Signing in needs only the computer: an agent added a moment ago may not be in its last
-  // report yet, and the host's own sign-in answers for it (the login retries while it starts).
+  // Sign-in goes through the host, so it can retry while an unreported agent starts.
   if (!presence || (!agent && purpose !== 'login'))
     throw new AppError(
       409,
