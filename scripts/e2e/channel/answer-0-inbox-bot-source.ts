@@ -55,10 +55,14 @@ const scenario: Scenario = {
     )
     await page.screenshot({ path: `${artifacts}/bot-question-link-dock-light.png` })
     await page.getByRole('button', { name: 'Close workspace panel' }).click()
+    // Earlier scenarios finished this marker too: wait for one more, or the next scenario's
+    // message reaches the Bot in the same turn as this answer.
+    const answered = () =>
+      agentEvents(stack).filter((event) => event === 'finish E2E_DELIVERY:answered').length
+    const before = answered()
+
     await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
-    await until('the answer in the Bot chat to reach the Bot', async () =>
-      agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-    )
+    await until('the answer in the Bot chat to reach the Bot', async () => answered() > before)
   },
 }
 
