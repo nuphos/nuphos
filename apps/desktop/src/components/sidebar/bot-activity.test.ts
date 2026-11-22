@@ -75,7 +75,7 @@ test("someone else's Bot with Tasks running that this viewer does not list is at
 test('a question from the Bot or a sub-agent outranks work', () => {
   const activity = activityOf(run('bot', turn()), [run('kid', idle, asking)])
 
-  assert.deepEqual(activity, { kind: 'asking', question: 'Include Slack?' })
+  assert.deepEqual(activity, { kind: 'asking' })
 })
 
 test('a failed run shows as an error, without its raw label', () => {

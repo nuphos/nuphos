@@ -1,5 +1,6 @@
 import type { AgentCredentialAccess } from './db'
 import type { TriggerCredentialMode } from './trigger-credential-access'
+import type { PayloadFilter } from './trigger-payload-filter'
 import type { ObjectId } from 'mongodb'
 
 export type TriggerType = 'cron' | 'webhook'
@@ -60,18 +61,22 @@ export type AgentTrigger = {
   /** Idempotency key for automation callers: create with the same key returns the existing trigger. */
   dedupeKey?: string
   /**
-   * Minimum seconds between webhook-triggered runs. A delivery sooner gets 429
-   * with Retry-After, so the sender delivers it later. Unset or 0: no limit.
+   * Minimum seconds between webhook-triggered runs. A delivery sooner is held
+   * (heldDeliveries) and fires with the others when the window ends. Unset or 0: no limit.
    * Cron runs are already rate-bound by their schedule and manual test-fires
    * are user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
+  /** Webhook only: a delivery that fails these rules is answered and starts no turn. */
+  payloadFilters?: PayloadFilter[]
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.
    */
   configRevision?: number
   lastRunAt?: Date
+  /** Webhook deliveries that arrived inside the minimum-interval window, oldest first. */
+  heldDeliveries?: unknown[]
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: Date
   /** Time of the latest fire that never ran; unset by the next turn that runs. */

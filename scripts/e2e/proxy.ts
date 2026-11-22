@@ -93,7 +93,7 @@ export async function startProxies(): Promise<Proxies> {
     track(client)
     client.once('data', () => {
       client.write(Buffer.from([5, 0]))
-      client.once('data', (ask) => {
+      client.once('data', (ask: Buffer) => {
         const type = ask[3]
         let host = ''
         let at = 4

@@ -97,6 +97,21 @@ export async function offeredSessionConfig(
   return { options, kept, ...(reason ? { reason } : {}) }
 }
 
+export type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
+
+export async function catalogState(
+  picked: RuntimeDefaults,
+  catalogFor: CatalogFor,
+  confirmedOnly = false,
+): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
+  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
+  try {
+    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
+  } catch {
+    return { status: 'offline', options: [], kept: {} }
+  }
+}
+
 /**
  * A model the runtime's list lacks but the session itself last reported running
  * (a Task started on its parent's model, on a computer whose list is behind) is

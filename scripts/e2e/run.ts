@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
@@ -178,7 +179,20 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It removes a member from the team.
+  ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
+  // Right after the one above, whose last Task 404s in another team: its new Task leaves it.
+  // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
+]
+
+// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's half.
+const later: Scenario[] = [
   ...computerScenarios,
+  ...computerUpdateScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
@@ -197,12 +211,6 @@ const scenarios: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
-  // It removes a member from the team.
-  ...dashboardScenarios,
-  // Right after the one above: it opens the dashboards that scenario leaves behind.
-  ...dashboardUiScenarios,
-  // It leaves the window split, then closes a pane.
-  ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
@@ -211,7 +219,15 @@ const scenarios: Scenario[] = [
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
+  formScenario,
 ]
+const shard = process.env.E2E_SHARD
+const selected =
+  shard === '1'
+    ? scenarios
+    : shard === '2'
+      ? [...signInScenarios, ...later]
+      : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
@@ -222,7 +238,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+  for (const [index, scenario] of selected.entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 

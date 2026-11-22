@@ -158,7 +158,11 @@ export const teamActivityScenarios: Scenario[] = [
       await page.getByRole('menuitem', { name: TEAM_NAME }).click()
       try {
         await page.getByRole('button', { name: 'Stats', exact: true }).click()
-        await page.getByText('Team activity', { exact: true }).first().waitFor()
+        await page
+          .getByText('Team activity', { exact: true })
+          .filter({ visible: true })
+          .first()
+          .waitFor()
         await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/team-activity-member-home.png` })
         // The member's own session keeps its title; the teammate's is listed unnamed.

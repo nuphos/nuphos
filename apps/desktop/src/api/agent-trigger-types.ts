@@ -30,6 +30,8 @@ export type AgentTrigger = {
   expiresAt?: string
   // Webhook flood guard: min seconds between runs (unset = server default).
   minIntervalSeconds?: number
+  // Webhook only: a delivery that fails these rules starts no turn.
+  payloadFilters?: { path: string; in?: string[]; notIn?: string[] }[]
   lastRunAt?: string
   /** A scheduled fire last reached the worker, whatever the turn's outcome. */
   lastFiredAt?: string

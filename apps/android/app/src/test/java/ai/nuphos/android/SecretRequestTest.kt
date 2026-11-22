@@ -4,6 +4,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.ChatMessage
 import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.ChatRow
+import ai.nuphos.android.model.Words
 import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.model.AgentConversationDetail
 import kotlinx.coroutines.Dispatchers
@@ -98,6 +99,23 @@ class SecretRequestTest {
         val rows = ChatRow.rows(listOf(message))
         assertEquals(listOf("ask"), rows.filterIsInstance<ChatRow.Tool>().map { it.part.toolCallId })
         assertEquals(1, rows.filterIsInstance<ChatRow.Work>().size)
+    }
+
+    // Desktop draws a question as its card, never a tool row: the app answers it from the
+    // Inbox and shows the answer as its answered line. A failed call keeps its row.
+    @Test fun drawsNoToolRowForAQuestion() {
+        fun drawsRow(input: String, state: ChatPart.Tool.State = ChatPart.Tool.State.OutputAvailable, error: String? = null): Boolean {
+            val call = ChatPart.Tool("q", "request_user_decision", true, state, input = JsonValue.parse(input), errorText = error)
+            val message = ChatMessage(id = "m", parts = listOf(ChatPart.Text(text = "One question first."), call))
+            return ChatRow.rows(listOf(message)).any { it is ChatRow.Tool }
+        }
+        val choice = """{"category":"preference","question":"Which symptom?","options":["Blank screen","Late content"],"label":"Ask which symptom"}"""
+        assertEquals(false, drawsRow(choice))
+        assertEquals(false, drawsRow(choice, ChatPart.Tool.State.InputAvailable))
+        assertEquals(false, drawsRow(choice, ChatPart.Tool.State.OutputError, Words(R.string.convtext_tool_interrupted)))
+        assertEquals(true, drawsRow(choice, ChatPart.Tool.State.OutputError, "Request failed"))
+        assertEquals(true, drawsRow("""{"category":"integration","question":"Connect GitHub?","providers":["github"]}"""))
+        assertEquals(true, drawsRow("""{"category":"credential","secretName":"OPENAI_API_KEY","question":"Paste your key"}"""))
     }
 
     @Test fun findsTheFirstReplyAfterTheQuestion() = runTest {

@@ -131,7 +131,7 @@ databaseConnectionRootRoutes.post(
       // longer exposes or honors a personal-resource mode.
       access: databaseAccess({ ...input.access, memberAllowList: ['*'] }, c.get('userId'), now),
       changeApprovalPolicy: {
-        minimumApprovals: 1,
+        minimumApprovals: 0,
         version: 1,
         updatedAt: now,
         updatedBy: c.get('userId'),

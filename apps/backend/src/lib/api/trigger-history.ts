@@ -13,6 +13,7 @@ const configSchema = z
     enabled: z.boolean().optional(),
     expiresAt: z.string().optional(),
     minIntervalSeconds: z.number().optional(),
+    payloadFilters: z.unknown().optional(),
     credentialMode: z.string().optional(),
     executionCredentialAccess: z.unknown().optional(),
     source: z.string().optional(),

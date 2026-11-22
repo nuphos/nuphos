@@ -387,6 +387,16 @@ enum ChatPart: Equatable, Sendable {
                 && input?["credentials"] == nil
         }
 
+        /// A question Desktop draws as its question card, never as a tool row. The app answers
+        /// it from the Inbox and the summary panel and shows the answer as its answered line, so
+        /// the transcript draws nothing for the call. A secret keeps its card, an integration its
+        /// connect actions, and a call that really failed its row.
+        var isQuestionCard: Bool {
+            toolName == "request_user_decision" && secretRequest == nil && input?["category"]?.stringValue != "integration"
+                && !(input?["question"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && !(state == .outputError && errorText != String(localized: "Interrupted before the tool finished."))
+        }
+
         /// The providers an integration question asks for.
         var integrationProviders: [String]? {
             input?["providers"]?.arrayValue?.compactMap(\.stringValue)
