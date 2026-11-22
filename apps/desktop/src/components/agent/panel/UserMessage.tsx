@@ -57,9 +57,6 @@ function extractPlanMentions(text: string): { planId: string; teamId: string }[]
 export const UserMessage = memo(
   ({
     message,
-    onApprovePlan,
-    onRejectPlan,
-    canActOnPlans = false,
     onOpenNuphosLink,
     onEdit,
     teamId,
@@ -67,11 +64,6 @@ export const UserMessage = memo(
     message: Message
     /** Lets uploaded images and videos preview inline. */
     teamId?: string
-    onApprovePlan?: (planId: string) => void
-    onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
-    /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
-     *  This is what lets a historical plan be pulled into chat and executed. */
-    canActOnPlans?: boolean
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
     /** Re-runs the message with new text, in a fork of the chat. */
     onEdit?: (messageId: string, text: string) => void
@@ -123,7 +115,7 @@ export const UserMessage = memo(
     return (
       <div ref={sendMotionRef} className="group/message flex flex-col items-end gap-2">
         {message.metadata && (
-          // Name and quote sit above the row, so the face stays level with the words.
+          // The name sits above the row, so the face stays level with the words.
           <div className="flex max-w-[85%] flex-col items-end gap-2 pr-[2.375rem]">
             <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
               <span
@@ -148,7 +140,10 @@ export const UserMessage = memo(
                 </span>
               )}
             </div>
-            {message.metadata.replyTo && <ReplyQuote reply={message.metadata.replyTo} />}
+            {/* A reply of files alone keeps its quote here, with no bubble to hold it. */}
+            {message.metadata.replyTo && textParts.length === 0 && (
+              <ReplyQuote reply={message.metadata.replyTo} mine={false} />
+            )}
           </div>
         )}
         <div className="flex w-full items-start justify-end gap-2.5">
@@ -187,36 +182,41 @@ export const UserMessage = memo(
               />
             )}
             {!editing && textParts.length > 0 && (
-              <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words space-y-2">
-                {textParts.map((p, i) =>
-                  splitPastedText(p.text).map((segment, j) =>
-                    segment.pasted ? (
-                      // A long paste stays folded; the agent got all of it.
-                      <button
-                        key={`${String(i)}:${String(j)}`}
-                        type="button"
-                        className="atlas-mention"
-                        onClick={() => setViewingPaste(segment.text)}
-                      >
-                        <FileText size={12} className="atlas-mention-icon" aria-hidden />
-                        <span className="atlas-mention-label">{pastedTextLabel(segment.text)}</span>
-                      </button>
-                    ) : (
-                      segment.text.trim() && (
-                        <MessageResponse
+              <div className="user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words">
+                {message.metadata?.replyTo && <ReplyQuote reply={message.metadata.replyTo} mine />}
+                <div className="space-y-2">
+                  {textParts.map((p, i) =>
+                    splitPastedText(p.text).map((segment, j) =>
+                      segment.pasted ? (
+                        // A long paste stays folded; the agent got all of it.
+                        <button
                           key={`${String(i)}:${String(j)}`}
-                          // Markdown collapses single newlines; pre-wrap keeps the user's
-                          // line breaks visible without turning them into paragraphs.
-                          className="[&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap"
-                          renderLink={renderLink}
-                          onLinkClick={onOpenNuphosLink}
+                          type="button"
+                          className="atlas-mention"
+                          onClick={() => setViewingPaste(segment.text)}
                         >
-                          {linkMentions(segment.text, message.metadata?.mentions)}
-                        </MessageResponse>
-                      )
+                          <FileText size={12} className="atlas-mention-icon" aria-hidden />
+                          <span className="atlas-mention-label">
+                            {pastedTextLabel(segment.text)}
+                          </span>
+                        </button>
+                      ) : (
+                        segment.text.trim() && (
+                          <MessageResponse
+                            key={`${String(i)}:${String(j)}`}
+                            // Markdown collapses single newlines; pre-wrap keeps the user's
+                            // line breaks visible without turning them into paragraphs.
+                            className="[&_p]:whitespace-pre-wrap [&_li]:whitespace-pre-wrap"
+                            renderLink={renderLink}
+                            onLinkClick={onOpenNuphosLink}
+                          >
+                            {linkMentions(segment.text, message.metadata?.mentions)}
+                          </MessageResponse>
+                        )
+                      ),
                     ),
-                  ),
-                )}
+                  )}
+                </div>
               </div>
             )}
             <PastedTextDialog text={viewingPaste} onClose={() => setViewingPaste(null)} />
@@ -248,21 +248,7 @@ export const UserMessage = memo(
         </div>
         {planMentions.map(({ planId, teamId }) => (
           <div key={planId} className="w-full">
-            <PlanCard
-              planId={planId}
-              teamId={teamId}
-              // A referenced plan can be pulled back into context and run: when
-              // it's still `proposed` (PlanCard gates that internally) and the
-              // tab is idle, Approve / Reject act on it just like a fresh plan.
-              // The backend scopes team plans by team, so any member can run it.
-              canApprove={canActOnPlans}
-              onApprove={onApprovePlan ? () => onApprovePlan(planId) : undefined}
-              onReject={
-                onRejectPlan ? (reason, mode) => onRejectPlan(planId, reason, mode) : undefined
-              }
-              canChat={false}
-              foldable
-            />
+            <PlanCard planId={planId} teamId={teamId} foldable />
           </div>
         ))}
       </div>

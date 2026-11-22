@@ -7,6 +7,7 @@ let dependencies: unknown[] | undefined
 let cleanup: (() => void) | undefined
 let effect: (() => (() => void) | undefined) | undefined
 let calls: string[] = []
+let errorToasts = 0
 let resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
 let list = async () => ({ entries: [], truncated: false })
 let read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
@@ -70,7 +71,16 @@ mock.module('../api.ts', {
     },
   },
 })
-mock.module('../components/ui/toast.ts', { namedExports: { toast: { error() {}, apiError() {} } } })
+mock.module('../components/ui/toast.ts', {
+  namedExports: {
+    toast: {
+      error() {},
+      apiError() {
+        errorToasts++
+      },
+    },
+  },
+})
 mock.module('react', {
   namedExports: {
     useRef: (initial: unknown) => {
@@ -125,6 +135,7 @@ function reset() {
   dependencies = undefined
   slots.length = 0
   calls = []
+  errorToasts = 0
   resolveConversation = async () => ({ runtimeId: 'runtime', runtimeLabel: 'Local' })
   list = async () => ({ entries: [], truncated: false })
   read = async () => ({ name: 'report.txt', data: 'aGk=', size: 2 })
@@ -416,4 +427,34 @@ test('a PDF is read by the main process, never fetched by the renderer', async (
     cleanup?.()
     fetched.mock.restore()
   }
+})
+
+test('a rejected preview stays in the file pane instead of toasting on each activation', async () => {
+  reset()
+  const message =
+    'Only files inside the source runtime workspace or this conversation’s home can be previewed.'
+
+  read = async () => {
+    throw new Error(`__ATLAS_API_ERROR__${JSON.stringify({ code: 'forbidden_path', message })}`)
+  }
+  const path = '/outside-workspace/report.txt'
+
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).error, message)
+  render(false, 0, path)
+  render(true, 0, path)
+  await settle()
+  assert.equal(render(true, 0, path).error, message)
+  assert.equal(errorToasts, 0)
+})
+
+test('unexpected read failures show a safe retry message instead of raw IPC details', async () => {
+  reset()
+  read = async () => {
+    throw new Error('Internal transport stack trace')
+  }
+  render(true, 0, '/workspace/report.txt')
+  await settle()
+  assert.equal(render(true, 0, '/workspace/report.txt').error, 'This file could not be previewed.')
 })

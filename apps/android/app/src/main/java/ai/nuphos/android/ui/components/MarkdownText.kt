@@ -275,6 +275,18 @@ private fun NuphosMarkdownTable(model: MarkdownComponentModel) {
     }
 }
 
+private val TABLE_DELIMITER = Regex("""^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$""")
+
+/**
+ * Whether [markdown] has a GFM table: a row with a pipe followed by a delimiter row such as `| --- | :-: |`.
+ * The table renderer is built on a subcomposed layout, so a container that sizes itself with intrinsic
+ * measurements must not hold one.
+ */
+internal fun containsMarkdownTable(markdown: String): Boolean {
+    val lines = markdown.lines()
+    return lines.indices.drop(1).any { '|' in lines[it] && TABLE_DELIMITER.matches(lines[it]) && '|' in lines[it - 1] }
+}
+
 /**
  * GFM ends a bare URL only at ASCII whitespace, so the full-width punctuation right after it in CJK
  * prose — `…/pull/2595（Fixes #2594）` — and the word after that become part of the link. A bare URL

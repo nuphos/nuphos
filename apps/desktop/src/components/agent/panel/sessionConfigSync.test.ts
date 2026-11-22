@@ -18,6 +18,31 @@ const ready = (value: string): SessionConfigState => ({
   ],
 })
 const busy: SessionConfigState = { status: 'busy', options: [] }
+/** A ready runtime that offers these models and efforts, the first of each current. */
+const offering = (models: string[], efforts: string[] = []): SessionConfigState => ({
+  status: 'ready',
+  options: [
+    {
+      id: 'model',
+      name: 'Model',
+      kind: 'model',
+      currentValue: models[0],
+      options: models.map((value) => ({ value, name: value })),
+    },
+    ...(efforts.length
+      ? [
+          {
+            id: 'effort',
+            name: 'Effort',
+            kind: 'effort' as const,
+            currentValue: efforts[0],
+            options: efforts.map((value) => ({ value, name: value })),
+          },
+        ]
+      : []),
+  ],
+})
+const queueable = offering(['old', 'first', 'latest', 'new'], ['low', 'high'])
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -200,11 +225,11 @@ test('streaming model selection applies the latest choice once the reply is idle
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const writes: string[] = []
   const sync = new SessionConfigSync({
-    read: async () => ready('old'),
+    read: async () => queueable,
     write: async (selection) => {
       writes.push(selection.value)
 
-      return ready(selection.value)
+      return queueable
     },
   })
   const stop = sync.start()
@@ -226,11 +251,11 @@ test('streaming retains effort and model independently and applies model first',
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const writes: string[] = []
   const sync = new SessionConfigSync({
-    read: async () => ready('old'),
+    read: async () => queueable,
     write: async ({ configId, value }) => {
       writes.push(`${configId}:${value}`)
 
-      return ready('new')
+      return queueable
     },
   })
   const stop = sync.start()
@@ -254,7 +279,7 @@ test('a failed queued model write does not apply effort to the previous model', 
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const writes: string[] = []
   const sync = new SessionConfigSync({
-    read: async () => ready('old'),
+    read: async () => queueable,
     write: async ({ configId }) => {
       writes.push(configId)
       throw new Error('Model rejected')
@@ -386,4 +411,39 @@ test('a change that fails without a backend reason keeps the generic note', asyn
   await sync.select({ configId: 'effort', value: 'high' })
   await flush()
   assert.match(sync.getSnapshot().writeError!, /not confirmed/)
+})
+
+test('a pick queued on one agent is sent after a move only if the new agent offers it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let runtime = offering(['a', 'large'])
+  const writes: string[] = []
+  const sync = new SessionConfigSync({
+    read: async () => runtime,
+    write: async (selection) => {
+      writes.push(selection.value)
+
+      return runtime
+    },
+  })
+  const stop = sync.start()
+
+  t.after(stop)
+  sync.setStreaming(true)
+  await flush()
+  await sync.select({ configId: 'model', value: 'large' })
+  // The Task moves to an agent without that model before the turn ends.
+  runtime = offering(['a', 'small'])
+  sync.setStreaming(false)
+  await flush()
+  assert.deepEqual(writes, [])
+  assert.equal(sync.getSnapshot().queued, undefined)
+  assert.equal(sync.getSnapshot().writeError, undefined)
+
+  sync.setStreaming(true)
+  await flush()
+  await sync.select({ configId: 'model', value: 'a' })
+  runtime = offering(['a', 'small'])
+  sync.setStreaming(false)
+  await flush()
+  assert.deepEqual(writes, ['a'])
 })

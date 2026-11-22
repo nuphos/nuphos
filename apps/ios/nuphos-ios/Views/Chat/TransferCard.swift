@@ -25,21 +25,23 @@ struct TransferCard: View {
     }
 
     /// `files`, when already read, are drawn from the first frame, so the card
-    /// never grows under the reader; nil reads them when it appears.
+    /// never grows under the reader; nil reads them when it appears. Files
+    /// the caller reads later, after a failed first read, still show.
     init(groupIds: [String], fromUser: Bool, names: [String] = [], files: [TransferDownloadGroup.File]? = nil,
          resolve: @escaping (String) async throws -> TransferDownloadGroup) {
         self.groupIds = groupIds
         self.fromUser = fromUser
         self.names = names
         self.resolve = resolve
-        preloaded = files != nil
-        _files = State(initialValue: files ?? [])
-        _unavailable = State(initialValue: files?.isEmpty == true)
+        given = files
     }
 
-    private let preloaded: Bool
+    private let given: [TransferDownloadGroup.File]?
+    @State private var fetched: [TransferDownloadGroup.File] = []
+    @State private var fetchFailed = false
+    private var files: [TransferDownloadGroup.File] { given ?? fetched }
+    private var unavailable: Bool { given.map(\.isEmpty) ?? fetchFailed }
 
-    @State private var files: [TransferDownloadGroup.File] = []
     @State private var opening: String?
     @State private var preview: URL?
     /// What the preview can swipe through: the message's media, or the one file.
@@ -47,7 +49,6 @@ struct TransferCard: View {
     /// The image or video the full-screen pager opens on.
     @State private var pagerStart: URL?
     @State private var failed = false
-    @State private var unavailable = false
 
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
@@ -63,18 +64,19 @@ struct TransferCard: View {
             ForEach(others) { file in openButton(file) }
             if unavailable {
                 ForEach(names, id: \.self) { name in chip(name, icon: "doc") }
+                if names.isEmpty { HintRow(text: "File expired — no longer available.", isError: false) }
             }
             if failed {
                 HintRow(text: "Couldn't open the file. Try again.", isError: true)
             }
         }
         .task {
-            guard !preloaded else { return }
+            guard given == nil else { return }
             guard let groups = try? await fetch() else {
-                unavailable = true
+                fetchFailed = true
                 return
             }
-            files = groups.flatMap(\.readyFiles)
+            fetched = groups.flatMap(\.readyFiles)
         }
         .quickLookPreview($preview, in: previewItems)
         #if os(iOS)
@@ -140,7 +142,7 @@ struct TransferCard: View {
                 if opening == file.id {
                     ProgressView()
                 } else if file.isVideo {
-                    Image(systemName: "play.fill")
+                    LucideIcon("play")
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
@@ -157,7 +159,7 @@ struct TransferCard: View {
             if busy {
                 ProgressView().controlSize(.small)
             } else {
-                Image(systemName: icon)
+                LucideIcon(systemName: icon)
             }
             Text(name).lineLimit(1).truncationMode(.middle)
         }

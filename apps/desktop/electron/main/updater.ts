@@ -6,6 +6,7 @@ import { app, autoUpdater as nativeUpdater, BrowserWindow } from 'electron'
 import electronUpdater from 'electron-updater'
 
 import { captureMain, captureMainException } from '../analytics.ts'
+import { isNuphosCloud } from '../api-endpoint.ts'
 
 import { startAutoInstall } from './auto-update-electron.ts'
 import { isDev } from './env.ts'
@@ -29,11 +30,26 @@ let lastProgressAt = 0
 /** The version the last restart was meant to install, when the app came back older. */
 let failedVersion: string | null = null
 
+const watchers = new Set<() => void>()
+
 function setUpdaterState(next: UpdaterState) {
   updaterState = next
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send('updater:status', next)
   }
+  for (const watcher of watchers) watcher()
+}
+
+/** Calls `changed` on every state change, download progress included. */
+export function watchUpdater(changed: () => void) {
+  watchers.add(changed)
+}
+
+/** The staged update, and whether the last restart into it came back on the old version. */
+export function readyUpdate(): { failedBefore: boolean } | null {
+  return isNuphosCloud() && updaterState.kind === 'ready'
+    ? { failedBefore: updaterState.installerUrl !== null }
+    : null
 }
 
 export function getUpdaterState(): UpdaterState {
@@ -48,6 +64,7 @@ let update: Promise<void> | null = null
  * installs the newest release without downloading anything then. electron-updater
  * skips unpacked builds; a failure also emits 'error', which reports telemetry. */
 export function checkForUpdates() {
+  if (!isNuphosCloud()) return
   update ??= downloadNewest().finally(() => {
     update = null
   })
@@ -63,6 +80,8 @@ async function downloadNewest() {
   if (!ready) setUpdaterState({ kind: 'checking' })
   try {
     const check = await autoUpdater.checkForUpdates()
+
+    if (!isNuphosCloud()) return
     const version = check?.isUpdateAvailable ? check.updateInfo.version : null
 
     if (!version) {
@@ -97,7 +116,7 @@ const restartFile = () => join(app.getPath('userData'), 'update-restart.json')
 /** Restarts into the ready update. It is ready only once it is staged, so the
  * restart starts with no update work in flight. */
 export function installUpdate() {
-  if (updaterState.kind !== 'ready') return
+  if (!isNuphosCloud() || updaterState.kind !== 'ready') return
   // The installer runs after the app quits and can't report back. If the app
   // comes back on its old version, the next launch says so.
   try {
@@ -147,11 +166,7 @@ export function startUpdatePolling() {
   if (isDev || updaterCheckTimer) return
   checkForUpdates()
   updaterCheckTimer = setInterval(checkForUpdates, 5 * 60 * 1000)
-  startAutoInstall({
-    ready: () =>
-      updaterState.kind === 'ready' ? { failedBefore: updaterState.installerUrl !== null } : null,
-    install: installUpdate,
-  })
+  startAutoInstall({ ready: readyUpdate, install: installUpdate })
 }
 
 export function stopUpdatePolling() {

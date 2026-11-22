@@ -1,15 +1,16 @@
-import { faSpinner } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { UiIcon } from './ui/ui-icon'
+
 import { FitAddon } from '@xterm/addon-fit'
 import { Terminal as XtermTerminal } from '@xterm/xterm'
+import { LoaderCircle as LoaderCircleIcon } from 'lucide-react'
 import '@xterm/xterm/css/xterm.css'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { api } from '../api'
-import { t } from '../i18n'
 import { useRequiredKubeContext } from '../hooks/useKubeContext'
 import { useTheme } from '../hooks/useTheme'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
+import { t } from '../i18n'
 import { trackError } from '../lib/analytics'
 import { execScope, execSessionKey } from '../lib/terminalTabTeardown'
 
@@ -202,7 +203,7 @@ export function ExecTerminalView({ start, label, sessionKey }: ExecTerminalProps
     <div className={`h-full min-h-0 flex flex-col ${surface}`}>
       {status === 'connecting' && (
         <div className="px-5 pt-3 flex items-center gap-1.5 text-[11.5px] text-tertiary">
-          <FontAwesomeIcon icon={faSpinner} spin className="w-3 h-3" />
+          <UiIcon size={14} icon={LoaderCircleIcon} spin className="w-3.5 h-3.5" />
           {t('Connecting to {label}…', { label })}
         </div>
       )}

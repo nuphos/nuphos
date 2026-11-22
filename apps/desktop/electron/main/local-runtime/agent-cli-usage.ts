@@ -1,4 +1,7 @@
+import { spawn } from 'node:child_process'
 import path from 'node:path'
+
+import { GROK_BILLING } from '../../../../backend/src/lib/claude-code-preview/runtime-quota-grok-billing.ts'
 
 import { homeOf } from './agent-cli-apps.ts'
 import { readClaudeCredential, readJson } from './agent-cli.ts'
@@ -61,6 +64,37 @@ function usageRequest(
   return Promise.resolve(null)
 }
 
+/** Grok answers its own ACP `_x.ai/billing`, run in the agent's home so it reads
+ *  the account this agent signed in to — the same program the cloud runtime's
+ *  usage probe runs. */
+function readGrokUsage(env: NodeJS.ProcessEnv): Promise<unknown> {
+  const program = `${GROK_BILLING}
+process.stdout.write(JSON.stringify(await grokBilling(process.env.NUPHOS_AGENT_EXECUTABLE || 'grok')))`
+
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, ['--input-type=module', '-e', program], {
+      env: { ...env, ELECTRON_RUN_AS_NODE: '1' },
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    let output = ''
+
+    child.on('error', () => resolve(undefined))
+    child.stdout.on('data', (chunk: Buffer) => {
+      output += chunk.toString()
+      if (output.length > MAX_USAGE_CHARS) child.kill()
+    })
+    child.on('close', () => {
+      try {
+        const answer = JSON.parse(output) as unknown
+
+        resolve(answer && typeof answer === 'object' && !('error' in answer) ? answer : undefined)
+      } catch {
+        resolve(undefined)
+      }
+    })
+  })
+}
+
 /** Asks the provider what is left of this computer's own account. It runs here,
  *  not in Nuphos, because the credential is here — and because the rate limit it
  *  spends is this person's, not a shared one. Every failure reports nothing:
@@ -70,6 +104,7 @@ export async function readAgentUsage(
   provider: LocalAgentProvider,
   env: NodeJS.ProcessEnv,
 ): Promise<unknown> {
+  if (provider === 'grok') return readGrokUsage(env)
   const request = await usageRequest(provider, env)
 
   if (!request) return

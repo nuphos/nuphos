@@ -147,39 +147,6 @@ export async function latestRuntimeRelease(
   return follow ? fresh : (known ?? null)
 }
 
-let targetLink: { version: string; expires: number; result: Promise<string> } | undefined
-
-/** Resolve older in-flight targets by their actual tag, not the latest release's repository. */
-export async function runtimeReleaseUrl(
-  version: string,
-  release: RuntimeRelease | null,
-): Promise<string> {
-  if (!stableRuntimeVersion(version)) return RUNTIME_RELEASES_URL
-  if (version === release?.version) return release.url
-  if (!targetLink || targetLink.version !== version || targetLink.expires <= Date.now()) {
-    targetLink = {
-      version,
-      expires: Date.now() + 10 * 60_000,
-      result: fetch(
-        `https://api.github.com/repos/nuphos/nuphos/releases/tags/runtime-v${version}`,
-        {
-          headers: { Accept: 'application/vnd.github+json' },
-          signal: AbortSignal.timeout(5_000),
-        },
-      )
-        .then((response) => {
-          if (response.ok) return `${RUNTIME_RELEASES_URL}/tag/runtime-v${version}`
-          if (response.status === 404) return `${legacyReleasesUrl}/tag/v${version}`
-
-          return RUNTIME_RELEASES_URL
-        })
-        .catch(() => RUNTIME_RELEASES_URL),
-    }
-  }
-
-  return targetLink.result
-}
-
 let cliCached: { expires: number; result: Promise<RuntimeRelease | null> } | undefined
 
 /** The newest stable CLI release, which is what a Box host runs; null when the feed cannot be read. */

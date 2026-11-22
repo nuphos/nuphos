@@ -1,6 +1,6 @@
 ---
 name: git-signing
-description: Sign a participant's local git commits and tags with their own SSH signing key in the agent sandbox, isolated per Nuphos participant. Use when someone asks for commits signed with their own key, or when a change needs a real `git commit` / `git push` (file modes, symlinks, submodules, several commits) that must be Verified.
+description: Sign a participant's local git commits and tags with their own SSH key, isolated per participant. Use when a change needs a real git commit/push that must be Verified.
 ---
 
 # git-signing — commits signed with a participant's own key

@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -100,6 +101,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -172,6 +175,9 @@ fun ChatComposer(
     /** A native runtime's turn isn't a stream here, but [onStop] still ends it. */
     stopsRuntimeTurn: Boolean = false,
     showControls: Boolean = false,
+    /** Bot chats show the Bot's own runtime and model even before the composer is focused. */
+    botControls: Boolean = false,
+    lockedHint: String? = null,
     selection: CredentialSelection? = null,
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
     mode: PermissionMode? = null,
@@ -189,6 +195,7 @@ fun ChatComposer(
     placeholder: String? = null,
     /** Each change raises the keyboard, as choosing to reply does. */
     focusRequest: Int = 0,
+    autoFocus: Boolean = false,
 ) {
     val store = LocalAgentStore.current
     val context = LocalContext.current
@@ -208,6 +215,7 @@ fun ChatComposer(
     val latestOnSend by rememberUpdatedState(onSend)
     var showComputers by remember(draft, store?.workspaceRevision) { mutableStateOf(false) }
     var showModel by remember(modelSettings) { mutableStateOf(false) }
+    var showLockedHint by remember { mutableStateOf(false) }
     var picking by remember(draft) { mutableStateOf(false) }
     var pickerError by remember(draft) { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf(false) }
@@ -243,51 +251,41 @@ fun ChatComposer(
     val mentionLinks = remember(draft, mentions?.teamId) { mutableStateMapOf<String, String>() }
     val mentionQuery = if (effectiveDraftingEnabled && focused && mentions != null) SessionMention.query(fieldValue) else null
     val activeMention = mentionQuery?.takeUnless { text.lastIndexOf('@') == dismissedAt }
-    var mentionRows by remember(activeMention, draft, mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>>(emptyList()) }
-    var mentionLoading by remember(activeMention, draft, mentions) { mutableStateOf(activeMention != null) }
-    var mentionFailed by remember(activeMention, draft, mentions) { mutableStateOf(false) }
-    LaunchedEffect(activeMention, mentions, draft) {
-        mentionRows = emptyList()
-        mentionFailed = false
-        mentionLoading = activeMention != null
-        val source = mentions
-        if (activeMention == null || source == null) return@LaunchedEffect
+    // What `@` offers is listed whenever the composer is focused, so every
+    // `@` opens on it at once and typing only filters it (#3739).
+    var listedSessions by remember(mentions) { mutableStateOf<List<ai.nuphos.android.model.AgentConversation>?>(null) }
+    var mentionFailed by remember(mentions) { mutableStateOf(false) }
+    LaunchedEffect(mentions, focused) {
+        val source = mentions?.takeIf { focused } ?: return@LaunchedEffect
         try {
-            kotlinx.coroutines.delay(150)
-            val found = source.search(activeMention)
-            currentCoroutineContext().ensureActive()
-            mentionRows = SessionMention.results(found, source)
+            listedSessions = source.list()
+            mentionFailed = false
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            mentionFailed = true
-        } finally {
-            // A canceled older search must not clear a newer search's spinner.
-            if (currentCoroutineContext().isActive) mentionLoading = false
+            // A failed refresh keeps what was listed.
+            mentionFailed = listedSessions == null
         }
     }
-    var deviceRows by remember(activeMention, draft, devices) { mutableStateOf<List<ai.nuphos.android.model.CredentialCatalog.Item>>(emptyList()) }
-    var devicesLoading by remember(activeMention, draft, devices) { mutableStateOf(false) }
-    var devicesFailed by remember(activeMention, draft, devices) { mutableStateOf(false) }
+    val mentionLoading = listedSessions == null && !mentionFailed
+    val mentionRows = if (activeMention == null || mentions == null) emptyList()
+    else SessionMention.results(listedSessions.orEmpty(), mentions, activeMention)
+    var listedDevices by remember(devices, mentions?.teamId) { mutableStateOf<List<ai.nuphos.android.model.CredentialCatalog.Item>?>(null) }
+    var devicesFailed by remember(devices, mentions?.teamId) { mutableStateOf(false) }
     var devicePickFailed by remember(activeMention, draft, devices) { mutableStateOf(false) }
-    LaunchedEffect(activeMention, devices, draft) {
-        deviceRows = emptyList()
-        devicesFailed = false
-        devicesLoading = activeMention != null && devices != null
-        if (activeMention == null || devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
+    LaunchedEffect(devices, mentions?.teamId, focused) {
+        if (!focused || devices == null || devices.teamId != mentions?.teamId) return@LaunchedEffect
         try {
-            kotlinx.coroutines.delay(150)
-            val found = devices.load()
-            currentCoroutineContext().ensureActive()
-            deviceRows = found
+            listedDevices = devices.load()
+            devicesFailed = false
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            devicesFailed = true
-        } finally {
-            if (currentCoroutineContext().isActive) devicesLoading = false
+            devicesFailed = listedDevices == null
         }
     }
+    val devicesLoading = listedDevices == null && !devicesFailed
+    val deviceRows = listedDevices.orEmpty()
     val attachments = remember(draft, effectiveDraftingEnabled) {
         mutableStateListOf<ComposerAttachment>().apply { if (effectiveDraftingEnabled) draft?.key?.let { addAll(incomingShares.attachments(it)) } }
     }
@@ -311,6 +309,14 @@ fun ChatComposer(
     val fieldFocus = remember { FocusRequester() }
     // Only a new request focuses: a chat reopened after a reply starts with a nonzero one.
     val firstFocusRequest = remember { focusRequest }
+    var initiallyFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(autoFocus, effectiveDraftingEnabled) {
+        if (autoFocus && effectiveDraftingEnabled && !initiallyFocused) {
+            androidx.compose.runtime.withFrameNanos { }
+            runCatching { fieldFocus.requestFocus() }
+            initiallyFocused = true
+        }
+    }
     // Not attached while dictating; then there is nothing to focus.
     LaunchedEffect(focusRequest) { if (focusRequest != firstFocusRequest) runCatching { fieldFocus.requestFocus() } }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -714,7 +720,7 @@ fun ChatComposer(
 
             if (showControls) {
                 AnimatedVisibility(
-                    visible = expanded,
+                    visible = botControls || expanded,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
@@ -725,13 +731,21 @@ fun ChatComposer(
                             .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (onChooseAgent != null || agentLabel != null) AgentChip(agent, enabled = agentEnabled,
-                            onClick = onChooseAgent ?: { showAgentUsage = true }, labelOverride = agentLabel)
-                        if (modelSettings != null) FilterChip(
-                            selected = modelSettings.pending.isNotEmpty(),
-                            onClick = { showModel = true },
-                            label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) },
-                        )
+                        if (onChooseAgent != null || agentLabel != null) {
+                            AgentChip(agent, enabled = agentEnabled,
+                                onClick = { if (lockedHint != null) showLockedHint = true else onChooseAgent?.invoke() ?: run { showAgentUsage = true } },
+                                labelOverride = agentLabel,
+                                constrained = botControls,
+                                modifier = if (botControls) Modifier.widthIn(max = 175.dp).alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.runtime") else Modifier)
+                        }
+                        if (modelSettings != null) {
+                            FilterChip(selected = modelSettings.pending.isNotEmpty(),
+                                onClick = { if (lockedHint != null) showLockedHint = true else showModel = true },
+                                modifier = if (botControls) Modifier.alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.model") else Modifier,
+                                label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) })
+                        }
                         if (!followsBot) {
                             FilterChip(
                                 selected = !resolvedSelection.isEmpty,
@@ -907,6 +921,11 @@ fun ChatComposer(
             confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text(stringResource(R.string.done)) } })
     }
     if (showModel && modelSettings != null) ModelSettingsSheet(modelSettings, onDismiss = { showModel = false })
+    if (showLockedHint && lockedHint != null) AlertDialog(
+        onDismissRequest = { showLockedHint = false },
+        text = { Text(lockedHint) },
+        confirmButton = { TextButton(onClick = { showLockedHint = false }) { Text(stringResource(R.string.composer_ok)) } },
+    )
     if (showComputers && store != null) {
         var pending by remember(draft, store.workspaceRevision, resolvedSelection) { mutableStateOf(resolvedSelection) }
         CredentialPickerSheet(

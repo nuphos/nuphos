@@ -8,12 +8,16 @@ import { personalCredentialSubjectFor } from './handout'
 import type { AgentConversation } from '@/lib/agent/db'
 
 let teamIdentity: ('github' | 'linear')[] | undefined
+let connectionIds: string[] | undefined
 
 useAgentDb({
   getConversationBySessionId: (sessionId: string) =>
     Promise.resolve(
       sessionId === 'conv-1'
-        ? ({ sessionId, credentialAccess: { teamIdentity } } as unknown as AgentConversation)
+        ? ({
+            sessionId,
+            credentialAccess: { teamIdentity, personalConnectionIds: connectionIds },
+          } as unknown as AgentConversation)
         : null,
     ),
 })
@@ -30,15 +34,29 @@ const turn = async (actor: string, humanTurn: boolean) =>
 
 beforeEach(() => {
   teamIdentity = undefined
+  connectionIds = undefined
 })
 
 describe('personalCredentialSubjectFor', () => {
   test('uses the member’s Personal Credential unless the conversation picks the team', async () => {
-    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toBe('owner')
-    expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBe(
-      'teammate',
-    )
-    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toMatchObject({
+      userId: 'owner',
+    })
+    expect(
+      await personalCredentialSubjectFor('github', await turn('teammate', true)),
+    ).toMatchObject({ userId: 'teammate' })
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toMatchObject({
+      userId: 'owner',
+    })
+  })
+
+  test('carries the account ids the conversation allows', async () => {
+    connectionIds = ['a', 'b']
+
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toEqual({
+      userId: 'owner',
+      connectionIds: ['a', 'b'],
+    })
   })
 
   test('the conversation’s team identity applies to member and automated turns alike', async () => {
@@ -48,7 +66,9 @@ describe('personalCredentialSubjectFor', () => {
     expect(await personalCredentialSubjectFor('github', await turn('owner', false))).toBeNull()
     expect(await personalCredentialSubjectFor('github', await turn('teammate', true))).toBeNull()
     // Per provider: Linear still acts as the member.
-    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toBe('owner')
+    expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toMatchObject({
+      userId: 'owner',
+    })
   })
 
   test('the agent’s explicit team request still wins', async () => {

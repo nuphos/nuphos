@@ -6,9 +6,9 @@ import {
   OpenAbRpcError,
   RUNTIME_AUTH_REQUIRED_CODE,
   RUNTIME_USAGE_EXHAUSTED_CODE,
-  runtimeProductStateMessage,
   runtimeUsageExhaustedMessage,
 } from '@/lib/claude-code-preview/openab-acp-errors'
+import { plainTurnFailure } from '@/lib/claude-code-preview/plain-failure'
 import { runtimeFailure } from '@/lib/claude-code-preview/runtime-failure'
 import { AppError } from '@/lib/errors'
 import { errorTelemetryProperties } from '@/lib/observability'
@@ -49,16 +49,18 @@ export function serializeMessageDoc(message: {
 export function transcriptTailFrame(
   stored: Parameters<typeof serializeMessageDoc>[0][],
   promptCount: number,
+  // Transcript position of `stored[0]`: a turn reads its recent window, not the whole transcript.
+  offset = 0,
 ): Record<string, unknown> {
-  const messagesFirstIndex = Math.max(
+  const first = Math.max(
     0,
-    stored.slice(0, promptCount).findLastIndex((message) => message.role === 'user'),
+    stored.slice(0, promptCount - offset).findLastIndex((message) => message.role === 'user'),
   )
 
   return {
     type: 'atlas-transcript-tail',
-    messages: stored.slice(messagesFirstIndex).map(serializeMessageDoc),
-    messagesFirstIndex,
+    messages: stored.slice(first).map(serializeMessageDoc),
+    messagesFirstIndex: offset + first,
   }
 }
 
@@ -92,7 +94,7 @@ export function formatAgentStreamError(error: unknown): string {
   // A signed-out or out-of-usage runtime is a product state with its own UI,
   // not a transport failure. Every client — including those that do not read
   // errorCode yet — gets the sentence instead of the gateway's wrapper.
-  const productState = runtimeProductStateMessage(error)
+  const productState = plainTurnFailure(error)
 
   if (productState) return productState
   // A known runtime fault names the next step; the raw error stays in the frame's details.

@@ -96,7 +96,13 @@ internal fun TranscriptList(
             .collect { behind ->
                 if (behind && lastIndex >= 0) {
                     autoScrolling = true
-                    try { state.scrollToItem(lastIndex) } finally { autoScrolling = false }
+                    // As the initial jump: a scroll during a measure pass throws.
+                    try {
+                        withFrameNanos { }
+                        state.scrollToItem(lastIndex)
+                    } finally {
+                        autoScrolling = false
+                    }
                 }
             }
     }

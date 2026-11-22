@@ -12,6 +12,7 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
     'TEAM',
     'NUPHOS_SESSION_ID',
     'NUPHOS_SESSION_ACTOR',
+    'NUPHOS_SESSION_HOME_EPOCH',
     'NUPHOS_PLAN_API_BASE',
     'NUPHOS_PLAN_API_TOKEN',
   ])
@@ -43,6 +44,11 @@ export function nuphosCodexSessionConfig(config, meta, processEnv = process.env)
       'BASH_ENV',
       'ZDOTDIR',
       'OPENAB_CREDENTIALS_DIR',
+      // Windows itself needs these: PowerShell will not start without SystemRoot.
+      'SystemRoot',
+      'SystemDrive',
+      'ComSpec',
+      'PATHEXT',
     ]
       .filter((key) => typeof processEnv[key] === 'string')
       .map((key) => [key, processEnv[key]]),
@@ -87,8 +93,13 @@ const nuphosThreadHomes = new Map()
 
 function nuphosThreadHome(meta, processEnv) {
   const env = meta?.['ai.nuphos/codex']?.env ?? {}
-  const { NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR } = env
-  return nuphosSessionHomeEnv({ NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR }, processEnv).HOME ?? ''
+  const { NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR, NUPHOS_SESSION_HOME_EPOCH } = env
+  return (
+    nuphosSessionHomeEnv(
+      { NUPHOS_SESSION_ID, NUPHOS_SESSION_ACTOR, NUPHOS_SESSION_HOME_EPOCH },
+      processEnv,
+    ).HOME ?? ''
+  )
 }
 
 // App Server ignores a resume's config while a subscription holds the loaded

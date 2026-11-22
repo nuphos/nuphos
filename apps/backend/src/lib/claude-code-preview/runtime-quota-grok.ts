@@ -6,11 +6,12 @@ import type { RuntimeInstance } from './runtime-instances'
 import type { RuntimeQuota } from './runtime-quota-shape'
 
 // Grok answers its own ACP `_x.ai/billing` with the subscription's credit use
-// for the current period.
+// for the current period. Its protobuf JSON leaves a zero out, so an account
+// that has used nothing yet sends no creditUsagePercent at all.
 const grokUsageSchema = z
   .object({
     config: z.object({
-      creditUsagePercent: z.number(),
+      creditUsagePercent: z.number().default(0),
       currentPeriod: z
         .object({ type: z.string().optional(), end: z.string().optional() })
         .optional(),

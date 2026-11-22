@@ -41,7 +41,6 @@ export function AgentHistoryPage({
   onOpenConversation,
   historyScope,
   ownerId = null,
-  triggerIds = null,
   onListLoaded,
   keyboardNavigation = false,
 }: {
@@ -63,12 +62,6 @@ export function AgentHistoryPage({
   historyScope: 'mine' | 'team'
   /** Narrow team scope to a single member's conversations. */
   ownerId?: string | null
-  /**
-   * List one Trigger's runs (or a Watch group's partition triggers together)
-   * instead of Chats. Not a narrowing of the default list — the two are
-   * disjoint: Chats excludes trigger runs, and this shows only them.
-   */
-  triggerIds?: string[] | null
   /**
    * The first page of a list-replacing fetch, so a reader beside this list can
    * open something without waiting to be told. Not fired for load-more: those
@@ -111,8 +104,7 @@ export function AgentHistoryPage({
 
   // Every new query starts in the loading state; adjusting during render keeps
   // the previous query's rows from lingering as if they answered this one.
-  const triggerKey = triggerIds ? triggerIds.join(',') : ''
-  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${triggerKey}|${debouncedQuery}`
+  const listKey = `${teamId}|${historyScope}|${ownerId ?? ''}|${debouncedQuery}`
   const [loadingListKey, setLoadingListKey] = useState(listKey)
 
   if (listKey !== loadingListKey) {
@@ -122,9 +114,8 @@ export function AgentHistoryPage({
   // Everything here is also in listKey, which stands in for it in the effects below.
   const listOptions = {
     scope: historyScope,
-    archived: triggerIds ? undefined : ('exclude' as const),
+    archived: 'exclude' as const,
     ownerId: ownerId ?? undefined,
-    triggerIds: triggerIds ?? undefined,
     search: debouncedQuery || undefined,
   }
 
@@ -281,7 +272,6 @@ export function AgentHistoryPage({
               sentinelRef={sentinelRef}
               loadingMore={loadingMore}
               loadMore={loadMore}
-              emptyLabel={triggerIds ? t("This trigger hasn't run yet.") : undefined}
               onOpenConversation={onOpenConversation}
               onArchive={archiveConversation}
             />

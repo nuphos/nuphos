@@ -4,9 +4,11 @@ import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants.t
 import { usableDeviceIds } from './credentialSections.ts'
 import { keepTeamIdentity, teamIdentityOf } from './personalIdentity.ts'
 
+import type { IdentityKey } from './personalIdentity.ts'
+
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
-type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'>
+type AccessKey = Exclude<keyof AgentCredentialSelection, IdentityKey>
 
 export function normalizeCredentialAccess(
   value: Partial<AgentCredentialSelection> | null | undefined,
@@ -191,6 +193,7 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     cloudflareAccountIds: (options.cloudflareAccounts ?? []).map((account) => account.accountId),
     instaboxAccountIds: (options.instaboxAccounts ?? []).map((account) => account.accountId),
     deviceIds: (options.devices ?? []).map((device) => device.deviceId),
+    personalCredentialIds: (options.personalCredentials ?? []).map((own) => own.provider),
   }
 }
 
@@ -238,7 +241,7 @@ export function reconcileStoredCredentialAccess(
   if (!credentialOptionsLoaded(options)) {
     return normalizeCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS)
   }
-  // No stored selection at all means "whatever this team has", not "nothing" —
+  // For a dashboard panel, no stored selection means "whatever this team has", not "nothing" —
   // but via `defaultCredentialAccess`, so Resend stays opt-in rather than being
   // switched on for every conversation that never made a choice.
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))

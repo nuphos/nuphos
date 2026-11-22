@@ -1,5 +1,5 @@
 // Which of a Box's displays a desktop tab shows, kept in the tab's route filter so a
-// restore reopens it: the Box id alone for its own :1, or `<deviceId>:<display>:<sessionId>`
+// restore reopens it: the Box id alone for its own desktop, or `<deviceId>:<display>:<sessionId>`
 // for a conversation's display there. A bare number is a conversation tab's own display.
 
 import { t } from '../i18n/index.ts'
@@ -34,10 +34,10 @@ export function desktopScreens(
   deviceId: string,
 ): { value: string; label: string }[] {
   return [
-    { value: deviceId, label: `${device?.label ?? t('Computer')} · :1` },
+    { value: deviceId, label: device?.label ?? t('Computer') },
     ...(device?.desktops ?? []).map((desktop) => ({
       value: desktopFilter(deviceId, desktop),
-      label: `:${String(desktop.display)} · ${desktop.title || t('Agent')}`,
+      label: `:${String(desktop.display)} · ${desktop.title || t('Task')}`,
     })),
   ]
 }

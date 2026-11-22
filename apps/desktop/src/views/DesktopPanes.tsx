@@ -5,7 +5,7 @@ import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { DesktopRefusal, keepDesktopConnected } from '../lib/desktopConnection'
+import { keepDesktopConnected } from '../lib/desktopConnection'
 import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
   desktopTabSession,
@@ -14,18 +14,40 @@ import {
 } from '../lib/sessionDesktops'
 
 import { DesktopFrame } from './DesktopFrame'
-import { openBoxPaywall } from './settings/boxPaywallStore'
 
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 
-/** What the remote page shows once its connection is over; the view then reconnects with a new link. */
-const BOX_PAGE_ENDED = /link has expired|disconnected|failed to connect/iu
+/** How long a connected desktop has to show its first picture. */
+const FIRST_PICTURE_MS = 8_000
+
+/**
+ * Calls `shown` once noVNC's canvas, transparent until a frame lands on it, has a
+ * picture, or `failed` if none comes in time; returns how to stop waiting.
+ */
+function awaitPicture(host: HTMLElement, shown: () => void, failed: () => void): () => void {
+  const since = Date.now()
+  const timer = setInterval(() => {
+    const canvas = host.querySelector('canvas')
+    const drawn = canvas?.width
+      ? canvas.getContext('2d')?.getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1).data[3]
+      : 0
+
+    if (drawn) shown()
+    else if (Date.now() - since < FIRST_PICTURE_MS) return
+    else failed()
+    clearInterval(timer)
+  }, 250)
+
+  return () => {
+    clearInterval(timer)
+  }
+}
 
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? t('You have the Mac’s screen; the agent can still use it too.')
-    : t('You have the desktop; the agent’s input tools wait until you hand it back.')
+    ? t('You have the Mac’s screen; Nuphos can still use it too.')
+    : t('You have the desktop; Nuphos’s input tools wait until you hand it back.')
 
 /**
  * A conversation's own desktop on its Box, watched over the Box's tunnel;
@@ -72,13 +94,20 @@ export function SessionDesktopView({
       rfb.viewOnly = true
       rfb.scaleViewport = true
       rfb.background = 'transparent'
-      rfb.addEventListener('connect', opened)
+      // Connected once the desktop shows: a stream that never draws counts as a failed
+      // attempt, so the tab says so instead of staying blank.
+      let stopWaiting: (() => void) | undefined
+
+      rfb.addEventListener('connect', () => {
+        stopWaiting = awaitPicture(target, opened, closed)
+      })
       rfb.addEventListener('disconnect', closed)
       rfbRef.current = rfb
       channelRef.current = channel
       setHolding(false)
 
       return () => {
+        stopWaiting?.()
         rfb.removeEventListener('disconnect', closed)
         rfb.disconnect()
         if (rfbRef.current === rfb) rfbRef.current = null
@@ -112,12 +141,12 @@ export function SessionDesktopView({
       phase={conversationId ? phase : { kind: 'connecting' }}
       status={
         !conversationId
-          ? t('Select an agent to see its desktop.')
+          ? t('Select a runtime to see its desktop.')
           : phase.kind !== 'connected'
             ? undefined
             : holding
               ? holdingStatus(display)
-              : t('Watching the agent’s desktop.')
+              : t('Watching the runtime’s desktop.')
       }
       action={
         <button
@@ -135,113 +164,53 @@ export function SessionDesktopView({
   )
 }
 
-/** A refusal names why the desktop cannot open; anything else is worth another try. */
-function boxRefusal(error: unknown): unknown {
-  const { code } = parseAtlasError(error)
-
-  if (code === 'forbidden' || code === 'not_found')
-    return new DesktopRefusal('denied', t('You no longer have access to this computer’s desktop.'))
-  if (code === 'box_state' || code === 'box_unavailable')
-    return new DesktopRefusal('offline', t('Computer is offline.'))
-
-  return error
-}
-
 /**
- * A Box's whole desktop, in the Box provider's own viewer. The tab names only
- * the Box: each connect asks the backend for a new short-lived link, so a link
- * that expired is never what reconnects.
+ * A Box's own desktop, for its owner: its host opens one on request, as any of their
+ * computers does (runtime-desktop.ts), and it is watched like a conversation's. Without
+ * the host's runtime id there is nothing to open: the Box is away, or it is not theirs.
  */
 export function BoxDesktopView({
   teamId,
-  deviceId,
+  runtimeId,
   switcher,
 }: {
   teamId: string
-  deviceId: string
+  /** Undefined until the device list has loaded; null when it offers none. */
+  runtimeId: string | null | undefined
   switcher?: React.ReactNode
 }) {
   const host = useRef<HTMLDivElement>(null)
-  const retryRef = useRef<() => void>(() => {})
-  const [phase, setPhase] = useState<DesktopPhase>({ kind: 'connecting' })
-  const [label, setLabel] = useState<string>()
+  const [attempt, setAttempt] = useState(0)
+  const [opened, setOpened] = useState<{ key: string; display?: number; error?: string }>()
+  const sessionId = runtimeId ? `runtime/${runtimeId}` : undefined
+  const key = `${sessionId ?? ''}#${String(attempt)}`
+  const current = opened?.key === key ? opened : undefined
 
   useEffect(() => {
-    const target = host.current
+    if (!sessionId) return
+    api.openSessionDesktop(teamId, sessionId).then(
+      ({ display }) => setOpened({ key, display }),
+      (error: unknown) => setOpened({ key, error: parseAtlasError(error).message }),
+    )
+  }, [teamId, sessionId, key])
 
-    if (!target) return
-    const attach: DesktopAttach<string> = (url, { opened, closed }) => {
-      const view = document.createElement('webview')
-
-      view.setAttribute('src', url)
-      view.setAttribute('partition', 'persist:browser')
-      view.setAttribute('webpreferences', 'sandbox=yes,contextIsolation=yes')
-      view.style.cssText = 'width:100%;height:100%;display:flex'
-      const onFail = (event: Electron.DidFailLoadEvent) => {
-        if (event.isMainFrame && event.errorCode !== -3) closed()
-      }
-      // The viewer reports its connection ending only on the page.
-      const watch = setInterval(() => {
-        view
-          .executeJavaScript('document.body ? document.body.innerText : ""')
-          .then((text: unknown) => {
-            if (typeof text === 'string' && BOX_PAGE_ENDED.test(text)) closed()
-          })
-          .catch(() => {})
-      }, 3000)
-
-      view.addEventListener('did-finish-load', opened)
-      view.addEventListener('did-fail-load', onFail)
-      view.addEventListener('render-process-gone', closed)
-      target.appendChild(view)
-
-      return () => {
-        clearInterval(watch)
-        view.removeEventListener('did-finish-load', opened)
-        view.removeEventListener('did-fail-load', onFail)
-        view.removeEventListener('render-process-gone', closed)
-        view.remove()
-      }
-    }
-    const connection = keepDesktopConnected({
-      mint: async () => {
-        try {
-          const desktop = await api.boxDesktop(deviceId, teamId)
-
-          setLabel(desktop.label)
-
-          return desktop.url
-        } catch (error) {
-          throw boxRefusal(error)
-        }
-      },
-      attach,
-      onPhase: setPhase,
-    })
-
-    retryRef.current = connection.restart
-
-    return connection.stop
-  }, [teamId, deviceId])
-
-  const retry = () => {
-    if (phase.kind === 'stopped' && phase.reason === 'offline')
-      void api
-        .boxResume(deviceId, teamId)
-        // A Box the plan has no room for: the paywall offers one, then tries again.
-        .catch((error: unknown) => {
-          openBoxPaywall(teamId, error, retry)
-        })
-        .then(() => retryRef.current())
-    else retryRef.current()
-  }
+  if (sessionId && current?.display !== undefined)
+    return (
+      <SessionDesktopView
+        teamId={teamId}
+        display={current.display}
+        sessionId={sessionId}
+        switcher={switcher}
+      />
+    )
+  const message = runtimeId === null ? t('Computer is offline.') : current?.error
 
   return (
     <DesktopFrame
-      title={label ?? t('Desktop')}
-      phase={phase}
+      title={t('Desktop')}
+      phase={message ? { kind: 'stopped', reason: 'offline', message } : { kind: 'connecting' }}
       switcher={switcher}
-      onRetry={retry}
+      onRetry={() => setAttempt((n) => n + 1)}
       host={host}
     />
   )

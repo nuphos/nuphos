@@ -1,11 +1,5 @@
 import { OpenAbConnectionLostError } from '@/lib/claude-code-preview/openab-acp-errors'
-import { queueRuntimeHandoff } from '@/lib/claude-code-preview/runtime-handoff'
 import { RunHandoff } from '@/lib/lifecycle'
-
-import { persistHandedOffPreviewTurn } from './chat-preview-finish'
-
-import type { AgentRun } from './types'
-import type { UIMessage } from 'ai'
 
 export const HANDED_OFF = Symbol('handed-off')
 export const HANDED_OFF_TOOL_ERROR =
@@ -32,37 +26,5 @@ export function handedOff(signal: AbortSignal): Promise<typeof HANDED_OFF> {
 
     if (signal.aborted) settle()
     else signal.addEventListener('abort', settle, { once: true })
-  })
-}
-
-type PreviewHandoffArgs = {
-  run: AgentRun
-  sessionId: string
-  teamId: string
-  userId: string
-  actorUserId: string
-  humanTurn?: boolean
-  messages: UIMessage[]
-  firstMessage: string
-  locale: string
-  provider: string
-  /** Still running on the runtime; this replica stops listening to it. */
-  prompt: Promise<unknown>
-  /** Tools still running on the runtime are marked as handed off by the caller. */
-  orderedParts: UIMessage['parts']
-  steered: UIMessage[]
-}
-
-/** Save what streamed so far and leave the rest of the turn to the adopting replica. */
-export async function handOffPreviewTurn(args: PreviewHandoffArgs): Promise<void> {
-  args.prompt.catch(() => {})
-  await persistHandedOffPreviewTurn(args)
-  queueRuntimeHandoff({
-    teamId: args.teamId,
-    conversationId: args.sessionId,
-    ownerUserId: args.userId,
-    actorUserId: args.actorUserId,
-    locale: args.locale,
-    humanTurn: args.humanTurn,
   })
 }

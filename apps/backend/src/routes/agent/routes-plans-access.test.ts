@@ -57,7 +57,7 @@ useAgentPlans({
 
     return Promise.resolve({ plan: null, thresholdReached: false } as never)
   },
-  updatePlan: () => {
+  closePlan: () => {
     writes++
 
     return Promise.resolve(plan(2, 'shared') as never)

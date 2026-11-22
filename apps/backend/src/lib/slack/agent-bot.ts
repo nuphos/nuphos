@@ -22,10 +22,11 @@ export {
   deleteSlackUserMapping,
   getCrossWorkspaceChannelMapping,
   getSlackChannelMapping,
+  getSlackChannelMappingByExternalChat,
+  setSlackChannelExternalChat,
   getSlackUserMapping,
   getSlackUserMappingForNuphosUser,
   listSlackChannelMappings,
-  listSlackUserMappings,
   upsertSlackChannelMapping,
   upsertSlackUserMapping,
 } from '@/lib/slack/agent-bot/mappings'

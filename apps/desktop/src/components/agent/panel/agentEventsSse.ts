@@ -17,7 +17,7 @@ import {
   formatMemoryIngestFeedback,
 } from './status'
 import { appendSteering, parseSteeringPart } from './steering'
-import { applyTranscriptTail, startUserTurn } from './turnBoundaries'
+import { applyTranscriptTail, replyId, startUserTurn } from './turnBoundaries'
 import { appendTurnInterruptedPart, normalizeTurnInterruptedPart } from './turnInterrupted'
 
 import type { PanelCtx } from './ctx'
@@ -186,7 +186,7 @@ export function handleSseControlFrame(
     setTabs((prev) =>
       prev.map((t) => {
         if (t.streamId !== streamId) return t
-        const nextTab = appendTurnInterruptedPart(t, part, uid)
+        const nextTab = appendTurnInterruptedPart(t, part, () => replyId(t, uid))
 
         queueTranscriptSync(nextTab, 250)
 

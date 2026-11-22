@@ -1,11 +1,11 @@
-import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import { TriangleAlert as TriangleAlertIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { PodTerminalView, ExecTerminalView } from '../../components/PodTerminalView'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useRequiredKubeContext } from '../../hooks/useKubeContext'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
@@ -17,7 +17,7 @@ import { allPodContainers, containerDisplayName } from './pod-containers'
 // One sentence for translators: <b>…</b> marks emphasis, {name} and {ns} render
 // as code. Split so each marked part can be styled.
 const NODE_SHELL_WARNING = t(
-  "This starts a <b>privileged pod</b> on {name} and enters the host's namespaces — effectively a <b>root shell on the node</b>. The pod is created in {ns} and deleted automatically when you close this tab or leave this node. It survives switching agents, so a command you left running keeps running.",
+  "This starts a <b>privileged pod</b> on {name} and enters the host's namespaces — effectively a <b>root shell on the node</b>. The pod is created in {ns} and deleted automatically when you close this tab or leave this node. It survives switching between Bots and tasks, so a command you left running keeps running.",
 ).split(/(<b>.*?<\/b>|\{name\}|\{ns\})/)
 
 // Terminal tab for a Pod: resolves the container list, lets the user pick one
@@ -143,7 +143,7 @@ export function NodeTerminalTab({ name }: { name: string }) {
       <div className="flex-1 min-h-0 flex items-center justify-center p-8">
         <div className="max-w-md bg-surface-sheet border border-line-control rounded-md p-5 space-y-3">
           <div className="flex items-center gap-2 text-warning text-[13px] font-semibold">
-            <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4" />
+            <UiIcon size={14} icon={TriangleAlertIcon} className="w-3.5 h-3.5" />
             {t('Open a node shell?')}
           </div>
           <p className="text-[12.5px] text-secondary leading-relaxed">

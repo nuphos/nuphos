@@ -41,7 +41,7 @@ export function viewOnlyNoticeFor(
     }
 
   return {
-    action: { label: t('Set up your agent'), onSelect: setUpAgent },
+    action: { label: t('Set up a runtime'), onSelect: setUpAgent },
     ...(addCloudRuntime
       ? { secondary: { label: t('Use a cloud runtime instead'), onSelect: addCloudRuntime } }
       : {}),

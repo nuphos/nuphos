@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 
-import { agentConversations } from './shared'
+import { withTransaction } from '@/lib/db'
+
+import { agentConversations, agentMessages } from './shared'
 
 import type { GeneralAccess } from './access'
 import type { AgentConversation } from './shared'
@@ -34,6 +36,14 @@ const MAX_TIMELINE_EVENTS = 200
 
 export function pushTimelineEvent(event: ConversationTimelineEvent) {
   return { timelineEvents: { $each: [event], $slice: -MAX_TIMELINE_EVENTS } }
+}
+
+/** Takes away an agent's couldn't-reply line in a channel: it replied there, or a newer one replaces it. */
+export async function clearReplyFailed(channelId: string, agentId: string) {
+  await agentConversations().updateOne(
+    { sessionId: channelId },
+    { $pull: { timelineEvents: { kind: 'agent_reply_failed', agentId } } },
+  )
 }
 
 /**
@@ -105,6 +115,46 @@ export async function removeConversationParticipant(
   )
 
   return await agentConversations().findOne({ sessionId })
+}
+
+/**
+ * A group chat's owner leaving: whoever joined it first owns it from then on.
+ * A chat keeps its posts under its owner, so they move with it. Answers null when
+ * nobody else is in the chat to hand it to.
+ */
+export async function handOverChannel(
+  channel: AgentConversation,
+): Promise<AgentConversation | null> {
+  const owner = channel.userId
+  const next = conversationParticipantIds(channel)[1]
+
+  if (!next) return null
+  await withTransaction(async (session) => {
+    const moved = await agentConversations().updateOne(
+      { sessionId: channel.sessionId, userId: owner, participantIds: next },
+      {
+        $set: { userId: next },
+        $pull: { participantIds: { $in: [owner, next] } },
+        $unset: { [`mentions.${owner}`]: '' },
+        $push: pushTimelineEvent({
+          kind: 'participant_removed',
+          at: new Date(),
+          actorId: owner,
+          targetId: owner,
+        }),
+      },
+      { session },
+    )
+
+    if (moved.matchedCount === 0) return
+    await agentMessages().updateMany(
+      { sessionId: channel.sessionId, userId: owner },
+      { $set: { userId: next } },
+      { session },
+    )
+  })
+
+  return await agentConversations().findOne({ sessionId: channel.sessionId })
 }
 
 /**

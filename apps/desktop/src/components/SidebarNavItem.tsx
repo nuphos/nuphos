@@ -56,8 +56,6 @@ type SidebarNavItemProps = {
   twoLine?: boolean
   /** Comfortable chat rows: the newest message, one line under the label. */
   preview?: ReactNode
-  /** The name shimmers, as running text does elsewhere (a Bot at work). */
-  labelShimmer?: boolean
   /** Comfortable chat rows: when the chat was last active, at the label's right. */
   time?: string
   /** Wait for the click when a press may start a drag instead. */
@@ -81,14 +79,7 @@ function SwapLabel({ label }: { label: string }) {
   )
 }
 
-function RowLabel({ label, shimmer, swap }: { label: string; shimmer: boolean; swap: boolean }) {
-  if (shimmer)
-    return (
-      <span className="t-shimmer max-w-full truncate align-top" data-text={label}>
-        {label}
-      </span>
-    )
-
+function RowLabel({ label, swap }: { label: string; swap: boolean }) {
   return swap ? <SwapLabel label={label} /> : <>{label}</>
 }
 
@@ -112,7 +103,6 @@ export function SidebarNavItem({
   navigateOnRelease = false,
   twoLine = false,
   preview,
-  labelShimmer = false,
   time,
   animateLabel = false,
   revealDetail = false,
@@ -169,7 +159,7 @@ export function SidebarNavItem({
       // Lifted in index.css only when the row's detail line has content.
       data-row-title={revealDetail || undefined}
     >
-      <RowLabel label={label} shimmer={labelShimmer} swap={animateLabel} />
+      <RowLabel label={label} swap={animateLabel} />
     </span>
   )
   const tail = (
@@ -266,13 +256,13 @@ export function SidebarNavItem({
             <span className="flex min-h-4 items-center gap-2">
               <span
                 className={clsx(
-                  'flex-1 min-w-0 truncate text-left text-[13px] leading-4 font-normal',
+                  'flex-1 min-w-0 line-clamp-2 break-words text-left text-[13px] leading-4 font-normal',
                   preview ? 'text-secondary' : 'text-tertiary',
                 )}
               >
                 {preview || t('No messages yet')}
               </span>
-              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center">
+              <span id={`${id}-trailing`} className="flex-shrink-0 flex items-center empty:hidden">
                 {trailing}
               </span>
             </span>

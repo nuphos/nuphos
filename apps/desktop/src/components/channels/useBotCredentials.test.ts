@@ -6,14 +6,17 @@ import type { AgentCredentialSelection } from '../../api'
 const saved: { sessionId: string; teamId?: string; credentialAccess: AgentCredentialSelection }[] =
   []
 let refreshes = 0
+const announced: { sessionId: string; credentialAccess: AgentCredentialSelection }[] = []
+let options: unknown = {}
+let conversation: unknown = { credentialAccess: {} }
 const slots: unknown[] = []
 let cursor = 0
 
 mock.module('../../api.ts', {
   namedExports: {
     api: {
-      agentGetCredentialOptions: async () => ({}),
-      agentGetConversation: async () => ({ credentialAccess: {} }),
+      agentGetCredentialOptions: async () => options,
+      agentGetConversation: async () => conversation,
       agentUpdateConversationCredentials: async (args: (typeof saved)[number]) => {
         saved.push(args)
 
@@ -29,9 +32,25 @@ mock.module('../../lib/inputRequestRefresh.ts', {
     },
   },
 })
+mock.module('../../lib/savedCredentialSelection.ts', {
+  namedExports: {
+    announceSavedSelection: (selection: (typeof announced)[number]) => announced.push(selection),
+  },
+})
 // Nothing is listed or kept from an earlier chat: the hook starts empty and loads.
+// Only a Task read ahead is kept, to see what saving does to it.
+const tasks = new Map<string, unknown>()
+const taskKey = (key: readonly unknown[]) => (key.includes('task') ? JSON.stringify(key) : '')
+
 mock.module('../../lib/query/client.ts', {
-  namedExports: { queryClient: { getQueryData: () => undefined, setQueryData: () => {} } },
+  namedExports: {
+    queryClient: {
+      getQueryData: (key: readonly unknown[]) => tasks.get(taskKey(key)),
+      setQueryData: (key: readonly unknown[], value: unknown) => {
+        if (taskKey(key)) tasks.set(taskKey(key), value)
+      },
+    },
+  },
 })
 mock.module('../ui/toast.ts', { namedExports: { toast: { apiError: () => {} } } })
 mock.module('../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
@@ -66,13 +85,14 @@ mock.module('react', {
 
 const { useBotCredentials } = await import('./useBotCredentials.ts')
 const { emptyCredentialAccess } = await import('../agent/panel/credentialAccess.ts')
+const { queryKeys } = await import('../../lib/query/keys.ts')
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
-function render() {
+function render(botId = 'asking-session') {
   cursor = 0
 
   // eslint-disable-next-line react-hooks/rules-of-hooks -- Test harness drives the hook's lifecycle.
-  return useBotCredentials('team', 'asking-session')
+  return useBotCredentials('team', botId)
 }
 
 test("choosing a credential saves the asking conversation's selection and reloads its questions", async () => {
@@ -92,4 +112,39 @@ test("choosing a credential saves the asking conversation's selection and reload
   assert.deepEqual(saved[0]?.credentialAccess.personalCredentialIds, ['github'])
   // The server answers the question this selection satisfies; the card leaves on that reload.
   assert.equal(refreshes, 1)
+})
+
+// #4022: "Use in task" in the Inbox, then the Task still showed Gmail unselected.
+test('a saved selection reaches the Task: its open tab and its copy read ahead', async () => {
+  const key = JSON.stringify(queryKeys.task('team', 'asking-session'))
+
+  tasks.set(key, { sessionId: 'asking-session', credentialAccess: emptyCredentialAccess() })
+  render()
+  await settle()
+  const next = { ...emptyCredentialAccess(), personalCredentialIds: ['gmail' as const] }
+
+  render()?.onChange(next)
+  await settle()
+  const last = announced.at(-1)
+
+  assert.equal(last?.sessionId, 'asking-session')
+  assert.deepEqual(last?.credentialAccess.personalCredentialIds, ['gmail'])
+  const copy = tasks.get(key) as { credentialAccess: AgentCredentialSelection }
+
+  assert.deepEqual(copy.credentialAccess.personalCredentialIds, ['gmail'])
+})
+
+// #3259: a Bot made with "+" stored nothing, and its picker showed every computer
+// selected while the Bot ran with none.
+test('a Bot with nothing stored shows no computers selected, and is asked to choose', async () => {
+  options = {
+    devices: [{ deviceId: 'mac-mini', label: 'Mac mini', platform: 'darwin', available: true }],
+  }
+  conversation = { credentialAccess: null }
+  render('bot-with-nothing-stored')
+  await settle()
+  const control = render('bot-with-nothing-stored')
+
+  assert.deepEqual(control?.value.deviceIds, [])
+  assert.equal(control?.unset, true)
 })

@@ -1,5 +1,4 @@
-import { faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Trash2 as Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
@@ -8,6 +7,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
@@ -151,7 +151,7 @@ export function CloudflarePagesView({
                 className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
                 title={t('Delete project')}
               >
-                <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+                <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" />
               </button>
             ),
           },
@@ -159,7 +159,7 @@ export function CloudflarePagesView({
       />
 
       <ConfirmDialog
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         title={t('Delete Pages project?')}
         description={
           pendingDelete

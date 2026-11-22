@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
+
 import { BACKGROUND_WORK_LOST_NOTICE, BACKGROUND_WORK_UNCERTAIN_NOTICE } from './background-work'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import {
@@ -9,8 +11,6 @@ import {
 } from './preview-transcript'
 
 import type { UIMessage } from 'ai'
-
-import { useAgentDb } from '@/lib/test/doubles/agent-db'
 
 const SENDER = {
   version: 1 as const,
@@ -231,18 +231,20 @@ describe('previewHistoryPreamble', () => {
   })
 
   test('drops the oldest turns once the budget is spent, never the newest', () => {
-    // 30 turns of 40 KB overrun the 120 KB budget, so only the newest fit. The
+    // 30 turns of 10 KB overrun the 32 KB budget, so only the newest fit. The
     // last message is the current input, not history.
     const heavy = Array.from({ length: 30 }, (_, index) => ({
       id: `h${String(index)}`,
       role: index % 2 === 0 ? 'user' : 'assistant',
-      parts: [{ type: 'text', text: `mark${String(index)} ${'x'.repeat(40_000)}` }],
+      parts: [{ type: 'text', text: `mark${String(index)} ${'x'.repeat(10_000)}` }],
     })) as unknown as UIMessage[]
     const preamble = previewHistoryPreamble(heavy)
 
     expect(preamble).toContain('mark28')
     expect(preamble).not.toContain('mark0 ')
-    expect(preamble?.length).toBeLessThan(130_000)
+    expect(preamble).not.toContain('mark25 ')
+    expect(preamble).toContain('read_conversation')
+    expect(preamble?.length).toBeLessThan(35_000)
   })
 
   test('keeps the end of a long turn: its late correction and final answer', () => {
@@ -281,7 +283,7 @@ describe('previewHistoryPreamble', () => {
     expect(preamble).not.toContain('early ')
     expect(preamble).not.toContain('first question')
     expect(preamble).toContain('Earlier turns are omitted')
-    expect(preamble?.length).toBeLessThan(125_000)
+    expect(preamble?.length).toBeLessThan(35_000)
   })
 
   test('previewCompactionSummary reads the stored summary text', async () => {
@@ -295,7 +297,7 @@ describe('interrupted preview turns', () => {
       expect(classifyPreviewInterruption(new Error(error), false)).toEqual({
         reason: 'error',
         message:
-          'The agent’s runtime is out of disk space, so it could not run this turn. Free up disk space on the runtime or switch this conversation to another runtime, then resend your message.',
+          'The computer this Bot or Task runs on is out of disk space, so this turn could not run. Ask someone who manages that computer to free space, or switch to another runtime, then resend your message.',
       })
       expect(classifyPreviewInterruption(new Error(error), true).reason).toBe('cancelled')
     }
@@ -445,7 +447,7 @@ test('a signed-out runtime keeps the sign-in action in the transcript', () => {
   expect(classifyPreviewInterruption(refusal, false)).toEqual({
     reason: 'error',
     message:
-      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign the agent in again, then resend your message.',
+      'This agent’s sign-in is no longer valid, so it could not start the turn. Sign it in again, ask its owner to, or switch to another runtime, then resend your message.',
     cause: 'auth',
   })
   // A turn someone stopped has no cause to fix.

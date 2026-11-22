@@ -257,6 +257,7 @@ export function navigationFromAppPath(path: string): NavigationSnapshot | null {
       return linearNavigation(teamScope, rest.slice(1))
     case 'settings': {
       if (rest[1] === 'members') return emptyNavigation(teamScope, 'team.members')
+      if (rest[1] === 'billing') return emptyNavigation(teamScope, 'team.billing')
       // Legacy: connectors used to live under /settings/integrations.
       if (rest[1] === 'integrations') return connectorsNavigation(teamId, rest.slice(2), query)
 

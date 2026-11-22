@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
 import path from 'node:path'
 
 import { envValue } from './agent-cli-apps.ts'
@@ -215,24 +216,25 @@ export function openabEnv(launch: LocalRuntimeLaunch): Record<string, string> {
 }
 
 /**
- * The jobs this runtime offers. Everywhere: the backend's fixed attachment program, bundled,
- * so a turn's files arrive as a list of signed URLs and no program text crosses the wire. On a
- * machine Nuphos made, also `panel`, which runs the script the backend sends, as the runtime
- * image does; never on a person's computer. openab clears a job's environment and splits its
- * command on whitespace, so Electron's run-as-Node switch rides in through `env`. A job that
- * cannot run that way is left out, and the backend reports the runtime as unable to do it.
+ * The jobs this runtime offers: everywhere the bundled attachment and session-home programs
+ * (v2 takes a home generation); on a machine Nuphos made also `panel`. openab gives a job its
+ * own HOME and splits its command on whitespace, so Electron's run-as-Node switch and the
+ * user's HOME, where session homes are, ride in through `env`. A job with a space is left out.
  */
 function runtimeJobs(launch: LocalRuntimeLaunch): Record<string, string> {
   const program = (file: string) => path.join(launch.bundle.root, file)
-  const job = (name: string, ...args: string[]) => ({
+  const home = `HOME=${launch.env.HOME ?? homedir()}`
+  const job = (name: string, env: string[], ...args: string[]) => ({
     name,
-    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', launch.nodeExecPath, ...args],
+    argv: ['/usr/bin/env', 'ELECTRON_RUN_AS_NODE=1', ...env, launch.nodeExecPath, ...args],
     program: args.at(-1) ?? '',
   })
   const jobs = [
-    job('attachments', program('attachment-job.mjs')),
+    job('attachments', [], program('attachment-job.mjs')),
+    job('session-homes', [home], program('session-home-reclaim-job.mjs')),
+    job('session-homes-v2', [home], program('session-home-reclaim-job.mjs')),
     ...(launch.ownsMachine
-      ? [job('panel', '--max-old-space-size=512', program('panel-job.mjs'))]
+      ? [job('panel', [], '--max-old-space-size=512', program('panel-job.mjs'))]
       : []),
   ].filter(({ argv, program }) => !argv.some((arg) => /\s/.test(arg)) && existsSync(program))
 

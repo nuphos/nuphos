@@ -16,10 +16,10 @@ export const zeaburScoped = new Hono<{ Variables: AgentZeaburVars }>()
 zeaburScoped.use('*', requireZeaburProvider())
 zeaburScoped.use('*', requireSelectedZeaburAgentCredential())
 
-// A long-lived personal access token: administrators only, as on the team route.
+// Credential use is editor-level; connector management remains administrator-only.
 zeaburScoped.get('/credentials', async (c) => {
-  if (!(await canMintCredentials(c.get('teamId'), agentPrincipals(c), ['ADMINISTRATOR']))) {
-    throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR')
+  if (!(await canMintCredentials(c.get('teamId'), agentPrincipals(c)))) {
+    throw new AppError(403, 'forbidden', 'Requires one of: ADMINISTRATOR, EDITOR')
   }
   const agent = c.get('agent')
 

@@ -17,10 +17,13 @@ export const TUNNEL_IDLE_TIMEOUT_MS = 12_000
 const CLOSE_SUPERSEDED = 4000
 const CLOSE_REVOKED = 4003
 
+/** The socket in use, with the time of the last frame it received; unset until it opens. */
+type Live = { socket: SocketLike; lastFrameAt?: number }
+
 /** One reconnecting backend tunnel; agent runtime listeners stay on loopback. */
 export class RuntimeTunnelClient {
   private readonly instanceStreams: InstanceStreams
-  private socket: SocketLike | undefined
+  private live: Live | undefined
   private readonly streams = new Map<string, { runtime: SocketLike; pending: string[] }>()
   private stopMetrics: (() => void) | undefined
   private running = false
@@ -29,8 +32,8 @@ export class RuntimeTunnelClient {
   private attempt = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined
   private idleTimer: ReturnType<typeof setTimeout> | undefined
-  private lastFrameAt: number | undefined // unset until the socket opens
   private dropped: TunnelDrop | undefined // why the last live socket was given up
+  private closeReplaced: (() => void) | undefined // the redialed socket, closed once replaced
   private readonly deps: TunnelClientDeps
 
   constructor(deps: TunnelClientDeps) {
@@ -48,14 +51,21 @@ export class RuntimeTunnelClient {
 
   stop(): void {
     this.running = false
+    this.closeReplaced?.()
     this.drop()
     this.deps.onChange?.(false, false)
   }
 
-  /** Dials again now instead of waiting out the backoff, e.g. after the computer woke up. */
+  /**
+   * The computer woke or was unlocked, so the tunnel may have been away with it. A tunnel
+   * that is still answering is left alone: replacing it would end every stream on it, and
+   * silence is already what says a tunnel is gone. Only the window it is given to prove
+   * itself restarts, counted from the wake rather than from before the computer slept. With
+   * no socket there is nothing to wait for, so the backoff is skipped and it dials at once.
+   */
   reconnectNow(): void {
     if (!this.running) return
-    this.drop('reconnect')
+    if (this.live) return this.armIdle(this.live)
     this.attempt = 0
     this.connect()
   }
@@ -71,6 +81,7 @@ export class RuntimeTunnelClient {
         localMetrics: Boolean(this.deps.sampleMetrics),
         localExec: Boolean(this.deps.connectExec),
         localUpload: Boolean(this.deps.connectUpload),
+        localDownload: Boolean(this.deps.connectDownload),
         localTerminal: Boolean(this.deps.connectTerminal),
         localCua: Boolean(this.deps.connectCua),
         localBrowser: Boolean(this.deps.connectBrowser),
@@ -82,9 +93,11 @@ export class RuntimeTunnelClient {
   }
 
   private drop(reason?: TunnelDrop['reason'], code?: number): void {
+    const live = this.live
+
     // Only a socket that opened counts; a failed dial is not a lost tunnel.
-    if (reason && this.lastFrameAt !== undefined)
-      this.dropped ??= { reason, code, silentMs: Date.now() - this.lastFrameAt }
+    if (reason && live?.lastFrameAt !== undefined)
+      this.dropped = { reason, code, silentMs: Date.now() - live.lastFrameAt }
     this.stopMetrics?.()
     clearTimeout(this.reconnectTimer)
     clearTimeout(this.idleTimer)
@@ -92,27 +105,51 @@ export class RuntimeTunnelClient {
     this.streams.clear()
     this.instanceStreams.clear()
     this.deps.activity?.clear()
-    const socket = this.socket
+    const socket = live?.socket
+    const why = this.running ? 'reconnecting' : 'stopped'
+    const close = () => {
+      if (socket?.terminate) socket.terminate()
+      else socket?.close(1000, why)
+    }
 
-    this.socket = undefined
-    if (socket?.terminate) socket.terminate()
-    else socket?.close(1000, 'reconnecting')
+    this.live = undefined
+    // A silent or stale socket stays open while the redial runs. The backend keeps serving
+    // through it until the new tunnel speaks, then takes it over; closing it first would end
+    // every stream before a tunnel exists to take them (#3366).
+    if (!socket || !this.running || reason !== 'idle') return close()
+    this.closeReplaced?.()
+    const timer = setTimeout(() => this.closeReplaced?.(), TUNNEL_IDLE_TIMEOUT_MS)
+
+    this.closeReplaced = () => {
+      clearTimeout(timer)
+      this.closeReplaced = undefined
+      close()
+    }
   }
 
   private send(frame: object): void {
-    if (this.socket?.readyState === OPEN) this.socket.send(JSON.stringify(frame))
+    if (this.live?.socket.readyState === OPEN) this.live.socket.send(JSON.stringify(frame))
   }
 
   /** Silence counts from the last thing the open socket received, its opening included. */
-  private armIdle(socket: SocketLike, lastFrameAt?: number): void {
-    this.lastFrameAt = lastFrameAt
+  private armIdle(live: Live, lastFrameAt = live.lastFrameAt): void {
+    live.lastFrameAt = lastFrameAt
     clearTimeout(this.idleTimer)
     this.idleTimer = setTimeout(() => {
-      if (this.socket !== socket) return
+      if (this.live !== live) return
       this.drop('idle')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      this.lost()
     }, TUNNEL_IDLE_TIMEOUT_MS)
+  }
+
+  /** The redial is armed before the listener runs, so a listener that throws cannot strand the tunnel. */
+  private lost(revoked = false): void {
+    this.scheduleReconnect()
+    try {
+      this.deps.onChange?.(false, this.superseded, revoked)
+    } catch (error) {
+      console.warn('[local-runtime] tunnel state listener threw', error)
+    }
   }
 
   private connect(): void {
@@ -125,13 +162,15 @@ export class RuntimeTunnelClient {
 
       return
     }
-    this.socket = socket
-    this.armIdle(socket)
+    const live: Live = { socket }
+
+    this.live = live
+    this.armIdle(live)
     socket.addEventListener('open', () => {
-      if (this.socket !== socket) return
+      if (this.live !== live) return
       this.attempt = 0
       this.superseded = false
-      this.armIdle(socket, Date.now())
+      this.armIdle(live, Date.now())
       this.sendStatus()
       if (this.dropped) this.send({ t: 'dropped', ...this.dropped })
       this.dropped = undefined
@@ -142,28 +181,23 @@ export class RuntimeTunnelClient {
       this.deps.onChange?.(true, false)
     })
     socket.addEventListener('message', (event) => {
-      if (this.socket !== socket) return
-      this.armIdle(socket, Date.now())
+      if (this.live !== live) return
+      this.armIdle(live, Date.now())
       const frame = parseFrame(event.data)
 
       if (frame) this.handle(frame)
     })
+    // A failed connection fires `error` and then `close`; only `close` says why, in its code.
     socket.addEventListener('close', (event) => {
-      if (this.socket !== socket) return
+      if (this.live !== live) return
       this.drop('closed', event.code)
       // Taken over: redial with reclaim, which the backend refuses while the other app holds it.
       if (event.code === CLOSE_SUPERSEDED) this.superseded = true
-      this.deps.onChange?.(false, this.superseded)
-      if (event.code === CLOSE_REVOKED) {
-        this.running = false
-        this.deps.onRevoked?.()
-      } else this.scheduleReconnect()
-    })
-    socket.addEventListener('error', () => {
-      if (this.socket !== socket) return
-      this.drop('error')
-      this.deps.onChange?.(false, this.superseded)
-      this.scheduleReconnect()
+      const revoked = event.code === CLOSE_REVOKED
+
+      if (revoked) this.running = false
+      this.lost(revoked)
+      if (revoked) this.deps.onRevoked?.()
     })
   }
 
@@ -174,7 +208,7 @@ export class RuntimeTunnelClient {
     this.attempt += 1
     clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(() => {
-      if (this.running && !this.socket) this.connect()
+      if (this.running && !this.live) this.connect()
     }, delay)
   }
 

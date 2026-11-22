@@ -96,22 +96,31 @@ export function useChatItems({
       picked: avatarPicks.get(conversation.sessionId),
     })
     // A menu rather than a one-click archive: a stray click only opens it.
+    const parent = conversation.parentSessionId && byId.get(conversation.parentSessionId)
     const row = {
       ...item,
+      // A Bot's sub-agents show no status on it when it is folded: only its face says it works.
+      ...(parent &&
+        isBotRow(parent, avatarPicks.get(parent.sessionId)) && { foldedStatus: undefined }),
       ...(pendingReplies.has(conversation.sessionId) && {
         taskState: 'attention' as const,
         finished: false,
       }),
       actions: <RowMenuButton title={item.label} />,
     }
-    const botId = conversation.kind === 'channel' ? botOfChannel(conversation) : undefined
+    // A Bot's chat, or a Bot with no chat yet in its own row: both show the Bot's work alike.
+    const botId =
+      conversation.kind === 'channel'
+        ? botOfChannel(conversation)
+        : item.bot
+          ? conversation.sessionId
+          : undefined
 
     if (!botId) return [row]
     const bot = byId.get(botId)
 
-    return botChatRows({
+    const rows = botChatRows({
       openId,
-      unreadIds: unreadSessions,
       faces: conversation.faces,
       chat: row,
       bot: bot && run(bot),
@@ -119,5 +128,8 @@ export function useChatItems({
       teamId,
       unread,
     })
+
+    // A Bot's own row already has its sub-agents under it; only a chat gathers copies of them.
+    return conversation.kind === 'channel' ? rows : rows.slice(0, 1)
   })
 }

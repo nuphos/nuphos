@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">El turno falló.</string>
+    <string name="failed_turn_timed_out">Se agotó el tiempo del turno.</string>
+    <string name="failed_turn_stopped">Detenido.</string>
+    <string name="failed_turn_retry">Reintentar</string>
+    <string name="failed_turn_copy">Copiar</string>
+    <string name="failed_turn_copied">Copiado</string>
+</resources>

@@ -15,15 +15,76 @@ import { userSessions } from '@/lib/identity/sessions'
  */
 const WINDOW_MS = 10 * 60 * 1000
 
+/** Where a tool or cloud credential is bound to a team. */
+const CONNECTORS = [
+  'aliyun-accounts',
+  'asana-accounts',
+  'aws-accounts',
+  'azure-accounts',
+  'betterstack-integrations',
+  'cloudflare-accounts',
+  'database-connections',
+  'gcp-projects',
+  'github-installations',
+  'gitlab-bindings',
+  'google-oauth-client',
+  'grafana-instances',
+  'hetzner-accounts',
+  'huawei-accounts',
+  'instabox-accounts',
+  'jira-sites',
+  'linear-workspaces',
+  'linode-accounts',
+  'notion-integrations',
+  'onprem-clusters',
+  'plaud-accounts',
+  'posthog-integrations',
+  'resend-integrations',
+  'secureframe-integrations',
+  'sentry-accounts',
+  'sonarqube-integrations',
+  'tailscale-clients',
+  'tencent-accounts',
+  'trello-integrations',
+  'upstash-accounts',
+  'uptime-kuma-instances',
+  'vanta-integrations',
+  'volcengine-accounts',
+  'zeabur-providers',
+].join('|')
+
+/** The sensitive actions: what a stolen session should not be able to do alone. */
+const STEP_UP: [RegExp, RegExp][] = [
+  // Connecting or changing a credential, including starting its OAuth flow.
+  // `test` only tries a connection and binds nothing.
+  [/^(POST|PUT|PATCH)$/, new RegExp(`^/teams/[^/]+/(${CONNECTORS})(/(?!test/?$)[^/]+)?/?$`)],
+  [/^POST$/, /^\/teams\/[^/]+\/connector-oauth\/[^/]+\/complete\/?$/],
+  [/^POST$/, /^\/personal-credentials\/[^/]+\/(start|complete)\/?$/],
+  // Minting a credential for a terminal, a device or an agent.
+  [/^POST$/, /^\/auth\/cli-tokens\/?$/],
+  [/^POST$/, /^\/auth\/device\/approve\/?$/],
+  [/^POST$/, /^\/agent\/devices\/join-tokens\/?$/],
+  // The team and the account themselves.
+  [/^DELETE$/, /^\/teams\/[^/]+\/?$/],
+  [/^PATCH$/, /^\/teams\/[^/]+\/members\/[^/]+\/?$/],
+  [/^POST$/, /^\/teams\/[^/]+\/transfer-ownership\/?$/],
+  [/^POST$/, /^\/auth\/account-deletion\/?$/],
+]
+
+export function isStepUpRoute(method: string, path: string): boolean {
+  return STEP_UP.some(([m, p]) => m.test(method) && p.test(path))
+}
+
 export async function requireRecentVerification(
   userId: string,
   sessionId: string | undefined,
   forEveryAccount = false,
 ): Promise<void> {
-  if (!sessionId) throw new AppError(403, 'session_required', 'Sign in again to continue')
   const mfa = await isMfaEnabled(userId)
 
   if (!mfa && !forEveryAccount) return
+  // A sign-in from before sessions has nothing to verify against.
+  if (!sessionId) throw new AppError(403, 'session_required', 'Sign in again to continue')
   const session = await userSessions().findOne(
     { _id: new ObjectId(sessionId) },
     { projection: { createdAt: 1, verifiedAt: 1 } },

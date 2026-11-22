@@ -220,8 +220,21 @@ sealed class ChatPart {
             get() {
                 if (input?.get("category")?.stringValue != "credential") return null
                 val name = input["secretName"]?.stringValue?.takeIf { SECRET_NAME.matches(it) } ?: return null
-                return SecretRequest(name, input["question"]?.stringValue.orEmpty())
+                val fields = secretFields(input["fields"], input["site"])
+                return SecretRequest(name, input["question"]?.stringValue.orEmpty(), fields, input["site"]?.stringValue.takeIf { fields != null })
             }
+
+        /**
+         * A question Desktop draws as its question card, never as a tool row. The app answers it
+         * from the Inbox and shows the answer as its answered line, so the transcript draws nothing
+         * for the call. A secret keeps its card, an integration its row, and a call that really
+         * failed its row.
+         */
+        val isQuestionCard: Boolean
+            get() = toolName == "request_user_decision" && secretRequest == null &&
+                input?.get("category")?.stringValue != "integration" &&
+                !input?.get("question")?.stringValue.isNullOrBlank() &&
+                !(state == State.OutputError && errorText != Words(R.string.convtext_tool_interrupted))
 
         /** The request id the decision's result names; the call id otherwise. */
         val decisionRequestId: String get() = output?.get("requestId")?.stringValue ?: toolCallId
@@ -277,16 +290,52 @@ sealed class ChatPart {
         val isFinished: Boolean
             get() = state in setOf(State.OutputAvailable, State.OutputError, State.OutputDenied)
 
-        data class SecretRequest(val name: String, val reason: String) {
+        /** One input of a secure card that asks for several: its file name and what the person reads. */
+        data class SecretField(val name: String, val label: String)
+
+        /**
+         * With `fields` and a `site` it asks for a website form's details together; fields
+         * the app cannot read leave the one masked input for `name`.
+         */
+        data class SecretRequest(val name: String, val reason: String, val fields: List<SecretField>? = null, val site: String? = null) {
             companion object {
                 /** The reply that answers the request, before the file's path; the desktop's text. */
                 fun savedReply(name: String) = "🔒 $name saved to "
+
+                /**
+                 * The reply a card with several fields sends: it opens as a single secret's
+                 * does, so every client reads it as saved, then names one file per field.
+                 */
+                fun fieldsSavedReply(name: String, saved: List<Pair<String, String>>) =
+                    (listOf(savedReply(name) + "these files, one per field:") + saved.map { (field, path) -> "$field: $path" }).joinToString("\n")
             }
         }
 
         companion object {
             /** The backend takes ASCII names only. */
             private val SECRET_NAME = Regex("^[A-Za-z][A-Za-z0-9_]{0,63}$")
+            private val HOST_LABEL = Regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+            private val SITE = Regex("^([a-z0-9.-]+)(:[1-9][0-9]{0,4})?$")
+
+            /** A site as the backend accepts it: a lowercase host name and, if not the default, a port. */
+            fun isSiteHost(site: String): Boolean {
+                if (site.length > 253) return false
+                val host = SITE.matchEntire(site)?.groupValues?.get(1) ?: return false
+                val labels = host.split(".")
+                return host == "localhost" || (labels.size > 1 && labels.all { HOST_LABEL.matches(it) })
+            }
+
+            /** The card's `fields`, only when they and its `site` are what the backend accepts. */
+            private fun secretFields(value: JsonValue?, site: JsonValue?): List<SecretField>? {
+                val items = value?.arrayValue?.takeIf { it.size in 1..6 } ?: return null
+                if (site?.stringValue?.let(::isSiteHost) != true) return null
+                val fields = items.mapNotNull { item ->
+                    val name = item["name"]?.stringValue?.takeIf { SECRET_NAME.matches(it) } ?: return@mapNotNull null
+                    val label = item["label"]?.stringValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                    SecretField(name, label)
+                }
+                return fields.takeIf { it.size == items.size && it.map { field -> field.name.lowercase() }.toSet().size == items.size }
+            }
             val CLIENT_ONLY = setOf(
                 "local_exec", "port_forward_start", "port_forward_stop", "port_forward_list", "upload_attachment",
             )

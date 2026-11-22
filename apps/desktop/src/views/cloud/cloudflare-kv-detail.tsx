@@ -1,11 +1,11 @@
-import { faPlus, faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Plus as PlusIcon, Trash2 as Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useReportLoading } from '../../components/useReportLoading'
 import { t } from '../../i18n'
 import { useResetOnKey } from '../useResetOnKey'
@@ -116,7 +116,7 @@ export function CloudflareKvNamespaceDetailView({
           onClick={() => setEditing({ key: '', value: '', isNew: true })}
           className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-secondary hover:text-main text-[12.5px] flex items-center gap-1.5"
         >
-          <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" /> {t('Add key')}
+          <UiIcon size={16} icon={PlusIcon} className="w-4 h-4" /> {t('Add key')}
         </button>
       </CfDetailActionBar>
       <div className="px-4 py-2 border-b border-line-control flex items-center gap-2">
@@ -177,7 +177,7 @@ export function CloudflareKvNamespaceDetailView({
                     className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
                     title={t('Delete key')}
                   >
-                    <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+                    <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" />
                   </button>
                 ),
               },
@@ -213,7 +213,7 @@ export function CloudflareKvNamespaceDetailView({
       )}
 
       <ConfirmDialog
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         title={t('Delete key?')}
         description={
           pendingDelete

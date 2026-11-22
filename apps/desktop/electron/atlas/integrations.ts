@@ -1,5 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
 
+import type { BindingShare } from './binding-access'
 import type { BindingAccess } from './teams'
 
 export type LinodeAccount = {
@@ -41,11 +43,12 @@ export async function bindLinodeAccount(
   teamId: string,
   label: string,
   token: string,
+  share?: BindingShare,
 ): Promise<LinodeAccount> {
   return call<LinodeAccount>(
     'POST',
     `/teams/${teamId}/linode-accounts`,
-    { label, token },
+    withShare({ label, token }, share),
     { retry: false },
   )
 }
@@ -69,11 +72,12 @@ export async function bindHetznerAccount(
   teamId: string,
   label: string,
   token: string,
+  share?: BindingShare,
 ): Promise<HetznerAccount> {
   return call<HetznerAccount>(
     'POST',
     `/teams/${teamId}/hetzner-accounts`,
-    { label, token },
+    withShare({ label, token }, share),
     { retry: false },
   )
 }
@@ -98,11 +102,12 @@ export async function bindUpstashAccount(
   label: string,
   email: string,
   apiKey: string,
+  share?: BindingShare,
 ): Promise<UpstashAccount> {
   return call<UpstashAccount>(
     'POST',
     `/teams/${teamId}/upstash-accounts`,
-    { label, email, apiKey },
+    withShare({ label, email, apiKey }, share),
     { retry: false },
   )
 }
@@ -120,11 +125,12 @@ export async function bindResendIntegration(
   teamId: string,
   label: string,
   apiKey: string,
+  share?: BindingShare,
 ): Promise<ResendIntegration> {
   return call<ResendIntegration>(
     'POST',
     `/teams/${teamId}/resend-integrations`,
-    { label, apiKey },
+    withShare({ label, apiKey }, share),
     { retry: false },
   )
 }

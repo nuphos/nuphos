@@ -1,8 +1,10 @@
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useIdentity } from '@/lib/test/doubles/identity'
+import { useLocalRuntimePresence } from '@/lib/test/doubles/local-runtime-presence'
 import type { TeamMembership } from '@/lib/identity/types'
 import { describe, expect, test } from 'bun:test'
 
+import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { useAgentSessionsShared } from '@/lib/test/doubles/agent-sessions-shared'
 import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { emptyConnectorCredentialOptions } from '@/routes/agent/credential-options-connectors'
@@ -98,6 +100,10 @@ const credentialAccess = useAgentSessionsShared({
   getAgentCredentialAccess: () => Promise.resolve(access),
 })
 
+const presence = createMemoryPresenceStore()
+
+useLocalRuntimePresence({ runtimePresenceStore: () => presence })
+
 const { localExecToolModule, resolveAvailableLocalExecDevices } = await import('./local-exec')
 
 const ctx = { userId: 'u1', teamId: 't1', sessionId: 'conv-1', locale: 'en' }
@@ -107,12 +113,10 @@ describe('localExecToolModule', () => {
     const module = await localExecToolModule(ctx)
     const names = module.definitions.map((definition) => (definition as { name: string }).name)
 
-    expect(names).toEqual(['local_upload', 'local_terminal', 'local_exec'])
-    expect(Object.keys(module.handlers(ctx))).toEqual([
-      'local_upload',
-      'local_terminal',
-      'local_exec',
-    ])
+    const tools = ['local_upload', 'local_download', 'local_terminal', 'local_exec']
+
+    expect(names).toEqual(tools)
+    expect(Object.keys(module.handlers(ctx))).toEqual(tools)
   })
 
   test('offers selected devices that are available, and offline Boxes with a wake', async () => {
@@ -152,4 +156,17 @@ test('a shared turn resolves the owner selection instead of the teammate devices
 
   expect(devices.map((device) => device.deviceId)).toEqual(['mac', 'box'])
   expect(devices.find((device) => device.deviceId === 'box')?.wake).toBeFunction()
+})
+
+test('offers a terminal only on a computer whose runtime reports it can open one', async () => {
+  const status = (localTerminal: boolean) => ({ agents: {}, localExec: true, localTerminal })
+
+  await presence.claim('u1', 'mac', 'c1', { conn: 'c1', seenAt: 1, status: status(true) })
+  await presence.claim('u1', 'box', 'c2', { conn: 'c2', seenAt: 1, status: status(false) })
+
+  const terminals = await resolveAvailableLocalExecDevices(ctx, 'terminal')
+  const devices = await resolveAvailableLocalExecDevices(ctx)
+
+  expect(terminals.map((device) => device.deviceId)).toEqual(['mac'])
+  expect(devices.map((device) => device.deviceId)).toEqual(['mac', 'box'])
 })

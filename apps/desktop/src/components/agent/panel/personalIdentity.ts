@@ -3,6 +3,10 @@ import { t } from '../../../i18n/index.ts'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
+/** The selection keys that are identity or own-account choices, not credential options. */
+export type IdentityKey =
+  'teamIdentity' | 'personalCredentialIds' | 'personalConnectionIds' | 'personalAccountCount'
+
 // Who the agent acts as on the team's binding of GitHub / Linear: the member, or
 // the team. Not the member's own credential (personalCredentialIds), which is a
 // row of its own. Like every row, it counts toward the N/M badge.
@@ -45,25 +49,29 @@ export function setPersonalIdentity(
 // is kept, not dropped: the backend reads a missing key as "keep what is stored".
 export function teamIdentityOf(
   value: Partial<AgentCredentialSelection> | null | undefined,
-): Pick<AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'> {
+): Pick<AgentCredentialSelection, Exclude<IdentityKey, 'personalAccountCount'>> {
   return {
     ...(value?.teamIdentity ? { teamIdentity: [...value.teamIdentity] } : {}),
     ...(value?.personalCredentialIds
       ? { personalCredentialIds: [...value.personalCredentialIds] }
+      : {}),
+    // Without it the backend keeps what is stored, so a save never drops the owner's pick.
+    ...(value?.personalConnectionIds
+      ? { personalConnectionIds: [...value.personalConnectionIds] }
       : {}),
   }
 }
 
 /** A pruned selection with `from`'s teamIdentity and own credentials carried over. */
 export function keepTeamIdentity(
-  pruned: Omit<AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'>,
+  pruned: Omit<AgentCredentialSelection, IdentityKey>,
   from: AgentCredentialSelection,
 ): AgentCredentialSelection {
   return { ...pruned, ...teamIdentityOf(from) }
 }
 
 /**
- * The member's own GitHub / Linear rows that Select all and the N/M badge count, as
+ * The member's own Personal Credential rows that Select all and the N/M badge count, as
  * drawn: the own credential, and under a team binding also the identity row
  * (ticked = the binding acts as the member).
  */
@@ -74,10 +82,10 @@ export function personalRows(options: AgentCredentialOptions, value: AgentCreden
       identity: false,
       checked: (value.personalCredentialIds ?? []).includes(provider),
     }
+    // Only GitHub and Linear have a team binding that can act as the member.
     const bound =
-      provider === 'github'
-        ? options.githubInstallations.length > 0
-        : options.linearWorkspaces.length > 0
+      (provider === 'github' && options.githubInstallations.length > 0) ||
+      (provider === 'linear' && options.linearWorkspaces.length > 0)
 
     if (!bound) return [own]
 
@@ -111,7 +119,7 @@ export function setAllPersonal(
 /** Ticked = this conversation may use the member's own credential of `provider`. */
 export function setPersonalOnly(
   value: AgentCredentialSelection,
-  provider: 'github' | 'linear',
+  provider: PersonalCredentialProvider,
   selected: boolean,
 ): AgentCredentialSelection {
   const rest = (value.personalCredentialIds ?? []).filter((p) => p !== provider)

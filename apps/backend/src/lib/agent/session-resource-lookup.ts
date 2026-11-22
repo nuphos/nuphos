@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
+import { canPrincipalsUseAllowList } from '@/lib/byos/access'
 import { findGithubInstallation, findGitlabBinding, findLinearWorkspace } from '@/lib/byos/account'
 import { getInstallationToken } from '@/lib/byos/github'
 import { GITHUB_API, githubFetch } from '@/lib/byos/github-http'
@@ -9,8 +9,10 @@ import { linearGraphql } from '@/lib/byos/linear'
 import { withLinearAccessToken } from '@/lib/byos/linear-tokens'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
+import { logEvent } from '@/lib/observability'
 
-import { credentialSource } from './db'
+import { agentConversations, credentialSource } from './db'
+import { resolveGithubIssue } from './github-issue-lookup'
 import { fetchPullHealth } from './github-pull-health'
 import { mergedAtOf } from './merged-at'
 
@@ -36,22 +38,40 @@ export async function resourceCredentialAllowed(
   }[resource.provider]
 
   if (!selected?.includes(resource.integrationId)) return false
-  const team = new ObjectId(conversation.teamId)
-
-  if (resource.provider === 'github')
-    return Boolean(await findGithubInstallation(team, Number(resource.integrationId)))
-  const id = new ObjectId(resource.integrationId)
-  const binding =
-    resource.provider === 'gitlab'
-      ? await findGitlabBinding(team, id)
-      : await findLinearWorkspace(team, id)
-  const allowList = binding?.access?.memberAllowList
+  const binding = await findResourceBinding(new ObjectId(conversation.teamId), resource)
 
   return Boolean(
     binding &&
-    canUseAllowList(allowList, actorId) &&
-    canUseAllowList(allowList, conversation.userId),
+    canPrincipalsUseAllowList(binding.access?.memberAllowList, [actorId, conversation.userId]),
   )
+}
+
+/**
+ * The conversations linking `key` that may still read it. A webhook writes
+ * fresh state only to these, so a member taken off the integration's list
+ * stops receiving it.
+ */
+export async function allowedResourceRecipients(key: string): Promise<ObjectId[]> {
+  const ids: ObjectId[] = []
+
+  for await (const conversation of agentConversations().find({ 'linkedResources.key': key })) {
+    const resource = conversation.linkedResources?.find((entry) => entry.key === key)
+
+    if (conversation._id && resource && (await resourceCredentialAllowed(conversation, resource)))
+      ids.push(conversation._id)
+  }
+
+  return ids
+}
+
+function findResourceBinding(
+  team: ObjectId,
+  { provider, integrationId }: Pick<SessionResource, 'provider' | 'integrationId'>,
+) {
+  if (provider === 'github') return findGithubInstallation(team, Number(integrationId))
+  const id = new ObjectId(integrationId)
+
+  return provider === 'gitlab' ? findGitlabBinding(team, id) : findLinearWorkspace(team, id)
 }
 
 function inputIntegrationId(input: z.infer<typeof sessionResourceInput>) {
@@ -64,6 +84,8 @@ export async function resolveResource(
   conversation: AgentConversation,
   actorId: string,
   input: z.infer<typeof sessionResourceInput>,
+  /** What a stored link already knows: a known issue skips the pull request lookup. */
+  known: Pick<SessionResource, 'kind'> = {},
 ): Promise<ResolvedResource> {
   const integrationId = inputIntegrationId(input)
 
@@ -82,6 +104,9 @@ export async function resolveResource(
   }
   if (input.provider === 'github') {
     const { token } = await getInstallationToken(input.installationId)
+
+    if (known.kind === 'issue')
+      return resolveGithubIssue(input, integrationId, token, githubLookupError)
     const response = await githubFetch(
       `${GITHUB_API}/repos/${input.repository}/pulls/${input.number}`,
       {
@@ -89,8 +114,10 @@ export async function resolveResource(
       },
     )
 
-    if (!response.ok)
-      throw new AppError(502, 'resource_lookup_failed', `GitHub returned ${response.status}`)
+    // An issue's number is not a pull request's: GitHub answers 404 there.
+    if (response.status === 404)
+      return resolveGithubIssue(input, integrationId, token, githubLookupError)
+    if (!response.ok) throw githubLookupError(response, input.repository, input.number)
     const pr = (await response.json()) as {
       number: number
       title: string
@@ -157,6 +184,52 @@ export async function resolveResource(
     state: issue.state.name,
     stateType: issue.state.type,
   }
+}
+
+/**
+ * Why GitHub refused a pull request lookup, in words the agent can act on.
+ * GitHub answers 403 both for a spent quota and for a denial; the rate-limit
+ * headers tell them apart.
+ */
+function githubLookupError(response: Response, repository: string, number: number) {
+  const header = (name: string) => response.headers.get(name) ?? undefined
+  const remaining = header('x-ratelimit-remaining')
+  const reset = header('x-ratelimit-reset')
+  const retryAfter = header('retry-after')
+
+  logEvent('warn', 'github.resource.lookup_failed', {
+    status: response.status,
+    rateLimitRemaining: remaining,
+    rateLimitReset: reset,
+    rateLimitResource: header('x-ratelimit-resource'),
+    retryAfter,
+  })
+  if (response.status === 429 || (response.status === 403 && (remaining === '0' || retryAfter))) {
+    let when = 'the hourly reset'
+
+    if (retryAfter) when = `${retryAfter} seconds`
+    else if (reset) when = `${new Date(Number(reset) * 1000).toISOString().slice(11, 16)} UTC`
+
+    return new AppError(
+      429,
+      'github_rate_limited',
+      `GitHub API rate limit reached for this App installation; retry after ${when}`,
+    )
+  }
+  if (response.status === 403)
+    return new AppError(
+      403,
+      'forbidden',
+      `The GitHub App installation has no access to ${repository}; grant it the repository and pull request read permission`,
+    )
+  if (response.status === 404)
+    return new AppError(
+      404,
+      'not_found',
+      `${repository}#${String(number)} was not found, or the GitHub App installation cannot see ${repository}`,
+    )
+
+  return new AppError(502, 'resource_lookup_failed', `GitHub returned ${String(response.status)}`)
 }
 
 type GitlabInput = Extract<z.infer<typeof sessionResourceInput>, { provider: 'gitlab' }>

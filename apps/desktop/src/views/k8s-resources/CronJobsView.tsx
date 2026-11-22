@@ -1,5 +1,4 @@
-import { faBolt, faPause, faPlay } from '@fortawesome/free-solid-svg-icons'
-import { Pause, Play } from 'lucide-react'
+import { Zap as ZapIcon, Pause, Play } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../api'
@@ -64,7 +63,7 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
           {
             key: 'suspend',
             label: t('Suspend'),
-            icon: faPause,
+            icon: Pause,
             confirm:
               selected.length === 1
                 ? t('Suspend {n} CronJob? Scheduled runs stop until resumed.', { n: 1 })
@@ -83,7 +82,7 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
           {
             key: 'resume',
             label: t('Resume'),
-            icon: faPlay,
+            icon: Play,
             confirm:
               selected.length === 1
                 ? t(
@@ -106,7 +105,7 @@ export function CronJobsView(props: NamespacedProps<CronJobItem>) {
           {
             key: 'trigger',
             label: t('Trigger|action'),
-            icon: faBolt,
+            icon: ZapIcon,
             confirm:
               selected.length === 1
                 ? t(

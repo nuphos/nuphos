@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credential-providers'
+
 import { objectIdStringSchema, zeaburIdStringSchema } from './paths'
 
 export const agentCredentialSelectionSchema = z.object({
@@ -32,7 +34,8 @@ export const agentCredentialSelectionSchema = z.object({
   cloudflareAccountIds: z.array(z.string().min(1)).optional(),
   instaboxAccountIds: z.array(objectIdStringSchema).optional(),
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
-  personalCredentialIds: z.array(z.enum(['github', 'linear'])).optional(),
+  personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
+  personalConnectionIds: z.array(objectIdStringSchema).optional(),
   deviceIds: z.array(z.string().min(1)).default([]),
 })
 
@@ -64,7 +67,10 @@ const agentCredentialAccessSchema = z.object({
   cloudflareAccountIds: z.array(z.string().min(1)).optional(),
   instaboxAccountIds: z.array(objectIdStringSchema).optional(),
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
-  personalCredentialIds: z.array(z.enum(['github', 'linear'])).optional(),
+  personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
+  personalConnectionIds: z.array(objectIdStringSchema).optional(),
+  // Sent instead of personalConnectionIds to anyone but the conversation's owner.
+  personalAccountCount: z.number().int().nonnegative().optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),

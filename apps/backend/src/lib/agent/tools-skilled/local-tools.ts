@@ -138,6 +138,14 @@ export async function wakeRefusal(deviceId: string, wake: (() => Promise<boolean
   }
 }
 
+/** A Box's `nuphos agent` has no terminal, so it is never offered one; say so when it is named. */
+function noTerminal(device: string | undefined, devices: LocalExecDevice[]): string {
+  const others = devices.length ? ` Terminals can open on: ${describeDevices(devices)}.` : ''
+  const subject = device ? `Device ${device} cannot` : 'No selected device can'
+
+  return `${subject} open a terminal: a Box's \`nuphos agent\` does not support terminals, and an offline computer cannot open one. Use local_exec on a Box instead.${others}`
+}
+
 /**
  * `local_exec` runs on the backend: it dispatches the command to a Desktop
  * device over its existing WebSocket tunnel and receives the result on that
@@ -170,6 +178,12 @@ export function createLocalExecTool(
       }): Promise<LocalExecToolResult> => {
         const requestedAt = new Date()
 
+        if (
+          purpose === 'terminal' &&
+          (device || devices.length === 0) &&
+          !pickDevice(devices, device)
+        )
+          return { error: noTerminal(device, devices) }
         if (devices.length === 0) {
           return {
             error:
@@ -249,22 +263,28 @@ export function createLocalExecTool(
 
           return outcome.result
         }
-        if (outcome.status === 'device_disconnected') {
-          await audit(deviceId, command, requestedAt, {
-            outcome: 'device_offline',
-            dispatchedAt,
-            operationId,
-          })
+        const { error, ...failure } = {
+          device_disconnected: {
+            outcome: 'device_offline' as const,
+            error: 'Device disconnected while the command was running.',
+          },
+          unsupported: {
+            outcome: 'rejected' as const,
+            reason: 'unsupported',
+            error:
+              purpose === 'terminal'
+                ? `Device ${deviceId} does not support terminals; use local_exec there instead.`
+                : `Device ${deviceId} does not support local commands.`,
+          },
+          timeout: {
+            outcome: 'timeout' as const,
+            error: 'Timed out waiting for the device to run the command.',
+          },
+        }[outcome.status]
 
-          return { error: 'Device disconnected while the command was running.' }
-        }
-        await audit(deviceId, command, requestedAt, {
-          outcome: 'timeout',
-          dispatchedAt,
-          operationId,
-        })
+        await audit(deviceId, command, requestedAt, { ...failure, dispatchedAt, operationId })
 
-        return { error: 'Timed out waiting for the device to run the command.' }
+        return { error }
       },
     },
     {

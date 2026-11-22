@@ -9,7 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.nuphos.android.data.*
@@ -38,6 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class RuntimeControlFixtureDeviceTest {
     @Volatile private var failCancel = false
     @Volatile private var chatRefused = false
+    @Volatile private var runtimeUnreachable = false
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val originals = mutableMapOf<String, OkHttpClient>()
     private data class Recorded(val method: String, val path: String, val body: JsonValue)
@@ -71,7 +72,7 @@ class RuntimeControlFixtureDeviceTest {
                     "{\"type\":\"atlas-turn-complete\"}",
                     "{\"type\":\"atlas-stream-done\"}"
                 ).joinToString("") { "data: $it\n\n" }
-                cancel -> "{\"ok\":true,\"status\":\"requested\"}"
+                cancel -> "{\"ok\":true,\"status\":\"${if (runtimeUnreachable) "runtime_unreachable" else "requested"}\"}"
                 else -> "{\"error\":{\"message\":\"Fixture polling unavailable\"}}"
             }
             // Failed synthetic reads keep the explicitly seeded status from being refreshed by polling.
@@ -115,7 +116,7 @@ class RuntimeControlFixtureDeviceTest {
         readOnly: Boolean = false, parts: List<ChatPart> = assistant.parts,
         transfers: AttachmentTransfers = AttachmentTransfers(),
         steer: suspend (String, String, String, String) -> String = RuntimeApi::steer,
-        retained: ComposerSubmission? = null) {
+        retained: ComposerSubmission? = null, seededMessages: List<ChatMessage>? = null) {
         // Drafts are saved per conversation, so one test's text would otherwise reach the next.
         val shares = (compose.activity.application as NuphosApplication).incomingShares
         kotlinx.coroutines.runBlocking {
@@ -128,7 +129,7 @@ class RuntimeControlFixtureDeviceTest {
         compose.runOnIdle {
             state(store, "selectedTeam", Team("ui-team", "UI fixture"))
             state(session, "loaded", true)
-            state(session, "messages", listOf(assistant.copy(parts = parts)))
+            state(session, "messages", seededMessages ?: listOf(assistant.copy(parts = parts)))
             metadata(snapshot, native, readOnly)
             if (retained != null) {
                 state(session, "uploadDraft", retained)
@@ -155,7 +156,7 @@ class RuntimeControlFixtureDeviceTest {
             }
         }
         compose.waitUntil(10_000) { (compose.activity.application as NuphosApplication).incomingShares.isBound("runtime-fixture") }
-        compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+        compose.onNodeWithContentDescription(compose.activity.getString(R.string.chat_back)).assertIsDisplayed()
     }
     private fun submit(text: String) {
         compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput(text)
@@ -168,6 +169,59 @@ class RuntimeControlFixtureDeviceTest {
         }
     }
     private fun assertNoMutations() = Assert.assertTrue(requests.none { it.method != "GET" })
+
+    private fun failedMessages(reason: String = "error"): List<ChatMessage> = listOf(
+        ChatMessage("failed-prompt", ChatMessage.Role.User, listOf(ChatPart.Text(text = "Retry this original prompt")),
+            metadata = JsonValue.parse("""{"sender":{"id":"runtime-fixture"}}""")),
+        ChatMessage("failed-reply", parts = listOf(ChatPart.Other(JsonValue.parse(
+            """{"type":"turn-interrupted","id":"failure","reason":"$reason","message":"Synthetic provider failure","createdAt":"2026-11-19T03:00:00Z"}""")!!))),
+    )
+
+    private fun failureShot(name: String) {
+        compose.waitForIdle()
+        val inst = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val image = inst.uiAutomation.takeScreenshot() ?: error("No screenshot")
+        val dir = java.io.File(inst.targetContext.getExternalFilesDir(null), "review-failed-turn").apply { mkdirs() }
+        java.io.File(dir, "$name.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
+    }
+
+    @Test fun failedTurnCopiesReportAndRetriesOriginalPromptOnce() {
+        render(snapshot = null, native = false, seededMessages = failedMessages())
+        val copy = compose.onNodeWithTag("failed-turn-copy:interrupted.failed-reply.failure")
+        val retry = compose.onNodeWithTag("failed-turn-retry:interrupted.failed-reply.failure")
+        retry.assertIsDisplayed(); copy.assertIsDisplayed()
+        failureShot("01-actions")
+        copy.performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.failed_turn_copied)).assertExists()
+        var report: String? = null
+        compose.runOnIdle {
+            val clipboard = compose.activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            report = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+        }
+        Assert.assertEquals(compose.activity.getString(R.string.failed_turn_failed) + "\nSynthetic provider failure\n2026-11-19T03:00:00Z", report)
+        assertNoMutations()
+        failureShot("02-copied")
+        retry.performClick()
+        compose.waitUntil(10_000) { chats.isNotEmpty() }
+        Assert.assertEquals(1, chats.size)
+        val sent = chats.single().body["messages"]?.arrayValue.orEmpty().last()
+        Assert.assertEquals("Retry this original prompt", sent["parts"]?.arrayValue?.single()?.get("text")?.stringValue)
+        compose.onNodeWithTag("failed-turn-retry:interrupted.failed-reply.failure").assertDoesNotExist()
+    }
+
+    @Test fun readOnlyAndCancelledTurnsNeverOfferRetryAndRevocationStopsCopy() {
+        render(snapshot = null, native = false, readOnly = true, seededMessages = failedMessages())
+        compose.onNodeWithTag("failed-turn-retry:interrupted.failed-reply.failure").assertDoesNotExist()
+        compose.onNodeWithTag("failed-turn-copy:interrupted.failed-reply.failure").assertExists()
+        compose.runOnIdle { state(session, "messages", failedMessages("cancelled")) }
+        compose.onNodeWithTag("failed-turn-copy:interrupted.failed-reply.failure").assertDoesNotExist()
+        compose.onNodeWithTag("failed-turn-retry:interrupted.failed-reply.failure").assertDoesNotExist()
+        compose.runOnIdle { state(session, "messages", failedMessages()); AiAccess.revoke() }
+        compose.onNodeWithTag("failed-turn-copy:interrupted.failed-reply.failure").assertDoesNotExist()
+        compose.onNodeWithTag("failed-turn-retry:interrupted.failed-reply.failure").assertDoesNotExist()
+        assertNoMutations()
+    }
 
     /** Named "Queue message" while the runtime takes steering, "Send" otherwise. */
     private fun sendButton() = compose.onNode(hasContentDescription("Send") or hasContentDescription("Queue message"))
@@ -286,6 +340,16 @@ class RuntimeControlFixtureDeviceTest {
         Assert.assertFalse(session.stoppedByUser)
         Assert.assertEquals(1, requests.count { it.path.endsWith("/cancel-runtime") })
         Assert.assertTrue(chats.isEmpty())
+    }
+    @Test fun stopTheRuntimeNeverHeardSaysTheTurnWasStoppedHere() {
+        runtimeUnreachable = true
+        render(snapshot(cancel = true))
+        compose.onNodeWithContentDescription("Stop").performClick()
+        val notice = "The runtime didn't respond; the turn was stopped here."
+        compose.waitUntil(10_000) { compose.onAllNodesWithText(notice).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText(notice).assertIsDisplayed()
+        compose.onNodeWithText("Cancellation requested").assertDoesNotExist()
+        Assert.assertFalse(session.cancelRequested)
     }
     @Test fun steeringComposerQueuesInOrderAndRemovesOnlyUnsentTail() {
         val first = CompletableDeferred<String>()

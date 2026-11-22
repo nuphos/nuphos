@@ -8,6 +8,18 @@ export function isShownMessage(message: Message): boolean {
   return message.parts.length > 0 || message.turnOrigin === 'autonomous'
 }
 
+/**
+ * The id of the reply a tab's stream opens: the stream's own, which is the id the
+ * backend stores that reply under. The stored transcript then replaces the live
+ * reply as the same message, and what the person typed in a card in it stays.
+ * Once the stream has a reply under that id, a later one gets an id of its own.
+ */
+export function replyId(tab: Pick<Tab, 'streamId' | 'messages'>, newId: () => string): string {
+  const id = tab.streamId
+
+  return id && !tab.messages.some((message) => message.id === id) ? id : newId()
+}
+
 /** Stream output extends the open assistant message. A user message closes it,
  * so the next output opens a new one. Returns `messages` itself when nothing
  * changed. */
@@ -25,6 +37,14 @@ export function updateCurrentAssistantParts(
   if (open) return [...messages.slice(0, -1), { ...open, parts: nextParts }]
 
   return [...messages, { id: newId(), role: 'assistant', parts: nextParts }]
+}
+
+/** The open reply already says why its turn failed, with the backend's classified
+ * cause and actions, so the failure needs no second, raw error line. */
+export function openReplyExplainsFailure(messages: Message[]): boolean {
+  const last = messages.at(-1)
+
+  return last?.role === 'assistant' && last.parts.some((part) => part.type === 'turn-interrupted')
 }
 
 /**

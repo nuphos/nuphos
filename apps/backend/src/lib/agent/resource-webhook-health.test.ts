@@ -1,9 +1,13 @@
 import { beforeEach, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { invalidateInstallationToken } from '@/lib/byos/github'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useByosAccount } from '@/lib/test/doubles/byos-account'
 import { useGithubAppAuth } from '@/lib/test/doubles/github-app-auth'
 import { useGithubHttp } from '@/lib/test/doubles/github-http'
+import { useIdentity } from '@/lib/test/doubles/identity'
+import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
 
 import { routeResourceWebhook } from './resource-webhook'
 
@@ -13,19 +17,45 @@ let requested: string[] = []
 let checkConclusion = 'failure'
 let reviewPages: { user: { login: string }; state: string }[][] = []
 const head = 'a'.repeat(40)
+const key = 'github/12/34/56'
+// Two conversations link the PR; the installation's list now names only the first one's owner.
+const kept = new ObjectId()
+const linkedBy = (_id: ObjectId, userId: string) => ({
+  _id,
+  sessionId: _id.toHexString(),
+  userId,
+  teamId: new ObjectId().toHexString(),
+  credentialAccess: { githubInstallationIds: ['12'] },
+  linkedResources: [{ id: 'r', key, provider: 'github', integrationId: '12', state: 'merged' }],
+})
 
 useAgentDb({
   agentConversations: () => ({
-    findOne: async () => (linked ? { _id: 'conversation' } : null),
+    // Whether any tag links a PR of the repository, for a status's commit.
+    findOne: async () => (linked ? { _id: kept } : null),
+    find: () => ({
+      async *[Symbol.asyncIterator]() {
+        if (!linked) return
+        yield linkedBy(kept, 'kept-owner')
+        yield linkedBy(new ObjectId(), 'removed-owner')
+      },
+    }),
     updateMany: async (...args: unknown[]) => {
       updates.push(args)
 
       return { modifiedCount: 1 }
     },
-    // No session is woken in these tests.
-    find: () => ({ async *[Symbol.asyncIterator]() {} }),
   }),
 })
+useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) })
+useByosAccount({
+  findGithubInstallation: async () => ({
+    installationId: 12,
+    access: { memberAllowList: ['kept-owner'], updatedAt: new Date(), updatedBy: 'admin' },
+  }),
+})
+// No session is woken in these tests.
+useThreadQueue({ enqueueResourceTurn: async () => {} })
 useGithubAppAuth({ generateAppJwt: () => 'test-jwt' })
 useGithubHttp({
   githubFetch: async (url) => {
@@ -67,12 +97,12 @@ const suite = (conclusion: string) => ({
 })
 const review = (state: string) => ({ user: { login: 'reviewer' }, state })
 const healthUpdate = (health: string | null) => [
-  { 'linkedResources.key': 'github/12/34/56' },
+  { _id: { $in: [kept] } },
   { $set: { 'linkedResources.$[resource].health': health } },
   { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
 ]
 
-test('a failed CI run turns a linked PR tag red', async () => {
+test('a failed CI run turns a linked PR tag red, only where its integration is still usable', async () => {
   await routeResourceWebhook('check_suite', suite('failure'), 'delivery-1')
   expect(updates).toEqual([healthUpdate('checks_failed')])
   expect(requested).toContain('/repos/acme/app/pulls/56')
@@ -107,7 +137,7 @@ test('a merge stores the state and drops any stale health', async () => {
   )
   expect(updates).toEqual([
     [
-      { 'linkedResources.key': 'github/12/34/56' },
+      { _id: { $in: [kept] } },
       {
         $set: {
           'linkedResources.$[resource].state': 'merged',

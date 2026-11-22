@@ -143,6 +143,21 @@ test('an agent opens a channel as its owner and invites teammates', async () => 
   })
 })
 
+// A named chat with the Bot alone would be its 1:1 chat, which is called by the Bot.
+test('a chat an agent opens and names is a group, even with no one else in it', async () => {
+  const result = await tools('agent-a').channel_create?.({
+    label: 'x',
+    name: 'Launch',
+    people: ['owner'],
+  })
+  const { channelId } = (result as { structuredContent: { channelId: string } }).structuredContent
+
+  expect(await agentConversations().findOne({ sessionId: channelId })).toMatchObject({
+    title: 'Launch',
+    group: true,
+  })
+})
+
 test('only teammates and the owner’s own agents can be brought in', async () => {
   const before = (await channels()).length
   const outsider = await tools('agent-a').channel_create?.({
@@ -320,4 +335,45 @@ test('a member posts a follow-up into its channel, with only its own finished fi
   } finally {
     get.mockRestore()
   }
+})
+
+test('a member answers one post by its index, and the reply quotes it', async () => {
+  const team = '69e989027ab63e8d6a0ffcb6'
+  const chat = '00000000-0000-4000-8000-000000000011'
+
+  await seed(chat, { kind: 'channel', agentSessionIds: ['agent-r'], teamId: team })
+  await seed('agent-r', { teamId: team, avatar: '07-ada' })
+  await agentMessages().insertOne({
+    sessionId: chat,
+    userId: 'owner',
+    messageId: 'm-question',
+    index: 4,
+    role: 'user',
+    parts: [{ type: 'text', text: 'Which regions are down?' }],
+    metadata: {
+      version: 1,
+      sender: { type: 'user', id: 'alice', displayName: 'Alice' },
+      source: 'nuphos',
+      sentAt: new Date().toISOString(),
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+  const post = channelToolModule().handlers({
+    userId: 'teammate',
+    teamId: team,
+    sessionId: 'agent-r',
+    locale: 'en',
+  } as PreviewToolContext).channel_post
+
+  expect(
+    await post?.({ label: 'x', channelId: chat, text: 'Only us-east.', replyTo: 4 }),
+  ).toMatchObject({ structuredContent: { posted: true } })
+  expect(appended[0]?.messages[0]?.metadata).toMatchObject({
+    replyTo: { id: 'm-question', authorName: 'Alice', text: 'Which regions are down?' },
+  })
+  // An index the chat lacks is no reply: the post still goes out on its own.
+  await post?.({ label: 'x', channelId: chat, text: 'Nothing else is down.', replyTo: 99 })
+  expect(appended).toHaveLength(2)
+  expect(appended[1]?.messages[0]?.metadata?.replyTo).toBeUndefined()
 })

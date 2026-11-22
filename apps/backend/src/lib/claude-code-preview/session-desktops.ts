@@ -9,8 +9,12 @@ import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-r
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 
+import { hostOutdated } from './host-minimum-version'
+
+import type { OutdatedHost } from './host-minimum-version'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
 import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 export type DesktopOwner = { sessionId: string; runtimeId?: string | null }
 type DeviceLabel = (userId: string, deviceId: string) => Promise<string | undefined>
@@ -110,20 +114,52 @@ export async function boxDesktops(
 }
 
 /**
- * The runtime id the viewer's own computer opens its desktop by (runtime-desktop.ts), when its
- * host opens one on request; a Box opens through its own link. It names the computer, which
- * needs no agent for it: the catalog lists a runtime only per installed agent.
+ * What the device list tells the person whose computer it is: the runtime id it opens its
+ * desktop by (runtime-desktop.ts), when its host opens one on request, and the Nuphos Desktop
+ * running it with the update it found (computer-app-update.ts). The runtime id names the
+ * computer, which needs no agent for it: the catalog lists a runtime only per installed agent.
+ * A Box is the same, also for whoever manages it, and its host updates itself. Everyone who sees a computer
+ * is told when the Nuphos on it should be updated (host-minimum-version.ts).
  */
-export async function computerDesktopRuntimeId(
-  { userId, deviceId, box }: LocalRuntimeRef & { box?: unknown },
+export async function ownComputer(
+  {
+    userId,
+    deviceId,
+    autoInstall: recorded,
+    managesBox,
+  }: LocalRuntimeRef & {
+    autoInstall?: boolean
+    /** The viewer manages this Box, so its desktop opens for them too (runtime-desktop.ts). */
+    managesBox?: boolean
+  },
   viewerId: string,
   presence = runtimePresenceStore(),
-): Promise<string | undefined> {
-  if (box || userId !== viewerId) return undefined
+): Promise<{
+  desktopRuntimeId?: string
+  app?: NonNullable<LocalRuntimeStatus['app']>
+  outdated?: OutdatedHost
+  autoInstall?: boolean
+}> {
+  const present = await presence.get(userId, deviceId)
+  const old = hostOutdated(present)
+  // Everyone sees whether it updates itself when idle; whoever manages it may change that.
+  // Offline, its card shows the switch as it last reported it, and cannot change it.
+  const autoInstall = present?.status?.autoInstall ?? recorded
+  const outdated = {
+    ...(old ? { outdated: old } : {}),
+    ...(typeof autoInstall === 'boolean' ? { autoInstall } : {}),
+  }
 
-  return (await presence.get(userId, deviceId))?.status?.desktopOpen === true
-    ? localRuntimeId({ userId, deviceId, provider: 'claude-code' })
-    : undefined
+  if (userId !== viewerId && !managesBox) return outdated
+  const status = present?.status
+
+  return {
+    ...(status?.desktopOpen === true
+      ? { desktopRuntimeId: localRuntimeId({ userId, deviceId, provider: 'claude-code' }) }
+      : {}),
+    ...(status?.app ? { app: status.app } : {}),
+    ...outdated,
+  }
 }
 
 export async function withSessionDesktops<T extends SessionExecutionState>(

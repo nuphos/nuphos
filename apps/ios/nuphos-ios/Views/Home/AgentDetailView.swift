@@ -40,14 +40,25 @@ struct AgentDetailView: View {
                         LabeledContent(window.label) {
                             HStack(spacing: 8) {
                                 QuotaGauge(window: window).frame(width: 60)
-                                Text("\(window.leftPercent)% left")
+                                // Each text takes the room of its widest, so the gauges stacked
+                                // above one another line up and never move as the text ticks.
+                                ZStack(alignment: .trailing) {
+                                    Text("\(100)% left").hidden()
+                                    Text("\(window.leftPercent)% left").foregroundStyle(window.labelTint ?? .secondary)
+                                }
+                                .monospacedDigit()
+                                if quota.windows.contains(where: { RuntimeQuota.resetsIn($0.resetsAt) != nil }) {
+                                    ZStack(alignment: .trailing) {
+                                        ForEach(RuntimeQuota.widestResets, id: \.self) { Text($0).hidden() }
+                                        Text(RuntimeQuota.resetsIn(window.resetsAt) ?? "").foregroundStyle(.secondary)
+                                    }
                                     .monospacedDigit()
-                                    .foregroundStyle(window.labelTint ?? .secondary)
+                                }
                             }
                         }
                     }
                 } else {
-                    Text(quota?.reason ?? "Unavailable").foregroundStyle(.secondary)
+                    Text(quota?.reason ?? String(localized: "Unavailable")).foregroundStyle(Theme.body)
                 }
             }
             Section {
@@ -65,7 +76,7 @@ struct AgentDetailView: View {
                 Button("Remove Runtime", role: .destructive) { confirmRemoval = true }
             }
             if let error {
-                Section { Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).font(.footnote) }
+                Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
         .disabled(busy)

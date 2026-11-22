@@ -99,7 +99,7 @@ export function ThreadBadge({
   if (!info) return null
   rememberThreadTitle(info.threadId, title ?? info.title)
   const known = title ?? info.title ?? knownThreadTitle(info.threadId)
-  const name = known ?? (status === 'unavailable' ? t('Agent unavailable') : t('Agent'))
+  const name = known ?? (status === 'unavailable' ? t('Task unavailable') : t('Task'))
   const verb = info.verb === 'started' ? t('Started') : t('Messaged')
   const href = threadHref(teamId, info.threadId, status)
   const body = (
@@ -115,7 +115,14 @@ export function ThreadBadge({
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-[12px] leading-4 text-tertiary">
           <span>{verb}</span>
-          <ThreadTags info={info} runtime={threadRuntimeName(provider, runtimeLabel)} />
+          <ThreadTags
+            info={info}
+            runtime={
+              info.runtimeLabel || info.agentRuntime
+                ? threadRuntimeName(info.agentRuntime ?? undefined, info.runtimeLabel ?? undefined)
+                : threadRuntimeName(provider, runtimeLabel)
+            }
+          />
           {(known !== null || status !== 'unavailable') && (
             <StatusLabel status={status} pending={info.pending} />
           )}

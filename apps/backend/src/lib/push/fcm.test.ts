@@ -40,6 +40,31 @@ test('a subtitle follows the title, since Android shows one title line', () => {
   expect(payload.message.data).not.toHaveProperty('subtitle')
 })
 
+test('a Bot push names its face and runtime; other identities add nothing', () => {
+  const base = {
+    token: 'opaque',
+    userId: 'account',
+    teamId: 'team',
+    sessionId: 'session',
+    title: 'Ada',
+    body: 'Done',
+  }
+
+  expect(
+    fcmMessage({ ...base, agentIdentity: { isBot: true, avatar: '07-ada', provider: 'grok' } })
+      .message.data,
+  ).toMatchObject({ botAvatar: '07-ada', botProvider: 'grok' })
+  expect(
+    fcmMessage({ ...base, agentIdentity: { isBot: true, avatar: '07-ada' } }).message.data,
+  ).not.toHaveProperty('botProvider')
+  for (const agentIdentity of [{ isBot: false }, { isBot: true }, undefined]) {
+    const data = fcmMessage({ ...base, agentIdentity }).message.data
+
+    expect(data).not.toHaveProperty('botAvatar')
+    expect(data).not.toHaveProperty('botProvider')
+  }
+})
+
 test('only the FCM UNREGISTERED error invalidates the registration', () => {
   const error = (errorCode: string) => ({
     error: {

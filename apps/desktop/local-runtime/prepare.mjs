@@ -35,6 +35,7 @@ import {
   openabRevision,
   RUNTIME_DIR,
   RUNTIME_SOURCES,
+  SESSION_HOMES_JOB,
   stagedStamp,
 } from './bundle-stamp.mjs'
 
@@ -69,6 +70,7 @@ export const ADAPTERS = {
 const SHIM_SOURCES = [
   'acp-shim.mjs',
   'hermes-session.mjs',
+  'opencode-session.mjs',
   'pi-session.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
@@ -242,6 +244,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         filter: (path) => !path.endsWith('.complete'),
       })
     cpSync(join(RUNTIME_DIR, ATTACHMENT_JOB), join(out, 'attachment-job.mjs'))
+    cpSync(join(RUNTIME_DIR, SESSION_HOMES_JOB), join(out, 'session-home-reclaim-job.mjs'))
     // Each agent's sign-in wrapper openab runs on request from Nuphos, the ones the runtime image ships.
     cpSync(join(RUNTIME_DIR, 'claude-login.mjs'), join(out, 'claude-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'codex-login.mjs'), join(out, 'codex-login.mjs'))
@@ -303,7 +306,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
       throw new Error(`No openab binary for ${target}: install a Rust toolchain or pass --openab`)
     } else {
       console.warn(
-        `[local-runtime] ${target}: no openab binary; the Local runtime is unavailable in this build`,
+        `[local-runtime] ${target}: no openab binary; the Local runtime is unavailable in this build. Install a Rust toolchain (https://rustup.rs) or pass --openab`,
       )
     }
     writeFileSync(

@@ -301,8 +301,7 @@ test('pin filtering tolerates missing parents and parent cycles', () => {
   )
 })
 
-test('a Bot tree folds at rest, but its done group and Tasks folds do not', () => {
+test('a Bot tree folds at rest, but Tasks folds do not', () => {
   assert.equal(isBotTreeFold(foldKey({ title: 'Channels' }, 'agent-session:bot')), true)
-  assert.equal(isBotTreeFold(`${foldKey({ title: 'Channels' }, 'agent-session:bot')}:done`), false)
   assert.equal(isBotTreeFold(foldKey({ title: 'Tasks' }, 'agent-session:task')), false)
 })

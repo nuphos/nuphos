@@ -1,6 +1,4 @@
-import { faDiagramProject } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Network, Plus, Trash2 } from 'lucide-react'
+import { Workflow as WorkflowIcon, Network, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../api'
@@ -9,6 +7,7 @@ import { ContextMenu } from '../components/ContextMenu'
 import { EmptyState } from '../components/EmptyState'
 import { Table } from '../components/Table'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { useToolbarPrimaryAction } from '../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
@@ -181,7 +180,7 @@ export function ArchitectureView({
       sortAccessor: (d) => d.name.toLowerCase(),
       render: (d) => (
         <span className="inline-flex items-center gap-2 text-main">
-          <FontAwesomeIcon icon={faDiagramProject} className="w-3.5 h-3.5 text-tertiary" />
+          <UiIcon size={14} icon={WorkflowIcon} className="w-3.5 h-3.5 text-tertiary" />
           <span className="truncate">{d.name}</span>
         </span>
       ),
@@ -237,7 +236,7 @@ export function ArchitectureView({
           icon={Network}
           title={t('Architecture')}
           description={t(
-            'Architecture diagrams map how your systems connect. Create one from scratch, or let the agent chart your systems.',
+            'Architecture diagrams map how your systems connect. Create one from scratch, or let Nuphos chart your systems.',
           )}
           primaryAction={{
             label: t('New diagram'),

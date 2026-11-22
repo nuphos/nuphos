@@ -1,6 +1,6 @@
 ---
 name: argocd
-description: Inspect and operate Argo CD applications from the sandbox with the argocd CLI. Use for Argo CD app status, history, sync, rollback, and resource inspection after credentials or server context are available.
+description: "Inspect and operate Argo CD applications with the argocd CLI: app status, history, sync, rollback and resource inspection."
 ---
 
 # Argo CD CLI

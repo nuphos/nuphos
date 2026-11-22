@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type {
   BetterStackCollector,
   BetterStackDashboard,
@@ -54,6 +55,7 @@ export type WindowProviderAccessApi = {
     label: string,
     uptimeApiToken: string | null,
     telemetryApiToken: string | null,
+    share?: BindingShare,
   ): Promise<BetterStackIntegration>
   atlasUpdateBetterStackIntegration(
     teamId: string,

@@ -125,6 +125,14 @@ describe('email OTP dev log', () => {
     })
   })
 
+  test('an address only the send check refuses still signs in with an issued code', async () => {
+    const code = await issueEmailOtpCode('josé@example.com')
+
+    expect(await verifyEmailOtp('josé@example.com', code)).toMatchObject({
+      email: 'josé@example.com',
+    })
+  })
+
   test('logs the code instead of sending it, and the logged code signs in', async () => {
     config.email.devLogOtp = true
 
